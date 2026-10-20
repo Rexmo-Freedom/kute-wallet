@@ -12,6 +12,8 @@
 //   * [AmountQuickChips] — fixed amounts ending in Max (the Move sheet).
 //   * [AmountMaxChip] — that chip alone, beside the figure (the
 //     Investing and Predictions slips).
+//   * [AmountActionChip] — a pill on that chip's chrome with a small
+//     icon before its label (the slips' Advanced, beside Max).
 //   * [AmountKeypad] — the shared [CustomKeypad] wired with the
 //     typed-amount editing rules (single decimal point, capped
 //     decimals, no leading-zero runs).
@@ -449,6 +451,35 @@ class AmountMaxChip extends StatelessWidget {
   }
 }
 
+/// A pill beside [AmountMaxChip] with the same size, weight and chrome,
+/// and a small [icon] before its [label] (the slips' Advanced pill and
+/// its sliders). Null [onTap] leaves it inert and dimmed.
+class AmountActionChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
+
+  const AmountActionChip({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.semanticLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _AmountChipFace(
+      label: label,
+      onTap: onTap,
+      semanticLabel: semanticLabel,
+      icon: icon,
+      horizontalPadding: 14.w,
+    );
+  }
+}
+
 /// The quick-amount chip itself: surface fill, hairline border, 12
 /// radius, a bold 13 label. Fills the width it is given ([AmountQuickChips]
 /// hands it an equal share) and otherwise hugs its label.
@@ -458,6 +489,7 @@ class _AmountChipFace extends StatelessWidget {
     required this.onTap,
     this.dimmed = false,
     this.semanticLabel,
+    this.icon,
     this.horizontalPadding = 0,
   });
 
@@ -465,11 +497,23 @@ class _AmountChipFace extends StatelessWidget {
   final VoidCallback? onTap;
   final bool dimmed;
   final String? semanticLabel;
+  final IconData? icon;
   final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final ink = onTap != null && !dimmed ? c.textPrimary : c.textTertiary;
+    final text = Text(
+      label,
+      maxLines: 1,
+      style: TextStyle(
+        color: ink,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.1,
+      ),
+    );
     final face = Material(
       color: Colors.transparent,
       child: InkWell(
@@ -486,17 +530,16 @@ class _AmountChipFace extends StatelessWidget {
           alignment: Alignment.center,
           child: ExcludeSemantics(
             excluding: semanticLabel != null,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                color:
-                    onTap != null && !dimmed ? c.textPrimary : c.textTertiary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.1,
-              ),
-            ),
+            child: icon == null
+                ? text
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 14.sp, color: ink),
+                      SizedBox(width: 5.w),
+                      text,
+                    ],
+                  ),
           ),
         ),
       ),

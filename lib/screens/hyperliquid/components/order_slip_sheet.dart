@@ -106,7 +106,7 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart'
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart'
-    show SlipAdvancedButton, SlipAdvancedChip;
+    show SlipAdvancedButton, SlipAdvancedChip, SlipAmountPills;
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
     show MoneyFeeFigure;
@@ -4736,7 +4736,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               text: _strings.slipAddsToYourPosition(netPlan.heldSide),
             ),
           ],
-          // Advanced is the header's button; when it is not the default,
+          // Advanced is the pill beside Max; when it is not the default,
           // a chip under the amount says what it is set to.
           if (!advanced && !journeyShown && _hasAdvancedConfiguration) ...[
             SlipGap(10.h),
@@ -5184,7 +5184,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         : Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildHeader(c, advancedButton: !journeyShown),
+              _buildHeader(c),
               Flexible(
                 child: SlipFormBody(
                   expandForMessage:
@@ -5999,7 +5999,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
                 );
       final maxUsd = math.max(venueMaxUsd, maxUsdOverride ?? 0);
-      // One small Max chip beside the figure, and under it one quiet line
+      // One small Max chip beside the figure (and the Advanced pill after
+      // it), and under it one quiet line
       // with the balance and the venue minimum. An empty account has
       // nothing to fill and goes straight to the deposit door.
       return BigAmountDisplay(
@@ -6013,13 +6014,22 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             : context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd)),
         minimumIsError: belowMinimum && minAmountUsd != null,
         noteLabel: positionNote,
-        trailing: maxUsd > 0
-            ? AmountMaxChip(
-                label: context.l10n.max,
-                semanticLabel: context.l10n.amountUseMaximum,
-                onTap: () => _fillAmountChip(maxUsd, 'max'),
-              )
-            : null,
+        // Max, then the Advanced pill (inert while the order goes out,
+        // its dot when Advanced is not the default).
+        trailing: SlipAmountPills(
+          max: maxUsd > 0
+              ? AmountMaxChip(
+                  label: context.l10n.max,
+                  semanticLabel: context.l10n.amountUseMaximum,
+                  onTap: () => _fillAmountChip(maxUsd, 'max'),
+                )
+              : null,
+          advanced: SlipAdvancedButton(
+            onTap: _openAdvanced,
+            modified: _hasAdvancedConfiguration,
+            enabled: !(_isPlacing || _preparing || _ledgerBusy),
+          ),
+        ),
       );
     }
     // Advanced: the same field treatment as every other number on that
@@ -6861,16 +6871,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     );
   }
 
-  // Header identity, the Advanced button and the close control.
-  Widget _buildHeader(AppColorsExtension c, {bool advancedButton = false}) {
+  // Header identity with public-market educational help and close control.
+  Widget _buildHeader(AppColorsExtension c) {
     // Built in its own context, under the slip's [SlipFit].
-    return Builder(
-        builder: (context) =>
-            _headerRow(context, c, advancedButton: advancedButton));
+    return Builder(builder: (context) => _headerRow(context, c));
   }
 
-  Widget _headerRow(BuildContext context, AppColorsExtension c,
-      {bool advancedButton = false}) {
+  Widget _headerRow(BuildContext context, AppColorsExtension c) {
     final pad = SlipDensity.tight(context) ? 9.h : 14.h;
     return Padding(
       padding: EdgeInsets.fromLTRB(20.w, pad, 20.w, pad),
@@ -6903,14 +6910,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ),
           // No Sal here: the slip is the moment of decision.
           SizedBox(width: 8.w),
-          if (advancedButton) ...[
-            IgnorePointer(
-              ignoring: _isPlacing || _preparing || _ledgerBusy,
-              child: SlipAdvancedButton(
-                  onTap: _openAdvanced, modified: _hasAdvancedConfiguration),
-            ),
-            SizedBox(width: 8.w),
-          ],
           const KuteCloseButton(),
         ],
       ),

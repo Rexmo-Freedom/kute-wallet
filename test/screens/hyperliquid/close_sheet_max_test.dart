@@ -126,22 +126,41 @@ Future<void> _pump(WidgetTester tester) async {
   ));
 }
 
+
+/// Advanced is the pill on the amount's row, right of Max when Max shows,
+/// reading "Advanced" with its sliders; the header has none.
+void _expectAdvancedBesideMax(WidgetTester tester) {
+  final button = find.byKey(const ValueKey('slip-advanced-button'));
+  expect(find.descendant(of: find.byType(BigAmountDisplay), matching: button),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.text('Advanced')),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.byIcon(Icons.tune_rounded)),
+      findsOneWidget);
+  final max = find.byType(AmountMaxChip);
+  if (max.evaluate().isNotEmpty) {
+    final maxRect = tester.getRect(max);
+    final pillRect = tester.getRect(button);
+    expect(pillRect.left, greaterThan(maxRect.right));
+    expect((pillRect.center.dy - maxRect.center.dy).abs(), lessThan(1));
+    expect(pillRect.height, closeTo(maxRect.height, 1));
+  }
+}
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(
-      "Advanced is the header's round button; a limit close says so in a "
-      'chip under the amount and a dot on the button', (tester) async {
+      'Advanced is a pill right of Max; a limit close says so in a chip '
+      'under the amount and a dot on the pill', (tester) async {
     await _pump(tester);
     await tester.pumpAndSettle();
     final button = find.byKey(const ValueKey('slip-advanced-button'));
     final chip = find.byKey(const ValueKey('slip-advanced-chip'));
     final dot = find.byKey(const ValueKey('slip-advanced-dot'));
     expect(button, findsOneWidget);
-    // Beside the close X, in the header: no row in the form any more.
-    expect(
-        find.descendant(of: button, matching: find.byIcon(Icons.tune_rounded)),
-        findsOneWidget);
+    // On the amount's row, right of Max: not in the header.
+    _expectAdvancedBesideMax(tester);
     expect(chip, findsNothing);
     expect(dot, findsNothing);
 

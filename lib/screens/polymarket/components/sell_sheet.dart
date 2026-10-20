@@ -1681,23 +1681,31 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             availableExceeded: _amountUsdc > currentValue,
             // One small Max chip beside the figure, as on the buy slips:
             // it fills the whole position (every share), and brings that
-            // back after an edit. Nothing to sell, no chip.
-            trailing: pos.size > 0 && currentValue > 0
-                ? AmountMaxChip(
-                    label: context.l10n.max,
-                    semanticLabel: context.l10n.amountUseMaximum,
-                    onTap: _isSelling
-                        ? null
-                        : () {
-                            _setSellFraction(1);
-                            _amountMethod = 'max';
-                            TrackingService.track(
-                                'sell_sheet_available_tapped');
-                          },
-                  )
-                : null,
+            // back after an edit. Nothing to sell, no chip. The Advanced
+            // pill follows it, inert while the sale runs.
+            trailing: SlipAmountPills(
+              max: pos.size > 0 && currentValue > 0
+                  ? AmountMaxChip(
+                      label: context.l10n.max,
+                      semanticLabel: context.l10n.amountUseMaximum,
+                      onTap: _isSelling
+                          ? null
+                          : () {
+                              _setSellFraction(1);
+                              _amountMethod = 'max';
+                              TrackingService.track(
+                                  'sell_sheet_available_tapped');
+                            },
+                    )
+                  : null,
+              advanced: SlipAdvancedButton(
+                onTap: _openAdvanced,
+                modified: _advancedSummary != null,
+                enabled: !_isSelling,
+              ),
+            ),
           ),
-          // Advanced is the header's button; when it is not the default,
+          // Advanced is the pill beside Max; when it is not the default,
           // a chip under the amount says what it is set to.
           if (_advancedSummary case final summary?) ...[
             SlipGap(10.h),
@@ -1779,12 +1787,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                     marketQuestion: pos.marketQuestion,
                     marketImage: pos.marketImage,
                     maxLines: 2,
-                    action: IgnorePointer(
-                      ignoring: _isSelling,
-                      child: SlipAdvancedButton(
-                          onTap: _openAdvanced,
-                          modified: _advancedSummary != null),
-                    ),
                   ),
                   Flexible(
                     child: SlipFormBody(

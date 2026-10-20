@@ -1320,13 +1320,6 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       marketQuestion: context.l10n.closeTitle(_displayCoin),
       leading: _marketArtwork(),
       maxLines: 2,
-      // Inert while a close is in flight; the button below carries the
-      // wait.
-      action: IgnorePointer(
-        ignoring: _isClosing,
-        child: SlipAdvancedButton(
-            onTap: _openAdvanced, modified: _advancedSummary != null),
-      ),
     );
 
     // The close's two figures, off the position screen's own reading
@@ -1431,15 +1424,24 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                       availableLabel:
                           '${context.l10n.slipPositionValue} ${formatHlUsd(wholeValue)}',
                       availableExceeded: overWhole,
-                      trailing: _totalSize > 0
-                          ? AmountMaxChip(
-                              label: context.l10n.max,
-                              semanticLabel: context.l10n.amountUseMaximum,
-                              onTap: _isClosing ? null : _useWholePosition,
-                            )
-                          : null,
+                      // Max, then the Advanced pill: inert while a close
+                      // is in flight (the button below carries the wait).
+                      trailing: SlipAmountPills(
+                        max: _totalSize > 0
+                            ? AmountMaxChip(
+                                label: context.l10n.max,
+                                semanticLabel: context.l10n.amountUseMaximum,
+                                onTap: _isClosing ? null : _useWholePosition,
+                              )
+                            : null,
+                        advanced: SlipAdvancedButton(
+                          onTap: _openAdvanced,
+                          modified: _advancedSummary != null,
+                          enabled: !_isClosing,
+                        ),
+                      ),
                     ),
-                    // Advanced is the header's button; when it is not the
+                    // Advanced is the pill beside Max; when it is not the
                     // default, a chip under the amount says what it is.
                     if (_advancedSummary case final summary?) ...[
                       SlipGap(10.h),

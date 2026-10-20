@@ -2,7 +2,7 @@
 //
 // The chrome the two Polymarket tickets share. Buying (bet_slip_sheet)
 // and selling (sell_sheet) are the same sheet with a different verb, so
-// the header, the quick-percent chips, the Advanced row, the headline
+// the header, the quick-percent chips, the Advanced pill, the headline
 // figure and the primary action live here once instead of drifting apart
 // in two 2,000-line files.
 //
@@ -20,6 +20,8 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountActionChip;
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -60,16 +62,14 @@ String polySlipTitle(String title) {
 }
 
 /// Identity row at the top of a ticket: market thumb + question, an
-/// optional trailing chip (the buy slip's Ask Sal), the ticket's round
-/// [action] (its Advanced, [SlipAdvancedButton]), then the close X. The
-/// question ellipsizes so the trailing cluster never wraps.
+/// optional trailing chip (the buy slip's Ask Sal), then the close X.
+/// The question ellipsizes so the trailing cluster never wraps.
 class PolySlipHeader extends StatelessWidget {
   const PolySlipHeader({
     super.key,
     required this.marketQuestion,
     this.marketImage,
     this.trailing,
-    this.action,
     this.leading,
     this.maxLines = 5,
   });
@@ -77,9 +77,6 @@ class PolySlipHeader extends StatelessWidget {
   final String marketQuestion;
   final String? marketImage;
   final Widget? trailing;
-
-  /// A round button beside the close X, its size and chrome.
-  final Widget? action;
 
   /// The market's own artwork in place of [marketImage] (an Investing
   /// coin's logo on the Close ticket), at the same 36 size.
@@ -143,10 +140,6 @@ class PolySlipHeader extends StatelessWidget {
             trailing!,
             SizedBox(width: 8.w),
           ],
-          if (action != null) ...[
-            action!,
-            SizedBox(width: 8.w),
-          ],
           const KuteCloseButton(),
         ],
       ),
@@ -157,19 +150,23 @@ class PolySlipHeader extends StatelessWidget {
 /// The key of a slip's [SlipAdvancedButton].
 const Key kSlipAdvancedButtonKey = ValueKey('slip-advanced-button');
 
-/// A slip's way into its Advanced page, in its header: a round sliders
-/// button beside the close X, the same size and translucent chrome. A
-/// small dot says the Advanced settings are not the default ones (the
-/// [SlipAdvancedChip] under the amount says which).
+/// A slip's way into its Advanced page: a pill reading "Advanced" with
+/// a small sliders glyph, beside the amount's Max ([SlipAmountPills]),
+/// the same size, weight and chrome as Max. A small dot says the Advanced
+/// settings are not the default ones (the [SlipAdvancedChip] under the
+/// amount says which). [enabled] false leaves it inert and dimmed (an
+/// order in flight).
 class SlipAdvancedButton extends StatelessWidget {
   const SlipAdvancedButton({
     super.key = kSlipAdvancedButtonKey,
     required this.onTap,
     this.modified = false,
+    this.enabled = true,
   });
 
   final VoidCallback onTap;
   final bool modified;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -177,15 +174,16 @@ class SlipAdvancedButton extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        KuteCircleButton(
-          semanticsLabel: context.l10n.walletsAdvanced,
-          onPressed: onTap,
-          child: Icon(Icons.tune_rounded, size: 20.sp, color: c.textSecondary),
+        AmountActionChip(
+          label: context.l10n.walletsAdvanced,
+          semanticLabel: context.l10n.walletsAdvanced,
+          icon: Icons.tune_rounded,
+          onTap: enabled ? onTap : null,
         ),
         if (modified)
           Positioned(
-            top: 2.w,
-            right: 2.w,
+            top: -3.w,
+            right: -3.w,
             child: Container(
               key: const ValueKey('slip-advanced-dot'),
               width: 10.w,
@@ -201,9 +199,32 @@ class SlipAdvancedButton extends StatelessWidget {
   }
 }
 
+/// The pills at the right end of a slip's amount row: Max, then
+/// Advanced, side by side. Either may be absent (no Max on a balance too
+/// small to stake). They keep their size; the figure beside them scales
+/// down first ([BigAmountDisplay]'s FittedBox), so they never wrap.
+class SlipAmountPills extends StatelessWidget {
+  const SlipAmountPills({super.key, this.max, this.advanced});
+
+  final Widget? max;
+  final Widget? advanced;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (max != null) max!,
+        if (max != null && advanced != null) SizedBox(width: 8.w),
+        if (advanced != null) advanced!,
+      ],
+    );
+  }
+}
+
 /// What a slip's Advanced is set to, when it is not the default ("Limit ·
 /// 52¢", "Market · 5x"): a small pill under the amount's line. A tap
-/// opens Advanced, like the header's button. Default settings show none.
+/// opens Advanced, like the Advanced pill beside Max. Default settings show none.
 class SlipAdvancedChip extends StatelessWidget {
   const SlipAdvancedChip({super.key, required this.text, required this.onTap});
 

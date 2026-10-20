@@ -1,10 +1,12 @@
 // The Predictions bet slip on a short phone (375 x 667, the iPhone SE),
 // at the app's text size and at 1.3x: nothing overflows, the two tiles
 // and their figures sit whole above the keypad, never under it or cut,
-// and a stopped bet's notice and amount are whole on screen too.
+// a long stake keeps Max and Advanced whole beside it, and a stopped
+// bet's notice and amount are whole on screen too.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -275,6 +277,42 @@ void main() {
             scale: scale);
         expect(tester.takeException(), isNull);
         expect(find.text(r'$12'), findsOneWidget);
+        _expectTilesWhole(tester);
+        await release(tester);
+      });
+
+      testWidgets(
+          'a long stake: Max and Advanced whole side by side, the figure '
+          'scales down', (tester) async {
+        expect(await policy.refresh(), isTrue);
+        await _pump(tester, const _State('long', amount: 10000, funded: _none),
+            scale: scale);
+        expect(tester.takeException(), isNull);
+        expect(find.text(r'$10,000'), findsOneWidget);
+        final max = find.byType(AmountMaxChip);
+        final advanced = find.byKey(const ValueKey('slip-advanced-button'));
+        expect(max, findsOneWidget);
+        expect(advanced, findsOneWidget);
+        final maxRect = tester.getRect(max);
+        final pillRect = tester.getRect(advanced);
+        // Max, then Advanced, on one row, inside the sheet's margin.
+        expect(pillRect.left, greaterThan(maxRect.right));
+        expect((pillRect.center.dy - maxRect.center.dy).abs(), lessThan(1));
+        // The form's 20 pt margin, in ScreenUtil's 375/430 width.
+        expect(pillRect.right, lessThanOrEqualTo(375 - 20 * 375 / 430 + 0.5));
+        // Neither pill wraps: each label is one line.
+        for (final label in ['Max', 'Advanced']) {
+          final text = tester.renderObject<RenderParagraph>(find
+              .descendant(
+                  of: find.byType(BigAmountDisplay),
+                  matching: find.text(label))
+              .first);
+          expect(text.didExceedMaxLines, isFalse, reason: label);
+          expect(text.size.width,
+              greaterThanOrEqualTo(text.getMaxIntrinsicWidth(double.infinity) - 0.5),
+              reason: label);
+        }
+        _expectWhole(tester, find.byType(BigAmountDisplay));
         _expectTilesWhole(tester);
         await release(tester);
       });

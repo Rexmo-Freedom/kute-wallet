@@ -548,16 +548,21 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
                 positionValue != null && _amountUsd > positionValue,
             // One small Max beside the figure, as on the spending sheet:
             // the whole position. Nothing to sell, no chip; dimmed while
-            // the price is unknown or a sale is under way.
-            trailing: _position.size > 0 && (positionValue ?? 1) > 0
-                ? AmountMaxChip(
-                    label: l10n.max,
-                    semanticLabel: l10n.amountUseMaximum,
-                    onTap: positionValue == null || !_canEdit
-                        ? null
-                        : _sellWholePosition,
-                  )
-                : null,
+            // the price is unknown or a sale is under way. The Advanced
+            // pill follows it; nothing on it changes the sale, so never a
+            // dot.
+            trailing: SlipAmountPills(
+              max: _position.size > 0 && (positionValue ?? 1) > 0
+                  ? AmountMaxChip(
+                      label: l10n.max,
+                      semanticLabel: l10n.amountUseMaximum,
+                      onTap: positionValue == null || !_canEdit
+                          ? null
+                          : _sellWholePosition,
+                    )
+                  : null,
+              advanced: SlipAdvancedButton(onTap: _openAdvanced),
+            ),
           ),
           SizedBox(height: 24.h),
           // The estimated fee, and nothing else (owner decision): no
@@ -604,12 +609,9 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Advanced is the header's button, as on the spending
-              // sheet; nothing on it changes the sale, so never a dot.
               PolySlipHeader(
                 marketQuestion: _position.title,
                 marketImage: _position.icon,
-                action: SlipAdvancedButton(onTap: _openAdvanced),
               ),
               Flexible(
                 child: SingleChildScrollView(

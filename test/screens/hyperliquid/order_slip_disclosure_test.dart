@@ -224,6 +224,27 @@ Future<void> _pickMoreOption(WidgetTester tester, String type) async {
   await tester.pumpAndSettle();
 }
 
+
+/// Advanced is the pill on the amount's row, right of Max when Max shows,
+/// reading "Advanced" with its sliders; the header has none.
+void _expectAdvancedBesideMax(WidgetTester tester) {
+  final button = find.byKey(const ValueKey('slip-advanced-button'));
+  expect(find.descendant(of: find.byType(BigAmountDisplay), matching: button),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.text('Advanced')),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.byIcon(Icons.tune_rounded)),
+      findsOneWidget);
+  final max = find.byType(AmountMaxChip);
+  if (max.evaluate().isNotEmpty) {
+    final maxRect = tester.getRect(max);
+    final pillRect = tester.getRect(button);
+    expect(pillRect.left, greaterThan(maxRect.right));
+    expect((pillRect.center.dy - maxRect.center.dy).abs(), lessThan(1));
+    expect(pillRect.height, closeTo(maxRect.height, 1));
+  }
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -240,9 +261,10 @@ void main() {
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
     expect(find.byType(KuteCloseButton), findsOneWidget);
-    // Advanced is a round button in the header, beside the close X; the
-    // default settings show no chip and no dot.
+    // Advanced is a pill on the amount's row, right of Max; the default
+    // settings show no chip and no dot.
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    _expectAdvancedBesideMax(tester);
     expect(find.byKey(const ValueKey('slip-advanced-chip')), findsNothing);
     expect(find.byKey(const ValueKey('slip-advanced-dot')), findsNothing);
     expect(tester.takeException(), isNull);

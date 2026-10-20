@@ -5106,7 +5106,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       children: [...sideBlock, SlipGap(22.h)],
                     ),
                   ),
-                  // One small Max chip beside the figure; the market's
+                  // One small Max chip beside the figure, then the
+                  // Advanced pill (its dot when it is not the default);
+                  // the market's
                   // minimum rides on the available line under it, red while
                   // the stake is under it. A balance too small to stake has
                   // no Max and goes straight to the deposit door instead.
@@ -5134,15 +5136,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                                 : null,
                             maxLocked:
                                 _buyInFlight || ledgerLocked || activelyPlacing,
+                            advancedModified:
+                                _advancedSummary(orderPrice) != null,
                             note: heroNote,
                           ),
                   ),
                   // Two figures, no boxes: what it pays if it wins and the
                   // fee, zero in each until a stake is typed (a tap on the
-                  // fee opens its breakdown sheet). Advanced is the
-                  // header's button; when it is not the default, a chip
-                  // under the amount says what it is set to. They give
-                  // their room to the money's journey while it runs.
+                  // fee opens its breakdown sheet). Advanced is the pill
+                  // beside Max; when it is not the default, a chip under
+                  // the amount says what it is set to. They give their
+                  // room to the money's journey while it runs.
                   FoldAway(
                     folded: journeyShown,
                     child: Column(
@@ -5195,12 +5199,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         children: [
           IgnorePointer(
             ignoring: _buyInFlight || _draft.ledgerBusy || activelyPlacing,
-            child: _buildHeader(tc, selectedColor,
-                advanced: journeyShown
-                    ? null
-                    : SlipAdvancedButton(
-                        onTap: _openAdvanced,
-                        modified: _advancedSummary(orderPrice) != null)),
+            child: _buildHeader(tc, selectedColor),
           ),
           // The form over the pinned keypad, fitted to the screen: the
           // keypad gives its room first, then the ticket goes compact,
@@ -5310,7 +5309,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// Compact slip amount: one big typed figure with the USDC equivalent,
   /// a small Max chip beside it ([onMax]; null hides it, [maxLocked]
-  /// dims it) and the available line beneath it, which also names the
+  /// dims it, and the Advanced pill after it, with its dot when
+  /// [advancedModified]) and the available line beneath it, which also names the
   /// market's minimum ([belowMinimum] paints that part red). There is no
   /// TextField on this step, so the OS keyboard never opens over the
   /// ticket; the pinned [AmountKeypad] under the form is the only way in.
@@ -5319,6 +5319,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   Widget _buildAmountHero(String available,
       {VoidCallback? onMax,
       bool maxLocked = false,
+      bool advancedModified = false,
       bool belowMinimum = false,
       String? note}) {
     final currency = ref.watch(settingsProvider.select((s) => s.currency));
@@ -5336,13 +5337,20 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
       minimumIsError: belowMinimum,
       noteLabel: note,
-      trailing: onMax == null
-          ? null
-          : AmountMaxChip(
-              label: context.l10n.max,
-              semanticLabel: context.l10n.amountUseMaximum,
-              onTap: maxLocked ? null : onMax,
-            ),
+      trailing: SlipAmountPills(
+        max: onMax == null
+            ? null
+            : AmountMaxChip(
+                label: context.l10n.max,
+                semanticLabel: context.l10n.amountUseMaximum,
+                onTap: maxLocked ? null : onMax,
+              ),
+        advanced: SlipAdvancedButton(
+          onTap: _openAdvanced,
+          modified: advancedModified,
+          enabled: !maxLocked,
+        ),
+      ),
     );
   }
 
@@ -6297,15 +6305,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   // ── Header ─────────────────────────────────────────────────────────────
 
-  Widget _buildHeader(AppColorsExtension c, Color accentColor,
-      {Widget? advanced}) {
-    // The shared ticket header (market thumb + question, the Advanced
-    // button, the close X). No Sal here: the slip is the moment of
-    // decision.
+  Widget _buildHeader(AppColorsExtension c, Color accentColor) {
+    // The shared ticket header (market thumb + question + close X). No
+    // Sal here: the slip is the moment of decision.
     return PolySlipHeader(
       marketQuestion: widget.marketQuestion,
       marketImage: widget.marketImage,
-      action: advanced,
     );
   }
 
