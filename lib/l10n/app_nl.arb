@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "Je order wordt klaargezet",
   "slipStepPlacingBet": "{amount} inzetten op {side}",
   "slipStepOpeningOrder": "{amount} {side} {market} openen",
-  "slipStepTakingLonger": "Dit duurt langer dan normaal",
+  "slipStepTakingLonger": "Dit duurt langer dan verwacht. Even geduld, bijna klaar.",
   "slipFundingReadyToPlace": "Je {amount} staat in Investments. Tik om te plaatsen.",
   "slipFundingBitcoinBack": "Toevoegen aan Investments is niet gelukt. Je bitcoin komt terug.",
   "slipFundingPriceMoved": "De prijs bewoog te snel.",

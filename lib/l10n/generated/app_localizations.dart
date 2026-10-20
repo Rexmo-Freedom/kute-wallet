@@ -18169,10 +18169,10 @@ abstract class AppLocalizations {
   /// **'Opening {amount} {side} {market}'**
   String slipStepOpeningOrder(String amount, String side, String market);
 
-  /// Small line under the funding steps when adding to Investments has taken more than two minutes. The money is safe; nothing to do.
+  /// Calm line under a money journey (an order's funding on the slip, a move in its Activity detail) once it runs longer than expected: 1.5 times its estimate, or 90 seconds without one. The money is safe; nothing to do.
   ///
   /// In en, this message translates to:
-  /// **'Taking longer than usual'**
+  /// **'Taking longer than expected. Hang tight, almost done.'**
   String get slipStepTakingLonger;
 
   /// Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.

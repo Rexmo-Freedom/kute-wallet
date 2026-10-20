@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "Deine Order wird vorbereitet",
   "slipStepPlacingBet": "{amount} auf {side} werden platziert",
   "slipStepOpeningOrder": "{amount} {side} {market} wird eröffnet",
-  "slipStepTakingLonger": "Dauert länger als üblich",
+  "slipStepTakingLonger": "Dauert länger als erwartet. Einen Moment noch, fast geschafft.",
   "slipFundingReadyToPlace": "Deine {amount} sind in Investments. Tippe zum Platzieren.",
   "slipFundingBitcoinBack": "Das Hinzufügen zu Investments hat nicht geklappt. Deine Bitcoin kommen zurück.",
   "slipFundingPriceMoved": "Der Preis hat sich zu schnell bewegt.",

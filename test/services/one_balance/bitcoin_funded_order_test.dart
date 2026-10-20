@@ -663,7 +663,8 @@ void main() {
       });
     });
 
-    test('slow after two minutes, gives up after twelve', () {
+    test('slow after 90 s (no route estimate), gives up after twelve minutes',
+        () {
       fakeAsync((async) {
         var slow = 0;
         final w = DollarsLandingWatcher(
@@ -681,12 +682,12 @@ void main() {
                 enoughUsd: 6,
                 onSlow: () => slow++)
             .then((o) => out = o);
-        async.elapse(const Duration(seconds: 119));
+        async.elapse(const Duration(seconds: 89));
         expect(slow, 0);
         async.elapse(const Duration(seconds: 1));
         expect(slow, 1);
         expect(out, isNull);
-        async.elapse(const Duration(minutes: 10));
+        async.elapse(const Duration(minutes: 10, seconds: 30));
         expect(out, isA<DollarsLandingTimedOut>());
         expect(slow, 1);
       });

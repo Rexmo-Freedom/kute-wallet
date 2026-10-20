@@ -10757,7 +10757,8 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Trvá to dlhšie ako zvyčajne';
+  String get slipStepTakingLonger =>
+      'Trvá to dlhšie, ako sa čakalo. Chvíľu strpenia, už je to takmer hotové.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

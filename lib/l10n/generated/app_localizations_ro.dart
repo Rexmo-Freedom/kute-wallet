@@ -10811,7 +10811,8 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Durează mai mult decât de obicei';
+  String get slipStepTakingLonger =>
+      'Durează mai mult decât era de așteptat. Mai așteaptă puțin, aproape gata.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

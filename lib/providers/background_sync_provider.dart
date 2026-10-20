@@ -50,6 +50,8 @@ import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -1688,6 +1690,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                   // non-empty id that isn't the quote itself is the real one.
                   final replacementId = legacyReplacementOrderId(eid, order);
                   if (replacementId != null) {
+                    OrchestraOrderIds.record(eid, replacementId);
                     // The new row keeps every field the quote row carried
                     // (purchase marker, fiat paid, provider token,
                     // expiry) so a Cash App purchase does not degrade
@@ -1943,8 +1946,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           Future(() async {
             if (!isSpark) return true;
             try {
-              final balance =
-                  await ref.refresh(sparkBitcoinBalanceProvider.future);
+              // Bounded: a getInfo that never answers must not hold the
+              // whole sync (and the status polls beside it).
+              final balance = await ref
+                  .refresh(sparkBitcoinBalanceProvider.future)
+                  .timeout(const Duration(seconds: 20));
               final sNotifier = ref.read(walletBalanceCacheProvider.notifier);
               // Resolve the spending wallet now (Spark SDK is bound
               // to that wallet regardless of which wallet the
@@ -2051,6 +2057,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     // order id, not just an `ord_`-prefixed one.
                     final replacementId = legacyReplacementOrderId(eid, order);
                     if (replacementId != null) {
+                      OrchestraOrderIds.record(eid, replacementId);
                       // Same as the primary block: the purchase marker and
                       // fiat paid survive the id swap, and the new row is
                       // written before the quote row is deleted.
@@ -2321,11 +2328,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     await _fullUpdate(refreshPredictions: false);
   }
 
+  /// The longest one full sync may hold the sync loop. A wallet read that
+  /// never answers (the Spark SDK mid-reconnect after a stalled sync) once
+  /// held `backgroundSyncInProgress` and the service's single-flight for
+  /// good: every later tick, `syncNow` and status poll was skipped, so an
+  /// Orchestra row stayed on its quote id and "Processing" until the app
+  /// restarted. Past this the loop moves on; the late read only finishes
+  /// in the background.
+  @visibleForTesting
+  static Duration fullSyncWatchdog = const Duration(seconds: 90);
+
   Future<void> _fullUpdate({required bool refreshPredictions}) async {
     await holdForBoot();
     try {
       setBackgroundSyncInProgress(true);
-      await performSync();
+      await performSync().timeout(fullSyncWatchdog);
     } catch (e) {
       // ignore
     } finally {

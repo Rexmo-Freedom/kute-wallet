@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "注文を準備しています",
   "slipStepPlacingBet": "{side}に{amount}を予測中",
   "slipStepOpeningOrder": "{amount}の{market} {side}を開始中",
-  "slipStepTakingLonger": "通常より時間がかかっています",
+  "slipStepTakingLonger": "予想より時間がかかっています。もう少しお待ちください、まもなく完了します。",
   "slipFundingReadyToPlace": "{amount}はInvestmentsにあります。タップして注文してください。",
   "slipFundingBitcoinBack": "Investmentsへの追加は完了しませんでした。ビットコインは返金されます。",
   "slipFundingPriceMoved": "価格の動きが速すぎました。",

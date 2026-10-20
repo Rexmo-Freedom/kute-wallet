@@ -122,6 +122,10 @@ import 'package:kute/services/one_balance/venue_funder.dart'
     show RouteUnavailable, VenueCashDestination, VenueMoveResult;
 import 'package:kute/services/orchestra/arrival_target.dart'
     show kArrivalTargetBuffer;
+import 'package:kute/providers/swap_orders_provider.dart'
+    show swapOrdersProvider;
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds, VenueArrivals;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/helpers/orchestra_router.dart'
@@ -1700,21 +1704,52 @@ class _FundedChain {
       ]);
     }
     var refundNotified = false;
+    var credited = false;
+    // The venue this run funds credited the order: the money of every leg
+    // into it is there, whatever Orchestra's status still says (it lags
+    // the delivery by minutes at times). The leg shows landed; the row
+    // keeps Orchestra's status, its journey shows the arrival.
+    if (into == venue) {
+      unawaited(_credited.future.then((_) => credited = true));
+    }
     return watchLegDelivery(
         id: legId,
         statusOf: (id) async {
+          // Ends the watch as delivered (never written anywhere).
+          if (credited) return 'completed';
           final status = await statusOf(id);
           if (!refundNotified && status?.trim().toLowerCase() == 'refunded') {
             refundNotified = true;
             onExplicitRefund?.call();
           }
+          if (status == null && credited) return 'completed';
           return status;
         },
         pollEvery: env.legPollEvery,
         onSlow: _slow).then((d) {
+      if (credited && d == LegDelivery.delivered) _arrivalSeen(legId());
       _legEnded(d, into);
       return d;
     });
+  }
+
+  /// The venue credited the order while [legId]'s Orchestra status had not
+  /// said delivered: its Activity row's journey shows the arrival
+  /// ([VenueArrivals]). Only the run's one leg into the venue: with
+  /// several, the credit does not say whose money it was.
+  void _arrivalSeen(String legId) {
+    final legsIn = orders.byId(id)?.steps.legs.length ?? 0;
+    if (legsIn > 1) return;
+    try {
+      final rows = _ref.read(swapOrdersProvider);
+      final resolved = OrchestraOrderIds.resolve(legId);
+      final row = rows.where((r) => r.id == legId || r.id == resolved);
+      if (row.isEmpty) {
+        VenueArrivals.markIds([legId]);
+      } else {
+        VenueArrivals.mark(row.first);
+      }
+    } catch (_) {}
   }
 
   /// Hands a leg's end on ([BitcoinLegEnv.legEnded]): delivered into

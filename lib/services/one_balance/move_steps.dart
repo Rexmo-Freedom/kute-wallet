@@ -604,12 +604,15 @@ abstract final class MoveSteps {
   /// from Bitcoin → Dollars"), then the arrival when Bitcoin receives it.
   /// Its statuses are the row's: running while it is on its way, done
   /// once it settled, failed when its order did; the arrival runs while
-  /// the wallet has not counted the bitcoin yet ([counting]). Empty for
+  /// the wallet has not counted the bitcoin yet ([counting]). A leg the
+  /// app saw land in its venue ([arrived]: the venue credited it) shows
+  /// done while Orchestra's status still says it is on its way. Empty for
   /// any other row (a send, a receive, a Cash App purchase). A receive
   /// from outside (a one-time or reusable receive address) is never a
   /// move, even when its coin and network are a venue's: USDC on Polygon
   /// from someone else's wallet is not Predictions money.
-  static MoneyStepGraph ofRow(SwapOrder row, {bool counting = false}) {
+  static MoneyStepGraph ofRow(SwapOrder row,
+      {bool counting = false, bool arrived = false}) {
     if (!row.isOrchestra ||
         row.activityDirection == 'send' ||
         row.activityDirection == 'receive' ||
@@ -627,7 +630,10 @@ abstract final class MoveSteps {
         ? MoneyStepStatus.done
         : OwnSparkArrivals.failedStatuses.contains(row.status)
             ? MoneyStepStatus.failed
-            : MoneyStepStatus.running;
+            // Seen in its destination while Orchestra's status lags.
+            : arrived
+                ? MoneyStepStatus.done
+                : MoneyStepStatus.running;
     final at = DateTime.fromMillisecondsSinceEpoch(row.timestamp);
     final buys = from == MoneyPlace.dollars && to == MoneyPlace.bitcoin;
     final first = MoneyStep(

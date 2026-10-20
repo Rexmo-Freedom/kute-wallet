@@ -52,9 +52,13 @@ import 'package:kute/services/funding/settlement_runner.dart'
         SettlementQuoteResult,
         SettlementRunResult,
         SettlementStepUpHook;
+import 'package:kute/services/one_balance/slow_move.dart'
+    show kSlowMoveFallback;
 import 'package:kute/services/orchestra/arrival_target.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show OrchestraQuoteRequest, RecipientKind, kManualMoveQuoteTag;
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
@@ -498,13 +502,18 @@ const Set<String> kOrchestraFailedStatuses = {
 };
 
 /// The order's status as Orchestra reports it, lowercase, or null when
-/// nothing was learned (a transport error, no order yet).
+/// nothing was learned (a transport error, no order yet). A quote id whose
+/// order is already known ([OrchestraOrderIds]: the submit that registered
+/// it, the reconciler's retry, an earlier read) reads the order itself; a
+/// quote read that returns its order records it for the next reads.
 Future<String?> orchestraLegStatus(String id) async {
   try {
-    final result = await OrchestraService.getStatus(id)
+    final read = OrchestraOrderIds.resolve(id);
+    final result = await OrchestraService.getStatus(read)
         .timeout(const Duration(seconds: 5));
     final order = result.data;
     if (!result.isSuccess || order == null || order.orderMissing) return null;
+    OrchestraOrderIds.record(id, order.id);
     final status = order.status.trim().toLowerCase();
     return status.isEmpty ? null : status;
   } catch (_) {
@@ -524,7 +533,7 @@ class DollarsLandingWatcher {
     this.pollEvery = const Duration(seconds: 1),
     this.freshEvery = const Duration(milliseconds: 300),
     this.freshFor = const Duration(seconds: 60),
-    this.slowAfter = const Duration(minutes: 2),
+    this.slowAfter = kSlowMoveFallback,
     this.maxWait = const Duration(minutes: 12),
   });
 

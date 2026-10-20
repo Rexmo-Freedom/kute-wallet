@@ -70,6 +70,8 @@ import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore;
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
+import 'package:kute/services/one_balance/slow_move.dart'
+    show slowMoveAfter;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueMoveResult;
@@ -505,7 +507,7 @@ class _VenueCashChain {
   /// Follows one Orchestra order to delivery. Without a status read (a
   /// test's wallet) it counts as landed once the venue credited the order.
   Future<LegDelivery> _delivery(String Function() legId,
-      {void Function()? onExplicitRefund}) {
+      {void Function()? onExplicitRefund, Duration? estimate}) {
     final statusOf = env.legStatus;
     if (statusOf == null) {
       return Future.any<LegDelivery>([
@@ -527,6 +529,8 @@ class _VenueCashChain {
         },
         pollEvery: env.legPollEvery,
         maxWait: VenueCashFundedOrderRunner.legMaxWait,
+        // Slow past 1.5 times the route's estimate (90 s without one).
+        slowAfter: slowMoveAfter(estimate: estimate),
         onSlow: _slow);
   }
 
@@ -736,7 +740,14 @@ class _VenueCashChain {
     if (leg == null || !leg.ok) return _legRefused(leg);
     final legId = _follow(leg.result!, update);
     final source = step.from?.name ?? 'other';
-    switch (await _delivery(legId, onExplicitRefund: () {
+    final from = switch (step.from) {
+      MoneyPlace.predictions => OneBalanceVenue.predictions,
+      MoneyPlace.investing => OneBalanceVenue.investing,
+      _ => null,
+    };
+    switch (await _delivery(legId,
+        estimate: from == null ? null : kVenuePullEta[from],
+        onExplicitRefund: () {
       unawaited(_cashSnapshot.refresh(_ref.read, settledRefs: {
         leg.result!.operationId ?? leg.result!.quoteId,
       }));

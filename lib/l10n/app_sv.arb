@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "Gör din order klar",
   "slipStepPlacingBet": "Lägger {amount} på {side}",
   "slipStepOpeningOrder": "Öppnar {amount} {side} {market}",
-  "slipStepTakingLonger": "Det tar längre tid än vanligt",
+  "slipStepTakingLonger": "Det tar längre tid än väntat. Vänta lite till, snart klart.",
   "slipFundingReadyToPlace": "Dina {amount} finns i Investments. Tryck för att lägga.",
   "slipFundingBitcoinBack": "Det gick inte att lägga till i Investments. Din bitcoin kommer tillbaka.",
   "slipFundingPriceMoved": "Priset rörde sig för snabbt.",

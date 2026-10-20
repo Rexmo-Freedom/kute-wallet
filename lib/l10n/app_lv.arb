@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "Gatavojam tavu rīkojumu",
   "slipStepPlacingBet": "Liek {amount} uz {side}",
   "slipStepOpeningOrder": "Atver {amount} {side} {market}",
-  "slipStepTakingLonger": "Aizņem ilgāk nekā parasti",
+  "slipStepTakingLonger": "Aizņem ilgāk, nekā gaidīts. Mazliet pacietības, gandrīz gatavs.",
   "slipFundingReadyToPlace": "Tavi {amount} ir kontā Investments. Pieskaries, lai iesniegtu.",
   "slipFundingBitcoinBack": "Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.",
   "slipFundingPriceMoved": "Cena mainījās pārāk ātri.",

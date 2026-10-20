@@ -228,7 +228,8 @@ class MoneyStepsKeys {
 /// [toLabel] names an outside destination (where a send went); [money]
 /// formats the graph's dollars. [note] is the one plain line once
 /// something stopped (what happened and where the money is), said in the
-/// status line; [slow] adds "Taking longer than usual" beside it.
+/// status line; [slow] adds one calm line under it ("Taking longer than
+/// expected…", [slowMoveAfter] says when).
 ///
 /// [haptics] false leaves the feel to the surface (a band that already
 /// plays each landing); [failureHaptic] false leaves the failure tap to a
@@ -974,59 +975,53 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                 ),
               );
             }),
-          // The status line, with "Taking longer than usual" on its right.
+          // The status line, then, once the move runs longer than
+          // expected, its own quiet line under it.
           Padding(
             padding: EdgeInsets.only(top: 6.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    key: const ValueKey('money-steps-words'),
-                    clipBehavior: Clip.none,
-                    children: [
-                      for (var i = 0; i < lines.length; i++)
-                        if (i == shown)
-                          words(i, visible: true)
-                        else
-                          Positioned(
-                              left: 0,
-                              right: 0,
-                              top: 0,
-                              child: words(i, visible: false)),
-                      if (status != null)
-                        Text(
-                          status,
-                          key: ValueKey(widget.note != null
-                              ? keys.note
-                              : 'money-steps-status'),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: statusStyle,
-                        )
-                      else if (shown == null)
-                        Text('', style: statusStyle),
-                    ],
-                  ),
-                ),
-                if (slow) ...[
-                  SizedBox(width: 8.w),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 180.w),
-                    child: Text(
-                      l10n.slipStepTakingLonger,
-                      key: ValueKey(keys.slow),
+            child: SizedBox(
+              width: double.infinity,
+              child: Stack(
+                key: const ValueKey('money-steps-words'),
+                clipBehavior: Clip.none,
+                children: [
+                  for (var i = 0; i < lines.length; i++)
+                    if (i == shown)
+                      words(i, visible: true)
+                    else
+                      Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          child: words(i, visible: false)),
+                  if (status != null)
+                    Text(
+                      status,
+                      key: ValueKey(widget.note != null
+                          ? keys.note
+                          : 'money-steps-status'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                          color: c.textTertiary, fontSize: 12.sp, height: 1.35),
-                    ),
-                  ),
+                      style: statusStyle,
+                    )
+                  else if (shown == null)
+                    Text('', style: statusStyle),
                 ],
-              ],
+              ),
             ),
           ),
+          if (slow)
+            Padding(
+              padding: EdgeInsets.only(top: 4.h),
+              child: Text(
+                l10n.slipStepTakingLonger,
+                key: ValueKey(keys.slow),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: c.textTertiary, fontSize: 12.sp, height: 1.35),
+              ),
+            ),
         ],
       ),
     );

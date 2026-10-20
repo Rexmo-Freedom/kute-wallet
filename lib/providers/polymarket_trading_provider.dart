@@ -51,6 +51,10 @@ import 'package:kute/services/one_balance/venue_funder.dart'
         VenueCashDestination;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
     show RecipientKind, VerifiedOrchestraQuote;
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show VenueArrivals;
+import 'package:kute/providers/swap_orders_provider.dart'
+    show swapOrdersProvider;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/security/wallet_guard_exception.dart';
@@ -5152,6 +5156,12 @@ class PolymarketTradingNotifier
       );
       if (wrapped > BigInt.zero) {
         invalidateBalanceCache();
+        // The deposit this USDC.e came with has arrived, whatever its
+        // Orchestra status still says: its journey shows the arrival.
+        try {
+          VenueArrivals.predictionsArrived(ref.read(swapOrdersProvider),
+              wallet: wallet, usd: wrapped.toDouble() / 1e6);
+        } catch (_) {}
         // The order book keeps its own count of the wallet's pUSD and only
         // re-reads it on request. A deposit converted in the background
         // was otherwise still counted as 0 by the venue, which refused the

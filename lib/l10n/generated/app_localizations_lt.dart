@@ -10795,7 +10795,8 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Užtrunka ilgiau nei įprastai';
+  String get slipStepTakingLonger =>
+      'Užtrunka ilgiau nei tikėtasi. Truputį kantrybės, beveik baigta.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

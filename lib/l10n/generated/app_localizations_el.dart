@@ -10830,7 +10830,8 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Αργεί περισσότερο από το συνηθισμένο';
+  String get slipStepTakingLonger =>
+      'Αργεί περισσότερο από το αναμενόμενο. Λίγη υπομονή, σχεδόν έτοιμο.';
 
   @override
   String slipFundingReadyToPlace(String amount) {

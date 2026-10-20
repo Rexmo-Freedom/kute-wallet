@@ -3010,7 +3010,7 @@
   "slipStepPreparingOrder": "Pripravljamo vaše naročilo",
   "slipStepPlacingBet": "Stava {amount} na {side}",
   "slipStepOpeningOrder": "Odpiranje {amount} {side} {market}",
-  "slipStepTakingLonger": "Traja dlje kot običajno",
+  "slipStepTakingLonger": "Traja dlje od pričakovanega. Še malo potrpljenja, skoraj končano.",
   "slipFundingReadyToPlace": "Vaših {amount} je v Investments. Tapnite za oddajo.",
   "slipFundingBitcoinBack": "Dodajanje v Investments ni uspelo. Vaš bitcoin se vrača.",
   "slipFundingPriceMoved": "Cena se je premaknila prehitro.",

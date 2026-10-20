@@ -31,6 +31,7 @@ import 'package:kute/screens/shared/multi_source_move_activity.dart'
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/move_steps.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/slow_move.dart';
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show
         PendingBitcoinPurchase,
@@ -41,6 +42,8 @@ import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
         pendingBitcoinPurchasesProvider;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/funding/settlement_store.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show VenueArrivals, venueArrivalsProvider;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
     show CctpLegProgress, cctpLegProgressOf, kCctpRowPrefix;
 import 'package:kute/services/orchestra/standing_deposit_activity.dart'
@@ -216,7 +219,9 @@ MoneyStepGraph liveMoveSteps(
     if (row == null) continue;
     if (s.route == MoneyRoute.direct) delivering.add(row);
     if (s.status != MoneyStepStatus.running) continue;
-    if (row.details.isComplete) {
+    // Done once its row settled, or once the app saw its money land in
+    // the venue while Orchestra's status lags ([VenueArrivals]).
+    if (row.details.isComplete || VenueArrivals.arrived(row.details)) {
       g = g.update(s.id, (x) => x.copyWith(status: MoneyStepStatus.done));
     } else if (_rowFailed(row.details)) {
       g = g.update(
@@ -433,6 +438,7 @@ class MoveStepsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(pendingBitcoinPurchasesProvider);
     ref.watch(ownSparkArrivalsProvider);
+    ref.watch(venueArrivalsProvider);
     final live = followRows
         ? multiSourceMoveLiveRows(move, rows, ref.watch(swapOrdersProvider))
         : rows;
@@ -462,13 +468,97 @@ class MoveStepsSection extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
-      child: MoneyStepsView(
-          lines: lines,
-          graph: graph,
-          toLabel: sendTo,
-          failureHaptic: failureHaptic),
+      // The Activity detail of a move still on its way says so once it
+      // runs longer than expected, counted from when it started.
+      child: SlowMoveBuilder(
+        startedAt: move.createdAt,
+        running: compact && moveStepsRunning(graph),
+        builder: (context, slow) => MoneyStepsView(
+            lines: lines,
+            graph: graph,
+            toLabel: sendTo,
+            slow: slow,
+            failureHaptic: failureHaptic),
+      ),
     );
   }
+}
+
+/// Whether any step of [graph] is still on its way (running, or waiting on
+/// one that runs).
+bool moveStepsRunning(MoneyStepGraph graph) =>
+    graph.steps.any((s) => s.status == MoneyStepStatus.running) &&
+    !graph.steps.any((s) => s.status == MoneyStepStatus.failed);
+
+/// Builds its child with `slow` true once a move that started at
+/// [startedAt] and is still [running] has run longer than expected
+/// ([moveIsSlow]), rebuilding on its own when that moment comes.
+class SlowMoveBuilder extends StatefulWidget {
+  const SlowMoveBuilder({
+    super.key,
+    required this.startedAt,
+    required this.running,
+    required this.builder,
+    this.estimate,
+  });
+
+  final DateTime startedAt;
+  final bool running;
+  final Duration? estimate;
+  final Widget Function(BuildContext context, bool slow) builder;
+
+  /// Test seam: the clock the moment is measured with.
+  @visibleForTesting
+  static DateTime Function() now = DateTime.now;
+
+  @override
+  State<SlowMoveBuilder> createState() => _SlowMoveBuilderState();
+}
+
+class _SlowMoveBuilderState extends State<SlowMoveBuilder> {
+  Timer? _timer;
+
+  bool get _slow =>
+      widget.running &&
+      moveIsSlow(widget.startedAt, SlowMoveBuilder.now(),
+          estimate: widget.estimate);
+
+  void _schedule() {
+    _timer?.cancel();
+    _timer = null;
+    if (!widget.running || _slow) return;
+    final at = widget.startedAt
+        .add(slowMoveAfter(estimate: widget.estimate))
+        .difference(SlowMoveBuilder.now());
+    _timer = Timer(at.isNegative ? Duration.zero : at, () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(SlowMoveBuilder old) {
+    super.didUpdateWidget(old);
+    if (old.running != widget.running ||
+        old.startedAt != widget.startedAt ||
+        old.estimate != widget.estimate) {
+      _schedule();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _slow);
 }
 
 /// [row] as the wallet holds it now (the background sync swaps a quote id
@@ -493,9 +583,11 @@ class SwapRowStepsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(ownSparkArrivalsProvider);
+    ref.watch(venueArrivalsProvider);
     final live = liveSwapRow(row, ref.watch(swapOrdersProvider));
     final graph = MoveSteps.ofRow(live,
-        counting: OwnSparkArrivals.awaitingCredit(live.id));
+        counting: OwnSparkArrivals.awaitingCredit(live.id),
+        arrived: VenueArrivals.arrived(live));
     if (graph.isEmpty) return const SizedBox.shrink();
     // What landed, once the row settled into dollars.
     final got = live.isComplete && _dollarCoin(live.coinTo)
@@ -512,7 +604,12 @@ class SwapRowStepsSection extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
-      child: MoneyStepsView(lines: lines, graph: graph),
+      child: SlowMoveBuilder(
+        startedAt: DateTime.fromMillisecondsSinceEpoch(live.timestamp),
+        running: moveStepsRunning(graph),
+        builder: (context, slow) =>
+            MoneyStepsView(lines: lines, graph: graph, slow: slow),
+      ),
     );
   }
 }

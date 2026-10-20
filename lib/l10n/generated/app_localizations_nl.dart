@@ -10787,7 +10787,8 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get slipStepTakingLonger => 'Dit duurt langer dan normaal';
+  String get slipStepTakingLonger =>
+      'Dit duurt langer dan verwacht. Even geduld, bijna klaar.';
 
   @override
   String slipFundingReadyToPlace(String amount) {
