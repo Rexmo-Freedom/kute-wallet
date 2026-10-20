@@ -810,40 +810,11 @@ class _HeldPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final side = outcome.trim().toLowerCase();
-    final down = side == 'no' || side == 'down';
-    final up = side == 'yes' || side == 'up';
-    return Container(
+    return PositionSidePill(
       key: pillKey,
-      padding: EdgeInsets.fromLTRB(up || down ? 6.w : 12.w, 5.h, 12.w, 5.h),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (up || down)
-            Icon(
-              down ? Icons.arrow_drop_down_rounded : Icons.arrow_drop_up_rounded,
-              color: color,
-              size: 20.sp,
-            ),
-          Flexible(
-            child: Text(
-              '${context.l10n.chartYouHold} $outcome',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.1,
-              ),
-            ),
-          ),
-        ],
-      ),
+      text: '${context.l10n.chartYouHold} $outcome',
+      color: color,
+      up: polyOutcomeDirection(outcome),
     );
   }
 }

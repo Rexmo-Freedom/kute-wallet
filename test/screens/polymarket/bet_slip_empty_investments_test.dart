@@ -1,7 +1,7 @@
 // An empty Investments balance takes the same path as a partly funded one
 // (founder, 15 October 2026: "we should never make it show up"): nothing
 // typed on a hot bet slip whose Investments hold $0, with enough spending
-// bitcoin, "Add $X to Investments" is the bet itself at the market's
+// bitcoin, "Add $X · the order" is the bet itself at the market's
 // minimum, funded in place under ONE approval with the steps on the slip.
 // No deposit sheet is ever pushed, and the direct Bitcoin → Predictions
 // leg is planned before the chain picks its route.
@@ -59,6 +59,10 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+
+/// The Dollars door: what is added, then the order placed right after it
+/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
+final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -403,7 +407,7 @@ void main() {
     await _pumpSlip(tester);
     expect(_door, findsOneWidget);
     expect(_cta(tester).label, startsWith(r'Add $'));
-    expect(_cta(tester).label, endsWith('to Investments'));
+    expect(_cta(tester).label, _addThenOrder);
 
     await tester.tap(_door);
     await _frames(tester, 10);

@@ -10595,6 +10595,33 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Pievienot $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Līdz minimumam trūkst $amount';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Palielina tavu Long pozīciju',
+        'other': 'Palielina tavu Short pozīciju',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · izmaksā $amount, ja uzvarēsi';
+  }
+
+  @override
   String get slipMoveFee => 'Move fee';
 
   @override

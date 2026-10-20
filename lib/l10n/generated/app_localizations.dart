@@ -18001,6 +18001,30 @@ abstract class AppLocalizations {
   /// **'Add {amount} to Investments'**
   String slipAddToInvestments(String amount);
 
+  /// Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. 'Place $2.33 on No', 'Go Long ETH 1x · $10.14').
+  ///
+  /// In en, this message translates to:
+  /// **'Add {amount} · {order}'**
+  String slipAddThenOrder(String amount, String order);
+
+  /// One quiet line under the amount on an empty order slip whose Investments cannot cover the minimum order: the real gap to the minimum (the button names the top-up the route needs). {amount} is formatted money.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} short of the minimum'**
+  String slipShortOfMinimum(String amount);
+
+  /// Small pill under the amount on the Investing order slip when the order adds to a position already held on the same side. {side} is 'long' or 'short' (select).
+  ///
+  /// In en, this message translates to:
+  /// **'{side, select, long{Adds to your Long} other{Adds to your Short}}'**
+  String slipAddsToYourPosition(String side);
+
+  /// Quiet line under the amount on the Predictions bet slip while the money moves and the bet is placed. {side} is the outcome bought (e.g. 'UP', 'Yes'); {amount} is the formatted payout if it wins.
+  ///
+  /// In en, this message translates to:
+  /// **'{side} · pays {amount} if you win'**
+  String betSlipPaysIfYouWin(String side, String amount);
+
   /// Row label on an order slip for the cost of moving the shortfall into the venue.
   ///
   /// In en, this message translates to:

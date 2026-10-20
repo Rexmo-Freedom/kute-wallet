@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/side_tint_palette.dart' show isSideTinted;
 import 'package:kute/theme/app_theme.dart';
 
 /// One row of a [PositionRowsCard].
@@ -154,7 +155,15 @@ class PositionStatTile extends StatelessWidget {
     if (bare) return body;
     return Container(
       padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
-      decoration: AppDecorations.card(context),
+      // On a side-tinted sheet (Sell, Close) the tile is the sheet's
+      // translucent ink, with no shadow to muddy the colour.
+      decoration: isSideTinted(c)
+          ? BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: c.borderSubtle, width: 0.5),
+            )
+          : AppDecorations.card(context),
       child: body,
     );
   }
@@ -199,6 +208,63 @@ TextStyle positionTileCaptionStyle(AppColorsExtension c, {Color? color}) =>
       letterSpacing: -0.1,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+
+/// Which side is held, in its colour: a soft pill with an up or down
+/// marker when the side has a direction ("You hold Up", "Long"). The
+/// Predictions position screen's pill, and the Sell and Close sheets'
+/// "You hold" line.
+class PositionSidePill extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  /// True draws the up marker, false the down one, null none (a team, a
+  /// many-outcome market's outcome).
+  final bool? up;
+
+  const PositionSidePill({
+    super.key,
+    required this.text,
+    required this.color,
+    this.up,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dir = up;
+    return Container(
+      padding: EdgeInsets.fromLTRB(dir != null ? 6.w : 12.w, 5.h, 12.w, 5.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (dir != null)
+            Icon(
+              dir ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
+              color: color,
+              size: 20.sp,
+            ),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// A plain row that opens something, under a hairline: the label, an
 /// optional quiet figure ("Sell at", "Stop loss") and a chevron. The

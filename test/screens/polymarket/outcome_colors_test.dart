@@ -13,9 +13,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:money2/money2.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
@@ -34,6 +38,7 @@ import 'package:kute/screens/polymarket/components/sell_sheet.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/polymarket/components/slip_chrome.dart' show PolySlipCta;
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
@@ -85,6 +90,27 @@ SettingsModel _settings() => SettingsModel(Settings(
       reviewDone: true,
     ));
 
+class _Currency extends StateNotifier<CurrencyState>
+    implements CurrencyNotifier {
+  _Currency() : super(CurrencyState({'USD': Fixed.fromInt(100)}));
+  @override
+  Future<void> updateRates() async {}
+}
+
+class _NoCostBasis extends StateNotifier<Map<String, double>>
+    implements PolymarketCostBasisNotifier {
+  _NoCostBasis() : super(const {});
+  @override
+  Future<void> addCost(String tokenId, double paidUsdc) async {}
+  @override
+  Future<void> reset(String tokenId) async {}
+  @override
+  Future<void> scaleByRemaining(
+      String tokenId, double fractionRemaining) async {}
+  @override
+  double? costFor(String tokenId) => null;
+}
+
 List<Override> _overrides() => [
       livePriceProvider.overrideWith(_Prices.new),
       sportsLiveProvider.overrideWith(_NoGames.new),
@@ -97,6 +123,8 @@ List<Override> _overrides() => [
       aiEnabledProvider.overrideWith((ref) async => false),
       settingsProvider.overrideWith((ref) => _settings()),
       polymarketTradingProvider.overrideWith(_Trading.new),
+      polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
+      currencyProvider.overrideWith((_) => _Currency()),
       swapOrdersProvider.overrideWith((ref) => FakeSwapOrders()),
       polymarketOpenOrdersProvider
           .overrideWith((ref) => Stream.value(const [])),
@@ -439,6 +467,9 @@ void main() {
               .widget<SideTintedSubtree>(find.byType(SideTintedSubtree).first)
               .side,
           AppColors.marketDown);
+      // White buttons take dark letters, never the side colour.
+      expect(tester.widget<PolySlipCta>(find.byType(PolySlipCta)).neutral,
+          isTrue);
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
     });

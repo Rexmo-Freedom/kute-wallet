@@ -102,6 +102,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTiles;
+import 'package:kute/screens/shared/money_fee_summary.dart'
+    show MoneyFeeTile;
 import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyPlace;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -2336,6 +2341,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     if (_belowMinimumStake && !buyingPower.isLoading) {
       return PolySlipCta(
         color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
         isBusy: _draft.ledgerBusy,
         enabled: !_draft.ledgerBusy &&
             _advancedBlock == null &&
@@ -2354,6 +2361,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           spendableUsd != null && minStake <= spendableUsd + 1e-9;
       return PolySlipCta(
         color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
         isBusy: _draft.ledgerBusy,
         enabled: !_draft.ledgerBusy &&
             _advancedBlock == null &&
@@ -2370,6 +2379,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // screen from the one the spending account gets.
     return PolySlipCta(
       color: selectedColor,
+      // Dark on the white button, never the side colour (founder).
+      neutral: true,
       isBusy: _draft.ledgerBusy || buyingPower.isLoading,
       busyLabel: !_draft.ledgerBusy && buyingPower.isLoading
           ? context.l10n.loadingAccount
@@ -4022,6 +4033,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// the wallet's own figures. Set by the build.
   double? _shownAddUsd;
 
+  /// What the button's Dollars door adds ("Add $X · Place …"), null while
+  /// the button is anything else. Set by the build with the button, so
+  /// the line under the amount names the same figure.
+  double? _doorAddUsd;
+
   /// [_shownAddUsd] as it was at the Add tap: what the leg converts.
   double? _bitcoinTapAddUsd;
 
@@ -4909,19 +4925,96 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // A placement that did not go through says so on the ticket the
       // person is still looking at, and the CTA underneath becomes the
       // retry the locked panel used to carry.
-      // A funded bet's stop is told in its steps (the failed step, what
-      // happened, where the money is): never twice.
-      final fundedStop = placementFailed &&
-          (_fundedProgress(ref.watch(fundedOrdersProvider))?.failed ?? false);
-      final failureNotice = placementFailed && !fundedStop
+      // A funded bet's stop: on the Advanced page it is told in its steps
+      // under the button (the failed step, what happened, where the money
+      // is), never twice. The plain slip folds its journey away and comes
+      // back as it was typed, the same words in this one notice.
+      final stopped = _fundedProgress(ref.watch(fundedOrdersProvider));
+      final stoppedRecord =
+          stopped != null && stopped.failed ? stopped.record : null;
+      final fundedStop = placementFailed && stoppedRecord != null;
+      final failureNotice = !fullscreen && stoppedRecord != null
           ? PolySlipNotice(
+              key: const ValueKey('bet-slip-funded-stop'),
               title: context.l10n.betCouldNotPlacePrediction,
-              message: ref.watch(pendingPolymarketBetProvider
-                      .select((i) => i?.errorMessage)) ??
-                  context.l10n.betFundsSafeRetryOrClose,
+              message:
+                  fundedStopLine(context.l10n, stoppedRecord, _fiatCompanion),
             )
-          : null;
+          : placementFailed && !fundedStop
+              ? PolySlipNotice(
+                  title: context.l10n.betCouldNotPlacePrediction,
+                  message: ref.watch(pendingPolymarketBetProvider
+                          .select((i) => i?.errorMessage)) ??
+                      context.l10n.betFundsSafeRetryOrClose,
+                )
+              : null;
 
+      final action = Padding(
+        padding: EdgeInsets.fromLTRB(
+            20.w,
+            8.h,
+            20.w,
+            fullscreen
+                ? 16.h
+                : max(16.h, MediaQuery.of(context).padding.bottom)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (_tradeBlock case final reason?)
+            CapabilityBlockNote(reason)
+          else if (_draft.openOfflineNote case final note? when !_isPlacing)
+            CapabilityBlockNote(note),
+          if (_advancedBlock case final reason? when reason != _tradeBlock)
+            CapabilityBlockNote(reason),
+          // While an order waits on a live game's in-play delay, the line
+          // over the button says why it is taking a moment.
+          if (_liveDelayNote(placeStage, activelyPlacing) case final note?)
+            Padding(
+              padding: EdgeInsets.only(bottom: 6.h),
+              child: Text(
+                note,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: tc.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          // The action cross-fades when it changes what it is (the
+          // deposit door giving way to Predict once a deposit lands),
+          // never as its amount changes.
+          () {
+            final primary = _buildPrimaryAction(tc, selectedColor, selected,
+                busy: activelyPlacing,
+                failed: placementFailed,
+                busyLabel: _placingLabel(betStatus),
+                stepsUnder: fullscreen);
+            return ArrivalSwitcher(
+              state: primary.key ?? primary.runtimeType,
+              alignment: Alignment.bottomCenter,
+              child: primary,
+            );
+          }(),
+        ]),
+      );
+      // While the money moves the plain slip shows its journey where the
+      // figures were (they and the keypad fold away), the amount staying
+      // with one quiet line under it. Worked out after the button, which
+      // decides the Dollars door's figure the line under the amount names.
+      final journey =
+          fullscreen ? null : _fundingJourney(activelyPlacing, running: true);
+      final journeyShown = journey != null;
+      // The real gap to the market's minimum, said once under the amount
+      // while the button is the Dollars door (which names the top-up the
+      // route actually needs).
+      final double? minimumGap = spendable == null
+          ? null
+          : _effectiveMinBetUsd -
+              slipAvailableUsd(
+                  venueUsd: spendable, otherSpendableUsd: otherSpendable);
+      final String? heroNote =
+          _emptyStake && _doorAddUsd != null && (minimumGap ?? 0) >= 0.005
+              ? context.l10n.slipShortOfMinimum(_fiatCompanion(minimumGap!))
+              : null;
       // Advanced holds exactly the same controls as before, grouped into
       // four boxes instead of one long run: what you are buying, how much,
       // how the order rests, what it comes to — and the read-only rows
@@ -5004,76 +5097,77 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     failureNotice,
                     SizedBox(height: 12.h),
                   ],
-                  ...sideBlock,
-                  SizedBox(height: 22.h),
+                  // While the money moves the side is settled: it folds
+                  // away with the rest, the order's line says it.
+                  FoldAway(
+                    folded: journeyShown,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [...sideBlock, SizedBox(height: 22.h)],
+                    ),
+                  ),
                   // One small Max chip beside the figure; the market's
                   // minimum rides on the available line under it, red while
                   // the stake is under it. A balance too small to stake has
                   // no Max and goes straight to the deposit door instead.
-                  _buildAmountHero(
-                    available,
-                    belowMinimum: minBetWarning != null,
-                    onMax: maxStake != null && maxStake >= _kMinBetUsd
-                        ? () => _fillAmount(maxStake!, 100,
-                            budget: maxIsFunded ? null : spendable)
-                        : null,
-                    maxLocked: _buyInFlight || ledgerLocked || activelyPlacing,
+                  // While the money moves the top is the bet itself, one
+                  // big number rolling up from what Predictions already
+                  // holds to the stake as each leg lands; a stop brings the
+                  // amount back as it was typed.
+                  ArrivalSwitcher(
+                    state: journeyShown,
+                    child: journeyShown
+                        ? SlipOrderFigure(
+                            venue: OneBalanceVenue.predictions,
+                            record: journey.record,
+                            orderUsd: _amount,
+                            money: _fiatCompanion,
+                            orderLine: context.l10n.betSlipPaysIfYouWin(
+                                _sideDisplayName(selected),
+                                _fiatCompanion(payout)),
+                          )
+                        : _buildAmountHero(
+                            available,
+                            belowMinimum: minBetWarning != null,
+                            onMax: maxStake != null && maxStake >= _kMinBetUsd
+                                ? () => _fillAmount(maxStake!, 100,
+                                    budget: maxIsFunded ? null : spendable)
+                                : null,
+                            maxLocked:
+                                _buyInFlight || ledgerLocked || activelyPlacing,
+                            note: heroNote,
+                          ),
                   ),
-                  SizedBox(height: 24.h),
-                  _buildPayout(tc, payout, accentText: tc.textPrimary),
-                  SizedBox(height: 8.h),
-                  feeSummary,
-                  SizedBox(height: 8.h),
-                  _buildAdvancedToggle(tc, maxPrice: orderPrice),
+                  // The position screens' tiles: what it pays if it wins
+                  // (the profit under it) and the fee, a dash in each until
+                  // a stake is typed. They give their room to the money's
+                  // journey while it runs.
+                  FoldAway(
+                    folded: journeyShown,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 24.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PositionStatTiles(
+                            left: _buildPayoutTile(payout),
+                            right: SlipTileFrame(
+                              key: const ValueKey('bet-slip-fee-tile'),
+                              child: MoneyFeeTile(child: feeSummary),
+                            ),
+                          ),
+                          SizedBox(height: 12.h),
+                          _buildAdvancedToggle(tc, maxPrice: orderPrice),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SlipJourney(steps: journey?.steps, line: journey?.line),
                   SizedBox(height: 12.h),
                 ],
               ),
-      );
-      final action = Padding(
-        padding: EdgeInsets.fromLTRB(
-            20.w,
-            8.h,
-            20.w,
-            fullscreen
-                ? 16.h
-                : max(16.h, MediaQuery.of(context).padding.bottom)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (_tradeBlock case final reason?)
-            CapabilityBlockNote(reason)
-          else if (_draft.openOfflineNote case final note? when !_isPlacing)
-            CapabilityBlockNote(note),
-          if (_advancedBlock case final reason? when reason != _tradeBlock)
-            CapabilityBlockNote(reason),
-          // While an order waits on a live game's in-play delay, the line
-          // over the button says why it is taking a moment.
-          if (_liveDelayNote(placeStage, activelyPlacing) case final note?)
-            Padding(
-              padding: EdgeInsets.only(bottom: 6.h),
-              child: Text(
-                note,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: tc.textSecondary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          // The action cross-fades when it changes what it is (the
-          // deposit door giving way to Predict once a deposit lands),
-          // never as its amount changes.
-          () {
-            final primary = _buildPrimaryAction(tc, selectedColor, selected,
-                busy: activelyPlacing,
-                failed: placementFailed,
-                busyLabel: _placingLabel(betStatus));
-            return ArrivalSwitcher(
-              state: primary.key ?? primary.runtimeType,
-              alignment: Alignment.bottomCenter,
-              child: primary,
-            );
-          }(),
-        ]),
       );
       if (fullscreen) {
         // Advanced pins the action as a bottom bar, like the market
@@ -5109,11 +5203,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 ignoring: _buyInFlight || ledgerLocked || activelyPlacing,
                 child: form),
           )),
-          // While the money's steps show under the button the stake
-          // cannot change: the keypad folds away and the steps take its
-          // room, so nothing above is squeezed (a stop folds it too).
+          // While the money's journey shows the stake cannot change: the
+          // keypad folds away and the journey takes its room, so nothing
+          // is squeezed. A stop brings it back with the rest of the slip.
           FoldAway(
-            folded: placementFailed || _showsFundingSteps(activelyPlacing),
+            folded: journeyShown,
             child: _buildAmountKeypad(
                 _buyInFlight || ledgerLocked || activelyPlacing),
           ),
@@ -5209,8 +5303,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// market's minimum ([belowMinimum] paints that part red). There is no
   /// TextField on this step, so the OS keyboard never opens over the
   /// ticket; the pinned [AmountKeypad] under the form is the only way in.
+  /// [note] is one quiet line under the available line (how much more the
+  /// minimum needs).
   Widget _buildAmountHero(String available,
-      {VoidCallback? onMax, bool maxLocked = false, bool belowMinimum = false}) {
+      {VoidCallback? onMax,
+      bool maxLocked = false,
+      bool belowMinimum = false,
+      String? note}) {
     final currency = ref.watch(settingsProvider.select((s) => s.currency));
     // The figure is typed in the user's own currency while the order is
     // sized in USDC, so a non-USD user gets the dollar equivalent.
@@ -5225,6 +5324,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       minimumLabel: context.l10n
           .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
       minimumIsError: belowMinimum,
+      noteLabel: note,
       trailing: onMax == null
           ? null
           : AmountMaxChip(
@@ -5315,6 +5415,35 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     HapticFeedback.selectionClick();
     TrackingService.track('bet_slip_available_tapped',
         params: {'chip': method == 'min' ? 'min' : 'max'});
+  }
+
+  /// The plain slip's payout tile: what the bet pays if it wins, the
+  /// profit under it; a dash until a stake is typed.
+  Widget _buildPayoutTile(double payout) {
+    final typed = _amount > 0 && payout > 0;
+    final profit = payout - _amount;
+    return SlipStatTile(
+      key: const ValueKey('bet-slip-payout-tile'),
+      label: context.l10n.betReceiptPayout,
+      value: typed ? _fiatCompanion(payout) : null,
+      caption: typed && profit >= 0.005
+          ? context.l10n.activityAmountProfit('+${_fiatCompanion(profit)}')
+          : null,
+    );
+  }
+
+  /// The side the bet is on, in the words its button uses ("UP", "Yes",
+  /// a team's name).
+  String _sideDisplayName(PolymarketOutcome selected) {
+    if (_isCandidatePicker) {
+      final sides = _sideLabelFor(selected.name);
+      return _buyNo ? sides.no : sides.yes;
+    }
+    if (_isThreeWay) return widget.outcomeLabels![_selectedIndex];
+    if (widget.outcomes.length <= 2) {
+      return _sideLabelAt(_selectedIndex) ?? selected.name;
+    }
+    return selected.name;
   }
 
   /// [accentText] overrides the green payout figure — the side-tinted
@@ -5497,23 +5626,77 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     ];
   }
 
+  /// The money's journey for the bet on this slip, or null when no money
+  /// moves for it: a funded bet's steps (from Bitcoin, Dollars, Investing
+  /// or any mix) from the moment it was approved, through the placement,
+  /// to the end; a stop keeps them, the failed step marked and one line
+  /// saying where the money is. A fast market's money made ready before
+  /// Confirm and still moving shows its step too. [line] says what pays
+  /// for the bet. The plain slip shows it at the top, where its figures
+  /// were; the Advanced page under its button.
+  /// With [running], a stopped bet has none: the plain slip comes back
+  /// as it was, the stop said in one notice over it.
+  ({Widget steps, String? line, FundedOrderRecord? record})? _fundingJourney(
+      bool busy,
+      {bool running = false}) {
+    if (_draft.openBlockRegion && _tradeBlock != null && !busy) return null;
+    if (_isLedger) return null;
+    final progress = _fundedProgress(ref.watch(fundedOrdersProvider));
+    if (progress != null) {
+      if (running && progress.failed) return null;
+      return (
+        steps: SlipFundingSteps(
+          steps: _fundingSteps(progress.record),
+          active: progress.active,
+          slow: progress.record.slow,
+          failed: progress.failed,
+          graph: progress.record.steps,
+          money: _fiatCompanion,
+          from: progress.record.fromBitcoin
+              ? MoneyPlace.bitcoin
+              : MoneyPlace.dollars,
+          to: MoneyPlace.predictions,
+          note: progress.failed
+              ? fundedStopLine(context.l10n, progress.record, _fiatCompanion)
+              : null,
+        ),
+        line: slipFundingSourcesLine(
+            context.l10n, progress.record, _fiatCompanion),
+        record: progress.record,
+      );
+    }
+    final prefund = _draft.prefund;
+    if (prefund != null && prefund.moving && !busy && !_isPlacing) {
+      return (
+        steps: SlipFundingSteps(
+          key: const ValueKey('bet-slip-prefund-progress'),
+          steps: [
+            context.l10n.slipStepPreparingPrediction,
+            context.l10n
+                .slipStepPlacingBet(_fiatCompanion(_amount), _outcomeSide),
+          ],
+          active: 0,
+          to: MoneyPlace.predictions,
+        ),
+        line: null,
+        record: null,
+      );
+    }
+    return null;
+  }
+
   /// [busy] is the placement actually running, [failed] its one terminal
   /// error state. The panel that used to own both is gone: the button
   /// carries the wait, and becomes the retry when it ends badly.
-  /// Whether [_buildPrimaryAction] shows the money's steps under the
-  /// button ([busy] as it is given): a funded bet's, or a fast market's
-  /// money still moving.
-  bool _showsFundingSteps(bool busy) {
-    if (_draft.openBlockRegion && _tradeBlock != null && !busy) return false;
-    if (_isLedger) return false;
-    if (_fundedProgress(ref.watch(fundedOrdersProvider)) != null) return true;
-    final prefund = _draft.prefund;
-    return prefund != null && prefund.moving && !busy && !_isPlacing;
-  }
-
+  /// With [stepsUnder] (the Advanced page) the money's journey shows
+  /// under the button.
   Widget _buildPrimaryAction(
       AppColorsExtension c, Color selectedColor, PolymarketOutcome selected,
-      {required bool busy, required bool failed, required String busyLabel}) {
+      {required bool busy,
+      required bool failed,
+      required String busyLabel,
+      bool stepsUnder = false}) {
+    _doorAddUsd = null;
     // A region refusal: the one button asks again, never a dead one.
     if (_draft.openBlockRegion && _tradeBlock != null && !busy) {
       return PolySlipCta(
@@ -5529,11 +5712,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
     }
     if (_isLedger) return _buildLedgerPrimaryAction(c, selectedColor);
-    // A bet whose money is being moved (from Bitcoin, Dollars, Investing
-    // or any mix): its steps under one busy button, from the moment it
-    // was approved, through the placement, to the end. A stop keeps them,
-    // the failed step marked and one line saying where the money is,
-    // with the button the try again.
+    // A bet whose money is being moved: one busy button while its steps
+    // run ([_fundingJourney]), the try again once they stopped.
+    final journey = stepsUnder ? _fundingJourney(busy) : null;
     final records = ref.watch(fundedOrdersProvider);
     final progress = _fundedProgress(records);
     if (progress != null) {
@@ -5544,10 +5725,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         final label = steps[progress.active.clamp(0, steps.length - 1)];
         button = PolySlipCta(
           color: selectedColor,
+          // Dark on the white button (founder decision).
+          neutral: true,
           isBusy: true,
           busyLabel: label,
-          // The steps right under it name the step: the button only
-          // spins (a screen reader still hears the step).
+          // The steps name the step: the button only spins (a screen
+          // reader still hears the step).
           busyLabelInSteps: true,
           enabled: false,
           onTap: () {},
@@ -5566,51 +5749,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
             : progress.failed
                 ? RubberBandOutcome.failure
                 : RubberBandOutcome.none,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            button,
-            SlipFundingSteps(
-              steps: steps,
-              active: progress.active,
-              slow: progress.record.slow,
-              failed: progress.failed,
-              graph: progress.record.steps,
-              money: _fiatCompanion,
-              from: progress.record.fromBitcoin
-                  ? MoneyPlace.bitcoin
-                  : MoneyPlace.dollars,
-              to: MoneyPlace.predictions,
-              note: progress.failed
-                  ? fundedStopLine(
-                      context.l10n, progress.record, _fiatCompanion)
-                  : null,
-            ),
-          ],
-        ),
+        child: journey == null
+            ? button
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [button, journey.steps],
+              ),
       );
     }
     final action = _buildPrimaryActionInner(c, selectedColor, selected,
         busy: busy, failed: failed, busyLabel: busyLabel);
-    // A fast market's money got ready before Confirm and still moving:
-    // its step under the bet (Confirm queues it behind the money).
-    final prefund = _draft.prefund;
-    if (prefund != null && prefund.moving && !busy && !_isPlacing) {
-      final steps = [
-        context.l10n.slipStepPreparingPrediction,
-        context.l10n.slipStepPlacingBet(_fiatCompanion(_amount), _outcomeSide),
-      ];
-      return Column(
-        key: const ValueKey('bet-slip-prefund-progress'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          action,
-          SlipFundingSteps(
-              steps: steps, active: 0, to: MoneyPlace.predictions),
-        ],
-      );
-    }
-    return action;
+    if (journey == null) return action;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [action, journey.steps],
+    );
   }
 
   Widget _buildPrimaryActionInner(
@@ -5622,6 +5775,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // The placement's band: pulled while it places, snapped back once it
     // placed, let go softly when it did not.
     final bandOutcome = _placedSuccess ? RubberBandOutcome.success : null;
+    // After a stop the button is the same bet again, said so: "Try again
+    // · Place $12.00 on UP". It draws on the money already moved (in
+    // Predictions, or back in Investments, which Available counts), adding
+    // only what is still missing.
+    final fundedStopped = !_isLedger &&
+        (_fundedProgress(ref.watch(fundedOrdersProvider))?.failed ?? false);
+    String again(String label) =>
+        fundedStopped ? '${context.l10n.walletsTryAgain} · $label' : label;
     final trading = ref.watch(polymarketTradingProvider);
     // Nothing to bet with, or not enough for this bet once the venue's
     // fees are counted: the button is the deposit door, never a dead
@@ -5661,6 +5822,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           key: const ValueKey('bet-slip-round-ended-done'),
           band: band,
           color: selectedColor,
+          // Dark on the white button, never the side colour (founder).
+          neutral: true,
           isBusy: false,
           enabled: true,
           onTap: () {
@@ -5675,13 +5838,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         key: const ValueKey('bet-slip-retry'),
         band: band,
         color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
         isBusy: _buyInFlight || busy,
         busyLabel: context.l10n.loading,
         enabled: !_buyInFlight && !busy,
         onTap: _isPlacing ? _retryPlacement : _retryFromStart,
         // Stopped because the price moved past the approved maximum: the
-        // retry names the new maximum it will ask to approve.
-        label: stop.label,
+        // retry names the new maximum it will ask to approve; else it is
+        // the same bet again, named ("Try again · Place $12.00 on UP").
+        label: stop.label == context.l10n.retry
+            ? '${context.l10n.walletsTryAgain} · '
+                '${_betCtaLabel(selected, _amount)}'
+            : stop.label,
       );
     }
     // Until the Predictions account is set up and its balance was read,
@@ -5775,6 +5944,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _warmBitcoinLeg();
       }
       if (missing > 0) {
+        _doorAddUsd = missing;
         final door = _depositDoor(
           // Busy while the tap is worked out (the bitcoin read, the prefill)
           // and while it runs the bet; shut until the tap (and the Dollars
@@ -5783,7 +5953,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           busyLabel: context.l10n.feeUiCalculating,
           enabled: !_buyInFlight && !_doorCalculating,
           onTap: _onAddDollarsTap,
-          label: context.l10n.slipAddToInvestments(_fiatCompanion(missing)),
+          // Both deeds: what is added, then the bet placed right after it
+          // (the stake typed, or the minimum an empty slip places).
+          label: again(context.l10n.slipAddThenOrder(
+              _fiatCompanion(missing), _betCtaLabel(selected, stake))),
         );
         if (!funding.failed) return door;
         return Column(
@@ -5808,6 +5981,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         band: band,
         bandOutcome: bandOutcome,
         color: selectedColor,
+        // Dark on the white button, never the side colour (founder).
+        neutral: true,
         isBusy: busy || _buyInFlight,
         busyLabel: busyLabel,
         enabled: !_isPlacing &&
@@ -5826,6 +6001,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       band: band,
       bandOutcome: bandOutcome,
       color: selectedColor,
+      // Dark on the white button, never the side colour (founder).
+      neutral: true,
       // A placement runs a few seconds: signing, the venue, its answer.
       bandExpected: const Duration(seconds: 3),
       isBusy: busy || _buyInFlight,
@@ -5836,8 +6013,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           _advancedBlock == null &&
           _tradeBlock == null,
       onTap: placeMinimum ? _placeMinimum : _handleBuy,
-      label: _betCtaLabel(selected,
-          placeMinimum ? _minimumStakeUsd(_effectiveMinBetUsd) : _amount),
+      label: again(_betCtaLabel(selected,
+          placeMinimum ? _minimumStakeUsd(_effectiveMinBetUsd) : _amount)),
     );
   }
 

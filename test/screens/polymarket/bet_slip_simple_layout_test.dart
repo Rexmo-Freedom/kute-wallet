@@ -117,7 +117,7 @@ Future<void> _pumpSlip(WidgetTester tester,
     double? initialAmountUsd = 10,
     String? ledgerWalletId,
     // One balance: the spending account's Dollars. Zero, so a short bet
-    // shows the Dollars door ("Add $X to Investments") like the old
+    // shows the Dollars door ("Add $X · the order") like the old
     // deposit door did; a balance that covers the move shows the bet.
     double dollars = 0,
     bool settle = true}) async {
@@ -329,7 +329,7 @@ void main() {
   testWidgets('empty Predictions balance offers deposit directly',
       (tester) async {
     await _pumpSlip(tester, balance: 0);
-    expect(find.textContaining('to Investments'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
     expect(find.text('Max'), findsNothing);
     expect(find.text('Enter an amount'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -702,7 +702,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.textContaining('to Investments');
+      final action = find.textContaining(RegExp(r'^Add \$[^ ]+ · '));
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -739,7 +739,7 @@ void main() {
     expect(position.maxScrollExtent, 0);
     final action = find
         .ancestor(
-            of: find.textContaining('to Investments'),
+            of: find.textContaining(RegExp(r'^Add \$[^ ]+ · ')),
             matching: find.byType(InkWell))
         .first;
     expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
@@ -1055,7 +1055,7 @@ void main() {
 
     testWidgets(
         'less in Investments than the minimum: the one button says '
-        '"Add \$X to Investments", never the bet', (tester) async {
+        '"Add \$X · the order", the bet named after it', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
           balance: 3,
@@ -1065,10 +1065,11 @@ void main() {
       expect(find.text(r'$0'), findsOneWidget);
       // Measured on the $5 minimum the empty slip would place: the $3
       // there and no Dollars leave $2.48 (fees counted) to add.
-      expect(cta(tester).label, r'Add $2.48 to Investments');
+      expect(cta(tester).label, r'Add $2.48 · Place $5.00 on Yes');
       expect(cta(tester).enabled, isTrue);
       expect(find.byType(PolySlipCta), findsOneWidget);
-      expect(find.textContaining('Place '), findsNothing);
+      // The bet is named only inside the one action, after the add.
+      expect(find.textContaining('Place '), findsOneWidget);
       await _release(tester, policy);
     });
   });

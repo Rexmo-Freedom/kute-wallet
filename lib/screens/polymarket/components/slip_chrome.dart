@@ -65,11 +65,20 @@ class PolySlipHeader extends StatelessWidget {
     required this.marketQuestion,
     this.marketImage,
     this.trailing,
+    this.leading,
+    this.maxLines = 5,
   });
 
   final String marketQuestion;
   final String? marketImage;
   final Widget? trailing;
+
+  /// The market's own artwork in place of [marketImage] (an Investing
+  /// coin's logo on the Close ticket), at the same 36 size.
+  final Widget? leading;
+
+  /// How many lines the title may take before it ellipsizes.
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +90,10 @@ class PolySlipHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (img != null && img.isNotEmpty) ...[
+          if (leading != null) ...[
+            leading!,
+            SizedBox(width: 10.w),
+          ] else if (img != null && img.isNotEmpty) ...[
             PolyCrestImage(
               url: img,
               size: 36.sp,
@@ -99,7 +111,7 @@ class PolySlipHeader extends StatelessWidget {
             // smaller face the longer it runs.
             child: Text(
               marketQuestion,
-              maxLines: 5,
+              maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: marketQuestion.length > 90

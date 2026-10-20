@@ -8,8 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The status line on top of the map says the step at work in the same
-/// words: never a step itself.
-bool _isStatus(Widget w) => w.key == const ValueKey('money-steps-status');
+/// words, and a slip's line under its journey says what pays for the
+/// order ("$9.86 from Investing + $2.14 from Bitcoin"): never a step.
+bool _isStatus(Widget w) =>
+    w.key == const ValueKey('money-steps-status') ||
+    w.key == const ValueKey('slip-journey-sources');
 
 /// The step whose words are exactly [text].
 Finder findMoneyStep(String text) => find.byWidgetPredicate(

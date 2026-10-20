@@ -6459,6 +6459,48 @@
       }
     }
   },
+  "slipAddThenOrder": "Add {amount} · {order}",
+  "@slipAddThenOrder": {
+    "description": "Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. 'Place $2.33 on No', 'Go Long ETH 1x · $10.14').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "order": {
+        "type": "String"
+      }
+    }
+  },
+  "slipShortOfMinimum": "{amount} short of the minimum",
+  "@slipShortOfMinimum": {
+    "description": "One quiet line under the amount on an empty order slip whose Investments cannot cover the minimum order: the real gap to the minimum (the button names the top-up the route needs). {amount} is formatted money.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipAddsToYourPosition": "{side, select, long{Adds to your Long} other{Adds to your Short}}",
+  "@slipAddsToYourPosition": {
+    "description": "Small pill under the amount on the Investing order slip when the order adds to a position already held on the same side. {side} is 'long' or 'short' (select).",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "betSlipPaysIfYouWin": "{side} · pays {amount} if you win",
+  "@betSlipPaysIfYouWin": {
+    "description": "Quiet line under the amount on the Predictions bet slip while the money moves and the bet is placed. {side} is the outcome bought (e.g. 'UP', 'Yes'); {amount} is the formatted payout if it wins.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "slipMoveFee": "Move fee",
   "@slipMoveFee": {
     "description": "Row label on an order slip for the cost of moving the shortfall into the venue."

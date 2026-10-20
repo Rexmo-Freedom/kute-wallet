@@ -39,7 +39,13 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
+import 'package:kute/screens/shared/money_fee_summary.dart' show feeAmountText;
+import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/polymarket/components/position_chance_bar.dart'
+    show polyOutcomeDirection;
+import 'package:kute/screens/polymarket/components/price_format.dart'
+    show formatPolyChanceFigure;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:kute/services/sound_service.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -1476,10 +1482,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   // ── Spot / Limit (sell) ───────────────────────────────────────────────
 
   /// Push the Advanced page, the way the buy slip does: a full-screen
-  /// dialog route on the ROOT navigator, which is why it keeps the app
-  /// palette. The tinted palette is installed by the `SideTintedSubtree`
-  /// inside this sheet's own build, so a route pushed from above it never
-  /// inherits the red (user decision: only sheets wear the side colour).
+  /// dialog route on the ROOT navigator, on the app palette.
   ///
   /// The sheet does not hand the screen its state object — the sell sheet
   /// keeps plain State fields. The screen is seeded with the current
@@ -1580,10 +1583,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final livePrice = ref.watch(livePriceProvider
         .select((s) => pos.tokenId != null ? s.prices[pos.tokenId] : null));
     final currentPrice = livePrice ?? pos.currentPrice;
-    final livePnl = (currentPrice - pos.avgPrice) * pos.size;
-    final livePnlPct = pos.avgPrice > 0
-        ? ((currentPrice - pos.avgPrice) / pos.avgPrice) * 100
-        : 0.0;
     final currentValue = pos.size * currentPrice;
     final canSell = _sharesToSell > 0 && _sharesToSell <= pos.size;
 
@@ -1595,7 +1594,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final activelySelling = _isSelling;
 
     // While a sale waits on a live game's in-play delay, the line over
-    // the CTA says why it is taking a moment.
+    // the CTA says why it is taking a moment. Its place is kept from the
+    // start on a game in play, so the line appearing moves nothing.
     final delayNote = activelySelling &&
             !_matched &&
             _liveDelaySeconds > 0 &&
@@ -1608,7 +1608,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Selling is money coming out, so the ticket wears the red side the
     // same way the buy slip wears the outcome's colour: the whole subtree
     // is handed the tinted palette and every child that reads
-    // `context.colors` follows without knowing about it.
+    // `context.colors` follows without knowing about it (the tiles, the
+    // pill, Max, the Advanced box and the keypad on translucent white).
     //
     // Nothing inside the tinted subtree opens a sheet of its own. The
     // step-up PIN gate, the geoblock wall and the error snackbars are all
@@ -1618,6 +1619,31 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     const sideColor = AppColors.marketDown;
     final tc = sideTintPalette(c, sideColor);
 
+    // The sale's two figures, off the same fee curve the placement engine
+    // sizes with (polymarketFeeTermsProvider) and the cost basis the
+    // position screen reads: what the shares bring in after the fee, and
+    // the profit or loss of the shares sold against what they cost.
+    final gross = _sharesToSell * orderPrice;
+    final tokenId = pos.tokenId;
+    final feeTerms = tokenId == null || tokenId.isEmpty
+        ? null
+        : ref.watch(polymarketFeeTermsProvider(tokenId)).valueOrNull;
+    final double? fee = _sharesToSell <= 0
+        ? 0
+        : feeTerms == null || !(orderPrice > 0 && orderPrice < 1)
+            ? null
+            : feeTerms.platformFee(_sharesToSell, orderPrice) +
+                feeTerms.builderFee(_sharesToSell, orderPrice, taker: true);
+    final proceeds = math.max(0.0, gross - (fee ?? 0));
+    final costBasis = polymarketPositionCostBasis(ref, pos);
+    final costSold =
+        pos.size > 0 ? costBasis * (_sharesToSell / pos.size) : 0.0;
+    final pnl = _sharesToSell > 0 ? proceeds - costSold : 0.0;
+    final pnlPct = costSold > 0 ? pnl / costSold * 100 : 0.0;
+    // Green and red do not read on the red sheet: the sign carries the
+    // direction, in the sheet's ink.
+    final pnlColor = pnl.abs() < 0.005 ? tc.textSecondary : tc.textPrimary;
+
     final viewInsetBottom = MediaQuery.of(context).viewInsets.bottom;
 
     final form = Padding(
@@ -1626,32 +1652,25 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The sell ticket's side block: what is being sold, what it is
-          // worth right now. Inert, so it stays on the quietest step.
-          _buildPositionCard(tc, currentValue, livePnl, livePnlPct),
-          SizedBox(height: 8.h),
-          Text(
-            context.l10n.betAvgNowPrice(_formatPriceCompact(pos.avgPrice),
-                _formatPriceCompact(currentPrice)),
-            style: TextStyle(
-              color: tc.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
+          // What is held, in its colour: "You hold Up · 4.67 shares".
+          PositionSidePill(
+            key: const ValueKey('poly-sell-held'),
+            text: '${context.l10n.chartYouHold} ${pos.outcome} · '
+                '${context.l10n.betSharesCount(pos.size.toStringAsFixed(2))}',
+            color: tc.textPrimary,
+            up: polyOutcomeDirection(pos.outcome),
           ),
-          SizedBox(height: 22.h),
-          // One big typed figure, the share equivalent and the position's
-          // value underneath. There is no TextField on this step, so the
-          // OS keyboard never opens over the ticket; the pinned keypad
-          // below the form is the only way in.
+          SizedBox(height: 18.h),
+          // One big typed figure and one quiet line under it: what the
+          // position is worth now and its chance. There is no TextField on
+          // this step, so the OS keyboard never opens over the ticket; the
+          // pinned keypad below the form is the way in.
           BigAmountDisplay(
             prefix: polyDisplayLabel(ref),
             amountText: _amountController.text,
-            conversionLabel: _sharesToSell > 0
-                ? '≈ ${context.l10n.betSharesCount(_sharesToSell.toStringAsFixed(2))}'
-                : null,
             availableLabel:
-                '${context.l10n.available} ${formatPolyAmount(ref, currentValue)}',
+                '${context.l10n.betCurrentValue} ${formatPolyAmount(ref, currentValue)}'
+                ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}',
             availableExceeded: _amountUsdc > currentValue,
             // One small Max chip beside the figure, as on the buy slips:
             // it fills the whole position (every share), and brings that
@@ -1671,16 +1690,42 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   )
                 : null,
           ),
-          SizedBox(height: 24.h),
-          // The estimated fee, and nothing else (owner decision): no
-          // proceeds line before it and none after it.
-          PolymarketFeeSummary(
-              tokenId: pos.tokenId,
-              shares: _sharesToSell,
-              price: orderPrice,
-              bitcoinFirst: false,
-              limit: _isLimitMode),
-          SizedBox(height: 8.h),
+          SizedBox(height: 20.h),
+          // What the sale brings in after the fee, and its profit or loss,
+          // each on its own tile: the position screens' language.
+          PositionStatTiles(
+            left: PositionStatTile(
+              key: const ValueKey('poly-sell-proceeds'),
+              label: context.l10n.youReceive,
+              value: Text(
+                formatPolyAmount(ref, fee == null ? gross : proceeds),
+                maxLines: 1,
+                style: positionTileValueStyle(tc),
+              ),
+              caption: Text(
+                fee == null
+                    ? context.l10n.betSaleProceeds
+                    : '${context.l10n.fee} ${feeAmountText(ref, usd: fee, bitcoinFirst: false).primary}',
+                maxLines: 1,
+                style: positionTileCaptionStyle(tc),
+              ),
+            ),
+            right: PositionStatTile(
+              key: const ValueKey('poly-sell-pnl'),
+              label: context.l10n.portfolioProfitLoss,
+              value: Text(
+                '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
+                maxLines: 1,
+                style: positionTileValueStyle(tc, color: pnlColor),
+              ),
+              caption: Text(
+                '${pnlPct < 0 ? '' : '+'}${pnlPct.toStringAsFixed(1)}%',
+                maxLines: 1,
+                style: positionTileCaptionStyle(tc, color: pnlColor),
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
           PolySlipAdvancedRow(
             trailingText: _isLimitMode
                 ? context.l10n.betSlipLimitAt(
@@ -1716,54 +1761,62 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         child: SideTintedSubtree(
           side: sideColor,
           child: Container(
-            // Bottom-modal chrome — the buy slip's, to the pixel: the side
-            // colour as the fill, rounded-top corners, keyboard inset, max
-            // 92% screen height. Sized to content (mainAxisSize.min on the
-            // inner Column) so the sheet doesn't stretch to full screen.
-            padding: EdgeInsets.only(bottom: viewInsetBottom),
-            decoration: BoxDecoration(
-              color: sideColor,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-              border: Border(top: BorderSide(color: tc.border)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (MediaQuery.of(context).size.height * 0.92 -
-                          viewInsetBottom)
-                      .clamp(0.0, double.infinity),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PolySlipHeader(
-                      marketQuestion: pos.marketQuestion,
-                      marketImage: pos.marketImage,
-                    ),
-                    Flexible(
-                      child: SlipFormBody(
-                        expandForMessage: _sellFailed,
-                        form: IgnorePointer(
-                            ignoring: activelySelling, child: form),
-                        input: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w),
-                          child: AmountKeypad(
-                            value: _amountController.text,
-                            maxDecimals: 2,
-                            enabled: !_isSelling,
-                            onChanged: (v) => _amountController.text = v,
-                          ),
+          // Bottom-modal chrome — the buy slip's, to the pixel: the side
+          // colour as the fill, rounded-top corners, keyboard inset, max
+          // 92% screen height. Sized to content (mainAxisSize.min on the
+          // inner Column) so the sheet doesn't stretch to full screen.
+          padding: EdgeInsets.only(bottom: viewInsetBottom),
+          decoration: BoxDecoration(
+            color: sideColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            border: Border(top: BorderSide(color: tc.border)),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.of(context).size.height * 0.92 -
+                        viewInsetBottom)
+                    .clamp(0.0, double.infinity),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The buy slip's own header: the market's artwork, the
+                  // title (two lines at most) and the round close X.
+                  PolySlipHeader(
+                    marketQuestion: pos.marketQuestion,
+                    marketImage: pos.marketImage,
+                    maxLines: 2,
+                  ),
+                  Flexible(
+                    child: SlipFormBody(
+                      expandForMessage: _sellFailed,
+                      form: IgnorePointer(
+                          ignoring: activelySelling, child: form),
+                      input: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w),
+                        child: AmountKeypad(
+                          value: _amountController.text,
+                          maxDecimals: 2,
+                          enabled: !_isSelling,
+                          onChanged: (v) => _amountController.text = v,
                         ),
                       ),
                     ),
-                    // The greater of a comfortable gap and the system
-                    // inset, never both. See the buy slip's action row.
-                    if (delayNote != null)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
+                  ),
+                  if (_liveDelaySeconds > 0)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
+                      child: Visibility(
+                        visible: delayNote != null,
+                        maintainSize: true,
+                        maintainAnimation: true,
+                        maintainState: true,
                         child: Text(
-                          delayNote,
+                          delayNote ??
+                              context.l10n
+                                  .polyGameInPlayDelay('$_liveDelaySeconds'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: tc.textSecondary,
@@ -1772,130 +1825,56 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                           ),
                         ),
                       ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          20.w,
-                          8.h,
-                          20.w,
-                          math.max(
-                              16.h, MediaQuery.of(context).padding.bottom)),
-                      child: PolySlipCta(
-                        color: sideColor,
-                        isBusy: _isSelling,
-                        // Approval, sent, accepted, the venue's answer;
-                        // a snap into the receipt when it sold.
-                        bandProgress: _bandProgress,
-                        bandOutcome: _bandOutcome,
-                        // A market sell is answered in a second or two.
-                        bandExpected: const Duration(milliseconds: 1500),
-                        enabled:
-                            canSell && !_isSelling && _advancedBlock == null,
-                        onTap: _sellFailed ? _retrySell : _handleSell,
-                        // "Selling…" → "Sold · confirming" once it matched.
-                        busyLabel:
-                            _progressLabel ?? context.l10n.betSellingEllipsis,
-                        label: _sellFailed
-                            ? (_sellRetryPrice != null
-                                ? context.l10n.betRetryAtPrice(
-                                    polymarketCentsLabel(_sellRetryPrice!))
-                                : context.l10n.retry)
-                            : _isLimitMode
-                                ? (canSell
-                                    ? context.l10n.betPlaceLimitAtPrice(
-                                        '${(_limitPrice * 100).toStringAsFixed(1)}¢')
-                                    : context.l10n.betPlaceLimit)
-                                : (canSell
-                                    ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
-                                    : context.l10n.sell),
-                      ),
                     ),
-                  ],
-                ),
+                  // The greater of a comfortable gap and the system
+                  // inset, never both. See the buy slip's action row.
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        20.w,
+                        8.h,
+                        20.w,
+                        math.max(16.h, MediaQuery.of(context).padding.bottom)),
+                    // On the red sheet the button is the sheet's white
+                    // with dark letters (white buttons never take a
+                    // coloured label). The money stays in Predictions, so
+                    // there is no journey; the button carries the wait.
+                    child: PolySlipCta(
+                      color: sideColor,
+                      neutral: true,
+                      isBusy: _isSelling,
+                      // Approval, sent, accepted, the venue's answer;
+                      // a snap into the receipt when it sold.
+                      bandProgress: _bandProgress,
+                      bandOutcome: _bandOutcome,
+                      // A market sell is answered in a second or two.
+                      bandExpected: const Duration(milliseconds: 1500),
+                      enabled:
+                          canSell && !_isSelling && _advancedBlock == null,
+                      onTap: _sellFailed ? _retrySell : _handleSell,
+                      // "Selling…" → "Sold · confirming" once it matched.
+                      busyLabel:
+                          _progressLabel ?? context.l10n.betSellingEllipsis,
+                      label: _sellFailed
+                          ? (_sellRetryPrice != null
+                              ? context.l10n.betRetryAtPrice(
+                                  polymarketCentsLabel(_sellRetryPrice!))
+                              : context.l10n.retry)
+                          : _isLimitMode
+                              ? (canSell
+                                  ? context.l10n.betPlaceLimitAtPrice(
+                                      '${(_limitPrice * 100).toStringAsFixed(1)}¢')
+                                  : context.l10n.betPlaceLimit)
+                              : (canSell
+                                  ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
+                                  : context.l10n.sell),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  /// The sell ticket's side block. Mirrors the buy slip's selected-outcome
-  /// card: an inert identity panel stating what is being sold and what it
-  /// is worth, on the quietest tier of the tinted palette.
-  ///
-  /// The outcome pill is neutral here on purpose. The sheet's own red
-  /// already means "selling", so a second directional fill beside it (a
-  /// red NO pill on a red sheet) would both vanish and lie. The gain and
-  /// loss line keeps its sign, and reads through `success` / `error`,
-  /// which the tinted palette collapses onto the contrast ink.
-  Widget _buildPositionCard(AppColorsExtension c, double currentValue,
-      double livePnl, double livePnlPct) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  pos.outcome.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  context.l10n.betSharesCount(pos.size.toStringAsFixed(1)),
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                formatPolyAmount(ref, currentValue),
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
-                  letterSpacing: -0.3,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              SizedBox(height: 3.h),
-              Text(
-                '${livePnl >= 0 ? '+' : '-'}${formatPolyAmount(ref, livePnl.abs())} '
-                '${livePnlPct >= 0 ? '+' : ''}${livePnlPct.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  color: livePnl >= 0 ? c.success : c.error,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2027,9 +2006,8 @@ class _SellAdvancedResult {
 /// and read as one. The shared pieces now live in `slip_chrome.dart`, so
 /// the two pages cannot drift apart again.
 ///
-/// It is pushed as a full-screen dialog on the root navigator, so it sits
-/// ABOVE the sheet's `SideTintedSubtree` and keeps the app palette. Only
-/// sheets wear the side colour.
+/// It is pushed as a full-screen dialog on the root navigator, on the app
+/// palette.
 class _SellAdvancedScreen extends ConsumerStatefulWidget {
   const _SellAdvancedScreen({
     required this.position,

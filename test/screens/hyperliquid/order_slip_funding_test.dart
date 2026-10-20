@@ -1,6 +1,6 @@
 // A hot Investing ticket short of venue cash funds the order from Dollars:
 // the button is the order when Dollars cover the move (with the Move fee
-// in the fee rows), "Add $X to Investments" when they do not (its tap
+// in the fee rows), "Add $X · the order" when they do not (its tap
 // funds X from the spending bitcoin when it covers it, else opens the
 // Investments Receive sheet), and a Ledger ticket is not touched by any of
 // it. "Available" is the whole spendable Investments.
@@ -32,6 +32,7 @@ import 'package:kute/screens/hyperliquid/components/hl_error_copy.dart'
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
@@ -39,6 +40,7 @@ import 'package:kute/screens/shared/side_tint_palette.dart'
     show slipCtaLabelColor;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show
+        fundedOrderGraph,
         SlipFundingDecision,
         SlipFundingRoute,
         SpendingBitcoin,
@@ -48,6 +50,7 @@ import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
 import 'package:kute/services/one_balance/hyperliquid_move_rail.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/screens/shared/slip_shortfall.dart'
@@ -60,6 +63,10 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+
+/// The Dollars door: what is added, then the order placed right after it
+/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
+final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -126,6 +133,63 @@ class _Funded extends FundedOrdersNotifier {
   final List<FundedOrderRecord> records;
   @override
   List<FundedOrderRecord> build() => records;
+
+  /// The run moves on (or stops) while the ticket is open.
+  void put(List<FundedOrderRecord> next) => state = next;
+}
+
+/// An order of $20 whose $12 come from Bitcoin through Dollars (the
+/// venue holding the rest): the Bitcoin leg landed in Dollars, the move
+/// on into Investing running, or [stopped] there with the money in
+/// Investments.
+FundedOrderRecord _secondLeg({bool stopped = false}) {
+  var g = fundedOrderGraph(
+    venue: OneBalanceVenue.investing,
+    orderUsd: 20,
+    legs: const [
+      MoneyStep(
+          id: 'leg:bitcoin>dollars',
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.bitcoin,
+          to: MoneyPlace.dollars,
+          usd: 12),
+      MoneyStep(
+          id: 'leg:dollars:onward',
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.dollars,
+          usd: 12,
+          after: ['leg:bitcoin>dollars']),
+    ],
+  );
+  g = MoneyStepGraph([
+    for (final s in g.steps)
+      s.copyWith(
+          status: switch (s.id) {
+        'leg:bitcoin>dollars' => MoneyStepStatus.done,
+        'leg:dollars:onward' =>
+          stopped ? MoneyStepStatus.failed : MoneyStepStatus.running,
+        _ => s.status,
+      }),
+  ]);
+  return FundedOrderRecord(
+    id: 'fo_legs',
+    label: const FundedOrderLabel(
+      venue: OneBalanceVenue.investing,
+      orderUsd: 20,
+      side: 'Long',
+      market: 'BTC',
+      marketKey: 'BTC',
+    ),
+    stage: stopped ? FundedOrderStage.failed : FundedOrderStage.preparing,
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+    addUsd: 12,
+    btcRowIds: const {'q_btc'},
+    stoppedAt: stopped ? FundedOrderStage.preparing : null,
+    moneyAt: stopped ? FundedMoneyAt.investments : null,
+    reason: stopped ? 'timeout' : null,
+    steps: g,
+  );
 }
 
 FundedOrderRecord _btcRecord(FundedOrderStage stage,
@@ -316,7 +380,7 @@ void main() {
     expect(button.text, startsWith('Go Long BTC 1x'));
     expect(button.onPressed, isNotNull);
     expect(find.text('Deposit to invest'), findsNothing);
-    expect(find.textContaining('to Investments'), findsNothing);
+    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
     // The $20 order needs $20.24 at the venue; the route keeps ~0.1% and
     // the float: $21.27 leaves Dollars, $1.03 of it is the move.
     final row = _moveFeeRow(tester);
@@ -337,7 +401,7 @@ void main() {
   });
 
   testWidgets(
-      'Investments short of the move and no bitcoin: "Add X to Investments" '
+      'Investments short of the move and no bitcoin: "Add X · the order" '
       'opens the Investments Receive sheet, never the Move sheet',
       (tester) async {
     final doors = <(MoveLockedSide, double?)>[];
@@ -356,11 +420,11 @@ void main() {
     await _typeOnKeypad(tester, '20');
     final button = _button(tester);
     expect(button.text, startsWith('Add \$'));
-    expect(button.text, endsWith('to Investments'));
+    expect(button.text, _addThenOrder);
     expect(button.onPressed, isNotNull);
     // The $20.24 need plus the engine's safety buffer (2%, ≥ $0.25) lands,
     // so $21.68 has to leave Dollars; $5 are there.
-    expect(button.text, 'Add \$16.68 to Investments');
+    expect(button.text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
     expect(_moveFeeRow(tester).usd, closeTo(1.03, 0.011));
 
     await tester.tap(find.byType(AppButton));
@@ -384,7 +448,7 @@ void main() {
     sheet.complete();
     await _frames(tester, 3);
     expect(_button(tester).onPressed, isNotNull);
-    expect(_button(tester).text, 'Add \$16.68 to Investments');
+    expect(_button(tester).text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -400,37 +464,40 @@ void main() {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
     expect(door.text, startsWith('Add \$'));
-    expect(door.text, endsWith('to Investments'));
+    expect(door.text, _addThenOrder);
     expect(door.onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets(
       'nothing typed, venue cash under the minimum and no Dollars: '
-      '"Add \$X to Investments" from the start, the one action',
+      '"Add \$X · the order" from the start, the one action',
       (tester) async {
     await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
     expect(door.text, startsWith('Add \$'));
-    expect(door.text, endsWith('to Investments'));
+    expect(door.text, _addThenOrder);
     expect(door.onPressed, isNotNull);
-    expect(find.textContaining('Go Long'), findsNothing);
+    // The one action names both deeds: the add, then the minimum order.
+    expect(door.text, endsWith(r'Go Long BTC 1x · $10.26'));
+    expect(find.textContaining('Go Long'), findsOneWidget);
     expect(find.byType(AppButton), findsOneWidget);
-    expect(find.textContaining('to Investments'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
     // The bet slip letters its button the same way (see
-    // bet_slip_deposit_door_loading_test): the trade in its side colour on
-    // the sheet's white ink, the "Add $X to Investments" door in black.
-    testWidgets('$mode: the door contrasts with its fill, the order wears '
-        'its side', (tester) async {
+    // bet_slip_deposit_door_loading_test): on the sheet's white ink the
+    // trade and the "Add $X · …" door are both lettered dark, never in
+    // the side colour (founder decision).
+    testWidgets('$mode: the door contrasts with its fill, the order is '
+        'dark too', (tester) async {
       await _pumpSlip(tester,
           venueUsd: 0, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, endsWith('to Investments'));
+      expect(_button(tester).text, _addThenOrder);
       expect(_buttonLabelColor(tester), Colors.black);
       expect(
           _buttonLabelColor(tester),
@@ -442,7 +509,8 @@ void main() {
           venueUsd: 500, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
       expect(_button(tester).text, startsWith('Go Long BTC 1x'));
-      expect(_buttonLabelColor(tester), AppColors.marketUp);
+      // Dark on the white button, never the side colour (founder).
+      expect(_buttonLabelColor(tester), Colors.black);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
@@ -604,8 +672,8 @@ void main() {
     });
 
     testWidgets(
-        'refused once the money landed: the failed step and that the money '
-        'is in Investing, never a second notice', (tester) async {
+        'refused once the money landed: the ticket as it was, and that the '
+        'money is in Investing, said once', (tester) async {
       await _pumpSlip(tester,
           venueUsd: 0,
           dollarsUsd: 100,
@@ -617,17 +685,109 @@ void main() {
                 reason: 'placement',
                 message: 'Order rejected.')
           ]);
-      expect(find.byKey(const ValueKey('slip-funding-step-failed-1')),
-          findsOneWidget);
+      // The plain ticket comes back as it was: no journey, the stop said
+      // once in the notice, the figures, Advanced and the keypad there.
+      expect(find.byType(SlipFundingSteps), findsNothing);
       expect(
           find.text(r'Order rejected. Your $20.00 is in Investing. '
               'Tap to try again.'),
           findsOneWidget);
-      expect(find.byType(HlTradeErrorNotice), findsNothing);
+      expect(find.byType(HlTradeErrorNotice), findsOneWidget);
+      expect(find.byKey(const ValueKey('order-slip-funded-stop')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('order-slip-size-tile')),
+          findsOneWidget);
+      expect(find.text('Advanced'), findsOneWidget);
+      expect(find.byType(AmountKeypad), findsOneWidget);
       expect(_button(tester).isLoading, isFalse);
       await _frames(tester, 20);
       expect(band(tester).stretch, 0);
       expect(band(tester).ticking, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'while the money moves: the order rolls up on top, the '
+        'journey under it; a stop mid second leg brings the typed ticket '
+        'back', (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 8, dollarsUsd: 0, rail: rail, funded: const []);
+      await _typeOnKeypad(tester, '20');
+      final funded = ProviderScope.containerOf(
+              tester.element(find.byType(HlOrderSlipSheet)))
+          .read(fundedOrdersProvider.notifier) as _Funded;
+      funded.put([_secondLeg()]);
+      await _frames(tester);
+      // The top: the order as one big number, from what Investing holds,
+      // its line under it; the side and the figures fold away for the
+      // journey.
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+      expect(find.text(r'$8.00'), findsOneWidget);
+      expect(find.text('Long BTC · Market order'), findsOneWidget);
+      expect(find.byType(MarketSideToggle), findsNothing);
+      expect(find.byType(SlipFundingSteps), findsOneWidget);
+      expect(find.text(r'$8.00 from Investing + $12.00 from Bitcoin'),
+          findsOneWidget);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byKey(const ValueKey('order-slip-size-tile')), findsNothing);
+      expect(find.text('Advanced'), findsNothing);
+
+      // The second leg lands: the figure rolls up to the whole order.
+      funded.put([
+        _secondLeg().copyWith(
+            steps: MoneyStepGraph([
+          for (final s in _secondLeg().steps.steps)
+            s.id == 'leg:dollars:onward'
+                ? s.copyWith(status: MoneyStepStatus.done)
+                : s,
+        ]))
+      ]);
+      await _frames(tester);
+      expect(find.text(r'$20.00'), findsOneWidget);
+
+      // Stopped mid second leg: the ticket comes back exactly as typed.
+      funded.put([_secondLeg(stopped: true)]);
+      await _frames(tester);
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsNothing);
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      expect(
+          tester
+              .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+              .amountText,
+          '20');
+      expect(find.byKey(const ValueKey('order-slip-size-tile')),
+          findsOneWidget);
+      expect(find.text('Advanced'), findsOneWidget);
+      expect(find.byType(AmountKeypad), findsOneWidget);
+      expect(find.byKey(const ValueKey('order-slip-funded-stop')),
+          findsOneWidget);
+      expect(find.textContaining('is in Investments'), findsOneWidget);
+      expect(find.byType(MarketSideToggle), findsOneWidget);
+      // The button is the same order again, said so.
+      expect(_button(tester).text, startsWith('Try again · '));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+        'after a stop with the money in Investing: "Try again" is the same '
+        'order on the money already there, nothing added or moved',
+        (tester) async {
+      await _pumpSlip(tester,
+          venueUsd: 500,
+          dollarsUsd: 0,
+          rail: rail,
+          funded: [
+            _fundedOrder(FundedOrderStage.failed,
+                stoppedAt: FundedOrderStage.placing,
+                moneyAt: FundedMoneyAt.venue,
+                reason: 'placement',
+                message: 'Order rejected.')
+          ]);
+      // Nothing typed: the minimum order, again.
+      expect(_button(tester).text, r'Try again · Go Long BTC 1x · $10.26');
+      expect(_button(tester).onPressed, isNotNull);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
+      expect(rail.deposits, isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -744,7 +904,7 @@ void main() {
       debugFreshSpendingBitcoin = () => fresh.future;
       await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, 'Add \$16.68 to Investments');
+      expect(_button(tester).text, 'Add \$16.68 · Go Long BTC 1x · \$20.00');
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
@@ -809,7 +969,7 @@ void main() {
     final button = _button(tester);
     expect(button.text, startsWith('Go Long BTC'));
     expect(button.onPressed, isNotNull);
-    expect(find.textContaining('to Investments'), findsNothing);
+    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
     // Most of the $30.49, less the move's and the order's costs.
     final margin = double.parse(button.text.split(r'$').last);
     expect(margin, greaterThan(25));

@@ -1,6 +1,6 @@
 // The Investing close sheet carries the buy slips' one small Max beside
-// the figure. The sheet opens on the whole position; after an edit Max
-// fills the whole position again.
+// the figure, typed in dollars on its own keypad. The sheet opens on the
+// whole position; after an edit Max fills the whole position again.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +17,9 @@ import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/hyperliquid/components/close_position_sheet.dart';
+import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
@@ -128,22 +130,34 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // The buy slips' header: the coin, the title and the round close X;
+    // no leverage chip (the pill under it names the side and size).
+    expect(find.byType(PolySlipHeader), findsOneWidget);
+    expect(find.text('Close BTC'), findsOneWidget);
+    expect(find.byType(KuteCloseButton), findsOneWidget);
+    expect(find.text('5x'), findsNothing);
+    expect(find.text('Long · 0.5 BTC'), findsOneWidget);
+
     final hero = find.byType(BigAmountDisplay);
     final max = find.descendant(of: hero, matching: find.byType(AmountMaxChip));
     expect(max, findsOneWidget);
-    // Opens on the whole position.
+    // Opens on the whole position, in dollars: 0.5 BTC at 66,000.
     final whole = _typed(tester);
-    expect(double.parse(whole), 0.5);
+    expect(whole, '33000');
 
     final pad = find.byType(AmountKeypad);
     await tester.tap(find.descendant(
         of: pad, matching: find.byIcon(Icons.backspace_rounded)));
     await tester.pump();
-    expect(_typed(tester), isNot(whole));
+
+    // 3300 dollars of 33000 is a tenth of the position.
+    expect(_typed(tester), '3300');
+    expect(find.text('Close 10% now'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Use maximum'));
     await tester.pump();
     expect(_typed(tester), whole);
+    expect(find.text('Close 100% now'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -10618,6 +10618,33 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Přidat $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Do minima chybí $amount';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Navyšuje tvůj Long',
+        'other': 'Navyšuje tvůj Short',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · vyplatí $amount při výhře';
+  }
+
+  @override
   String get slipMoveFee => 'Move fee';
 
   @override

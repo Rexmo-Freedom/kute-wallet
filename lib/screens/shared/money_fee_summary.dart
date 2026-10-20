@@ -7,6 +7,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show positionTileCaptionStyle, positionTileValueStyle;
 import 'package:kute/theme/app_theme.dart';
 
 /// The app's Bitcoin price in USD, for display-only unit bridging. Null while
@@ -111,6 +113,26 @@ class MoneyFeeCaption extends InheritedWidget {
       enabled != oldWidget.enabled;
 }
 
+/// Turns every [MoneyFeeSummary] below it into the figure of a slip's
+/// stat tile ([PositionStatTile]'s look): the label, the fee large, "—"
+/// until there is one (no amount yet, no funds), and the state that stands
+/// in for it on a quiet line under the dash. The breakdown still opens on
+/// a tap, as ordinary rows under the figure. The buy slips set it on their
+/// fee tile.
+class MoneyFeeTile extends InheritedWidget {
+  const MoneyFeeTile({super.key, this.enabled = true, required super.child});
+
+  final bool enabled;
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MoneyFeeTile>()?.enabled ??
+      false;
+
+  @override
+  bool updateShouldNotify(MoneyFeeTile oldWidget) =>
+      enabled != oldWidget.enabled;
+}
+
 /// States the caption leaves unsaid: there is no fee to speak of yet,
 /// and the screen already says why (the amount is zero, the button reads
 /// "Add funds", the source row names the shortfall).
@@ -170,6 +192,9 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
             (widget.note != null || amount.secondary != null));
     if (MoneyFeeCaption.of(context)) {
       return _caption(context, amount, canExpand);
+    }
+    if (MoneyFeeTile.of(context)) {
+      return _tile(context, amount, canExpand);
     }
     final loading = widget.state == 'Calculating…';
     final label = Text(feeCopy(context, widget.label),
@@ -257,6 +282,121 @@ class _MoneyFeeSummaryState extends ConsumerState<MoneyFeeSummary> {
             child: Text(feeCopy(context, widget.note!),
                 style: TextStyle(
                     color: c.textSecondary, fontSize: 13.sp, height: 1.4)),
+          ),
+      ],
+    );
+  }
+
+  /// The tile form ([MoneyFeeTile]): the label, the fee large (a dash
+  /// while there is none yet), and under the dash the state standing in
+  /// for it. A tap opens the same breakdown the row does, as rows.
+  Widget _tile(BuildContext context,
+      ({String primary, String? secondary}) amount, bool canExpand) {
+    final c = context.colors;
+    final state = widget.state;
+    final silent = state != null && _captionSilentStates.contains(state);
+    final caption = state == null || silent ? null : feeCopy(context, state);
+    final head = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Flexible(
+            child: Text(
+              feeCopy(context, widget.label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textTertiary,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ),
+          if (canExpand)
+            Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: 16.sp,
+                color: c.textTertiary),
+        ]),
+        SizedBox(height: 4.h),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            state == null ? amount.primary : '—',
+            maxLines: 1,
+            style: positionTileValueStyle(c),
+          ),
+        ),
+        if (caption != null) ...[
+          SizedBox(height: 4.h),
+          Row(children: [
+            Flexible(
+              child: Text(caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: positionTileCaptionStyle(c)),
+            ),
+            if (widget.onRetry != null) ...[
+              SizedBox(width: 8.w),
+              InkWell(
+                borderRadius: BorderRadius.circular(8.r),
+                onTap: widget.onRetry,
+                child: Text(context.l10n.retry,
+                    style: positionTileCaptionStyle(c, color: c.textPrimary)),
+              ),
+            ],
+          ]),
+        ],
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (canExpand)
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8.r),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: head,
+            ),
+          )
+        else
+          head,
+        if (canExpand && _expanded)
+          // The breakdown is ordinary rows, not tiles in a tile.
+          MoneyFeeTile(
+            enabled: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (amount.secondary != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: 8.h),
+                    child: Text(amount.secondary!,
+                        style: TextStyle(
+                            color: c.textSecondary, fontSize: 13.sp)),
+                  ),
+                ...widget.details,
+                if (widget.note != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 4.h),
+                    child: Text(feeCopy(context, widget.note!),
+                        style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 13.sp,
+                            height: 1.4)),
+                  ),
+              ],
+            ),
           ),
       ],
     );

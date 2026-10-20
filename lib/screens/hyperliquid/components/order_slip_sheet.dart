@@ -105,6 +105,11 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart'
     show showLedgerConfirmation;
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTiles;
+import 'package:kute/screens/shared/money_fee_summary.dart'
+    show MoneyFeeTile;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
@@ -4600,6 +4605,63 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
 
+    // A Bitcoin-funded order for this market on its way (this ticket's,
+    // or one started before it was reopened): the steps, one busy button.
+    final fundedOrders = _isLedger
+        ? const <FundedOrderRecord>[]
+        : ref.watch(fundedOrdersProvider);
+    // A funded order for this market (from Bitcoin, Dollars, Predictions
+    // or any mix): its steps from the approval to the end; a stop keeps
+    // them, the failed step marked, the button the order again.
+    final funded = _fundedProgress(fundedOrders);
+    final fundedSteps = funded == null ? null : _fundingSteps(funded.record);
+    final fundedRunning = funded != null && !funded.failed;
+    // The plain ticket: while the money moves the order itself takes the
+    // amount's place, one big number rolling up from what Investing holds
+    // to the order as each leg lands, and the journey the figures' (they,
+    // the side and the keypad fold away). A stop brings the ticket back as
+    // it was typed, the stop told in one notice, the button the same order
+    // again ("Try again · Go Long …").
+    final journeyShown = !advanced && fundedRunning;
+    final fundedJourney = funded == null
+        ? null
+        : SlipFundingSteps(
+            steps: fundedSteps!,
+            active: funded.active,
+            slow: funded.record.slow,
+            failed: funded.failed,
+            graph: funded.record.steps,
+            money: formatHlUsd,
+            from: funded.record.fromBitcoin
+                ? MoneyPlace.bitcoin
+                : MoneyPlace.dollars,
+            to: MoneyPlace.investing,
+            note: funded.failed
+                ? fundedStopLine(_strings, funded.record, formatHlUsd)
+                : null,
+          );
+    // The hot ticket's Dollars door with nothing typed: Investments cannot
+    // cover even the minimum order, said once under the amount.
+    final doorShort = !_isLedger &&
+        canDeposit &&
+        !canFundFromDollars &&
+        !incoming &&
+        funded == null &&
+        openBlock == null &&
+        dollarsShort > 0;
+    // What the order does to a position already held here: adding to it
+    // is a small pill; reducing, closing or flipping it stays a line.
+    final addsToHeld = !isSpot && netPlan.effect == HlPositionEffect.add;
+    // The line names the real gap to the minimum; the button names the
+    // top-up the route actually needs ("Add $2.05 · …").
+    final minimumGap = minAmountUsd - shownAvailable;
+    final String? amountNote =
+        doorShort && _marginUsd <= 0 && balanceKnown && minimumGap >= 0.005
+            ? _strings.slipShortOfMinimum(formatHlUsd(minimumGap))
+            : addsToHeld
+                ? null
+                : _positionNote(netPlan);
+
     // While the order is in flight the ticket STAYS. It used to be
     // replaced by a centered card, so the moment someone committed money
     // the numbers they had just checked vanished and a box appeared in
@@ -4615,10 +4677,45 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         children: [
           // Side switch, the Long/Short twin of the bet slip's Yes/No
           // (user decision). The +$ quick-amount row is gone.
-          if (!isSpot) ...[
-            _buildSideToggle(),
-            SizedBox(height: 16.h),
-          ],
+          // While the money moves the side is settled: it folds away with
+          // the rest, the order's line says it.
+          if (!isSpot)
+            FoldAway(
+              folded: journeyShown,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [_buildSideToggle(), SizedBox(height: 16.h)],
+              ),
+            ),
+          if (!advanced)
+            ArrivalSwitcher(
+              state: journeyShown,
+              child: journeyShown
+                  ? SlipOrderFigure(
+                      venue: OneBalanceVenue.investing,
+                      record: funded.record,
+                      orderUsd: _marginUsd,
+                      money: formatHlUsd,
+                      orderLine:
+                          '${_sideWord()} ${market.coin} · ${_orderTypeName()}',
+                    )
+                  : _buildAmountField(c, available,
+                      shownAvailableUsd: shownAvailable,
+                      balanceKnown: balanceKnown,
+                      maxUsdOverride: fundedMaxUsd,
+                      keypad: true,
+                      // Against a held position only a flip has a minimum.
+                      minAmountUsd: _reduceOnly ||
+                              _isScale ||
+                              (netPlan.opposes &&
+                                  netPlan.effect != HlPositionEffect.flip)
+                          ? null
+                          : minAmountUsd,
+                      belowMinimum: belowMin,
+                      positionNote: amountNote),
+            )
+          else
           _buildAmountField(c, available,
               shownAvailableUsd: shownAvailable,
               balanceKnown: balanceKnown,
@@ -4633,7 +4730,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   : minAmountUsd,
               belowMinimum: belowMin,
               positionNote: _positionNote(netPlan)),
-          SizedBox(height: 20.h),
+          if (!advanced && addsToHeld && !journeyShown) ...[
+            SizedBox(height: 10.h),
+            SlipPositionPill(
+              long: netPlan.heldSide == 'long',
+              text: _strings.slipAddsToYourPosition(netPlan.heldSide),
+            ),
+          ],
+          if (advanced) SizedBox(height: 20.h),
           if (advanced)
             ..._buildAdvancedSections(
               c,
@@ -4646,17 +4750,37 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               hasFunds: available > 0 || _reduceOnly,
             )
           else ...[
-            _buildEssentialSummary(
-              c,
-              notional,
-              transferFromPerp,
-              hasFunds: available > 0 || _reduceOnly,
-              explain: false,
-              entry: entry,
-              size: size,
+            // The figures (and the Advanced row) give their room to the
+            // money's journey while it runs.
+            FoldAway(
+              folded: journeyShown,
+              child: Padding(
+                padding: EdgeInsets.only(top: 20.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCompactSummary(
+                      c,
+                      notional,
+                      transferFromPerp,
+                      hasFunds: available > 0 || _reduceOnly,
+                      entry: entry,
+                      size: size,
+                    ),
+                    SizedBox(height: 16.h),
+                    _buildAdvancedEntry(c),
+                  ],
+                ),
+              ),
             ),
-            SizedBox(height: 16.h),
-            _buildAdvancedEntry(c),
+            SlipJourney(
+              steps: journeyShown ? fundedJourney : null,
+              line: journeyShown
+                  ? slipFundingSourcesLine(
+                      context.l10n, funded.record, formatHlUsd)
+                  : null,
+            ),
           ],
 
           if (oiCapped) ...[
@@ -4721,13 +4845,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   color: c.textSecondary, fontSize: 13.sp, height: 1.4),
             ),
           ],
-          // A funded order's stop is told in its steps: never twice.
-          if (_errorText != null &&
-              !(_isLedger
-                  ? false
-                  : _fundedProgress(ref.watch(fundedOrdersProvider))
-                          ?.failed ??
-                      false)) ...[
+          // A funded order's stop: on the Advanced page it is told in its
+          // steps under the button, never twice; the plain ticket comes
+          // back as it was typed with the same words in this one notice.
+          if (!advanced && funded != null && funded.failed) ...[
+            SizedBox(height: 10.h),
+            HlTradeErrorNotice(
+              key: const ValueKey('order-slip-funded-stop'),
+              message: fundedStopLine(_strings, funded.record, formatHlUsd),
+            ),
+          ] else if (_errorText != null && !(funded?.failed ?? false)) ...[
             SizedBox(height: 10.h),
             HlTradeErrorNotice(message: _errorText!, error: _errorCause),
           ],
@@ -4744,17 +4871,6 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final bool primaryNeutral;
     // What the button is, for its cross-fade (presentation only).
     final String primaryKind;
-    // A Bitcoin-funded order for this market on its way (this ticket's,
-    // or one started before it was reopened): the steps, one busy button.
-    final fundedOrders = _isLedger
-        ? const <FundedOrderRecord>[]
-        : ref.watch(fundedOrdersProvider);
-    // A funded order for this market (from Bitcoin, Dollars, Predictions
-    // or any mix): its steps from the approval to the end; a stop keeps
-    // them, the failed step marked, the button the order again.
-    final funded = _fundedProgress(fundedOrders);
-    final fundedSteps = funded == null ? null : _fundingSteps(funded.record);
-    final fundedRunning = funded != null && !funded.failed;
     // The busy button's words while its money moves (or it just placed).
     final bitcoinStep = fundedRunning
         ? fundedSteps![funded.active.clamp(0, fundedSteps.length - 1)]
@@ -4819,10 +4935,24 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryKind = 'deposit';
       // With no amount to name yet (nothing typed on a limit ticket, or a
       // shut door), the hot ticket still says where the money goes.
+      // The button names both deeds: what is added, then the order placed
+      // right after it ("Add $1.00 · Go Long ETH 1x · $10.14"), at the
+      // amount typed, or the minimum an empty ticket places.
+      final placedUsd = _marginUsd > 0
+          ? _marginUsd
+          : placesMinimum
+              ? minAmountUsd
+              : null;
       primaryLabel = _isLedger
           ? context.l10n.depositToTrade
           : dollarsShort > 0
-              ? context.l10n.slipAddToInvestments(formatHlUsd(dollarsShort))
+              ? placedUsd != null
+                  ? context.l10n.slipAddThenOrder(
+                      formatHlUsd(dollarsShort),
+                      _positionCtaLabel(netPlan, amountUsd: placedUsd) ??
+                          _ctaLabel(amountUsd: placedUsd))
+                  : context.l10n
+                      .slipAddToInvestments(formatHlUsd(dollarsShort))
               : context.l10n.addMoneyToInvestments;
       // Funding a position that cannot be opened here would only strand
       // the money, so the door shuts with the open gate too.
@@ -4963,7 +5093,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 label: bitcoinStep,
                 liveRegion: bitcoinStep != null,
                 child: AppButton(
-                text: primaryLabel,
+                // After a stop the same order again, said so; it draws on
+                // the money already moved (Available counts it), adding
+                // only what is still missing.
+                text: funded != null &&
+                        funded.failed &&
+                        !belowMin &&
+                        (primaryKind == 'trade' || primaryKind == 'deposit')
+                    ? '${_strings.walletsTryAgain} · $primaryLabel'
+                    : primaryLabel,
                 onPressed: primaryAction,
                 isLoading: _ledgerBusy ||
                     _checkingConnection ||
@@ -4988,35 +5126,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                                 ? context.l10n.slipStepPreparingOrder
                                 : null),
                 color: c.textPrimary,
-                // The one label rule the bet slip's button reads too.
+                // Dark on the white button, the trade too (founder
+                // decision): never lettered in the side colour. The bet
+                // slip's button reads the same.
                 textColor: slipCtaLabelColor(
-                    fill: c.textPrimary,
-                    side: sideColor,
-                    neutral: primaryNeutral),
+                    fill: c.textPrimary, side: sideColor, neutral: true),
                 fontWeight: FontWeight.w800,
               ),
               ),
             ),
           ),
-          // The steps grow in under the button (the keypad folds away
-          // for them), never popping in.
+          // On the Advanced page the steps grow in under the button; the
+          // plain ticket shows them at the top, where its figures were.
           StepsReveal(
-            child: funded != null
-                ? SlipFundingSteps(
-                    steps: fundedSteps!,
-                    active: funded.active,
-                    slow: funded.record.slow,
-                    failed: funded.failed,
-                    graph: funded.record.steps,
-                    money: formatHlUsd,
-                    from: funded.record.fromBitcoin
-                        ? MoneyPlace.bitcoin
-                        : MoneyPlace.dollars,
-                    to: MoneyPlace.investing,
-                    note: funded.failed
-                        ? fundedStopLine(_strings, funded.record, formatHlUsd)
-                        : null,
-                  )
+            child: advanced && fundedJourney != null
+                ? fundedJourney
                 : incoming
                     ? SlipIncomingDepositNote(
                         onAddMore: funding.state ==
@@ -5076,7 +5200,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                   // amount cannot change: the keypad folds away and the
                   // steps take its room. A stop brings it back.
                   input: FoldAway(
-                    folded: funded != null && !funded.failed,
+                    folded: journeyShown,
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20.w),
                       child: IgnorePointer(
@@ -5223,14 +5347,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _postOnly ||
       _slippagePct != 1.0;
 
+  /// The order's type in words ("Market order", "Limit order", "TWAP").
+  String _orderTypeName() => switch (_mode) {
+        _OrderMode.market => _strings.slipMarketOrder,
+        _OrderMode.limit => _strings.slipLimitOrder,
+        _OrderMode.pro => _proTypeLabel(),
+      };
+
   String _advancedSummary() {
-    final type = switch (_mode) {
-      _OrderMode.market => _strings.slipMarketOrder,
-      _OrderMode.limit => _strings.slipLimitOrder,
-      _OrderMode.pro => _proTypeLabel(),
-    };
     return [
-      type,
+      _orderTypeName(),
       if (_reduceOnly) _strings.slipReduceOnly,
       if (_attachTpSl) _strings.slipTakeProfitStopLoss,
       if (_attachTrailing) _strings.investingTrailingStop,
@@ -6369,30 +6495,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ],
           SizedBox(height: 12.h),
         ],
-        HyperliquidFeeSummary(
-          notional: notional,
-          spot: isSpot,
-          buy: _isLong,
-          maker: _mode == _OrderMode.limit && _postOnly,
-          builder: !_isTwap,
-          dex: market.dex,
-          hasFunds: hasFunds || _canFundFromDollars,
-          // The Ledger account's own fee tier, never the hot account's.
-          address: _isLedger ? _ledgerAddress : null,
-          useHotAccount: !_isLedger,
-          // What moving the shortfall from Dollars costs (the route's fee),
-          // inside the one fee row: added to the total, one "Move fee"
-          // detail. Only while the order needs the move.
-          moveFeeUsd: _slipShortfallUsd > 0 &&
-                  _fundPlan != null &&
-                  (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() < 0.005
-              ? _fundPlan!.moveFeeUsd
-              : null,
-          moveFeeLabel: _strings.slipMoveFee,
-          moveFeePending: _slipShortfallUsd > 0 &&
-              (_fundPlan == null ||
-                  (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
-        ),
+        _feeSummary(notional, hasFunds: hasFunds),
         // What this order will actually do, in one plain sentence, so the
         // type picked in Advanced is never a mystery at the button.
         if (explain) ...[
@@ -6408,6 +6511,106 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           Text(
             context.l10n
                 .investingFundingFromBalance(formatHlUsd(transferFromPerp)),
+            style:
+                TextStyle(fontSize: 14.sp, color: c.textSecondary, height: 1.4),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// The order's fee: the venue's and Kute's, plus what moving the
+  /// shortfall costs while the order needs the move.
+  Widget _feeSummary(double notional, {required bool hasFunds}) =>
+      HyperliquidFeeSummary(
+        notional: notional,
+        spot: isSpot,
+        buy: _isLong,
+        maker: _mode == _OrderMode.limit && _postOnly,
+        builder: !_isTwap,
+        dex: market.dex,
+        hasFunds: hasFunds || _canFundFromDollars,
+        // The Ledger account's own fee tier, never the hot account's.
+        address: _isLedger ? _ledgerAddress : null,
+        useHotAccount: !_isLedger,
+        // What moving the shortfall from Dollars costs (the route's fee),
+        // inside the one fee row: added to the total, one "Move fee"
+        // detail. Only while the order needs the move.
+        moveFeeUsd: _slipShortfallUsd > 0 &&
+                _fundPlan != null &&
+                (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() < 0.005
+            ? _fundPlan!.moveFeeUsd
+            : null,
+        moveFeeLabel: _strings.slipMoveFee,
+        moveFeePending: _slipShortfallUsd > 0 &&
+            (_fundPlan == null ||
+                (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
+      );
+
+  /// The plain ticket's figures, the position screens' tiles on the
+  /// slip's tint: what the order buys (the size in the coin, its dollars
+  /// under it) and its fee, a dash in each until an amount is typed. The
+  /// leverage and margin mode live in Advanced (leverage is 1× here);
+  /// the liquidation estimate and the carrying cost stay as quiet rows
+  /// under the tiles when they apply.
+  Widget _buildCompactSummary(
+    AppColorsExtension c,
+    double notional,
+    double transferFromPerp, {
+    required bool hasFunds,
+    double entry = 0,
+    double size = 0,
+  }) {
+    final holdingCost = _holdingCostLine(notional);
+    final liq = !isSpot && _isOpening && entry > 0 && _marginUsd > 0
+        ? _liquidationEstimate(entry, size)
+        : (price: null, blocker: null);
+    final sized = _marginUsd > 0 && size > 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PositionStatTiles(
+          left: SlipStatTile(
+            key: const ValueKey('order-slip-size-tile'),
+            label: isSpot
+                ? _strings.ledgerSummarySize
+                : _strings.chartPositionSize,
+            value: sized ? '${formatHlSize(size)} ${market.coin}' : null,
+            caption: sized ? '≈ ${formatHlUsd(notional)}' : null,
+          ),
+          right: SlipTileFrame(
+            key: const ValueKey('order-slip-fee-tile'),
+            child: MoneyFeeTile(
+                child: _feeSummary(notional, hasFunds: hasFunds)),
+          ),
+        ),
+        if (!isSpot && _leverage > 1) ...[
+          SizedBox(height: 12.h),
+          _previewRow(c, _strings.slipPositionValue, formatHlUsd(notional)),
+        ],
+        if (liq.price != null || liq.blocker != null) ...[
+          SizedBox(height: 12.h),
+          _previewRow(
+            c,
+            _strings.slipEstLiquidation,
+            liq.price != null
+                ? formatHlPrice(liq.price!, decimalCap: market.pxDecimalCap)
+                : liq.blocker!,
+          ),
+        ],
+        if (!isSpot && holdingCost != null) ...[
+          SizedBox(height: 10.h),
+          Text(
+            holdingCost,
+            style:
+                TextStyle(fontSize: 13.sp, color: c.textSecondary, height: 1.4),
+          ),
+        ],
+        if (transferFromPerp > 0) ...[
+          SizedBox(height: 10.h),
+          Text(
+            _strings.investingFundingFromBalance(formatHlUsd(transferFromPerp)),
             style:
                 TextStyle(fontSize: 14.sp, color: c.textSecondary, height: 1.4),
           ),

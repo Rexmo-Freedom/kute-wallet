@@ -84,6 +84,15 @@ PolyChanceBarSpec polyPositionChanceBarSpec({
   return (value: p, left: color, right: null, tick: b, held: color);
 }
 
+/// The direction a held [outcome] points: true for Yes / Up, false for
+/// No / Down, null for any other outcome (a team, a draw).
+bool? polyOutcomeDirection(String outcome) =>
+    switch (outcome.trim().toLowerCase()) {
+      'yes' || 'up' => true,
+      'no' || 'down' => false,
+      _ => null,
+    };
+
 /// The held token's chance the bar shows: the live (or last) price while
 /// the market is open; once resolved, all or nothing by the result.
 double polyPositionBarChance(PolymarketPosition pos, double currentPrice) {

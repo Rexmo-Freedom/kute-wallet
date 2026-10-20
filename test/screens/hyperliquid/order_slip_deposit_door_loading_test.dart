@@ -1,6 +1,6 @@
 // The order slip's one button while it cannot know yet what it should be:
 // the Investing account not read yet ("Loading your account..."); and, once
-// read empty with no Dollars to fund the order, the "Add $X to Investments"
+// read empty with no Dollars to fund the order, the "Add $X · the order"
 // door, which with no bitcoin to cover X opens the Investments Receive
 // sheet, one sheet at a time.
 import 'dart:async';
@@ -35,6 +35,10 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+
+/// The Dollars door: what is added, then the order placed right after it
+/// ("Add \$X · Place \$Y on Yes", "Add \$X · Go Long BTC 1x · \$Y").
+final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -218,11 +222,11 @@ void main() {
         (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(find.textContaining('to Investments'), findsNothing);
+      expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
       account.complete(_snapshot(0));
       await _frames(tester);
       expect(_button(tester).text, startsWith('Add \$'));
-      expect(_button(tester).text, endsWith('to Investments'));
+      expect(_button(tester).text, _addThenOrder);
       expect(_button(tester).isLoading, isFalse);
       expect(_button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());

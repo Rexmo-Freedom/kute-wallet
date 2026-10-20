@@ -116,6 +116,27 @@ double hyperliquidKuteFeeUsd(HyperliquidFeeLeg leg,
       userFees: fees);
 }
 
+/// The whole fee [HyperliquidFeeSummary] shows for one order (the Kute fee
+/// plus the exchange's), watched from the same providers, for a screen
+/// that states it beside another figure (the close sheet's "You
+/// receive"). 0 with no order; null while either part is unknown.
+double? watchHyperliquidOrderFeeUsd(WidgetRef ref, HyperliquidFeeLeg leg,
+    {String? address, bool useHotAccount = true, bool builder = true}) {
+  if (!leg.notional.isFinite || leg.notional <= 0) return 0;
+  final owner = address ??
+      (useHotAccount ? ref.watch(hyperliquidAddressProvider).valueOrNull : null);
+  final config = ref.watch(_builderConfig);
+  final fees =
+      owner == null || leg.dex.isNotEmpty ? null : ref.watch(_userFees(owner));
+  final totals = hyperliquidFeeTotals([leg],
+      builderKnown: config.hasValue,
+      feeTenthsBp: config.valueOrNull?.defaultFeeTenthsBp,
+      userFees: fees?.valueOrNull,
+      builder: builder);
+  final kute = totals.kute, exchange = totals.exchange;
+  return kute == null || exchange == null ? null : kute + exchange;
+}
+
 class HyperliquidFeeSummary extends ConsumerWidget {
   const HyperliquidFeeSummary(
       {super.key,

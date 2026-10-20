@@ -10,7 +10,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
-// Reduce-only closes: a tinted ticket and a separate Advanced page share
+// Reduce-only closes: a ticket and a separate Advanced page share
 // the same reviewed submission path. Ledger approval stays wallet-scoped.
 
 import 'package:flutter/material.dart';
@@ -39,7 +39,11 @@ import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
+import 'package:kute/screens/shared/money_fee_summary.dart' show feeAmountText;
+import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
+    show hlCloseValue, hlLivePnl, hlPositionMargin;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -313,6 +317,12 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   final TextEditingController _amountCtrl = TextEditingController();
   bool _syncingText = false;
 
+  /// The figure typed on the keypad, in dollars: what is closed, at the
+  /// live mark. Each key turns it into the coin size in [_amountCtrl]
+  /// (the whole position once it reaches the position's value), so every
+  /// order path keeps sizing off [_amountCtrl].
+  String _usdText = '';
+
   // Analytics (root sheet only): flow timing, why it stopped, submission.
   final DateTime _openedAt = DateTime.now();
   String _flowStep = 'amount';
@@ -343,7 +353,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       'fraction_pct': (fraction * 100).round().clamp(0, 100),
       ...TrackingService.moneyParams(amountUsd: notional),
       'notional_usd': (notional * 100).round() / 100,
-      'size_unit': 'coin',
+      // The root ticket is typed in dollars, the Advanced page in coins.
+      'size_unit': widget._advancedPage ? 'coin' : 'usd',
       'amount_method': _amountMethod,
       'order_type': _closeType.name,
       'advanced_used': _usesAdvanced,
@@ -413,6 +424,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     // to any custom size (adapts to THIS position — its coin, its max size).
     _fraction = 1.0;
     _amountCtrl.text = _fmtSize(_totalSize);
+    _usdText = _usdForSize(_totalSize);
     final draft = widget._initialDraft;
     if (draft != null) _applyDraft(draft);
     _amountCtrl.addListener(_onAmountChanged);
@@ -505,19 +517,46 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     });
   }
 
-  /// Decimals the keypad lets the user type for a coin size. Matches
-  /// [_fmtSize], which is what the presets and the initial full close put
-  /// in the field, so a prefilled value is always retypeable.
-  static const int _sizeDecimals = 6;
+  /// The dollar figure the keypad and Max write for [size] coins at the
+  /// live mark ('' for none), the way the Predictions sell sheet seeds its
+  /// own: whole dollars plain, else two decimals.
+  String _usdForSize(double size) {
+    final usd = size * _markNow();
+    if (!usd.isFinite || usd <= 0) return '';
+    return usd == usd.roundToDouble()
+        ? usd.toStringAsFixed(0)
+        : usd.toStringAsFixed(2);
+  }
 
-  /// A key on the built-in keypad. `_amountCtrl` stays the source of truth,
-  /// so this only writes the new string and lets [_onAmountChanged] derive
-  /// `_fraction`. The extra repaint covers keystrokes that leave the parsed
-  /// size alone but change what the big number reads ('1' → '1.').
-  void _onKeypadAmount(String v) {
-    if (v == _amountCtrl.text) return;
-    _amountCtrl.text = v;
-    setState(() {});
+  /// A key on the built-in keypad: the dollar figure, turned into the coin
+  /// size [_amountCtrl] holds (the source of truth for every order path,
+  /// which [_onAmountChanged] derives `_fraction` from). The position's
+  /// whole value, or more, is the whole position, never a fraction a
+  /// cent's rounding short of it.
+  void _onKeypadUsd(String v) {
+    if (v == _usdText) return;
+    final usd = double.tryParse(v) ?? 0;
+    final mark = _markNow();
+    final whole = double.tryParse(_usdForSize(_totalSize)) ?? 0;
+    final String size;
+    if (usd <= 0 || mark <= 0) {
+      size = '';
+    } else if (usd >= whole) {
+      size = _fmtSize(_totalSize);
+    } else {
+      size = _fmtSize(usd / mark);
+    }
+    _usdText = v;
+    if (size != _amountCtrl.text) {
+      _amountCtrl.text = size;
+    } else {
+      _amountMethod = 'keypad';
+    }
+    // A new figure is a new attempt (as [_onAmountChanged] says).
+    setState(() {
+      _errorText = null;
+      _errorDetails = null;
+    });
   }
 
   /// The position size IS the quick-amount control: there is no percent
@@ -532,7 +571,12 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _amountCtrl.selection =
         TextSelection.collapsed(offset: _amountCtrl.text.length);
     _syncingText = false;
-    setState(() => _fraction = 1.0);
+    setState(() {
+      _fraction = 1.0;
+      _usdText = _usdForSize(_totalSize);
+      _errorText = null;
+      _errorDetails = null;
+    });
   }
 
   /// Live mark for previews / prefills — falls back to the snapshot-implied
@@ -564,6 +608,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     _twapMinutesCtrl.text = draft.minutes;
     _randomizeTwap = draft.randomize;
     _fraction = _totalSize > 0 ? (_closeSize / _totalSize).clamp(0.0, 1.0) : 0;
+    _usdText = _usdForSize(_closeSize);
     _errorText = null;
   }
 
@@ -1266,51 +1311,55 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     }
 
     // The ticket's identity row, pinned above the form the way the buy
-    // slip pins its header: only the form scrolls, and it scrolls under
-    // this row instead of carrying it away.
-    final header = Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 0),
-      child: Row(
-        children: [
-          _marketArtwork(),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.closeTitle(_displayCoin),
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 17.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                Row(
-                  children: [
-                    HlSideChip(
-                      text: pos.isLong ? 'LONG' : 'SHORT',
-                      color: c.textPrimary,
-                    ),
-                    SizedBox(width: 6.w),
-                    HlMetaChip(
-                      text: '${pos.leverageValue}x',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-            onPressed:
-                _isClosing ? null : () => Navigator.of(context).maybePop(),
-            icon: Icon(Icons.close_rounded, color: c.textPrimary, size: 22.sp),
-          ),
-        ],
-      ),
+    // slip pins its header, and the very header the Predictions tickets
+    // use: the coin's logo, the title (two lines at most) and the round
+    // close X. The side and size are the pill under it; no leverage chip.
+    final header = PolySlipHeader(
+      marketQuestion: context.l10n.closeTitle(_displayCoin),
+      leading: _marketArtwork(),
+      maxLines: 2,
     );
+
+    // The close's two figures, off the position screen's own reading
+    // (hlCloseValue: the margin plus the profit or loss) for the share
+    // being closed, at the price it closes at, and the fee the Advanced
+    // page itemises: what comes back after the fee, and the profit or
+    // loss on that share after it, against its margin.
+    final orderPx = (_isLimitClose || _isTriggerLimit)
+        ? (_parsePx(_limitPxCtrl) ?? mark)
+        : _isTriggerClose
+            ? (_parsePx(_triggerPxCtrl) ?? mark)
+            : mark;
+    final share =
+        _totalSize > 0 ? (closeSz / _totalSize).clamp(0.0, 1.0) : 0.0;
+    final fee = watchHyperliquidOrderFeeUsd(
+      ref,
+      HyperliquidFeeLeg(
+          notional: closeSz * orderPx,
+          spot: false,
+          buy: false,
+          dex: _market?.dex ?? (pos.coin.contains(':') ? 'unknown' : '')),
+      useHotAccount: widget.ledgerWalletId == null,
+      address: widget.ledgerWalletId == null
+          ? null
+          : ref
+              .watch(ledgerIdentityProvider(widget.ledgerWalletId!))
+              ?.evmAddress,
+      builder: !_isTwapClose,
+    );
+    final grossBack = hlCloseValue(pos, liveMid: orderPx) * share;
+    final back = grossBack - (fee ?? 0);
+    final pnl = hlLivePnl(pos, liveMid: orderPx) * share - (fee ?? 0);
+    final marginShare = hlPositionMargin(pos) * share;
+    final roe = marginShare > 0 ? pnl / marginShare : 0.0;
+    // Green and red do not read on the red sheet: the sign carries the
+    // direction, in the sheet's ink.
+    final pnlColor =
+        closeSz <= 0 || pnl.abs() < 0.005 ? c.textSecondary : c.textPrimary;
+    final wholeValue = _totalSize * mark;
+    final overWhole = (double.tryParse(_usdText) ?? 0) >
+        (double.tryParse(_usdForSize(_totalSize)) ?? 0);
+
     // The buy slip's frame, to the scroll: the header and the pinned
     // keypad and button around one clamping form that scrolls on its own
     // (never the route's primary scroll controller), and a height cap that
@@ -1319,6 +1368,8 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
+      // Close is money out of the position: the sheet wears the down
+      // colour, as the Predictions sell ticket does.
       decoration: BoxDecoration(
         color: AppColors.marketDown,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -1340,23 +1391,35 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                   child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
                 primary: false,
-                padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
+                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 14.h),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // What is held, in its side's colour: "Long · 0.5 BTC".
+                    PositionSidePill(
+                      key: const ValueKey('hl-close-held'),
+                      text:
+                          '${pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel}'
+                          ' · ${formatHlSize(_totalSize)} $_displayCoin',
+                      color: c.textPrimary,
+                      up: pos.isLong,
+                    ),
+                    SizedBox(height: 18.h),
                     // ── Amount to close ─────────────────────────────────
-                    // The one big figure, typed on the keypad pinned below
-                    // (no focused field, so the OS keyboard never covers
-                    // the preview). The small Max beside it (as on the buy
-                    // slips) fills the whole position again after an edit,
-                    // and `_amountCtrl` stays the single source of truth.
+                    // The one big figure, in dollars, typed on the keypad
+                    // pinned below (no focused field, so the OS keyboard
+                    // never covers the preview), with one quiet line: the
+                    // position's value now. The small Max beside it (as on
+                    // the buy slips) fills the whole position again after
+                    // an edit; `_amountCtrl` stays the single source of
+                    // truth for the size.
                     BigAmountDisplay(
-                      amountText: _amountCtrl.text,
-                      suffix: ' $_displayCoin',
-                      conversionLabel: formatHlUsd(closeSz * mark),
+                      prefix: r'$',
+                      amountText: _usdText,
                       availableLabel:
-                          '${context.l10n.available}: ${formatHlSize(_totalSize)} $_displayCoin',
+                          '${context.l10n.slipPositionValue} ${formatHlUsd(wholeValue)}',
+                      availableExceeded: overWhole,
                       trailing: _totalSize > 0
                           ? AmountMaxChip(
                               label: context.l10n.max,
@@ -1365,19 +1428,51 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                             )
                           : null,
                     ),
-                    SizedBox(height: 14.h),
+                    SizedBox(height: 20.h),
+
+                    // ── What comes back ───────────────────────────────────
+                    PositionStatTiles(
+                      left: PositionStatTile(
+                        key: const ValueKey('hl-close-proceeds'),
+                        label: context.l10n.youReceive,
+                        value: Text(
+                          formatHlUsd(
+                              math.max(0.0, fee == null ? grossBack : back)),
+                          maxLines: 1,
+                          style: positionTileValueStyle(c),
+                        ),
+                        caption: Text(
+                          fee == null
+                              ? context.l10n.betSaleProceeds
+                              : '${context.l10n.fee} ${feeAmountText(ref, usd: fee, bitcoinFirst: false).primary}',
+                          maxLines: 1,
+                          style: positionTileCaptionStyle(c),
+                        ),
+                      ),
+                      right: PositionStatTile(
+                        key: const ValueKey('hl-close-pnl'),
+                        label: context.l10n.portfolioProfitLoss,
+                        value: Text(
+                          '${pnl < 0 ? '−' : '+'}${formatHlUsd(pnl.abs())}',
+                          maxLines: 1,
+                          style: positionTileValueStyle(c, color: pnlColor),
+                        ),
+                        caption: Text(
+                          formatHlPct(roe),
+                          maxLines: 1,
+                          style: positionTileCaptionStyle(c, color: pnlColor),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
 
                     // ── Advanced page ────────────────────────────────────
-                    // Inert while a close is in flight; the button above
-                    // it carries the wait.
+                    // Inert while a close is in flight; the button below
+                    // carries the wait.
                     IgnorePointer(
                       ignoring: _isClosing,
                       child: _buildAdvancedSection(c),
                     ),
-                    SizedBox(height: 14.h),
-
-                    // ── Preview ───────────────────────────────────────────
-                    _buildFeeSummary(mark, closeSz),
                     if (_errorText != null) ...[
                       SizedBox(height: 10.h),
                       HlTradeErrorNotice(
@@ -1394,32 +1489,30 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
               )),
 
               // ── Keypad, pinned ──────────────────────────────────────
-              // Drives the close amount only. An Advanced price or
-              // duration field still uses the OS keyboard, so the pad
-              // steps aside while that keyboard is up rather than
-              // stacking two keyboards.
-              if (MediaQuery.viewInsetsOf(context).bottom <= 0)
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: AmountKeypad(
-                    value: _amountCtrl.text,
-                    maxDecimals: _sizeDecimals,
-                    enabled: !_isClosing,
-                    onChanged: _onKeypadAmount,
-                  ),
+              // Drives the close amount, in dollars. Always there: the
+              // price and duration fields that raise the OS keyboard live
+              // on the Advanced page, not on this ticket.
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                child: AmountKeypad(
+                  value: _usdText,
+                  maxDecimals: 2,
+                  enabled: !_isClosing,
+                  onChanged: _onKeypadUsd,
                 ),
+              ),
 
               // ── CTA, pinned ─────────────────────────────────────────
-              // Close is a market action (money out of the position),
-              // so it wears the directional down token, mirroring the
-              // Long/Short entry pair — not the app-wide destructive
-              // error red. It also carries the wait: an in-flight close
-              // spins here rather than swapping the ticket for a panel.
+              // On the red sheet the button is the sheet's white with dark
+              // letters (white buttons never take a coloured label). The
+              // money stays in Investing, so there is no journey: an
+              // in-flight close spins here rather than swapping the
+              // ticket for a panel.
               //
               // The greater of a comfortable gap and the system inset,
               // never both added together.
               Padding(
-                padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w,
+                padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w,
                     math.max(16.h, MediaQuery.of(context).padding.bottom)),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   if (_advancedBlock case final reason?)
@@ -1435,6 +1528,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
                     bandExpected: const Duration(seconds: 2),
                     busyLabel: context.l10n.loading,
                     color: AppColors.marketDown,
+                    neutral: true,
                   ),
                 ]),
               ),

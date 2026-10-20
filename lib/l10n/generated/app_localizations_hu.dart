@@ -10652,6 +10652,33 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String slipAddThenOrder(String amount, String order) {
+    return '$amount hozzáadása · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return '$amount hiányzik a minimumhoz';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Növeli a Long pozíciódat',
+        'other': 'Növeli a Short pozíciódat',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · $amount kifizetés, ha nyersz';
+  }
+
+  @override
   String get slipMoveFee => 'Move fee';
 
   @override
