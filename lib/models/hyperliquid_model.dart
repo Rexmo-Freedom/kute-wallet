@@ -873,9 +873,18 @@ class HyperliquidModel {
   /// Portfolio positions span the default and builder perpetual DEXs.
   /// Withdrawable USDC includes builder DEX cash. Execution explicitly moves
   /// the required collateral within the same account before spending it.
+  ///
+  /// The main account and the builder DEXs are independent reads: both
+  /// go at once, so an account read (a deposit's credit, the slip's
+  /// order) costs one round of requests, not two in a row.
   Future<HlAccountSnapshot> getPortfolioSnapshot(String address) async {
-    final base = await getAccountSnapshot(address);
-    final dexes = await getUsdcDexAccounts(address);
+    final baseRead = getAccountSnapshot(address);
+    final dexesRead = getUsdcDexAccounts(address);
+    // Both settle before either error is rethrown (no unhandled future).
+    await Future.wait<Object?>([baseRead, dexesRead], eagerError: false)
+        .catchError((Object _) => const <Object?>[]);
+    final base = await baseRead;
+    final dexes = await dexesRead;
     return HlAccountSnapshot(
         accountValue: base.accountValue + dexes.values.fold<double>(0, (v, s) => v + s.accountValue),
         withdrawable: base.withdrawable + dexes.values.fold<double>(0, (v, s) => v + s.withdrawable),

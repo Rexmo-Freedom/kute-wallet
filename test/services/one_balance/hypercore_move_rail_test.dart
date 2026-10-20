@@ -4,6 +4,7 @@
 // back to Circle CCTP, and only when that cannot run either it is reported
 // as RouteUnavailable, before anything is signed or sent.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -150,6 +151,33 @@ void main() {
     // Out: the own Spark address.
     await rail().estimate(usd: 25, deposit: false);
     expect(recipients, [_eoa, _sparkSelf]);
+  });
+
+  test('the route\'s limits are read beside the estimate, not after it',
+      () async {
+    final estimating = Completer<OrchestraEstimate?>();
+    var limitsAsked = false;
+    final quick = HyperCoreMoveRail(
+      container.read,
+      estimate: (route, amount, recipient) => estimating.future,
+      limits: (_) async {
+        limitsAsked = true;
+        return (minUsd: 1.0, maxUsd: 500.0);
+      },
+    );
+    final quote = quick.estimate(usd: 25, deposit: true);
+    await Future<void>.delayed(Duration.zero);
+    expect(limitsAsked, isTrue, reason: 'asked while the estimate is out');
+    estimating.complete(OrchestraEstimate.fromJson({
+      'estimatedOut': '2490000000',
+      'feeAmount': '25000',
+      'totalFeeAmount': '25000',
+      'totalFeeAmountUsd': '0.025',
+      'feeBps': 10,
+    }));
+    final q = await quote;
+    expect(q.minUsd, 1.0);
+    expect(q.maxUsd, 500.0);
   });
 
   test('no estimate (a refused route) is a route the rail cannot carry',

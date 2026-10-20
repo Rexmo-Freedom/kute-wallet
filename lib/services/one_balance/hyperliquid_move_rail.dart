@@ -671,13 +671,16 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     final route = _route(deposit: deposit);
     final amount =
         doubleToOrchestraAmount(usd, route.fromAsset, chain: route.fromChain);
+    // The route's limits are read beside the estimate, not after it.
+    final limitsRead = _limits(route);
+    unawaited(limitsRead.then((_) {}, onError: (Object _) {}));
     final quote =
         await _estimate(route, amount, await _recipient(deposit: deposit));
     if (quote == null) throw const RouteUnavailable('no estimate');
     final arriving = orchestraAmountToDouble(quote.estimatedOut, route.toAsset,
         chain: route.toChain);
     final fee = orchestraFeeAmount(quote).usd ?? 0;
-    final limits = await _limits(route);
+    final limits = await limitsRead;
     return VenueMoveQuote(
       arrivingUsd: arriving,
       feeUsd: fee,
@@ -698,7 +701,11 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
   @override
   Future<void> ensureGasFloat() async {}
 
-  /// No push signal: the slip's own account poll sees the credit.
+  /// No push signal from the rail itself. The credit reaches the queued
+  /// order from the order's runner, the moment Orchestra's status says
+  /// the move delivered, and from the venue's own ledger updates
+  /// (`PendingHlOrderAutoFire.creditLanded` / `accountMoved`); the
+  /// account poll is the backstop.
   @override
   Stream<void> get credited => const Stream<void>.empty();
 
@@ -732,15 +739,40 @@ class HyperCoreMoveRail implements HyperliquidMoveRail {
     return result.data;
   }
 
+  /// How long a route's limits answer is used again. The slip's estimate
+  /// reads them; the order's move asks for the minimum seconds later
+  /// (`OrderFundingController`), right before it sends: the same answer,
+  /// without another round trip on the order's way.
+  static const Duration kLimitsFreshFor = Duration(minutes: 1);
+
+  static final Map<String, ({HyperCoreRouteBounds bounds, DateTime at})>
+      _limitsRead = {};
+
+  /// Test seam: the clock [kLimitsFreshFor] is measured with.
+  @visibleForTesting
+  static DateTime Function() limitsClock = DateTime.now;
+
+  @visibleForTesting
+  static void resetLimitsCache() => _limitsRead.clear();
+
   static Future<HyperCoreRouteBounds?> _limitsNative(RouteKey route) async {
+    final key = route.label;
+    final kept = _limitsRead[key];
+    final now = limitsClock();
+    if (kept != null && now.difference(kept.at) < kLimitsFreshFor) {
+      return kept.bounds;
+    }
     final limits = await OrchestraService.getRouteLimits(route)
         .timeout(const Duration(seconds: 8), onTimeout: () => null);
+    // Only an answer is kept: a failed read asks again next time.
     if (limits == null) return null;
     double? cents(int? value) => value == null ? null : value / 100;
-    return (
+    final bounds = (
       minUsd: cents(limits.exactInMinUsdCents ?? limits.orderMinUsdCents),
       maxUsd: cents(limits.exactInMaxUsdCents ?? limits.orderMaxUsdCents),
     );
+    _limitsRead[key] = (bounds: bounds, at: limitsClock());
+    return bounds;
   }
 }
 
