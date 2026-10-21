@@ -211,7 +211,7 @@ dependencies {
     // Rust FFI libs (BDK, Breez) now reach Crashlytics directly. The BoM is
     // pinned to the one firebase_core 4.15.0 uses (FirebaseSDKVersion) so
     // the NDK artifact matches the crashlytics the Flutter plugin pulls.
-    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation platform('com.google.firebase:firebase-bom:35.0.2')
     implementation 'com.google.firebase:firebase-crashlytics-ndk'
     // Version comes from the BoM above, so it always matches the Flutter plugin.
     implementation 'com.google.firebase:firebase-messaging'
