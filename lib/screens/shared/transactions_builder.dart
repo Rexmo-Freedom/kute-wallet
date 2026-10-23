@@ -3097,7 +3097,13 @@ Widget _buildSwapOrderItem(
         ? context.l10n.activityRowTo(venue)
         : context.l10n.activityRowFrom(venue);
   } else if (isExternal) {
-    title = isExternalSend ? context.l10n.sent : context.l10n.received;
+    // A send paid from dollars is an Investments withdrawal, and
+    // Investments says Withdraw, never Send (founder, 2026-10-23).
+    title = isDollarSend
+        ? context.l10n.activityRowWithdraw
+        : isExternalSend
+            ? context.l10n.sent
+            : context.l10n.received;
     where = isDollarSend
         ? context.l10n.activityRowTo(
             details.coinTo == 'BTC' && details.networkTo == 'LIGHTNING'

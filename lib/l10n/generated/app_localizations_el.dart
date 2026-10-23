@@ -10820,6 +10820,15 @@ class AppLocalizationsEl extends AppLocalizations {
       'Από άλλο πορτοφόλι ή ανταλλακτήριο';
 
   @override
+  String get usdWithdrawToYourWallet => 'Στο πορτοφόλι σου';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Σε άλλο πορτοφόλι ή ανταλλακτήριο';
+
+  @override
+  String get usdWithdrawNow => 'Ανάληψη τώρα';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Προσθήκη $amount στα Investments';
   }

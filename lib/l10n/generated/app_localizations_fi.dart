@@ -10753,6 +10753,15 @@ class AppLocalizationsFi extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Toisesta lompakosta tai pörssistä';
 
   @override
+  String get usdWithdrawToYourWallet => 'Lompakkoosi';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Toiseen lompakkoon tai pörssiin';
+
+  @override
+  String get usdWithdrawNow => 'Nosta nyt';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Lisätään $amount tilille Investments';
   }

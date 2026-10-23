@@ -10730,6 +10730,15 @@ class AppLocalizationsEt extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Teisest rahakotist või börsilt';
 
   @override
+  String get usdWithdrawToYourWallet => 'Sinu rahakotti';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Teise rahakotti või börsile';
+
+  @override
+  String get usdWithdrawNow => 'Võta kohe välja';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Lisame $amount kontole Investments';
   }

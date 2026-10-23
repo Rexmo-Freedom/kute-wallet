@@ -310,8 +310,8 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock is Receive, Send and search; Receive opens the '
-      'Dollars receive screen from the dock', (tester) async {
+      'the Investments dock is Deposit, Withdraw and search; Deposit opens '
+      'the Dollars receive screen from the dock', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -321,18 +321,20 @@ void main() {
     await _pump(tester, const UsdAccountActionBar());
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    // Money in on the left, Send on the right, exactly the Bitcoin dock's
-    // Receive (label, arrow, action key); no Deposit.
-    expect(bar.actions.map((a) => a.label), ['Receive', 'Send']);
+    // Money in on the left, money out on the right, with the Bitcoin
+    // dock's arrows and action keys; Investments says Deposit and
+    // Withdraw, never Receive and Send.
+    expect(bar.actions.map((a) => a.label), ['Deposit', 'Withdraw']);
     expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
     expect(bar.actions.map((a) => a.icon),
         [Icons.south_west_rounded, Icons.north_east_rounded]);
     expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
     expect(bar.source, 'usd');
-    expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Receive'), findsNothing);
+    expect(find.text('Send'), findsNothing);
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
 
-    await tester.tap(find.text('Receive'));
+    await tester.tap(find.text('Deposit'));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
@@ -342,7 +344,7 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock\'s Receive opens the Dollars receive as a '
+      'the Investments dock\'s Deposit opens the Dollars receive as a '
       'bottom sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
     addTearDown(() => ReceiveSheets.debugUsdBody = null);
@@ -357,7 +359,7 @@ void main() {
         },
       ),
     ]);
-    await tester.tap(find.text('Receive'));
+    await tester.tap(find.text('Deposit'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
     expect(find.text('usd receive body'), findsOneWidget);

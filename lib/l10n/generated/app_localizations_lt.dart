@@ -10785,6 +10785,15 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Iš kitos piniginės ar biržos';
 
   @override
+  String get usdWithdrawToYourWallet => 'Į jūsų piniginę';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Į kitą piniginę ar biržą';
+
+  @override
+  String get usdWithdrawNow => 'Išimti dabar';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Pridedama $amount į Investments';
   }

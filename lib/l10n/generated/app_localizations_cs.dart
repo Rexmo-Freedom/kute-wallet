@@ -10732,6 +10732,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Z jiné peněženky nebo burzy';
 
   @override
+  String get usdWithdrawToYourWallet => 'Do tvé peněženky';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Do jiné peněženky nebo na burzu';
+
+  @override
+  String get usdWithdrawNow => 'Vybrat nyní';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Přidávání $amount do Investments';
   }

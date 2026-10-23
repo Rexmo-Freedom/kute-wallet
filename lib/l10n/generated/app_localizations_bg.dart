@@ -10761,6 +10761,15 @@ class AppLocalizationsBg extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'От друг портфейл или борса';
 
   @override
+  String get usdWithdrawToYourWallet => 'Към твоя портфейл';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Към друг портфейл или борса';
+
+  @override
+  String get usdWithdrawNow => 'Изтегли сега';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Добавяне на $amount към Investments';
   }

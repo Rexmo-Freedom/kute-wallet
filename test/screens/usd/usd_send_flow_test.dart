@@ -38,6 +38,10 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionBar;
 import 'package:kute/screens/usd/usd_send_screen.dart';
+import 'package:kute/screens/usd/usd_withdraw_screen.dart'
+    show UsdWithdrawScreen, kUsdWithdrawRouteName;
+import 'package:kute/screens/shared/kute_back_button.dart'
+    show KuteBareCloseButton;
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -747,7 +751,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(_step(_l10n.sendReview), findsOneWidget);
 
-    await tester.tap(find.text(_l10n.send));
+    // Review's button says Withdraw: Investments never says Send.
+    expect(find.text(_l10n.send), findsNothing);
+    await tester.tap(find.text(_l10n.withdraw));
     await tester.pumpAndSettle();
 
     // 50 missing: 50 / 0.98 → $51.03 from Predictions, once.
@@ -764,8 +770,9 @@ void main() {
   // ─── The send sheet ───────────────────────────────────────────────
 
   testWidgets(
-      'the Investments dock\'s Send opens the sheet at medium height on '
-      'Send to, and says so in usd_send_opened', (tester) async {
+      'the Investments dock\'s Withdraw opens the Deposit\'s sheet turned '
+      'around; a coin on it opens the send sheet at medium height on Send '
+      'to, the coin picked, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
@@ -776,16 +783,45 @@ void main() {
             body: SizedBox.expand(),
             bottomNavigationBar: UsdAccountActionBar()));
 
-    await tester.tap(find.text(_l10n.send));
+    await tester.tap(find.text(_l10n.withdraw));
     await tester.pumpAndSettle();
+
+    // The Withdraw sheet: the Deposit's bottom sheet, "To your wallet"
+    // over the Bitcoin card, then the coins. No send yet.
+    final withdraw = find.byType(UsdWithdrawScreen);
+    expect(withdraw, findsOneWidget);
+    final route = ModalRoute.of(tester.element(withdraw));
+    expect(route, isA<ModalBottomSheetRoute<void>>());
+    expect(route!.settings.name, kUsdWithdrawRouteName);
+    expect(find.text(_l10n.usdWithdrawToYourWallet), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsOneWidget);
+    expect(find.text(_l10n.usdWithdrawToAnotherWallet), findsOneWidget);
+    expect(find.byType(UsdSendScreen), findsNothing);
+
+    // USDC is on several networks: its networks, then the send.
+    await _tapCoin(tester, find.byKey(const ValueKey('usd-withdraw-coin-grid')),
+        'arbitrum', 'USDC');
 
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_step(_l10n.sendTo), findsOneWidget);
     expect(_sheetHeight(tester), moreOrLessEquals(_medium(tester)));
+    // The coin is picked: its chip over the field, no grid.
+    expect(_chipLabel(tester), label('arbitrum', 'USDC'));
+    expect(_grid, findsNothing);
+    expect(find.byType(TextField), findsOneWidget);
     // The screen it came from stays behind the scrim.
     expect(find.byType(UsdAccountActionBar), findsOneWidget);
-    expect(events.where((e) => e.$1 == 'usd_send_opened').single.$2,
-        containsPair('presentation', 'sheet'));
+    final opened = events.where((e) => e.$1 == 'usd_send_opened').single.$2;
+    expect(opened, containsPair('presentation', 'sheet'));
+    expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,
+        containsPair('preselected', true));
+
+    // Closing the send comes back to the Withdraw sheet as it was.
+    await tester.tap(find.byType(KuteBareCloseButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(UsdSendScreen), findsNothing);
+    expect(withdraw, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -876,7 +912,7 @@ void main() {
     await _type(tester, '150');
     await tester.tap(find.text(_l10n.continueLabel));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(_l10n.send));
+    await tester.tap(find.text(_l10n.withdraw));
     await tester.pump();
     await tester.pump();
     expect(venue.pulls, isNotEmpty, reason: 'the pull is in flight');

@@ -10767,6 +10767,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Másik tárcából vagy tőzsdéről';
 
   @override
+  String get usdWithdrawToYourWallet => 'A tárcádba';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Másik tárcába vagy tőzsdére';
+
+  @override
+  String get usdWithdrawNow => 'Kivétel most';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return '$amount hozzáadása az Investmentshez';
   }

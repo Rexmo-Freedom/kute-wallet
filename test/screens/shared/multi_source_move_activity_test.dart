@@ -912,7 +912,10 @@ void main() {
           legs: [_leg(OneBalanceVenue.predictions, direct: false)]);
       await pumpRow(
           tester, MultiSourceMoveTransaction(move: move, legRows: [send]));
-      expect(find.text('Sent'), findsOneWidget);
+      // A send paid from dollars is an Investments withdrawal: Withdraw,
+      // never Sent.
+      expect(find.text('Withdraw'), findsOneWidget);
+      expect(find.text('Sent'), findsNothing);
       expect(find.text('Send \$50.00'), findsNothing);
       expect(find.textContaining('to Lightning'), findsOneWidget);
     });
