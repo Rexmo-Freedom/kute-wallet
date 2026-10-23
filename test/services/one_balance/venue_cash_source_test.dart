@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
@@ -518,6 +519,72 @@ void main() {
       expect(i.available, 500);
       expect(events.where((e) => e.$1 == 'investing_cash_pulled'), isEmpty);
       expect(event('multi_source_move_finished')!['failed_legs'], 1);
+    });
+
+    test(
+        'a failed leg is heard at once, while another leg is still on its '
+        'way', () async {
+      final p = _Source(_p, 20, error: const RouteUnavailable('paused'));
+      final i = _Source(_i, 500)..gate = Completer<void>();
+      final heard = <VenueCashLegOutcome>[];
+      final run = puller([p, i]).pullShortfall(
+          neededUsd: 100, forAction: VenueCashFor.send, onLeg: heard.add);
+      await pumpEventQueue();
+      // The screen can stop on it now; the Investing leg is still going.
+      expect(heard.single.venue, _p);
+      expect(heard.single.ok, isFalse);
+      expect(i.started, isTrue);
+      i.gate!.complete();
+      final outcome = await run;
+      expect(heard.map((l) => l.venue), [_p, _i]);
+      expect(outcome.failedLegs.single.venue, _p);
+      expect(outcome.dollarsCover, isFalse, reason: 'a failed leg: no wait');
+    });
+
+    test(
+        'a leg refused as under its minimum raises that venue\'s minimum for '
+        'the next plan; other refusals do not', () async {
+      final tooSmall = <(OneBalanceVenue, double)>[];
+      VenueCashPuller withHook(List<VenueCashSource> sources) =>
+          VenueCashPuller(
+            sources: sources,
+            readDollars: () => dollars,
+            minimumUsd: (_) async => 1,
+            clock: () => now,
+            sleep: (d) async => now = now.add(d),
+            onAmountTooSmall: (venue, usd) => tooSmall.add((venue, usd)),
+          );
+
+      final quoteRefused = _Source(_p, 30,
+          error: const RouteQuoteError(RouteQuoteErrorCode.amountTooSmall));
+      final floorRefused =
+          _Source(_i, 500, error: const RouteUnavailable('cctp_below_minimum'));
+      final outcome = await withHook([quoteRefused, floorRefused])
+          .pullShortfall(neededUsd: 100, forAction: VenueCashFor.send);
+      expect(outcome.failedLegs, hasLength(2));
+      expect(tooSmall, [(_p, 30.0), (_i, outcome.plan.pullFrom(_i)!.usd)]);
+
+      tooSmall.clear();
+      final paused = _Source(_p, 500, error: const RouteUnavailable('paused'));
+      await withHook([paused])
+          .pullShortfall(neededUsd: 100, forAction: VenueCashFor.send);
+      expect(tooSmall, isEmpty);
+    });
+
+    test('venueLegBelowMinimum reads the quote and the rails\' floors', () {
+      expect(
+          venueLegBelowMinimum(
+              const RouteQuoteError(RouteQuoteErrorCode.amountTooSmall)),
+          isTrue);
+      expect(venueLegBelowMinimum(const RouteUnavailable('cctp_below_minimum')),
+          isTrue);
+      expect(
+          venueLegBelowMinimum(
+              const RouteQuoteError(RouteQuoteErrorCode.amountTooLarge)),
+          isFalse);
+      expect(venueLegBelowMinimum(const RouteUnavailable('route_unavailable')),
+          isFalse);
+      expect(venueLegBelowMinimum(StateError('x')), isFalse);
     });
 
     test('the wait is bounded; a retry waits on the money already coming',

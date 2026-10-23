@@ -56,6 +56,32 @@ String? venueCashStoppedText(
   return '${sent.join('\n')}\n${l10n.activityBitcoinAddedPending}';
 }
 
+/// [venueCashStoppedText] for an action that stopped at its first failed
+/// leg while other legs of [plan] were still on their way: [reported] are
+/// the legs that have answered so far. Each that went, and each still
+/// going, is named as coming home (a leg is only started to come home);
+/// a failed one stays on its venue and is not named. Null when nothing
+/// went and nothing is still going.
+String? venueCashStoppedEarlyText(AppLocalizations l10n, VenueCashPlan plan,
+    List<VenueCashLegOutcome> reported) {
+  final answered = {for (final l in reported) l.venue};
+  final going = [
+    for (final l in reported)
+      if (l.ok)
+        l.direct
+            ? l10n.oneBalanceMovingTo(
+                _usd(l.sentUsd), venueCashDestinationName(l10n, l.landsIn))
+            : l10n.oneBalanceComingBack(
+                _usd(l.sentUsd), venueCashVenueName(l10n, l.venue)),
+    for (final p in plan.pulls)
+      if (!answered.contains(p.venue))
+        l10n.oneBalanceComingBack(
+            _usd(p.usd), venueCashVenueName(l10n, p.venue)),
+  ];
+  if (going.isEmpty) return null;
+  return '${going.join('\n')}\n${l10n.activityBitcoinAddedPending}';
+}
+
 /// Where a move's money is going, as the app names it.
 String venueCashDestinationName(
         AppLocalizations l10n, VenueCashDestination destination) =>

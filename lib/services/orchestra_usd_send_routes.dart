@@ -30,6 +30,8 @@ import 'package:kute/services/security/address_guard.dart';
 
 import 'package:kute/helpers/scanned_address.dart'
     show bareRecipientAddress, evmPaymentChainId, kEvmChainIdSlugs;
+import 'package:kute/models/orchestra_route_limits.dart'
+    show OrchestraRouteLimits, RouteQuoteErrorCode;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show
@@ -37,6 +39,7 @@ import 'package:kute/services/orchestra_routes.dart'
         kOrchestraSendableChains,
         kOrchestraUsdAssetCode,
         kOrchestraUsdChain,
+        orchestraAssetCodeFor,
         orchestraChainDisplayName;
 
 /// One destination the dollar balance can be sent to: an asset on a
@@ -287,4 +290,97 @@ UsdSendDestination? usdSendPaymentRequestDestination(
   if (match.candidates.isEmpty) return null;
   if ({for (final d in match.candidates) d.chain}.length != 1) return null;
   return match.autoPick;
+}
+
+/// The route a dollar send to [destination] is quoted on: the dollar
+/// balance to the picked coin. The Review estimate, the route's limits
+/// and the send's own quote all ask for this one pair.
+RouteKey usdSendRouteKey(UsdSendDestination destination) => RouteKey(
+      fromChain: kOrchestraUsdChain,
+      fromAsset: kOrchestraUsdAssetCode,
+      toChain: destination.chain,
+      toAsset: orchestraAssetCodeFor(destination.assetCode),
+    );
+
+/// The route's own smallest send, in the dollar token's six-decimal base
+/// units: the largest of its exact-in minimum (base units, or USD cents)
+/// and its order minimum. Null when the limits name none. A cent is
+/// 10,000 base units.
+BigInt? usdSendRouteMinimumUnits(OrchestraRouteLimits? limits) {
+  if (limits == null) return null;
+  final cent = BigInt.from(10000);
+  final candidates = <BigInt>[
+    if (limits.exactInMinBaseUnits case final n?) n,
+    if (limits.exactInMinUsdCents case final n?) BigInt.from(n) * cent,
+    if (limits.orderMinUsdCents case final n?) BigInt.from(n) * cent,
+  ].where((n) => n > BigInt.zero);
+  if (candidates.isEmpty) return null;
+  return candidates.reduce((a, b) => a > b ? a : b);
+}
+
+/// Why the Review estimate of a dollar send did not price it.
+enum UsdSendEstimateIssue {
+  /// Under the route's minimum (or too little to cover its costs): the
+  /// amount has to change. Send is off.
+  belowMinimum,
+
+  /// Over the route's maximum. Send is off.
+  aboveMaximum,
+
+  /// More than the route can take right now. Send is off.
+  liquidity,
+
+  /// The route itself is refused for now. Send is off.
+  unavailable,
+
+  /// The runtime policy withholds the route. Send is off.
+  restricted,
+
+  /// No answer (a timeout, the network, a 429 or a 5xx): asked once more,
+  /// then a tap asks again. The send's own quote still decides.
+  transient,
+
+  /// Any other refusal: the price is not known, the send's own quote
+  /// still decides.
+  unknown;
+
+  /// Whether the send cannot go for this amount and coin as they are.
+  bool get blocksSend => switch (this) {
+        belowMinimum ||
+        aboveMaximum ||
+        liquidity ||
+        unavailable ||
+        restricted =>
+          true,
+        transient || unknown => false,
+      };
+}
+
+/// What a failed estimate means for the send: [errorCode] is Flashnet's
+/// parsed refusal (`Result.errorCode`), [statusCode] the HTTP status
+/// (null when no answer came), [policyRefusal] a backend policy refusal
+/// of the route. Pure.
+UsdSendEstimateIssue usdSendEstimateIssue({
+  String? errorCode,
+  int? statusCode,
+  bool policyRefusal = false,
+}) {
+  if (policyRefusal) return UsdSendEstimateIssue.restricted;
+  switch (RouteQuoteErrorCode.fromCode(errorCode)) {
+    case RouteQuoteErrorCode.amountTooSmall:
+      return UsdSendEstimateIssue.belowMinimum;
+    case RouteQuoteErrorCode.amountTooLarge:
+      return UsdSendEstimateIssue.aboveMaximum;
+    case RouteQuoteErrorCode.amountExceedsLiquidity:
+      return UsdSendEstimateIssue.liquidity;
+    case RouteQuoteErrorCode.routeUnavailable:
+      return UsdSendEstimateIssue.unavailable;
+    case null:
+      break;
+  }
+  final status = statusCode;
+  if (status == null || status == 408 || status == 429 || status >= 500) {
+    return UsdSendEstimateIssue.transient;
+  }
+  return UsdSendEstimateIssue.unknown;
 }

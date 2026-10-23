@@ -651,6 +651,10 @@ class OrchestraService {
       return Result(
           error: _parseError(res.body),
           statusCode: res.statusCode,
+          // Flashnet's amount or availability refusal (`amount_too_small`,
+          // `route_unavailable`), so a screen can tell an amount it must
+          // change from a route that is off or a passing failure.
+          errorCode: _parseRouteErrorCode(res.body),
           // The backend's policy refusal of this route (a 403
           // feature_unavailable): the estimate is withheld, not failing.
           cause: capabilityDenialFromResponse(res.statusCode, res.body));

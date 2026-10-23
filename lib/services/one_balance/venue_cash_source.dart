@@ -76,6 +76,8 @@ import 'package:kute/helpers/venue_intents.dart'
     show DirectLegGrants, IntentUnits;
 import 'package:kute/models/hyperliquid_market.dart'
     show HlOpenOrder, HlPerpPosition;
+import 'package:kute/models/orchestra_route_limits.dart'
+    show RouteQuoteError, RouteQuoteErrorCode;
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -108,6 +110,8 @@ import 'package:kute/services/one_balance/route_minimums.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/one_balance/venue_sweeper.dart'
     show SweepableVenueFunder;
+import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
+    show OrchestraQuoteFailure;
 import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show InvestingWithdrawalDestination;
 import 'package:kute/services/tracking_service.dart';
@@ -845,6 +849,19 @@ class VenueCashPullOutcome {
   bool get dollarsOnly => legs.isEmpty && plan.covers;
 }
 
+/// Whether a leg's refusal says its amount is under the route's minimum:
+/// the quote's `amount_too_small`, or a rail's own floor
+/// (`RouteUnavailable('…below_minimum')`, the CCTP fallback's). Pure.
+bool venueLegBelowMinimum(Object error) => switch (error) {
+      RouteQuoteError(:final code) =>
+        code == RouteQuoteErrorCode.amountTooSmall,
+      OrchestraQuoteFailure(:final routeError) =>
+        routeError?.code == RouteQuoteErrorCode.amountTooSmall,
+      RouteUnavailable(:final reason) =>
+        reason?.endsWith('below_minimum') ?? false,
+      _ => false,
+    };
+
 /// The smallest amount an action sends on from Dollars to a destination
 /// other than Dollars (the Orchestra floor plus a margin): Dollars below
 /// it are left alone and the venue legs cover the whole amount when they
@@ -870,6 +887,7 @@ class VenueCashPuller {
     String? Function()? walletId,
     double? Function(OneBalanceVenue venue)? cachedAvailableUsd,
     this.onCashMoved,
+    this.onAmountTooSmall,
     this.pollEvery = const Duration(seconds: 3),
     this.nudgeEvery = const Duration(seconds: 20),
     this.pendingTtl = const Duration(minutes: 20),
@@ -895,6 +913,13 @@ class VenueCashPuller {
   /// A listener never changes the money move's outcome.
   final void Function(VenueCashLegOutcome leg, double? availableBefore)?
       onCashMoved;
+
+  /// A leg home to Dollars of [usd] was refused as under the route's
+  /// minimum (the quote's `amount_too_small`, the CCTP fallback's floor):
+  /// the real minimum is above it, so the next plan raises that venue's
+  /// leg to it or leaves the venue out and the others cover the amount
+  /// ([RouteMinimums.noteAmountTooSmall]). Never changes the leg's outcome.
+  final void Function(OneBalanceVenue venue, double usd)? onAmountTooSmall;
   final Map<OneBalanceVenue, double> _lastAvailable = {};
 
   /// How often the wait reads Dollars.
@@ -1476,6 +1501,11 @@ class VenueCashPuller {
       } catch (_) {/* a cache listener never fails a sent leg */}
       return recorded;
     } catch (e) {
+      if (route == VenueCashRoute.viaDollars && venueLegBelowMinimum(e)) {
+        try {
+          onAmountTooSmall?.call(p.venue, p.usd);
+        } catch (_) {/* a listener never changes the leg */}
+      }
       return _recorded(
           moveId, VenueCashLegOutcome(pull: p, error: e, route: route));
     }
@@ -1648,6 +1678,7 @@ final venueCashPullerProvider = Provider<VenueCashPuller>((ref) {
     nudge: () => BackgroundSyncService().syncNow(),
     walletId: () => pickSpendingWallet(ref.read(settingsProvider))?.id,
     onCashMoved: snapshot.cashMoved,
+    onAmountTooSmall: minimums.noteAmountTooSmall,
     cachedAvailableUsd: snapshot.availableUsd,
   );
 });
