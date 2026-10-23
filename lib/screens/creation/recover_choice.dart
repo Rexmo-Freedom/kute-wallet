@@ -241,9 +241,11 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         return;
       }
       if (!mounted) return;
-      // 2) LEGACY (pre-2.x) recovery. 0.15.1 never published a Nostr label,
-      //    so discovery can't see it even though the wallet is fully
-      //    recoverable — rebuild the seed the 0.15.1 way and probe its
+      // 2) LEGACY (pre-2.x) recovery. Pre-2.x builds published their
+      //    Nostr label only best-effort, under whatever credential their
+      //    ceremony resolved, so discovery cannot be relied on to list it
+      //    even though the wallet is fully recoverable. This path reads
+      //    no relay: rebuild the seed the 0.15.1 way and probe its
       //    balance/history BEFORE offering it (never adopt an empty
       //    phantom). Gated on the LEGACY availability signal, not the new
       //    SDK's.
@@ -647,8 +649,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         if (mounted) setState(() => _confirmingLabel = label);
         // legacy: false — labels here came from the new SDK's discovery
         // sign-in (Nostr), so this restore is by definition the new-SDK
-        // path (legacy pre-2.x wallets never published labels and can't
-        // appear in this picker).
+        // path, including any label a pre-2.x build happened to publish.
+        // Legacy wallets are found by the legacy copies and probe, which
+        // read no relay.
         final pkWallet = await PasskeyService.getWallet(
             label: label, legacy: false, credentialId: credentialId);
         await PasskeyService.cacheLabel(label);
