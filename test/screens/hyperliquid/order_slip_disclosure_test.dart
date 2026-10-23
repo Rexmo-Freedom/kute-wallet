@@ -488,22 +488,32 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('under the minimum the button fills it, tracked as min',
-        (tester) async {
+    testWidgets(
+        'under the minimum one tap writes it and places it through the '
+        'normal confirm, tracked as min', (tester) async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
+      final gate = _StopAtConfirm();
+      RuntimeCapabilitiesService.debugInstance = gate;
+      addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+      AppButton button() => tester.widget<AppButton>(find.descendant(
+          of: find.byType(HlOrderSlipSheet),
+          matching: find.byType(AppButton)));
       await _pumpSlip(tester);
       await typeOnKeypad(tester, '1');
       final minimum = minimumSpan(tester).text!;
-      expect(tester.widget<AppButton>(find.byType(AppButton)).text, minimum);
+      expect(button().text, minimum);
+      expect(gate.checks, 0);
       await tester.tap(find.byType(AppButton));
       await tester.pumpAndSettle();
+      // The minimum went into the figure and on into the normal confirm,
+      // once, whose gate stopped it with its sheet.
       expect('Minimum \$${typed(tester)}', minimum);
       expect(minimumSpan(tester).style?.color, isNot(errorInk(tester)));
-      final button = tester.widget<AppButton>(find.byType(AppButton));
-      expect(button.text, 'Long \$${typed(tester)}');
-      expect(button.onPressed, isNotNull);
+      expect(gate.checks, 1);
+      expect(find.text('Investing unavailable'), findsOneWidget);
+      expect(button().text, 'Long \$${typed(tester)}');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');

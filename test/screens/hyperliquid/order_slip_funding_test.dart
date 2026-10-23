@@ -101,6 +101,18 @@ class _Allowed extends Fake implements RuntimeCapabilitiesService {
   int offeredLeverage(int venueMax) => venueMax;
 }
 
+/// Counts the confirm's place-time capability check and stops it there.
+class _StopAtConfirm extends _Allowed {
+  int checks = 0;
+  @override
+  Future<void> ensureAllAllowed(Iterable<String> ids,
+      {Duration maxAge = Duration.zero}) async {
+    checks++;
+    throw CapabilityUnavailableException(
+        ids.first, const CapabilityDecision(allowed: false));
+  }
+}
+
 class _Account extends HlAccountNotifier {
   _Account(this.withdrawable);
   final double withdrawable;
@@ -466,6 +478,51 @@ void main() {
     // Nothing typed: the order's short name; the tap tops up first.
     expect(door.text, 'Long BTC');
     expect(door.onPressed, isNotNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+
+  // The button that names the minimum (nothing typed, or an amount under
+  // it) places it in ONE tap through the normal confirm, funded or not;
+  // where even Dollars cannot fund the minimum the under-the-minimum tap
+  // only writes it and the button becomes the door for it.
+  for (final venue in [0.0, 3.0, 500.0]) {
+    for (final typed in [null, '1']) {
+      final what = typed == null ? 'nothing typed' : 'under the minimum';
+      testWidgets('$what, venue \$$venue, Dollars cover: one tap confirms '
+          'the minimum once', (tester) async {
+        final gate = _StopAtConfirm();
+        RuntimeCapabilitiesService.debugInstance = gate;
+        addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+        await _pumpSlip(tester, venueUsd: venue, dollarsUsd: 100, rail: rail);
+        if (typed != null) {
+          await _typeOnKeypad(tester, typed);
+          expect(_button(tester).text, startsWith('Minimum \$'));
+        }
+        await tester.tap(find.byType(AppButton));
+        await _frames(tester, 10);
+        expect(gate.checks, 1);
+        expect(find.text(r'$10.26'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  }
+
+  testWidgets(
+      'under the minimum and Dollars cannot fund it: the tap writes the '
+      'minimum, confirms nothing and the button is the door for it',
+      (tester) async {
+    final gate = _StopAtConfirm();
+    RuntimeCapabilitiesService.debugInstance = gate;
+    addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
+    await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
+    await _typeOnKeypad(tester, '1');
+    expect(_button(tester).text, startsWith('Minimum \$'));
+    await tester.tap(find.byType(AppButton));
+    await _frames(tester, 10);
+    expect(gate.checks, 0);
+    expect(find.text(r'$10.26'), findsOneWidget);
+    expect(_button(tester).text, _addThenOrder);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

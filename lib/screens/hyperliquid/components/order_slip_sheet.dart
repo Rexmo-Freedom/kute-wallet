@@ -615,13 +615,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   String _flowStep = 'amount';
   String? _stopReason;
   String? _lastErrorCategory;
-  // none (opened empty) | keypad | max | min | min_direct (the empty
-  // ticket's button placed the minimum)
+  // none (opened empty) | keypad | max | min (the under-the-minimum
+  // button wrote and placed it) | min_direct (the empty ticket's button
+  // placed the minimum)
   String _amountMethod = 'none';
 
   /// The empty ticket's button wrote the minimum; the next build places
   /// it if the ticket can be confirmed at it ([_placeMinimum]).
   bool _placeMinimumOnBuild = false;
+
+  /// With [_placeMinimumOnBuild]: the under-the-minimum button wrote it,
+  /// so the next build places it only through the order's own confirm,
+  /// never a deposit door ([_placeFilledMinimum]).
+  bool _placeMinimumTradeOnly = false;
   late final String _settingsScope = 'hl_slip_${identityHashCode(this)}';
 
   String get _entrySource => widget.entrySource ?? widget.source ?? 'unknown';
@@ -1179,9 +1185,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// The Max chip beside the figure on the simple ticket, or the primary
   /// button while the amount is under the minimum: types [usd] as the
   /// keypad would and records how the amount was filled ('max' / 'min').
-  void _fillAmountChip(double usd, String method) {
+  /// [haptic] false when an order follows on the same tap and brings its
+  /// own.
+  void _fillAmountChip(double usd, String method, {bool haptic = true}) {
     if (usd <= 0) return;
-    HapticFeedback.selectionClick();
+    if (haptic) HapticFeedback.selectionClick();
     _onKeypadAmount(usd.toStringAsFixed(2));
     _amountMethod = method;
   }
@@ -1218,7 +1226,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   void _placeMinimum(double minAmountUsd) {
     if (minAmountUsd <= 0) return;
     _placeMinimumOnBuild = true;
-    _fillAmountChip(minAmountUsd, 'min_direct');
+    _placeMinimumTradeOnly = false;
+    _fillAmountChip(minAmountUsd, 'min_direct', haptic: false);
+  }
+
+  /// The button while the amount is under the minimum: writes
+  /// [minAmountUsd] the way the keypad would, and the next build places it
+  /// through the normal confirm when the ticket can be confirmed at it.
+  /// When the minimum needs money added first it is only written, and the
+  /// button turns into the door for it.
+  void _placeFilledMinimum(double minAmountUsd) {
+    if (minAmountUsd <= 0) return;
+    _placeMinimumOnBuild = true;
+    _placeMinimumTradeOnly = true;
+    _fillAmountChip(minAmountUsd, 'min', haptic: false);
   }
 
   /// Nothing typed on a market order with a minimum of [minAmountUsd]:
@@ -3449,7 +3470,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // in place like a typed one.
         final minimum = _emptyMinimumUsd;
         if (_marginUsd <= 0 && minimum != null) {
-          _fillAmountChip(minimum, 'min_direct');
+          _fillAmountChip(minimum, 'min_direct', haptic: false);
           await WidgetsBinding.instance.endOfFrame;
           if (!mounted) return;
         }
@@ -4955,15 +4976,20 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryNeutral = true;
     } else if (belowMin && !_isScale && _marginUsd > 0 && minAmountUsd > 0) {
       // An amount under the venue minimum: the button names the minimum
-      // the available line shows, and a tap fills it the way Max does.
-      // It stays the trade button (same face, no cross-fade); only what
-      // it says and does changes until the amount clears the floor.
+      // the available line shows, and a tap writes it and places it, as
+      // the order at a typed minimum would. Against a held position (a
+      // flip) the tap only writes it, as the empty ticket's button never
+      // places one either: the button then names the flip. It stays the
+      // trade button (same face, no cross-fade); only what it says and
+      // does changes until the amount clears the floor.
       primaryKind = 'trade';
       primaryLabel =
           context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd));
       primaryAction = _isPlacing || _preparing || _ledgerBusy
           ? null
-          : () => _fillAmountChip(minAmountUsd, 'min');
+          : netPlan.opposes
+              ? () => _fillAmountChip(minAmountUsd, 'min')
+              : () => _placeFilledMinimum(minAmountUsd);
       primaryNeutral = false;
     } else if (placesMinimum) {
       primaryKind = 'trade';
@@ -4989,9 +5015,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       _placeMinimumOnBuild = false;
       final VoidCallback? next = primaryKind == 'trade'
           ? (canConfirm && !belowMin ? _handleConfirm : null)
-          : primaryKind == 'deposit' || primaryKind == 'prepare'
+          : !_placeMinimumTradeOnly &&
+                  (primaryKind == 'deposit' || primaryKind == 'prepare')
               ? primaryAction
               : null;
+      _placeMinimumTradeOnly = false;
       if (next != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) next();

@@ -256,7 +256,8 @@ late _Env _env;
 late _Funder _funder;
 late _Investing _investing;
 
-Future<void> _pumpSlip(WidgetTester tester, {String? slug}) async {
+Future<void> _pumpSlip(WidgetTester tester,
+    {String? slug, double? initialAmountUsd = 10}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -315,7 +316,7 @@ Future<void> _pumpSlip(WidgetTester tester, {String? slug}) async {
                 marketQuestion: 'Will it rain?',
                 marketSlug: slug,
                 outcomes: _outcomes,
-                initialAmountUsd: 10),
+                initialAmountUsd: initialAmountUsd),
           ),
         ),
       ),
@@ -523,4 +524,44 @@ void main() {
     expect(approvals, hasLength(1));
     await release(tester);
   });
+
+  // The button that names the market's minimum (nothing typed, or a stake
+  // under the floor) places that minimum in ONE tap, funded on the path a
+  // typed amount takes: one approval, one move, the steps on the slip.
+  for (final typed in [null, 0.5]) {
+    final what = typed == null ? 'nothing typed' : 'a stake under the floor';
+    testWidgets('$what: one tap places the minimum, funded, one approval',
+        (tester) async {
+      debugFreshSpendingBitcoin =
+          () async => (sats: 1000000, usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester, initialAmountUsd: typed);
+      expect(find.byKey(const ValueKey('bet-slip-deposit-door')), findsNothing);
+      expect(_cta(tester).label,
+          typed == null ? 'Place on Yes' : r'Minimum $1.00');
+
+      await tester.tap(find.byType(PolySlipCta));
+      await _frames(tester, 10);
+
+      expect(sheets, isEmpty);
+      expect(approvals, hasLength(1));
+      expect(approvals.single.action, SensitiveAction.pmBet);
+      expect(_funder.sent, hasLength(1));
+      final pending = _container(tester).read(pendingPolymarketBetProvider)!;
+      expect(pending.amount, 1.0);
+      // The figure on top reads the minimum while it is placed.
+      expect(find.text(r'$1.00'), findsOneWidget);
+      expect(find.text(r'Placing $1.00 on Yes'), findsOneWidget);
+      final tapped =
+          events.where((e) => e.$1 == 'prediction_place_cta_tapped').toList();
+      expect(tapped, hasLength(1));
+      expect(tapped.single.$2?['amount_usd'], 1.0);
+
+      await placeAndFinish(tester);
+      expect(_container(tester).read(fundedOrdersProvider).single.stage,
+          FundedOrderStage.done);
+      expect(approvals, hasLength(1));
+      await release(tester);
+    });
+  }
 }

@@ -281,7 +281,8 @@ class _BetSlipDraft extends ChangeNotifier {
   // stopped, for the step / submitted / abandoned events.
   final DateTime openedAt = DateTime.now();
   String flowStep = 'amount';
-  // none (opened empty) | prefill (carried in) | keypad | max | min |
+  // none (opened empty) | prefill (carried in) | keypad | max |
+  // min (the under-the-floor button wrote and placed the minimum) |
   // min_direct (the empty slip's button placed the minimum)
   String amountMethod = 'prefill';
   String? stopReason;
@@ -717,6 +718,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// network round-trip would otherwise run two placements (two intents,
   /// two BTC swaps). Set before the first await, cleared in finally.
   bool _buyInFlight = false;
+
+  /// The under-the-floor button just wrote the market's minimum: the next
+  /// build places it when the button there is the bet itself (the same
+  /// tap a typed minimum would get), and leaves it written when the
+  /// minimum needs the deposit door instead ([_fillMinimum]).
+  bool _placeMinimumOnBuild = false;
 
   /// "Check connection" is asking the venues and the policy again.
   bool _checkingConnection = false;
@@ -2330,7 +2337,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
     }
     // Under the market's floor: the same minimum button the spending
-    // account gets.
+    // account gets; a tap writes the minimum and places it when the
+    // balance covers it ([_fillMinimum]).
     if (_belowMinimumStake && !buyingPower.isLoading) {
       return PolySlipCta(
         color: selectedColor,
@@ -5429,12 +5437,35 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// The primary button while the stake is under the market's floor: it
   /// reads the minimum and a tap stakes exactly that ([_effectiveMinBetUsd]),
-  /// up to the cent so the stake never lands a fraction under it.
+  /// up to the cent so the stake never lands a fraction under it, and
+  /// places it in the same tap on the path a typed minimum takes. Where the
+  /// balance cannot cover the minimum it is only written and the button
+  /// turns into the deposit door for it.
   void _fillMinimum() {
     final target = _minimumStakeUsd(_effectiveMinBetUsd);
     if (target <= 0) return;
     _spendAllBudgetUsd = null;
-    _writeFilledAmount(target, 'min');
+    // The placement brings its own haptics.
+    _writeFilledAmount(target, 'min', haptic: false);
+    if (_isLedger) {
+      // The Ledger button's own rule: placed when the device's balance
+      // covers it, else the deposit door the button then is.
+      if (_ledgerCovers(target)) _handleBuy();
+      return;
+    }
+    _placeMinimumOnBuild = true;
+  }
+
+  /// Whether a Ledger's read balance covers a stake of [usd].
+  bool _ledgerCovers(double usd) {
+    final walletId = widget.ledgerWalletId;
+    if (walletId == null) return false;
+    final buyingPower = ref.read(ledgerPmBuyingPowerProvider(walletId));
+    final verified = !buyingPower.isLoading && !buyingPower.hasError
+        ? buyingPower.valueOrNull
+        : null;
+    if (verified == null) return false;
+    return usd <= verified.spendable.toDouble() / 1e6 + 1e-9;
   }
 
   /// No stake typed yet (the slip opens empty): the primary button names
@@ -5465,9 +5496,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       _amount > 0 && _amount.isFinite && _amount < _effectiveMinBetUsd;
 
   /// [fromChip] false is the empty slip's button placing the minimum:
-  /// no chip was tapped, so no chip haptic or event.
+  /// no chip was tapped, so no chip haptic or event. [haptic] false keeps
+  /// the event but leaves the haptic to the placement that follows.
   void _writeFilledAmount(double target, String method,
-      {bool fromChip = true}) {
+      {bool fromChip = true, bool haptic = true}) {
     final display = _usdcToFiat(target);
     _fillingAmount = true;
     _amountController.text = display == display.roundToDouble()
@@ -5477,7 +5509,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _draft.amountMethod = method;
     _updateState(() => _amount = target);
     if (!fromChip) return;
-    HapticFeedback.selectionClick();
+    if (haptic) HapticFeedback.selectionClick();
     TrackingService.track('bet_slip_available_tapped',
         params: {'chip': method == 'min' ? 'min' : 'max'});
   }
@@ -5757,6 +5789,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       required String busyLabel,
       bool stepsUnder = false}) {
     _doorAddUsd = null;
+    // Taken once, by this build: the minimum the under-the-floor button
+    // wrote is placed only by the bet button below, never later.
+    final placeFilledMinimum = _placeMinimumOnBuild;
+    _placeMinimumOnBuild = false;
     // A region refusal: the one button asks again, never a dead one.
     if (_draft.openBlockRegion && _tradeBlock != null && !busy) {
       return PolySlipCta(
@@ -5799,7 +5835,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         );
       } else {
         button = _buildPrimaryActionInner(c, selectedColor, selected,
-            busy: busy, failed: failed, busyLabel: busyLabel, band: false);
+            busy: busy,
+            failed: failed,
+            busyLabel: busyLabel,
+            band: false,
+            placeFilledMinimum: placeFilledMinimum);
       }
       return RubberBandProgress(
         key: const ValueKey('bet-slip-funded-progress'),
@@ -5818,7 +5858,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       );
     }
     final action = _buildPrimaryActionInner(c, selectedColor, selected,
-        busy: busy, failed: failed, busyLabel: busyLabel);
+        busy: busy,
+        failed: failed,
+        busyLabel: busyLabel,
+        placeFilledMinimum: placeFilledMinimum);
     if (journey == null) return action;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -5831,7 +5874,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       {required bool busy,
       required bool failed,
       required String busyLabel,
-      bool band = true}) {
+      bool band = true,
+      bool placeFilledMinimum = false}) {
     // The placement's band: pulled while it places, snapped back once it
     // placed, let go softly when it did not.
     final bandOutcome = _placedSuccess ? RubberBandOutcome.success : null;
@@ -6037,7 +6081,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       }
     }
     // A stake under the market's floor: the one button names the minimum
-    // and a tap fills it, so the disabled bet never sits there unexplained.
+    // and a tap places exactly that, so the disabled bet never sits there
+    // unexplained ([_fillMinimum]).
     if (_belowMinimumStake) {
       return PolySlipCta(
         band: band,
@@ -6059,6 +6104,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // Nothing typed yet: the button is the bet at the market's minimum,
     // and a tap places exactly that.
     final placeMinimum = _emptyStake;
+    final enabled = (placeMinimum || _amount >= _effectiveMinBetUsd) &&
+        !_isPlacing &&
+        !_buyInFlight &&
+        _advancedBlock == null &&
+        _tradeBlock == null;
+    // The build after the under-the-floor button wrote the minimum, with
+    // the bet button standing for it: the same tap places it.
+    if (placeFilledMinimum && enabled && !placeMinimum) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleBuy();
+      });
+    }
     return PolySlipCta(
       band: band,
       bandOutcome: bandOutcome,
@@ -6069,11 +6126,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       bandExpected: const Duration(seconds: 3),
       isBusy: busy || _buyInFlight,
       busyLabel: busyLabel,
-      enabled: (placeMinimum || _amount >= _effectiveMinBetUsd) &&
-          !_isPlacing &&
-          !_buyInFlight &&
-          _advancedBlock == null &&
-          _tradeBlock == null,
+      enabled: enabled,
       onTap: placeMinimum ? _placeMinimum : _handleBuy,
       label: again(placeMinimum
           ? _betCtaLabel(selected, 0, empty: true)

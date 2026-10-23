@@ -908,14 +908,26 @@ void main() {
   group('under the minimum', () {
     PolySlipCta cta(WidgetTester tester) =>
         tester.widget<PolySlipCta>(find.byType(PolySlipCta));
+    // Outcomes with tokens, so a tap goes on into the placement.
+    const placeable = [
+      PolymarketOutcome(
+          name: 'Yes', price: 0.5, conditionId: 'cond-1', tokenId: '1'),
+      PolymarketOutcome(
+          name: 'No', price: 0.5, conditionId: 'cond-1', tokenId: '2'),
+    ];
 
-    testWidgets('the button names the minimum and a tap fills it',
-        (tester) async {
+    testWidgets(
+        'the button names the minimum and one tap places exactly it, '
+        'on the typed path', (tester) async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
       final policy = await _allowEverything();
-      await _pumpSlip(tester);
+      late _RecordingController controller;
+      await _pumpSlip(tester, outcomes: placeable, extraOverrides: [
+        polymarketBetControllerProvider
+            .overrideWith((ref) => controller = _RecordingController(ref)),
+      ]);
       await _typeOnKeypad(tester, '0.5');
       expect(cta(tester).label, r'Minimum $1.00');
       expect(cta(tester).enabled, isTrue);
@@ -923,13 +935,83 @@ void main() {
       events.clear();
       await tester.tap(find.byType(PolySlipCta));
       await tester.pumpAndSettle();
+      // The minimum went into the figure and on into the placement, once,
+      // the way a typed $1.00 would.
       expect(find.text(r'$1'), findsOneWidget);
-      expect(cta(tester).label, r'Place $1.00 on Yes');
-      expect(cta(tester).enabled, isTrue);
+      expect(controller.amounts, [1.0]);
+      final tapped =
+          events.where((e) => e.$1 == 'prediction_place_cta_tapped').toList();
+      expect(tapped, hasLength(1));
+      expect(tapped.single.$2?['amount_usd'], 1.0);
+      final step = events.lastWhere((e) => e.$1 == 'polymarket_bet_step');
+      expect(step.$2?['amount_method'], 'min');
       expect(
           events.any((e) =>
               e.$1 == 'bet_slip_available_tapped' && e.$2?['chip'] == 'min'),
           isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    for (final covered in [true, false]) {
+      testWidgets(
+          covered
+              ? 'a Ledger: one tap on the minimum opens its review at it'
+              : 'a Ledger that cannot cover the minimum: the tap writes it '
+                  'and the button turns into the deposit door', (tester) async {
+        final events = <(String, Map<String, Object?>?)>[];
+        TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+        addTearDown(() => TrackingService.debugTrackObserver = null);
+        final policy = await _allowEverything();
+        await _pumpSlip(tester,
+            initialAmountUsd: null,
+            outcomes: placeable,
+            ledgerWalletId: 'ledger-1',
+            extraOverrides: [
+              ledgerPmPendingBetProvider.overrideWith((ref, _) async => false),
+              ledgerPmBuyingPowerProvider.overrideWith((ref, _) async =>
+                  LedgerPmBuyingPower(
+                      // $50, or $0.80: the typed $0.50 fits, $1.00 not.
+                      balance: BigInt.from(covered ? 50000000 : 800000),
+                      reserved: BigInt.zero,
+                      allowances: const {})),
+            ]);
+        await _typeOnKeypad(tester, '0.5');
+        expect(cta(tester).label, r'Minimum $1.00');
+        await tester.tap(find.byType(PolySlipCta));
+        await tester.pump();
+        await tester.pump();
+        expect(find.text(r'$1'), findsOneWidget);
+        final reviews = events
+            .where((e) => e.$1 == 'ledger_prediction_review_opened')
+            .toList();
+        if (covered) {
+          expect(reviews, hasLength(1));
+          expect(reviews.single.$2?['amount_usd'], 1.0);
+        } else {
+          expect(reviews, isEmpty);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
+              findsOneWidget);
+        }
+        await _release(tester, policy);
+      });
+    }
+
+    testWidgets('a typed amount over the minimum places what was typed',
+        (tester) async {
+      final policy = await _allowEverything();
+      late _RecordingController controller;
+      await _pumpSlip(tester, outcomes: placeable, extraOverrides: [
+        polymarketBetControllerProvider
+            .overrideWith((ref) => controller = _RecordingController(ref)),
+      ]);
+      await _typeOnKeypad(tester, '3');
+      expect(cta(tester).label, r'Place $3.00 on Yes');
+      await tester.tap(find.byType(PolySlipCta));
+      await tester.pumpAndSettle();
+      expect(controller.amounts, [3.0]);
+      expect(find.text(r'$3'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
