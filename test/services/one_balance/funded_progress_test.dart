@@ -16,8 +16,6 @@ import 'package:kute/screens/shared/slip_shortfall.dart' show fundedStopLine;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
-import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show kVenuePullEta;
 import 'package:kute/services/polymarket/bet_prefund.dart';
 
 const _bet = FundedOrderLabel(
@@ -372,41 +370,22 @@ void main() {
           isFalse);
     });
 
-    test('Investing cash cannot land in a 5-minute round: said before money '
-        'moves', () {
+    test('a 5-minute round is funded from wherever the money is, even when '
+        'it may end first (founder, 23 October 2026)', () {
       final now = DateTime(2026, 10, 14, 12);
-      final end = now.add(const Duration(minutes: 4));
-      // Dollars cover it: 90 s + 30 s fits.
-      final dollars = predictionsLandingFor(fundUsd: 5, dollarsUsd: 10);
-      expect(dollars, kPredictionsFundingP95);
+      for (final left in const [Duration(seconds: 20), Duration(minutes: 4)]) {
+        expect(
+            predictionsFundingBlock(
+                endAt: now.add(left), fastRound: true, now: now),
+            isNull);
+      }
+      // Over already: nothing moves.
       expect(
           predictionsFundingBlock(
-              endAt: end, fastRound: true, now: now, landing: dollars),
-          isNull);
-      // From Investing: its pull first (minutes), the round closes first.
-      final investing =
-          predictionsLandingFor(fundUsd: 5, dollarsUsd: 1, reachUsd: 20);
-      expect(investing,
-          kPredictionsFundingP95 + kVenuePullEta[OneBalanceVenue.investing]!);
-      expect(
-          predictionsFundingBlock(
-              endAt: end, fastRound: true, now: now, landing: investing),
-          PredictionsFundingBlock.closing);
-      // From bitcoin: its leg first.
-      final bitcoin =
-          predictionsLandingFor(fundUsd: 5, dollarsUsd: 1, reachUsd: 1);
-      expect(bitcoin, kPredictionsFundingP95 + kBitcoinLegLanding);
-      expect(
-          predictionsFundingBlock(
-              endAt: end, fastRound: true, now: now, landing: bitcoin),
-          isNull);
-      expect(
-          predictionsFundingBlock(
-              endAt: now.add(const Duration(minutes: 3)),
+              endAt: now.subtract(const Duration(seconds: 1)),
               fastRound: true,
-              now: now,
-              landing: bitcoin),
-          PredictionsFundingBlock.closing);
+              now: now),
+          PredictionsFundingBlock.ended);
     });
   });
 }

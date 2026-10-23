@@ -10727,10 +10727,6 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Изпрати $amount';
   }

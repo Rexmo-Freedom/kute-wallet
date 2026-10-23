@@ -10766,10 +10766,6 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Trimite $amount';
   }

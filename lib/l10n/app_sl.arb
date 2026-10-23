@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Pridobite naslov, na katerega pošljete dolarje",
   "portfolioStatOpenPnl": "Odprt dobiček / izguba",
   "stepUpReasonBetReady": "Pripravite napoved {amount}",
-  "betMarketClosingNoFunding": "Ta trg se zapre, preden bi denar lahko prispel. Nič ni bilo premaknjeno.",
   "multiMoveSendTitle": "Pošlji {amount}",
   "multiMoveTitle": "Premakni {amount} v {destination}",
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",

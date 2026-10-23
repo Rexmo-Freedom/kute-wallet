@@ -10743,10 +10743,6 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Ten rynek zamyka się, zanim pieniądze zdążą dotrzeć. Nic nie zostało przeniesione.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Wyślij $amount';
   }

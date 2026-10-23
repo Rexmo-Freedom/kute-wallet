@@ -10737,10 +10737,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Ta trg se zapre, preden bi denar lahko prispel. Nič ni bilo premaknjeno.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Pošlji $amount';
   }

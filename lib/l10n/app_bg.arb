@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Вземете адрес, на който да изпратите долари",
   "portfolioStatOpenPnl": "Отворена печалба / загуба",
   "stepUpReasonBetReady": "Подготви прогноза за {amount}",
-  "betMarketClosingNoFunding": "Този пазар се затваря, преди парите да пристигнат. Нищо не е преместено.",
   "multiMoveSendTitle": "Изпрати {amount}",
   "multiMoveTitle": "Прехвърли {amount} към {destination}",
   "multiMoveDeliveredRemaining": "{delivered} доставени · {remaining} остават",

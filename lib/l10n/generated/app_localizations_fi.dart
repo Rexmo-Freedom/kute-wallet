@@ -10719,10 +10719,6 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Tämä markkina sulkeutuu ennen kuin rahat ehtisivät perille. Mitään ei siirretty.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Lähetä $amount';
   }

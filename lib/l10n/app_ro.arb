@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Obține o adresă la care să trimiți dolari",
   "portfolioStatOpenPnl": "Profit / pierdere deschis",
   "stepUpReasonBetReady": "Pregătește o predicție de {amount}",
-  "betMarketClosingNoFunding": "Această piață se închide înainte ca banii să poată ajunge. Nu s-a mutat nimic.",
   "multiMoveSendTitle": "Trimite {amount}",
   "multiMoveTitle": "Mută {amount} în {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",

@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Gaukite adresą, kuriuo siųsti dolerius",
   "portfolioStatOpenPnl": "Atviras pelnas / nuostolis",
   "stepUpReasonBetReady": "Paruoškite {amount} prognozę",
-  "betMarketClosingNoFunding": "Ši rinka užsidaro anksčiau, nei pinigai spėtų atkeliauti. Niekas nebuvo perkelta.",
   "multiMoveSendTitle": "Siųsti {amount}",
   "multiMoveTitle": "Perkelti {amount} į {destination}",
   "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",
