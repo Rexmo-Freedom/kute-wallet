@@ -18163,6 +18163,24 @@ abstract class AppLocalizations {
   /// **'From another wallet or exchange'**
   String get usdReceiveFromAnotherWallet;
 
+  /// Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'To your wallet'**
+  String get usdWithdrawToYourWallet;
+
+  /// Section label on the first step of the Investments (dollars) withdraw sheet, above the grid of coins the dollars can be sent out as, to another wallet or an exchange.
+  ///
+  /// In en, this message translates to:
+  /// **'To another wallet or exchange'**
+  String get usdWithdrawToAnotherWallet;
+
+  /// Dollars withdraw sheet, To your wallet: the button on the Bitcoin card that moves dollars home to the Bitcoin balance.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw now'**
+  String get usdWithdrawNow;
+
   /// Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:

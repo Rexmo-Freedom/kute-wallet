@@ -10743,6 +10743,15 @@ class AppLocalizationsSv extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Från en annan plånbok eller börs';
 
   @override
+  String get usdWithdrawToYourWallet => 'Till din plånbok';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Till en annan plånbok eller börs';
+
+  @override
+  String get usdWithdrawNow => 'Ta ut nu';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Lägger till $amount i Investments';
   }

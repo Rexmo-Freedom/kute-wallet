@@ -10806,6 +10806,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Desde otra billetera o exchange';
 
   @override
+  String get usdWithdrawToYourWallet => 'A tu billetera';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'A otra billetera o exchange';
+
+  @override
+  String get usdWithdrawNow => 'Retirar ahora';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Añadiendo $amount a Investments';
   }

@@ -10770,6 +10770,15 @@ class AppLocalizationsHr extends AppLocalizations {
       'Iz drugog novčanika ili mjenjačnice';
 
   @override
+  String get usdWithdrawToYourWallet => 'U tvoj novčanik';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'U drugi novčanik ili mjenjačnicu';
+
+  @override
+  String get usdWithdrawNow => 'Isplati sada';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Dodavanje $amount u Investments';
   }

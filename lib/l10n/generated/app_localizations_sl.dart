@@ -10775,6 +10775,15 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Iz druge denarnice ali borze';
 
   @override
+  String get usdWithdrawToYourWallet => 'V vašo denarnico';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'V drugo denarnico ali borzo';
+
+  @override
+  String get usdWithdrawNow => 'Dvigni zdaj';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Dodajanje $amount v Investments';
   }

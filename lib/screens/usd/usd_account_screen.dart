@@ -89,10 +89,11 @@
 // (where the orders are), `?tab=activity` on Activity, `?tab=balances` on
 // Balances ([PortfolioSection.forLink]).
 //
-// Receive opens the Dollars receive screen off the Orchestra route list,
+// Deposit opens the Dollars receive screen off the Orchestra route list,
 // pointed at this balance: whatever coin the money arrives in, dollars
-// land. Send is its own screen
-// (usd_send_screen.dart), pointed the other way. A Ledger
+// land. Withdraw opens the same sheet turned around
+// (usd_withdraw_screen.dart), whose coins go out through the dollar send
+// (usd_send_screen.dart). A Ledger
 // account is not part of this: it keeps its own Investing and Predictions
 // tabs of the strip, with its own screens, buttons and layout.
 //
@@ -132,9 +133,9 @@ import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
-import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
 import 'package:kute/screens/shared/stale_shimmer.dart';
-import 'package:kute/screens/usd/usd_send_screen.dart';
+import 'package:kute/screens/usd/usd_withdraw_screen.dart'
+    show showUsdWithdrawSheet;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
@@ -884,10 +885,18 @@ class _RenderMeasureHeight extends RenderProxyBox {
 }
 
 /// The Investments dock, in the Bitcoin dock's shape: money in on the
-/// left, Send on the right, search in the square.
+/// left, money out on the right, search in the square.
 ///
-/// RECEIVE (owner decision, 2026-10-13, replacing the dock's Deposit)
-/// wears the Bitcoin dock's Receive label and arrow and opens the Dollars
+/// DEPOSIT AND WITHDRAW (founder, 2026-10-23): on Investments the two
+/// money verbs say Deposit and Withdraw, never Receive and Send; the
+/// Bitcoin dock keeps Send and Receive. Withdraw opens the Deposit's own
+/// sheet turned around ([showUsdWithdrawSheet]): "To your wallet" over the
+/// Bitcoin card (the Move money sheet, Dollars to Bitcoin), then the coins
+/// the dollars can be sent out as, each into the dollar send below.
+///
+/// RECEIVE (owner decision, 2026-10-13, replacing the dock's Deposit;
+/// labelled Deposit again since 2026-10-23) wears the Bitcoin dock's
+/// arrow and opens the Dollars
 /// receive screen (usd_receive_screen.dart) on its first step: "From your
 /// Bitcoin" first, then the coins it also accepts; nothing is picked for
 /// the person, a coin they tap shows its address. The dollar token is a
@@ -952,6 +961,20 @@ class UsdAccountActionBar extends ConsumerWidget {
     showUsdReceiveSheet(context);
   }
 
+  /// Test seam: what Withdraw opens. Null opens the Withdraw sheet
+  /// ([showUsdWithdrawSheet]).
+  @visibleForTesting
+  static void Function(BuildContext context)? debugWithdrawOpener;
+
+  /// The dock's Withdraw: the Withdraw sheet on its first step, "To your
+  /// wallet" over the coins the dollars can be sent out as.
+  void _withdraw(BuildContext context) {
+    final open = debugWithdrawOpener;
+    if (open != null) return open(context);
+    // ignore: discarded_futures
+    showUsdWithdrawSheet(context);
+  }
+
   /// What the square searches for [tab]: a venue's own markets, results
   /// first and under the venue's own source, or (null category) this
   /// account's activity under the Investments source.
@@ -1005,23 +1028,24 @@ class UsdAccountActionBar extends ConsumerWidget {
           // The Bitcoin dock's Receive, label, arrow and action key; the
           // dock sends it under this surface's source (`usd`). Before
           // 2026-10-13 this slot was Deposit (`dollar_deposit`).
+          // Investments says Deposit and Withdraw, never Receive and Send
+          // (founder, 2026-10-23); the action keys stay `receive` and
+          // `send` so the dock's events read as before.
           KuteDockAction(
             icon: Icons.south_west_rounded,
-            label: context.l10n.receive,
+            label: context.l10n.deposit,
             trackingId: 'receive',
             onTap: () => _receive(context),
           ),
           KuteDockAction(
             icon: Icons.north_east_rounded,
-            label: context.l10n.send,
+            label: context.l10n.withdraw,
             trackingId: 'send',
-            // `usd_send_opened` fires once from the screen's initState.
-            // Opens as the send sheet (send_sheet.dart), as the
-            // Bitcoin dock's Send does.
-            onTap: () => showSendSheet<void>(
-              context,
-              builder: (_) => const UsdSendScreen(),
-            ),
+            // The Deposit's sheet, turned around (usd_withdraw_screen
+            // .dart): "To your wallet" over the coins; a coin opens the
+            // dollar send, whose `usd_send_opened` fires from its
+            // initState.
+            onTap: () => _withdraw(context),
           ),
         ],
         onSearch: () => _search(context, ref),

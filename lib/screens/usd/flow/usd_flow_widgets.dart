@@ -13,12 +13,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show SendToListCard, SendToListRow;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -451,6 +454,92 @@ class UsdFlowCoinPickerPanel extends StatelessWidget {
         moreLabel: context.l10n.receiveAlsoAcceptsMore,
         padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 16.h),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+/// The Bitcoin card at the top of the Investments money sheets: the
+/// Bitcoin mark, "Bitcoin" over the spending wallet's dollar balance
+/// ([balance], null while unknown), and a compact filled button
+/// ([buttonLabel]) in place of the chevron. Deposit draws it under
+/// "From your wallet" (bitcoin into Dollars), Withdraw under "To your
+/// wallet" (Dollars home to bitcoin). The whole card and the button both
+/// run [onTap], and the pair reads to assistive tech as one button.
+class UsdBitcoinCard extends StatelessWidget {
+  const UsdBitcoinCard({
+    super.key,
+    required this.rowKey,
+    required this.buttonKey,
+    required this.balance,
+    required this.buttonLabel,
+    required this.onTap,
+  });
+
+  final Key rowKey;
+  final Key buttonKey;
+  final String? balance;
+  final String buttonLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: SendToListCard(
+          colors: c,
+          rows: [
+            SendToListRow(
+              key: rowKey,
+              leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
+                  width: 40.sp, height: 40.sp),
+              title: context.l10n.bitcoin,
+              // The Bitcoin balance alone: the card is "Bitcoin", the
+              // tab's name, never "spending wallet" (founder decision).
+              subtitle: balance,
+              trailing: _button(context),
+              colors: c,
+              onTap: onTap,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The card's explicit action: the app's compact filled button (as a
+  /// claim row draws it), sized to its label at the current text scale
+  /// and capped so the title keeps its room.
+  Widget _button(BuildContext context) {
+    final fontSize = 14.sp;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: buttonLabel,
+        style: DefaultTextStyle.of(context).style.merge(TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            )),
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final labelWidth = painter.width;
+    painter.dispose();
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.34;
+    final width = (labelWidth + 32.w).clamp(72.w, maxWidth).toDouble();
+    return SizedBox(
+      key: buttonKey,
+      width: width,
+      child: AppButton(
+        text: buttonLabel,
+        compact: true,
+        height: 36.h,
+        fontSize: fontSize,
+        onPressed: onTap,
       ),
     );
   }

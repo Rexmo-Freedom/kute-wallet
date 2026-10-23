@@ -26,7 +26,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/helpers/user_error_copy.dart';
@@ -58,7 +57,7 @@ import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListCard, SendToListRow, SendToSectionHeader;
+    show SendToSectionHeader;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
     show BitcoinReceiveMarks;
@@ -75,7 +74,6 @@ import 'package:kute/services/security/wallet_guard_exception.dart'
     show WalletGuardException;
 import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 
 /// The Move sheet's `entry_source` when the Bitcoin card ("From your
 /// wallet") at the top of this screen opens it.
@@ -88,6 +86,25 @@ const String kUsdReceiveFromBitcoinReceiveSource = 'bitcoin_receive';
 /// The `chain:asset` id the coin sheet selects by.
 String usdReceiveCoinId(OrchestraReceiveOption o) =>
     '${o.chain}:${o.assetCode}';
+
+/// The spending bitcoin's balance in dollars, as the Move sheet's Bitcoin
+/// row prints it (floored to the cent), or null while unknown. Watched,
+/// so the Bitcoin card at the top of the Investments Deposit and Withdraw
+/// sheets follows the balance.
+String? watchSpendingBitcoinUsd(WidgetRef ref) {
+  try {
+    final spending = pickSpendingWallet(ref.watch(settingsProvider));
+    if (spending == null) return null;
+    final sats =
+        ref.watch(walletBalanceCacheProvider)[spending.id]?.sparkBitcoinbalance;
+    final rate = ref.watch(selectedCurrencyProvider('USD')).toDouble();
+    if (sats == null || rate <= 0) return null;
+    final usd = sats / 1e8 * rate;
+    return '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
+  } catch (_) {
+    return null;
+  }
+}
 
 /// The receive of another coin, a sheet over the current screen
 /// (`showUsdReceiveSheet` / `showOtherCoinsReceiveSheet`, or the
@@ -187,24 +204,6 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     ref.read(orchestraSupportedRoutesProvider.notifier).refresh();
   }
 
-  /// The spending bitcoin's balance in dollars, as the Move sheet's
-  /// Bitcoin row prints it (floored to the cent), or null while unknown.
-  String? _spendingBitcoinUsd() {
-    try {
-      final spending = pickSpendingWallet(ref.watch(settingsProvider));
-      if (spending == null) return null;
-      final sats = ref
-          .watch(walletBalanceCacheProvider)[spending.id]
-          ?.sparkBitcoinbalance;
-      final rate = ref.watch(selectedCurrencyProvider('USD')).toDouble();
-      if (sats == null || rate <= 0) return null;
-      final usd = sats / 1e8 * rate;
-      return '\$${((usd * 100).floor() / 100).toStringAsFixed(2)}';
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// The Bitcoin card: the Investments deposit from the spending
   /// bitcoin, the Move sheet the dock's old Deposit opened.
   void _openFromBitcoin() {
@@ -213,74 +212,16 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
     unawaited(open(context, lockedSide: MoveLockedSide.depositToUsd));
   }
 
-  /// The coin step's first choice, under its "From your wallet" label, in
-  /// the Send-to step's list card: the Bitcoin mark, "Bitcoin" over the
-  /// spending wallet's dollar balance, and a compact Add button. The
-  /// whole card and the button both open the Move sheet, and the pair
-  /// reads to assistive tech as one button.
-  Widget _bitcoinRow(BuildContext context) {
-    final c = context.colors;
-    final l10n = context.l10n;
-    final balance = _spendingBitcoinUsd();
-    return MergeSemantics(
-      child: Semantics(
-        button: true,
-        child: SendToListCard(
-          colors: c,
-          rows: [
-            SendToListRow(
-              key: const ValueKey('usd-receive-from-bitcoin'),
-              leading: SvgPicture.asset('lib/assets/bitcoin-icon.svg',
-                  width: 40.sp, height: 40.sp),
-              title: l10n.bitcoin,
-              // The Bitcoin balance alone: the card is "Bitcoin", the
-              // tab's name, never "spending wallet" (founder decision).
-              subtitle: balance,
-              trailing: _bitcoinRowButton(context),
-              colors: c,
-              onTap: _openFromBitcoin,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// The Bitcoin card's explicit action: the app's compact filled
-  /// button (as a claim row draws it), sized to its label at the
-  /// current text scale and capped so the title keeps its room.
-  Widget _bitcoinRowButton(BuildContext context) {
-    final label = context.l10n.usdReceiveDepositNow;
-    final fontSize = 14.sp;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: DefaultTextStyle.of(context).style.merge(TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            )),
-      ),
-      maxLines: 1,
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    final labelWidth = painter.width;
-    painter.dispose();
-    final maxWidth = MediaQuery.sizeOf(context).width * 0.34;
-    final width = (labelWidth + 32.w).clamp(72.w, maxWidth).toDouble();
-    return SizedBox(
-      key: const ValueKey('usd-receive-from-bitcoin-button'),
-      width: width,
-      child: AppButton(
-        text: label,
-        compact: true,
-        height: 36.h,
-        fontSize: fontSize,
-        onPressed: _openFromBitcoin,
-      ),
-    );
-  }
+  /// The coin step's first choice, under its "From your wallet" label:
+  /// the Bitcoin card ([UsdBitcoinCard]) with its Deposit now button.
+  /// The whole card and the button both open the Move sheet.
+  Widget _bitcoinRow(BuildContext context) => UsdBitcoinCard(
+        rowKey: const ValueKey('usd-receive-from-bitcoin'),
+        buttonKey: const ValueKey('usd-receive-from-bitcoin-button'),
+        balance: watchSpendingBitcoinUsd(ref),
+        buttonLabel: context.l10n.usdReceiveDepositNow,
+        onTap: _openFromBitcoin,
+      );
 
   @override
   void dispose() {

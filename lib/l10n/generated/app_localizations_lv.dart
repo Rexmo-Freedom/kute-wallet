@@ -10714,6 +10714,15 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'No cita maka vai biržas';
 
   @override
+  String get usdWithdrawToYourWallet => 'Uz tavu maku';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Uz citu maku vai biržu';
+
+  @override
+  String get usdWithdrawNow => 'Izņemt tagad';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Pievieno $amount kontam Investments';
   }

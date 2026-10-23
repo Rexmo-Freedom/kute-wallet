@@ -10804,6 +10804,15 @@ class AppLocalizationsRo extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Din alt portofel sau exchange';
 
   @override
+  String get usdWithdrawToYourWallet => 'În portofelul tău';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'În alt portofel sau exchange';
+
+  @override
+  String get usdWithdrawNow => 'Retrage acum';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Se adaugă $amount în Investments';
   }

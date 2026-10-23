@@ -10830,6 +10830,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Depuis un autre portefeuille ou une plateforme';
 
   @override
+  String get usdWithdrawToYourWallet => 'Vers votre portefeuille';
+
+  @override
+  String get usdWithdrawToAnotherWallet =>
+      'Vers un autre portefeuille ou une plateforme';
+
+  @override
+  String get usdWithdrawNow => 'Retirer maintenant';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Ajout de $amount à Investments';
   }

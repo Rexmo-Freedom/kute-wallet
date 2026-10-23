@@ -157,7 +157,8 @@ const int _kReviewStep = 2;
 /// Typed over what can be sent, the amount step says "more than
 /// available" and Continue stays dead; nothing is offered to top it up.
 class UsdSendScreen extends ConsumerStatefulWidget {
-  const UsdSendScreen({super.key, this.initialRecipient});
+  const UsdSendScreen(
+      {super.key, this.initialRecipient, this.initialDestination});
 
   /// A recipient handed over on open (a deep link or a scanner
   /// hand-off), raw. A payment request that names its own network
@@ -166,8 +167,49 @@ class UsdSendScreen extends ConsumerStatefulWidget {
   /// network accepts it.
   final String? initialRecipient;
 
+  /// The coin and network already picked on the Withdraw sheet's grid
+  /// (usd_withdraw_screen.dart): Send to opens on its recipient field,
+  /// the coin as the chip that reopens the picker.
+  final UsdSendDestination? initialDestination;
+
   @override
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
+}
+
+/// [d] as the coin pickers' option row.
+OrchestraReceiveOption usdSendDestinationOption(UsdSendDestination d) =>
+    OrchestraReceiveOption(
+      assetCode: d.assetCode,
+      displayName: d.displayName,
+      displaySymbol: d.displaySymbol,
+      chain: d.chain,
+      chainDisplayName: d.chainDisplayName,
+      decimals: d.decimals,
+      chainIconUrl: d.chainIconUrl,
+      assetIconUrl: d.assetIconUrl,
+    );
+
+/// Every Orchestra destination the dollar balance can reach, minus the
+/// rows the runtime policy withdraws (the coin sheet's own filter, so an
+/// address can never settle on a row the sheet would hide), and the
+/// reason the first withdrawn row gave. The send and the Withdraw sheet
+/// offer exactly this set.
+({List<UsdSendDestination> offered, String? hiddenReason})
+    usdSendOfferedDestinations(OrchestraRoutesCatalog catalog) {
+  final all = usdSendDestinations(catalog);
+  final result = orchestraOptionsOfferedUnderPolicy(
+    [for (final d in all) usdSendDestinationOption(d)],
+    RuntimeCapabilitiesService.instance,
+    otherLegAsset: kOrchestraUsdAssetCode,
+  );
+  final ids = {for (final o in result.offered) '${o.chain}:${o.assetCode}'};
+  return (
+    offered: [
+      for (final d in all)
+        if (ids.contains(d.id)) d
+    ],
+    hiddenReason: result.hiddenReason,
+  );
 }
 
 class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
@@ -275,6 +317,12 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     if (initial.isNotEmpty) _pendingRecipient = initial;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _step != _kSendToStep) return;
+      // A coin picked on the Withdraw sheet: Send to opens on its field.
+      final picked = widget.initialDestination;
+      if (picked != null && _destination == null) {
+        _selectDestination(picked,
+            selection: 'withdraw_sheet', preselected: true);
+      }
       _applyInitialRecipient();
     });
     // A dollar send is a money decision on a live route, so nudge the
@@ -422,38 +470,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   // ─── Destinations and the recipient ───────────────────────────────
 
   OrchestraReceiveOption _asOption(UsdSendDestination d) =>
-      OrchestraReceiveOption(
-        assetCode: d.assetCode,
-        displayName: d.displayName,
-        displaySymbol: d.displaySymbol,
-        chain: d.chain,
-        chainDisplayName: d.chainDisplayName,
-        decimals: d.decimals,
-        chainIconUrl: d.chainIconUrl,
-        assetIconUrl: d.assetIconUrl,
-      );
+      usdSendDestinationOption(d);
 
-  /// Every Orchestra destination the dollar balance can reach, minus the
-  /// rows the runtime policy withdraws (the coin sheet's own filter, so
-  /// an address can never settle on a row the sheet would hide), and the
-  /// reason the first withdrawn row gave.
-  ({List<UsdSendDestination> offered, String? hiddenReason})
-      _offeredDestinations(OrchestraRoutesCatalog catalog) {
-    final all = usdSendDestinations(catalog);
-    final result = orchestraOptionsOfferedUnderPolicy(
-      [for (final d in all) _asOption(d)],
-      RuntimeCapabilitiesService.instance,
-      otherLegAsset: kOrchestraUsdAssetCode,
-    );
-    final ids = {for (final o in result.offered) '${o.chain}:${o.assetCode}'};
-    return (
-      offered: [
-        for (final d in all)
-          if (ids.contains(d.id)) d
-      ],
-      hiddenReason: result.hiddenReason,
-    );
-  }
+  ({
+    List<UsdSendDestination> offered,
+    String? hiddenReason
+  }) _offeredDestinations(OrchestraRoutesCatalog catalog) =>
+      usdSendOfferedDestinations(catalog);
 
   /// What the field's text means against what this send can reach.
   UsdRecipientMatch _match(String text,
@@ -1450,7 +1473,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                 ? l10n.sendSendingEllipsis
                 : _retryPull && _error != null
                     ? l10n.retry
-                    : l10n.send,
+                    // Investments says Withdraw, never Send (founder).
+                    : l10n.withdraw,
             loading: _processing,
             onPressed: canSend ? _confirmSend : null,
             footnote: (_stepsMoveId == null ? _pullProgress : null) ??
@@ -1963,7 +1987,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   void _showSent(UsdSendDestination destination, {String? detail}) {
     final navigator = Navigator.of(context);
     final l10n = context.l10n;
-    navigator.pop();
+    // `true`: the send went out, so the Withdraw sheet under it closes.
+    navigator.pop(true);
     pushKuteSuccessOverlay(
       navigator: navigator,
       overlay: KuteSuccessOverlay(

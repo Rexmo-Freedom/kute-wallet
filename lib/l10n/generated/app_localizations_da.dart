@@ -10747,6 +10747,15 @@ class AppLocalizationsDa extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Fra en anden wallet eller børs';
 
   @override
+  String get usdWithdrawToYourWallet => 'Til din wallet';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Til en anden wallet eller børs';
+
+  @override
+  String get usdWithdrawNow => 'Hæv nu';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Tilføjer $amount til Investments';
   }

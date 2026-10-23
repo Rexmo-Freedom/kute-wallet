@@ -10828,6 +10828,16 @@ class AppLocalizationsDe extends AppLocalizations {
       'Aus einem anderen Wallet oder einer Börse';
 
   @override
+  String get usdWithdrawToYourWallet => 'In dein Wallet';
+
+  @override
+  String get usdWithdrawToAnotherWallet =>
+      'In ein anderes Wallet oder an eine Börse';
+
+  @override
+  String get usdWithdrawNow => 'Jetzt abheben';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return '$amount kommen zu Investments';
   }

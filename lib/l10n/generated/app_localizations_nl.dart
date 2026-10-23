@@ -10780,6 +10780,15 @@ class AppLocalizationsNl extends AppLocalizations {
       'Vanuit een andere wallet of exchange';
 
   @override
+  String get usdWithdrawToYourWallet => 'Naar je wallet';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Naar een andere wallet of exchange';
+
+  @override
+  String get usdWithdrawNow => 'Nu opnemen';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return '$amount toevoegen aan Investments';
   }

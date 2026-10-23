@@ -10327,6 +10327,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => '別のウォレットまたは取引所から';
 
   @override
+  String get usdWithdrawToYourWallet => 'あなたのウォレットへ';
+
+  @override
+  String get usdWithdrawToAnotherWallet => '別のウォレットまたは取引所へ';
+
+  @override
+  String get usdWithdrawNow => '今すぐ出金';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Investmentsに$amountを追加中';
   }

@@ -10781,6 +10781,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get usdReceiveFromAnotherWallet => 'Z innego portfela lub giełdy';
 
   @override
+  String get usdWithdrawToYourWallet => 'Do twojego portfela';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Do innego portfela lub na giełdę';
+
+  @override
+  String get usdWithdrawNow => 'Wypłać teraz';
+
+  @override
   String slipStepAddingToInvestments(String amount) {
     return 'Dodawanie $amount do Investments';
   }
