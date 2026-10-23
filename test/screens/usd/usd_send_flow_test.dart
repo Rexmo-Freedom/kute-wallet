@@ -1106,7 +1106,7 @@ void main() {
   }
 
   bool sendEnabled(WidgetTester tester) =>
-      _cta(tester, _l10n.send).onPressed != null;
+      _cta(tester, _l10n.withdraw).onPressed != null;
 
   testWidgets(
       'Review: an amount under the route\'s minimum is said once under the '
@@ -1227,7 +1227,7 @@ void main() {
     await toReview(tester, '150');
     expect(sendEnabled(tester), isTrue);
 
-    await tester.tap(find.text(_l10n.send));
+    await tester.tap(find.text(_l10n.withdraw));
     await tester.pumpAndSettle();
     expect(venue.pulls, isEmpty, reason: 'no leg went');
     expect(find.text(_l10n.usdSendMinimum('\$200.00')), findsOneWidget);
@@ -1262,7 +1262,7 @@ void main() {
     await _pump(tester);
     await toReview(tester, '150');
 
-    await tester.tap(find.text(_l10n.send));
+    await tester.tap(find.text(_l10n.withdraw));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
