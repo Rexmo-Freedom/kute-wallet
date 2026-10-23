@@ -27,8 +27,11 @@
 //   bet as before, with its own one prompt.
 //
 // Before any funding (here or at Confirm) the market must still take
-// orders and must not end before a move could land: the funding p95 plus
-// a margin ([predictionsFundingBlock]).
+// orders ([predictionsFundingBlock]). A round that may end before the
+// money lands is funded all the same (founder, 23 October 2026): the
+// autofire places the bet only while the round is open and the price
+// inside what was approved, else the money stays as Predictions cash and
+// the slip's Retry opens the series' round in play.
 //
 // The security model is unchanged: the funding rail only takes a move
 // approved by a fresh step-up grant, and the small-action allowance and
@@ -45,47 +48,11 @@ import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/order_funding.dart';
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
-import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show kVenuePullEta;
 import 'package:kute/services/polymarket/event_trading_over.dart'
     show polyTradingOver;
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart'
     show isPolymarketFastRound;
 import 'package:kute/services/tracking_service.dart';
-
-/// How long a move from Dollars into Predictions takes to land, at the
-/// 95th percentile (Polygon funding; the app keeps no measured figure).
-const Duration kPredictionsFundingP95 = Duration(seconds: 90);
-
-/// Room on top of [kPredictionsFundingP95] for the order itself.
-const Duration kPredictionsFundingMargin = Duration(seconds: 30);
-
-/// How long a Bitcoin → Dollars leg takes to land before the Dollars move
-/// can leave (the chain calls it "taking longer than usual" past this).
-const Duration kBitcoinLegLanding = Duration(minutes: 2);
-
-/// How long a move of [fundUsd] into Predictions takes to land, from
-/// where the money is: Dollars alone ([kPredictionsFundingP95]); Dollars
-/// short, the other venue's cash first (its pull ETA, `kVenuePullEta`,
-/// then the move); short of that too, a Bitcoin leg first. A 5-minute
-/// round cannot wait for Investing cash: the slip says so before any
-/// money moves instead of moving it into a round that closes first.
-Duration predictionsLandingFor({
-  required double fundUsd,
-  required double dollarsUsd,
-  double? reachUsd,
-  bool? otherVenue,
-}) {
-  if (!fundUsd.isFinite || fundUsd <= dollarsUsd + 1e-9) {
-    return kPredictionsFundingP95;
-  }
-  // [otherVenue]: the move's decided sources say whether the Investing
-  // cash is in it ([decideOrderSources]); else read off [reachUsd].
-  if (otherVenue ?? (reachUsd != null && fundUsd <= reachUsd + 1e-9)) {
-    return kPredictionsFundingP95 + kVenuePullEta[OneBalanceVenue.investing]!;
-  }
-  return kPredictionsFundingP95 + kBitcoinLegLanding;
-}
 
 /// How long an amount must stay unchanged before the slip gets it ready.
 const Duration kPrefundHold = Duration(seconds: 1);
@@ -94,9 +61,6 @@ const Duration kPrefundHold = Duration(seconds: 1);
 enum PredictionsFundingBlock {
   /// Closed, not taking orders, or a short round already over.
   ended,
-
-  /// It ends before a move could land and the order go in.
-  closing,
 
   /// The market's state could not be read. Pre-funding needs a positive
   /// read and skips; Confirm-time funding goes on (the order itself is
@@ -118,8 +82,10 @@ class PolymarketMarketWindow {
 }
 
 /// Whether a bet on this market may be funded now: it takes orders
-/// ([market], when read) and does not end within [landing] plus [margin]
-/// of [now]. [endAt] is the slip's own end (Gamma), else the CLOB's.
+/// ([market], when read) and, for a short round, has not ended at [now].
+/// [endAt] is the slip's own end (Gamma), else the CLOB's. A round that
+/// may end before the money lands is funded all the same: the autofire
+/// places nothing once it has (the money stays as Predictions cash).
 ///
 /// An end already past only blocks a short round: a longer market's end
 /// date is for display and it trades until it resolves (see
@@ -130,21 +96,14 @@ PredictionsFundingBlock? predictionsFundingBlock({
   required bool fastRound,
   bool requireRead = false,
   DateTime? now,
-  Duration landing = kPredictionsFundingP95,
-  Duration margin = kPredictionsFundingMargin,
 }) {
   if (market != null && (market.closed || !market.acceptingOrders)) {
     return PredictionsFundingBlock.ended;
   }
   final at = now ?? DateTime.now();
   final end = endAt ?? market?.endAt;
-  if (end != null) {
-    final left = end.difference(at);
-    if (left <= Duration.zero) {
-      if (fastRound) return PredictionsFundingBlock.ended;
-    } else if (left < landing + margin) {
-      return PredictionsFundingBlock.closing;
-    }
+  if (fastRound && end != null && !end.isAfter(at)) {
+    return PredictionsFundingBlock.ended;
   }
   if (market == null && requireRead) return PredictionsFundingBlock.unread;
   return null;
@@ -325,10 +284,9 @@ typedef PrefundFund = Future<OrderFundingOutcome> Function(
     {required double requiredUsd, required double readyUsd});
 typedef PrefundPlan = Future<OrderFundingPlan> Function(
     {required double requiredUsd, required double readyUsd});
-/// Whether the market can take a funded bet in time, for a move of
-/// [fundUsd] (its landing depends on where the money comes from).
+/// Whether the market can take a funded bet now.
 typedef PrefundWindow = Future<PredictionsFundingBlock?> Function(
-    {required bool requireRead, double fundUsd});
+    {required bool requireRead});
 
 /// One move made for the slip.
 class PrefundMove {
@@ -400,7 +358,7 @@ final class PrefundDeclined extends PrefundConfirm {
   const PrefundDeclined();
 }
 
-/// The market cannot take a funded bet in time: nothing moved.
+/// The market no longer takes orders: nothing moved.
 final class PrefundBlocked extends PrefundConfirm {
   const PrefundBlocked(this.block);
   final PredictionsFundingBlock block;
@@ -571,7 +529,7 @@ class BetPrefund {
     if (arm != null && armed && _withinCaps(arm, s.amountUsd, plan.fundUsd)) {
       // Inside what was approved: top up under the same approval.
       if (s.dollarsUsd + 1e-9 < plan.fundUsd) return;
-      if (await _window(requireRead: true, fundUsd: plan.fundUsd) != null) {
+      if (await _window(requireRead: true) != null) {
         return;
       }
       await _move(arm, plan.fundUsd, s, ready);
@@ -580,7 +538,7 @@ class BetPrefund {
     if (_declined) return;
     // Dollars short of the move: Confirm shows the Add path as before.
     if (s.dollarsUsd + 1e-9 < plan.fundUsd) return;
-    if (await _window(requireRead: true, fundUsd: plan.fundUsd) != null) {
+    if (await _window(requireRead: true) != null) {
       return;
     }
     if (_closed) return;
@@ -704,8 +662,8 @@ class BetPrefund {
     final plan = await _plan(requiredUsd: s.requiredUsd, readyUsd: ready);
     final moves = plan.fundUsd > 0;
     if (moves) {
-      // Nothing more moves for a market that cannot take the bet in time.
-      final block = await _window(requireRead: false, fundUsd: plan.fundUsd);
+      // Nothing more moves for a market that no longer takes orders.
+      final block = await _window(requireRead: false);
       if (block != null && block != PredictionsFundingBlock.unread) {
         return PrefundBlocked(block);
       }

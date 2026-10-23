@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Obtén una dirección para enviar dólares",
   "portfolioStatOpenPnl": "Beneficio / pérdida abierto",
   "stepUpReasonBetReady": "Prepara una predicción de {amount}",
-  "betMarketClosingNoFunding": "Este mercado cierra antes de que el dinero pueda llegar. No se movió nada.",
   "multiMoveSendTitle": "Enviar {amount}",
   "multiMoveTitle": "Mover {amount} a {destination}",
   "multiMoveDeliveredRemaining": "{delivered} entregados · {remaining} pendientes",

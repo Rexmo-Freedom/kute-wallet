@@ -18109,12 +18109,6 @@ abstract class AppLocalizations {
   /// **'Get your {amount} prediction ready'**
   String stepUpReasonBetReady(String amount);
 
-  /// Prediction slip notice when a bet would need money moved into Predictions but the market ends before the move could land. Nothing was moved.
-  ///
-  /// In en, this message translates to:
-  /// **'This market closes before money could arrive. Nothing was moved.'**
-  String get betMarketClosingNoFunding;
-
   /// Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.
   ///
   /// In en, this message translates to:

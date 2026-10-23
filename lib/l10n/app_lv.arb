@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Iegūstiet adresi, uz kuru sūtīt dolārus",
   "portfolioStatOpenPnl": "Atvērtā peļņa / zaudējumi",
   "stepUpReasonBetReady": "Sagatavo prognozi {amount} apmērā",
-  "betMarketClosingNoFunding": "Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.",
   "multiMoveSendTitle": "Sūtīt {amount}",
   "multiMoveTitle": "Pārvietot {amount} uz {destination}",
   "multiMoveDeliveredRemaining": "{delivered} piegādāti · {remaining} atlikuši",

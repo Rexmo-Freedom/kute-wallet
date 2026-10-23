@@ -26,7 +26,7 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart'
-    show betSlipStopAction;
+    show betSlipRetriesNextRound, betSlipStopAction;
 import 'package:kute/services/one_balance/funded_orders.dart';
 import 'package:kute/services/one_balance/money_steps.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -894,7 +894,10 @@ void main() {
 
     test('the book past the approval once the money landed: the price now, '
         'a retry at it, never placed by itself', () async {
-      final r = await start(slug: slug, ask: () => '0.70');
+      final r = await start(
+          slug: slug,
+          ask: () => '0.70',
+          endAt: DateTime.now().add(const Duration(minutes: 3)));
       r.trading.land(10.6);
       await settle(r.c);
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -906,8 +909,14 @@ void main() {
       expect(pending.retryMaxPrice, isNotNull);
       expect(pending.errorMessage,
           'Price changed to 70% while your money was moving.');
+      // The round is still open: the retry is on it, at the price now.
       expect(betSlipStopAction(l10nForLanguage('en'), pending),
-          (label: 'Retry at 70%', done: false));
+          (label: 'Retry at 70%', nextRound: false));
+      // Once it has ended, the retry opens the series' round in play.
+      expect(
+          betSlipStopAction(l10nForLanguage('en'), pending,
+              now: DateTime.now().add(const Duration(hours: 1))),
+          (label: 'Retry', nextRound: true));
       // The confirm-time approval does not cover the new price: the retry
       // has to approve again.
       final review = PmGrants.betReview(
@@ -971,8 +980,8 @@ void main() {
       expect(failedEvent()['market_kind'], 'crypto_updown_5m');
     });
 
-    test('the round ended while the money was moving: said so, Done',
-        () async {
+    test('the round ended while the money was moving: said so, the money '
+        'kept, Retry on the round in play', () async {
       final r = await start(
           slug: slug,
           endAt: DateTime.now().add(const Duration(milliseconds: 150)));
@@ -988,10 +997,52 @@ void main() {
           r'This round ended while your money was moving. Your $10.00 is in '
           'Predictions.');
       expect(betSlipStopAction(l10nForLanguage('en'), pending),
-          (label: 'Done', done: true));
+          (label: 'Retry', nextRound: true));
       final failed = failedEvent();
       expect(failed['reason'], 'round_ended');
       expect(failed['market_kind'], 'crypto_updown_5m');
+      // Nothing placed: the money is released as Predictions cash.
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+    });
+
+    test('the round ended before the money landed: funded anyway, waits '
+        'for it, then nothing placed and Retry on the round in play',
+        () async {
+      final r = await start(
+          slug: slug,
+          endAt: DateTime.now().subtract(const Duration(seconds: 5)));
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      // Still waiting for its money: not failed early, so a Retry finds
+      // the money in Predictions and moves nothing twice.
+      expect(r.c.read(pendingPolymarketBetProvider)!.status,
+          PendingBetStatus.awaitingBalance);
+      expect(r.trading.orders, isEmpty);
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, isEmpty, reason: 'nothing auto-placed');
+      final pending = r.c.read(pendingPolymarketBetProvider)!;
+      expect(pending.status, PendingBetStatus.failed);
+      expect(pending.failureCode, 'round_ended');
+      expect(
+          pending.errorMessage,
+          r'This round ended while your money was moving. Your $10.00 is in '
+          'Predictions.');
+      expect(betSlipStopAction(l10nForLanguage('en'), pending),
+          (label: 'Retry', nextRound: true));
+      expect(betSlipRetriesNextRound(pending), isTrue);
+      expect(PredictionFundingLedger.instance.record('ref_move')!.releaseReason,
+          'failed');
+    });
+
+    test('landed inside the approval on an open round: placed as before',
+        () async {
+      final r = await start(
+          slug: slug, endAt: DateTime.now().add(const Duration(minutes: 3)));
+      r.trading.land(10.6);
+      await settle(r.c);
+      expect(r.trading.orders, hasLength(1));
+      expect(r.c.read(pendingPolymarketBetProvider)!.failureCode, isNull);
     });
 
     test('any other market whose price moved: unchanged', () async {

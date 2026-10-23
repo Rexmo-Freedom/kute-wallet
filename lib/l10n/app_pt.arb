@@ -3273,7 +3273,6 @@
   "depositFromAnotherWalletSubtitle": "Obtenha um endereço para enviar dólares",
   "portfolioStatOpenPnl": "Lucro / prejuízo em aberto",
   "stepUpReasonBetReady": "Preparar uma previsão de {amount}",
-  "betMarketClosingNoFunding": "Este mercado fecha antes de o dinheiro poder chegar. Nada foi movido.",
   "multiMoveSendTitle": "Enviar {amount}",
   "multiMoveTitle": "Mover {amount} para {destination}",
   "multiMoveDeliveredRemaining": "{delivered} entregues · {remaining} em falta",

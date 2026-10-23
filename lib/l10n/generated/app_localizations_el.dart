@@ -10785,10 +10785,6 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Αυτή η αγορά κλείνει πριν φτάσουν τα χρήματα. Δεν μεταφέρθηκε τίποτα.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Αποστολή $amount';
   }

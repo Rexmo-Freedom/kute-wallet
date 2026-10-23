@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Λάβετε μια διεύθυνση για να στείλετε δολάρια",
   "portfolioStatOpenPnl": "Ανοιχτό κέρδος / ζημιά",
   "stepUpReasonBetReady": "Ετοίμασε πρόβλεψη {amount}",
-  "betMarketClosingNoFunding": "Αυτή η αγορά κλείνει πριν φτάσουν τα χρήματα. Δεν μεταφέρθηκε τίποτα.",
   "multiMoveSendTitle": "Αποστολή {amount}",
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
   "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",

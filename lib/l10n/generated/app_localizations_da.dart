@@ -10709,10 +10709,6 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Dette marked lukker, før pengene kan nå frem. Intet blev flyttet.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Send $amount';
   }

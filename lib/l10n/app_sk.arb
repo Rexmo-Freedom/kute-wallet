@@ -3000,7 +3000,6 @@
   "depositFromAnotherWalletSubtitle": "Získajte adresu, na ktorú pošlete doláre",
   "portfolioStatOpenPnl": "Otvorený zisk / strata",
   "stepUpReasonBetReady": "Priprav predpoveď {amount}",
-  "betMarketClosingNoFunding": "Tento trh sa zatvorí skôr, než by peniaze dorazili. Nič sa nepresunulo.",
   "multiMoveSendTitle": "Odoslať {amount}",
   "multiMoveTitle": "Presunúť {amount} do {destination}",
   "multiMoveDeliveredRemaining": "{delivered} doručené · {remaining} zostáva",

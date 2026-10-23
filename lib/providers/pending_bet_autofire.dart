@@ -232,7 +232,8 @@ class _ApprovalLapsed implements Exception {
 /// has passed at [now]: its book is shut, so a bet still waiting on its
 /// money, or about to be placed, stops with "This round closed before
 /// your money arrived" instead of a generic refusal or a 12-minute wait.
-@visibleForTesting
+/// The slip reads it too: a stop on a round that ended retries on the
+/// series' round in play.
 bool autofireRoundClosed(PendingBetIntent intent, {DateTime? now}) {
   final end = intent.marketEndAt;
   if (end == null) return false;
@@ -529,17 +530,6 @@ class PendingBetAutoFire {
       _cancelForReconfirm();
       return;
     }
-    // A short round that closed while its money was on the way: its book
-    // is shut. Stopped now (the money lands, or has landed, as
-    // Predictions cash), never left waiting for the 12-minute timeout.
-    if (autofireRoundClosed(intent)) {
-      _stopAwaitPolling();
-      _failRoundClosed(intent);
-      return;
-    }
-    // Nothing signs behind the lock; the next trading tick after unlock
-    // fires.
-    if (!ref.read(sessionUnlockedProvider)) return;
     final balance =
         ref.read(polymarketTradingProvider).valueOrNull?.usdcBalance ?? 0;
     // Same threshold the overlay used: 99% of the requested amount.
@@ -550,7 +540,22 @@ class PendingBetAutoFire {
     // Only this attempt's own completed funding legs can permit a short
     // landing to resize. An unscoped deposit notification only wakes us.
     final landed = _ownFundingDelivered(intent);
-    if (balance < (landed ? 0.000001 : autofireFireAt(intent))) {
+    final arrived = balance >= (landed ? 0.000001 : autofireFireAt(intent));
+    // A short round that ended while its money was on the way: its book
+    // is shut and nothing is signed, never on another round either. Said
+    // once the money is Predictions cash (founder, 23 October 2026: fund
+    // it anyway; if the bet cannot go in, the person retries), so the
+    // slip's Retry on the series' round in play finds it there and moves
+    // nothing twice. Money that never lands still meets the funds wait.
+    if (arrived && autofireRoundClosed(intent)) {
+      _stopAwaitPolling();
+      _failRoundClosed(intent);
+      return;
+    }
+    // Nothing signs behind the lock; the next trading tick after unlock
+    // fires.
+    if (!ref.read(sessionUnlockedProvider)) return;
+    if (!arrived) {
       // Funds aren't fully here yet. Keep forcing fresh balance reads until
       // they land (or we time out). Without this, a swap that settles after
       // the trading provider's periodic poll has gone quiet — or while the
@@ -958,10 +963,13 @@ class PendingBetAutoFire {
       };
 
   /// [intent]'s round closed before its money arrived (or before it could
-  /// be placed): nothing is signed, the money stays as Predictions cash.
+  /// be placed): nothing is signed, on this round or any other, and the
+  /// money stays as Predictions cash. The slip's Retry opens the series'
+  /// round in play with the same side and stake, for the person to
+  /// confirm (`resolveCurrentPolyRound`).
   void _failRoundClosed(PendingBetIntent intent, {String? placementId}) {
     // A 5-minute crypto round says it ended while the money was moving,
-    // and where the money is; its slip offers Done, not a retry.
+    // and where the money is.
     final fiveMinute = polyIsCryptoUpDown5m(intent.eventSlug);
     final code = fiveMinute ? 'round_ended' : 'market_closed';
     _trackFailed(intent, code);
@@ -1577,7 +1585,8 @@ class PendingBetAutoFire {
       }
       // A 5-minute round whose price moved past the approval while the
       // money was moving: the price now, and the slip's one tap tries
-      // again at it under a new approval (never placed by itself).
+      // again under a new approval (never placed by itself): at it while
+      // the round is open, on the series' round in play once it ended.
       final moved = await _roundPriceMoved(intent, e,
           slippagePct:
               autofireSlippagePct(intent.expectedPrice, intent.slippagePct),

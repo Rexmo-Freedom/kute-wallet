@@ -6547,8 +6547,6 @@
   },
   "stepUpReasonBetReady": "Get your {amount} prediction ready",
   "@stepUpReasonBetReady": {"description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.", "placeholders": {"amount": {"type": "String"}}},
-  "betMarketClosingNoFunding": "This market closes before money could arrive. Nothing was moved.",
-  "@betMarketClosingNoFunding": {"description": "Prediction slip notice when a bet would need money moved into Predictions but the market ends before the move could land. Nothing was moved."},
   "multiMoveSendTitle": "Send {amount}",
   "@multiMoveSendTitle": {"description": "Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
   "multiMoveTitle": "Move {amount} to {destination}",

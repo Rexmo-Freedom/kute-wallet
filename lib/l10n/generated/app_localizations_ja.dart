@@ -10290,9 +10290,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding => 'この市場は資金が届く前に終了します。何も移動していません。';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return '$amountを送金';
   }

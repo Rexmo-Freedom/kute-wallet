@@ -16,11 +16,6 @@ import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart';
 import 'package:kute/services/one_balance/order_funding.dart';
-import 'package:kute/services/polymarket/bet_prefund.dart'
-    show kBitcoinLegLanding, kPredictionsFundingP95, predictionsLandingFor;
-import 'package:kute/services/one_balance/one_balance_state.dart';
-import 'package:kute/services/one_balance/venue_cash_source.dart'
-    show kVenuePullEta;
 import 'package:money2/money2.dart';
 
 /// No BTC rate loaded in the app's cache: the fresh read gives it.
@@ -171,11 +166,6 @@ void main() {
       expect(s.route, OrderSourceRoute.bitcoin);
       expect(s.bitcoinUsd, 5);
       expect(s.otherVenueUsed, isFalse);
-      // Landing is the Bitcoin leg's, not the Investing pull's.
-      expect(
-          predictionsLandingFor(
-              fundUsd: 10, dollarsUsd: 5, otherVenue: s.otherVenueUsed),
-          kPredictionsFundingP95 + kBitcoinLegLanding);
     });
 
     test(
@@ -190,10 +180,6 @@ void main() {
       expect(s.otherVenueUsd, 8.02);
       expect(s.bitcoinUsd + s.otherVenueUsd, 10);
       expect(s.plan!.sats, lessThanOrEqualTo(_satsFor(2)));
-      expect(
-          predictionsLandingFor(
-              fundUsd: 10, dollarsUsd: 0, otherVenue: s.otherVenueUsed),
-          kPredictionsFundingP95 + kVenuePullEta[OneBalanceVenue.investing]!);
     });
 
     test('a rest under the minimum is Bitcoin\'s \$1, no venue leg', () async {

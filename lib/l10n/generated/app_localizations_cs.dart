@@ -10698,10 +10698,6 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Tento trh se uzavře dřív, než by peníze dorazily. Nic nebylo přesunuto.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Odeslat $amount';
   }

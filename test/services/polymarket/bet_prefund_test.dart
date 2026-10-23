@@ -103,7 +103,7 @@ class _Rig {
       // The single sizing entry point.
       plan: ({required requiredUsd, required readyUsd}) async =>
           planBetFunding(requiredUsd: requiredUsd, readyUsd: readyUsd),
-      window: ({required requireRead, fundUsd = 0}) async {
+      window: ({required requireRead}) async {
         windowReads.add(requireRead);
         return block;
       },
@@ -195,8 +195,8 @@ void main() {
       expect(rig.requests, isEmpty);
     });
 
-    test('never on a market closing before the money could land', () async {
-      final rig = _Rig(block: PredictionsFundingBlock.closing);
+    test('never on a market that no longer takes orders', () async {
+      final rig = _Rig(block: PredictionsFundingBlock.ended);
       await rig.prefund.holdFired(_slip);
       expect(rig.requests, isEmpty);
       expect(rig.funded, isEmpty);
@@ -490,19 +490,25 @@ void main() {
   group('closing markets (audit P1-5)', () {
     final now = DateTime.utc(2026, 10, 13, 12);
 
-    test('ends within the funding p95 plus margin: closing', () {
-      expect(
-          predictionsFundingBlock(
-              endAt: now.add(const Duration(seconds: 100)),
-              fastRound: true,
-              now: now),
-          PredictionsFundingBlock.closing);
-      expect(
-          predictionsFundingBlock(
-              endAt: now.add(const Duration(minutes: 3)),
-              fastRound: true,
-              now: now),
-          isNull);
+    test('a round that may end before the money lands is funded all the '
+        'same (founder, 23 October 2026)', () {
+      for (final left in const [
+        Duration(seconds: 1),
+        Duration(seconds: 30),
+        Duration(seconds: 100),
+        Duration(minutes: 3),
+      ]) {
+        expect(
+            predictionsFundingBlock(
+                market: const PolymarketMarketWindow(
+                    acceptingOrders: true, closed: false),
+                endAt: now.add(left),
+                fastRound: true,
+                requireRead: true,
+                now: now),
+            isNull,
+            reason: '$left left');
+      }
     });
 
     test('not taking orders, or a short round past its end: ended', () {
@@ -549,16 +555,16 @@ void main() {
           isNull);
     });
 
-    test('Confirm needing a top-up on a closing market moves nothing',
+    test('Confirm needing a top-up on a market that ended moves nothing',
         () async {
       final rig = _Rig()..notNeeded = true;
       await rig.prefund.holdFired(_slip);
       rig
         ..notNeeded = false
-        ..block = PredictionsFundingBlock.closing;
+        ..block = PredictionsFundingBlock.ended;
       final result = await rig.prefund.confirm(_slip(ready: 12, balance: 12));
       expect(result, isA<PrefundBlocked>());
-      expect((result as PrefundBlocked).block, PredictionsFundingBlock.closing);
+      expect((result as PrefundBlocked).block, PredictionsFundingBlock.ended);
       expect(rig.funded, hasLength(1));
     });
   });

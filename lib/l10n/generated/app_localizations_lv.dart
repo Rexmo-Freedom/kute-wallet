@@ -10676,10 +10676,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get betMarketClosingNoFunding =>
-      'Šis tirgus slēgsies, pirms nauda varētu pienākt. Nekas netika pārvietots.';
-
-  @override
   String multiMoveSendTitle(String amount) {
     return 'Sūtīt $amount';
   }
