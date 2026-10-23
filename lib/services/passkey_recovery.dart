@@ -38,12 +38,14 @@ class LegacyPasskeyCandidate {
 /// Legacy passkey recovery.
 ///
 /// Legacy wallets (breez-0.15.1) derived their seed through the app's own
-/// [PasskeyPrfService]. They DID publish Nostr labels at creation, but the
-/// new-SDK discovery sign-in reads them through whatever credential ITS
-/// ceremony resolves, so they vanish the moment a second credential exists
-/// — which is why legacy users are additionally prompted to back up their
-/// recovery phrase. This class rebuilds the seed the 0.15.1 way for each
-/// plausible label, then does a throwaway connect
+/// [PasskeyPrfService]. Pre-2.x builds published their label to Nostr at
+/// creation only best-effort (through the 0.15.1 SDK, under whatever
+/// credential that ceremony resolved), and nothing in this app relies on
+/// it: the new-SDK discovery sign-in lists labels for the credential ITS
+/// ceremony resolves, so a legacy label may be missing from it, and this
+/// path reads no relay at all. That is also why legacy users are prompted
+/// to back up their recovery phrase. This class rebuilds the seed the
+/// 0.15.1 way for each plausible label, then does a throwaway connect
 /// ([BreezSdkSpark.probeSeed]) to read balance + history so the user can
 /// confirm the wallet is theirs before adopting it.
 class PasskeyRecovery {

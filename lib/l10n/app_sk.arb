@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "účet Google",
   "passkeyChoiceCancelled": "Nastavenie zrušené. Nič sa nevytvorilo.",
   "passkeyBackupSyncing": "Synchronizácia zálohy…",
+  "passkeyFinishBackupTitle": "Dokonči zálohu cez passkey",
+  "passkeyFinishBackupSubtitle": "Aby sa dala obnoviť v novom telefóne",
+  "passkeyFinishBackupBody": "Potvrď pomocou passkey, aby sa táto peňaženka dala obnoviť v novom telefóne.",
+  "passkeyFinishBackupFailed": "Zálohu cez passkey sa nepodarilo dokončiť. Skontroluj pripojenie a skús to znova.",
   "passkeyCreateNewTitle": "Nenašiel sa žiadny passkey",
   "passkeyCreateNewBody": "Nič sa nevytvorilo. Chcete namiesto toho vytvoriť nový passkey pre túto peňaženku pomocou {method}?",
   "@passkeyCreateNewBody": {

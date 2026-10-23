@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google paskyra",
   "passkeyChoiceCancelled": "Sąranka atšaukta. Niekas nesukurta.",
   "passkeyBackupSyncing": "Sinchronizuojama atsarginė kopija…",
+  "passkeyFinishBackupTitle": "Užbaikite atsarginę kopiją su slaptažodžio raktu",
+  "passkeyFinishBackupSubtitle": "Kad galėtumėte atkurti naujame telefone",
+  "passkeyFinishBackupBody": "Patvirtinkite savo slaptažodžio raktu, kad šią piniginę būtų galima atkurti naujame telefone.",
+  "passkeyFinishBackupFailed": "Nepavyko užbaigti atsarginės kopijos su slaptažodžio raktu. Patikrinkite ryšį ir bandykite dar kartą.",
   "passkeyCreateNewTitle": "Slaptažodžio raktas nerastas",
   "passkeyCreateNewBody": "Nieko nesukurta. Sukurti naują slaptažodžio raktą šiai piniginei naudojant {method}?",
   "@passkeyCreateNewBody": {

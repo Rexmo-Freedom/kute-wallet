@@ -1796,6 +1796,19 @@ class TrackingService {
     track('backup_prompt_shown', params: {'surface': surface});
   }
 
+  /// The passkey variant of the backup reminder ("Finish your passkey
+  /// backup": the wallet's label is not on the relay yet) rendered on
+  /// [surface]. Deduped like [backupPromptShownOnce]; its funnel goes on
+  /// in `PasskeyService.finishLabelBackup` (`passkey_label_backup_started`
+  /// → `_succeeded` | `_failed`).
+  static void passkeyLabelBackupShownOnce({
+    required String surface,
+    required String walletKey,
+  }) {
+    if (!_backupPromptSeen.add('passkey:$surface:$walletKey')) return;
+    track('passkey_label_backup_shown', params: {'surface': surface});
+  }
+
   /// The user tapped the backup reminder on [surface].
   static void backupPromptTapped({required String surface}) =>
       track('backup_prompt_tapped', params: {'surface': surface});

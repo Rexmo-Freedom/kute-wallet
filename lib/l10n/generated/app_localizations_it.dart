@@ -2034,6 +2034,21 @@ class AppLocalizationsIt extends AppLocalizations {
   String get passkeyBackupSyncing => 'Sincronizzazione del backup…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Completa il backup con passkey';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Per ripristinarlo su un nuovo telefono';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Conferma con la tua passkey per poter ripristinare questo wallet su un nuovo telefono.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Impossibile completare il backup con passkey. Controlla la connessione e riprova.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nessuna passkey trovata';
 
   @override

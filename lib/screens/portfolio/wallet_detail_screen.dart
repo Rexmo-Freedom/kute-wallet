@@ -171,6 +171,7 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final settings = ref.watch(settingsProvider);
+    final pendingLabels = ref.watch(passkeyPendingLabelsProvider);
     final wallet = settings.wallets.cast<WalletConfig?>().firstWhere(
           (w) => w?.id == widget.walletId,
           orElse: () => null,
@@ -297,7 +298,7 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
                       ],
                     ),
                   ),
-                  if (needsWalletBackup(wallet))
+                  if (needsWalletBackup(wallet, pendingLabels: pendingLabels))
                     Padding(
                       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
                       child: SecurityActionCard(walletId: wallet.id),

@@ -889,6 +889,22 @@
   "@passkeyBackupSyncing": {
     "description": "Quiet note on the onboarding screens after a passkey wallet was created, while its backup label is still being published in the background."
   },
+  "passkeyFinishBackupTitle": "Finish your passkey backup",
+  "@passkeyFinishBackupTitle": {
+    "description": "Backup reminder title for a passkey wallet whose label is not yet published, so it cannot be restored by passkey on a new phone yet."
+  },
+  "passkeyFinishBackupSubtitle": "So a new phone can restore it",
+  "@passkeyFinishBackupSubtitle": {
+    "description": "One-line backup reminder subtitle under passkeyFinishBackupTitle. 'it' is the wallet."
+  },
+  "passkeyFinishBackupBody": "Confirm with your passkey so this wallet can be restored on a new phone.",
+  "@passkeyFinishBackupBody": {
+    "description": "Shown after the user dismissed the passkey sheet the reminder opened: why the confirmation is needed."
+  },
+  "passkeyFinishBackupFailed": "Couldn't finish your passkey backup. Check your connection and try again.",
+  "@passkeyFinishBackupFailed": {
+    "description": "Error after the passkey confirmation when the backup label could not be published (usually offline)."
+  },
   "passkeyCreateNewTitle": "No passkey found",
   "passkeyCreateNewBody": "Nothing was created. Create a new passkey for this wallet with {method} instead?",
   "@passkeyCreateNewBody": {

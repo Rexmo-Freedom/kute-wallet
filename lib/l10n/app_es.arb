@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "cuenta de Google",
   "passkeyChoiceCancelled": "Configuración cancelada. No se ha creado nada.",
   "passkeyBackupSyncing": "Sincronizando tu copia de seguridad…",
+  "passkeyFinishBackupTitle": "Termina tu copia con passkey",
+  "passkeyFinishBackupSubtitle": "Para restaurarla en un móvil nuevo",
+  "passkeyFinishBackupBody": "Confirma con tu passkey para poder restaurar esta cartera en un móvil nuevo.",
+  "passkeyFinishBackupFailed": "No se pudo terminar tu copia con passkey. Revisa tu conexión e inténtalo de nuevo.",
   "passkeyCreateNewTitle": "No se encontró ninguna passkey",
   "passkeyCreateNewBody": "No se creó nada. ¿Crear una nueva passkey para esta billetera con {method}?",
   "@passkeyCreateNewBody": {

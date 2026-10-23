@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google акаунт",
   "passkeyChoiceCancelled": "Настройката е отменена. Нищо не е създадено.",
   "passkeyBackupSyncing": "Синхронизиране на резервното копие…",
+  "passkeyFinishBackupTitle": "Завърши архивирането с ключ за достъп",
+  "passkeyFinishBackupSubtitle": "За да го възстановиш на нов телефон",
+  "passkeyFinishBackupBody": "Потвърди с ключа си за достъп, за да можеш да възстановиш този портфейл на нов телефон.",
+  "passkeyFinishBackupFailed": "Архивирането с ключ за достъп не завърши. Провери връзката си и опитай отново.",
   "passkeyCreateNewTitle": "Не е намерен ключ за достъп",
   "passkeyCreateNewBody": "Нищо не беше създадено. Да създадем ли нов ключ за достъп за този портфейл с {method}?",
   "@passkeyCreateNewBody": {

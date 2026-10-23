@@ -2032,6 +2032,22 @@ class AppLocalizationsRo extends AppLocalizations {
   String get passkeyBackupSyncing => 'Se sincronizează copia de rezervă…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Finalizează backupul cu cheia de acces';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Ca să-l poți restaura pe un telefon nou';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Confirmă cu cheia de acces, ca acest portofel să poată fi restaurat pe un telefon nou.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Backupul cu cheia de acces nu a putut fi finalizat. Verifică conexiunea și încearcă din nou.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nicio cheie de acces găsită';
 
   @override

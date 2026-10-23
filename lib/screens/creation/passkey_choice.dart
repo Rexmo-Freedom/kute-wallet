@@ -940,7 +940,9 @@ class PasskeyCeremonies {
 ///    creation returns while the publish is still in flight, so a slow
 ///    link no longer holds the spinner (`PasskeyService.publishLabel…`).
 ///    A label that did not land is retried after the next ceremony and
-///    on app resume / unlock while the identity is primed.
+///    on app resume / unlock while the identity is primed; on a warm
+///    device that runs no ceremony, the reminder's passkey confirmation
+///    publishes it.
 ///
 /// ONE passkey, MANY wallets: Breez derives a DISTINCT seed per label off
 /// the same passkey (seed = f(PRF, label)), so a single recover-side
@@ -1040,7 +1042,8 @@ class PasskeyWalletCreation {
       // wallet never appears in passkey recovery on another device. The
       // settings model flips this when the publish lands
       // (PasskeyService.labelPublishedHandler); meanwhile the existing
-      // backup reminder shows and a paper backup can also clear it.
+      // backup reminder shows, and its one passkey confirmation publishes
+      // the label (PasskeyService.finishLabelBackup).
       backedUp: false,
       isPasskey: true,
       passkeyLabel: label,

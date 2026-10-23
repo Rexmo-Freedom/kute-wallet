@@ -2024,6 +2024,21 @@ class AppLocalizationsFi extends AppLocalizations {
   String get passkeyBackupSyncing => 'Varmuuskopiota synkronoidaan…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Viimeistele avainkoodivarmuuskopio';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Jotta uusi puhelin voi palauttaa sen';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Vahvista avainkoodillasi, jotta tämä lompakko voidaan palauttaa uuteen puhelimeen.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Avainkoodivarmuuskopiota ei voitu viimeistellä. Tarkista yhteys ja yritä uudelleen.';
+
+  @override
   String get passkeyCreateNewTitle => 'Avainkoodia ei löytynyt';
 
   @override

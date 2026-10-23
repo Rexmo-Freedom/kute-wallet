@@ -2028,6 +2028,22 @@ class AppLocalizationsHr extends AppLocalizations {
   String get passkeyBackupSyncing => 'Sinkronizacija sigurnosne kopije…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Dovrši sigurnosnu kopiju pristupnim ključem';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Da ga možeš vratiti na novom telefonu';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Potvrdi pristupnim ključem kako bi se ovaj novčanik mogao vratiti na novom telefonu.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Sigurnosna kopija pristupnim ključem nije dovršena. Provjeri vezu i pokušaj ponovno.';
+
+  @override
   String get passkeyCreateNewTitle => 'Pristupni ključ nije pronađen';
 
   @override

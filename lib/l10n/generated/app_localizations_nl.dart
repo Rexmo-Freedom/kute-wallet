@@ -2033,6 +2033,21 @@ class AppLocalizationsNl extends AppLocalizations {
   String get passkeyBackupSyncing => 'Je back-up wordt gesynchroniseerd…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Rond je passkey-back-up af';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Om te herstellen op een nieuwe telefoon';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Bevestig met je passkey zodat deze wallet op een nieuwe telefoon kan worden hersteld.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Je passkey-back-up kon niet worden afgerond. Controleer je verbinding en probeer het opnieuw.';
+
+  @override
   String get passkeyCreateNewTitle => 'Geen passkey gevonden';
 
   @override

@@ -2021,6 +2021,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passkeyBackupSyncing => 'Syncing your backup…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Finish your passkey backup';
+
+  @override
+  String get passkeyFinishBackupSubtitle => 'So a new phone can restore it';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Confirm with your passkey so this wallet can be restored on a new phone.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Couldn\'t finish your passkey backup. Check your connection and try again.';
+
+  @override
   String get passkeyCreateNewTitle => 'No passkey found';
 
   @override

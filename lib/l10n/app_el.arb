@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "λογαριασμό Google",
   "passkeyChoiceCancelled": "Η ρύθμιση ακυρώθηκε. Δεν δημιουργήθηκε τίποτα.",
   "passkeyBackupSyncing": "Συγχρονισμός του αντιγράφου ασφαλείας…",
+  "passkeyFinishBackupTitle": "Ολοκλήρωσε το αντίγραφο ασφαλείας με passkey",
+  "passkeyFinishBackupSubtitle": "Για επαναφορά σε νέο τηλέφωνο",
+  "passkeyFinishBackupBody": "Επιβεβαίωσε με το passkey σου, ώστε αυτό το πορτοφόλι να μπορεί να επαναφερθεί σε νέο τηλέφωνο.",
+  "passkeyFinishBackupFailed": "Δεν ολοκληρώθηκε το αντίγραφο ασφαλείας με passkey. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.",
   "passkeyCreateNewTitle": "Δεν βρέθηκε passkey",
   "passkeyCreateNewBody": "Δεν δημιουργήθηκε τίποτα. Να δημιουργηθεί νέο passkey για αυτό το πορτοφόλι με {method};",
   "@passkeyCreateNewBody": {

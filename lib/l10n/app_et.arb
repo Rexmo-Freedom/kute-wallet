@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google'i konto",
   "passkeyChoiceCancelled": "Seadistamine tühistati. Midagi ei loodud.",
   "passkeyBackupSyncing": "Varukoopia sünkroonimine…",
+  "passkeyFinishBackupTitle": "Lõpeta pääsuvõtmega varundamine",
+  "passkeyFinishBackupSubtitle": "Et uus telefon saaks selle taastada",
+  "passkeyFinishBackupBody": "Kinnita oma pääsuvõtmega, et seda rahakotti saaks uues telefonis taastada.",
+  "passkeyFinishBackupFailed": "Pääsuvõtmega varundamist ei õnnestunud lõpetada. Kontrolli ühendust ja proovi uuesti.",
   "passkeyCreateNewTitle": "Pääsuvõtit ei leitud",
   "passkeyCreateNewBody": "Midagi ei loodud. Kas luua sellele rahakotile uus pääsuvõti {method} abil?",
   "@passkeyCreateNewBody": {

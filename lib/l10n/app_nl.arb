@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google-account",
   "passkeyChoiceCancelled": "Instellen geannuleerd. Er is niets aangemaakt.",
   "passkeyBackupSyncing": "Je back-up wordt gesynchroniseerd…",
+  "passkeyFinishBackupTitle": "Rond je passkey-back-up af",
+  "passkeyFinishBackupSubtitle": "Om te herstellen op een nieuwe telefoon",
+  "passkeyFinishBackupBody": "Bevestig met je passkey zodat deze wallet op een nieuwe telefoon kan worden hersteld.",
+  "passkeyFinishBackupFailed": "Je passkey-back-up kon niet worden afgerond. Controleer je verbinding en probeer het opnieuw.",
   "passkeyCreateNewTitle": "Geen passkey gevonden",
   "passkeyCreateNewBody": "Er is niets aangemaakt. In plaats daarvan een nieuwe passkey voor deze wallet maken met {method}?",
   "@passkeyCreateNewBody": {

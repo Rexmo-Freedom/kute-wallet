@@ -2028,6 +2028,21 @@ class AppLocalizationsPl extends AppLocalizations {
   String get passkeyBackupSyncing => 'Synchronizowanie kopii zapasowej…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Dokończ kopię z kluczem dostępu';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'By przywrócić go na nowym telefonie';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Potwierdź kluczem dostępu, aby ten portfel można było przywrócić na nowym telefonie.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Nie udało się dokończyć kopii z kluczem dostępu. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nie znaleziono klucza dostępu';
 
   @override

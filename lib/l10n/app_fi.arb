@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google-tili",
   "passkeyChoiceCancelled": "Käyttöönotto peruttiin. Mitään ei luotu.",
   "passkeyBackupSyncing": "Varmuuskopiota synkronoidaan…",
+  "passkeyFinishBackupTitle": "Viimeistele avainkoodivarmuuskopio",
+  "passkeyFinishBackupSubtitle": "Jotta uusi puhelin voi palauttaa sen",
+  "passkeyFinishBackupBody": "Vahvista avainkoodillasi, jotta tämä lompakko voidaan palauttaa uuteen puhelimeen.",
+  "passkeyFinishBackupFailed": "Avainkoodivarmuuskopiota ei voitu viimeistellä. Tarkista yhteys ja yritä uudelleen.",
   "passkeyCreateNewTitle": "Avainkoodia ei löytynyt",
   "passkeyCreateNewBody": "Mitään ei luotu. Luodaanko tälle lompakolle uusi avainkoodi {method}-tunnistuksella?",
   "@passkeyCreateNewBody": {

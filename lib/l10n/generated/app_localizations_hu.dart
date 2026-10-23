@@ -2029,6 +2029,21 @@ class AppLocalizationsHu extends AppLocalizations {
   String get passkeyBackupSyncing => 'Biztonsági mentés szinkronizálása…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Fejezd be a passkey-mentést';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Hogy új telefonon is visszaállíthasd';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Erősítsd meg a passkey-ddel, hogy ezt a tárcát új telefonon is vissza lehessen állítani.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'A passkey-mentést nem sikerült befejezni. Ellenőrizd a kapcsolatot, és próbáld újra.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nem található passkey';
 
   @override

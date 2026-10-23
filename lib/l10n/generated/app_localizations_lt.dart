@@ -2030,6 +2030,22 @@ class AppLocalizationsLt extends AppLocalizations {
   String get passkeyBackupSyncing => 'Sinchronizuojama atsarginė kopija…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Užbaikite atsarginę kopiją su slaptažodžio raktu';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Kad galėtumėte atkurti naujame telefone';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Patvirtinkite savo slaptažodžio raktu, kad šią piniginę būtų galima atkurti naujame telefone.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Nepavyko užbaigti atsarginės kopijos su slaptažodžio raktu. Patikrinkite ryšį ir bandykite dar kartą.';
+
+  @override
   String get passkeyCreateNewTitle => 'Slaptažodžio raktas nerastas';
 
   @override

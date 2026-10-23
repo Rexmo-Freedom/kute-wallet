@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Konto Google",
   "passkeyChoiceCancelled": "Konfiguracja anulowana. Nic nie zostało utworzone.",
   "passkeyBackupSyncing": "Synchronizowanie kopii zapasowej…",
+  "passkeyFinishBackupTitle": "Dokończ kopię z kluczem dostępu",
+  "passkeyFinishBackupSubtitle": "By przywrócić go na nowym telefonie",
+  "passkeyFinishBackupBody": "Potwierdź kluczem dostępu, aby ten portfel można było przywrócić na nowym telefonie.",
+  "passkeyFinishBackupFailed": "Nie udało się dokończyć kopii z kluczem dostępu. Sprawdź połączenie i spróbuj ponownie.",
   "passkeyCreateNewTitle": "Nie znaleziono klucza dostępu",
   "passkeyCreateNewBody": "Nic nie zostało utworzone. Utworzyć zamiast tego nowy klucz dostępu dla tego portfela za pomocą {method}?",
   "@passkeyCreateNewBody": {
