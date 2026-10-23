@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "contul Google",
   "passkeyChoiceCancelled": "Configurare anulată. Nu s-a creat nimic.",
   "passkeyBackupSyncing": "Se sincronizează copia de rezervă…",
+  "passkeyFinishBackupTitle": "Finalizează backupul cu cheia de acces",
+  "passkeyFinishBackupSubtitle": "Ca să-l poți restaura pe un telefon nou",
+  "passkeyFinishBackupBody": "Confirmă cu cheia de acces, ca acest portofel să poată fi restaurat pe un telefon nou.",
+  "passkeyFinishBackupFailed": "Backupul cu cheia de acces nu a putut fi finalizat. Verifică conexiunea și încearcă din nou.",
   "passkeyCreateNewTitle": "Nicio cheie de acces găsită",
   "passkeyCreateNewBody": "Nu s-a creat nimic. Creezi o cheie de acces nouă pentru acest portofel cu {method}?",
   "@passkeyCreateNewBody": {

@@ -2023,6 +2023,22 @@ class AppLocalizationsSv extends AppLocalizations {
   String get passkeyBackupSyncing => 'Synkroniserar din säkerhetskopia…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Slutför din säkerhetskopia med nyckel';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Så att en ny telefon kan återställa den';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Bekräfta med din nyckel så att den här plånboken kan återställas på en ny telefon.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Det gick inte att slutföra säkerhetskopian med nyckel. Kontrollera anslutningen och försök igen.';
+
+  @override
   String get passkeyCreateNewTitle => 'Ingen nyckel hittades';
 
   @override

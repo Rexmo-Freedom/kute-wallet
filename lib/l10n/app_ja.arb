@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Googleアカウント",
   "passkeyChoiceCancelled": "設定をキャンセルしました。何も作成されていません。",
   "passkeyBackupSyncing": "バックアップを同期しています…",
+  "passkeyFinishBackupTitle": "パスキーのバックアップを完了",
+  "passkeyFinishBackupSubtitle": "新しい端末で復元できるようにします",
+  "passkeyFinishBackupBody": "パスキーで確認すると、このウォレットを新しい端末で復元できるようになります。",
+  "passkeyFinishBackupFailed": "パスキーのバックアップを完了できませんでした。接続を確認して、もう一度お試しください。",
   "passkeyCreateNewTitle": "パスキーが見つかりません",
   "passkeyCreateNewBody": "何も作成されませんでした。代わりに{method}でこのウォレット用の新しいパスキーを作成しますか？",
   "@passkeyCreateNewBody": {

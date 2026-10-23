@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "account Google",
   "passkeyChoiceCancelled": "Configurazione annullata. Non è stato creato nulla.",
   "passkeyBackupSyncing": "Sincronizzazione del backup…",
+  "passkeyFinishBackupTitle": "Completa il backup con passkey",
+  "passkeyFinishBackupSubtitle": "Per ripristinarlo su un nuovo telefono",
+  "passkeyFinishBackupBody": "Conferma con la tua passkey per poter ripristinare questo wallet su un nuovo telefono.",
+  "passkeyFinishBackupFailed": "Impossibile completare il backup con passkey. Controlla la connessione e riprova.",
   "passkeyCreateNewTitle": "Nessuna passkey trovata",
   "passkeyCreateNewBody": "Non è stato creato nulla. Creare una nuova passkey per questo wallet con {method}?",
   "@passkeyCreateNewBody": {

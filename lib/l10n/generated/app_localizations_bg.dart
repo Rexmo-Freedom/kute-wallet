@@ -2029,6 +2029,22 @@ class AppLocalizationsBg extends AppLocalizations {
   String get passkeyBackupSyncing => 'Синхронизиране на резервното копие…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Завърши архивирането с ключ за достъп';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'За да го възстановиш на нов телефон';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Потвърди с ключа си за достъп, за да можеш да възстановиш този портфейл на нов телефон.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Архивирането с ключ за достъп не завърши. Провери връзката си и опитай отново.';
+
+  @override
   String get passkeyCreateNewTitle => 'Не е намерен ключ за достъп';
 
   @override

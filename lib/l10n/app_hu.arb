@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google-fiók",
   "passkeyChoiceCancelled": "Beállítás megszakítva. Semmi sem jött létre.",
   "passkeyBackupSyncing": "Biztonsági mentés szinkronizálása…",
+  "passkeyFinishBackupTitle": "Fejezd be a passkey-mentést",
+  "passkeyFinishBackupSubtitle": "Hogy új telefonon is visszaállíthasd",
+  "passkeyFinishBackupBody": "Erősítsd meg a passkey-ddel, hogy ezt a tárcát új telefonon is vissza lehessen állítani.",
+  "passkeyFinishBackupFailed": "A passkey-mentést nem sikerült befejezni. Ellenőrizd a kapcsolatot, és próbáld újra.",
   "passkeyCreateNewTitle": "Nem található passkey",
   "passkeyCreateNewBody": "Semmi sem jött létre. Hozzunk létre inkább új passkey-t ehhez a tárcához {method} használatával?",
   "@passkeyCreateNewBody": {

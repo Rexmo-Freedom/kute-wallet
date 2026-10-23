@@ -724,6 +724,10 @@
   "passkeyChoiceGoogleAccount": "conta Google",
   "passkeyChoiceCancelled": "Configuração cancelada. Nada foi criado.",
   "passkeyBackupSyncing": "A sincronizar a sua cópia de segurança…",
+  "passkeyFinishBackupTitle": "Conclua a cópia com passkey",
+  "passkeyFinishBackupSubtitle": "Para a restaurar num novo telemóvel",
+  "passkeyFinishBackupBody": "Confirme com a sua passkey para que esta carteira possa ser restaurada num novo telemóvel.",
+  "passkeyFinishBackupFailed": "Não foi possível concluir a cópia com passkey. Verifique a ligação e tente novamente.",
   "passkeyCreateNewTitle": "Nenhuma passkey encontrada",
   "passkeyCreateNewBody": "Nada foi criado. Criar uma nova passkey para esta carteira com {method}?",
   "@passkeyCreateNewBody": {

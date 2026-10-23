@@ -3860,6 +3860,30 @@ abstract class AppLocalizations {
   /// **'Syncing your backup…'**
   String get passkeyBackupSyncing;
 
+  /// Backup reminder title for a passkey wallet whose label is not yet published, so it cannot be restored by passkey on a new phone yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish your passkey backup'**
+  String get passkeyFinishBackupTitle;
+
+  /// One-line backup reminder subtitle under passkeyFinishBackupTitle. 'it' is the wallet.
+  ///
+  /// In en, this message translates to:
+  /// **'So a new phone can restore it'**
+  String get passkeyFinishBackupSubtitle;
+
+  /// Shown after the user dismissed the passkey sheet the reminder opened: why the confirmation is needed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm with your passkey so this wallet can be restored on a new phone.'**
+  String get passkeyFinishBackupBody;
+
+  /// Error after the passkey confirmation when the backup label could not be published (usually offline).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish your passkey backup. Check your connection and try again.'**
+  String get passkeyFinishBackupFailed;
+
   /// No description provided for @passkeyCreateNewTitle.
   ///
   /// In en, this message translates to:

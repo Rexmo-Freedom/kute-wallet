@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "compte Google",
   "passkeyChoiceCancelled": "Configuration annulée. Rien n'a été créé.",
   "passkeyBackupSyncing": "Synchronisation de votre sauvegarde…",
+  "passkeyFinishBackupTitle": "Terminez la sauvegarde par clé d'accès",
+  "passkeyFinishBackupSubtitle": "Pour le restaurer sur un nouveau téléphone",
+  "passkeyFinishBackupBody": "Confirmez avec votre clé d'accès pour pouvoir restaurer ce portefeuille sur un nouveau téléphone.",
+  "passkeyFinishBackupFailed": "Impossible de terminer la sauvegarde par clé d'accès. Vérifiez votre connexion et réessayez.",
   "passkeyCreateNewTitle": "Aucune clé d'accès trouvée",
   "passkeyCreateNewBody": "Rien n'a été créé. Créer une nouvelle clé d'accès pour ce portefeuille avec {method} ?",
   "@passkeyCreateNewBody": {

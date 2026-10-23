@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google-konto",
   "passkeyChoiceCancelled": "Konfigurationen avbröts. Inget skapades.",
   "passkeyBackupSyncing": "Synkroniserar din säkerhetskopia…",
+  "passkeyFinishBackupTitle": "Slutför din säkerhetskopia med nyckel",
+  "passkeyFinishBackupSubtitle": "Så att en ny telefon kan återställa den",
+  "passkeyFinishBackupBody": "Bekräfta med din nyckel så att den här plånboken kan återställas på en ny telefon.",
+  "passkeyFinishBackupFailed": "Det gick inte att slutföra säkerhetskopian med nyckel. Kontrollera anslutningen och försök igen.",
   "passkeyCreateNewTitle": "Ingen nyckel hittades",
   "passkeyCreateNewBody": "Inget skapades. Vill du i stället skapa en ny nyckel för den här plånboken med {method}?",
   "@passkeyCreateNewBody": {

@@ -2042,6 +2042,21 @@ class AppLocalizationsEl extends AppLocalizations {
   String get passkeyBackupSyncing => 'Συγχρονισμός του αντιγράφου ασφαλείας…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Ολοκλήρωσε το αντίγραφο ασφαλείας με passkey';
+
+  @override
+  String get passkeyFinishBackupSubtitle => 'Για επαναφορά σε νέο τηλέφωνο';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Επιβεβαίωσε με το passkey σου, ώστε αυτό το πορτοφόλι να μπορεί να επαναφερθεί σε νέο τηλέφωνο.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Δεν ολοκληρώθηκε το αντίγραφο ασφαλείας με passkey. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.';
+
+  @override
   String get passkeyCreateNewTitle => 'Δεν βρέθηκε passkey';
 
   @override

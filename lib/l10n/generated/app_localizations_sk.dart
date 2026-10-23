@@ -2024,6 +2024,21 @@ class AppLocalizationsSk extends AppLocalizations {
   String get passkeyBackupSyncing => 'Synchronizácia zálohy…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Dokonči zálohu cez passkey';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Aby sa dala obnoviť v novom telefóne';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Potvrď pomocou passkey, aby sa táto peňaženka dala obnoviť v novom telefóne.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Zálohu cez passkey sa nepodarilo dokončiť. Skontroluj pripojenie a skús to znova.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nenašiel sa žiadny passkey';
 
   @override

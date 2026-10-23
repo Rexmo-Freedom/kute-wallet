@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google-konto",
   "passkeyChoiceCancelled": "Opsætning annulleret. Intet blev oprettet.",
   "passkeyBackupSyncing": "Synkroniserer din backup…",
+  "passkeyFinishBackupTitle": "Gør din backup med adgangsnøgle færdig",
+  "passkeyFinishBackupSubtitle": "Så en ny telefon kan gendanne den",
+  "passkeyFinishBackupBody": "Bekræft med din adgangsnøgle, så denne tegnebog kan gendannes på en ny telefon.",
+  "passkeyFinishBackupFailed": "Din backup med adgangsnøgle kunne ikke gøres færdig. Tjek din forbindelse, og prøv igen.",
   "passkeyCreateNewTitle": "Ingen adgangsnøgle fundet",
   "passkeyCreateNewBody": "Intet blev oprettet. Vil du i stedet oprette en ny adgangsnøgle til denne wallet med {method}?",
   "@passkeyCreateNewBody": {

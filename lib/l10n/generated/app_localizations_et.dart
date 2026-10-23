@@ -2020,6 +2020,21 @@ class AppLocalizationsEt extends AppLocalizations {
   String get passkeyBackupSyncing => 'Varukoopia sünkroonimine…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Lõpeta pääsuvõtmega varundamine';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Et uus telefon saaks selle taastada';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Kinnita oma pääsuvõtmega, et seda rahakotti saaks uues telefonis taastada.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Pääsuvõtmega varundamist ei õnnestunud lõpetada. Kontrolli ühendust ja proovi uuesti.';
+
+  @override
   String get passkeyCreateNewTitle => 'Pääsuvõtit ei leitud';
 
   @override

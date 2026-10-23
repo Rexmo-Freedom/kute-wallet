@@ -2040,6 +2040,22 @@ class AppLocalizationsFr extends AppLocalizations {
   String get passkeyBackupSyncing => 'Synchronisation de votre sauvegarde…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Terminez la sauvegarde par clé d\'accès';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Pour le restaurer sur un nouveau téléphone';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Confirmez avec votre clé d\'accès pour pouvoir restaurer ce portefeuille sur un nouveau téléphone.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Impossible de terminer la sauvegarde par clé d\'accès. Vérifiez votre connexion et réessayez.';
+
+  @override
   String get passkeyCreateNewTitle => 'Aucune clé d\'accès trouvée';
 
   @override

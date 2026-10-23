@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google račun",
   "passkeyChoiceCancelled": "Postavljanje otkazano. Ništa nije izrađeno.",
   "passkeyBackupSyncing": "Sinkronizacija sigurnosne kopije…",
+  "passkeyFinishBackupTitle": "Dovrši sigurnosnu kopiju pristupnim ključem",
+  "passkeyFinishBackupSubtitle": "Da ga možeš vratiti na novom telefonu",
+  "passkeyFinishBackupBody": "Potvrdi pristupnim ključem kako bi se ovaj novčanik mogao vratiti na novom telefonu.",
+  "passkeyFinishBackupFailed": "Sigurnosna kopija pristupnim ključem nije dovršena. Provjeri vezu i pokušaj ponovno.",
   "passkeyCreateNewTitle": "Pristupni ključ nije pronađen",
   "passkeyCreateNewBody": "Ništa nije stvoreno. Želite li umjesto toga stvoriti novi pristupni ključ za ovaj novčanik pomoću {method}?",
   "@passkeyCreateNewBody": {

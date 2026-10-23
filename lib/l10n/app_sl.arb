@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "račun Google",
   "passkeyChoiceCancelled": "Nastavitev preklicana. Nič ni bilo ustvarjeno.",
   "passkeyBackupSyncing": "Sinhronizacija varnostne kopije…",
+  "passkeyFinishBackupTitle": "Dokončajte varnostno kopijo s ključem za dostop",
+  "passkeyFinishBackupSubtitle": "Da jo lahko obnovite v novem telefonu",
+  "passkeyFinishBackupBody": "Potrdite s ključem za dostop, da bo to denarnico mogoče obnoviti v novem telefonu.",
+  "passkeyFinishBackupFailed": "Varnostne kopije s ključem za dostop ni bilo mogoče dokončati. Preverite povezavo in poskusite znova.",
   "passkeyCreateNewTitle": "Ključ za dostop ni bil najden",
   "passkeyCreateNewBody": "Nič ni bilo ustvarjeno. Želite namesto tega ustvariti nov ključ za dostop za to denarnico z {method}?",
   "@passkeyCreateNewBody": {

@@ -2025,6 +2025,21 @@ class AppLocalizationsDa extends AppLocalizations {
   String get passkeyBackupSyncing => 'Synkroniserer din backup…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Gør din backup med adgangsnøgle færdig';
+
+  @override
+  String get passkeyFinishBackupSubtitle => 'Så en ny telefon kan gendanne den';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Bekræft med din adgangsnøgle, så denne tegnebog kan gendannes på en ny telefon.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Din backup med adgangsnøgle kunne ikke gøres færdig. Tjek din forbindelse, og prøv igen.';
+
+  @override
   String get passkeyCreateNewTitle => 'Ingen adgangsnøgle fundet';
 
   @override

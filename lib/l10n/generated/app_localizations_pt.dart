@@ -2033,6 +2033,21 @@ class AppLocalizationsPt extends AppLocalizations {
   String get passkeyBackupSyncing => 'A sincronizar a sua cópia de segurança…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Conclua a cópia com passkey';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Para a restaurar num novo telemóvel';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Confirme com a sua passkey para que esta carteira possa ser restaurada num novo telemóvel.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Não foi possível concluir a cópia com passkey. Verifique a ligação e tente novamente.';
+
+  @override
   String get passkeyCreateNewTitle => 'Nenhuma passkey encontrada';
 
   @override

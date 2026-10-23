@@ -620,6 +620,10 @@
   "passkeyChoiceGoogleAccount": "Google kontā",
   "passkeyChoiceCancelled": "Iestatīšana atcelta. Nekas netika izveidots.",
   "passkeyBackupSyncing": "Sinhronizē dublējumu…",
+  "passkeyFinishBackupTitle": "Pabeidz dublēšanu ar piekļuves atslēgu",
+  "passkeyFinishBackupSubtitle": "Lai to varētu atjaunot jaunā tālrunī",
+  "passkeyFinishBackupBody": "Apstiprini ar savu piekļuves atslēgu, lai šo maciņu varētu atjaunot jaunā tālrunī.",
+  "passkeyFinishBackupFailed": "Dublēšanu ar piekļuves atslēgu neizdevās pabeigt. Pārbaudi savienojumu un mēģini vēlreiz.",
   "passkeyCreateNewTitle": "Piekļuves atslēga nav atrasta",
   "passkeyCreateNewBody": "Nekas netika izveidots. Vai izveidot jaunu piekļuves atslēgu šim makam ar {method}?",
   "@passkeyCreateNewBody": {

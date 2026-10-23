@@ -2018,6 +2018,22 @@ class AppLocalizationsLv extends AppLocalizations {
   String get passkeyBackupSyncing => 'Sinhronizē dublējumu…';
 
   @override
+  String get passkeyFinishBackupTitle =>
+      'Pabeidz dublēšanu ar piekļuves atslēgu';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Lai to varētu atjaunot jaunā tālrunī';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Apstiprini ar savu piekļuves atslēgu, lai šo maciņu varētu atjaunot jaunā tālrunī.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Dublēšanu ar piekļuves atslēgu neizdevās pabeigt. Pārbaudi savienojumu un mēģini vēlreiz.';
+
+  @override
   String get passkeyCreateNewTitle => 'Piekļuves atslēga nav atrasta';
 
   @override

@@ -1982,6 +1982,20 @@ class AppLocalizationsJa extends AppLocalizations {
   String get passkeyBackupSyncing => 'バックアップを同期しています…';
 
   @override
+  String get passkeyFinishBackupTitle => 'パスキーのバックアップを完了';
+
+  @override
+  String get passkeyFinishBackupSubtitle => '新しい端末で復元できるようにします';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'パスキーで確認すると、このウォレットを新しい端末で復元できるようになります。';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'パスキーのバックアップを完了できませんでした。接続を確認して、もう一度お試しください。';
+
+  @override
   String get passkeyCreateNewTitle => 'パスキーが見つかりません';
 
   @override

@@ -2040,6 +2040,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get passkeyBackupSyncing => 'Backup wird synchronisiert…';
 
   @override
+  String get passkeyFinishBackupTitle => 'Schließe dein Passkey-Backup ab';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Für die Wiederherstellung auf einem neuen Telefon';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Bestätige mit deinem Passkey, damit sich dieses Wallet auf einem neuen Telefon wiederherstellen lässt.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Dein Passkey-Backup konnte nicht abgeschlossen werden. Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
   String get passkeyCreateNewTitle => 'Kein Passkey gefunden';
 
   @override
