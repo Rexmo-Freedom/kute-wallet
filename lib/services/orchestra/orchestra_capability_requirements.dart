@@ -63,9 +63,8 @@ String? orchestraSwapClassCapability(
 }
 
 /// The gates a deposit address for another network needs, exactly as the
-/// backend's operation guard asks them of
-/// `POST /api/v1/orchestra/accumulation-addresses`: `crypto.deposit`
-/// first, then the route from [sourceChain]/[sourceAsset] into
+/// backend's operation guard asks them of a standing Receive registration
+/// (`PUT /standing-deposit-addresses/{ref}`): `crypto.deposit` first, then the route from [sourceChain]/[sourceAsset] into
 /// [destinationAsset] on the person's own Spark wallet. Receive rows and
 /// the receive flows (bitcoin and dollars) ask this; sends and venue
 /// deposits and withdrawals never do.
@@ -85,10 +84,9 @@ List<String> orchestraReceiveAddressCapabilities({
     ];
 
 /// The operator switch for receiving from another network through a
-/// ONE-TIME quoted deposit address: the quoted receive screen, reached
-/// from the one-time rows of the bitcoin and dollar receive pickers
-/// (`kOrchestraQuoteReceiveChains`, and bitcoin into dollars) and from the
-/// "one-time address" button beside a reusable address.
+/// ONE-TIME quoted deposit address: the fallback of every coin row of the
+/// Dollars receive and of the Bitcoin receive's "other coins" whose
+/// reusable (standing) address cannot serve it (`receiveOtherCoinOptions`).
 ///
 /// The quote that mints a one-time address is `POST /api/v1/orchestra/quote`
 /// from another network (not Spark, Lightning or a venue rail, and not
@@ -99,31 +97,124 @@ List<String> orchestraReceiveAddressCapabilities({
 /// reusable deposit addresses (accumulation and standing). The app hides
 /// the options before the tap and the quoted receive screen re-checks
 /// before quoting. Fails closed: with no readable policy it denies, and
-/// every one-time receive option disappears while the reusable ones stay.
+/// every receive-from-another-network option disappears.
 const kOneTimeAddressCapability = 'orchestra.onetime_addresses';
 
-/// Whether a one-time quoted receive may be offered or started.
-bool oneTimeReceiveAllowed(RuntimeCapabilitiesService policy) =>
-    policy.allows(kOneTimeAddressCapability);
+/// The destination classes that refine [kOneTimeAddressCapability] on the
+/// backend, the way the swap classes refine `orchestra.swap`: a one-time
+/// receive quote needs the master AND the class of what it lands in,
+/// `spark:BTC` (Bitcoin) or `spark:USDB` (Dollars). Both ship on. With
+/// Dollars denied the Dollars receive keeps only its reusable rows while
+/// the Bitcoin receive's "other coins" still fall back to one-time into
+/// bitcoin; with Bitcoin denied the Bitcoin receive offers only the
+/// reusable route into dollars.
+///
+/// A backend older than the classes publishes neither id, which is never
+/// read as a denial: only an explicit refusal counts
+/// ([oneTimeDestinationDecision]). Never passed to `ensureAllAllowed`, which
+/// refuses an id the policy does not name.
+const kOneTimeBitcoinCapability = 'orchestra.onetime_addresses.bitcoin';
+const kOneTimeDollarsCapability = 'orchestra.onetime_addresses.dollars';
+
+/// The class capability a one-time receive into spark:[destinationAsset]
+/// needs: [kOneTimeBitcoinCapability] for `BTC`, else
+/// [kOneTimeDollarsCapability] (`USDB`).
+String oneTimeDestinationCapability(String destinationAsset) =>
+    destinationAsset.trim().toUpperCase() == 'BTC'
+        ? kOneTimeBitcoinCapability
+        : kOneTimeDollarsCapability;
+
+/// [policy]'s decision for one-time receives into spark:[destinationAsset],
+/// read leniently: an id the policy does not carry (`unknown_capability`,
+/// or `policy_unavailable` when only an older public policy answered) is
+/// allowed, so an older backend keeps working; the master
+/// [kOneTimeAddressCapability] still fails closed on its own. Only an
+/// explicit denial (switched off, a region, version or platform rule, or
+/// coming soon) refuses.
+CapabilityDecision oneTimeDestinationDecision(
+    RuntimeCapabilitiesService policy, String destinationAsset) {
+  final decision =
+      policy.decision(oneTimeDestinationCapability(destinationAsset));
+  if (decision.allowed && !decision.comingSoon) return decision;
+  if (!decision.comingSoon &&
+      (decision.reason == 'unknown_capability' ||
+          decision.reason == 'policy_unavailable')) {
+    return CapabilityDecision(allowed: true, reason: decision.reason);
+  }
+  return decision;
+}
+
+/// Null when one-time receives into spark:[destinationAsset] are allowed
+/// (or the class is absent); otherwise the sentence the denial gives.
+String? oneTimeDestinationBlockReason(
+    RuntimeCapabilitiesService policy, String destinationAsset) {
+  final decision = oneTimeDestinationDecision(policy, destinationAsset);
+  return decision.allowed && !decision.comingSoon ? null : decision.message;
+}
+
+/// Throws [CapabilityUnavailableException] when the class of
+/// spark:[destinationAsset] is explicitly denied. Read right after
+/// `ensureAllAllowed` refreshed the policy for the strict gates.
+void ensureOneTimeDestinationAllowed(
+    RuntimeCapabilitiesService policy, String destinationAsset) {
+  final decision = oneTimeDestinationDecision(policy, destinationAsset);
+  if (!decision.allowed || decision.comingSoon) {
+    throw CapabilityUnavailableException(
+        oneTimeDestinationCapability(destinationAsset), decision);
+  }
+}
+
+/// Whether a one-time quoted receive may be offered or started: the master
+/// switch, and, given [destinationAsset], its destination class.
+bool oneTimeReceiveAllowed(RuntimeCapabilitiesService policy,
+        {String? destinationAsset}) =>
+    policy.allows(kOneTimeAddressCapability) &&
+    (destinationAsset == null ||
+        oneTimeDestinationBlockReason(policy, destinationAsset) == null);
+
+/// The operator switch for REUSABLE (standing) Receive addresses: the
+/// primary way another coin reaches the dollar balance (`spark:USDB`), from
+/// the Dollars receive and from the Bitcoin receive's "other coins". Off,
+/// the backend refuses every standing Receive registration as an
+/// unavailable route (422 `unsupported_route`); addresses already handed
+/// out keep receiving. A backend older than the switch publishes no such
+/// id, which is never read as a denial here: see
+/// `standingAddressPolicy` (reusable_deposit_address.dart). Never passed to
+/// `ensureAllAllowed`, which refuses an id the policy does not name.
+const kStandingAddressCapability = 'orchestra.standing_addresses';
 
 /// The gates a picker row needs: the move of [option]'s coin on its chain
 /// against [otherLegAsset] on the person's own rail, classified exactly as
 /// the backend classifies the quote that follows. On a receive picker
 /// ([depositAddress]) a row served by a reusable deposit address also
 /// needs `crypto.deposit`, as the backend asks of every deposit address
-/// it mints; a one-time row is a quote and answers to the quote gates
-/// plus [kOneTimeAddressCapability], the app-side switch for one-time
-/// receive addresses.
+/// it mints; a one-time row is a quote and answers to
+/// [kOneTimeAddressCapability] (the switch for one-time receive
+/// addresses), `crypto.deposit` (every new deposit address) and the quote
+/// gates. Its destination class ([oneTimeDestinationCapability]) is read
+/// leniently beside these and so is not in this list:
+/// [orchestraOptionsOfferedUnderPolicy] and the quoted receive screen ask
+/// it ([oneTimeDestinationBlockReason], [ensureOneTimeDestinationAllowed]).
+///
+/// [reusableLegAsset] is what a reusable row delivers when it is not
+/// [otherLegAsset]: the Bitcoin receive's "other coins" lists reusable
+/// rows that pay the dollar balance (`USDB`) beside one-time rows that pay
+/// bitcoin.
 List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
-        {String otherLegAsset = 'BTC', bool depositAddress = false}) =>
+        {String otherLegAsset = 'BTC',
+        bool depositAddress = false,
+        String? reusableLegAsset}) =>
     depositAddress && option.reusableAddress
         ? orchestraReceiveAddressCapabilities(
             sourceChain: option.chain,
             sourceAsset: option.assetCode,
-            destinationAsset: otherLegAsset,
+            destinationAsset: reusableLegAsset ?? otherLegAsset,
           )
         : [
-            if (depositAddress) kOneTimeAddressCapability,
+            if (depositAddress) ...[
+              kOneTimeAddressCapability,
+              'crypto.deposit'
+            ],
             ...orchestraCapabilityRequirements(
               sourceChain: option.chain,
               sourceAsset: option.assetCode,
@@ -133,8 +224,9 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
           ];
 
 /// The rows the policy lets a picker offer, and why the rest are absent.
-/// A row is hidden when any of its gates denies; the reason is the first
-/// denial's, so the sheet can say it once. Fails closed: with no readable
+/// A row is hidden when any of its gates denies, a one-time receive row
+/// also when its destination class ([otherLegAsset]) is explicitly denied;
+/// the reason is the first denial's, so the sheet can say it once. Fails closed: with no readable
 /// policy the swap gates deny and every cross-chain row disappears, while
 /// rows with a venue leg follow their venue rule as before.
 ({List<OrchestraReceiveOption> offered, String? hiddenReason})
@@ -143,15 +235,21 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
   RuntimeCapabilitiesService policy, {
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
+  String? reusableLegAsset,
 }) {
   final offered = <OrchestraReceiveOption>[];
   String? reason;
   for (final option in options) {
     String? denied;
     for (final gate in orchestraOptionCapabilities(option,
-        otherLegAsset: otherLegAsset, depositAddress: depositAddress)) {
+        otherLegAsset: otherLegAsset,
+        depositAddress: depositAddress,
+        reusableLegAsset: reusableLegAsset)) {
       denied = policy.blockReason(gate);
       if (denied != null) break;
+    }
+    if (denied == null && depositAddress && !option.reusableAddress) {
+      denied = oneTimeDestinationBlockReason(policy, otherLegAsset);
     }
     if (denied == null) {
       offered.add(option);

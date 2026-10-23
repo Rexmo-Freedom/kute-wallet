@@ -230,6 +230,19 @@ bool sameSparkAddress(String a, String b) {
   return true;
 }
 
+/// The 33-byte compressed identity key a Spark address encodes, as
+/// lowercase hex, for either spelling (`sp1…`/`spark1…`). Null when the
+/// address does not decode. The backend scopes private Spark reads (e.g.
+/// Orchestra recipient history) to the wallet session's identity key.
+String? sparkIdentityPubkeyHex(String address) {
+  final decoded = _decodeSpark(address.trim());
+  if (decoded == null) return null;
+  return decoded.payload
+      .sublist(2, 35)
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join();
+}
+
 // ────────────────────────────── base58 ──────────────────────────────
 
 const String _base58Alphabet =

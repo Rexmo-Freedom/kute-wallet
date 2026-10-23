@@ -116,6 +116,27 @@ double hyperliquidKuteFeeUsd(HyperliquidFeeLeg leg,
       userFees: fees);
 }
 
+/// The whole fee [HyperliquidFeeSummary] shows for one order (the Kute fee
+/// plus the exchange's), watched from the same providers, for a screen
+/// that states it beside another figure (the close sheet's "You
+/// receive"). 0 with no order; null while either part is unknown.
+double? watchHyperliquidOrderFeeUsd(WidgetRef ref, HyperliquidFeeLeg leg,
+    {String? address, bool useHotAccount = true, bool builder = true}) {
+  if (!leg.notional.isFinite || leg.notional <= 0) return 0;
+  final owner = address ??
+      (useHotAccount ? ref.watch(hyperliquidAddressProvider).valueOrNull : null);
+  final config = ref.watch(_builderConfig);
+  final fees =
+      owner == null || leg.dex.isNotEmpty ? null : ref.watch(_userFees(owner));
+  final totals = hyperliquidFeeTotals([leg],
+      builderKnown: config.hasValue,
+      feeTenthsBp: config.valueOrNull?.defaultFeeTenthsBp,
+      userFees: fees?.valueOrNull,
+      builder: builder);
+  final kute = totals.kute, exchange = totals.exchange;
+  return kute == null || exchange == null ? null : kute + exchange;
+}
+
 class HyperliquidFeeSummary extends ConsumerWidget {
   const HyperliquidFeeSummary(
       {super.key,
@@ -127,7 +148,10 @@ class HyperliquidFeeSummary extends ConsumerWidget {
       this.dex = '',
       this.address,
       this.useHotAccount = true,
-      this.hasFunds = true})
+      this.hasFunds = true,
+      this.moveFeeUsd,
+      this.moveFeeLabel = 'Move fee',
+      this.moveFeePending = false})
       : legs = null;
 
   /// The total across several market orders on the hot account (the
@@ -142,12 +166,27 @@ class HyperliquidFeeSummary extends ConsumerWidget {
         dex = '',
         address = null,
         useHotAccount = true,
-        hasFunds = true;
+        hasFunds = true,
+        moveFeeUsd = null,
+        moveFeeLabel = 'Move fee',
+        moveFeePending = false;
   final double notional;
   final bool spot, buy, maker, builder, useHotAccount, hasFunds;
   final String dex;
   final String? address;
   final List<HyperliquidFeeLeg>? legs;
+
+  /// One balance: what moving the order's shortfall from Dollars costs
+  /// (the route's fee). Added to the total
+  /// and listed as one [moveFeeLabel] detail row, so the ticket shows the
+  /// whole cost of the order in the one fee row. Null while no money has
+  /// to move.
+  final double? moveFeeUsd;
+  final String moveFeeLabel;
+
+  /// The move is needed but its cost is still being read: the total
+  /// reads "Calculating…" until it is.
+  final bool moveFeePending;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const btc = false;
@@ -178,15 +217,19 @@ class HyperliquidFeeSummary extends ConsumerWidget {
         builder: builder);
     final builderFee = totals.kute;
     final exchange = totals.exchange;
+    final moveFee = moveFeeUsd;
+    final moving = moveFeePending || moveFee != null;
     return MoneyFeeSummary(
         bitcoinFirst: btc,
-        label: exchange == null ? 'Kute fee' : 'Estimated fee',
-        usd: builderFee == null ? null : builderFee + (exchange ?? 0),
+        label: exchange == null && !moving ? 'Kute fee' : 'Estimated fee',
+        usd: builderFee == null || moveFeePending
+            ? null
+            : builderFee + (exchange ?? 0) + (moveFee ?? 0),
         state: builderFee == null
             ? (builderConfig.isLoading
                 ? 'Calculating…'
                 : 'Fee settings unavailable')
-            : null,
+            : (moveFeePending ? 'Calculating…' : null),
         onRetry: exchange == null &&
                 owner != null &&
                 !anyDex &&
@@ -212,6 +255,12 @@ class HyperliquidFeeSummary extends ConsumerWidget {
                   : null,
               state: builderFee == null ? 'Unavailable' : null,
               bitcoinFirst: btc),
+          if (moving)
+            MoneyFeeSummary(
+                label: moveFeeLabel,
+                usd: moveFee,
+                state: moveFee == null ? 'Calculating…' : null,
+                bitcoinFirst: btc),
         ]);
   }
 }

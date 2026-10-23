@@ -233,7 +233,6 @@
   "anErrorOccurredPleaseTryAgain": "An error occurred. Please try again.",
   "paymentPending": "Payment Pending",
   "expires": "Expires",
-  "enterRefundAddress": "Enter refund address",
   "description": "Description",
   "onChainTxid": "On-chain TXID",
   "paymentHash": "Payment Hash",
@@ -430,21 +429,6 @@
   "timestamp": "Timestamp",
   "total": "Total",
   "totalFee": "Total Fee",
-  "usdEarnTitle": "Earn",
-  "usdEarnRate": "Recent yearly rate",
-  "usdEarnNextPayment": "Next payment",
-  "@usdEarnNextPayment": {
-    "description": "Label above the amount the rewards programme pays at the next daily cut."
-  },
-  "usdEarnNextPaymentIn": "Pays in",
-  "@usdEarnNextPaymentIn": {
-    "description": "Label above the countdown to the next payout, which is cut at 00:00 UTC."
-  },
-  "usdEarnRatePending": "Loading",
-  "usdEarnRateUnavailable": "Unavailable right now",
-  "usdEarnPaidToDate": "Paid to you so far",
-  "usdEarnActivityEmpty": "No payments yet",
-  "usdEarnActivityUnavailable": "Payment history is unavailable right now",
   "hlYieldAvailableLine": "{amount} available",
   "@hlYieldAvailableLine": {
     "placeholders": {
@@ -637,13 +621,11 @@
   "sendCouldNotEstimateFee": "Couldn't estimate the fee. Try again.",
   "sendCouldNotPrepare": "Couldn't prepare this payment. Check the amount and address, then try again.",
   "scanCouldNotRead": "Couldn't read that code. Try again.",
-  "scanCouldNotReadClipboard": "Couldn't use what's on your clipboard. Copy the address or code again.",
   "walletImportCouldNotImport": "Couldn't import this wallet. Try again.",
   "receiveWithdrawalCouldNotClaim": "Couldn't claim this withdrawal. Try again.",
   "hwCouldNotReadSignedFile": "Couldn't read that file. Pick the signed transaction file and try again.",
   "hwCouldNotSignWithJade": "Couldn't sign with your Jade. Check the device and try again.",
   "jadeErrorWrongDevice": "This Jade isn't the one paired with this wallet. Nothing was signed. Connect the paired Jade, or re-pair this one by updating the wallet's master fingerprint.",
-  "receiveOtherAssets": "Receive other assets",
   "medium": "Medium",
   "claimFeeWarning": "Fee is more than half the deposit value",
   "claimFeeExceedsDeposit": "Fee exceeds deposit value",
@@ -659,7 +641,6 @@
   "requestRefund": "Request Refund",
   "unspent": "UNSPENT",
   "scanQrCode": "Scan QR Code",
-  "scanAnyQRCodeDescription": "Scan any QR code and we will try to figure it out.",
   "importFile": "Import File",
   "confirmImport": "Confirm Import",
   "openBitcoinApp": "Open Bitcoin App",
@@ -682,7 +663,6 @@
       }
     }
   },
-  "memoColon": "Memo: ",
   "errorMessage": "Error: {err}",
   "@errorMessage": {
     "placeholders": {
@@ -813,6 +793,7 @@
   "walletTypeKute": "Kute wallet",
   "walletPublicKey": "Wallet public key",
   "walletPublicKeyShowFull": "Show full key",
+  "sparkRecoveryNote": "Spark is a fast layer on top of Bitcoin where Kute keeps your balance. Only you control it. A regular Bitcoin wallet won't show this balance from these words. To recover it, restore them in a wallet that supports Spark, like Kute, Wallet of Satoshi or Glow by Breez.",
   "walletsNeverShareWordsPlain": "Never share these words. Anyone who has them can take everything in this wallet.",
   "viewOnlyWalletTitle": "View only wallet",
   "seedWordsViewOnlyNote": "This wallet is view only. Its keys are not on this phone, so there is no recovery phrase to show.",
@@ -836,7 +817,6 @@
   "importCustomPath": "Custom",
   "importWhereIsQr": "Where do I find the QR code?",
   "scannerKeepInFrame": "Keep the code in the frame",
-  "scannerPointAtCode": "Point the camera at the QR code",
   "trackAddressPasteHint": "Paste a Bitcoin address",
   "trackAddressWatchOnlyNote": "You can watch this address, but you can't send from it.",
   "trackAddressHeroTitle": "Watch a Bitcoin address",
@@ -905,6 +885,37 @@
   "passkeyChoiceAppleAccount": "Apple account",
   "passkeyChoiceGoogleAccount": "Google account",
   "passkeyChoiceCancelled": "Setup cancelled. Nothing was created.",
+  "passkeyBackupSyncing": "Syncing your backup…",
+  "@passkeyBackupSyncing": {
+    "description": "Quiet note on the onboarding screens after a passkey wallet was created, while its backup label is still being published in the background."
+  },
+  "passkeyFinishBackupTitle": "Finish your passkey backup",
+  "@passkeyFinishBackupTitle": {
+    "description": "Backup reminder title for a passkey wallet whose label is not yet published, so it cannot be restored by passkey on a new phone yet."
+  },
+  "passkeyFinishBackupSubtitle": "So a new phone can restore it",
+  "@passkeyFinishBackupSubtitle": {
+    "description": "One-line backup reminder subtitle under passkeyFinishBackupTitle. 'it' is the wallet."
+  },
+  "passkeyFinishBackupBody": "Confirm with your passkey so this wallet can be restored on a new phone.",
+  "@passkeyFinishBackupBody": {
+    "description": "Shown after the user dismissed the passkey sheet the reminder opened: why the confirmation is needed."
+  },
+  "passkeyFinishBackupFailed": "Couldn't finish your passkey backup. Check your connection and try again.",
+  "@passkeyFinishBackupFailed": {
+    "description": "Error after the passkey confirmation when the backup label could not be published (usually offline)."
+  },
+  "passkeyCreateNewTitle": "No passkey found",
+  "passkeyCreateNewBody": "Nothing was created. Create a new passkey for this wallet with {method} instead?",
+  "@passkeyCreateNewBody": {
+    "description": "Offered when the user dismissed the sign-in sheet on a device that holds no passkey.",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "passkeyCreateNewAction": "Create a new passkey",
   "passkeyChoiceFallbackWords": "Couldn't set up {method}. Your wallet was created with recovery words instead.",
   "@passkeyChoiceFallbackWords": {
     "placeholders": {
@@ -929,8 +940,6 @@
   "errorCopyChangePin": "Couldn't update your PIN. Please try again.",
   "restoreWriteFailedPlain": "Kute couldn't save this wallet on this phone. Nothing was deleted. Try again.",
   "swapRouteTemporarilyUnavailable": "This route is temporarily unavailable. Please try again later.",
-  "receiveAssetTemporarilyUnavailable": "Receiving this asset is temporarily unavailable.",
-  "clipboardEmpty": "Clipboard is empty",
   "pleaseSetUpPINFirst": "Please set up your PIN first",
   "connectingToDevice": "Connecting to {device}...",
   "@connectingToDevice": {
@@ -1036,21 +1045,9 @@
   "receiveScanOrShareSubtitle": "Scan or share this code to get paid.",
   "receiveSyncingWalletCaption": "Syncing your wallet. The address will appear in a moment.",
   "receiveBeneficiary": "Beneficiary",
-  "receiveAssetOnNetwork": "{asset} on {network}",
-  "@receiveAssetOnNetwork": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
   "receiveFailedToGetRate": "Failed to get rate",
   "receiveNetworkErrorTapToRetry": "Network error. Tap to retry.",
   "receiveUsdcWalletNotReady": "Your Predictions account is still setting up. Try again in a moment.",
-  "receiveFundsLandAsBitcoin": "Funds land on your wallet as Bitcoin.",
   "receiveConnectionFailed": "Connection failed.",
   "receiveAuthenticationFailed": "Authentication failed.",
   "receiveFailedToVerifyAddressOnJade": "Failed to verify address on Jade.",
@@ -1231,7 +1228,6 @@
     }
   },
   "walletsEnterFriendCodeDescriptionNoDiscount": "If a friend invited you, enter their code.",
-  "accountEarn": "Earn",
   "accountInviteFriendsEarnShare": "Invite friends and earn a share of what Kute makes from them.",
   "accountCouldntLoadEarnData": "Couldn't load your Earn data",
   "accountTryAgain": "Try again",
@@ -1874,10 +1870,6 @@
   "@receiveCoinNetworkUnavailable": {
     "description": "Shown when the provider refuses to create a reusable deposit address for the picked coin and network. It is about the pair, not about the wallet, so it must never be confused with receiveOtherCoinsSpendingOnly."
   },
-  "receiveOtherCoinsNotToPredictions": "Other coins cannot arrive in Predictions. Receive them in your spending wallet, then move them across.",
-  "@receiveOtherCoinsNotToPredictions": {
-    "description": "Shown when a cross-chain receive is attempted into the Predictions balance, which settles at an address the conversion cannot pay."
-  },
   "activityStables": "Stables",
   "activityBitcoinWallet": "Bitcoin wallet",
   "activityNoBalancesYet": "No balances yet",
@@ -2017,7 +2009,7 @@
   "activityDepositReceived": "Deposit Received",
   "activityApproved": "Approved",
   "activityProcessingEllipsis": "Processing…",
-  "usdAccountTab": "Dollars",
+  "usdAccountTab": "Investments",
   "activityFromAmount": "from {amount}",
   "@activityFromAmount": {
     "placeholders": {
@@ -2283,6 +2275,7 @@
   "settingsShareUsageAnalyticsSubtitle": "Help improve Kute with data on how you use the app",
   "settingsPickLightOrDarkBelow": "Pick light or dark below",
   "settingsReferralProgram": "Referral program",
+  "hubReferrals": "Referrals",
   "settingsEarnAShareOfFees": "Earn a share of what Kute makes from your friends",
   "settingsExportTransactions": "Export transactions",
   "settingsGeneratingReport": "Generating report",
@@ -2475,9 +2468,9 @@
   "@polyAwaitingResult": {
     "description": "Caption of a Predictions position whose market has ended but whose result is not claimable yet (Polymarket resolves it within minutes)."
   },
-  "polyAwaitingWon": "You won · Ready to claim in a few minutes",
+  "polyAwaitingWon": "You won",
   "@polyAwaitingWon": {
-    "description": "Caption of an ended Predictions position whose side is at ~100%: it won and becomes claimable within minutes."
+    "description": "Caption of an ended Predictions position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned."
   },
   "polyAwaitingLost": "Ended · Lost",
   "@polyAwaitingLost": {
@@ -2487,9 +2480,9 @@
   "@polyAwaitingResultSoon": {
     "description": "Caption of a Predictions position whose game or market has ended but whose result is not claimable yet (a game usually resolves 15 minutes to 2 hours after it ends)."
   },
-  "polyAwaitingWonSoon": "You won · Ready to claim soon",
+  "polyAwaitingWonSoon": "You won",
   "@polyAwaitingWonSoon": {
-    "description": "Caption of an ended game or market position whose side is at ~100%: it won and becomes claimable once the result is in."
+    "description": "Caption of an ended game or market position whose side is at ~100%: it won; the win is claimed automatically, so no claim or timing is mentioned."
   },
   "polyAwaitingResultInMinutes": "Ended · Result in about {minutes} min",
   "@polyAwaitingResultInMinutes": {
@@ -2940,15 +2933,6 @@
       }
     }
   },
-  "receiveKuteFeeOnArrival": "Kute fee {rate} · taken from what arrives",
-  "@receiveKuteFeeOnArrival": {
-    "description": "One line beside a reusable deposit address: the Kute fee rate (for example 0.50%) that is taken from what arrives at it.",
-    "placeholders": {
-      "rate": {
-        "type": "String"
-      }
-    }
-  },
   "feeUiFriendDiscountIncluded": "Includes your {discount} friend discount.",
   "@feeUiFriendDiscountIncluded": {
     "placeholders": {
@@ -3124,10 +3108,6 @@
   "@portfolioStatRealized": {
     "description": "Predictions statistics tile: realized profit or loss over the selected range (sold, claimed or resolved predictions)."
   },
-  "portfolioStatOpen": "Open P&L",
-  "@portfolioStatOpen": {
-    "description": "Predictions statistics tile: unrealized profit or loss of the open predictions now, at live prices."
-  },
   "portfolioStatAmountPredicted": "Amount predicted",
   "@portfolioStatAmountPredicted": {
     "description": "Predictions statistics tile: total amount put on the predictions made in the selected range."
@@ -3178,13 +3158,13 @@
   "moveWithdrawPredictions": "Withdraw from Predictions",
   "moveWithdrawInvesting": "Withdraw from Investing",
   "moveBuyBitcoin": "Buy bitcoin",
-  "dollarDeposit": "Dollar deposit",
+  "dollarDeposit": "Investments deposit",
   "dollarWithdrawal": "Dollar withdrawal",
   "@dollarWithdrawal": {
     "description": "The other side of dollarDeposit: money leaving the dollar balance. Same mark."
   },
   "@dollarDeposit": {
-    "description": "The ONE label for the door that funds the dollar balance: the button on the Dollars screen, the Move sheet title, and the payment method's second line. Always shown beside the shared dollar mark."
+    "description": "The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon."
   },
   "moveSellBitcoin": "Sell bitcoin",
   "moveTransfer": "Move money",
@@ -3286,6 +3266,8 @@
   "investingThinMarket": "This market is thin right now. You may get a worse price than shown.",
   "investingFeeApprovalFailed": "Fee approval was not completed. Please try again.",
   "investingFeeSettingsUnavailable": "Investing fee settings could not be verified. Try again.",
+  "investingViewOrders": "View orders",
+  "@investingViewOrders": {"description": "Secondary button on a resting order's confirmation (Investing order placed, Predictions limit sell, a partly filled limit buy): opens Investments, Portfolio, P&L charts, where the open orders are listed."},
   "investingViewPositions": "View positions",
   "investingBought": "Bought",
   "investingSold": "Sold",
@@ -3412,9 +3394,24 @@
   "portfolioTabOpen": "Open",
   "portfolioTabOrders": "Orders",
   "portfolioTabStatistics": "Statistics",
+  "portfolioBalanceDollars": "Dollars",
+  "@portfolioBalanceDollars": {"description": "Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows."},
+  "portfolioRebalance": "Rebalance",
+  "@portfolioRebalance": {"description": "Button on the Portfolio's balance breakdown that moves all movable Investing and Predictions cash home to Dollars (USDB) now."},
+  "portfolioRebalanceMoving": "Moving to USDB…",
+  "@portfolioRebalanceMoving": {"description": "Line under a venue row in the Portfolio's balance breakdown while its cash is on its way to Dollars (USDB)."},
+  "portfolioRebalanceMovingMinutes": "Moving to USDB… takes a few minutes",
+  "@portfolioRebalanceMovingMinutes": {"description": "Line under the Investing row while its cash is on its way to Dollars (USDB); this route takes a few minutes."},
+  "portfolioRebalanceHeldOrders": "Held by open orders",
+  "@portfolioRebalanceHeldOrders": {"description": "Line under a venue row after Rebalance: its cash stayed because open orders hold it."},
+  "portfolioRebalanceHeldMargin": "Kept as margin for open positions",
+  "@portfolioRebalanceHeldMargin": {"description": "Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions."},
+  "portfolioRebalanceBelowMinimum": "Below the minimum to move",
+  "@portfolioRebalanceBelowMinimum": {"description": "Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved."},
+  "portfolioRebalanceNotNow": "Couldn't move now. Tap Rebalance to try again.",
+  "@portfolioRebalanceNotNow": {"description": "Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself."},
   "sendMoreThanAvailable": "That is more than you have available.",
   "receiveRequestAmount": "Request amount",
-  "receiveBackToBitcoin": "Back to Bitcoin",
   "sendRecentRecipients": "Recent",
   "sendClipboardAddressFound": "Address found in clipboard. Use it?",
   "useIt": "Use",
@@ -3428,13 +3425,13 @@
   "sendEstimatedNetworkFee": "Estimated network fee",
   "searchInvestmentsHint": "Search investments",
   "searchPredictionsHint": "Search predictions",
-  "assetDollars": "Dollars",
+  "assetDollars": "Investments",
   "@assetDollars": {
-    "description": "Name of the dollar balance as an asset row in the cross asset pickers."
+    "description": "Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin."
   },
-  "moveSourceDollarsSubtitle": "Pay with your dollar balance",
+  "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "@moveSourceDollarsSubtitle": {
-    "description": "Second line on the Dollars row in the move sheet source picker, where the dollar balance funds a venue deposit."
+    "description": "Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy."
   },
   "sendDollarAccountAddressHint": "Dollar account address",
   "@sendDollarAccountAddressHint": {
@@ -3528,8 +3525,8 @@
       }
     }
   },
+  "receiveOneOffLateDepositRepriced": "A deposit that lands after this may get a different price.",
   "receiveOneOffNewAddress": "Get a new address",
-  "receiveOneOffAmountTitle": "How much are you expecting?",
   "usdFlowStepCoin": "Pick a coin",
   "usdSendAmountSubtitle": "How many dollars are you sending?",
   "usdReceiveTitle": "Receive dollars",
@@ -3552,7 +3549,6 @@
     }
   },
   "usdReceiveCreating": "Setting up your address.",
-  "usdReceiveArriving": "Your dollars land as soon as the payment confirms.",
   "receiveAlsoAccepts": "Also accepts",
   "@receiveAlsoAccepts": {
     "description": "Quiet line under the bitcoin receive address, followed by a few coin marks. It states a property of the address, not a mode to enter."
@@ -3569,10 +3565,6 @@
   "receiveCoinsLoading": "Coins are still loading. Try again in a moment.",
   "@receiveCoinsLoading": {
     "description": "Shown in place of the coin grid while the route catalogue's first load is still in flight."
-  },
-  "receiveAlsoAcceptsTitle": "Your address also accepts",
-  "@receiveAlsoAcceptsTitle": {
-    "description": "Heading of the sheet that lists the coins the bitcoin receive address accepts."
   },
   "receiveAlsoAcceptsSubtitle": "Pick what is being sent to you. It arrives as bitcoin.",
   "@receiveAlsoAcceptsSubtitle": {
@@ -3716,69 +3708,17 @@
   "betProceedsToPredictions": "To Predictions",
   "betYourPosition": "Your position",
   "betAdvancedSaleSellingAll": "Selling your whole position",
-  "usdEarnProjectionNote": "The dashed line is an estimate at today's rate, not money received.",
-  "usdEarnBelowMinimum": "Rewards start once you hold {amount}. They are paid daily in bitcoin.",
-  "@usdEarnBelowMinimum": {
-    "description": "Shown on the Earn tab only while the dollar balance is under the programme minimum. {amount} is that minimum, formatted as money.",
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "@usdEarnProjectionNote": {
-    "description": "Line under the Earn chart explaining that the dashed tail is an extrapolation of today's rate, not a payment."
-  },
-  "usdEarnProjectedLabel": "Projected at today's rate",
-  "@usdEarnProjectedLabel": {
-    "description": "Headline label on the Earn chart while the scrub sits on a projected day instead of a paid one."
-  },
   "moveWithdrawDestinationHint": "Pick what lands in your spending account.",
   "@moveWithdrawDestinationHint": {
     "description": "Hint under the title of the two-entry picker that chooses what a venue withdrawal delivers: bitcoin or dollars."
   },
-  "moveDestDollarsSubtitle": "Into your dollar balance",
+  "moveDestDollarsSubtitle": "Into your Investments balance",
   "@moveDestDollarsSubtitle": {
-    "description": "Second line on the Dollars row of the withdrawal destination picker."
+    "description": "Second line on the Investments row of the withdrawal destination picker."
   },
   "moveConversionOngoing": "Conversion ongoing",
   "@moveConversionOngoing": {
     "description": "Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one."
-  },
-  "quotedReceiveAmountSubtitle": "Enter the amount of {asset} you will send on {network}.",
-  "@quotedReceiveAmountSubtitle": {
-    "placeholders": {
-      "asset": {
-        "type": "String"
-      },
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundSubtitle": "Use an address you control on {network}. If a return is needed and supported, it goes here; fees may apply.",
-  "@quotedReceiveRefundSubtitle": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveRefundInvalid": "Enter a valid {network} refund address.",
-  "@quotedReceiveRefundInvalid": {
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "quotedReceiveExactAmount": "Send exactly {amount} in one payment before this address expires.",
-  "@quotedReceiveExactAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
   },
   "quotedReceiveExpired": "This address has expired. Do not send another payment. Check Activity if you already paid.",
   "quotedReceiveExpectedOutput": "Expected to receive {amount}",
@@ -3789,8 +3729,15 @@
       }
     }
   },
-  "quotedReceiveWalletChanged": "Your account changed. Close this screen and start again.",
-  "receiveOneOffUseAddress": "Use a one-time address",
+  "quotedReceiveWalletChanged": "Your account changed. Close this and start again.",
+  "onetimeRefundAddressTitle": "Return address",
+  "@onetimeRefundAddressTitle": {"description": "Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back."},
+  "optionalLabel": "Optional",
+  "@optionalLabel": {"description": "The word Optional on its own, starting a short subtitle such as 'Optional · USDC on HyperEVM' (the return-address step)."},
+  "quotedReceiveReturnsTo": "Returns to",
+  "@quotedReceiveReturnsTo": {"description": "Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit."},
+  "activityReturnedTo": "Returned to {address} on {network}",
+  "@activityReturnedTo": {"description": "Line in a one-time receive's Activity detail once its deposit was sent back. {address} is the shortened return address, {network} the network.", "placeholders": {"address": {"type": "String"}, "network": {"type": "String"}}},
   "stepUpReasonWithdrawWithSourceFee": "Confirm withdrawal of {amount}, with up to {fee} network fee. Maximum debit: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {
@@ -3813,8 +3760,6 @@
   "salProgressConnecting": "Connecting the details…",
   "salProgressWriting": "Putting it into words…",
   "salProgressChecking": "Checking the details…",
-  "receiveRequiredMemo": "Required memo / tag",
-  "receiveMemoRequiredWarning": "Include this memo with your deposit. An address alone is not enough.",
   "receiveOwnRefundAddress": "Use your own wallet address that does not require a memo or tag for refunds.",
   "standingDepositsRefund": "Request refund",
   "standingDepositsRefundRequested": "Refund requested. It has not been sent yet.",
@@ -3913,6 +3858,7 @@
   "capabilityAccountRestricted": "This feature is not available for your account yet.",
   "capabilityCountryUnknown": "Unable to verify your region with Kute. Please try again.",
   "capabilityPolicyUnavailable": "Unable to check availability with Kute. Please try again.",
+  "capabilityOfflineGrace": "Kute can't be reached right now. This is still available from your last check.",
   "capabilityUnavailable": "This feature is currently unavailable in Kute.",
   "leverageCapExceeded": "Leverage above {maxLeverage}x is not available in your region.",
   "@leverageCapExceeded": {
@@ -3945,6 +3891,10 @@
   "gatePredictionsUnavailable": "Predictions unavailable",
   "gateInvestingUnavailable": "Investing unavailable",
   "capabilityRegionTitle": "Not available in your region",
+  "checkConnection": "Check connection",
+  "@checkConnection": {
+    "description": "The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change."
+  },
   "gateUnavailableTitle": "Unavailable",
   "ledgerInvestingUnavailable": "Investing with Ledger is currently unavailable.",
   "ledgerPredictionsUnavailable": "Predictions with Ledger is currently unavailable.",
@@ -4067,7 +4017,7 @@
   "shareCodeTitle": "Invite friends, earn together",
   "shareCodeStartUsing": "Start using Kute",
   "shareCodeSettingUp": "Setting up your code…",
-  "shareCodeTimedOut": "Your code is being created. You can find it any time in Settings → Earn.",
+  "shareCodeTimedOut": "Your code is being created. You can find it any time in Settings → Referral program.",
   "referrerCaptureInvalid": "We couldn't verify your invite code. Enter it manually if you have one.",
   "referrerCodeNotFound": "We couldn't find that code. Double-check with your friend.",
   "referrerCodeNetwork": "Couldn't verify the code. Check your connection and try again.",
@@ -4081,7 +4031,7 @@
   },
   "referrerGotCode": "Got a friend's code?",
   "referrerCodeAdded": "Code added",
-  "referrerAddLater": "You can also add it later from Settings → Earn (within 7 days).",
+  "referrerAddLater": "You can also add it later from Settings → Referral program (within 7 days).",
   "referrerSkip": "Skip, I don't have a code",
   "recoverBtcFailed": "Could not recover the Bitcoin wallet. Check the 12 words and try again.",
   "recoverOriginalAddressType": "Original address type",
@@ -4103,6 +4053,38 @@
     }
   },
   "recoverFoundOnDevice": "Found on this device. Check the balance looks right before you restore.",
+  "recoverOlderVersionSection": "From an older version on this phone",
+  "@recoverOlderVersionSection": {
+    "description": "Heading in the restore picker above wallets whose copies an older version of the app left on this phone."
+  },
+  "recoverOlderVersionWallet": "Wallet from an older version",
+  "@recoverOlderVersionWallet": {
+    "description": "Row title for an old wallet copy whose wallet record no longer exists on the phone."
+  },
+  "recoverOlderVersionNeedsPin": "Opens with the PIN that version used",
+  "@recoverOlderVersionNeedsPin": {
+    "description": "Row subtitle for an old copy that is encrypted with the PIN that version used."
+  },
+  "recoverOlderVersionIcloud": "Saved in iCloud Keychain",
+  "@recoverOlderVersionIcloud": {
+    "description": "Row subtitle for an old copy that lives in iCloud Keychain."
+  },
+  "recoverOlderVersionEnterPin": "Enter the PIN that version used",
+  "@recoverOlderVersionEnterPin": {
+    "description": "Title of the PIN sheet that opens an old PIN-encrypted copy."
+  },
+  "recoverOlderVersionFailed": "This copy couldn't be restored.",
+  "@recoverOlderVersionFailed": {
+    "description": "Error shown when an old copy could not be read or saved."
+  },
+  "restoreRescueOfferBody": "Copies of your wallets from an older version of Kute are still on this phone. Use them instead of starting over?",
+  "@restoreRescueOfferBody": {
+    "description": "Body of the sheet shown instead of Start over when old copies were found on the phone."
+  },
+  "restoreRescueOfferConfirm": "Use the saved copies",
+  "@restoreRescueOfferConfirm": {
+    "description": "Confirm button of that sheet: re-saves the old copies."
+  },
   "recoverConfirmWallet": "Confirm to restore {wallet}.",
   "@recoverConfirmWallet": {
     "description": "Shown on the recover screen while the passkey prompt confirms the chosen wallet.",
@@ -4367,8 +4349,8 @@
   "betConfirmedAppearing": "Confirmed. Appearing in your predictions…",
   "hlDepositArrivedPricesMoved": "Your deposit arrived. Prices moved since you confirmed. Open the order again to place it.",
   "hlFundsTimeout": "Funds didn't arrive in time. Try again.",
-  "betAutofireFundsTimeout": "Your funds are safe in your Polymarket balance, but the prediction couldn't be placed automatically. Open Predictions and tap to place it again. It should be instant.",
-  "betAutofireBookUnavailable": "Could not reach Polymarket to place the prediction. Your funds are safe in your Polymarket balance. Try again.",
+  "betAutofireFundsTimeout": "The prediction couldn't be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.",
+  "betAutofireBookUnavailable": "Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.",
   "moveInvestingDepositsUnavailable": "Investing deposits are temporarily unavailable.",
   "movePredictionsWalletNotReady": "Predictions wallet is not ready yet.",
   "moveDepositRouteUnavailable": "This deposit route is temporarily unavailable. Try again later.",
@@ -4487,6 +4469,10 @@
         "type": "String"
       }
     }
+  },
+  "predictPastRounds": "Past rounds",
+  "@predictPastRounds": {
+    "description": "Label before the up/down marks showing how the last few windows of a crypto Up or Down market ended."
   },
   "predictNoOpenMarketsCategory": "No open markets in this category right now",
   "predictSharesCount": "{count} shares",
@@ -4935,37 +4921,6 @@
   "@slipWideSpread": {
     "placeholders": {
       "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "slipCtaSpotNow": "{side} {coin} now · {amount}",
-  "@slipCtaSpotNow": {
-    "placeholders": {
-      "side": {
-        "type": "String"
-      },
-      "coin": {
-        "type": "String"
-      },
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "slipCtaGo": "Go {side} {coin} {leverage}x · {amount}",
-  "@slipCtaGo": {
-    "placeholders": {
-      "side": {
-        "type": "String"
-      },
-      "coin": {
-        "type": "String"
-      },
-      "leverage": {
-        "type": "String"
-      },
-      "amount": {
         "type": "String"
       }
     }
@@ -6271,6 +6226,10 @@
   "@portfolioStatAtStake": {
     "description": "Statistics tab, Active pill: tile label. Predictions: what the open positions cost. Investing: the margin the open positions use."
   },
+  "portfolioProfitLoss": "Profit and loss",
+  "@portfolioProfitLoss": {
+    "description": "Statistics tab: caption over the P&L chart's headline figure (the account's profit and loss, realised plus open)."
+  },
   "slipCtaAddTo": "{side, select, long{Add to long · {amount}} other{Add to short · {amount}}}",
   "@slipCtaAddTo": {
     "description": "The Investing order button when the person already holds a perp position on this side: the order adds to it. {side} is 'long' or 'short' (select), {amount} is formatted money.",
@@ -6429,5 +6388,296 @@
         "type": "String"
       }
     }
-  }
+  },
+  "investmentsTotal": "Investments total",
+  "@investmentsTotal": {
+    "description": "Label of the total of every venue's holdings on the one-balance home."
+  },
+  "oneBalanceMovingTo": "{amount} moving to {venue}",
+  "@oneBalanceMovingTo": {
+    "description": "In-flight line on the one-balance home for dollars leaving the spending account for a venue. {amount} is a formatted dollar amount, {venue} the venue's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceComingBack": "{amount} coming back from {venue}",
+  "@oneBalanceComingBack": {
+    "description": "In-flight line on the one-balance home for dollars leaving a venue for the spending account. {amount} is a formatted dollar amount, {venue} the venue's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceWaitingToWithdraw": "{amount} unavailable until balancing completes",
+  "@oneBalanceWaitingToWithdraw": {
+    "description": "Line on the one-balance home for idle venue cash the sweeper has not brought home yet. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "oneBalanceIncoming": "Incoming {amount}",
+  "@oneBalanceIncoming": {
+    "description": "Line on the one-balance home for a receive still confirming. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipAddToInvestments": "Add {amount} to Investments",
+  "@slipAddToInvestments": {
+    "description": "Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipCtaSideCoin": "{side} {coin}",
+  "@slipCtaSideCoin": {
+    "description": "A buy slip's button before an amount is typed: the side and the market's coin ('Long ETH', 'Buy BTC').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
+  "slipCtaSideAmount": "{side} {amount}",
+  "@slipCtaSideAmount": {
+    "description": "A buy slip's button with an amount typed: the side and the amount ('Short $12.00').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "betPlaceOnSide": "Place on {side}",
+  "@betPlaceOnSide": {
+    "description": "The bet slip's button before a stake is typed ('Place on No').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "betAmountOnSide": "{amount} on {side}",
+  "@betAmountOnSide": {
+    "description": "The bet after a top-up on the bet slip's button ('Add $1.00 · $12.00 on No').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "slipAddThenOrder": "Add {amount} · {order}",
+  "@slipAddThenOrder": {
+    "description": "Button on an order slip short of money: what is added to Investments, then the order placed right after it. {amount} is formatted money; {order} is the slip's own order button text (e.g. '$2.33 on No', 'Short $10.14').",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "order": {
+        "type": "String"
+      }
+    }
+  },
+  "slipShortOfMinimum": "{amount} short of the minimum",
+  "@slipShortOfMinimum": {
+    "description": "One quiet line under the amount on an empty order slip whose Investments cannot cover the minimum order: the real gap to the minimum (the button names the top-up the route needs). {amount} is formatted money.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipAddsToYourPosition": "{side, select, long{Adds to your Long} other{Adds to your Short}}",
+  "@slipAddsToYourPosition": {
+    "description": "Small pill under the amount on the Investing order slip when the order adds to a position already held on the same side. {side} is 'long' or 'short' (select).",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
+  "betSlipPaysIfYouWin": "{side} · pays {amount} if you win",
+  "@betSlipPaysIfYouWin": {
+    "description": "Quiet line under the amount on the Predictions bet slip while the money moves and the bet is placed. {side} is the outcome bought (e.g. 'UP', 'Yes'); {amount} is the formatted payout if it wins.",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slipMoveFee": "Move fee",
+  "@slipMoveFee": {
+    "description": "Row label on an order slip for the cost of moving the shortfall into the venue."
+  },
+  "addMoneyToInvestments": "Add money to Investments",
+  "depositFromSpendingWallet": "Your spending wallet",
+  "depositFromSpendingWalletWithBalance": "Your spending wallet · {amount}",
+  "@depositFromSpendingWalletWithBalance": {"placeholders": {"amount": {"type": "String"}}},
+  "depositFromAnotherWallet": "Another wallet or exchange",
+  "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
+  "portfolioStatOpenPnl": "Open P&L",
+  "@portfolioStatOpenPnl": {
+    "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
+  },
+  "stepUpReasonBetReady": "Get your {amount} prediction ready",
+  "@stepUpReasonBetReady": {"description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.", "placeholders": {"amount": {"type": "String"}}},
+  "multiMoveSendTitle": "Send {amount}",
+  "@multiMoveSendTitle": {"description": "Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "multiMoveTitle": "Move {amount} to {destination}",
+  "@multiMoveTitle": {"description": "Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).", "placeholders": {"amount": {"type": "String"}, "destination": {"type": "String"}}},
+  "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining",
+  "@multiMoveDeliveredRemaining": {"description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.", "placeholders": {"delivered": {"type": "String"}, "remaining": {"type": "String"}}},
+  "multiMovePurchaseWaiting": "Your {amount} is in {balance}. Tap to buy Bitcoin",
+  "@multiMovePurchaseWaiting": {"description": "Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "multiMoveSendWaiting": "Your {amount} is in {balance}. The send didn't go through",
+  "@multiMoveSendWaiting": {"description": "Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "usdReceiveDepositNow": "Deposit now",
+  "@usdReceiveDepositNow": {"description": "Dollars receive screen, From your wallet: the button on the Bitcoin card that moves bitcoin into the Dollars balance."},
+  "usdReceiveFromYourWallet": "From your wallet",
+  "@usdReceiveFromYourWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin."},
+  "usdReceiveFromAnotherWallet": "From another wallet or exchange",
+  "@usdReceiveFromAnotherWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."},
+  "usdWithdrawToYourWallet": "To your wallet",
+  "@usdWithdrawToYourWallet": {"description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin."},
+  "usdWithdrawToAnotherWallet": "To another wallet or exchange",
+  "@usdWithdrawToAnotherWallet": {"description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the grid of coins the dollars can be sent out as, to another wallet or an exchange."},
+  "usdWithdrawNow": "Withdraw now",
+  "@usdWithdrawNow": {"description": "Dollars withdraw sheet, To your wallet: the button on the Bitcoin card that moves dollars home to the Bitcoin balance."},
+  "slipStepAddingToInvestments": "Adding {amount} to Investments",
+  "@slipStepAddingToInvestments": {"description": "Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "slipStepPreparingPrediction": "Getting your prediction ready",
+  "@slipStepPreparingPrediction": {"description": "Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments."},
+  "slipStepPreparingOrder": "Preparing your order",
+  "@slipStepPreparingOrder": {"description": "Step 2 of an Investing order slip funded from Investments: the money moving into the trading venue, phrased around the order."},
+  "slipStepPlacingBet": "Placing {amount} on {side}",
+  "@slipStepPlacingBet": {"description": "Step 3 of a funded prediction slip: the bet being placed at a fresh price. {amount} is the stake, {side} the outcome (Yes, No, a team).", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}}},
+  "slipStepOpeningOrder": "Opening {amount} {side} {market}",
+  "@slipStepOpeningOrder": {"description": "Step 3 of a funded Investing order slip: the order being placed. {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Opening $5 Long NVIDIA).", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}, "market": {"type": "String"}}},
+  "slipStepTakingLonger": "Taking longer than expected. Hang tight, almost done.",
+  "@slipStepTakingLonger": {"description": "Calm line under a money journey (an order's funding on the slip, a move in its Activity detail) once it runs longer than expected: 1.5 times its estimate, or 90 seconds without one. The money is safe; nothing to do."},
+  "slipFundingReadyToPlace": "Your {amount} is in Investments. Tap to place.",
+  "@slipFundingReadyToPlace": {"description": "Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "slipFundingBitcoinBack": "Adding to Investments didn't go through. Your bitcoin is coming back.",
+  "@slipFundingBitcoinBack": {"description": "Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet."},
+  "slipFundingPriceMoved": "Price moved too fast.",
+  "@slipFundingPriceMoved": {"description": "Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is."},
+  "slipFundingRoundClosed": "This round closed before your money arrived.",
+  "@slipFundingRoundClosed": {"description": "Slip funding steps, the line under a failed step: a short (5 or 15 minute) prediction round closed before the money moved for the bet arrived. Followed by where the money is."},
+  "slipFundingRoundPriceMoved": "Price changed to {price} while your money was moving.",
+  "@slipFundingRoundPriceMoved": {"description": "Slip funding steps, the line under a failed placement step of a 5-minute crypto Up or Down round: the price moved past what was approved while the money was moving. {price} is the price now as a chance (\"81%\"). Followed by where the money is; the button retries at that price.", "placeholders": {"price": {"type": "String"}}},
+  "slipFundingRoundEnded": "This round ended while your money was moving. Your {amount} is in Predictions.",
+  "@slipFundingRoundEnded": {"description": "Slip funding steps, the whole line under a failed step of a 5-minute crypto Up or Down round that ended while the money for the bet was moving. {amount} is a formatted dollar amount, now Predictions cash.", "placeholders": {"amount": {"type": "String"}}},
+  "slipFundingInPredictions": "Your {amount} is in Predictions. Tap to try again.",
+  "@slipFundingInPredictions": {"description": "Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "slipFundingInInvesting": "Your {amount} is in Investing. Tap to try again.",
+  "@slipFundingInInvesting": {"description": "Slip funding steps: after a funded Investing order did not place, where its money is now (as Investing cash, available). {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "oneBalancePlacingBet": "Placing {amount} on {side} · {market}",
+  "@oneBalancePlacingBet": {"description": "In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}, "market": {"type": "String"}}},
+  "oneBalanceOpeningOrder": "Opening {amount} {market} order",
+  "@oneBalanceOpeningOrder": {"description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).", "placeholders": {"amount": {"type": "String"}, "market": {"type": "String"}}},
+  "hlMarginStepAdding": "Adding {amount} margin to {coin}",
+  "@hlMarginStepAdding": {"description": "The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).", "placeholders": {"amount": {"type": "String"}, "coin": {"type": "String"}}},
+  "hlMarginFundingReady": "Your {amount} is in Investments. Tap to add margin.",
+  "@hlMarginFundingReady": {"description": "Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.", "placeholders": {"amount": {"type": "String"}}},
+  "salWhyMoving": "Why is it moving?",
+  "@salWhyMoving": {"description": "A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move."},
+  "positionProtectIt": "Protect it",
+  "@positionProtectIt": {"description": "Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order)."},
+  "hlRiskLiquidationLong": "If {market} falls to {price}, this position closes and you lose {amount}.",
+  "@hlRiskLiquidationLong": {"description": "Risk line on an open long Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price, {amount} the money lost when the position is liquidated there.", "placeholders": {"market": {"type": "String"}, "price": {"type": "String"}, "amount": {"type": "String"}}},
+  "hlRiskLiquidationShort": "If {market} rises to {price}, this position closes and you lose {amount}.",
+  "@hlRiskLiquidationShort": {"description": "Risk line on an open short Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price (above the current price), {amount} the money lost when the position is liquidated there.", "placeholders": {"market": {"type": "String"}, "price": {"type": "String"}, "amount": {"type": "String"}}},
+  "polyRiskOutcome": "If {outcome} loses, you lose {cost}; if it wins, you get {payout}.",
+  "@polyRiskOutcome": {"description": "Risk line on an open prediction. {outcome} is the held outcome (e.g. Yes, a team), {cost} what was paid (lost if it loses), {payout} what the shares pay if it wins.", "placeholders": {"outcome": {"type": "String"}, "cost": {"type": "String"}, "payout": {"type": "String"}}},
+  "moneyStepMovingFrom": "Moving {amount} from {source}",
+  "@moneyStepMovingFrom": {"description": "A money step running: {amount} (formatted dollars) leaving the balance {source} (Bitcoin, Dollars, Predictions, Investing) for an order or a move. Shown with a small spinner under the slip or sheet button.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "moneyStepMovedFrom": "Moved {amount} from {source}",
+  "@moneyStepMovedFrom": {"description": "The same money step once it landed (shown with a check). {amount} formatted dollars, {source} the balance it came from.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "moneyStepMovingFromTo": "Moving {amount} from {source} → {destination}",
+  "@moneyStepMovingFromTo": {"description": "A money step running between two named balances, e.g. Moving $12.00 from Investing → Bitcoin. {amount} formatted dollars, {source} and {destination} balance names.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}, "destination": {"type": "String"}}},
+  "moneyStepMovedFromTo": "Moved {amount} from {source} → {destination}",
+  "@moneyStepMovedFromTo": {"description": "The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}, "destination": {"type": "String"}}},
+  "moneyStepMoveFailed": "{amount} from {source} didn't move",
+  "@moneyStepMoveFailed": {"description": "A money step that failed (shown with the error sign). {amount} formatted dollars, {source} the balance name. The line under the steps says where the money is.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "moneyStepFellBack": "{source} route busy, going via {via}",
+  "@moneyStepFellBack": {"description": "A direct route was refused before any money left, so the money takes the longer way through another balance, e.g. Bitcoin route busy, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "moneyStepViaDollars": "{source} going via {via}",
+  "@moneyStepViaDollars": {"description": "A direct route was not taken before any money left, for a reason the person cannot act on, so the money takes the longer way through another balance, e.g. Predictions going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "moneyStepRouteUnavailable": "{source} route unavailable, going via {via}",
+  "@moneyStepRouteUnavailable": {"description": "A direct route is not offered right now (not available, paused or refused recently), so before any money left it takes the longer way through another balance, e.g. Predictions route unavailable, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "moneyStepTooSmallDirect": "Too small to go straight from {source}, going via {via}",
+  "@moneyStepTooSmallDirect": {"description": "The amount is under what the direct route takes, so the money takes the longer way through another balance, e.g. Too small to go straight from Predictions, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "multiMoveOrderWaiting": "Your {amount} is in {balance}. The order didn't go through",
+  "@multiMoveOrderWaiting": {"description": "Activity row and detail of a move whose money was for an order (Investing or Predictions): the money came home to the spending dollar balance but the order and its move into the venue never went, so the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "moneyStepConverting": "Converting to pUSD",
+  "@moneyStepConverting": {"description": "Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running."},
+  "moneyStepConverted": "Converted to pUSD",
+  "@moneyStepConverted": {"description": "The same sub-step once done (shown with a check)."},
+  "moneyStepApproving": "Approving spend",
+  "@moneyStepApproving": {"description": "Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running."},
+  "moneyStepApproved": "Spend approved",
+  "@moneyStepApproved": {"description": "The same sub-step once done (shown with a check)."},
+  "moneyStepConfirming": "Confirming balance",
+  "@moneyStepConfirming": {"description": "Predictions readiness sub-step: waiting until the prediction venue itself shows the balance that covers the bet. Running."},
+  "moneyStepConfirmed": "Balance confirmed",
+  "@moneyStepConfirmed": {"description": "The same sub-step once done (shown with a check)."},
+  "moneyStepCrediting": "Crediting to trading balance",
+  "@moneyStepCrediting": {"description": "Investing readiness sub-step: the dollars that arrived are being credited where the order draws from. Running."},
+  "moneyStepCredited": "Credited to trading balance",
+  "@moneyStepCredited": {"description": "The same sub-step once done (shown with a check)."},
+  "moneyStepBuying": "Buying {amount} of Bitcoin",
+  "@moneyStepBuying": {"description": "A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "moneyStepBought": "Bought {amount} of Bitcoin",
+  "@moneyStepBought": {"description": "The same step once done (shown with a check). {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "moneyStepArriving": "Arriving in Bitcoin",
+  "@moneyStepArriving": {"description": "The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running."},
+  "moneyStepArrived": "Arrived in Bitcoin",
+  "@moneyStepArrived": {"description": "The same step once the bitcoin is in the wallet (shown with a check)."},
+  "moneyStepSending": "Sending {amount}",
+  "@moneyStepSending": {"description": "The last step of a send from Investments, running: the dollars leaving Dollars for the recipient once the money that came home from the venues landed. {amount} formatted dollars. Shown with a small spinner.", "placeholders": {"amount": {"type": "String"}}},
+  "moneyStepSent": "Sent {amount}",
+  "@moneyStepSent": {"description": "The same step once the send settled (shown with a check). {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "moneyStepCompact": "{source} → {destination} · {amount}",
+  "@moneyStepCompact": {"description": "One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.", "placeholders": {"source": {"type": "String"}, "destination": {"type": "String"}, "amount": {"type": "String"}}},
+  "moneyJourneyAt": "At {place}",
+  "@moneyJourneyAt": {"description": "Money journey: the small heading over the checkpoints listed under the map, the sub-steps happening at the destination balance (e.g. At Predictions: Approving spend, Confirming balance, Placing $12 on Yes). {place} is the balance name (Bitcoin, Dollars, Investing, Predictions).", "placeholders": {"place": {"type": "String"}}},
+  "moneyJourneyArrived": "{count} of {total} arrived",
+  "@moneyJourneyArrived": {"description": "Money journey: the small chip under the destination station while several legs are still on their way, how many of them have landed there. {count} and {total} are small whole numbers.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}},
+  "moneyJourneyPlaced": "Placed!",
+  "@moneyJourneyPlaced": {"description": "Money journey: the status line on top of the map once a funded order (a bet, an Investing order, added margin) placed; one cheerful word, beside the amount."},
+  "cctpRefundReturnedTo": "Refunded to your {network} address {address}.",
+  "@cctpRefundReturnedTo": {"description": "Activity detail of an Investing move by CCTP whose one-time quote was refunded: the USDC went back to the wallet's own EVM address on Arbitrum. Plain caption; tapping it copies the full address. {network} is the network name (Arbitrum), {address} the address shortened (0x1234…abcd).", "placeholders": {"network": {"type": "String"}, "address": {"type": "String"}}},
+  "cctpRefundMoveWithWallet": "To move it, use a wallet like MetaMask with the same recovery phrase.",
+  "@cctpRefundMoveWithWallet": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the standard format (m/44'/60'/0'/0/0 from the recovery phrase): the refunded USDC can be moved by importing the same 12 words into a wallet like MetaMask. MetaMask is a product name."},
+  "cctpRefundContactSupport": "To move it, contact Support.",
+  "@cctpRefundContactSupport": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."},
+  "portfolioSectionPnlCharts": "P&L charts",
+  "portfolioSectionBalances": "Balances",
+  "@portfolioSectionBalances": {"description": "Investments, Portfolio pill: the small pill (beside Charts and Activity) for the section with the Dollars, Investing and Predictions balances and the Move money button."}
 }

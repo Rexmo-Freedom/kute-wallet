@@ -53,13 +53,14 @@ void main() {
 
   test('toMap only appends the new keys', () {
     final keys = _ledger().toMap().keys.toList();
-    expect(keys.sublist(keys.length - 6), [
+    expect(keys.sublist(keys.length - 7), [
       'evmAddress',
       'evmDerivationPath',
       'evmVerifiedAtMs',
       'recoveryCheckAddress',
       'evmDerivationVersion',
       'evmFormatCheckPending',
+      'createdEmpty',
     ]);
     expect(keys.first, 'id');
   });

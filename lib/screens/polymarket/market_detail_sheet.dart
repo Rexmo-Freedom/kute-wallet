@@ -24,6 +24,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/live_game/game_market_groups.dart';
@@ -299,7 +300,6 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
           if (o.tokenId != null && o.tokenId!.isNotEmpty) o.tokenId
       ];
     }
-    final end = event.endDate;
     if (tokens.isEmpty) return;
     // A young market is read straight at a grain that can draw it.
     final opened = polyChartOpenedAt(event);
@@ -312,10 +312,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
       inPlay: event.isInPlay,
       openedAt: opened,
       shortMarket: RegExp(r'-(5|15)m-').hasMatch(event.slug),
-      resolved: event.closed ||
-          !event.active ||
-          event.ended ||
-          (end != null && end.isBefore(DateTime.now())),
+      resolved: polyTradingOver(event, inPlay: event.isInPlay),
     );
   }
 
@@ -569,6 +566,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                     ),
                                   );
                                 }),
+                              // Sal's one quiet door on this screen, under
+                              // the chart and its window: "Why is it
+                              // moving?", only for a game in play or a big
+                              // move in the odds (calm, nothing). Rules and
+                              // resolution keep their own row below. Own
+                              // Consumer: the live score feed is read for
+                              // this alone.
+                              Consumer(
+                                builder: (context, salRef, _) =>
+                                    SalWhyMovingRow(
+                                  advisorContext: _salContext,
+                                  question: salWhyMovingPm(context.l10n,
+                                      oddsChange1d: event.oneDayPriceChange,
+                                      liveGame: _isGameLive(
+                                          _liveMatchUpdate(salRef))),
+                                  chipSignals: salSignalsForPolyEvent(event),
+                                  padding: EdgeInsets.only(bottom: 8.h),
+                                ),
+                              ),
                               // Count markets: the running tally, refreshed
                               // while open.
                               if (event.tweetCount != null)
@@ -628,7 +644,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               : null);
 
   /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the question capsule under the hero.
+  /// watchlist star. Sal's door is the "Why is it moving?" row under the
+  /// chart, when there is a move worth explaining.
   Widget _buildHeader(AppColorsExtension c) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
@@ -686,22 +703,17 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         .toList();
   }
 
-  /// STATUS-based "resolved" determination — mirrors the card's `_isResolved`
-  /// (closed / not-active / ended / past endDate). A live market (closed:false,
-  /// future endDate) must NEVER read as resolved, even when one outcome sits at
-  /// ~99% and the rest near ~0 — a lopsided price is a heavy favourite, not a
-  /// settled market. This killed the img64 bug where "Fed Decision in June?"
-  /// ("Ends in 1d", not closed) wrongly showed a green "Resolved · No change".
-  /// No price threshold is consulted here — the old `p >= 0.97 || p <= 0.03`
+  /// STATUS-based "resolved" determination — the lists' rule
+  /// ([polyTradingOver]: closed / not-active / ended / every market closed
+  /// or not accepting orders). A past end date never counts: a market
+  /// stays open past it until it resolves. A live market must NEVER read
+  /// as resolved, even when one outcome sits at ~99% and the rest near ~0
+  /// — a lopsided price is a heavy favourite, not a settled market. This
+  /// killed the img64 bug where "Fed Decision in June?" ("Ends in 1d", not
+  /// closed) wrongly showed a green "Resolved · No change". No price
+  /// threshold is consulted here — the old `p >= 0.97 || p <= 0.03`
   /// heuristic is gone.
-  bool get _isResolvedByStatus {
-    if (event.closed) return true;
-    if (!event.active) return true;
-    if (event.ended) return true;
-    final end = event.endDate;
-    if (end != null && end.isBefore(DateTime.now())) return true;
-    return false;
-  }
+  bool get _isResolvedByStatus => polyTradingOver(event, inPlay: false);
 
   /// [_isResolvedByStatus] for the chart and the Stats, which a game still
   /// being played must not read as over ([polyEventIsOver], [polyGameIsLive]).
@@ -1450,12 +1462,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               builder: (context, heroRef, _) => _buildHeroHeadline(heroRef, c),
             ),
           ],
-          // Sal's question for this market, right under the figure.
-          SalQuestionCapsule(
-            advisorContext: _salContext,
-            chipSignals: salSignalsForPolyEvent(event),
-            padding: EdgeInsets.only(top: 16.h),
-          ),
         ],
       ),
     );

@@ -10,7 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders, openInvestmentsPositions;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -138,9 +139,8 @@ class HlOrderPlacedOverlay extends StatelessWidget {
       onDone: () {
         final nav = Navigator.of(context);
         nav.pop();
-        nav.push(MaterialPageRoute(
-            builder: (_) => const OpenInvestmentsScreen(
-                product: InvestmentsProduct.trading)));
+        // What the account holds now: the Investments tab's Positions.
+        openInvestmentsPositions(nav.context);
       },
       detail: context.l10n.investingBalanceUpdating,
       receipt: TradeReceipt(
@@ -172,6 +172,9 @@ class HlOrderPlacedOverlay extends StatelessWidget {
 
 /// An accepted order can still be unfilled. Keep that distinction explicit
 /// while using the same confirmation and receipt as other money actions.
+/// Under Done, "View orders" opens the Investments Portfolio on P&L
+/// charts, where the order rests ([viewOrders]: the spending account's
+/// slips; a Ledger's orders are not on that tab).
 class HlOrderAcceptedOverlay extends StatelessWidget {
   const HlOrderAcceptedOverlay({
     super.key,
@@ -179,12 +182,14 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
     this.market,
     required this.amount,
     this.isClose = false,
+    this.viewOrders = false,
   });
 
   final String coin;
   final HlMarket? market;
   final String amount;
   final bool isClose;
+  final bool viewOrders;
 
   @override
   Widget build(BuildContext context) => KuteConfirmation(
@@ -194,6 +199,17 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
         detail: context.l10n.investingOrderPendingFill,
         showCloseButton: true,
         onDone: () => Navigator.of(context).pop(),
+        secondaryButtonText:
+            viewOrders ? context.l10n.investingViewOrders : null,
+        onSecondary: viewOrders
+            ? () {
+                final nav = Navigator.of(context);
+                nav.pop();
+                openInvestmentsOrders(nav.context,
+                    product: 'investing',
+                    orderKind: isClose ? 'close' : 'open');
+              }
+            : null,
         receipt: TradeReceipt(
           leading: HlCoinIcon(
               coin: HlMarket.baseCoin(coin),

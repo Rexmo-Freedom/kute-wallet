@@ -38,7 +38,7 @@ import 'package:kute/theme/app_theme.dart';
 /// usually the code is ready by the time we land here. We still drive
 /// authWallet and poll, showing a spinner until it lands. If minting is slow
 /// (offline / cold backend) we let the user continue after a short wait — the
-/// code is always available later from Settings → Earn.
+/// code is always available later from Settings → Referral program.
 ///
 /// Part of the affiliate promotion, so only where the runtime policy allows
 /// `affiliate.program` ([referrerCodeStepAllowed]): opened while withheld
@@ -187,6 +187,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
     if (!_readyTracked) {
       _readyTracked = true;
       TrackingService.track('onboarding_share_code_ready', params: {
+        'wait_ms': _waitedMs,
         'wait_bucket': _waitedMs == 0
             ? 'instant'
             : _waitedMs < 10000

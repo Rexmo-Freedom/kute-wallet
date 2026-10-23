@@ -16,21 +16,29 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/helpers/orchestra_router.dart'
     show orchestraAmountToDecimalString;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/transactions_provider.dart'
+    show walletTransactionCacheProvider;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
+import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 
 /// Polls the recipient's Orchestra history for deposits to one address.
 class OrchestraDepositPoller {
-  OrchestraDepositPoller(this._ref);
+  OrchestraDepositPoller(this._ref,
+      {@visibleForTesting this.interval = const Duration(seconds: 10)});
 
   final WidgetRef _ref;
+
+  /// How often the history is read.
+  final Duration interval;
   Timer? _timer;
 
   bool get isRunning => _timer?.isActive ?? false;
@@ -70,7 +78,7 @@ class OrchestraDepositPoller {
     // this, the pre-session stamp check below would freeze the arrival
     // UI at the last in-flight status for orders older than the stamp.
     final liveThisSession = <String>{};
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _timer = Timer.periodic(interval, (timer) async {
       try {
         final result =
             await OrchestraService.getHistory(display.withdrawalAddress);
@@ -117,7 +125,8 @@ class OrchestraDepositPoller {
           // token (BSC-pegged stables, ETH) scales correctly instead
           // of falling back to the ticker table.
           final depAmt = order.amountIn != null
-              ? orchestraAmountToDecimalString(order.amountIn!, display.coinFrom,
+              ? orchestraAmountToDecimalString(
+                  order.amountIn!, display.coinFrom,
                   chain: display.networkFrom)
               : '0';
           final wdAmt = order.amountOut != null
@@ -148,8 +157,23 @@ class OrchestraDepositPoller {
           // (this poller or background sync's sweep) inserts the row
           // first reports exactly once; the other skips the id here.
           if (!known.contains(order.id)) {
-            _ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+            await _ref.read(swapOrdersProvider.notifier).addExchange(exchange);
             reportDiscoveredOrchestraOrder(exchange);
+            // A one-time receive has no Activity row until its deposit is
+            // detected: the real order written above is its first row, and
+            // only then does its pending quote retire. A quote row an
+            // earlier build wrote goes too, after the order is tracked.
+            if (display.id.startsWith('q_')) {
+              final cache = _ref.read(walletTransactionCacheProvider.notifier);
+              if (known.contains(display.id)) {
+                await _ref
+                    .read(swapOrdersProvider.notifier)
+                    .deleteExchange(display.id);
+                cache.removeSwapOrder(display.id);
+              }
+              cache.mergeSwapOrder(exchange);
+              await PendingReceiveQuoteCache.complete(display.id);
+            }
           }
           // Arrival progress: mirror the LATEST mapped status into the
           // screen each tick — including for already-recorded ids, so

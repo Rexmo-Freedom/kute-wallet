@@ -1,9 +1,12 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure/biometric_pin_policy.dart';
 
 /// Evaluates [BiometricPinPolicy] for the wallets in settings.
@@ -39,7 +42,8 @@ final class BiometricUnlockRefused extends BiometricUnlockCheck {
 /// biometrics alone unlock and `biometric_pin` is never read. With one, the
 /// stored PIN must exist and still match `pin_hash`; a stale copy (a PIN
 /// change interrupted between its writes) is never used, and the typed PIN
-/// stores it again.
+/// stores it again. A verified stored PIN runs the same legacy copy rescue
+/// a typed PIN does (`AuthModel.checkPin`), reported as `biometric`.
 Future<BiometricUnlockCheck> checkBiometricUnlock(
     AuthModel auth, V1Dependency dependency) async {
   if (!dependency.exists) return const BiometricUnlockAllowed(null);
@@ -47,7 +51,8 @@ Future<BiometricUnlockCheck> checkBiometricUnlock(
   if (storedPin == null) {
     return const BiometricUnlockRefused('stored_pin_null');
   }
-  if (await auth.checkPin(storedPin) != PinCheck.match) {
+  if (await auth.checkPin(storedPin, rescueSource: 'biometric') !=
+      PinCheck.match) {
     return const BiometricUnlockRefused('stored_pin_stale');
   }
   return BiometricUnlockAllowed(storedPin);
@@ -66,6 +71,10 @@ void markSessionUnlocked(
       SessionAuth(method: method, unlockedAt: DateTime.now());
   ref.read(typedPinProvider.notifier).state =
       dependency.exists ? (typedPin ?? ref.read(typedPinProvider)) : null;
+  // A passkey label still waiting to be published goes out now if a
+  // ceremony earlier in this process primed the identity (no prompt);
+  // otherwise this is a no-op and the next ceremony retries it.
+  unawaited(PasskeyService.retryPendingLabels());
 }
 
 /// Ends the session, for flows that leave onboarding before a wallet exists.

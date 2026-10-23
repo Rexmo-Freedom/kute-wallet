@@ -117,6 +117,11 @@ class _KuteCircleIconButton extends StatelessWidget {
   /// Drawn in the circle instead of [icon] (the Kute dog on Ask Sal).
   final Widget? child;
 
+  /// Overrides the `surface` fill and the hairline (the scanner's
+  /// controls over live video).
+  final Color? fill;
+  final Color? borderColor;
+
   const _KuteCircleIconButton({
     this.icon,
     this.iconSize = 22,
@@ -124,6 +129,8 @@ class _KuteCircleIconButton extends StatelessWidget {
     this.iconColor,
     this.onPressed,
     this.child,
+    this.fill,
+    this.borderColor,
   });
 
   void _handle(BuildContext context) {
@@ -142,9 +149,9 @@ class _KuteCircleIconButton extends StatelessWidget {
       width: size.w,
       height: size.w,
       decoration: BoxDecoration(
-        color: c.surface,
+        color: fill ?? c.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: c.borderSubtle, width: 0.5),
+        border: Border.all(color: borderColor ?? c.borderSubtle, width: 0.5),
       ),
       child: Material(
         color: Colors.transparent,
@@ -171,12 +178,20 @@ class KuteCircleButton extends StatelessWidget {
   /// Circle diameter in logical px (pre-`.w`); the canonical 44.
   final double size;
 
+  /// Overrides the `surface` fill and the hairline. Only the scanner's
+  /// controls set them: they sit over live video, so they wear a
+  /// translucent dark fill that reads in light and dark mode alike.
+  final Color? fill;
+  final Color? borderColor;
+
   const KuteCircleButton({
     super.key,
     required this.child,
     required this.semanticsLabel,
     required this.onPressed,
     this.size = 44,
+    this.fill,
+    this.borderColor,
   });
 
   @override
@@ -187,6 +202,8 @@ class KuteCircleButton extends StatelessWidget {
       child: _KuteCircleIconButton(
         size: size,
         onPressed: onPressed,
+        fill: fill,
+        borderColor: borderColor,
         child: Center(child: child),
       ),
     );

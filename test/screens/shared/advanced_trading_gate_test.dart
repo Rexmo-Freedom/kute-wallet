@@ -81,7 +81,12 @@ void main() {
         _Policy((_) => const CapabilityDecision(
             allowed: false, reason: 'country_blocked')));
     expect(offered, isFalse);
-    expect(find.byKey(_gotIt), findsOneWidget);
+    // A region block's one button asks again: "Check connection".
+    expect(find.byKey(_gotIt), findsNothing);
+    expect(
+        find.byKey(const ValueKey('capability-unavailable-check-connection')),
+        findsOneWidget);
+    expect(find.text('Check connection'), findsOneWidget);
     expect(find.text('Not available in your region'), findsOneWidget);
   });
 

@@ -173,7 +173,10 @@ void main() {
         _wallet.id,
         () => s.executeReverse(r,
             approve: (_, {onBeforeSend, beforeSend}) async => throw UnimplementedError()));
-    expect(result, isA<LedgerFundingSubmitted>());
+    // A usdSend proof is submitted in the background: the flow is answered
+    // at once and the operation registers when the submit returns.
+    expect(result, isA<LedgerFundingSubmitPending>());
+    await records.debugBackgroundSubmitsIdle();
     expect((await store.get(r.operationId))!.stage, SettlementStage.submitted);
   });
 

@@ -1,5 +1,7 @@
 // Fill markers on the Hyperliquid chart: the user's own buys/sells are
-// small ▲/▼ glyphs at their time+price. A tap on one opens a tooltip
+// a dot at their time+price joined by a short stem to a ▲/▼ badge (buys
+// below, sells above, flipped at an edge; same-side fills on the same or
+// adjacent bars share one badge with a count). A tap on one opens a tooltip
 // saying what happened (side, size, price, notional, time); a tap
 // elsewhere, a scrub or a few seconds close it. Two fills on one candle
 // share a single card with two rows.
@@ -71,6 +73,12 @@ Finder get _surface => find.descendant(
     matching: find.byWidgetPredicate(
         (w) => w is GestureDetector && w.onPanUpdate != null));
 
+/// The plot the data is drawn across: the chart less its tag column at
+/// the right (the crosshair layer spans exactly that).
+Finder get _plot => find.descendant(
+    of: find.byType(HlCandlestickChart),
+    matching: find.byType(KuteChartCrosshair));
+
 HlFillTooltipPainter? _tooltip(WidgetTester tester) => tester
     .widgetList<CustomPaint>(find.byType(CustomPaint))
     .map((w) => w.painter)
@@ -82,7 +90,7 @@ List<HlFillMarker> _markers(WidgetTester tester, {bool line = false}) {
   return hlResolveFillMarkers(
     candles: candles,
     fills: _fills,
-    size: tester.getSize(_surface),
+    size: tester.getSize(_plot),
     renderAsLine: line,
     showVolume: false,
     leadingClose: candles.last.close,
@@ -177,7 +185,164 @@ void main() {
     for (final m in markers) {
       expect(m.center.dy, inInclusiveRange(hlFillMarkerRadius, 200));
       expect(m.center.dy, lessThanOrEqualTo(200 - hlFillMarkerRadius));
+      // A lone fill: its own badge, straight above/below its price dot.
+      expect(m.count, 1);
+      expect(m.lead, isTrue);
+      expect(m.center.dx, m.dot.dx);
+      expect(m.badgeAbove, !m.fill.isBuy);
+      expect((m.center.dy - m.dot.dy).abs(), hlFillMarkerOffset);
+      // Badge and dot never overlap: there is room for the stem.
+      expect((m.center.dy - m.dot.dy).abs(),
+          greaterThan(hlFillMarkerRadius + hlFillMarkerDotRadius + 4));
     }
+    // The dot sits at the exact fill price.
+    final geomBuy = markers[0];
+    final y104 = hlResolveFillMarkers(
+      candles: candles,
+      fills: [_fill(id: 'x', bar: 3, px: 104, sz: 1, buy: false)],
+      size: size,
+      renderAsLine: false,
+      showVolume: false,
+    ).single.dot.dy;
+    expect(geomBuy.dot.dy, closeTo(y104, 1e-9));
+  });
+
+  test('the badge is sized to read at a glance and easy to tap', () {
+    expect(hlFillMarkerRadius * 2, inInclusiveRange(16, 18));
+    expect(hlFillMarkerHitRadius, greaterThanOrEqualTo(22));
+  });
+
+  test('same-side fills on one or adjacent bars share one badge with a count',
+      () {
+    final candles = _candles();
+    const size = Size(400, 200); // 40px per bar
+    final markers = hlResolveFillMarkers(
+      candles: candles,
+      fills: [
+        _fill(id: 'b1', bar: 4, px: 105, sz: 1, buy: true),
+        _fill(id: 'b2', bar: 4, px: 104, sz: 1, buy: true, offsetMs: 20000),
+        // The sell on the same bar keeps a badge of its own.
+        _fill(id: 's1', bar: 4, px: 105.5, sz: 1, buy: false),
+        // A buy far away: its own badge.
+        _fill(id: 'b3', bar: 8, px: 108, sz: 1, buy: true),
+      ],
+      size: size,
+      renderAsLine: false,
+      showVolume: false,
+    );
+    HlFillMarker byId(String id) =>
+        markers.firstWhere((m) => m.fill.tradeId == id);
+    final b1 = byId('b1'), b2 = byId('b2'), s1 = byId('s1'), b3 = byId('b3');
+    expect(b1.cluster, b2.cluster);
+    expect(b1.center, b2.center);
+    expect(b1.count, 2);
+    expect(b2.count, 2);
+    // A pill wide enough for the count.
+    expect(b1.badgeHalfWidth, greaterThan(hlFillMarkerRadius));
+    // One badge, painted once: by the lowest buy, so the badge (below it)
+    // covers neither dot.
+    expect([b1.lead, b2.lead].where((l) => l), hasLength(1));
+    expect(b2.lead, isTrue);
+    expect(b2.dot.dy, greaterThan(b1.dot.dy));
+    expect(b1.center.dy, greaterThan(b2.dot.dy));
+    // Each fill keeps its own dot.
+    expect(b1.dot, isNot(b2.dot));
+    expect(s1.cluster, isNot(b1.cluster));
+    expect(s1.count, 1);
+    expect(b3.cluster, isNot(b1.cluster));
+    expect(b3.count, 1);
+
+    // Adjacent bars on a dense tape merge too (10px per bar).
+    final dense = hlResolveFillMarkers(
+      candles: candles,
+      fills: [
+        _fill(id: 'd1', bar: 2, px: 103, sz: 1, buy: false),
+        _fill(id: 'd2', bar: 3, px: 104, sz: 1, buy: false),
+        _fill(id: 'd3', bar: 4, px: 105, sz: 1, buy: false),
+      ],
+      size: const Size(100, 200),
+      renderAsLine: false,
+      showVolume: false,
+    );
+    expect(dense.map((m) => m.cluster).toSet(), hasLength(1));
+    expect(dense.first.count, 3);
+    // The sells' badge rides the highest one.
+    expect(dense.singleWhere((m) => m.lead).fill.tradeId, 'd3');
+
+    // A tap on a shared badge opens every fill on it.
+    final hit = hlHitTestFillMarkers(markers, b1.center);
+    expect(hit.map((m) => m.fill.tradeId), containsAll(['b1', 'b2']));
+  });
+
+  test('a badge at the top or bottom edge flips to the other side', () {
+    final candles = _candles();
+    const size = Size(400, 200);
+    // The highest high and the lowest low on the tape.
+    final markers = hlResolveFillMarkers(
+      candles: candles,
+      fills: [
+        _fill(id: 'top', bar: 9, px: candles[9].high, sz: 1, buy: false),
+        _fill(id: 'bottom', bar: 0, px: candles[0].low, sz: 1, buy: true),
+      ],
+      size: size,
+      renderAsLine: false,
+      showVolume: false,
+    );
+    final top = markers.firstWhere((m) => m.fill.tradeId == 'top');
+    final bottom = markers.firstWhere((m) => m.fill.tradeId == 'bottom');
+    // A sell normally sits above; at the top it goes below its dot.
+    expect(top.badgeAbove, isFalse);
+    // A buy normally sits below; at the bottom it goes above its dot.
+    expect(bottom.badgeAbove, isTrue);
+    for (final m in markers) {
+      expect(m.badge.top, greaterThanOrEqualTo(0));
+      expect(m.badge.bottom, lessThanOrEqualTo(size.height));
+      expect(m.badge.left, greaterThanOrEqualTo(0));
+      expect(m.badge.right, lessThanOrEqualTo(size.width));
+      expect(m.dot.dy, inInclusiveRange(0, size.height));
+    }
+  });
+
+  test('crowded badges stack apart instead of piling up', () {
+    final candles = _candles();
+    // 15px per bar: pairs merge, and neighbouring pills would touch.
+    const size = Size(150, 200);
+    final markers = hlResolveFillMarkers(
+      candles: candles,
+      fills: [
+        for (var i = 0; i < 10; i++)
+          _fill(id: 'b$i', bar: i, px: 105, sz: 1, buy: true),
+        for (var i = 0; i < 10; i++)
+          _fill(id: 's$i', bar: i, px: 105.2, sz: 1, buy: false),
+      ],
+      size: size,
+      renderAsLine: false,
+      showVolume: false,
+    );
+    expect(markers, hasLength(20));
+    final badges = [
+      for (final m in markers)
+        if (m.lead) m.badge
+    ];
+    expect(badges.length, lessThan(20));
+    for (var i = 0; i < badges.length; i++) {
+      final b = badges[i];
+      expect(b.top, greaterThanOrEqualTo(0));
+      expect(b.bottom, lessThanOrEqualTo(size.height));
+      for (var j = i + 1; j < badges.length; j++) {
+        expect(b.overlaps(badges[j]), isFalse,
+            reason: 'badge $b overlaps ${badges[j]}');
+      }
+    }
+  });
+
+  test('the glyph takes white or the background, whichever reads better', () {
+    // Light: white on both sides' colours.
+    expect(hlFillGlyphColor(AppColors.marketUp, Colors.white), Colors.white);
+    expect(hlFillGlyphColor(AppColors.marketDown, Colors.white), Colors.white);
+    // Dark: black has the higher contrast on both.
+    expect(hlFillGlyphColor(AppColors.marketUp, Colors.black), Colors.black);
+    expect(hlFillGlyphColor(AppColors.marketDown, Colors.black), Colors.black);
   });
 
   test('hit test picks the nearest marker and groups fills on one bar', () {
@@ -198,6 +363,26 @@ void main() {
         hlHitTestFillMarkers(
             markers, Offset(100, 50 + hlFillMarkerHitRadius + 1)),
         isEmpty);
+    // The price dot is a target too.
+    final withDot = [
+      HlFillMarker(
+          fill: _fills[0],
+          barIndex: 3,
+          center: const Offset(100, 69),
+          dot: const Offset(100, 50)),
+    ];
+    expect(hlHitTestFillMarkers(withDot, const Offset(100, 40)), hasLength(1));
+    expect(hlHitTestFillMarkers(withDot, const Offset(100, 69 + 23)), isEmpty);
+    // A pill reaches its whole width.
+    final pill = [
+      HlFillMarker(
+          fill: _fills[0],
+          barIndex: 3,
+          center: const Offset(100, 50),
+          badgeHalfWidth: 20),
+    ];
+    expect(hlHitTestFillMarkers(pill, const Offset(100 + 20 + 12, 50)),
+        hasLength(1));
     expect(hlHitTestFillMarkers(const [], a), isEmpty);
   });
 
@@ -322,8 +507,9 @@ void main() {
     await _pump(tester);
     final origin = tester.getRect(_surface).topLeft;
     final m = _marker(tester, 't1');
+    // Left of the marker (bar 2 has no fill), past both badge and dot.
     await tester.tapAt(
-        origin + m.center + Offset(0, -(hlFillMarkerHitRadius + 6)));
+        origin + m.center + Offset(-(hlFillMarkerHitRadius + 6), 0));
     await tester.pump();
     expect(_tooltip(tester), isNull);
   });

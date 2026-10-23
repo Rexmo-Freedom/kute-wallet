@@ -1,4 +1,29 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
+import 'package:kute/screens/shared/multi_source_move_activity.dart';
+import 'package:kute/screens/shared/cctp_refund_outcome.dart'
+    show CctpRefundOutcome;
+import 'package:kute/screens/shared/move_steps_view.dart'
+    show MoveStepsSection, SwapRowStepsSection;
+import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
+import 'package:kute/screens/shared/pending_bitcoin_purchase_continue.dart'
+    show continuePendingBitcoinPurchase, pendingPurchaseWaitingUsd;
+import 'package:kute/services/one_balance/buy_bitcoin_fanout.dart'
+    show initialDollarsRetryable, retryInitialDollarsPurchase;
+import 'package:kute/services/one_balance/dollars_to_bitcoin_purchase.dart'
+    show kDollarsToBtcRoute;
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceReadingProvider;
+import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
+    show bitcoinPurchaseFinisherProvider, pendingBitcoinPurchasesProvider;
+import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
+import 'package:kute/services/orchestra/own_spark_arrivals.dart';
+import 'package:kute/services/one_balance/venue_cash_source.dart'
+    show
+        VenueCashDestination,
+        VenueCashFor,
+        VenueCashPlan,
+        venueCashPullerProvider;
 import 'package:kute/screens/shared/activity_row_copy.dart';
 export 'package:kute/screens/shared/activity_row_copy.dart' show ActivityFlow;
 import 'package:kute/helpers/swap_activity.dart';
@@ -14,6 +39,7 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide, showDepositSheet;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
+import 'package:kute/helpers/venue_intents.dart' show DirectLegGrants;
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
@@ -37,7 +63,16 @@ import 'package:kute/services/spark_deposit_actions.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:kute/helpers/orchestra_router.dart';
 import 'package:kute/services/orchestra_routes.dart'
-    show kOrchestraUsdAssetCode, orchestraChainDisplayName;
+    show
+        kOrchestraUsdAssetCode,
+        orchestraChainDisplayName,
+        orchestraExchangeStatus;
+import 'package:kute/handlers/response_handlers.dart' show Result;
+import 'package:kute/helpers/orchestra_legacy_status_rules.dart'
+    show legacyRowWithOrderId, replaceOrchestraRowId;
+import 'package:kute/helpers/orchestra_track_exchange.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/orchestra_model.dart' show OrchestraOrder;
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/asset_icon_provider.dart';
@@ -47,11 +82,9 @@ import 'package:kute/providers/pending_ledger_settlement_provider.dart';
 import 'package:kute/models/polymarket_model.dart'
     show Activity, ActivityType;
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show activityCrestIcon, polymarketClaimablePositionsProvider;
+    show activityCrestIcon;
 import 'package:kute/helpers/prediction_results.dart'
     show PredictionResult, predictionResults;
-import 'package:kute/screens/polymarket/components/position_claim.dart'
-    show PolyClaimButton;
 import 'package:kute/screens/polymarket/market_detail_sheet.dart'
     show MarketDetailSheet;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -72,6 +105,11 @@ import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show sendShortAddress;
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneTimeReceiveRow;
+import 'package:kute/services/support_service.dart' show openSupportChat;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
@@ -96,6 +134,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:kute/screens/shared/animations/fade_in_slide.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart';
 
 const Color _kPolyRedTx = Color(0xFFEF4444);
 
@@ -212,7 +251,10 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     if (!mounted) {
       return;
     }
-    ref.read(settingsProvider.notifier).setReviewDone(true);
+    // Never throws (the flag is updated in memory first and a failed
+    // Keychain write is dropped), so nothing here can reach the zone
+    // handler as a fatal.
+    unawaited(ref.read(settingsProvider.notifier).setReviewDone(true));
   }
 
   @override
@@ -277,11 +319,24 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     // What this surface shows, one row per user intent. The surface
     // filters run FIRST and the leg collapse second, so a leg is only ever
     // hidden behind a row that is still on screen (see [assembleActivityRows]).
+    // The spending account's multi-source moves (one row each). Another
+    // wallet's list (the override) never carries them.
+    final moves = override == null
+        ? ref.watch(multiSourceMovesProvider)
+        : const <MultiSourceMove>[];
+    // A delivery to Spark the balance does not show yet keeps its row
+    // pending: rebuild when that changes.
+    ref.watch(ownSparkArrivalsProvider);
     final allSorted = assembleActivityRows(
       homeTransactionsSorted,
       ownAddresses: activityOwnSettleAddresses(ref),
       isHardwareOrWatchOnly: isHardwareOrWatchOnly,
       onlyUsdb: widget.onlyUsdb,
+      moves: moves,
+      walletId: override ?? ref.read(settingsProvider).activeWalletId,
+      // A move over with nothing delivered has no row; its legs show.
+      dissolved: moves.isEmpty ? null : watchMultiSourceMovesDissolved(ref),
+      bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
     );
 
     final recentTransactions = widget.showAll
@@ -705,6 +760,15 @@ class _RowIconTile extends StatelessWidget {
   }
 }
 
+/// Whether a swap row's [rate] means anything: a positive number, or a
+/// non-numeric label a provider gave.
+bool _rateShown(String rate) {
+  final t = rate.trim();
+  if (t.isEmpty) return false;
+  final v = double.tryParse(t);
+  return v == null || (v.isFinite && v > 0);
+}
+
 String _formatRate(String rate) {
   final v = double.tryParse(rate);
   if (v == null) {
@@ -993,9 +1057,8 @@ bool orchestraTouchesBitcoin(SwapOrder order) {
   // payment rail, not the person's bitcoin. Only a purchase that delivers
   // bitcoin belongs in the bitcoin ledger; a dollar purchase is dollars
   // arriving and lives on the Dollars screen alone.
-  if (order.isCashAppPurchase) return order.coinTo.toUpperCase() == 'BTC';
-  return order.coinTo.toUpperCase() == 'BTC' ||
-      order.coinFrom.toUpperCase() == 'BTC';
+  if (order.isCashAppPurchase) return swapAssetIsBitcoin(order.coinTo);
+  return swapAssetIsBitcoin(order.coinTo) || swapAssetIsBitcoin(order.coinFrom);
 }
 
 /// Whether [order] is a send to someone else paid from the dollar
@@ -1032,6 +1095,109 @@ bool _isDollarLegOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
       30 * 60 * 1000;
 }
 
+/// How long after a venue withdrawal to Dollars started its dollars may
+/// still land and be linked to it. Orchestra can hold an order well past
+/// the 30 minutes [_isDollarLegOf] allows (the first Circle CCTP sweep
+/// landed 42 minutes after it left, held for screening); the link then
+/// rests on the record and the exact amount, not on the clock.
+const Duration kVenueWithdrawalArrivalWindow = Duration(hours: 24);
+
+/// Whether [d] is the wallet's own withdrawal from Investing or
+/// Predictions into Dollars (a sweep, the Circle CCTP fallback, a manual
+/// move) that can still deliver: a settlement-record row (its recipient
+/// is the wallet's own Spark address by construction) or one that settles
+/// to an address the wallet owns. Failed, refunded or expired orders never
+/// deliver, so nothing links to them.
+bool _isOwnVenueWithdrawalToDollars(
+  SwapOrder d,
+  SwapActivityKind kind, {
+  required Set<String> ownAddresses,
+}) {
+  if (!d.isOrchestra) return false;
+  if (d.coinTo.toUpperCase() != kOrchestraUsdAssetCode) return false;
+  if (kind != SwapActivityKind.investingWithdrawal &&
+      kind != SwapActivityKind.predictionsWithdrawal) {
+    return false;
+  }
+  if (!d.isComplete && !d.isPending) return false;
+  final settle = d.withdrawalAddress.trim().toLowerCase();
+  return d.operationId != null ||
+      (settle.isNotEmpty && ownAddresses.contains(settle));
+}
+
+/// Whether the dollar receive [tx] can be the late arrival of the venue
+/// withdrawal [ex]: exactly the order's dollar amount (to the cent), and
+/// landing after the order started, within [kVenueWithdrawalArrivalWindow].
+bool _isLateArrivalOf(UsdbTokenTransaction tx, SwapOrderTransaction ex) {
+  if (tx.details.paymentType != breez.PaymentType.receive) return false;
+  final dollars = tx.amount.toInt() / 1e6;
+  final amount = _exchangeUsdFieldToDollars(ex.details.withdrawalAmount);
+  if (dollars <= 0 || amount <= 0) return false;
+  if ((dollars - amount).abs() > 0.005 + 1e-9) return false;
+  final delta = tx.timestamp.difference(ex.timestamp);
+  // A small clock margin before the order (the row is stamped when the
+  // app wrote it, the transfer by the network).
+  return delta >= const Duration(minutes: -2) &&
+      delta <= kVenueWithdrawalArrivalWindow;
+}
+
+/// The dollar transfers in [transfers] that settled one of [exchanges],
+/// so their own rows can go behind the move's row.
+///
+/// Two links, the first one winning:
+///   * the near match ([_isDollarLegOf]): same side, the amount within
+///     two percent, within 30 minutes of the order;
+///   * a late arrival into Dollars from the wallet's own venue withdrawal
+///     ([_isOwnVenueWithdrawalToDollars]) that has no near match: the
+///     receive of exactly its amount, after it started, within a day.
+///     One receive per withdrawal and one withdrawal per receive, the
+///     oldest withdrawal taking the first receive after it, so an
+///     unrelated transfer of the same amount (the next one, or one before
+///     the move) keeps its own row.
+Set<String> _settledDollarLegIds(
+  List<SwapOrderTransaction> exchanges,
+  Iterable<UsdbTokenTransaction> transfers, {
+  required Set<String> ownAddresses,
+  required SwapActivityKind Function(SwapOrder order) classify,
+}) {
+  final legs = <String>{};
+  if (exchanges.isEmpty) return legs;
+  final list = transfers.toList();
+  final nearMatched = <String>{};
+  for (final tx in list) {
+    for (final ex in exchanges) {
+      if (_isDollarLegOf(tx, ex)) {
+        legs.add(tx.id);
+        nearMatched.add(ex.id);
+      }
+    }
+  }
+  final waiting = [
+    for (final ex in exchanges)
+      if (!nearMatched.contains(ex.id) &&
+          _isOwnVenueWithdrawalToDollars(ex.details, classify(ex.details),
+              ownAddresses: ownAddresses))
+        ex,
+  ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  if (waiting.isEmpty) return legs;
+  final receives = [
+    for (final tx in list)
+      if (!legs.contains(tx.id) &&
+          tx.details.paymentType == breez.PaymentType.receive)
+        tx,
+  ]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  for (final ex in waiting) {
+    for (final tx in receives) {
+      if (legs.contains(tx.id)) continue;
+      if (_isLateArrivalOf(tx, ex)) {
+        legs.add(tx.id);
+        break;
+      }
+    }
+  }
+  return legs;
+}
+
 /// Whether a send paid from dollars knows what the recipient got: its
 /// delivered amount is at least one sat for bitcoin, or a cent for
 /// anything else. Before the first status check the row holds the
@@ -1063,12 +1229,25 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// alone; every other surface drops it together with the token transfer
 /// that funded it, since both are the Dollars ledger's.
 ///
+/// A venue move belongs to the balances it moved. Dollars into or out of
+/// Investing or Predictions shows on Dollars and in the Investments
+/// activity; the bitcoin surfaces drop it together with its dollar
+/// transfer. Only a venue move paid in or out in bitcoin is listed there.
+///
 /// [keepVenueMoves] keeps every Predictions move's own conversion row even
 /// when a Predictions deposit or withdrawal row beside it tells the story
 /// (the Breakdown donut weighs the conversion, in the ledger's own unit;
 /// the Predictions row is in dollars on the venue's side).
 ///
 /// [classify] reads a conversion's intent; tests pass their own.
+///
+/// [dissolved] tells which of [moves] are over with nothing delivered
+/// ([watchMultiSourceMovesDissolved]): those have no row and their legs
+/// are listed as their own.
+///
+/// [bitcoinReceiveMarks] are the dollar receive addresses opened from the
+/// Bitcoin receive's "other coins" line: their deposits are listed on the
+/// bitcoin ledger too ([shownFromBitcoinReceive]).
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
@@ -1076,6 +1255,10 @@ List<BaseTransaction> assembleActivityRows(
   required bool onlyUsdb,
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  List<MultiSourceMove> moves = const [],
+  String? walletId,
+  MultiSourceMoveDissolved? dissolved,
+  List<BitcoinReceiveMark> bitcoinReceiveMarks = const [],
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1118,10 +1301,17 @@ List<BaseTransaction> assembleActivityRows(
       return kind != SwapActivityKind.send || _isDollarFundedSend(d, kind);
     }).toList();
   } else {
-    // A conversion that only touches dollars is the dollar ledger's, not
-    // this one's. A venue move is the exception: money entering or leaving
-    // Predictions or Investing is always one row on every surface, in
-    // whichever unit it moved.
+    // The bitcoin ledger lists a conversion only when bitcoin moved. One
+    // that only touches dollars is the dollar ledger's, not this one's,
+    // and so is a venue move whose two sides are Dollars and a venue
+    // (into or out of Investing or Predictions, the Circle CCTP
+    // withdrawal and the sweeps included): the person's bitcoin never
+    // moved (owner decision October 2026, after "Withdraw from Investing
+    // $0.00 from $6.28" and "Deposit to Investing $6.54 from $6.60" sat
+    // on the Bitcoin tab). Those moves are the Investments activity's and
+    // the Dollars activity's. A venue move with no bitcoin and no dollar
+    // leg (venue to venue) is not this ledger's either. A venue move paid
+    // in or out in bitcoin stays: bitcoin moved.
     //
     // A send paid from dollars is the dollar ledger's too, whatever it
     // delivers (user decision: "All sends from Dollars should only show
@@ -1129,11 +1319,28 @@ List<BaseTransaction> assembleActivityRows(
     // to show here as a bitcoin "Sent", because the order delivers BTC.
     // The send leaves with the token transfer that funded it: both are
     // the Dollars ledger's, and the Dollars tab shows the send as one row.
+    // A Dollars ↔ venue move leaves with its dollar transfer the same way,
+    // so the move never resurfaces here as a bare dollar row.
     final dollarSends = <SwapOrderTransaction>[];
+    final dollarVenueMoves = <SwapOrderTransaction>[];
     rows = rows.where((tx) {
       if (tx is! SwapOrderTransaction) return true;
       final d = tx.details;
-      if (!orchestraTouchesDollars(d)) return true;
+      // The one exception (founder decision): a coin received into
+      // Dollars through an address opened from the Bitcoin receive is
+      // listed here as well, exactly as the dollar ledger lists it.
+      if (shownFromBitcoinReceive(d, bitcoinReceiveMarks)) return true;
+      if (swapTouchesOnlyDollars(d)) {
+        // Both sides are known dollars: no Bitcoin moved, regardless of
+        // provider, status or availability of the settlement-intent record.
+        dollarVenueMoves.add(tx);
+        return false;
+      }
+      if (!orchestraTouchesDollars(d)) {
+        if (orchestraTouchesBitcoin(d)) return true;
+        final kind = classify(d);
+        return !(kind.isPredictions || kind.isInvesting);
+      }
       if (d.isCashAppPurchase) return orchestraTouchesBitcoin(d);
       final kind = classify(d);
       if (_isDollarFundedSend(d, kind)) {
@@ -1141,8 +1348,28 @@ List<BaseTransaction> assembleActivityRows(
         return false;
       }
       if (orchestraTouchesBitcoin(d)) return true;
-      return kind.isPredictions || kind.isInvesting;
+      if (kind.isPredictions || kind.isInvesting) {
+        dollarVenueMoves.add(tx);
+        return false;
+      }
+      // A coin received into Dollars from another network (a one-time
+      // receive into spark:USDB) moved no bitcoin: the Investments
+      // activity lists it, this one does not.
+      if (kind == SwapActivityKind.receive &&
+          d.coinTo.toUpperCase() == kOrchestraUsdAssetCode) {
+        return false;
+      }
+      // An unfamiliar opposite asset is not proof of a dollar-only move.
+      return true;
     }).toList();
+    if (dollarVenueMoves.isNotEmpty) {
+      final legs = _settledDollarLegIds(
+          dollarVenueMoves, rows.whereType<UsdbTokenTransaction>(),
+          ownAddresses: ownAddresses, classify: classify);
+      rows = rows
+          .where((tx) => tx is! UsdbTokenTransaction || !legs.contains(tx.id))
+          .toList();
+    }
     if (dollarSends.isNotEmpty) {
       rows = rows
           .where((tx) =>
@@ -1154,12 +1381,20 @@ List<BaseTransaction> assembleActivityRows(
   }
 
   // One row per user intent, judged only against rows still on the list.
-  return _collapsePolymarketFlows(
+  final collapsed = _collapsePolymarketFlows(
     rows,
     ownAddresses: ownAddresses,
     keepVenueMoves: keepVenueMoves,
     classify: classify,
   );
+  // An action that took money from more than one place is one row too:
+  // its legs fold into it (multi_source_move_activity.dart).
+  if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
+  return collapseMultiSourceMoves(collapsed, moves,
+      onlyUsdb: onlyUsdb,
+      walletId: walletId,
+      everyRow: sorted,
+      dissolved: dissolved);
 }
 
 /// ─── Polymarket / Orchestra flow collapse ────────────────────────────
@@ -1421,9 +1656,13 @@ List<BaseTransaction> _collapsePolymarketFlows(
   /// settled it — the way a Predictions or Investing deposit used to.
   /// The swap row is the user-meaningful one (it names both ends), so
   /// the settle leg goes, and a dollar transfer with no conversion
-  /// beside it still stands on its own.
-  bool hideDollarLeg(UsdbTokenTransaction tx) =>
-      exchanges.any((ex) => _isDollarLegOf(tx, ex));
+  /// beside it still stands on its own. A venue withdrawal whose dollars
+  /// Orchestra held past half an hour still takes its arrival by the
+  /// exact amount ([_settledDollarLegIds]).
+  final dollarLegs = _settledDollarLegIds(
+      exchanges, transactions.whereType<UsdbTokenTransaction>(),
+      ownAddresses: ownAddresses, classify: classify);
+  bool hideDollarLeg(UsdbTokenTransaction tx) => dollarLegs.contains(tx.id);
 
   return transactions.where((tx) {
     if (tx is SwapOrderTransaction) {
@@ -1472,6 +1711,9 @@ Widget _buildUnifiedTransactionItem(
   }
   if (transaction is OutlogicTransaction) {
     return _buildOutlogicItem(transaction, context, ref);
+  }
+  if (transaction is MultiSourceMoveTransaction) {
+    return _buildMultiSourceMoveItem(transaction, context, ref);
   }
   return const SizedBox.shrink();
 }
@@ -1543,6 +1785,8 @@ Future<void> openTransactionDetails(
     _showPolymarketUsdcReceiveDetails(context, ref, transaction);
   } else if (transaction is OutlogicTransaction) {
     _showOutlogicTxDetails(context, ref, transaction);
+  } else if (transaction is MultiSourceMoveTransaction) {
+    _showMultiSourceMoveDetails(context, ref, transaction);
   }
 }
 
@@ -1573,7 +1817,6 @@ Widget _buildPolymarketUsdcReceiveItem(
 void _showPolymarketUsdcReceiveDetails(
     BuildContext context, WidgetRef ref, PolymarketUsdcReceive tx) {
   TrackingService.transactionDetailViewed('polymarket_usdc_receive');
-  final c = context.colors;
   // Sheet headline follows the global Predictions denomination
   // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
   // Asset identity stays on the leading USDC icon.
@@ -1582,7 +1825,10 @@ void _showPolymarketUsdcReceiveDetails(
   final hash = tx.id.split(':').first;
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -1603,6 +1849,7 @@ void _showPolymarketUsdcReceiveDetails(
               // Amount lives ON the graph (no duplicate text row).
               SizedBox(height: 6.h),
               SimpleFlowGraph(
+                mark: SimpleFlowMark.predictions,
                 source: SimpleFlowNode(
                     label: context.l10n.activitySender, amount: fiatStr),
                 destinations: [
@@ -1650,7 +1897,8 @@ void _showPolymarketUsdcReceiveDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -1665,7 +1913,6 @@ void _showPolymarketUsdcReceiveDetails(
 void _showNativeUsdcSendDetails(
     BuildContext context, WidgetRef ref, SwapOrderTransaction tx) {
   TrackingService.transactionDetailViewed('native_usdc_send');
-  final c = context.colors;
   final details = tx.details;
   // Sheet headline follows the global Predictions denomination
   // setting — sats/BTC in bitcoin mode, user's fiat in fiat mode.
@@ -1673,7 +1920,10 @@ void _showNativeUsdcSendDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -1692,7 +1942,7 @@ void _showNativeUsdcSendDetails(
                   tx.isComplete ? context.l10n.completed : context.l10n.pending,
                   valueColor: tx.isComplete
                       ? AppColors.success
-                      : context.colors.accent),
+                      : c.accent),
               _NerdDataSection(children: [
                 _sheetDetailRow(c, context.l10n.network,
                     orchestraChainDisplayName('POLYGON')),
@@ -1725,7 +1975,8 @@ void _showNativeUsdcSendDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -1902,13 +2153,13 @@ String _outlogicStatusLabel(BuildContext context, String status) {
 void _showOutlogicTxDetails(
     BuildContext context, WidgetRef ref, OutlogicTransaction tx) {
   TrackingService.transactionDetailViewed('outlogic');
-  final c = context.colors;
   final order = tx.details;
   final isBuy = tx.isBuy;
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText = _outlogicStatusLabel(context, order.status);
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   if (order.status == 'COMPLETED' ||
       order.status == 'DEPOSIT_CONFIRMED' ||
       order.status == 'APPROVED') {
@@ -1916,7 +2167,7 @@ void _showOutlogicTxDetails(
   } else if (order.isTerminal) {
     statusColor = AppColors.error;
   } else {
-    statusColor = context.colors.accent;
+    statusColor = null;
   }
 
   showAppBottomSheet(
@@ -1925,7 +2176,10 @@ void _showOutlogicTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -1941,7 +2195,7 @@ void _showOutlogicTxDetails(
                 ),
                 _sheetDetailRow(c, context.l10n.date, dateStr),
                 _sheetDetailRow(c, context.l10n.status, statusText,
-                    valueColor: statusColor),
+                    valueColor: statusColor ?? c.accent),
                 ..._fiatSnapshotRows(context, ref, c, order.id),
                 if (order.trade != null)
                   _sheetDetailRow(c, context.l10n.youReceive,
@@ -1983,7 +2237,8 @@ void _showOutlogicTxDetails(
               ],
             ),
           )),
-    ),
+    );
+    },
   );
 }
 
@@ -2066,13 +2321,15 @@ Widget _buildUnclaimedItem(
 void _showPendingUnclaimedSheet(
     BuildContext context, WidgetRef ref, SparkUnclaimedDeposit tx) {
   TrackingService.transactionDetailViewed('spark_unclaimed_pending');
-  final c = context.colors;
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.txid;
 
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.85,
       child: SingleChildScrollView(
         child: Padding(
@@ -2133,7 +2390,8 @@ void _showPendingUnclaimedSheet(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2184,7 +2442,6 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
     MempoolAddressTransaction tx, String? owner) {
   TrackingService.transactionDetailViewed('tracked_bitcoin');
   _warmTxDetails(tx);
-  final c = context.colors;
   final isReceive = tx.type == TransactionType.received;
   // The tracked address is the wallet's only own address: the flow graph
   // highlights the inputs spent from it and the outputs paid to it. Read it
@@ -2193,7 +2450,10 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
   showAppBottomSheet(
       context: context,
       // The sheet keeps its own context and ref if its source row disappears.
-      builder: (ctx) => Consumer(
+      builder: (ctx) {
+        // The sheet's own palette, per build: a live theme switch recolours it.
+        final c = ctx.colors;
+        return Consumer(
           builder: (context, ref, _) => AppBottomSheetContainer(
                 maxHeight: 0.85,
                 child: SheetScrollView(
@@ -2259,7 +2519,9 @@ void _showTrackedBitcoinTxDetails(BuildContext context, WidgetRef ref,
                           icon: const Icon(Icons.open_in_new_rounded),
                           label: Text(context.l10n.activityViewOnBlockchain)),
                     ])),
-              )));
+              ));
+      },
+  );
 }
 
 Widget _buildSparkPendingDepositItem(
@@ -2289,7 +2551,6 @@ void _showSparkPendingDepositDetails(
     BuildContext context, WidgetRef ref, SparkPendingDeposit tx) {
   TrackingService.transactionDetailViewed('spark_pending_deposit');
   _warmTxDetails(tx);
-  final c = context.colors;
   final amountSats = tx.amount.toInt();
   final dateStr = activitySheetDate(context, tx.timestamp);
   final txid = tx.mempoolTx.txid;
@@ -2298,7 +2559,10 @@ void _showSparkPendingDepositDetails(
     context: context,
     // The graph can make a busy transaction taller than the screen: cap
     // the sheet like the bitcoin one and let the content scroll.
-    builder: (context) => AppBottomSheetContainer(
+    builder: (context) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = context.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -2379,7 +2643,8 @@ void _showSparkPendingDepositDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2422,14 +2687,14 @@ Widget _buildUsdbTokenItem(
 void _showUsdbTokenTxDetails(
     BuildContext context, WidgetRef ref, UsdbTokenTransaction tx) {
   TrackingService.transactionDetailViewed('usd_token');
-  final c = context.colors;
   final payment = tx.details;
   final isSend = payment.paymentType == breez.PaymentType.send;
   final dateStr = activitySheetDate(context, tx.timestamp);
 
 
   String statusText;
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   switch (payment.status) {
     case breez.PaymentStatus.completed:
       statusText = context.l10n.completed;
@@ -2441,7 +2706,7 @@ void _showUsdbTokenTxDetails(
       break;
     case breez.PaymentStatus.pending:
       statusText = context.l10n.pending;
-      statusColor = context.colors.accent;
+      statusColor = null;
       break;
   }
 
@@ -2463,7 +2728,10 @@ void _showUsdbTokenTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -2479,7 +2747,7 @@ void _showUsdbTokenTxDetails(
               ),
               _sheetDetailRow(c, context.l10n.date, dateStr),
               _sheetDetailRow(c, context.l10n.status, statusText,
-                  valueColor: statusColor),
+                  valueColor: statusColor ?? c.accent),
               // Through the shared formatter so the fee follows the sats or
               // BTC setting like every other amount.
               if (showFee)
@@ -2532,7 +2800,8 @@ void _showUsdbTokenTxDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -2572,9 +2841,16 @@ Widget _buildNativeUsdcSendRow(
 }
 
 Widget _buildSwapOrderItem(
-    SwapOrderTransaction tx, BuildContext context, WidgetRef ref) {
+    SwapOrderTransaction tx, BuildContext context, WidgetRef ref,
+    {VoidCallback? onTap,
+    String? amount,
+    bool amountIsBtc = false,
+    String? fiatAmount}) {
   final details = tx.details;
-  final isPending = details.isPending;
+  // Delivered to the wallet's own Spark balance, which does not show it
+  // yet: still on its way as far as the person can see.
+  final awaitingCredit = OwnSparkArrivals.awaitingCredit(details.id);
+  final isPending = details.isPending || awaitingCredit;
 
   // Same-asset transfer (USDC → USDC, USDC → USDC.e on Polygon, etc.).
   // Older builds saved these in the swap-order list with
@@ -2595,9 +2871,14 @@ Widget _buildSwapOrderItem(
   }
 
   final activity = swapActivityFor(details);
-  final isPolymarket = activity.isPredictions;
-  final isTradingPool = activity.isInvesting;
-  final isDollarPool = activity.isDollars;
+  // One balance: bitcoin moving out of or into a venue moves out of or
+  // into Investments, and reads exactly as the Investments (Dollars) row
+  // does: "Withdraw · from Investments", the same mark.
+  final venueBitcoinMove = (activity.isPredictions || activity.isInvesting) &&
+      orchestraTouchesBitcoin(details);
+  final isPolymarket = activity.isPredictions && !venueBitcoinMove;
+  final isTradingPool = activity.isInvesting && !venueBitcoinMove;
+  final isDollarPool = activity.isDollars || venueBitcoinMove;
   final isPoolDeposit = activity.isDeposit;
   final isExternal = activity.isExternal;
   final isExternalSend = activity == SwapActivityKind.send;
@@ -2684,6 +2965,8 @@ Widget _buildSwapOrderItem(
   } else if (details.isExpired) {
     statusLabel = context.l10n.expired;
     statusColor = AppColors.marketDown;
+  } else if (awaitingCredit) {
+    statusLabel = context.l10n.pending;
   } else {
     switch (details.status) {
       case 'success':
@@ -2785,7 +3068,8 @@ Widget _buildSwapOrderItem(
     return '$rawAmount $displayCoin';
   }
 
-  final bool showBadge = !tx.isComplete || details.canRefund;
+  final bool showBadge =
+      !tx.isComplete || awaitingCredit || details.canRefund;
 
   // Title: what happened, verb first, one line. Context line: where the
   // money went, then the time. The provider, the networks and the full
@@ -2813,7 +3097,13 @@ Widget _buildSwapOrderItem(
         ? context.l10n.activityRowTo(venue)
         : context.l10n.activityRowFrom(venue);
   } else if (isExternal) {
-    title = isExternalSend ? context.l10n.sent : context.l10n.received;
+    // A send paid from dollars is an Investments withdrawal, and
+    // Investments says Withdraw, never Send (founder, 2026-10-23).
+    title = isDollarSend
+        ? context.l10n.activityRowWithdraw
+        : isExternalSend
+            ? context.l10n.sent
+            : context.l10n.received;
     where = isDollarSend
         ? context.l10n.activityRowTo(
             details.coinTo == 'BTC' && details.networkTo == 'LIGHTNING'
@@ -2830,7 +3120,7 @@ Widget _buildSwapOrderItem(
   }
 
   return _TransactionRow(
-    onTap: () => _showSwapOrderDetails(context, ref, tx),
+    onTap: onTap ?? () => _showSwapOrderDetails(context, ref, tx),
     leading: iconWidget,
     title: _RowTitle(title),
     subtitle: _withTime(where, tx.timestamp),
@@ -2843,17 +3133,20 @@ Widget _buildSwapOrderItem(
     // received amount is primary makes the row consistent with
     // the rest (amount column = balance change in your favour).
     // Outflow shifts to the secondary line as "from X coin".
-    amount: (isExternal && !isExternalSend) || isDollarSend
-        ? formatSwapAmount(details.depositAmount, details.coinFrom)
-        : formatSwapAmount(details.withdrawalAmount, details.coinTo),
-    amountIsBtc: ((isExternal && !isExternalSend) || isDollarSend
-            ? details.coinFrom
-            : details.coinTo) ==
-        'BTC',
+    amount: amount ??
+        ((isExternal && !isExternalSend) || isDollarSend
+            ? formatSwapAmount(details.depositAmount, details.coinFrom)
+            : formatSwapAmount(details.withdrawalAmount, details.coinTo)),
+    amountIsBtc: amount != null
+        ? amountIsBtc
+        : ((isExternal && !isExternalSend) || isDollarSend
+                ? details.coinFrom
+                : details.coinTo) ==
+            'BTC',
     // A purchase names the fiat paid ("from $55.00"); the Lightning
     // sats that moved behind it are not what the user handed over.
     // A stuck deposit converted into nothing, so no "→ $0.00" line.
-    fiatAmount: details.isStuckStandingDeposit
+    fiatAmount: fiatAmount ?? (details.isStuckStandingDeposit
         ? ''
         // A dollar send's delivered amount is the quote's estimate until
         // the first status check writes the real one, and that estimate
@@ -2866,7 +3159,7 @@ Widget _buildSwapOrderItem(
                 purchaseFiat != null &&
                 purchaseFiat.isNotEmpty
             ? '\$$purchaseFiat'
-            : formatSwapAmount(details.depositAmount, details.coinFrom)),
+            : formatSwapAmount(details.depositAmount, details.coinFrom))),
   );
 }
 
@@ -2905,8 +3198,6 @@ class _SwapOrderDetailSheet extends ConsumerStatefulWidget {
 class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
   CashAppPurchaseSession? _cashAppSession;
   Timer? _cashAppPoll;
-
-  bool get _isBitcoinVN => widget.tx.details.providerName == 'BitcoinVN';
 
   String _formatShiftAmount(String rawAmount, String coin) {
     if (coin == 'BTC') {
@@ -2984,7 +3275,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
       ],
     );
     if (!confirmed || !mounted) return;
-    final live = _liveCashAppOrder(ref.read(swapOrdersProvider));
+    final live = _liveOrder(ref.read(swapOrdersProvider));
     if (!kCashAppUnpaidStatuses.contains(live.status)) return;
     setState(() => _cancelling = true);
     try {
@@ -3048,27 +3339,19 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
     );
   }
 
-  /// The stored row for this Cash App purchase. Background sync swaps a
-  /// quote id for the real order id, possibly while this sheet is open; the
-  /// invoice still identifies it.
-  SwapOrder _liveCashAppOrder(List<SwapOrder> orders) {
-    final snapshot = widget.tx.details;
-    return orders.where((order) => order.id == snapshot.id).firstOrNull ??
-        (snapshot.depositAddress.isNotEmpty
-            ? orders
-                .where(
-                    (order) => order.depositAddress == snapshot.depositAddress)
-                .firstOrNull
-            : null) ??
-        snapshot;
-  }
+  /// The stored row this sheet shows. Background sync swaps a quote id for
+  /// the real order id, possibly while this sheet is open; the sheet
+  /// follows the row (see [liveSwapOrderRow]), so its explorer button and
+  /// status never wait for the sheet to be opened again.
+  SwapOrder _liveOrder(List<SwapOrder> orders) =>
+      liveSwapOrderRow(widget.tx.details, orders);
 
   /// While a closed unpaid purchase is shown, check its status the way the
   /// payment sheet does, so a payment that may still be landing is never
   /// met with a new purchase offer. Nothing is stored; background sync owns
   /// the order.
   Future<void> _checkClosedCashAppPurchase() async {
-    final order = _liveCashAppOrder(ref.read(swapOrdersProvider));
+    final order = _liveOrder(ref.read(swapOrdersProvider));
     if (!order.cashAppPaymentWindowClosed) {
       return;
     }
@@ -3090,10 +3373,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final snapshot = widget.tx.details;
-    final details = snapshot.isCashAppPurchase
-        ? _liveCashAppOrder(ref.watch(swapOrdersProvider))
-        : snapshot;
+    final details = _liveOrder(ref.watch(swapOrdersProvider));
     if (details.isCashAppPurchase) {
       ref.watch(cashAppDeadlinePassedProvider(details.cashAppExpiresAt));
     }
@@ -3109,54 +3389,8 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
     // Vendor states collapse into a few plain words; the raw status code
     // stays readable under Nerd data.
-    Color statusColor;
-    String statusText;
-    switch (details.status) {
-      case 'success':
-      case 'settled':
-        statusText = context.l10n.completed;
-        statusColor = AppColors.success;
-        break;
-      case 'overdue':
-      case 'expired':
-        statusText = context.l10n.expired;
-        statusColor = AppColors.error;
-        break;
-      case 'unfulfilled':
-      case 'failed':
-      case 'settle_data_error':
-      case 'emergency':
-        statusText = context.l10n.activityNeedsAttention;
-        statusColor = AppColors.error;
-        break;
-      case 'refunded':
-        statusText = context.l10n.refunded;
-        statusColor = AppColors.error;
-        break;
-      case 'held':
-        statusText = context.l10n.activityNeedsReturn;
-        statusColor = AppColors.error;
-        break;
-      case 'refund_requested':
-        statusText = context.l10n.activityReturnRequested;
-        statusColor = context.colors.warning;
-        break;
-      case 'processing':
-      case 'exchanging':
-      case 'settling':
-      case 'review':
-        statusText = context.l10n.processing;
-        statusColor = context.colors.accent;
-        break;
-      default:
-        statusText = context.l10n.pending;
-        statusColor = context.colors.accent;
-    }
-
-    if (details.isUntrackedLegacyOrder) {
-      statusText = context.l10n.activityNoLongerTracked;
-      statusColor = context.colors.textSecondary;
-    }
+    var (text: statusText, color: statusColor) =
+        _swapOrderSheetStatus(context, details);
 
     if (details.isCashAppPurchase) {
       statusText = cashAppStatusLabel(details, context.l10n);
@@ -3176,7 +3410,6 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
     final isCashAppPurchase = details.isCashAppPurchase;
 
     final activity = swapActivityFor(details);
-    final isPolymarketRow = activity.isPredictions || activity.isInvesting;
 
     return KeyboardDismissOnTap(
       child: AppBottomSheetContainer(
@@ -3214,6 +3447,13 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                     context.l10n.status,
                     statusText,
                     valueColor: statusColor),
+                // A move between the person's own balances (Add to
+                // Investments from Bitcoin, a purchase paid by Dollars, a
+                // venue's cash going home): its steps, live, then the
+                // record once done.
+                if (!isCashAppPurchase) SwapRowStepsSection(row: details),
+                ..._oneTimeReceiveOutcome(context, c, details),
+                CctpRefundOutcome(row: details),
                 // What moved is the header: the row's amount (what arrived)
                 // and the figure under it (what was paid, "from ₿3,964").
                 // Only a stuck deposit, which converted into nothing and so
@@ -3235,6 +3475,13 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 // or "Predictions → Your wallet" (withdraw); generic swaps show the
                 // human leg names.
                 () {
+                  // A move between the person's own balances names its
+                  // path on its step line already ("Bitcoin → Dollars ·
+                  // $9.87"): never twice.
+                  if (!isCashAppPurchase &&
+                      !MoveSteps.ofRow(details).isEmpty) {
+                    return const SizedBox.shrink();
+                  }
                   final isPolymarketRow = activity.isPredictions;
                   String legName(String code, String network) {
                     if (code == 'BTC' && network == 'LIGHTNING') {
@@ -3264,15 +3511,39 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                     toLabel = isDeposit
                         ? context.l10n.predictions
                         : context.l10n.activityYourWallet;
+                  } else if (activity == SwapActivityKind.receive) {
+                    // A receive from outside: the coin and the network it
+                    // came from, into the balance it lands in ("USDC on
+                    // Polygon → Bitcoin"). Never a venue's name, even when
+                    // the coin and network are one's.
+                    fromLabel = context.l10n.sendAssetOnNetwork(
+                        _assetDisplayName(details.coinFrom),
+                        orchestraChainDisplayName(details.networkFrom));
+                    toLabel = details.networkTo.toUpperCase() == 'SPARK' &&
+                            details.coinTo.toUpperCase() ==
+                                kOrchestraUsdAssetCode.toUpperCase()
+                        ? context.l10n.portfolioBalanceDollars
+                        : legName(details.coinTo, details.networkTo);
                   } else {
                     fromLabel = legName(details.coinFrom, details.networkFrom);
                     toLabel = legName(details.coinTo, details.networkTo);
                   }
+                  // The disc: what the money became (Predictions for its
+                  // own rows).
+                  final toCoin = details.coinTo.toUpperCase();
+                  final mark = isPolymarketRow
+                      ? SimpleFlowMark.predictions
+                      : toCoin == 'BTC'
+                          ? (details.networkTo.toUpperCase() == 'LIGHTNING'
+                              ? SimpleFlowMark.lightning
+                              : SimpleFlowMark.bitcoin)
+                          : SimpleFlowMark.dollars;
                   // Labels-only — both leg amounts already show in the
                   // Send / Receive rows above, so the graph just draws the path.
                   return Padding(
                     padding: EdgeInsets.symmetric(vertical: 6.h),
                     child: SimpleFlowGraph(
+                      mark: mark,
                       source: SimpleFlowNode(label: fromLabel, amount: ''),
                       destinations: [
                         SimpleFlowNode(
@@ -3286,75 +3557,9 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
                 }(),
                 // Provider, chains, rate, raw status, addresses, exchange
                 // ID and refund address are nerd data — collapsed.
-                _NerdDataSection(children: [
-                  _sheetDetailRow(
-                      c, context.l10n.provider, details.providerName),
-                  if (!isCashAppPurchase && details.networkFrom.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityDepositNetwork,
-                        orchestraChainDisplayName(details.networkFrom)),
-                  if (isPolymarketRow)
-                    _sheetDetailRow(
-                        c,
-                        context.l10n.receive,
-                        _formatShiftAmount(
-                            details.withdrawalAmount, details.coinTo)),
-                  if (details.networkTo.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityReceiveNetwork,
-                        orchestraChainDisplayName(details.networkTo)),
-                  if (!isCashAppPurchase)
-                    _sheetDetailRow(
-                        c, context.l10n.rate, _formatRate(details.rate)),
-                  if (details.status.isNotEmpty)
-                    _sheetDetailRow(
-                        c, context.l10n.activityStatusCode, details.status),
-                  // A Cash App purchase "deposit address" is the Lightning
-                  // invoice Orchestra issued for Cash App to pay. The user's
-                  // wallet never created it, so name it for what it is and
-                  // call the settle address the delivery address. Only an
-                  // invoice a payment followed reads as paid, and a closed,
-                  // failed or cancelled one can no longer be copied to pay.
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? kCashAppPaidStatuses.contains(details.status)
-                              ? context.l10n.activityInvoicePaidByCashApp
-                              : context.l10n.cashAppInvoice
-                          : context.l10n.depositAddress,
-                      details.depositAddress,
-                      copiable: !isCashAppPurchase ||
-                          !(details.cashAppPaymentWindowClosed ||
-                              details.isExpired),
-                      isAddress: true,
-                      ctx: context),
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? context.l10n.activityDeliveredTo
-                          : context.l10n.activityWithdrawalAddress,
-                      details.withdrawalAddress,
-                      copiable: true,
-                      isAddress: true,
-                      ctx: context),
-                  _sheetDetailRow(
-                      c,
-                      isCashAppPurchase
-                          ? context.l10n.orderId
-                          : context.l10n.activityExchangeId,
-                      details.id,
-                      copiable: true,
-                      isAddress: true,
-                      ctx: context),
-                  if (_isBitcoinVN &&
-                      details.providerToken != null &&
-                      details.providerToken!.isNotEmpty)
-                    _sheetDetailRow(
-                        c, context.l10n.orderId, details.providerToken!,
-                        copiable: true, ctx: context),
-                  if (details.refundAddress.isNotEmpty)
-                    _sheetDetailRow(c, context.l10n.activityRefundAddress,
-                        details.refundAddress,
-                        copiable: true, isAddress: true, ctx: context),
-                ]),
+                _NerdDataSection(
+                    children: _swapOrderNerdRows(context, c, details,
+                        formatAmount: _formatShiftAmount)),
                 // An unpaid purchase can be dropped. Nothing is owed on an
                 // invoice nobody paid; the row goes and the invoice simply
                 // lapses. A paid or settling purchase has money in flight
@@ -3400,60 +3605,342 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                // External-explorer button — same visual shape across
-                // providers (matches the "View on Polygonscan" button
-                // used for Polymarket transactions). Orchestra orders
-                // do have a public explorer: orchestra.flashnet.xyz/
-                // explorer/<id>. The id we hand to the explorer:
-                //   - `ord_…` → pass straight through
-                //   - bare uuid → prepend `ord_` (legacy records)
-                //   - `q_…`    → pass straight through (NOT double-
-                //     prefixed; `ord_q_…` is what the explorer was
-                //     rejecting with "id must be an order id"). On
-                //     in-flight rows whose quote hasn't been swapped
-                //     for an order id yet, the explorer's quote view
-                //     still loads given the bare quote prefix.
-                // A stuck-deposit row has no order for the explorer to show.
-                if (details.id.isNotEmpty &&
-                    !details.isStuckStandingDeposit &&
-                    details.isOrchestra) ...[
-                  SizedBox(height: 20.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final orchId = details.id.startsWith('ord_') ||
-                                details.id.startsWith('q_')
-                            ? details.id
-                            : 'ord_${details.id}';
-                        final uri = Uri.parse(
-                            'https://orchestra.flashnet.xyz/explorer/$orchId');
-                        if (!await launchUrl(uri,
-                            mode: LaunchMode.inAppBrowserView)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
-                        }
-                      },
-                      icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                      label: Text(
-                        context.l10n.activityTrackExchange,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.textPrimary,
-                        side: BorderSide(color: c.border),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10.h),
-                ],
+                ..._orchestraTrackExchange(context, c, details),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What became of a one-time receive's deposit that could not complete:
+/// "Returned to 0x1234…abcd on Polygon" once it was sent back to the
+/// return address the person gave; with none given, the held-deposit
+/// copy and the way to Support. Nothing for any other row or state.
+List<Widget> _oneTimeReceiveOutcome(
+    BuildContext context, AppColorsExtension c, SwapOrder details) {
+  if (!isOneTimeReceiveRow(details) || details.id.startsWith('q_')) {
+    return const [];
+  }
+  final l10n = context.l10n;
+  final refund = details.refundAddress.trim();
+  final note = TextStyle(color: c.textSecondary, fontSize: 14.sp);
+  if (details.status == 'refunded' && refund.isNotEmpty) {
+    return [
+      SizedBox(height: 8.h),
+      Text(
+        l10n.activityReturnedTo(sendShortAddress(refund),
+            orchestraChainDisplayName(details.networkFrom)),
+        key: const ValueKey('onetime-receive-returned'),
+        style: note,
+      ),
+    ];
+  }
+  const failed = {'refunded', 'overdue', 'expired', 'failed', 'unfulfilled'};
+  if (refund.isEmpty && failed.contains(details.status)) {
+    return [
+      SizedBox(height: 8.h),
+      Text(l10n.standingDepositsOperatorRefund,
+          key: const ValueKey('onetime-receive-needs-support'), style: note),
+      SizedBox(height: 12.h),
+      AppButton(
+        text: l10n.openSupportChat,
+        variant: AppButtonVariant.secondary,
+        compact: true,
+        onPressed: () => unawaited(openSupportChat()),
+      ),
+    ];
+  }
+  return const [];
+}
+
+/// The status a swap order's detail sheet shows: vendor states collapse
+/// into a few plain words (the raw code stays under Nerd data). A Cash
+/// App purchase's own wording is the sheet's.
+({String text, Color color}) _swapOrderSheetStatus(
+    BuildContext context, SwapOrder details) {
+  if (details.isUntrackedLegacyOrder) {
+    return (
+      text: context.l10n.activityNoLongerTracked,
+      color: context.colors.textSecondary
+    );
+  }
+  return switch (details.status) {
+    'success' || 'settled' => (
+        text: context.l10n.completed,
+        color: AppColors.success
+      ),
+    'overdue' || 'expired' => (
+        text: context.l10n.expired,
+        color: AppColors.error
+      ),
+    'unfulfilled' || 'failed' || 'settle_data_error' || 'emergency' => (
+        text: context.l10n.activityNeedsAttention,
+        color: AppColors.error
+      ),
+    'refunded' => (text: context.l10n.refunded, color: AppColors.error),
+    'held' => (text: context.l10n.activityNeedsReturn, color: AppColors.error),
+    'refund_requested' => (
+        text: context.l10n.activityReturnRequested,
+        color: context.colors.warning
+      ),
+    'processing' || 'exchanging' || 'settling' || 'review' => (
+        text: context.l10n.processing,
+        color: context.colors.accent
+      ),
+    _ => (text: context.l10n.pending, color: context.colors.accent),
+  };
+}
+
+/// A swap order's Nerd data: provider, chains, rate, raw status,
+/// addresses, exchange id and refund address. [formatAmount] renders the
+/// venue rows' Receive amount; [showReceive] false where the sheet
+/// already names what was received.
+List<Widget> _swapOrderNerdRows(
+  BuildContext context,
+  AppColorsExtension c,
+  SwapOrder details, {
+  required String Function(String rawAmount, String coin) formatAmount,
+  bool showReceive = true,
+}) {
+  final isCashAppPurchase = details.isCashAppPurchase;
+  final activity = swapActivityFor(details);
+  final isPolymarketRow = activity.isPredictions || activity.isInvesting;
+  return [
+    _sheetDetailRow(c, context.l10n.provider, details.providerName),
+    if (!isCashAppPurchase && details.networkFrom.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityDepositNetwork,
+          orchestraChainDisplayName(details.networkFrom)),
+    if (isPolymarketRow && showReceive)
+      _sheetDetailRow(c, context.l10n.receive,
+          formatAmount(details.withdrawalAmount, details.coinTo)),
+    if (details.networkTo.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityReceiveNetwork,
+          orchestraChainDisplayName(details.networkTo)),
+    // A rate only where there is one: a dollar-to-dollar move (USDC.e →
+    // USDB) records none ("0"), and "Rate 0.0000000" says nothing.
+    if (!isCashAppPurchase && _rateShown(details.rate))
+      _sheetDetailRow(c, context.l10n.rate, _formatRate(details.rate)),
+    if (details.status.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.activityStatusCode, details.status),
+    // A Cash App purchase "deposit address" is the Lightning
+    // invoice Orchestra issued for Cash App to pay. The user's
+    // wallet never created it, so name it for what it is and
+    // call the settle address the delivery address. Only an
+    // invoice a payment followed reads as paid, and a closed,
+    // failed or cancelled one can no longer be copied to pay.
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? kCashAppPaidStatuses.contains(details.status)
+                ? context.l10n.activityInvoicePaidByCashApp
+                : context.l10n.cashAppInvoice
+            : context.l10n.depositAddress,
+        details.depositAddress,
+        copiable: !isCashAppPurchase ||
+            !(details.cashAppPaymentWindowClosed || details.isExpired),
+        isAddress: true,
+        ctx: context),
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? context.l10n.activityDeliveredTo
+            : context.l10n.activityWithdrawalAddress,
+        details.withdrawalAddress,
+        copiable: true,
+        isAddress: true,
+        ctx: context),
+    _sheetDetailRow(
+        c,
+        isCashAppPurchase
+            ? context.l10n.orderId
+            : context.l10n.activityExchangeId,
+        details.id,
+        copiable: true,
+        isAddress: true,
+        ctx: context),
+    if (details.providerName == 'BitcoinVN' &&
+        details.providerToken != null &&
+        details.providerToken!.isNotEmpty)
+      _sheetDetailRow(c, context.l10n.orderId, details.providerToken!,
+          copiable: true, ctx: context),
+    if (details.refundAddress.isNotEmpty)
+      _sheetDetailRow(
+          c, context.l10n.activityRefundAddress, details.refundAddress,
+          copiable: true, isAddress: true, ctx: context),
+  ];
+}
+
+/// The "Track exchange" button of an Orchestra order: its public explorer,
+/// `orchestra.flashnet.xyz/explorer/<order id>`. Same visual shape across
+/// providers (matches the "View on Polygonscan" button used for
+/// Polymarket transactions). The explorer only shows orders: a quote id is
+/// answered with "id must be an order id". A row still holding its quote
+/// id (`q_…`; background sync had not swapped it for the order yet) asks
+/// for the order at tap time, moves the row to it and opens that; with no
+/// order yet it opens nothing and says the exchange is processing. An
+/// expired quote, a one-time receive still waiting for its deposit and a
+/// synthetic placeholder have no order and no button
+/// ([orchestraExplorerOrderId], [orchestraTrackResolvable]).
+/// A stuck-deposit row has no order for the explorer to show. A CCTP move
+/// not yet turned into an order (`cctp-…`) tracks the leg it is on
+/// instead: Circle mints on Arbitrum to the one-time quote's deposit
+/// address (the row's `depositAddress`; a standing address only on a
+/// record an older build paid), so the same button opens that address's
+/// token transfers on Arbiscan until Orchestra's order replaces the row's
+/// id.
+final _evmAddress = RegExp(r'^0x[0-9a-fA-F]{40}$');
+
+/// Test seam: stands in for the Orchestra status read a quote row's
+/// "Track this exchange" tap makes.
+@visibleForTesting
+Future<Result<OrchestraOrder>> Function(String quoteId)?
+    debugOrchestraTrackStatusRead;
+
+/// Test seam: receives the page "Track this exchange" opens instead of
+/// launching it.
+@visibleForTesting
+void Function(Uri uri)? debugOrchestraTrackLaunch;
+
+List<Widget> _orchestraTrackExchange(
+    BuildContext context, AppColorsExtension c, SwapOrder details) {
+  if (details.id.isEmpty ||
+      details.isStuckStandingDeposit ||
+      !details.isOrchestra) {
+    return const [];
+  }
+  final cctp = details.id.startsWith('cctp-');
+  if (cctp) {
+    if (!_evmAddress.hasMatch(details.depositAddress)) return const [];
+  } else if (orchestraExplorerOrderId(details.id) == null &&
+      !orchestraTrackResolvable(details)) {
+    return const [];
+  }
+  return [
+    SizedBox(height: 20.h),
+    _OrchestraTrackExchangeButton(order: details),
+    SizedBox(height: 10.h),
+  ];
+}
+
+class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
+  const _OrchestraTrackExchangeButton({required this.order});
+
+  final SwapOrder order;
+
+  @override
+  ConsumerState<_OrchestraTrackExchangeButton> createState() =>
+      _OrchestraTrackExchangeButtonState();
+}
+
+class _OrchestraTrackExchangeButtonState
+    extends ConsumerState<_OrchestraTrackExchangeButton> {
+  bool _resolving = false;
+
+  /// Writes a quote row under the order id the tap found, as background
+  /// sync does when its own read finds it: the order row first, then the
+  /// quote row goes, in the store and in the Activity cache. Skipped when
+  /// sync moved the row meanwhile; built from the stored row, so a status
+  /// sync wrote while the read ran is kept.
+  Future<void> _store(SwapOrder replacement, OrchestraOrder order) async {
+    final quoteId = widget.order.id;
+    final stored =
+        ref.read(swapOrdersProvider).where((o) => o.id == quoteId).firstOrNull;
+    if (stored == null) return;
+    final row = legacyRowWithOrderId(stored, replacement.id);
+    final orders = ref.read(swapOrdersProvider.notifier);
+    await replaceOrchestraRowId(
+      oldId: quoteId,
+      replacement: row,
+      add: orders.addExchange,
+      delete: orders.deleteExchange,
+    );
+    ref.read(walletTransactionCacheProvider.notifier)
+      ..removeSwapOrder(quoteId)
+      ..mergeSwapOrder(row);
+    // The order's pending provider event, which background sync writes
+    // when it learns the order id (the create site could not: it only
+    // had the quote). Terminal outcomes are reported by sync either way.
+    final status = orchestraExchangeStatus(order.status);
+    if (!row.isCashAppPurchase &&
+        status != 'success' &&
+        status != 'refunded' &&
+        status != 'expired' &&
+        status != 'overdue') {
+      unawaited(AffiliateService.logProviderEvent(
+        provider: 'orchestra',
+        providerOrderId: row.id,
+        status: 'pending',
+        sourceAsset: row.coinFrom,
+        sourceAmount: double.tryParse(row.depositAmount),
+        destinationAsset: row.coinTo,
+        destinationAmount: double.tryParse(row.withdrawalAmount),
+      ).catchError((_) => false));
+    }
+  }
+
+  Future<void> _open() async {
+    final d = widget.order;
+    final Uri uri;
+    if (d.id.startsWith('cctp-')) {
+      uri = Uri.parse('https://arbiscan.io/address/'
+          '${d.depositAddress}#tokentxns');
+    } else {
+      var orderId = orchestraExplorerOrderId(d.id);
+      if (orderId == null) {
+        if (_resolving) return;
+        // The sheet may close or move to the order row while the read
+        // runs: the message goes to the root context.
+        final rootContext = Navigator.of(context, rootNavigator: true).context;
+        setState(() => _resolving = true);
+        try {
+          orderId = await resolveOrchestraTrackOrderId(
+            d,
+            read: debugOrchestraTrackStatusRead ?? OrchestraService.getStatus,
+            store: _store,
+          );
+        } finally {
+          if (mounted) setState(() => _resolving = false);
+        }
+        if (orderId == null) {
+          if (rootContext.mounted) {
+            showMessageSnackBarInfo(
+                context: rootContext, message: rootContext.l10n.processing);
+          }
+          return;
+        }
+      }
+      uri = orchestraExplorerUri(orderId);
+    }
+    final seam = debugOrchestraTrackLaunch;
+    if (seam != null) {
+      seam(uri);
+      return;
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SizedBox(
+      width: double.infinity,
+      height: 48.h,
+      child: OutlinedButton.icon(
+        onPressed: _resolving ? null : _open,
+        icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
+        label: Text(
+          context.l10n.activityTrackExchange,
+          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: c.textPrimary,
+          side: BorderSide(color: c.border),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
         ),
       ),
     );
@@ -3568,23 +4055,19 @@ Widget _buildPolymarketItem(
   // The Orchestra USDC→BTC cash-out leg is collapsed out of the feed
   // (`_collapsePolymarketFlows`), which would silently drop its pending
   // state: keep the in-flight signal on the row the user actually sees
-  // until the BTC lands. A win not claimed yet says so, and the row runs
-  // the claim.
-  final claimable = result?.claimable ?? false;
-  final status = claimable
-      ? _RowStatus(text: context.l10n.claim, color: AppColors.marketUp)
-      : result == null &&
-              type == ActivityType.redeem &&
-              tx.usdcAmount > 0.001 &&
-              _hasInFlightWithdrawLeg(tx, ref)
-          ? _RowStatus(
-              text: context.l10n.activitySettling,
-              color: context.colors.warning)
-          : null;
+  // until the BTC lands. A win not claimed yet reads like any settled
+  // result: it is claimed automatically (claim_auto_fire.dart).
+  final status = result == null &&
+          type == ActivityType.redeem &&
+          tx.usdcAmount > 0.001 &&
+          _hasInFlightWithdrawLeg(tx, ref)
+      ? _RowStatus(
+          text: context.l10n.activitySettling, color: context.colors.warning)
+      : null;
 
   return _TransactionRow(
     // A result read from the market has no venue record: it opens its own
-    // sheet (the figures, the market, the claim of a win not claimed yet).
+    // sheet (the figures and the market).
     onTap: result == null
         ? () => _showPolymarketTxDetails(context, ref, tx)
         : () => showPredictionResultDetails(context, result),
@@ -3630,7 +4113,6 @@ Widget predictionActivityIcon(String? iconUrl) => _PolymarketTxIcon(
 void _showPolymarketTxDetails(
     BuildContext context, WidgetRef ref, PolymarketTransaction tx) {
   TrackingService.transactionDetailViewed('polymarket');
-  final c = context.colors;
   final activity = tx.activity;
   final type = tx.activityType;
   // Honor the user's currency setting so the detail sheet shows
@@ -3678,7 +4160,10 @@ void _showPolymarketTxDetails(
     // `context`: the tx row is often scrolled out and deactivated by
     // the time the sheet builds, so MediaQuery.of(context) walked a
     // dead element → "Null check operator used on a null value".
-    builder: (ctx) => AppBottomSheetContainer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -3734,12 +4219,15 @@ void _showPolymarketTxDetails(
                   type == ActivityType.withdraw) ...[
                 // Amount lives ON the graph (no duplicate text row).
                 SizedBox(height: 6.h),
+                // Both sides are the person's own money.
                 SimpleFlowGraph(
+                  mark: SimpleFlowMark.predictions,
                   source: SimpleFlowNode(
                     label: type == ActivityType.deposit
                         ? context.l10n.activityYourWallet
                         : context.l10n.predictions,
                     amount: usdcStr,
+                    highlight: true,
                   ),
                   destinations: [
                     SimpleFlowNode(
@@ -3830,7 +4318,8 @@ void _showPolymarketTxDetails(
           ),
         ),
       ),
-    ),
+    );
+    },
   );
 }
 
@@ -3840,10 +4329,10 @@ void _showPolymarketTxDetails(
 /// shares held at the resolution, what they cost, what the market pays
 /// for them and the realised profit or loss. No explorer link and no
 /// hash: nothing happened on chain, so there is no transaction to open.
-/// A win not claimed yet carries the Portfolio's Claim; the market opens
-/// once its event is known. [ledgerWalletId] is set on a Ledger account's
-/// row: its market opens for that wallet, and its claim stays on the
-/// position.
+/// A win not claimed yet reads like any settled result (the spending
+/// wallet claims it automatically); the market opens once its event is
+/// known. [ledgerWalletId] is set on a Ledger account's row: its market
+/// opens for that wallet, and its claim stays on the position.
 void showPredictionResultDetails(BuildContext context, PredictionResult result,
     {String? ledgerWalletId}) {
   TrackingService.transactionDetailViewed('polymarket_result');
@@ -3867,13 +4356,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
             final pnl = result.pnlUsd;
             final event =
                 slug.isEmpty ? null : ref.watch(polyPositionEventProvider(slug));
-            final claim = ledgerWalletId == null && result.claimable
-                ? ref
-                    .watch(polymarketClaimablePositionsProvider)
-                    .where((p) =>
-                        p.marketId == result.conditionId && p.won == true)
-                    .firstOrNull
-                : null;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -3898,11 +4380,6 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                   valueColor: pnl >= 0 ? const Color(0xFF15803D) : _kPolyRedTx,
                 ),
                 SizedBox(height: 16.h),
-                if (claim != null) ...[
-                  PolyClaimButton(
-                      position: claim, surface: 'activity', popRoute: true),
-                  SizedBox(height: 10.h),
-                ],
                 if (event != null) ...[
                   SizedBox(
                     width: double.infinity,
@@ -4110,7 +4587,6 @@ void _showBitcoinTxDetails(
   // are all in the cache) so the user can hop to mempool.space;
   // the fee / fee-rate rows just hide. Live entries take the
   // detail-rich path below.
-  final c = context.colors;
   final details = tx.btcDetails;
   final labelWalletId = ref.read(bitcoinLabelsWalletIdProvider);
 
@@ -4141,7 +4617,8 @@ void _showBitcoinTxDetails(
   final statusText = details != null
       ? confirmationStatus(context, details, ref)
       : (tx.isConfirmed ? context.l10n.confirmed : context.l10n.pending);
-  final statusColor = isPending ? context.colors.accent : AppColors.success;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  final Color? statusColor = isPending ? null : AppColors.success;
 
   // Fee — only available with live details. Shown ON the flow graph (Fee
   // node) when > 0; cached entries have no fee and just skip the node.
@@ -4207,7 +4684,10 @@ void _showBitcoinTxDetails(
   showAppBottomSheet(
     context: context,
     // The sheet keeps its own context and ref if its source row disappears.
-    builder: (ctx) => Consumer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return Consumer(
         builder: (context, ref, _) => AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
@@ -4227,7 +4707,7 @@ void _showBitcoinTxDetails(
                             txid: tx.id, walletId: labelWalletId),
                       _sheetDetailRow(c, context.l10n.date, dateStr),
                       _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor),
+                          valueColor: statusColor ?? c.accent),
                       ..._fiatSnapshotRows(context, ref, c, txid),
                       // Network fee lives ON the flow graph below (the "Fee" node), not
                       // in a duplicate text row.
@@ -4292,14 +4772,14 @@ void _showBitcoinTxDetails(
                   ),
                 ),
               ),
-            )),
+            ));
+    },
   );
 }
 
 void _showSparkTxDetails(
     BuildContext context, WidgetRef ref, SparkTransaction tx) {
   TrackingService.transactionDetailViewed('spark');
-  final c = context.colors;
   // Spark txs come in two flavours:
   //   - Live: `tx.details` is the breez.Payment with full SDK
   //     metadata (fees, preimage, payment hash, raw tx id...).
@@ -4322,7 +4802,8 @@ void _showSparkTxDetails(
   final dateStr = activitySheetDate(context, tx.timestamp);
 
   String statusText;
-  Color statusColor;
+  // Null: the theme accent, resolved in the sheet so it follows the theme.
+  Color? statusColor;
   if (payment != null) {
     switch (payment.status) {
       case breez.PaymentStatus.completed:
@@ -4335,14 +4816,14 @@ void _showSparkTxDetails(
         break;
       case breez.PaymentStatus.pending:
         statusText = context.l10n.pending;
-        statusColor = context.colors.accent;
+        statusColor = null;
         break;
     }
   } else {
     statusText = tx.isPending
         ? context.l10n.pending
         : (tx.isConfirmed ? context.l10n.completed : context.l10n.pending);
-    statusColor = tx.isPending ? context.colors.accent : AppColors.success;
+    statusColor = tx.isPending ? null : AppColors.success;
   }
 
   // Fee — live only; cached entries don't carry it.
@@ -4405,7 +4886,10 @@ void _showSparkTxDetails(
   showAppBottomSheet(
     context: context,
     // The sheet keeps its own context and ref if its source row disappears.
-    builder: (ctx) => Consumer(
+    builder: (ctx) {
+      // The sheet's own palette, per build: a live theme switch recolours it.
+      final c = ctx.colors;
+      return Consumer(
         builder: (context, ref, _) => AppBottomSheetContainer(
       maxHeight: 0.9,
       child: Padding(
@@ -4427,7 +4911,7 @@ void _showSparkTxDetails(
                       ),
                       _sheetDetailRow(c, context.l10n.date, dateStr),
                       _sheetDetailRow(c, context.l10n.status, statusText,
-                          valueColor: statusColor),
+                          valueColor: statusColor ?? c.accent),
                       ..._fiatSnapshotRows(context, ref, c, tx.id),
                       // On chain the graph carries the miner fee of the transaction,
                       // not the fee the wallet paid, so that one keeps a plain row.
@@ -4452,17 +4936,23 @@ void _showSparkTxDetails(
                         // duplicate rows).
                         // The nodes are people, not rails: the rail is Nerd data.
                         SimpleFlowGraph(
+                          mark: tx.sparkType == SparkTransactionType.lightning
+                              ? SimpleFlowMark.lightning
+                              : SimpleFlowMark.bitcoin,
+                          // Orange on the wallet's own side.
                           source: SimpleFlowNode(
                             label: isSend
                                 ? context.l10n.activityYourWallet
                                 : context.l10n.activitySender,
                             amount: '₿$amountStr',
-                            highlight: !isSend,
+                            highlight: isSend,
                           ),
                           destinations: [
                             if (isSend && showFee)
                               SimpleFlowNode(
-                                  label: context.l10n.fee, amount: '₿$feeStr'),
+                                  label: context.l10n.fee,
+                                  amount: '₿$feeStr',
+                                  isFee: true),
                             SimpleFlowNode(
                               label: isSend
                                   ? context.l10n.recipient
@@ -4537,7 +5027,8 @@ void _showSparkTxDetails(
                   ),
                 ),
               ),
-            )),
+            ));
+    },
   );
 }
 
@@ -5452,3 +5943,699 @@ class _LedgerSettlementLink extends ConsumerWidget {
     );
   }
 }
+
+// ─── One row per multi-source move ───────────────────────────────────
+
+/// The mark of a move's destination, the one its own rows carry.
+Widget _multiSourceMoveIcon(MultiSourceMove move) =>
+    switch (move.destination) {
+      VenueCashDestination.bitcoin =>
+        const _AssetTxIcon(assetCode: 'BTC', isSend: false),
+      VenueCashDestination.predictions => const _PolymarketTxIcon(
+          isSend: true, type: ActivityType.deposit),
+      VenueCashDestination.investing => SizedBox(
+          width: 44.sp,
+          height: 44.sp,
+          child: AssetIcon(assetCode: 'Trading', size: 44.sp),
+        ),
+      VenueCashDestination.dollars => move.forAction == VenueCashFor.send &&
+              move.finalOperationId != null
+          ? const _AssetTxIcon(assetCode: 'USD', isSend: true)
+          : SizedBox(
+              width: 44.sp,
+              height: 44.sp,
+              child: AssetIcon(assetCode: 'USD', size: 44.sp),
+            ),
+    };
+
+/// The status a move's row leads with: what is left after a failed leg,
+/// or the legs still on their way. Null once every leg has settled.
+_RowStatus? _multiSourceMoveStatus(
+    BuildContext context, MultiSourceMoveTransaction tx) {
+  if (tx.partial || tx.stepFailed) {
+    return _RowStatus(
+        text: context.l10n.activityNeedsAttention,
+        color: AppColors.marketDown);
+  }
+  if (!tx.complete) {
+    return _RowStatus(
+        text: context.l10n.pending, color: context.colors.warning);
+  }
+  return null;
+}
+
+/// [multiSourceMoveFinish] over what it decides from, watched so whatever
+/// reads it follows them: the Dollars balance as known (null until the
+/// SDK has answered: a balance that has not loaded never dissolves a
+/// move), the purchase records and the finisher.
+MultiSourceMoveFinish? Function(MultiSourceMove, List<SwapOrderTransaction>)
+    _watchMultiSourceMoveFinish(WidgetRef ref) {
+  final dollars = ref.watch(usdBalanceReadingProvider);
+  ref.watch(pendingBitcoinPurchasesProvider);
+  final finisher = ref.read(bitcoinPurchaseFinisherProvider);
+  final now = DateTime.now();
+  return (move, legRows) => multiSourceMoveFinish(move, legRows,
+      finisher: finisher, dollars: dollars, now: now);
+}
+
+/// Which moves are over with nothing delivered, for the lists that fold
+/// moves ([assembleActivityRows], [multiSourceMoveLegIds]): the decision
+/// the move's row and detail read ([multiSourceMoveFinish]).
+MultiSourceMoveDissolved watchMultiSourceMovesDissolved(WidgetRef ref) {
+  final finish = _watchMultiSourceMoveFinish(ref);
+  return (move, legRows) => finish(move, legRows)?.dissolved ?? false;
+}
+
+/// [tx]'s [MultiSourceMoveFinish] (see [multiSourceMoveFinish]).
+MultiSourceMoveFinish? _multiSourceMoveFinish(
+        WidgetRef ref, MultiSourceMoveTransaction tx) =>
+    _watchMultiSourceMoveFinish(ref)(tx.move, tx.legRows);
+
+/// The line a move waiting on the person reads ([usd]): "Your $X is in
+/// Investments. Tap to buy Bitcoin", or the send's own version.
+String _multiSourceMoveFinishText(
+    AppLocalizations l10n, MultiSourceMove move, double usd) {
+  final amount = '\$${usd.toStringAsFixed(2)}';
+  return switch (move.destination) {
+    VenueCashDestination.bitcoin =>
+      l10n.multiMovePurchaseWaiting(amount, l10n.assetDollars),
+    VenueCashDestination.investing ||
+    VenueCashDestination.predictions =>
+      l10n.multiMoveOrderWaiting(amount, l10n.assetDollars),
+    VenueCashDestination.dollars =>
+      l10n.multiMoveSendWaiting(amount, l10n.assetDollars),
+  };
+}
+
+/// One tap on a move whose purchase waits on the person: a fresh approval,
+/// then the purchase.
+void _continueMovePurchase(BuildContext context, WidgetRef ref,
+        MultiSourceMove move, MultiSourceMoveFinish finish) =>
+    continuePendingBitcoinPurchase(context, ref, move.id,
+        legacyUsd: finish.legacy ? finish.usd : null,
+        moveWalletId: move.walletId);
+
+/// A move's one row. A move to Bitcoin and a send read as the rows those
+/// actions already have (multiSourceMoveStandardRow: the Investments
+/// withdrawal to Bitcoin, the Dollars send), opening the move's detail
+/// with its legs; any other move keeps its own "Move $X to …" row.
+Widget _buildMultiSourceMoveItem(
+    MultiSourceMoveTransaction tx, BuildContext context, WidgetRef ref) {
+  final move = tx.move;
+  final l10n = context.l10n;
+  void open() => _showMultiSourceMoveDetails(context, ref, tx);
+  // Its legs are home but its own step did not go (the approval ran out,
+  // the app restarted, or an older build tied it to the open sheet): it
+  // says where the money is, and for a purchase one tap asks a fresh
+  // approval and buys. Never Pending forever. Once that money was spent
+  // the move is over with nothing delivered: the lists list its legs
+  // instead (collapseMultiSourceMoves), so it draws nothing.
+  final finish = _multiSourceMoveFinish(ref, tx);
+  final waitingUsd = finish?.usd;
+  if (finish != null && waitingUsd == null) return const SizedBox.shrink();
+  if (finish != null && waitingUsd != null) {
+    final buys = move.destination == VenueCashDestination.bitcoin;
+    return _TransactionRow(
+      onTap: buys && !move.isParallelPurchase
+          ? () => _continueMovePurchase(context, ref, move, finish)
+          : open,
+      leading: _multiSourceMoveIcon(move),
+      title: _RowTitle(move.forAction == VenueCashFor.send
+          ? l10n.multiMoveSendTitle('\$${move.totalUsd.toStringAsFixed(2)}')
+          : multiSourceMoveTitle(l10n, move)),
+      subtitle: _withTime(
+          _multiSourceMoveFinishText(l10n, move, waitingUsd), tx.timestamp),
+      status: _RowStatus(
+          text: l10n.activityNeedsAttention, color: AppColors.marketDown),
+      flow: ActivityFlow.neutral,
+      amount: formatPolyAmount(ref, move.totalUsd),
+      fiatAmount: '',
+    );
+  }
+  final standard = multiSourceMoveStandardRow(tx);
+  if (standard != null) {
+    // A move to Bitcoin whose bitcoin no order has reported yet reads in
+    // dollars until one does, never as "₿0".
+    final noBitcoinYet = move.destination == VenueCashDestination.bitcoin &&
+        multiSourceMoveBitcoin(tx) <= 0;
+    return _buildSwapOrderItem(standard, context, ref,
+        onTap: open,
+        amount: noBitcoinYet ? formatPolyAmount(ref, move.spentUsd) : null,
+        fiatAmount: noBitcoinYet ? '' : null);
+  }
+  final sent = move.forAction == VenueCashFor.send &&
+      move.finalOperationId != null;
+  var icon = _multiSourceMoveIcon(move);
+  if (!tx.complete && !tx.partial && !tx.stepFailed) {
+    icon = _PendingIconWrapper(child: icon);
+  }
+  return _TransactionRow(
+    onTap: open,
+    leading: icon,
+    title: _RowTitle(multiSourceMoveTitle(l10n, move)),
+    // One balance: the money came from Investments, whichever venue
+    // paid each leg (the legs are in the detail).
+    subtitle: _withTime(
+        move.destination == VenueCashDestination.dollars
+            ? ''
+            : l10n.activityRowFrom(l10n.assetDollars),
+        tx.timestamp),
+    status: _multiSourceMoveStatus(context, tx),
+    flow: sent ? ActivityFlow.moneyOut : ActivityFlow.neutral,
+    amount: formatPolyAmount(ref, move.totalUsd),
+    fiatAmount: multiSourceMoveProgress(l10n, move) ?? '',
+  );
+}
+
+void _showMultiSourceMoveDetails(
+    BuildContext context, WidgetRef ref, MultiSourceMoveTransaction tx) {
+  TrackingService.transactionDetailViewed('multi_source_move');
+  showAppBottomSheet(
+    context: context,
+    builder: (ctx) => _MultiSourceMoveDetailSheet(tx: tx),
+  );
+}
+
+/// The move's detail: its legs, each with where it came from, what it
+/// moved and where it is; what was delivered and what is left after a
+/// failed leg, with Retry for the remainder.
+/// Test seam: stands in for the one approval a Retry of a move to a
+/// destination other than Dollars asks first. Receives the Retry intent
+/// (its leg caps) and answers with a grant for it, or null (declined).
+@visibleForTesting
+Future<AuthGrant?> Function(SensitiveIntent intent)?
+    debugMultiSourceRetryApproval;
+
+class _MultiSourceMoveDetailSheet extends ConsumerStatefulWidget {
+  const _MultiSourceMoveDetailSheet({required this.tx});
+
+  final MultiSourceMoveTransaction tx;
+
+  @override
+  ConsumerState<_MultiSourceMoveDetailSheet> createState() =>
+      _MultiSourceMoveDetailSheetState();
+}
+
+class _MultiSourceMoveDetailSheetState
+    extends ConsumerState<_MultiSourceMoveDetailSheet> {
+  bool _retryingDollars = false;
+  bool _retryingSources = false;
+
+  Future<void> _retryDollars(MultiSourceMove move) async {
+    if (_retryingDollars || !initialDollarsRetryable(move)) return;
+    setState(() => _retryingDollars = true);
+    AuthGrant? grant;
+    try {
+      final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+      if (walletId == null || walletId != move.walletId) return;
+      final ownSpark = await ref.read(sparkSelfAddressProvider.future);
+      if (!mounted || ownSpark.isEmpty) return;
+      final usd = move.steps.byId(MoveSteps.initialDollarsId)!.usd;
+      final intent = DirectLegGrants.buyBitcoin(
+        walletId: walletId,
+        ownSpark: ownSpark,
+        route: kDollarsToBtcRoute.label,
+        asset: kOrchestraUsdAssetCode,
+        totalUsd: usd,
+        directLegs: null,
+        ttl: AuthGrants.autofireTtl,
+      );
+      final seam = debugMultiSourceRetryApproval;
+      grant = seam != null
+          ? await seam(intent)
+          : await requireFreshAuthGrant(
+              context,
+              ref,
+              intent: intent,
+              reason:
+                  context.l10n.stepUpReasonSend('\$${usd.toStringAsFixed(2)}'),
+              amountUsd: usd,
+            );
+      if (grant == null || !mounted) return;
+      trackMultiSourceMoveRetry(usd);
+      await retryInitialDollarsPurchase(ref.read,
+          moveId: move.id, grant: grant);
+    } catch (_) {
+      if (mounted) {
+        showMessageSnackBar(context: context,
+            message: context.l10n.errorCopyGeneric, error: true);
+      }
+    } finally {
+      grant?.revoke();
+      if (mounted) setState(() => _retryingDollars = false);
+    }
+  }
+
+  Future<void> _retry(MultiSourceMove move) async {
+    if (_retryingSources || MultiSourceMoveStore.retrying(move.id)) return;
+    setState(() => _retryingSources = true);
+    AuthGrant? approval;
+    try {
+      final puller = ref.read(venueCashPullerProvider);
+      // Review and execute the same failed-source plan. An unresolved send
+      // from the original run is never part of this Retry.
+      final plan = await puller.planRetry(move.id);
+      if (!mounted || plan == null || !plan.covers || plan.pulls.isEmpty) {
+        return;
+      }
+      if (move.destination != VenueCashDestination.dollars) {
+        approval = await _approveRetry(move, plan);
+        if (approval == null || !mounted) return;
+      }
+      if (move.isParallelPurchase &&
+          pickSpendingWallet(ref.read(settingsProvider))?.id != move.walletId) {
+        return;
+      }
+      trackMultiSourceMoveRetry(move.remainingUsd);
+      final outcome =
+          await puller.retryMove(move.id, approval: approval, plan: plan);
+      if (!mounted) return;
+      if (outcome == null ||
+          outcome.failedLegs.isNotEmpty ||
+          !outcome.plan.covers) {
+        showMessageSnackBar(
+            context: context,
+            message: (outcome == null
+                    ? null
+                    : venueCashStoppedText(context.l10n, outcome)) ??
+                context.l10n.errorCopyGeneric,
+            error: outcome == null || !outcome.anyPulled);
+      }
+    } catch (_) {
+      if (mounted) {
+        showMessageSnackBar(context: context,
+            message: context.l10n.errorCopyGeneric, error: true);
+      }
+    } finally {
+      approval?.revoke();
+      if (mounted) setState(() => _retryingSources = false);
+    }
+  }
+
+  /// The one approval a Retry of [move]'s remainder to a destination
+  /// other than Dollars asks first: the legs it would run, a cap per venue
+  /// and the total. Null when declined or when nothing would move.
+  Future<AuthGrant?> _approveRetry(
+      MultiSourceMove move, VenueCashPlan plan) async {
+    final puller = ref.read(venueCashPullerProvider);
+    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+    if (walletId == null ||
+        walletId.isEmpty ||
+        (move.isParallelPurchase && walletId != move.walletId)) {
+      return null;
+    }
+    final legs = puller.directLegLimit(plan, move.destination) ??
+        // Every leg comes home to Dollars: the approval binds no direct
+        // leg, the remainder lands in Dollars.
+        const <String, Object?>{};
+    final total = plan.pulledUsd;
+    final amount = '\$${total.toStringAsFixed(2)}';
+    final intent = DirectLegGrants.retry(
+      walletId: walletId,
+      destination: move.destination.code,
+      totalUsd: total,
+      directLegs: legs,
+    );
+    final seam = debugMultiSourceRetryApproval;
+    if (seam != null) return seam(intent);
+    return requireFreshAuthGrant(
+      context,
+      ref,
+      intent: intent,
+      reason: move.destination == VenueCashDestination.bitcoin
+          ? context.l10n.stepUpReasonSend(amount)
+          : context.l10n.stepUpReasonDeposit(amount),
+      amountUsd: total,
+    );
+  }
+
+  bool _closing = false;
+
+  /// Closes this sheet once, after the frame (its own route, wherever it
+  /// sits in the stack).
+  void _closeDissolved() {
+    if (_closing) return;
+    _closing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isActive) return;
+      if (route.isCurrent) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).removeRoute(route);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    // The record as it stands now (a Retry adds legs while the sheet is up),
+    // and its rows as the store holds them now: each leg's values follow it
+    // from pending to landed while the sheet is open.
+    final moves = ref.watch(multiSourceMovesProvider);
+    final move = moves.where((m) => m.id == widget.tx.move.id).firstOrNull ??
+        widget.tx.move;
+    final rows = multiSourceMoveLiveRows(
+        move, widget.tx.legRows, ref.watch(swapOrdersProvider));
+    final tx = MultiSourceMoveTransaction(move: move, legRows: rows);
+    final retrying = MultiSourceMoveStore.retrying(move.id);
+    // Legs home, own step never went: needing the person while the money
+    // is in Dollars. Never Pending.
+    final finish = _multiSourceMoveFinish(ref, tx);
+    final waitingUsd = finish?.usd;
+    if (finish != null && waitingUsd == null) {
+      // That money was spent since: the move is over with nothing
+      // delivered and has no row any more (its legs are listed as their
+      // own), so its detail closes.
+      _closeDissolved();
+      return const SizedBox.shrink();
+    }
+    // From the steps: Needs attention once one stopped, Completed only
+    // once every one is done, Pending while any waits or runs.
+    final status = tx.partial || tx.stepFailed || waitingUsd != null
+        ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
+        : tx.complete
+            ? (text: l10n.completed, color: AppColors.success)
+            : (text: l10n.pending, color: c.warning);
+    // The Dollars balance by its own name, as the Portfolio breakdown
+    // names it: "Investing → Dollars", never "Investing → Investments".
+    final dollarsName = l10n.portfolioBalanceDollars;
+    final destination = venueCashDestinationName(l10n, move.destination);
+    final finalRow = multiSourceMoveFinalRow(move, rows);
+    final initialRow = multiSourceMoveInitialDollarsRow(move, rows);
+    final sendTo = move.forAction == VenueCashFor.send && finalRow != null
+        ? _swapSheetLegLabel(
+            context, finalRow.details.coinTo, finalRow.details.networkTo)
+        : null;
+    final totals = multiSourceMoveTotals(move, rows);
+    final orders = multiSourceMoveOrders(move, rows);
+    final legRows = [
+      for (final leg in move.okLegs)
+        if (multiSourceMoveLegRow(leg, rows) case final row?) (leg, row),
+    ];
+    // What needs the person comes first at the bottom: the purchase that
+    // waits on a tap, a Retry for a failed leg. Otherwise one order is
+    // tracked from the bottom; several, each from its own Nerd data.
+    final buyAction = finish != null &&
+        waitingUsd != null &&
+        move.destination == VenueCashDestination.bitcoin;
+    final retryDollars = initialDollarsRetryable(move);
+    final retryPurchase = move.isParallelPurchase &&
+        pendingPurchaseWaitingUsd(ref.read(bitcoinPurchaseFinisherProvider),
+                move.id, ref.watch(usdBalanceReadingProvider) ?? 0) !=
+            null;
+    final retryable = retryDollars || move.partial || retryPurchase;
+    final primary = buyAction || retryable;
+    final trackBelow = !primary && orders.length == 1;
+    // One leg, one order, nothing else: it reads exactly as that order's
+    // own swap detail does.
+    final single = move.legs.length == 1 &&
+        legRows.length == 1 &&
+        finalRow == null &&
+        initialRow == null &&
+        move.dollarsUsd < 0.01 &&
+        !primary &&
+        finish == null;
+
+    String btc(double v) =>
+        ref.watch(conversionProvider((v * 100000000).round()));
+    String both(double usd, double coins) => [
+          if (usd >= 0.01) formatPolyAmount(ref, usd),
+          if (coins > 0) btc(coins),
+        ].join(' + ');
+
+    return AppBottomSheetContainer(
+      maxHeight: 0.9,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24.w),
+        child: SheetScrollView(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // What was sent and what arrives are the header's figures;
+              // the line under them says where from and where to ("from
+              // Investments to Bitcoin") where the title does not.
+              TransactionDetailHeader(
+                row: _buildMultiSourceMoveItem(tx, context, ref),
+                note: switch (move.destination) {
+                  VenueCashDestination.dollars => null,
+                  VenueCashDestination.bitcoin =>
+                    '${l10n.activityRowFrom(l10n.assetDollars)} ${l10n.activityRowTo(destination)}',
+                  _ => l10n.activityRowFrom(l10n.assetDollars),
+                },
+              ),
+              // Once for the whole move.
+              _sheetDetailRow(
+                  c, l10n.date, activitySheetDate(context, tx.timestamp)),
+              _sheetDetailRow(c, l10n.status, status.text,
+                  valueColor: status.color),
+              if (!single) ...[
+                if (totals.anyReceived)
+                  _sheetDetailRow(c, l10n.received,
+                      both(totals.receivedUsd, totals.receivedBtc)),
+                if (totals.anyArriving)
+                  _sheetDetailRow(c, l10n.activityArriving,
+                      both(totals.arrivingUsd, totals.arrivingBtc)),
+                if (totals.feesUsd >= 0.01)
+                  _sheetDetailRow(
+                      c, l10n.fees, formatPolyAmount(ref, totals.feesUsd)),
+                if (totals.showSent && totals.sentUsd >= 0.01)
+                  _sheetDetailRow(
+                      c, l10n.sent, formatPolyAmount(ref, totals.sentUsd)),
+              ],
+              // The move's steps, one compact line each (each leg, its own
+              // step: the purchase and the arrival, the send, Dollars going
+              // on into the venue), live, then the record once done.
+              MoveStepsSection(
+                  move: move, rows: rows, compact: true, sendTo: sendTo),
+              // Every order's own detail, only under Nerd data: grouped per
+              // leg for a move of several, the order's own rows for one.
+              if (single)
+                _NerdDataSection(
+                    children: _swapOrderNerdRows(
+                        context, c, legRows.single.$2.details,
+                        formatAmount: (raw, coin) => _legCoinAmount(
+                            ref, legRows.single.$2.details, raw, coin)))
+              else if (legRows.isNotEmpty ||
+                  finalRow != null ||
+                  initialRow != null)
+                _NerdDataSection(children: [
+                  if (initialRow != null &&
+                      initialRow.details.id != finalRow?.details.id)
+                    _MultiSourceLegNerd(
+                      title: '$dollarsName → $destination',
+                      sentUsd: move.initialDollarsSentUsd,
+                      row: initialRow,
+                      track: !trackBelow,
+                    ),
+                  for (final (leg, row) in legRows)
+                    _MultiSourceLegNerd(
+                      title:
+                          '${venueCashVenueName(l10n, leg.venue)} → ${leg.direct ? destination : dollarsName}',
+                      sentUsd: leg.usd,
+                      row: row,
+                      track: !trackBelow,
+                    ),
+                  if (finalRow != null)
+                    _MultiSourceLegNerd(
+                      title: '$dollarsName → ${sendTo ?? destination}',
+                      sentUsd: null,
+                      row: finalRow,
+                      track: !trackBelow,
+                    ),
+                ]),
+              // An order that can be refunded says so, whatever the layout.
+              for (final order in orders)
+                OrchestraSwapRefundAction(order: order),
+              if (finish != null && waitingUsd != null) ...[
+                SizedBox(height: 12.h),
+                // Where the money is, and for a purchase the one tap that
+                // finishes it (a fresh approval, then the purchase).
+                Text(
+                  _multiSourceMoveFinishText(l10n, move, waitingUsd),
+                  textAlign: TextAlign.center,
+                  style:
+                      TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
+                ),
+                if (buyAction && !retryPurchase) ...[
+                  SizedBox(height: 12.h),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48.h,
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          _continueMovePurchase(context, ref, move, finish),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.textPrimary,
+                        side: BorderSide(color: c.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.buttonBorder),
+                      ),
+                      child: Text(
+                        l10n.moveBuyBitcoin,
+                        style: TextStyle(
+                            fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              if (retryable) ...[
+                SizedBox(height: 12.h),
+                // What was delivered and what is left: the row reads as
+                // the action's own, so the detail says it.
+                if (move.partial)
+                  Text(
+                    multiSourceMoveProgress(l10n, move) ?? '',
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
+                  ),
+                SizedBox(height: 12.h),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: OutlinedButton(
+                    onPressed: retrying || _retryingDollars || _retryingSources
+                        ? null
+                        : () {
+                            if (retryDollars) {
+                              unawaited(_retryDollars(move));
+                            } else if (move.partial) {
+                              unawaited(_retry(move));
+                            } else {
+                              unawaited(continuePendingBitcoinPurchase(
+                                  context, ref, move.id,
+                                  moveWalletId: move.walletId));
+                            }
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.textPrimary,
+                      side: BorderSide(color: c.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: AppRadius.buttonBorder),
+                    ),
+                    child: retrying || _retryingDollars || _retryingSources
+                        ? SizedBox(
+                            width: 18.sp,
+                            height: 18.sp,
+                            child: const CircularProgressIndicator.adaptive(
+                                strokeWidth: 2))
+                        : Text(
+                            l10n.retry,
+                            style: TextStyle(
+                                fontSize: 16.sp, fontWeight: FontWeight.w600),
+                          ),
+                  ),
+                ),
+              ],
+              if (trackBelow)
+                ..._orchestraTrackExchange(context, c, orders.single),
+              SizedBox(height: 10.h),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+bool _isDollarCoin(String coin) {
+  final upper = coin.toUpperCase();
+  return upper == 'USDC' ||
+      upper == 'USDC.E' ||
+      upper == 'USDT' ||
+      upper == 'PUSD' ||
+      upper == kOrchestraUsdAssetCode;
+}
+
+/// An order's amount in its own coin, as its Activity row reads it.
+String _legCoinAmount(WidgetRef ref, SwapOrder d, String raw, String coin) {
+  final v = d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+  return coin.toUpperCase() == 'BTC'
+      ? ref.watch(conversionProvider((v * 100000000).round()))
+      : _isDollarCoin(coin)
+          ? formatPolyAmount(ref, v)
+          : '$v ${_assetDisplayName(coin)}';
+}
+
+/// One order of a multi-source move inside its detail's Nerd data: where
+/// it went ("Investing → Dollars"), what it sent and what arrives (what
+/// arrived, once landed), its fee once both sides are known in dollars,
+/// the order's own rows, and its explorer link when the sheet has more
+/// than one order ([track]). A value not known is left out, never a dash.
+class _MultiSourceLegNerd extends ConsumerWidget {
+  const _MultiSourceLegNerd({
+    required this.title,
+    required this.sentUsd,
+    required this.row,
+    required this.track,
+  });
+
+  final String title;
+
+  /// What left (the row's own amount when null).
+  final double? sentUsd;
+  final SwapOrderTransaction row;
+  final bool track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final d = row.details;
+    double value(String raw, String coin) =>
+        d.isOrchestra ? orchestraRowAmount(raw, coin) : double.tryParse(raw) ?? 0;
+    final landed = d.isComplete && !OwnSparkArrivals.awaitingCredit(d.id);
+    final sent = sentUsd ?? value(d.depositAmount, d.coinFrom);
+    final sentText = sentUsd != null
+        ? formatPolyAmount(ref, sentUsd!)
+        : sent > 0
+            ? _legCoinAmount(ref, d, d.depositAmount, d.coinFrom)
+            : null;
+    final got = value(d.withdrawalAmount, d.coinTo);
+    String? feeText;
+    if (landed && got > 0 && _isDollarCoin(d.coinTo)) {
+      final paid = sentUsd ?? (_isDollarCoin(d.coinFrom) ? sent : null);
+      if (paid != null) {
+        final fee = ((paid - got) * 100).round() / 100;
+        if (fee >= 0.01) feeText = formatPolyAmount(ref, fee);
+      }
+    }
+    return Column(
+      key: ValueKey('move-leg-${d.id}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 12.h, bottom: 2.h),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+        if (sentText != null) _sheetDetailRow(c, l10n.sent, sentText),
+        if (got > 0)
+          _sheetDetailRow(
+              c,
+              landed ? l10n.received : l10n.activityArriving,
+              _legCoinAmount(ref, d, d.withdrawalAmount, d.coinTo)),
+        if (feeText != null) _sheetDetailRow(c, l10n.fee, feeText),
+        ..._swapOrderNerdRows(context, c, d,
+            formatAmount: (raw, coin) => _legCoinAmount(ref, d, raw, coin),
+            showReceive: false),
+        if (track) ..._orchestraTrackExchange(context, c, d),
+      ],
+    );
+  }
+}
+

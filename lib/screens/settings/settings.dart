@@ -1408,6 +1408,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     if (!_flowEnded) {
       TrackingService.track('pin_change_abandoned', params: {
         'step': _stepName,
+        'time_in_flow_ms': _flowTimer.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_flowTimer.elapsed),
         if (_lastErrorCategory != null)
           'last_error_category': _lastErrorCategory!,

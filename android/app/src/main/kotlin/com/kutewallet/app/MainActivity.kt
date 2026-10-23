@@ -59,9 +59,25 @@ class MainActivity: FlutterFragmentActivity() {
         const val LEGACY_EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
     }
 
+    override fun onPause() {
+        // Nothing buzzes once the app leaves the front (Dart stops the
+        // rumble too; this is the native backstop).
+        ContinuousHapticsPlugin.stopAll()
+        super.onPause()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         if (!flutterEngine.plugins.has(OnchainPlugin::class.java)) flutterEngine.plugins.add(OnchainPlugin())
+        // The rubber band's continuous haptic (`kute/continuous_haptics`).
+        if (!flutterEngine.plugins.has(ContinuousHapticsPlugin::class.java)) {
+            flutterEngine.plugins.add(ContinuousHapticsPlugin())
+        }
+        // Network changes (`kute/network_path`): a VPN or network switch
+        // re-asks every region answer.
+        if (!flutterEngine.plugins.has(NetworkPathPlugin::class.java)) {
+            flutterEngine.plugins.add(NetworkPathPlugin())
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

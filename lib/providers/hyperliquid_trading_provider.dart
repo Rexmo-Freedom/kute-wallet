@@ -56,6 +56,11 @@ import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/services/hyperliquid/hl_optimistic_margin.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_activity.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -182,6 +187,41 @@ HlPerpPosition isolatedMarginTarget({
   }
   return current;
 }
+
+/// The perp → spot transfer a spot buy of [usd] needs before it is placed,
+/// from a FRESH read of the account ([spotBalances], [perpWithdrawable]):
+/// zero when spot USDC covers it, else the shortfall rounded up to a cent
+/// and capped at what perps can give. Throws when spot and perps together
+/// do not cover it (nothing is signed).
+double hlSpotBuyPerpTransferUsd({
+  required double usd,
+  required List<HlSpotBalance> spotBalances,
+  required double perpWithdrawable,
+}) {
+  double spotUsdc = 0;
+  for (final b in spotBalances) {
+    if (b.coin == 'USDC') {
+      spotUsdc = b.available;
+      break;
+    }
+  }
+  if (spotUsdc + 1e-6 >= usd) return 0;
+  final shortfall = usd - spotUsdc;
+  if (perpWithdrawable + 1e-6 < shortfall) {
+    throw const HyperliquidInsufficientMarginException(
+        'Insufficient USDC across spot and perp for this order');
+  }
+  // Round up to a cent, capped at what perp can give — usdClassTransfer
+  // THROWS on rejection, aborting the order before anything is placed.
+  return math.min(perpWithdrawable, (shortfall * 100).ceilToDouble() / 100);
+}
+
+/// The margin mode a new perp position opens in when nothing chose one:
+/// ISOLATED (founder decision, October 2026). The cash a position does not
+/// use is then never cross collateral, so it stays free for orders and
+/// can come home without moving a liquidation price. An open position
+/// keeps its own mode.
+const bool kHlDefaultCross = false;
 
 class HyperliquidTradingState {
   /// True once the spending wallet's address resolved — browsing works
@@ -426,12 +466,16 @@ class HyperliquidTradingNotifier
     _address = address;
 
     var snap = HlAccountSnapshot.empty;
+    var accountRead = false;
     try {
       snap = await ref.read(hyperliquidAccountProvider.future);
+      accountRead = true;
     } catch (_) {
-      // Account fetch failed — the poll loop in the account provider
-      // self-heals; start with an empty snapshot rather than erroring
-      // the whole trading surface.
+      // Account fetch failed. The account is UNKNOWN, not empty: the state
+      // stays uninitialized (no $0.00 counted as the venue's answer, the
+      // Investments total keeps its stale shimmer) until the account
+      // provider's retry tick, or the next refresh, lands a snapshot;
+      // [_applySnapshot] initializes it then.
     }
 
     _checkReferrerOnce(snap);
@@ -462,7 +506,7 @@ class HyperliquidTradingNotifier
     );
 
     return HyperliquidTradingState(
-      isInitialized: true,
+      isInitialized: accountRead,
       walletAddress: address,
       perpEquity: snap.accountValue,
       totalMarginUsed: snap.totalMarginUsed,
@@ -629,16 +673,65 @@ class HyperliquidTradingNotifier
 
     _orderDexes = _dexesFor(snap, current.openOrders);
 
+    // Optimistic margin after a fill: keep the figures shown at the fill
+    // until the venue's own margin moves off the pre-fill baseline (it
+    // indexed the fill) or the hold's TTL passes; then the snapshot wins.
+    final hold = _optimisticMargin;
+    final keepHold = hold != null &&
+        !hold.reconciledBy(snap.totalMarginUsed, now: now);
+    if (!keepHold) _optimisticMargin = null;
+
     final next = current.copyWith(
       perpEquity: snap.accountValue,
-      totalMarginUsed: snap.totalMarginUsed,
-      withdrawable: snap.withdrawable,
+      totalMarginUsed: keepHold ? hold.totalMarginUsed : snap.totalMarginUsed,
+      withdrawable: keepHold ? hold.withdrawable : snap.withdrawable,
       positions: snap.positions,
       spotBalances: snap.spotBalances,
       pendingCloseCoins: pending,
+      // A real snapshot: the figures are the venue's answer now (a build
+      // whose first read failed starts uninitialized).
+      isInitialized: true,
     );
     if (next == current) return;
     _setData(next);
+  }
+
+  // ───────────────────── optimistic margin after a fill ─────────────────────
+
+  HlOptimisticMargin? _optimisticMargin;
+
+  void _holdOptimisticOpen(double marginUsd) {
+    final s = _current;
+    if (s == null || marginUsd <= 0) return;
+    final hold = HlOptimisticMargin.afterOpen(
+      withdrawable: s.withdrawable,
+      totalMarginUsed: s.totalMarginUsed,
+      marginUsd: marginUsd,
+      at: DateTime.now(),
+    );
+    _optimisticMargin = hold;
+    _setData(s.copyWith(
+      withdrawable: hold.withdrawable,
+      totalMarginUsed: hold.totalMarginUsed,
+    ));
+  }
+
+  void _holdOptimisticClose(
+      {required double marginReleasedUsd, required double realizedPnlUsd}) {
+    final s = _current;
+    if (s == null || marginReleasedUsd <= 0) return;
+    final hold = HlOptimisticMargin.afterClose(
+      withdrawable: s.withdrawable,
+      totalMarginUsed: s.totalMarginUsed,
+      marginReleasedUsd: marginReleasedUsd,
+      realizedPnlUsd: realizedPnlUsd,
+      at: DateTime.now(),
+    );
+    _optimisticMargin = hold;
+    _setData(s.copyWith(
+      withdrawable: hold.withdrawable,
+      totalMarginUsed: hold.totalMarginUsed,
+    ));
   }
 
   Future<void> _silentOrdersRefresh() async {
@@ -678,6 +771,9 @@ class HyperliquidTradingNotifier
   /// Post-action refresh: immediate account invalidate + staggered
   /// order/fill polls so the exchange's own indexing lag is covered.
   void _afterAction() {
+    // Order activity: Investing's cash stays put, and its idle window
+    // (investing_sweep_rules.dart) starts again.
+    VenueActivity.note(OneBalanceVenue.investing);
     ref.invalidate(hyperliquidAccountProvider);
     for (final delay in const [1, 4]) {
       Future.delayed(Duration(seconds: delay), () {
@@ -926,6 +1022,13 @@ class HyperliquidTradingNotifier
       throw StateError('Account unavailable');
     }
     final model = ref.read(hyperliquidTradingModelProvider);
+    // USDC funds USDC-settled dexes only (the fee read refuses the rest;
+    // a fee-free margin move checks here), before anything moves.
+    if (!tradingFee &&
+        market.dex.isNotEmpty &&
+        !await model.isUsdcCollateralDex(market.dex)) {
+      throw const FormatException('USDC collateral terms unavailable');
+    }
     var snapshot = await model.getAccountSnapshot(address);
     final feeRate =
         tradingFee ? await model.getPerpTakerFundingRate(address, market) : 0.0;
@@ -959,7 +1062,10 @@ class HyperliquidTradingNotifier
     }
     final target = await model.getDexClearinghouse(address, market.dex);
     var shortfall = requiredUsd - target.withdrawable;
-    if (shortfall <= 0) return;
+    if (shortfall <= 0) {
+      OwnDexReadiness.ready();
+      return;
+    }
     final spot = hypercoreAvailableUsdc(0, snapshot.spotBalances);
     if (snapshot.withdrawable + spot + 1e-6 < shortfall) {
       throw const HyperliquidInsufficientMarginException(
@@ -970,6 +1076,7 @@ class HyperliquidTradingNotifier
     final fromPerps =
         (math.min(shortfall, snapshot.withdrawable) * 1e6).floorToDouble() /
             1e6;
+    OwnDexReadiness.waiting();
     if (fromPerps > 0) {
       await exchange.moveOwnUsdc(
           sourceDex: '', destinationDex: market.dex, amount: fromPerps);
@@ -980,6 +1087,12 @@ class HyperliquidTradingNotifier
       await exchange.moveOwnUsdc(
           sourceDex: 'spot', destinationDex: market.dex, amount: fromSpot);
     }
+    await waitForOwnDexCash(
+      requiredUsd: requiredUsd,
+      availableUsd: () async =>
+          (await model.getDexClearinghouse(address, market.dex)).withdrawable,
+    );
+    OwnDexReadiness.ready();
   }
 
   /// Opens (or adds to) a perp position: adjusts leverage first when it
@@ -1082,7 +1195,7 @@ class HyperliquidTradingNotifier
         source: source,
         providerOrderId: result.oid?.toString(),
         orderType: 'market',
-        isCross: (isCross ?? true) && !market.onlyIsolated,
+        isCross: (isCross ?? kHlDefaultCross) && !market.onlyIsolated,
         hasTp: hasTp,
         hasSl: hasSl,
         filled: result.isFilled,
@@ -1092,6 +1205,14 @@ class HyperliquidTradingNotifier
       );
       _trackTpslLegFailure(market, result,
           wantedTpsl: hasTp || hasSl, parentType: 'market');
+      if (result.isFilled) {
+        // Margin locked by the fill, shown now; the next account poll
+        // reconciles (see _applySnapshot).
+        final filledMargin = result.avgPx > 0
+            ? result.filledSz * result.avgPx / lev
+            : marginUsd;
+        _holdOptimisticOpen(filledMargin);
+      }
       _afterAction();
       return result;
     } catch (e, st) {
@@ -1146,26 +1267,28 @@ class HyperliquidTradingNotifier
       );
 
       if (isBuy) {
-        double spotUsdc = 0;
-        for (final b in current.spotBalances) {
-          if (b.coin == 'USDC') {
-            spotUsdc = b.available;
-            break;
+        // A fresh read, like the perp path's: a buy funded from Dollars
+        // a moment ago credited after the last poll, and the held state
+        // would call that money missing.
+        var spotBalances = current.spotBalances;
+        var perpWithdrawable = current.withdrawable;
+        final address = _address;
+        if (address != null) {
+          try {
+            final snap = await ref
+                .read(hyperliquidTradingModelProvider)
+                .getAccountSnapshot(address);
+            spotBalances = snap.spotBalances;
+            perpWithdrawable = snap.withdrawable;
+          } catch (_) {
+            // The held state stands in; the venue refuses what it lacks.
           }
         }
-        if (spotUsdc + 1e-6 < usd) {
-          final shortfall = usd - spotUsdc;
-          if (current.withdrawable + 1e-6 < shortfall) {
-            throw const HyperliquidInsufficientMarginException(
-                'Insufficient USDC across spot and perp for this order');
-          }
-          // Round the transfer up to a cent, capped at what perp can
-          // give — usdClassTransfer THROWS on rejection, aborting the
-          // order before anything is placed.
-          final xfer = math.min(
-            current.withdrawable,
-            (shortfall * 100).ceilToDouble() / 100,
-          );
+        final xfer = hlSpotBuyPerpTransferUsd(
+            usd: usd,
+            spotBalances: spotBalances,
+            perpWithdrawable: perpWithdrawable);
+        if (xfer > 0) {
           await collectOwnDexCash(
               model: ref.read(hyperliquidTradingModelProvider),
               exchange: ex,
@@ -1357,7 +1480,22 @@ class HyperliquidTradingNotifier
         orderType: 'market',
         notionalUsd: size * refPx,
       );
+      if (result.isFilled && pos.szi.abs() > 0) {
+        // Margin released (and PnL realised) by the fill, shown now; the
+        // next account poll reconciles (see _applySnapshot).
+        final closedFraction =
+            (result.filledSz / pos.szi.abs()).clamp(0.0, 1.0).toDouble();
+        _holdOptimisticClose(
+          marginReleasedUsd: pos.marginUsed * closedFraction,
+          realizedPnlUsd: pos.unrealizedPnl * closedFraction,
+        );
+      }
       _afterAction();
+      // The margin (and any profit) is idle venue cash now: the sweeper
+      // brings it home to Dollars at once instead of on its next pass.
+      if (result.isFilled) {
+        VenueCashReleased.emit(OneBalanceVenue.investing, 'close');
+      }
       return result;
     } catch (e, st) {
       if (marked) {
@@ -1419,7 +1557,8 @@ class HyperliquidTradingNotifier
     }
     if (existing != null && !changeOpenPosition) return;
     final effCross =
-        (isCross ?? existing?.isCross ?? true) && !market.onlyIsolated;
+        (isCross ?? existing?.isCross ?? kHlDefaultCross) &&
+            !market.onlyIsolated;
     if (existing == null ||
         existing.leverageValue != lev ||
         existing.isCross != effCross) {
@@ -2336,6 +2475,9 @@ class HyperliquidTradingNotifier
       ));
     }
     unawaited(_silentOrdersRefresh());
+    // The cash the order reserved is idle again: the sweeper may bring it
+    // home.
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
   }
 
   /// Cancels every resting order in one signed batch action.
@@ -2393,6 +2535,7 @@ class HyperliquidTradingNotifier
             current.openOrders.where((o) => !gone.contains(o.oid)).toList(),
       ));
     }
+    VenueCashReleased.emit(OneBalanceVenue.investing, 'cancel');
     return cancels.length;
   }
 
@@ -2498,7 +2641,7 @@ class HyperliquidTradingNotifier
   /// reduce-only orders (which never write the margin mode).
   static bool? _crossFor(HlMarket m, bool? isCross, {bool reduceOnly = false}) {
     if (m.isSpot || reduceOnly) return null;
-    return (isCross ?? true) && !m.onlyIsolated;
+    return (isCross ?? kHlDefaultCross) && !m.onlyIsolated;
   }
 
   static String _openOrderType(HlOpenOrder o) {
@@ -2631,3 +2774,24 @@ final hyperliquidTradingProvider = AsyncNotifierProvider.autoDispose<
     HyperliquidTradingNotifier, HyperliquidTradingState>(
   HyperliquidTradingNotifier.new,
 );
+
+/// Display-only fallback. Never use this provider to size, authorize or send
+/// an order/move: [hyperliquidTradingProvider] remains the live execution state.
+final hyperliquidDisplayTradingProvider =
+    Provider.autoDispose<AsyncValue<HyperliquidTradingState>>((ref) {
+  final display = ref.watch(hyperliquidDisplayAccountProvider);
+  final actual = ref.watch(hyperliquidTradingProvider);
+  if (!actual.isLoading &&
+      !actual.hasError &&
+      actual.valueOrNull?.isInitialized == true) {
+    return actual;
+  }
+  return display.whenData((snapshot) => HyperliquidTradingState(
+            isInitialized: true,
+            perpEquity: snapshot.accountValue,
+            totalMarginUsed: snapshot.totalMarginUsed,
+            withdrawable: snapshot.withdrawable,
+            positions: snapshot.positions,
+            spotBalances: snapshot.spotBalances,
+          ));
+});

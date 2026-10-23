@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +31,26 @@ class _FakeLocalAuth extends LocalAuthentication {
 
   @override
   Future<List<BiometricType>> getAvailableBiometrics() async => const [];
+}
+
+/// A biometric check that stays in flight until [finish]: the support
+/// probe is the first await of the prompt path, so holding it there holds
+/// the whole attempt.
+class _HangingLocalAuth extends LocalAuthentication {
+  int prompts = 0;
+  Completer<bool>? _support;
+
+  @override
+  Future<bool> isDeviceSupported() {
+    prompts++;
+    return (_support = Completer<bool>()).future;
+  }
+
+  @override
+  Future<List<BiometricType>> getAvailableBiometrics() async => const [];
+
+  /// Ends the attempt; `false` reads as no biometrics, so nothing prompts.
+  void finish(bool supported) => _support?.complete(supported);
 }
 
 Settings _settings({required bool biometrics}) => Settings(
@@ -248,6 +270,34 @@ void main() {
       final localAuth = _FakeLocalAuth();
       await pumpOpenPin(tester, biometrics: true, localAuth: localAuth);
       expect(localAuth.supportChecks, 1);
+    });
+
+    testWidgets('one prompt at a time: a tap over the auto prompt is ignored',
+        (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      keychain.seed('pin', '111111');
+      final localAuth = _HangingLocalAuth();
+      await pumpOpenPin(tester, biometrics: true, localAuth: localAuth);
+      await tester.pump();
+      expect(localAuth.prompts, 1);
+
+      final key = find.byWidgetPredicate((w) =>
+          w is Icon &&
+          (w.icon == Icons.fingerprint_rounded ||
+              w.icon == Icons.face_rounded));
+      expect(key, findsOneWidget);
+      await tester.tap(key);
+      await tester.pump();
+      expect(localAuth.prompts, 1);
+
+      // The prompt is dismissed: the next tap may prompt again.
+      localAuth.finish(false);
+      await tester.pumpAndSettle();
+      await tester.tap(key);
+      await tester.pump();
+      expect(localAuth.prompts, 2);
+      localAuth.finish(false);
+      await tester.pumpAndSettle();
     });
   });
 

@@ -8,17 +8,30 @@ import 'package:path_provider/path_provider.dart';
 // Flat sat ceiling on the Spark service claim quote, identical to the previous 25 sat/vB x 99 vB.
 const int kSparkAutoClaimMaxFeeSats = 2475;
 
-Future<void> initializeSDK(String mnemonic, String walletId) async {
+/// Builds the connect request again for a reconnect without a prompt
+/// (see [BreezSdkSpark.connect]); null when that would need one now.
+typedef ReconnectRequest = Future<ConnectRequest?> Function();
+
+Future<void> initializeSDK(String mnemonic, String walletId,
+    {ReconnectRequest? reconnectRequest}) async {
   final connectRequest = await createConnectRequest(mnemonic, walletId);
-  await BreezSdkSpark().connect(req: connectRequest);
+  await BreezSdkSpark().connect(
+      req: connectRequest,
+      walletId: walletId,
+      reconnectRequest: reconnectRequest);
 }
 
-Future<void> initializeSDKWithSeed(Seed seed, String walletId) async {
+Future<void> initializeSDKWithSeed(Seed seed, String walletId,
+    {ReconnectRequest? reconnectRequest}) async {
   final connectRequest = await createConnectRequestWithSeed(seed, walletId);
-  await BreezSdkSpark().connect(req: connectRequest);
+  await BreezSdkSpark().connect(
+      req: connectRequest,
+      walletId: walletId,
+      reconnectRequest: reconnectRequest);
 }
 
-Future<ConnectRequest> createConnectRequest(String mnemonic, String walletId) async {
+Future<ConnectRequest> createConnectRequest(
+    String mnemonic, String walletId) async {
   final appDir = await getApplicationDocumentsDirectory();
 
   final walletStorageDir = Directory('${appDir.path}/breez_$walletId');
@@ -34,7 +47,11 @@ Future<ConnectRequest> createConnectRequest(String mnemonic, String walletId) as
   final seed = Seed.mnemonic(mnemonic: mnemonic, passphrase: null);
 
   final baseConfig = defaultConfig(network: Network.mainnet);
-  final config = baseConfig.copyWith(apiKey: apiKey, lnurlDomain: 'paykute.com', maxDepositClaimFee: MaxFee.fixed(amount: BigInt.from(kSparkAutoClaimMaxFeeSats)));
+  final config = baseConfig.copyWith(
+      apiKey: apiKey,
+      lnurlDomain: 'paykute.com',
+      maxDepositClaimFee:
+          MaxFee.fixed(amount: BigInt.from(kSparkAutoClaimMaxFeeSats)));
 
   return ConnectRequest(
     config: config,
@@ -43,7 +60,8 @@ Future<ConnectRequest> createConnectRequest(String mnemonic, String walletId) as
   );
 }
 
-Future<ConnectRequest> createConnectRequestWithSeed(Seed seed, String walletId) async {
+Future<ConnectRequest> createConnectRequestWithSeed(
+    Seed seed, String walletId) async {
   final appDir = await getApplicationDocumentsDirectory();
 
   final walletStorageDir = Directory('${appDir.path}/breez_$walletId');
@@ -57,7 +75,11 @@ Future<ConnectRequest> createConnectRequestWithSeed(Seed seed, String walletId) 
   }
 
   final baseConfig = defaultConfig(network: Network.mainnet);
-  final config = baseConfig.copyWith(apiKey: apiKey, lnurlDomain: 'paykute.com', maxDepositClaimFee: MaxFee.fixed(amount: BigInt.from(kSparkAutoClaimMaxFeeSats)));
+  final config = baseConfig.copyWith(
+      apiKey: apiKey,
+      lnurlDomain: 'paykute.com',
+      maxDepositClaimFee:
+          MaxFee.fixed(amount: BigInt.from(kSparkAutoClaimMaxFeeSats)));
 
   return ConnectRequest(
     config: config,

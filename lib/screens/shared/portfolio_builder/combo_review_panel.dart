@@ -28,12 +28,14 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/combo_copy.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
+import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/polymarket/combos/combo_analytics.dart';
 import 'package:kute/services/polymarket/combos/combo_ids.dart';
 import 'package:kute/services/polymarket/combos/combo_math.dart';
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
+import 'package:kute/services/success_feedback.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How many lapsed quotes are replaced on their own before the panel waits
@@ -268,7 +270,8 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
       if (!mounted) return;
       switch (result.state) {
         case ComboFillState.filled:
-          HapticFeedback.heavyImpact();
+          // Placed: the money-success pattern, as every placement.
+          unawaited(moneySuccessFeedback());
           setState(() {
             _placedQuote = result.quote;
             _phase = _Phase.placed;
@@ -281,6 +284,8 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
           });
           widget.onPlaced();
         case ComboFillState.failed:
+          // Not placed: the soft release every money action ends with.
+          ContinuousHaptics.softTap();
           _autoRequotes = 0;
           setState(() {
             _quote = null;

@@ -103,10 +103,10 @@ void main() {
     expect(log, [true]);
   });
 
-  testWidgets('100% cross-chain: spins on the tap, before the balance sync',
+  testWidgets('100% cross-chain: spins on the tap, before the balance read',
       (tester) async {
-    // The draining route's first await: `sparkDrainBalanceSats`, a
-    // wallet sync that can take seconds.
+    // The draining route's first await: `sparkDrainBalanceSats`, an SDK
+    // balance read (it used to wait for a wallet sync).
     final sync = Completer<int>();
     var quoted = false;
     final state = await _pump(tester, (setProcessing) async {
@@ -121,7 +121,7 @@ void main() {
     await tester.pump();
     expect(state.isProcessing, isTrue);
     expect(_spinner, findsOneWidget);
-    expect(quoted, isFalse, reason: 'the sync is still out');
+    expect(quoted, isFalse, reason: 'the balance read is still out');
 
     // A second tap while it spins dispatches nothing.
     await tester.tap(find.byType(SendReviewAction));

@@ -1,8 +1,9 @@
 // How far a position is from liquidation, said one way everywhere:
 // "$78,400 · 12% away", one decimal under 10%, whole above; only the
 // distance coloured, amber inside the liquidation-risk alert's 10% and
-// red inside its 5%. The position screen's row carries "Add margin" only
-// for an isolated position the app can move margin on.
+// red inside its 5%. The position screen's Liquidation tile writes the
+// price large and the distance under it; "Add margin" is offered only for
+// an isolated position the app can move margin on.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -13,8 +14,6 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_trade_alerts_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
-import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/theme/app_theme.dart';
 
 HlPerpPosition _position({String type = 'isolated', double? liq = 300}) =>
@@ -52,8 +51,8 @@ HlMarket _market({
       isHip3: true,
     );
 
-Future<void> _pumpRow(WidgetTester tester,
-    {required double? liq, required double mark, VoidCallback? onAdd}) async {
+Future<void> _pumpTile(WidgetTester tester,
+    {required double? liq, required double mark}) async {
   await tester.pumpWidget(ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
@@ -61,11 +60,9 @@ Future<void> _pumpRow(WidgetTester tester,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
-        body: Builder(
-          builder: (context) => PositionRowsCard(rows: [
-            hlLiquidationRow(context,
-                liquidation: liq, mark: mark, onAddMargin: onAdd),
-          ]),
+        body: SizedBox(
+          width: 170,
+          child: HlLiquidationTile(liquidation: liq, mark: mark),
         ),
       ),
     ),
@@ -73,19 +70,12 @@ Future<void> _pumpRow(WidgetTester tester,
   await tester.pump();
 }
 
-/// The colour of the "… away" span of the one rich liquidation text.
-Color? _distanceColor(WidgetTester tester) {
-  final text = tester.widget<Text>(
-      find.byWidgetPredicate((w) => w is Text && w.textSpan != null));
-  Color? found;
-  text.textSpan!.visitChildren((span) {
-    if (span is TextSpan && (span.text ?? '').endsWith('away')) {
-      found = span.style?.color;
-    }
-    return true;
-  });
-  return found;
-}
+/// The colour of the tile's "… away" line.
+Color? _distanceColor(WidgetTester tester) => tester
+    .widget<Text>(find.byWidgetPredicate(
+        (w) => w is Text && (w.data ?? '').endsWith('away')))
+    .style
+    ?.color;
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -144,61 +134,57 @@ void main() {
     });
   });
 
-  group('the Liquidation row', () {
-    testWidgets('safe: price and distance, neutral, with Add margin',
+  group('the Liquidation tile', () {
+    testWidgets('safe: the price large, the distance under it, neutral',
         (tester) async {
-      var taps = 0;
-      await _pumpRow(tester, liq: 78400, mark: 89100, onAdd: () => taps++);
+      await _pumpTile(tester, liq: 78400, mark: 89100);
       expect(find.text('Liquidation'), findsOneWidget);
-      expect(find.text(r'$78,400 · 12% away'), findsOneWidget);
-      expect(_distanceColor(tester), isNull);
-      expect(find.byType(KutePill), findsOneWidget);
-      expect(find.text('Add margin'), findsOneWidget);
-      await tester.tap(find.text('Add margin'));
-      expect(taps, 1);
+      expect(find.text(r'$78,400'), findsOneWidget);
+      expect(find.text('12% away'), findsOneWidget);
+      expect(_distanceColor(tester), AppColorsExtension.light().textSecondary);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('near: one decimal, amber under 10%, red under 5%',
         (tester) async {
-      await _pumpRow(tester, liq: 92.6, mark: 100, onAdd: () {});
-      expect(find.text(r'$92.60 · 7.4% away'), findsOneWidget);
+      await _pumpTile(tester, liq: 92.6, mark: 100);
+      expect(find.text(r'$92.60'), findsOneWidget);
+      expect(find.text('7.4% away'), findsOneWidget);
       expect(_distanceColor(tester), AppColorsExtension.light().warning);
 
-      await _pumpRow(tester, liq: 96.9, mark: 100, onAdd: () {});
-      expect(find.text(r'$96.90 · 3.1% away'), findsOneWidget);
+      await _pumpTile(tester, liq: 96.9, mark: 100);
+      expect(find.text('3.1% away'), findsOneWidget);
       expect(_distanceColor(tester), AppColors.marketDown);
     });
 
-    testWidgets(
-        'a narrow phone: the button goes under the figure, nothing '
-        'overflows', (tester) async {
-      tester.view.physicalSize = const Size(320, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await _pumpRow(tester, liq: 78400, mark: 89100, onAdd: () {});
+    testWidgets('a narrow tile with large text: smaller rather than cut',
+        (tester) async {
+      await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          theme: ThemeData(extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+              child: SizedBox(
+                width: 120,
+                child: HlLiquidationTile(liquidation: 78400.5, mark: 89100),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
       expect(tester.takeException(), isNull);
-      expect(find.text('Add margin'), findsOneWidget);
-      // Right-aligned with the figure.
-      expect(tester.getTopRight(find.byType(KutePill)).dx,
-          closeTo(tester.getTopRight(find.text(r'$78,400 · 12% away')).dx, 1));
-    });
-
-    testWidgets('cross: the same row, no button', (tester) async {
-      await _pumpRow(tester, liq: 92.6, mark: 100);
-      expect(find.text(r'$92.60 · 7.4% away'), findsOneWidget);
-      expect(_distanceColor(tester), AppColorsExtension.light().warning);
-      expect(find.byType(KutePill), findsNothing);
-      expect(find.text('Add margin'), findsNothing);
     });
 
     testWidgets('no liquidation price: said in the caption style, no colour',
         (tester) async {
-      await _pumpRow(tester, liq: null, mark: 100);
+      await _pumpTile(tester, liq: null, mark: 100);
       expect(find.text('No liquidation price'), findsOneWidget);
       expect(find.textContaining('away'), findsNothing);
-      expect(find.byType(KutePill), findsNothing);
     });
   });
 }

@@ -9,6 +9,7 @@
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 
 final sparkSelfAddressProvider = FutureProvider.autoDispose<String>((ref) async {
@@ -19,6 +20,8 @@ final sparkSelfAddressProvider = FutureProvider.autoDispose<String>((ref) async 
   const req = ReceivePaymentRequest(
     paymentMethod: ReceivePaymentMethod.sparkAddress(),
   );
-  final response = await sdk.receivePayment(request: req);
+  // A quote's creation: a pull never retires the handle under it.
+  final response =
+      await runSparkQuote(() => sdk.receivePayment(request: req));
   return response.paymentRequest;
 });

@@ -90,6 +90,10 @@ class RawTransactionData {
   // of treating the empty lists as authoritative.
   final bool sparkPaymentsFetchFailed;
 
+  /// A failed token-history read is unknown, never an observed empty ledger.
+  /// Preserve the wallet's USDB rows and the receive-recovery baseline.
+  final bool usdbPaymentsFetchFailed;
+
   // True when `listUnclaimedDeposits` failed/timed out for this build.
   // Same load-bearing distinction as `sparkPaymentsFetchFailed`: an
   // empty `unclaimedDeposits` from a 15s timeout is NOT "no deposits",
@@ -112,6 +116,7 @@ class RawTransactionData {
     this.polymarketUsdcReceives = const [],
     this.outlogicOrders = const [],
     this.sparkPaymentsFetchFailed = false,
+    this.usdbPaymentsFetchFailed = false,
     this.unclaimedDepositsFetchFailed = false,
   });
 }
@@ -1180,14 +1185,19 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     final mempoolTransactions = rawData.mempoolTxs;
 
     // 6. USDB Token Transactions (Breez SDK)
-    final usdbTokenTransactions = rawData.usdbTokenPayments.map((payment) {
-      return UsdbTokenTransaction(
-        id: payment.id,
-        timestamp: DateTime.fromMillisecondsSinceEpoch(payment.timestamp.toInt() * 1000),
-        details: payment,
-        isConfirmed: payment.status == breez.PaymentStatus.completed,
-      );
-    }).toList();
+    final usdbTokenTransactions = rawData.usdbPaymentsFetchFailed
+        ? (ref.read(walletTransactionCacheProvider)[walletId]
+                ?.usdbTokenTransactions ??
+            const <UsdbTokenTransaction>[])
+        : rawData.usdbTokenPayments.map((payment) {
+            return UsdbTokenTransaction(
+              id: payment.id,
+              timestamp: DateTime.fromMillisecondsSinceEpoch(
+                  payment.timestamp.toInt() * 1000),
+              details: payment,
+              isConfirmed: payment.status == breez.PaymentStatus.completed,
+            );
+          }).toList();
 
     // 8. Swap order transactions (Orchestra, Cash App, retired-provider history)
     // Filter out 0-value exchanges and exchanges belonging to other wallets

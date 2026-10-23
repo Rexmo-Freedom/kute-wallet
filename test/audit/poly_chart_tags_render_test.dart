@@ -13,7 +13,9 @@
 // with its Draw, a landfall market with four lines (53% alone, 28 / 28 /
 // 27.5 ending together), a binary Yes at 18%, an Up or Down round, six
 // lines, two lines half a point apart, and lines at the top and bottom
-// edges; each with the time axis under the plot. Also: the tennis chart
+// edges, a presidential election whose outcomes are market questions
+// ("Will Flávio Bolsonaro win …?") and the same with four candidates, two
+// of them Bolsonaros; each with the time axis under the plot. Also: the tennis chart
 // pinched and panned away from the live edge (the axis ends on a date),
 // the binary chart at the peak of the one-time zoom nudge, and a
 // tweet-count event's six ranges whose live ticks step at the end
@@ -139,6 +141,18 @@ final Map<String, List<_Spec>> _cases = {
   'top_edge': [
     (label: 'Jannik Sinner', color: kGameSideColors[0], from: 0.93, to: 0.99),
     (label: 'Carlos Alcaraz', color: kGameSideColors[1], from: 0.90, to: 0.98),
+  ],
+  // A many-candidate event whose outcomes carry the market question
+  // (no group item title): the tags write the candidate.
+  'brazil': [
+    (label: 'Will Flávio Bolsonaro win the 2026 Brazilian presidential election?', color: kPolyOutcomeColors[0], from: 0.55, to: 0.859),
+    (label: 'Will Luiz Inácio Lula da Silva win the 2026 Brazilian presidential election?', color: kPolyOutcomeColors[1], from: 0.40, to: 0.135),
+  ],
+  'brazil_names': [
+    (label: 'Flávio Bolsonaro', color: kPolyOutcomeColors[0], from: 0.40, to: 0.62),
+    (label: 'Luiz Inácio Lula da Silva', color: kPolyOutcomeColors[1], from: 0.35, to: 0.24),
+    (label: 'Michelle Bolsonaro', color: kPolyOutcomeColors[2], from: 0.10, to: 0.08),
+    (label: 'Tarcisio de Freitas', color: kPolyOutcomeColors[3], from: 0.12, to: 0.05),
   ],
   'bottom_edge': [
     (label: 'Netherlands', color: kPolyOutcomeColors[0], from: 0.08, to: 0.02),

@@ -190,15 +190,17 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
           method: UnlockMethod.biometric, dependency: dependency);
       _finishUnlock(method: 'biometric');
     } catch (e) {
-      _trackBiometricFailed(
-          e is PlatformException ? e.code : e.runtimeType.toString());
+      // local_auth 3 throws a LocalAuthException for a dismissed prompt
+      // too; the helper files that as a cancel, not a failure. The PIN
+      // pad stays on screen either way.
+      TrackingService.biometricPromptThrew(e, surface: 'lock_overlay');
     } finally {
       _biometricInFlight = false;
     }
   }
 
   /// `biometric_failed` with this overlay as the surface. [reason] is a
-  /// platform error code or a policy refusal name, scrubbed.
+  /// policy refusal name, scrubbed.
   void _trackBiometricFailed(String reason) {
     TrackingService.track('biometric_failed', params: {
       'reason': TrackingService.safeReason(reason) ?? 'unknown',
@@ -211,13 +213,16 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     setState(() => _verifying = true);
     try {
       final auth = AuthModel();
+      // Before the check, as on the cold-start PIN screen: a match may
+      // re-save old copies, and the policy must still see the wallet as
+      // it was so a kept `biometric_pin` stays.
+      final dependency = await _v1Dependency();
       final check = await auth.checkPin(_pin);
       if (!mounted) return;
       if (check == PinCheck.match) {
         final typedPin = _pin;
         await PinAttemptGuard(auth).recordSuccess();
         await auth.recoverPendingPinChange(typedPin);
-        final dependency = await _v1Dependency();
         await BiometricPinPolicy()
             .applyAfterUnlock(dependency, typedPin: typedPin);
         if (!mounted) return;

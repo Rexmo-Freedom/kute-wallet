@@ -40,6 +40,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
@@ -137,6 +138,10 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
         .overrideWith((_) => (sdk ?? Completer<BreezSdkSpark>()).future),
   ]);
   _setBalance(container, _balanceSats);
+  // The price sample is read over the shared keep-alive client, which
+  // `runWithClient` cannot reach; it answers from the same fake until the
+  // test's tearDown clears it.
+  SharedHttpClient.debugOverride = orchestra();
   await http.runWithClient(
     () => tester.pumpWidget(UncontrolledProviderScope(
       container: container,
@@ -202,6 +207,7 @@ void main() {
     RuntimeCapabilitiesService.debugInstance?.dispose();
     RuntimeCapabilitiesService.debugInstance = null;
     AffiliateService.debugSessionToken = null;
+    SharedHttpClient.debugOverride = null;
   });
 
   // Door, and the verb its button states.

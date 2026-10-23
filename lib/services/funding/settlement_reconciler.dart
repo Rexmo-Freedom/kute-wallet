@@ -482,7 +482,13 @@ SettlementReconcilePlan planSettlementReconcile(
       final missingNativeProof =
           state.fundingKind == SettlementFundingKind.hyperliquid &&
           !state.hasFundingProof;
-      final submit = submitDue && backendAvailable && !missingNativeProof;
+      // A runner still holding the operation is submitting it (a flow that
+      // registers in the background, with its own quick retries): one
+      // submit at a time.
+      final submit = submitDue &&
+          backendAvailable &&
+          !missingNativeProof &&
+          !state.ownedByLiveFlow;
       return SettlementReconcilePlan(
         readStatus: statusDue || submit,
         probeFundingSource: missingNativeProof && due,

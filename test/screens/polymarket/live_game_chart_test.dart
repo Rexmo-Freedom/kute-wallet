@@ -14,6 +14,7 @@ PolymarketEvent _game({
   bool closed = false,
   bool active = true,
   bool ended = false,
+  bool marketsClosed = false,
   String? score = '6-17',
   String? period = 'Q4',
 }) =>
@@ -34,6 +35,7 @@ PolymarketEvent _game({
       closed: closed,
       active: active,
       ended: ended,
+      marketsClosed: marketsClosed,
       score: score,
       period: period,
     );
@@ -44,11 +46,13 @@ void main() {
         () {
       final event = _game();
       expect(event.endDate!.isBefore(_now), isTrue);
-      expect(polyEventIsOver(event, inPlay: true, now: _now), isFalse);
+      expect(polyEventIsOver(event, inPlay: true), isFalse);
     });
 
-    test('past its end date and not being played, it is', () {
-      expect(polyEventIsOver(_game(), inPlay: false, now: _now), isTrue);
+    test('past its end date and not being played, it is not either', () {
+      // A market stays open past its date until it resolves; only Gamma's
+      // flags end it.
+      expect(polyEventIsOver(_game(), inPlay: false), isFalse);
     });
 
     test('closed, switched off or ended, it is, whatever the feed says', () {
@@ -57,14 +61,20 @@ void main() {
         _game(active: false),
         _game(ended: true),
       ]) {
-        expect(polyEventIsOver(event, inPlay: true, now: _now), isTrue);
+        expect(polyEventIsOver(event, inPlay: true), isTrue);
       }
+    });
+
+    test('every market closed, it is, unless the game is being played', () {
+      final event = _game(marketsClosed: true);
+      expect(polyEventIsOver(event, inPlay: false), isTrue);
+      expect(polyEventIsOver(event, inPlay: true), isFalse);
     });
 
     test('before its end date it is not', () {
       final event = _game(endDate: DateTime.utc(2026, 10, 5));
-      expect(polyEventIsOver(event, inPlay: false, now: _now), isFalse);
-      expect(polyEventIsOver(event, inPlay: true, now: _now), isFalse);
+      expect(polyEventIsOver(event, inPlay: false), isFalse);
+      expect(polyEventIsOver(event, inPlay: true), isFalse);
     });
   });
 

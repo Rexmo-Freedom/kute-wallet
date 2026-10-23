@@ -4,14 +4,12 @@ import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/shell_wallet_provider.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show
+        shellDrawsPredictionsTab,
+        shellDrawsTradingTab,
         shellShowsLedgerVenues,
-        shellShowsPredictionsTab,
-        shellShowsTradingTab,
         shellShowsUsdTab;
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show trackUsdTabOpened;
-import 'package:kute/providers/asset_icon_provider.dart'
-    show kUsdMarkAsset;
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:kute/screens/shared/service_tab_strip.dart';
 import 'package:flutter/material.dart';
@@ -26,8 +24,6 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
-import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogBitcoin;
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // [ActiveNavTab] used to be defined here; it moved to
 // providers/active_shell_tab_provider.dart so the live-price notifiers
@@ -46,11 +42,12 @@ const Color redColor = AppColors.marketDown;
 
 final selectedNetworkTypeProvider = StateProvider<String>((ref) => "Bitcoin Network");
 
-/// Navigation-only pill. Holds the four destination tabs that drive
-/// repeated product exposure (every session, every screen a user returns
-/// from): Home / Stocks / Predictions / Cash In. Money actions (Send /
-/// Receive / Convert / Pay Link) live on the home card stack, so the nav
-/// never competes with transactional intent.
+/// Navigation-only pill. Holds the destination tabs that drive repeated
+/// product exposure (every session, every screen a user returns from):
+/// Bitcoin | Investments for the spending account, the wallet | Investing
+/// | Predictions for a Ledger. Money actions (Send / Receive / Convert /
+/// Pay Link) live on the home card stack, so the nav never competes with
+/// transactional intent.
 class FloatingActionPill extends ConsumerStatefulWidget {
   final ActiveNavTab activeTab;
 
@@ -205,14 +202,11 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
     final List<ServiceTabData> tabs = [
       if (shellWallet == null)
         ServiceTabData(
-          svgAsset: kuteDogAsset(context),
-          // Selected, Sal holds a bitcoin and tosses it now and then;
-          // otherwise the plain dog.
-          glyph: widget.activeTab == ActiveNavTab.home
-              ? KuteDogBitcoin(
-                  key: const ValueKey('bitcoin-tab-sal'), size: 24.sp)
-              : null,
-          icon: Icons.home_rounded,
+          // The four tabs share one icon family at one weight: Bitcoin,
+          // dollars, a rising trend for Investing and a ring for the
+          // chance of an outcome in Predictions (user decision 2026-10-12,
+          // replacing the mascot and the venue logos).
+          icon: Icons.currency_bitcoin_rounded,
           // The first tab is named for what it holds, the same way a
           // Ledger's first tab is. "Home" said where you were, not what
           // account you were looking at.
@@ -241,17 +235,14 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
             }
           },
         ),
-      // USD — the spending account's dollar balance and its activity,
-      // in the slot the Bank tab used to hold. Dropped for a wallet that
-      // has no dollars of its own (Bitcoin-only, watch-only, tracked,
-      // signer) and for a Ledger, which brings its own venues instead.
+      // USD — the spending account's Investments: its dollars and, as
+      // pills inside, Investing, Predictions, Portfolio and Earn (one
+      // balance, October 2026). In the slot the Bank tab used to hold.
+      // Dropped for a wallet that has no dollars of its own (Bitcoin-only,
+      // watch-only, tracked, signer) and for a Ledger, which brings its
+      // own venues instead.
       if (shellShowsUsdTab(owner))
         ServiceTabData(
-          // The dollar mark in the strip, the way every other tab there
-          // carries its own. The hero inside the screen still uses a
-          // typographic dollar sign, matching how amounts read
-          // elsewhere (user decision September 2026).
-          svgAsset: kUsdMarkAsset,
           icon: Icons.attach_money_rounded,
           label: context.l10n.usdAccountTab,
           active: widget.activeTab == ActiveNavTab.usd,
@@ -262,34 +253,33 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
       // Earn tab removed too (user decision): Earn is a pushed detail
       // screen off the Home Earn card now, not a shell branch.
       // Trading (Hyperliquid) sits BEFORE Predictions in the strip.
-      // Both are dropped when the first tab holds a wallet that has no
-      // venues of its own: a Bitcoin wallet, a watch-only wallet, an
-      // imported address or a signer. Leaving them in made those wallets
-      // show the spending account's positions, which is not their money.
+      // Only a LEDGER gets them as tabs: the spending account's venues
+      // are pills of its Investments tab, and a Bitcoin wallet, a
+      // watch-only wallet, an imported address or a signer has none.
       // A Ledger's own Investing and Predictions are each drawn only
       // while that Ledger venue is on (its runtime capability): absent
       // otherwise, never a disabled chip.
-      if (shellShowsTradingTab(owner, policy: policy))
+      if (shellDrawsTradingTab(owner, policy: policy))
         ServiceTabData(
-          svgAsset: 'lib/assets/hyperliquid-logo.svg',
-          icon: Icons.candlestick_chart_rounded,
+          icon: Icons.trending_up_rounded,
           label: context.l10n.trading,
           active: widget.activeTab == ActiveNavTab.trading,
           onTap: () => _handleTrading(context),
         ),
-      if (shellShowsPredictionsTab(owner, policy: policy))
+      if (shellDrawsPredictionsTab(owner, policy: policy))
         ServiceTabData(
-          svgAsset: 'lib/assets/polymarket-logo.svg',
-          icon: Icons.psychology_rounded,
+          icon: Icons.donut_large_rounded,
           label: context.l10n.predictions,
           active: widget.activeTab == ActiveNavTab.predictions,
           onTap: () => _handlePredictions(context),
         ),
     ];
 
-    // Shared strip (lib/screens/shared/service_tab_strip.dart): same
-    // visuals, slide and reduced-motion handling as before the extraction.
-    return ServiceTabStrip(tabs: tabs);
+    // Shared strip (lib/screens/shared/service_tab_strip.dart). The
+    // spending account's two tabs, Bitcoin and Investments, are drawn
+    // plain: both labelled, equal width, no slide (user decision
+    // 2026-10-12). A Ledger's three keep the sliding pill.
+    return ServiceTabStrip(tabs: tabs, plain: tabs.length <= 2);
   }
 }
 

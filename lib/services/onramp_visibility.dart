@@ -49,3 +49,16 @@ bool onrampVisible(RuntimeCapabilitiesService policy, String id) {
 bool anyOnrampVisible(RuntimeCapabilitiesService policy) =>
     onrampVisible(policy, kOnrampCashApp) ||
     onrampVisible(policy, kOnrampBank);
+
+/// [anyOnrampVisible] at a Buy door's tap: when no onramp is on offer the
+/// policy is asked again first ([confirmCapability]), so a refusal from
+/// an older network or minute never says "Buy unavailable" for a rail
+/// that is open now.
+Future<bool> confirmAnyOnrampVisible(RuntimeCapabilitiesService policy) async {
+  if (anyOnrampVisible(policy)) return true;
+  for (final id in const [kOnrampCashApp, kOnrampBank]) {
+    final decision = await confirmCapability(policy, id);
+    if (decision.allowed && !decision.comingSoon) return true;
+  }
+  return false;
+}

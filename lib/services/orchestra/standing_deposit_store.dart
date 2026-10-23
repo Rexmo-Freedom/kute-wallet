@@ -1,12 +1,18 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/models/orchestra_model.dart' show disclosedKuteFeeBps;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraReceiveAddressCapabilities;
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/security/address_guard.dart';
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/venue_owner_link_service.dart'
+    show VenueOwnerLinkService;
 
 /// References and immutable terms are persisted before registration. Flashnet
 /// has no reference-list endpoint; forgetting an old ref loses deposit
@@ -20,9 +26,15 @@ class StandingDepositRecord {
       required this.recipient,
       required this.asset,
       required this.revision,
+      this.chain = 'spark',
       this.response = const {},
       this.refunds = const {}});
   final String walletId, label, recipient, asset;
+
+  /// The destination's chain: `spark` for every Receive address and the
+  /// Investing withdrawals home, `polygon` for an Investing → Predictions
+  /// instruction. Additive: older records read back as `spark`.
+  final String chain;
   final int revision;
   final Map<String, dynamic> response, refunds;
   bool get enabled => response['enabled'] == true;
@@ -38,6 +50,7 @@ class StandingDepositRecord {
         'recipient': recipient,
         'asset': asset,
         'revision': revision,
+        if (chain != 'spark') 'chain': chain,
         'response': response,
         'refunds': refunds
       };
@@ -48,6 +61,7 @@ class StandingDepositRecord {
           recipient: v['recipient'] as String,
           asset: v['asset'] as String,
           revision: v['revision'] as int,
+          chain: v['chain'] as String? ?? 'spark',
           response: Map<String, dynamic>.from(v['response'] as Map),
           refunds: Map<String, dynamic>.from(v['refunds'] as Map? ?? {}));
   StandingDepositRecord copy(
@@ -58,8 +72,76 @@ class StandingDepositRecord {
           recipient: recipient,
           asset: asset,
           revision: revision,
+          chain: chain,
           response: response ?? this.response,
           refunds: refunds ?? this.refunds);
+}
+
+/// Kute's backend did not pin the venue-withdrawal fee on the
+/// Investing-withdrawal instruction, so nothing may be sent to it.
+class InvestingWithdrawalTermsUnavailable implements Exception {
+  const InvestingWithdrawalTermsUnavailable();
+
+  @override
+  String toString() => 'Investing withdrawal terms unavailable';
+}
+
+/// Where an Investing withdrawal by CCTP lands, and the fee rules Kute's
+/// backend may pin on its instruction (`kuteRoute: investing_withdrawal`):
+/// `venue_withdrawal` home to Spark, `investments_internal` (0 bps) for a
+/// move between the wallet's own linked venue accounts. Polygon USDC.e for
+/// Predictions: the asset the Polymarket deposit path already takes
+/// (Dollars → Predictions lands USDC.e and wraps it).
+enum InvestingWithdrawalDestination {
+  dollars('spark', 'USDB',
+      {kVenueWithdrawalFeePurpose, kInvestmentsInternalFeePurpose}),
+  bitcoin('spark', 'BTC',
+      {kVenueWithdrawalFeePurpose, kInvestmentsInternalFeePurpose}),
+  predictions('polygon', 'USDC.e',
+      {kInvestmentsInternalFeePurpose, kVenueWithdrawalFeePurpose});
+
+  const InvestingWithdrawalDestination(
+      this.chain, this.asset, this.feePurposes);
+
+  final String chain;
+  final String asset;
+
+  /// The `kuteFeePolicy.purpose` values the instruction may carry; any
+  /// other rule and nothing is sent to it.
+  final Set<String> feePurposes;
+
+  /// `chain:ASSET`, as the backend keys it.
+  String get key => '$chain:$asset';
+
+  /// What the label hashes: the asset alone for the Spark destinations
+  /// (Dollars keeps the label it always had), chain and asset otherwise.
+  String get labelKey => chain == 'spark' ? asset : key;
+}
+
+/// The rule Kute's backend pins on money leaving a venue.
+const String kVenueWithdrawalFeePurpose = 'venue_withdrawal';
+
+/// The rule for a move between the wallet's own linked venue accounts
+/// (0 bps), Investing → Predictions among them.
+const String kInvestmentsInternalFeePurpose = 'investments_internal';
+
+/// The policy revision a standing registration was labelled with was
+/// missing, or was not the revision Kute's backend pinned on it: a race
+/// with the policy fetch, cleared by fetching the policy again.
+class StandingTermsRace implements Exception {
+  const StandingTermsRace(this.reason, this.message, this.revision);
+
+  /// `terms_unavailable` or `terms_changed`, for analytics.
+  final String reason;
+
+  /// The sentence shown when the race does not clear.
+  final String message;
+
+  /// The revision the label carried, or null when there was none.
+  final int? revision;
+
+  @override
+  String toString() => message;
 }
 
 class StandingDepositScope {
@@ -199,6 +281,7 @@ abstract final class StandingDepositStore {
 
   static Future<void> clear() {
     _generation++;
+    _destinations = null;
     return _mutate(() async {
       if (_opening != null) await _opening;
       await Hive.deleteBoxFromDisk(boxName);
@@ -210,12 +293,76 @@ abstract final class StandingDepositStore {
   static String labelFor(String recipient, String asset, int revision) =>
       's${sha256.convert(utf8.encode('spark|$asset|$recipient|$revision|50')).toString().substring(0, 30)}';
 
-  /// Funding restrictions documented separately from general swap routes.
+  /// Funding restrictions documented separately from general swap routes
+  /// (https://docs.flashnet.xyz/orchestra/deposit-addresses: Bitcoin, EVM
+  /// chains, Solana, and Tron for USDT only). HyperCore is an EVM address
+  /// family but never a deposit source the app asks for; see
+  /// [ReceiveRouteAvailability.isHyperCoreSource].
   static bool supportsSource(String chain, String asset) =>
-      kEvmAddressChains.contains(chain) ||
-      chain == 'solana' ||
-      chain == 'bitcoin' ||
-      (chain == 'tron' && asset.toUpperCase() == 'USDT');
+      !ReceiveRouteAvailability.isHyperCoreSource(chain) &&
+      (kEvmAddressChains.contains(chain) ||
+          chain == 'solana' ||
+          chain == 'bitcoin' ||
+          (chain == 'tron' && asset.toUpperCase() == 'USDT'));
+
+  /// The provider's standing destination pairs ('chain:ASSET'), read at
+  /// most every [_destinationsMaxAge]. The receive pickers ask this before
+  /// they list a coin, and the answer changes by support request, not by
+  /// the minute.
+  static ({DateTime at, Set<String> pairs})? _destinations;
+  static const Duration _destinationsMaxAge = Duration(minutes: 15);
+
+  /// Forgets the memoised destination list (tests).
+  @visibleForTesting
+  static void forgetDestinations() => _destinations = null;
+
+  /// Starts the write queue afresh (widget tests: a queue left from an
+  /// earlier test's fake clock would never run again).
+  @visibleForTesting
+  static void debugResetQueue() {
+    _tail = Future.value();
+    _opening = null;
+  }
+
+  /// The memoised destination pairs while still fresh, without asking:
+  /// null when they were not read in the last [_destinationsMaxAge].
+  static Set<String>? get cachedDestinations {
+    final cached = _destinations;
+    if (cached == null ||
+        DateTime.now().difference(cached.at) > _destinationsMaxAge) {
+      return null;
+    }
+    return cached.pairs;
+  }
+
+  /// The provider's standing destination pairs ('chain:ASSET'). Null when
+  /// the answer is malformed (not memoised).
+  static Future<Set<String>?> destinations(bool Function() current) async {
+    final cached = _destinations;
+    if (cached != null &&
+        DateTime.now().difference(cached.at) <= _destinationsMaxAge) {
+      return cached.pairs;
+    }
+    final destinations =
+        await standingRequest(operation: 'destinations', current: current);
+    final rows = destinations['destinations'];
+    if (rows is! List) return null;
+    final pairs = <String>{
+      for (final v in rows)
+        if (v is Map && v['chain'] is String && v['asset'] is String)
+          '${v['chain']}:${v['asset']}',
+    };
+    _destinations = (at: DateTime.now(), pairs: pairs);
+    return pairs;
+  }
+
+  /// Whether the provider lists spark:[destinationAsset] as a standing
+  /// destination. A malformed answer is false and not memoised.
+  static Future<bool> destinationSupported(
+      String destinationAsset, bool Function() current) async {
+    final pairs = await destinations(current);
+    return pairs != null && pairs.contains('spark:$destinationAsset');
+  }
 
   /// Runs one standing-address operation. Injectable so registration,
   /// reuse, restore and the deposit listing can be exercised without the
@@ -287,7 +434,16 @@ abstract final class StandingDepositStore {
         continue;
       }
       String? owner = ownRecipients
-          .where((own) => labelFor(own, asset, revision) == label)
+          .where((own) =>
+              labelFor(own, asset, revision) == label ||
+              investingWithdrawalLabelFor(own, revision,
+                      destination: asset == 'BTC'
+                          ? InvestingWithdrawalDestination.bitcoin
+                          : InvestingWithdrawalDestination.dollars) ==
+                  label ||
+              (asset == 'USDB' &&
+                  investingWithdrawalLabelFor(own, revision, legacy: true) ==
+                      label))
           .firstOrNull;
       final state = await standingRequest(
           operation: 'read', label: label, current: valid);
@@ -339,6 +495,9 @@ abstract final class StandingDepositStore {
   }) async {
     final candidates = (await records(walletId))
         .where((r) =>
+            // The Investing-withdrawal instruction carries the withdrawal
+            // fee terms: it is never the address Receive shows.
+            !isInvestingWithdrawalLabel(r.label) &&
             r.asset == destinationAsset &&
             sameSparkAddress(r.recipient, recipient) &&
             r.response['standingAddressId'] is String)
@@ -380,8 +539,8 @@ abstract final class StandingDepositStore {
   /// into [destinationAsset]. An instruction this wallet already holds
   /// (locally, or registered by another install and listed by the
   /// backend) is reused; a new one is registered only when none is
-  /// usable. Null when the provider offers no standing address here and
-  /// the caller should use the legacy rail.
+  /// usable. Null when the provider offers no standing address here: the
+  /// receive then has none to show (there is no legacy rail).
   static Future<StandingDepositRecord?> register(
       {required String walletId,
       required String recipient,
@@ -392,8 +551,10 @@ abstract final class StandingDepositStore {
     if (!supportsSource(sourceChain, sourceAsset)) return null;
     final scope = capture(walletId);
     bool valid() => current(scope) && wanted();
+    // Every Receive address pays the dollar balance (the Bitcoin receive
+    // takes other coins through the Dollars receive): spark:USDB only.
     if (!isSparkAddress(recipient, mainnet: true) ||
-        !{'BTC', 'USDB'}.contains(destinationAsset)) {
+        destinationAsset != 'USDB') {
       throw StateError('Invalid receiving wallet');
     }
     // Showing an address is a new-deposit entrypoint whether it is reused
@@ -404,6 +565,12 @@ abstract final class StandingDepositStore {
             sourceAsset: sourceAsset,
             destinationAsset: destinationAsset));
     if (!valid()) throw StateError('Wallet changed');
+    void reused() =>
+        TrackingService.track('reusable_deposit_address_reused', params: {
+          'source_chain': sourceChain,
+          'source_asset': sourceAsset,
+          'model': 'standing',
+        });
     final held = await _reusable(
         walletId: walletId,
         recipient: recipient,
@@ -411,7 +578,15 @@ abstract final class StandingDepositStore {
         sourceChain: sourceChain,
         scope: scope,
         valid: valid);
-    if (held != null) return held;
+    if (held != null) {
+      reused();
+      return held;
+    }
+    // A destination the provider has no standing address for is answered
+    // from the memoised list before any recovery read: one request per
+    // quarter hour rather than two per pick.
+    if (!await destinationSupported(destinationAsset, valid)) return null;
+    if (!valid()) throw StateError('Wallet changed');
     // Another install may have registered one. Recover those first, both
     // to reuse them and so their held deposits stay visible; a failed
     // recovery read must not stop registration, which replays
@@ -427,18 +602,85 @@ abstract final class StandingDepositStore {
         sourceChain: sourceChain,
         scope: scope,
         valid: valid);
-    if (recovered != null) return recovered;
+    if (recovered != null) {
+      reused();
+      return recovered;
+    }
+    // The label carries the policy revision the app holds, and the
+    // backend pins its own current revision on the registration. The two
+    // part on a first use: the session policy has not landed yet (null),
+    // or the fetch the capability check just made did not land and the
+    // revision held is an older one. Both clear on a fresh policy, so the
+    // policy is asked again and the registration made once more instead
+    // of showing an error. A refusal (4xx, the policy's own switch) is
+    // never retried; neither is a second failure.
+    var retried = false;
+    while (true) {
+      try {
+        return await _registerNew(
+            walletId: walletId,
+            recipient: recipient,
+            destinationAsset: destinationAsset,
+            sourceChain: sourceChain,
+            sourceAsset: sourceAsset,
+            scope: scope,
+            valid: valid);
+      } on StandingTermsRace catch (race) {
+        if (retried) throw StateError(race.message);
+        retried = true;
+        _trackRetry(race.reason, sourceChain, sourceAsset, destinationAsset);
+        await RuntimeCapabilitiesService.instance.refresh(fresh: true);
+        if (!valid()) throw StateError('Wallet changed');
+        final now = RuntimeCapabilitiesService.instance.snapshot?.revision;
+        // The same revision would replay the same pinned terms: nothing a
+        // second request could change.
+        if (now == null || now == race.revision) {
+          throw StateError(race.message);
+        }
+      } on StandingRequestException catch (e) {
+        // An outage between Kute's backend and the provider (or the
+        // backend's registry write) answers 5xx; the PUT replays upstream
+        // under the same idempotency key, so one more costs nothing.
+        if (retried || !retryableRegisterStatus(e.status)) rethrow;
+        retried = true;
+        _trackRetry(
+            'provider_unavailable', sourceChain, sourceAsset, destinationAsset);
+        if (!valid()) throw StateError('Wallet changed');
+      }
+    }
+  }
+
+  /// Statuses a standing registration retries once: the backend or the
+  /// provider was unavailable, never a refusal of the request.
+  static bool retryableRegisterStatus(int status) =>
+      status == 502 || status == 503 || status == 504;
+
+  static void _trackRetry(String reason, String sourceChain, String sourceAsset,
+          String destinationAsset) =>
+      TrackingService.track('reusable_deposit_address_retried', params: {
+        'reason': reason,
+        'source_chain': sourceChain,
+        'source_asset': sourceAsset,
+        'destination_asset': destinationAsset,
+        'model': 'standing',
+      });
+
+  /// One registration of a new instruction under the policy revision the
+  /// app holds now. Throws [StandingTermsRace] when that revision is
+  /// missing or is not the one the backend pinned.
+  static Future<StandingDepositRecord?> _registerNew({
+    required String walletId,
+    required String recipient,
+    required String destinationAsset,
+    required String sourceChain,
+    required String sourceAsset,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
     final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
-    if (revision == null) throw StateError('Deposit terms unavailable');
-    final destinations =
-        await standingRequest(operation: 'destinations', current: valid);
-    final rows = destinations['destinations'];
-    if (rows is! List ||
-        !rows.any((v) =>
-            v is Map &&
-            v['chain'] == 'spark' &&
-            v['asset'] == destinationAsset)) {
-      return null;
+    if (revision == null) {
+      throw const StandingTermsRace(
+          'terms_unavailable', 'Deposit terms unavailable', null);
     }
     final label = labelFor(recipient, destinationAsset, revision);
     final existing = await records(walletId);
@@ -466,12 +708,15 @@ abstract final class StandingDepositStore {
           'slippageBps': 50
         });
     final policy = response['kuteFeePolicy'];
-    if (policy is! Map ||
-        policy['revision'] != revision ||
-        response['standingAddressId'] is! String ||
+    if (response['standingAddressId'] is! String ||
         response['enabled'] is! bool ||
-        response['addresses'] is! Map) {
+        response['addresses'] is! Map ||
+        policy is! Map) {
       throw StateError('Deposit terms changed');
+    }
+    if (policy['revision'] != revision) {
+      throw StandingTermsRace(
+          'terms_changed', 'Deposit terms changed', revision);
     }
     final updated = record.copy(response: response);
     await saveResponse(record, response, scope);
@@ -482,6 +727,343 @@ abstract final class StandingDepositStore {
     if (formatMatchesChain(sourceChain, address, mainnet: true) !=
         AddressFormatMatch.ok) {
       throw StateError('Invalid deposit address');
+    }
+    TrackingService.track('reusable_deposit_address_created', params: {
+      'source_chain': sourceChain,
+      'source_asset': sourceAsset,
+      'destination_asset': destinationAsset,
+      'model': 'standing',
+    });
+    return updated;
+  }
+
+  // ───────────────── Investing withdrawals by CCTP ─────────────────
+
+  /// Money leaves Investing by Circle CCTP out of HyperCore: Arbitrum USDC
+  /// lands on a standing address of the wallet's own, which Orchestra
+  /// converts to the destination. Each destination
+  /// ([InvestingWithdrawalDestination]: Dollars, Bitcoin, Predictions)
+  /// has its own instruction, registered with
+  /// `kuteRoute: investing_withdrawal` so Kute's backend pins the
+  /// destination's rule (`venue_withdrawal` home to Spark,
+  /// `predictions_deposit` to the Polymarket deposit wallet) instead of
+  /// the plain deposit one. The fee plan is frozen at creation, so these
+  /// instructions are never shared with a Receive address and are only
+  /// used once their stored terms carry the destination's purpose. A
+  /// label never serves another destination (the backend answers 409).
+  ///
+  /// Dollars has a second scheme ([legacy] false, the default): the
+  /// backend keeps a label's first pin for life, and the first Dollars
+  /// labels were all pinned `venue_withdrawal` before it could pin a move
+  /// home to the wallet's own Spark address as `investments_internal`.
+  /// A new label is the only way to the new rule. [legacy] is the old
+  /// Dollars label, kept for history and as a fallback only.
+  static String investingWithdrawalLabelFor(String recipient, int revision,
+          {InvestingWithdrawalDestination destination =
+              InvestingWithdrawalDestination.dollars,
+          bool legacy = false}) =>
+      'w${sha256.convert(utf8.encode('investing_withdrawal|${destination.labelKey}|$recipient|$revision|50${destination == InvestingWithdrawalDestination.dollars && !legacy ? '|internal' : ''}')).toString().substring(0, 30)}';
+
+  /// Whether [record] is a Dollars Investing-withdrawal instruction of the
+  /// current label scheme (see [investingWithdrawalLabelFor]), for its own
+  /// recipient or for [recipient]. Anything else on Dollars is legacy.
+  static bool _currentDollarsLabel(
+          StandingDepositRecord record, String recipient) =>
+      record.label ==
+          investingWithdrawalLabelFor(record.recipient, record.revision) ||
+      record.label == investingWithdrawalLabelFor(recipient, record.revision);
+
+  /// Whether [record]'s stored terms carry a rule [destination] accepts.
+  static bool _verifiedTerms(StandingDepositRecord record,
+      InvestingWithdrawalDestination destination) {
+    final policy = record.response['kuteFeePolicy'];
+    return policy is Map && destination.feePurposes.contains(policy['purpose']);
+  }
+
+  /// The Kute fee an Investing-withdrawal instruction charges on what
+  /// arrives, for the withdrawal's fee line: the frozen terms' disclosed
+  /// rate ([StandingDepositRecord.kuteFeeBps]), or 0 when the instruction
+  /// is pinned as a move inside Investments (`investments_internal`) at no
+  /// rate. Null when the terms state neither.
+  static int? investingWithdrawalKuteFeeBps(StandingDepositRecord record) {
+    final disclosed = record.kuteFeeBps;
+    if (disclosed != null) return disclosed;
+    final policy = record.response['kuteFeePolicy'];
+    if (policy is Map &&
+        policy['providerDefault'] != true &&
+        policy['purpose'] == kInvestmentsInternalFeePurpose) {
+      return 0;
+    }
+    return null;
+  }
+
+  static bool isInvestingWithdrawalLabel(String label) =>
+      label.length == 31 && label.startsWith('w');
+
+  /// The backend fee purpose an Investing-withdrawal instruction home
+  /// carries (see [InvestingWithdrawalDestination.feePurposes] for every
+  /// rule a destination accepts).
+  static const String investingWithdrawalFeePurpose =
+      kVenueWithdrawalFeePurpose;
+
+  /// Whether the backend knows the Polymarket wallet [address] is this
+  /// user's (`VenueOwnerLinkService`). Injectable for tests.
+  static Future<bool> Function(String address) polymarketLinked =
+      VenueOwnerLinkService.isPolymarketLinked;
+
+  static bool _sameRecipient(String chain, String a, String b) =>
+      chain == 'spark' ? sameSparkAddress(a, b) : sameEvmAddress(a, b);
+
+  static bool _validRecipient(String chain, String address) => chain == 'spark'
+      ? isSparkAddress(address, mainnet: true)
+      : isEvmAddress(address);
+
+  /// Whether [record] is an Investing-withdrawal instruction to
+  /// [destination] this wallet may send to: its label, own [recipient],
+  /// the destination's chain and asset, enabled, a valid Arbitrum
+  /// address, and Kute's fee rule for the destination pinned.
+  static String? investingWithdrawalAddress(
+      StandingDepositRecord record, String recipient,
+      {InvestingWithdrawalDestination destination =
+          InvestingWithdrawalDestination.dollars}) {
+    final policy = record.response['kuteFeePolicy'];
+    final address = record.addressFor('arbitrum');
+    if (!isInvestingWithdrawalLabel(record.label) ||
+        record.chain != destination.chain ||
+        record.asset != destination.asset ||
+        !_sameRecipient(destination.chain, record.recipient, recipient) ||
+        record.response['standingAddressId'] is! String ||
+        !record.enabled ||
+        policy is! Map ||
+        !destination.feePurposes.contains(policy['purpose']) ||
+        address == null ||
+        formatMatchesChain('arbitrum', address, mainnet: true) !=
+            AddressFormatMatch.ok) {
+      return null;
+    }
+    return address;
+  }
+
+  /// The Investing-withdrawal instruction to [destination] for
+  /// [recipient] (the wallet's own Spark address, or its own Polymarket
+  /// deposit wallet for Predictions), reused when this wallet already
+  /// holds one with verified terms, registered through Kute's backend
+  /// otherwise. [refundAddress] is the wallet's own EVM address, where
+  /// Orchestra returns a generated order's refund on Arbitrum. Throws
+  /// [InvestingWithdrawalTermsUnavailable] when the backend does not pin
+  /// the destination's fee rule: an older backend refuses `kuteRoute`
+  /// (400), a gate is shut (403), the label is taken (409), the terms
+  /// cannot be met (422, 503), or, for any destination but Dollars, any
+  /// other refusal of the backend or the provider. Nothing is sent then.
+  ///
+  /// Dollars registers its current-scheme label lazily, on the first
+  /// withdrawal that needs it (`investments_internal` from a backend that
+  /// verifies the own Spark address, `venue_withdrawal` from an older
+  /// one; both accepted). If that registration fails, a legacy Dollars
+  /// instruction this wallet already holds is used instead, unless a
+  /// current-scheme one has ever had verified terms. One instruction per
+  /// call: the withdrawal pays exactly the one returned.
+  static Future<StandingDepositRecord> investingWithdrawalInstruction({
+    required String walletId,
+    required String recipient,
+    required String refundAddress,
+    required bool Function() wanted,
+    InvestingWithdrawalDestination destination =
+        InvestingWithdrawalDestination.dollars,
+  }) async {
+    final scope = capture(walletId);
+    bool valid() => current(scope) && wanted();
+    final home = destination == InvestingWithdrawalDestination.dollars;
+    if (!_validRecipient(destination.chain, recipient) ||
+        !isEvmAddress(refundAddress)) {
+      throw StateError('Invalid receiving wallet');
+    }
+    final held = (await records(walletId))
+        .where((r) =>
+            isInvestingWithdrawalLabel(r.label) &&
+            r.chain == destination.chain &&
+            r.asset == destination.asset &&
+            _sameRecipient(destination.chain, r.recipient, recipient))
+        .toList()
+      ..sort((a, b) => b.revision.compareTo(a.revision));
+    // Dollars: the current label scheme first; a legacy label (pinned
+    // `venue_withdrawal` for life) only when the new one cannot be had.
+    final scheme = home
+        ? held.where((r) => _currentDollarsLabel(r, recipient)).toList()
+        : held;
+    final legacy = home
+        ? held.where((r) => !_currentDollarsLabel(r, recipient)).toList()
+        : const <StandingDepositRecord>[];
+    final reused = await _usableInvestingWithdrawal(scheme,
+        recipient: recipient,
+        destination: destination,
+        scope: scope,
+        valid: valid);
+    if (reused != null) return reused;
+    if (!valid()) throw StateError('Wallet changed');
+    try {
+      return await _registerInvestingWithdrawal(
+          walletId: walletId,
+          recipient: recipient,
+          refundAddress: refundAddress,
+          destination: destination,
+          held: held,
+          scope: scope,
+          valid: valid);
+    } catch (e, stack) {
+      // A legacy Dollars instruction still works (at its frozen rate): a
+      // withdrawal is not failed for want of the new label. Never once a
+      // current-scheme instruction has verified terms: from then on the
+      // legacy one is history only.
+      if (!home ||
+          legacy.isEmpty ||
+          !valid() ||
+          scheme.any((r) => _verifiedTerms(r, destination))) {
+        rethrow;
+      }
+      StandingDepositRecord? fallback;
+      try {
+        fallback = await _usableInvestingWithdrawal(legacy,
+            recipient: recipient,
+            destination: destination,
+            scope: scope,
+            valid: valid);
+      } catch (_) {
+        // The registration's own failure is the one to report.
+      }
+      if (fallback == null || !valid()) Error.throwWithStackTrace(e, stack);
+      return fallback;
+    }
+  }
+
+  /// The first of [candidates] (newest first) the provider still holds,
+  /// enabled, with verified terms for [destination], read (never
+  /// re-registered), or null.
+  static Future<StandingDepositRecord?> _usableInvestingWithdrawal(
+    List<StandingDepositRecord> candidates, {
+    required String recipient,
+    required InvestingWithdrawalDestination destination,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
+    final home = destination == InvestingWithdrawalDestination.dollars;
+    for (final record in candidates) {
+      if (!valid()) throw StateError('Wallet changed');
+      final Map<String, dynamic> state;
+      try {
+        state = await standingRequest(
+            operation: 'read', label: record.label, current: valid);
+      } on StandingRequestException catch (e) {
+        if (e.status == 404) continue;
+        if (!home) throw const InvestingWithdrawalTermsUnavailable();
+        rethrow;
+      }
+      if (state['standingAddressId'] is! String ||
+          state['enabled'] is! bool ||
+          state['addresses'] is! Map) {
+        continue;
+      }
+      // A read answers without the instruction; the fee terms are the
+      // ones the registration stored.
+      final response = {...record.response, ...state};
+      await saveResponse(record, response, scope);
+      final updated = record.copy(response: response);
+      if (investingWithdrawalAddress(updated, recipient,
+              destination: destination) !=
+          null) {
+        return updated;
+      }
+    }
+    return null;
+  }
+
+  /// Registers the current-scheme instruction to [destination] (see
+  /// [investingWithdrawalInstruction] for what a refusal means). Its own
+  /// label, so its own idempotency key: a key never spans two labels.
+  static Future<StandingDepositRecord> _registerInvestingWithdrawal({
+    required String walletId,
+    required String recipient,
+    required String refundAddress,
+    required InvestingWithdrawalDestination destination,
+    required List<StandingDepositRecord> held,
+    required StandingDepositScope scope,
+    required bool Function() valid,
+  }) async {
+    final home = destination == InvestingWithdrawalDestination.dollars;
+    // Predictions is the wallet's own venue only once the backend knows
+    // the Polymarket wallet is this user's (the venue-owner link): only
+    // then is the instruction registered, so its terms are the internal
+    // move's. Until then the money goes through Dollars.
+    if (destination.chain == 'polygon' && !await polymarketLinked(recipient)) {
+      throw const InvestingWithdrawalTermsUnavailable();
+    }
+    if (!valid()) throw StateError('Wallet changed');
+    final revision = RuntimeCapabilitiesService.instance.snapshot?.revision;
+    if (revision == null) throw const InvestingWithdrawalTermsUnavailable();
+    final label = investingWithdrawalLabelFor(recipient, revision,
+        destination: destination);
+    final record = held.where((r) => r.label == label).firstOrNull ??
+        StandingDepositRecord(
+            walletId: walletId,
+            label: label,
+            recipient: recipient,
+            asset: destination.asset,
+            chain: destination.chain,
+            revision: revision);
+    await ensureRecord(record, scope);
+    final Map<String, dynamic> response;
+    try {
+      response = await standingRequest(
+          operation: 'register',
+          label: label,
+          current: valid,
+          // A linked registration never shares a key with an unlinked one
+          // (the backend answers 409).
+          idempotencyKey: destination.chain == 'polygon'
+              ? 'register-$label-linked'
+              : 'register-$label',
+          body: {
+            'destination': {
+              'chain': destination.chain,
+              'asset': destination.asset,
+              'address': home || destination.chain == 'spark'
+                  ? recipient
+                  : recipient.toLowerCase()
+            },
+            'slippageBps': 50,
+            'refundAddresses': {'arbitrum': refundAddress.toLowerCase()},
+            'kuteRoute': 'investing_withdrawal',
+          });
+    } on StandingRequestException catch (e) {
+      // 400 (a backend that does not know `kuteRoute`, or this
+      // destination for it), 403 (a gate the destination answers to is
+      // shut), 409 (terms or destination conflict), 422 and 503 (fee
+      // configuration unavailable) all mean the destination's fee cannot
+      // be guaranteed. Past Dollars any refusal is one: the caller goes
+      // through Dollars instead.
+      if (!home || const {400, 403, 409, 422, 503}.contains(e.status)) {
+        throw const InvestingWithdrawalTermsUnavailable();
+      }
+      rethrow;
+    } on StateError {
+      rethrow;
+    } catch (_) {
+      if (home) rethrow;
+      throw const InvestingWithdrawalTermsUnavailable();
+    }
+    final policy = response['kuteFeePolicy'];
+    if (policy is! Map ||
+        policy['revision'] != revision ||
+        !destination.feePurposes.contains(policy['purpose'])) {
+      throw const InvestingWithdrawalTermsUnavailable();
+    }
+    final updated = record.copy(response: response);
+    await saveResponse(record, response, scope);
+    if (!valid()) throw StateError('Wallet changed');
+    if (investingWithdrawalAddress(updated, recipient,
+            destination: destination) ==
+        null) {
+      throw const InvestingWithdrawalTermsUnavailable();
     }
     return updated;
   }

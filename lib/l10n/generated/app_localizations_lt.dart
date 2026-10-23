@@ -675,9 +675,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get expires => 'Galioja iki';
 
   @override
-  String get enterRefundAddress => 'Įveskite grąžinimo adresą';
-
-  @override
   String get description => 'Aprašymas';
 
   @override
@@ -1197,34 +1194,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get totalFee => 'Bendras mokestis';
 
   @override
-  String get usdEarnTitle => 'Uždarbis';
-
-  @override
-  String get usdEarnRate => 'Naujausia metinė norma';
-
-  @override
-  String get usdEarnNextPayment => 'Kitas mokėjimas';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Mokėjimas po';
-
-  @override
-  String get usdEarnRatePending => 'Įkeliama';
-
-  @override
-  String get usdEarnRateUnavailable => 'Šiuo metu negalima';
-
-  @override
-  String get usdEarnPaidToDate => 'Jums iki šiol išmokėta';
-
-  @override
-  String get usdEarnActivityEmpty => 'Mokėjimų dar nėra';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Mokėjimų istorija šiuo metu negalima';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Prieinama $amount';
   }
@@ -1574,10 +1543,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko nuskaityti kodo. Bandykite dar kartą.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Nepavyko panaudoti iškarpinės turinio. Nukopijuokite adresą arba kodą dar kartą.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Nepavyko importuoti šios piniginės. Bandykite dar kartą.';
 
@@ -1596,9 +1561,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get jadeErrorWrongDevice =>
       'Šis Jade nėra susietas su šia pinigine. Niekas nepasirašyta. Prijunkite susietą Jade arba susiekite šį iš naujo atnaujinę piniginės pagrindinį kontrolinį kodą.';
-
-  @override
-  String get receiveOtherAssets => 'Gauti kitą turtą';
 
   @override
   String get medium => 'Vidutinis';
@@ -1646,10 +1608,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get scanQrCode => 'Skenuoti QR kodą';
 
   @override
-  String get scanAnyQRCodeDescription =>
-      'Nuskaitykite bet kokį QR kodą, o mes pabandysime jį atpažinti.';
-
-  @override
   String get importFile => 'Importuoti failą';
 
   @override
@@ -1695,9 +1653,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Pastaba: ';
 
   @override
   String errorMessage(String err) {
@@ -1893,6 +1848,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Rodyti visą raktą';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark yra greitas sluoksnis virš Bitcoin, kuriame Kute laiko jūsų likutį. Jį valdote tik jūs. Įprasta Bitcoin piniginė iš šių žodžių šio likučio nerodys. Atkurkite juos piniginėje, kuri palaiko Spark, pavyzdžiui, Kute, Wallet of Satoshi arba Breez Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Niekam neatskleiskite šių žodžių. Kas juos turi, gali paimti viską, kas yra šioje piniginėje.';
 
@@ -1966,9 +1925,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get scannerKeepInFrame => 'Laikykite kodą rėmelyje';
-
-  @override
-  String get scannerPointAtCode => 'Nukreipkite kamerą į QR kodą';
 
   @override
   String get trackAddressPasteHint => 'Įklijuokite Bitcoin adresą';
@@ -2071,6 +2027,36 @@ class AppLocalizationsLt extends AppLocalizations {
   String get passkeyChoiceCancelled => 'Sąranka atšaukta. Niekas nesukurta.';
 
   @override
+  String get passkeyBackupSyncing => 'Sinchronizuojama atsarginė kopija…';
+
+  @override
+  String get passkeyFinishBackupTitle =>
+      'Užbaikite atsarginę kopiją su slaptažodžio raktu';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Kad galėtumėte atkurti naujame telefone';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Patvirtinkite savo slaptažodžio raktu, kad šią piniginę būtų galima atkurti naujame telefone.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Nepavyko užbaigti atsarginės kopijos su slaptažodžio raktu. Patikrinkite ryšį ir bandykite dar kartą.';
+
+  @override
+  String get passkeyCreateNewTitle => 'Slaptažodžio raktas nerastas';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nieko nesukurta. Sukurti naują slaptažodžio raktą šiai piniginei naudojant $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Sukurti naują slaptažodžio raktą';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Nepavyko nustatyti $method. Jūsų piniginė sukurta su atkūrimo žodžiais.';
   }
@@ -2131,13 +2117,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Šis maršrutas laikinai negalimas. Bandykite vėliau.';
-
-  @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Šio turto gavimas laikinai negalimas.';
-
-  @override
-  String get clipboardEmpty => 'Iškarpinė tuščia';
 
   @override
   String get pleaseSetUpPINFirst => 'Pirmiausia nustatykite PIN';
@@ -2332,11 +2311,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get receiveBeneficiary => 'Gavėjas';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset $network tinkle';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Nepavyko gauti kurso';
 
   @override
@@ -2346,10 +2320,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Jūsų Prognozių paskyra dar ruošiama. Bandykite vėl po akimirkos.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Lėšos į piniginę ateina kaip Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Prisijungti nepavyko.';
@@ -2685,9 +2655,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Jei jus pakvietė draugas, įveskite jo kodą.';
-
-  @override
-  String get accountEarn => 'Uždarbis';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3559,10 +3526,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Ši moneta ir tinklas įnašams dar negalimi. Pasirinkite kitą.';
 
   @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Kitos monetos negali ateiti į Prognozes. Gaukite jas į išlaidų piniginę, tada perkelkite.';
-
-  @override
   String get activityStables => 'Stabilios';
 
   @override
@@ -3687,7 +3650,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get activityProcessingEllipsis => 'Apdorojama…';
 
   @override
-  String get usdAccountTab => 'Doleriai';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -4077,6 +4040,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get settingsReferralProgram => 'Rekomendacijų programa';
+
+  @override
+  String get hubReferrals => 'Rekomendacijos';
 
   @override
   String get settingsEarnAShareOfFees =>
@@ -4506,8 +4472,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyAwaitingResult => 'Baigėsi · Rezultatas po kelių minučių';
 
   @override
-  String get polyAwaitingWon =>
-      'Laimėjote · Atsiimti galėsite po kelių minučių';
+  String get polyAwaitingWon => 'Laimėjote';
 
   @override
   String get polyAwaitingLost => 'Baigėsi · Pralaimėta';
@@ -4516,7 +4481,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Baigėsi · Laukiama rezultato';
 
   @override
-  String get polyAwaitingWonSoon => 'Laimėjote · Netrukus galėsite atsiimti';
+  String get polyAwaitingWonSoon => 'Laimėjote';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {
@@ -5506,11 +5471,6 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute mokestis $rate · išskaičiuojamas iš gaunamos sumos';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Įskaičiuota jūsų $discount draugo nuolaida.';
   }
@@ -5969,9 +5929,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatRealized => 'Realizuotas pelnas / nuostolis';
 
   @override
-  String get portfolioStatOpen => 'Atviras pelnas / nuostolis';
-
-  @override
   String get portfolioStatAmountPredicted => 'Prognozių suma';
 
   @override
@@ -6080,7 +6037,7 @@ class AppLocalizationsLt extends AppLocalizations {
   String get moveBuyBitcoin => 'Pirkti bitcoin';
 
   @override
-  String get dollarDeposit => 'Dolerių įnašas';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dolerių išėmimas';
@@ -6217,6 +6174,9 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get investingFeeSettingsUnavailable =>
       'Nepavyko patikrinti Investavimo mokesčių nustatymų. Bandykite dar kartą.';
+
+  @override
+  String get investingViewOrders => 'Žiūrėti pavedimus';
 
   @override
   String get investingViewPositions => 'Žiūrėti pozicijas';
@@ -6533,13 +6493,38 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Doleriai';
+
+  @override
+  String get portfolioRebalance => 'Perbalansuoti';
+
+  @override
+  String get portfolioRebalanceMoving => 'Perkeliama į USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Perkeliama į USDB… užtruks kelias minutes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Laikoma atvirų pavedimų';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Paliekama kaip marža atviroms pozicijoms';
+
+  @override
+  String get portfolioRebalanceBelowMinimum =>
+      'Mažiau nei minimali perkėlimo suma';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Dabar nepavyko perkelti. Bakstelėkite Perbalansuoti ir bandykite dar kartą.';
+
+  @override
   String get sendMoreThanAvailable => 'Tai daugiau, nei turite prieinama.';
 
   @override
   String get receiveRequestAmount => 'Prašoma suma';
-
-  @override
-  String get receiveBackToBitcoin => 'Atgal į Bitcoin';
 
   @override
   String get sendRecentRecipients => 'Naujausi';
@@ -6585,10 +6570,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get searchPredictionsHint => 'Ieškoti prognozių';
 
   @override
-  String get assetDollars => 'Doleriai';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Mokėkite dolerių likučiu';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dolerių paskyros adresas';
@@ -6661,10 +6646,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get receiveOneOffNewAddress => 'Gauti naują adresą';
+  String get receiveOneOffLateDepositRepriced =>
+      'Vėliau gautas įnašas gali gauti kitą kainą.';
 
   @override
-  String get receiveOneOffAmountTitle => 'Kokios sumos tikitės?';
+  String get receiveOneOffNewAddress => 'Gauti naują adresą';
 
   @override
   String get usdFlowStepCoin => 'Pasirinkite monetą';
@@ -6699,10 +6685,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get usdReceiveCreating => 'Ruošiamas jūsų adresas.';
 
   @override
-  String get usdReceiveArriving =>
-      'Jūsų doleriai ateis, kai tik mokėjimas bus patvirtintas.';
-
-  @override
   String get receiveAlsoAccepts => 'Taip pat priima';
 
   @override
@@ -6713,9 +6695,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monetos dar įkeliamos. Bandykite vėl po akimirkos.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Jūsų adresas taip pat priima';
 
   @override
   String get receiveAlsoAcceptsSubtitle =>
@@ -6841,46 +6820,14 @@ class AppLocalizationsLt extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Parduodama visa jūsų pozicija';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Punktyrinė linija yra įvertinimas pagal šiandienos normą, ne gauti pinigai.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Atlygis pradedamas mokėti, kai turite $amount. Jis mokamas kasdien bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognozė pagal šiandienos normą';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Pasirinkite, kas pateks į jūsų išlaidų paskyrą.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Į jūsų dolerių likutį';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Vyksta konvertavimas';
-
-  @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Įveskite $asset sumą, kurią siųsite $network tinkle.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Naudokite jūsų valdomą adresą $network tinkle. Jei reikės grąžinimo ir jis palaikomas, lėšos bus grąžintos čia. Gali būti taikomi mokesčiai.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Įveskite tinkamą $network grąžinimo adresą.';
-  }
-
-  @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Prieš šiam adresui nustojant galioti, vienu mokėjimu išsiųskite lygiai $amount.';
-  }
 
   @override
   String get quotedReceiveExpired =>
@@ -6893,10 +6840,21 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Jūsų paskyra pasikeitė. Uždarykite šį ekraną ir pradėkite iš naujo.';
+      'Jūsų paskyra pasikeitė. Uždarykite tai ir pradėkite iš naujo.';
 
   @override
-  String get receiveOneOffUseAddress => 'Naudoti vienkartinį adresą';
+  String get onetimeRefundAddressTitle => 'Grąžinimo adresas';
+
+  @override
+  String get optionalLabel => 'Neprivaloma';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Grąžinama į';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Grąžinta į $address tinkle $network';
+  }
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6930,13 +6888,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Tikrinama informacija…';
-
-  @override
-  String get receiveRequiredMemo => 'Privaloma pastaba / žyma';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pridėkite šią pastabą prie įnašo. Vien adreso nepakanka.';
 
   @override
   String get receiveOwnRefundAddress =>
@@ -7123,6 +7074,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko patikrinti prieinamumo su Kute. Bandykite dar kartą.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Šiuo metu Kute nepasiekiamas. Pagal paskutinį patikrinimą tai vis dar prieinama.';
+
+  @override
   String get capabilityUnavailable => 'Ši funkcija Kute šiuo metu negalima.';
 
   @override
@@ -7154,6 +7109,9 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Jūsų regione negalima';
+
+  @override
+  String get checkConnection => 'Patikrinti ryšį';
 
   @override
   String get gateUnavailableTitle => 'Negalima';
@@ -7448,7 +7406,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Jūsų kodas kuriamas. Jį bet kada rasite skiltyje Nustatymai → Uždarbis.';
+      'Jūsų kodas kuriamas. Jį bet kada rasite skiltyje Nustatymai → Rekomendacijų programa.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7475,7 +7433,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Jį taip pat galite pridėti vėliau skiltyje Nustatymai → Uždarbis (per 7 dienas).';
+      'Jį taip pat galite pridėti vėliau skiltyje Nustatymai → Rekomendacijų programa (per 7 dienas).';
 
   @override
   String get referrerSkip => 'Praleisti, neturiu kodo';
@@ -7504,6 +7462,34 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Rasta šiame įrenginyje. Prieš atkurdami patikrinkite, ar likutis atrodo teisingas.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Iš senesnės versijos šiame telefone';
+
+  @override
+  String get recoverOlderVersionWallet => 'Piniginė iš senesnės versijos';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Atidaroma tos versijos naudotu PIN kodu';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Išsaugota „iCloud Keychain“';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Įveskite tos versijos naudotą PIN kodą';
+
+  @override
+  String get recoverOlderVersionFailed => 'Šios kopijos atkurti nepavyko.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Jūsų piniginių kopijos iš senesnės „Kute“ versijos vis dar yra šiame telefone. Naudoti jas, o ne pradėti iš naujo?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Naudoti išsaugotas kopijas';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8131,6 +8117,9 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Ankstesni raundai';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Šioje kategorijoje šiuo metu nėra atvirų rinkų';
 
@@ -8591,16 +8580,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String slipWideSpread(String percent) {
     return 'Didelis skirtumas: $percent%. Rinkos pavedimai čia gali būti įvykdyti pastebimai toliau nuo vidutinės kainos.';
-  }
-
-  @override
-  String slipCtaSpotNow(String side, String coin, String amount) {
-    return '$side $coin dabar · $amount';
-  }
-
-  @override
-  String slipCtaGo(String side, String coin, String leverage, String amount) {
-    return 'Atidaryti $side $coin ${leverage}x · $amount';
   }
 
   @override
@@ -10515,6 +10494,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get portfolioStatAtStake => 'Statoma suma';
 
   @override
+  String get portfolioProfitLoss => 'Pelnas ir nuostoliai';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10663,4 +10645,392 @@ class AppLocalizationsLt extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount perkeliama į $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String slipCtaSideCoin(String side, String coin) {
+    return '$side $coin';
+  }
+
+  @override
+  String slipCtaSideAmount(String side, String amount) {
+    return '$side $amount';
+  }
+
+  @override
+  String betPlaceOnSide(String side) {
+    return 'Skirti: $side';
+  }
+
+  @override
+  String betAmountOnSide(String amount, String side) {
+    return '$amount: $side';
+  }
+
+  @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Pridėti $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Iki minimumo trūksta $amount';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Didina tavo Long poziciją',
+        'other': 'Didina tavo Short poziciją',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · išmoka $amount, jei laimėsite';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Įnešti pinigų į Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Jūsų išlaidų piniginė';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Jūsų išlaidų piniginė · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Kita piniginė ar birža';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Gaukite adresą, kuriuo siųsti dolerius';
+
+  @override
+  String get portfolioStatOpenPnl => 'Atviras pelnas / nuostolis';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Paruoškite $amount prognozę';
+  }
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Siųsti $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Perkelti $amount į $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered pristatyta · $remaining liko';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Bakstelėkite, kad pirktumėte Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Siuntimas neįvyko';
+  }
+
+  @override
+  String get usdReceiveDepositNow => 'Įnešti dabar';
+
+  @override
+  String get usdReceiveFromYourWallet => 'Iš jūsų piniginės';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Iš kitos piniginės ar biržos';
+
+  @override
+  String get usdWithdrawToYourWallet => 'Į jūsų piniginę';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Į kitą piniginę ar biržą';
+
+  @override
+  String get usdWithdrawNow => 'Išimti dabar';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Pridedama $amount į Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Ruošiame jūsų prognozę';
+
+  @override
+  String get slipStepPreparingOrder => 'Ruošiame jūsų pavedimą';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Statoma $amount už $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Atidaroma $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger =>
+      'Užtrunka ilgiau nei tikėtasi. Truputį kantrybės, beveik baigta.';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Jūsų $amount yra Investments. Bakstelėkite, kad pateiktumėte.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Pridėti į Investments nepavyko. Jūsų bitcoin grįžta.';
+
+  @override
+  String get slipFundingPriceMoved => 'Kaina pasikeitė per greitai.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Šis raundas užsidarė prieš atkeliaujant jūsų pinigams.';
+
+  @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Kol jūsų pinigai keliavo, kaina pasikeitė į $price.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Šis raundas baigėsi, kol jūsų pinigai keliavo. Jūsų $amount yra Prognozėse.';
+  }
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Jūsų $amount yra Prognozėse. Bakstelėkite, kad bandytumėte dar kartą.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Jūsų $amount yra Investavime. Bakstelėkite, kad bandytumėte dar kartą.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Statoma $amount už $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Atidaromas $amount $market pavedimas';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Pridedama $amount maržos prie $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Jūsų $amount yra Investments. Bakstelėkite, kad pridėtumėte maržos.';
+  }
+
+  @override
+  String get salWhyMoving => 'Kodėl juda?';
+
+  @override
+  String get positionProtectIt => 'Apsaugok';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Jei $market nukris iki $price, ši pozicija užsidarys ir prarasi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Jei $market pakils iki $price, ši pozicija užsidarys ir prarasi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Jei $outcome pralaimės, prarasi $cost; jei laimės, gausi $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Perkeliama $amount iš likučio $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Perkelta $amount iš likučio $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Perkeliama $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Perkelta $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount iš likučio $source nebuvo perkelta';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Maršrutas $source užimtas, keliaujame per likutį $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Iš $source keliaujame per likutį $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Maršrutas $source nepasiekiamas, keliaujame per likutį $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Suma per maža tiesioginiam keliui iš $source, keliaujame per likutį $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Jūsų $amount yra $balance. Pavedimas neįvyko';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konvertuojama į pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konvertuota į pUSD';
+
+  @override
+  String get moneyStepApproving => 'Tvirtinamas išlaidų leidimas';
+
+  @override
+  String get moneyStepApproved => 'Išlaidų leidimas patvirtintas';
+
+  @override
+  String get moneyStepConfirming => 'Tikrinamas likutis';
+
+  @override
+  String get moneyStepConfirmed => 'Likutis patvirtintas';
+
+  @override
+  String get moneyStepCrediting => 'Įskaitoma į prekybos likutį';
+
+  @override
+  String get moneyStepCredited => 'Įskaityta į prekybos likutį';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Perkama Bitcoin už $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Nupirkta Bitcoin už $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Atkeliauja į likutį Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Atkeliavo į likutį Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Siunčiama $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Išsiųsta $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
+
+  @override
+  String moneyJourneyAt(String place) {
+    return 'Vietoje $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return 'Atvyko $count iš $total';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Pateikta!';
+
+  @override
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Grąžinta į jūsų $network adresą $address.';
+  }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Norėdami juos perkelti, naudokite piniginę, pvz., MetaMask, su ta pačia atkūrimo fraze.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Norėdami juos perkelti, susisiekite su pagalba.';
+
+  @override
+  String get portfolioSectionPnlCharts => 'P&L grafikai';
+
+  @override
+  String get portfolioSectionBalances => 'Likučiai';
 }

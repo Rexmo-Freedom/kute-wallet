@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -75,10 +76,15 @@ class KuteBottomActionBar extends ConsumerWidget {
         ? context.l10n.searchOrAskSalShort
         : context.l10n.searchAction;
 
+    // Android's navigation bar inset ends right under the dock, where
+    // iOS leaves the home indicator's breathing room, so Android lifts
+    // the dock a little more off it.
+    final bottomGap =
+        defaultTargetPlatform == TargetPlatform.android ? 12.h : 2.h;
     final dock = SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 2.h),
+        padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomGap),
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           for (var i = 0; i < actions.length; i++) ...[
             if (i > 0) SizedBox(width: 10.w),

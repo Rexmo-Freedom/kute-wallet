@@ -60,7 +60,10 @@ void main() {
     TrackingService.moneyFlowAbandoned('send'); // second close: nothing
 
     expect(names(), ['send_flow_started', 'send_step', 'send_flow_abandoned']);
-    expect(paramsOf('send_flow_abandoned'), {
+    final abandoned = {...?paramsOf('send_flow_abandoned')};
+    // The exact time in the flow rides beside the legacy bucket.
+    expect(abandoned.remove('time_in_flow_ms'), isA<int>());
+    expect(abandoned, {
       'step': 'review',
       'reason': 'insufficient_balance',
       'time_in_flow_bucket': '<10s',

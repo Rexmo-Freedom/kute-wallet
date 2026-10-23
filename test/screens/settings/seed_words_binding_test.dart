@@ -106,6 +106,16 @@ void main() {
     return (container: container, auth: auth);
   }
 
+  testWidgets('a Spark wallet explains where its 12 words recover the balance',
+      (tester) async {
+    final mounted = await mount(tester);
+    final context = tester.element(find.byType(SeedWords));
+    expect(mounted.container.read(settingsProvider).wallets.first.isSparkWallet,
+        isTrue);
+    expect(find.byKey(const ValueKey('spark-recovery-note')), findsOneWidget);
+    expect(find.text(context.l10n.sparkRecoveryNote), findsOneWidget);
+  });
+
   testWidgets('a late wallet A seed never replaces the reviewed wallet B seed',
       (tester) async {
     final harness = await mount(tester);

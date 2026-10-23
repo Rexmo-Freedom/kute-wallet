@@ -127,7 +127,7 @@ class PendingReceiveQuoteCache {
       const {'BTC', 'USDB'}.contains(record.coinTo.toUpperCase()) &&
       record.depositAddress.isNotEmpty &&
       record.withdrawalAddress.isNotEmpty &&
-      record.refundAddress.isNotEmpty &&
+      // The return address is optional: a skipped one is quoted without.
       record.expiresAt != null;
 
   static bool _sameInstructions(SwapOrder a, SwapOrder b) =>

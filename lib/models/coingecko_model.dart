@@ -16,6 +16,7 @@ import 'package:coingecko_api/data/market_chart_data.dart';
 import 'package:coingecko_api/data/ohlc_info.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 
 /// USD → fiat multiplier for currencies Binance has no direct pair for.
 typedef UsdRateLookup = Future<double?> Function(String currency);
@@ -27,7 +28,7 @@ class CoingeckoModel {
 
   CoingeckoModel({CoinGeckoApi? api, http.Client? client, UsdRateLookup? usdRate})
       : api = api ?? CoinGeckoApi(),
-        _http = client ?? http.Client(),
+        _http = client ?? SharedHttpClient.forUri(Uri.parse(_binance)),
         _usdRate = usdRate ?? _hiveUsdRate;
 
   static const _binance = 'https://api.binance.com';

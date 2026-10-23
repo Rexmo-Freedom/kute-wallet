@@ -4,18 +4,24 @@
 //
 //   * a game: a row per team in the title's order (crest, name, and its
 //     score once the game is on), as on the Predictions list card;
-//   * any other market: its image and its title, on up to two lines;
-//   * on the right: what the position is worth now, with the profit or
-//     loss under it in the app's up / down colours;
-//   * one line for the position itself ("Yes · 2.07 shares at 96¢", led
-//     by the market's own question when the card shows a game's teams);
-//   * a caption: the game's clock while it is played, else when the market
-//     ends; once it has ended and until its result is claimable, that it
+//   * any other market: its image and its whole title, never cut: its
+//     first lines beside the figure, the rest under it to the card's edge;
+//   * top right: what the position is worth now, with the profit or loss
+//     under it in the app's up / down colours;
+//   * one line for the position itself, wrapping rather than cut ("Yes ·
+//     2.07 shares at 96¢", led by the market's own question when the card
+//     shows a game's teams), ending with when the market ends ("· Ends Oct
+//     26") when nothing else is said under it: never a past date while
+//     the market is open (the event's later end, else none);
+//   * a caption: the game's clock while it is played, or its kickoff;
+//     once it has ended and until its result is claimable, that it
 //     is waiting for the result ("Ended · Result in a few minutes", "You
-//     won · Ready to claim soon", "Ended · Lost"; position_awaiting.dart);
-//     "Ready to claim" / "Settled" on a resolved one, unless its Claim
-//     button already says so; "Selling…" while a sale of it is on its way
-//     (the caller's [status]).
+//     won", "Ended · Lost"; position_awaiting.dart); "Settled" on a
+//     resolved one (a spending-wallet win is claimed automatically, so it
+//     reads like any settled position), "Ready to claim" only on a
+//     Ledger's win waiting for its signed claim, unless its Claim button
+//     already says so; "Selling…" while a sale of it is on its way (the
+//     caller's [status]).
 //
 // The card reads the position's event by its slug (title, teams, game)
 // from the cards' shared batch (poly_position_events.dart: one read for
@@ -78,7 +84,10 @@ class PolyPositionCard extends ConsumerWidget {
   /// expected (position_awaiting.dart).
   final String? conditionId;
 
-  /// The market has resolved; [claimable] when it paid out.
+  /// The market has resolved; [claimable] when it paid out and the win
+  /// still waits for a manual, signed claim (a Ledger's). A spending-wallet
+  /// win is claimed automatically (claim_auto_fire.dart): it is not
+  /// claimable here and reads "Settled".
   final bool resolved;
   final bool claimable;
   final VoidCallback? onTap;
@@ -152,12 +161,12 @@ class PolyPositionCard extends ConsumerWidget {
       }
     }
 
-    final amount = PortfolioCardValue(
-      value: formatPolyAmount(ref, value),
-      pnl: PortfolioCardValue.pnlText(formatPolyAmount(ref, pnl.abs()), pnl,
-          percent: pnlPercent),
-      up: pnl >= 0,
-    );
+    final valueText = formatPolyAmount(ref, value);
+    final pnlText = PortfolioCardValue.pnlText(
+        formatPolyAmount(ref, pnl.abs()), pnl,
+        percent: pnlPercent);
+    final amount =
+        PortfolioCardValue(value: valueText, pnl: pnlText, up: pnl >= 0);
 
     // The position in one line. On a game's card the teams replace the
     // title, so a market inside the game (a spread, a total) leads the
@@ -191,7 +200,11 @@ class PolyPositionCard extends ConsumerWidget {
             live: live,
             isGame: isGame);
 
+    final now = DateTime.now();
     final String? footer;
+    // When the market ends, on the position line itself ("… · Ends Oct
+    // 26") when nothing else is said under it.
+    String? endsText;
     if (status != null) {
       footer = status;
     } else if (resolved && action != null) {
@@ -233,18 +246,27 @@ class PolyPositionCard extends ConsumerWidget {
         ref.watch(polyMinuteTickProvider);
       }
       footer = polyKickoffText(l10n, kickoff, now: DateTime.now());
-    } else if (end != null) {
-      // Date only, as on the list card; a market ending within a day
-      // says the hour too. In the app's language.
-      final local = end!.toLocal();
-      final soon = local.difference(DateTime.now()).inHours.abs() < 24;
-      footer = soon
-          ? '${DateFormat.MMMd(l10n.localeName).format(local)}, '
-              '${DateFormat.Hm(l10n.localeName).format(local)}'
-          : DateFormat.yMMMd(l10n.localeName).format(local);
     } else {
       footer = null;
+      // Date only, as on the list card, the year only when it is not this
+      // one; a market ending within a day says the hour too. In the app's
+      // language.
+      final shown =
+          polyPositionShownEnd(end: end, eventEnd: event?.endDate, now: now);
+      if (shown != null) {
+        final local = shown.toLocal();
+        final locale = l10n.localeName;
+        final date = local.difference(now) < const Duration(hours: 24)
+            ? '${DateFormat.MMMd(locale).format(local)}, '
+                '${DateFormat.Hm(locale).format(local)}'
+            : local.year == now.year
+                ? DateFormat.MMMd(locale).format(local)
+                : DateFormat.yMMMd(locale).format(local);
+        endsText = l10n.betEndsDate(date);
+      }
     }
+    final metaLine =
+        endsText == null ? positionLine : '$positionLine · $endsText';
 
     return PortfolioCardFrame(
       onTap: onTap,
@@ -253,53 +275,115 @@ class PolyPositionCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The figure takes what it needs, up to a little under half
-          // of the card; the names keep the rest.
           LayoutBuilder(
-            builder: (context, box) => Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  // The plain title gives way to the game's rows when the
-                  // event lands: a short cross-fade, the card easing to
-                  // its new height.
-                  child: ArrivalSwitcher(
-                    state: teams != null ? 'teams' : 'title',
-                    child: teams != null
-                        ? _teamRows(c, event!, teams, live)
-                        : _heading(c, event),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: box.maxWidth * 0.45),
-                  child: amount,
-                ),
-              ],
-            ),
+            builder: (context, box) =>
+                _header(context, c, box.maxWidth, event, teams, live,
+                    amount: amount, value: valueText, pnl: pnlText),
           ),
-          SizedBox(height: 10.h),
-          _positionLine(c, positionLine),
+          SizedBox(height: 8.h),
+          _positionLine(c, metaLine),
           if (footer != null && footer.isNotEmpty) ...[
-            SizedBox(height: 8.h),
-            Text(
-              footer,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: portfolioCardCaptionStyle(c),
-            ),
+            SizedBox(height: 4.h),
+            Text(footer, style: portfolioCardCaptionStyle(c)),
           ],
         ],
       ),
     );
   }
 
-  /// The position in one line ("Yes · 2.07 shares at 96¢") under the
-  /// card's names, in the caption under an Investing card's name.
+  /// The card's names with the figure in its top-right corner. The figure
+  /// takes what it needs, up to a little under half of the card, and the
+  /// names keep clear of it: a game's rows beside it, a market's title
+  /// beside it on its first lines and under it, to the card's edge, after
+  /// them ([_FloatingTitle]). A title whose longest word cannot stand
+  /// beside the figure (a narrow phone at large text) takes the whole
+  /// width and the figure goes under it. Nothing is cut.
+  Widget _header(
+    BuildContext context,
+    AppColorsExtension c,
+    double width,
+    PolymarketEvent? event,
+    (String, String)? teams,
+    PolyLiveGame? live, {
+    required Widget amount,
+    required String value,
+    required String pnl,
+  }) {
+    final slot = PortfolioCardValue.slotFor(context,
+        value: value, pnl: pnl, maxWidth: width);
+    final reserve = slot.width + 12.w;
+    // The plain title gives way to the game's rows when the event lands:
+    // a short cross-fade, the card easing to its new height.
+    Widget names(Widget child) => ArrivalSwitcher(
+        state: teams != null ? 'teams' : 'title', child: child);
+    Widget cornered(Widget child) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: slot.height),
+              child: names(child),
+            ),
+            PositionedDirectional(
+              top: 0,
+              end: 0,
+              width: slot.width,
+              child: Align(
+                  alignment: AlignmentDirectional.topEnd, child: amount),
+            ),
+          ],
+        );
+
+    if (teams != null) {
+      return cornered(Padding(
+        padding: EdgeInsetsDirectional.only(end: reserve),
+        child: _teamRows(c, event!, teams, live),
+      ));
+    }
+    final titleWidth = width - _kThumb.w - _kThumbGap.w;
+    if (_wordsFit(context, question, polyCardTitleStyle(c),
+        titleWidth - reserve)) {
+      return cornered(_heading(c, event, Size(reserve, slot.height)));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        names(_heading(c, event, null)),
+        SizedBox(height: 6.h),
+        Align(alignment: AlignmentDirectional.centerEnd, child: amount),
+      ],
+    );
+  }
+
+  /// Whether every word of [text] fits on a line [width] wide.
+  static bool _wordsFit(
+      BuildContext context, String text, TextStyle style, double width) {
+    if (width <= 0) return false;
+    final painter = TextPainter(
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+    );
+    final effective = _effectiveStyle(context, style);
+    try {
+      for (final word in text.split(RegExp(r'\s+'))) {
+        if (word.isEmpty) continue;
+        painter
+          ..text = TextSpan(text: word, style: effective)
+          ..layout();
+        if (painter.width > width) return false;
+      }
+      return true;
+    } finally {
+      painter.dispose();
+    }
+  }
+
+  /// The position in one line ("Yes · 2.07 shares at 96¢ · Ends Oct 26")
+  /// under the card's names, in the caption under an Investing card's
+  /// name; it wraps rather than cut.
   Widget _positionLine(AppColorsExtension c, String line) => Text(
         line,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: c.textSecondary,
           fontSize: 13.sp,
@@ -374,9 +458,10 @@ class PolyPositionCard extends ConsumerWidget {
     );
   }
 
-  /// Any other market: its image and its title, on up to two lines (the
-  /// whole question is on the position screen).
-  Widget _heading(AppColorsExtension c, PolymarketEvent? event) {
+  /// Any other market: its image and its whole title, clear of the
+  /// figure's corner [reserve] when it shares the top of the card with it.
+  Widget _heading(
+      AppColorsExtension c, PolymarketEvent? event, Size? reserve) {
     // Crest first: a sports market carries the league's generic ball as
     // its image, the real crests are in the event's teams. The held
     // outcome names the team ("Portugal"), else the question does ("Will
@@ -388,27 +473,116 @@ class PolyPositionCard extends ConsumerWidget {
             : PolymarketEvent.logoFromTeams(eventTeams, outcome)) ??
         PolymarketEvent.logoForText(eventTeams, question) ??
         imageUrl;
+    final style = polyCardTitleStyle(c);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PolyCardThumbnail(
           title: question,
           imageUrl: image,
           category: event?.category ?? '',
-          size: 40.w,
+          size: _kThumb.w,
           radius: 10.r,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: _kThumbGap.w),
         Expanded(
-          child: Text(
-            question,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: polyCardTitleStyle(c),
-          ),
+          child: reserve == null
+              ? Text(question, style: style)
+              : _FloatingTitle(text: question, style: style, reserve: reserve),
         ),
       ],
     );
   }
+}
+
+/// A market's image beside its title, and the gap between them.
+const double _kThumb = 40;
+const double _kThumbGap = 10;
+
+/// [style] as a Text in [context] paints it (the inherited style, bold
+/// text when the system asks for it), for measuring.
+TextStyle _effectiveStyle(BuildContext context, TextStyle style) {
+  var effective = DefaultTextStyle.of(context).style.merge(style);
+  if (MediaQuery.boldTextOf(context)) {
+    effective = effective.merge(const TextStyle(fontWeight: FontWeight.bold));
+  }
+  return effective;
+}
+
+/// The end the card writes for a market still open: its own end while it
+/// is ahead; once that has passed (Polymarket keeps a market open until it
+/// resolves, e.g. the Brazil "who wins" market kept its first-round date
+/// with the runoff weeks away) the event's later end when it has one, else
+/// none. Never a past date. The caller asks only while the market has not
+/// ended ([polyMarketHasEnded]).
+@visibleForTesting
+DateTime? polyPositionShownEnd(
+    {DateTime? end, DateTime? eventEnd, required DateTime now}) {
+  if (end != null && end.isAfter(now)) return end;
+  if (eventEnd != null && eventEnd.isAfter(now)) return eventEnd;
+  return null;
+}
+
+/// A title written whole beside the figure in the card's top-right corner,
+/// as text flows around a picture: the lines level with the figure
+/// ([reserve]: its width with the gap, and its height) end short of it,
+/// the rest run under it to the card's edge. Read as one title.
+class _FloatingTitle extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final Size reserve;
+
+  const _FloatingTitle({
+    required this.text,
+    required this.style,
+    required this.reserve,
+  });
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        final narrow = box.maxWidth - reserve.width;
+        Widget beside(String s) => Padding(
+              padding: EdgeInsetsDirectional.only(end: reserve.width),
+              child: Text(s, style: style),
+            );
+        final direction = Directionality.of(context);
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: _effectiveStyle(context, style)),
+          textDirection: direction,
+          textScaler: MediaQuery.textScalerOf(context),
+          locale: Localizations.maybeLocaleOf(context),
+        )..layout(maxWidth: narrow);
+        final lines = painter.computeLineMetrics();
+        // The lines that start level with the figure stay beside it.
+        var level = 0;
+        var top = 0.0;
+        while (level < lines.length && top < reserve.height - 1) {
+          top += lines[level].height;
+          level++;
+        }
+        if (level == 0 || level >= lines.length) {
+          painter.dispose();
+          return beside(text);
+        }
+        final cut = painter
+            .getPositionForOffset(Offset(
+                direction == TextDirection.rtl ? narrow : 0,
+                top + lines[level].height / 2))
+            .offset;
+        painter.dispose();
+        final first = text.substring(0, cut).trimRight();
+        final rest = text.substring(cut).trimLeft();
+        if (first.isEmpty || rest.isEmpty) return beside(text);
+        return Semantics(
+          label: text,
+          excludeSemantics: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [beside(first), Text(rest, style: style)],
+          ),
+        );
+      });
 }
 
 /// A Predictions row that is not a held position yet (a resting order, a

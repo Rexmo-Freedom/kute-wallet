@@ -12,6 +12,7 @@ import 'package:kute/services/passkey_service.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/settings/components/spark_recovery_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -382,6 +383,10 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                             ],
                             if (!(_selectedWallet?.isWatchOnly ?? true)) ...[
                               _buildWarning(),
+                              SizedBox(height: 16.h),
+                            ],
+                            if (_selectedWallet?.isSparkWallet ?? false) ...[
+                              const SparkRecoveryNote(),
                               SizedBox(height: 16.h),
                             ],
                             Expanded(

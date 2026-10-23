@@ -4,14 +4,18 @@ import 'package:kute/screens/polymarket/components/market_chart.dart'
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart';
 
 // The value tags of a Predictions chart (poly_chart_tags.dart): name and
-// chance, one column at the right edge, never over each other or another
-// line's end dot, cut short and then bare where lines end together, and
-// never a pile.
+// chance, one column past the end of the lines, never over each other or
+// level with another line's end dot, never cut (a name that does not fit
+// leaves the chance alone), and never a pile. The column's width, font and
+// names (polyTagStyle).
 
 const _drawH = 214.0;
 const _plotW = 349.0;
 const _h = 18.0;
 const _r = 4.0;
+
+/// The widest a pill may be: a tag column sized for names like these.
+const _maxW = 140.0;
 
 /// A pill's text width: 6.2 px a character, close to the chart's 10.5 px
 /// bold figures.
@@ -36,15 +40,15 @@ List<PolyTagLine> _lines(List<(String, double)> outcomes) {
 
 List<PolyTagPlacement> _layout(List<PolyTagLine> lines) => polyLayoutValueTags(
       lines: lines,
-      plotWidth: _plotW,
+      maxWidth: _maxW,
       drawH: _drawH,
       tagHeight: _h,
       measure: _measure,
       dotRadius: _r,
     );
 
-/// No two pills overlap, every pill is inside the plot and none covers
-/// another line's end dot.
+/// No two pills overlap, every pill is inside the plot and the column and
+/// none sits level with another line's end dot; no text is cut.
 void _expectClean(List<PolyTagLine> lines, List<PolyTagPlacement> tags) {
   final sorted = [...tags]..sort((a, b) => a.top.compareTo(b.top));
   for (var k = 0; k < sorted.length; k++) {
@@ -63,7 +67,8 @@ void _expectClean(List<PolyTagLine> lines, List<PolyTagPlacement> tags) {
       expect(covers, isFalse,
           reason: '${t.text} covers the end dot of line $j');
     }
-    expect(t.width, lessThanOrEqualTo(_plotW * kPolyTagMaxWidthShare + 0.01));
+    expect(t.width, lessThanOrEqualTo(_maxW + 0.01));
+    expect(t.text, isNot(contains('…')));
   }
 }
 
@@ -79,6 +84,101 @@ void main() {
       expect(polyChartShortName('Himeno Sakatsume'), 'Sakatsume');
       expect(polyChartShortName('Viktoria Hruncakova'), 'Hruncakova');
       expect(polyChartShortName('  '), '');
+    });
+  });
+
+  group('polyChartOutcomeName', () {
+    test('a market question names its candidate', () {
+      expect(
+          polyChartOutcomeName('Will Flávio Bolsonaro win the 2026 Brazilian '
+              'presidential election?'),
+          'Flávio Bolsonaro');
+      expect(polyChartOutcomeName('Will Gavin Newsom be the nominee?'),
+          'Gavin Newsom');
+      expect(polyChartShortName('Will Luiz Inácio Lula da Silva win the 2026 '
+              'Brazilian presidential election?'),
+          'Inácio Lula da Silva');
+    });
+
+    test('a name as it is; a question naming no one, nothing', () {
+      expect(polyChartOutcomeName(' Real Madrid '), 'Real Madrid');
+      expect(polyChartOutcomeName('Will the Fed cut rates in December?'), '');
+      expect(polyChartOutcomeName('Bitcoin above 100k on Friday?'), '');
+    });
+  });
+
+  group('polyTagStyle', () {
+    /// 5.6 px a character at 10.5 px (the chart's bold Inter, names and
+    /// figures together), in proportion at other sizes.
+    double measure(String text, double fs) =>
+        text.runes.length * 5.6 * fs / 10.5;
+
+    /// A 393pt phone's chart.
+    const phone = 361.0;
+
+    PolyTagStyle style(List<String> labels, {double width = phone}) =>
+        polyTagStyle(labels: labels, width: width, measure: measure);
+
+    test('short names at full size, the column as wide as the widest', () {
+      final s = style(['Viktoria Hruncakova', 'Himeno Sakatsume']);
+      expect(s.names, ['Hruncakova', 'Sakatsume']);
+      expect(s.fontSize, kPolyTagFontSizes.first);
+      expect(
+          s.gutter,
+          closeTo(
+              measure('Hruncakova $kPolyTagPctTemplate', s.fontSize) +
+                  10 +
+                  kPolyTagLead,
+              0.01));
+    });
+
+    test('never wider than its share of the chart, never an ellipsis', () {
+      for (final labels in [
+        ['Yes'],
+        ['Will Flávio Bolsonaro win the 2026 Brazilian presidential election?',
+          'Will Luiz Inácio Lula da Silva win the 2026 Brazilian '
+              'presidential election?'],
+        ['Supercalifragilisticexpialidocious', 'Alexandria Ocasio-Cortez'],
+      ]) {
+        for (final width in [260.0, 343.0, phone]) {
+          final s = style(labels, width: width);
+          expect(s.gutter, lessThanOrEqualTo(width * kPolyTagMaxGutterShare));
+          for (final n in s.names) {
+            expect(n, isNot(contains('…')));
+            if (n.isNotEmpty) {
+              expect(
+                  measure('$n $kPolyTagPctTemplate', s.fontSize) + 10,
+                  lessThanOrEqualTo(s.gutter - kPolyTagLead + 0.01));
+            }
+          }
+        }
+      }
+    });
+
+    test('a long name drops its leading words, then the font steps down', () {
+      final s = style(['Will Luiz Inácio Lula da Silva win the 2026 Brazilian '
+          'presidential election?']);
+      expect(s.names.single, 'Lula da Silva');
+      expect(s.fontSize, lessThan(kPolyTagFontSizes.first));
+    });
+
+    test('a name that fits at no size: the chance alone', () {
+      final s = style(['Supercalifragilisticexpialidocious']);
+      expect(s.names.single, '');
+      expect(s.gutter,
+          closeTo(measure(kPolyTagPctTemplate, s.fontSize) + 10 + kPolyTagLead,
+              0.01));
+    });
+
+    test('two lines with the same short name are told apart', () {
+      final s = style(['Flávio Bolsonaro', 'Michelle Bolsonaro']);
+      expect(s.names, ['F. Bolsonaro', 'M. Bolsonaro']);
+    });
+
+    test('a binary line keeps the column narrow', () {
+      final s = style(['Yes']);
+      expect(s.names.single, 'Yes');
+      expect(s.gutter, lessThan(_plotW * 0.25));
     });
   });
 
@@ -101,11 +201,11 @@ void main() {
     expect(tags.single.text, 'Yes 18%');
   });
 
-  test('a long name is cut short to the widest a pill may be', () {
+  test('a name too long for the column is never cut: the chance alone', () {
     final lines = _lines([('Supercalifragilisticexpialidocious', 0.4)]);
     final tags = _layout(lines);
-    expect(tags.single.text, endsWith('… 40%'));
-    expect(tags.single.width, lessThanOrEqualTo(_plotW * kPolyTagMaxWidthShare));
+    expect(tags.single.text, '40%');
+    expect(tags.single.width, lessThanOrEqualTo(_maxW));
   });
 
   test('a line with no name writes its chance alone', () {
@@ -113,7 +213,7 @@ void main() {
     expect(_layout(lines).single.text, '62%');
   });
 
-  test('the landfall case: 53 alone, 28 / 28 / 27.5 stacked bare', () {
+  test('the landfall case: 53 alone, 28 / 28 / 27.5 stacked, named', () {
     final lines = _lines([
       ('Louisiana', 0.53),
       ('Mississippi', 0.28),
@@ -124,11 +224,11 @@ void main() {
     expect(tags, hasLength(4));
     _expectClean(lines, tags);
     expect(_textOf(tags, 0), 'Louisiana 53%');
-    // Three pills in one stack would hide those lines' ends behind names:
-    // the chances alone (the list under the chart names them).
-    expect(_textOf(tags, 1), '28%');
-    expect(_textOf(tags, 2), '28%');
-    expect(_textOf(tags, 3), '27.5%');
+    // The stack sits in the column past the lines, hiding none of them:
+    // each pill names its line.
+    expect(_textOf(tags, 1), 'Mississippi 28%');
+    expect(_textOf(tags, 2), 'Alabama 28%');
+    expect(_textOf(tags, 3), 'Florida 27.5%');
     // The higher lines' tags above the dots, the lowest's under them,
     // each within two pills of its own line.
     final florida = tags.firstWhere((t) => t.index == 3);

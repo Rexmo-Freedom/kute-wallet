@@ -187,8 +187,9 @@ class _LedgerFundInvestingSheetState
 
   double _usdPerBtc() => ref.read(selectedCurrencyProvider('USD')).toDouble();
 
-  String _amountBucket(int sats) =>
-      TrackingService.usdBucket(sats / 1e8 * _usdPerBtc());
+  double _amountUsd(int sats) => sats / 1e8 * _usdPerBtc();
+
+  String _amountBucket(int sats) => TrackingService.usdBucket(_amountUsd(sats));
 
   void _setStep(_FundStep step) {
     if (!mounted) return;
@@ -256,6 +257,7 @@ class _LedgerFundInvestingSheetState
         route: _route,
         outcome: ledgerFundingOutcomeCode(e),
         amountBucket: _amountBucket(sats),
+        amountUsd: _amountUsd(sats),
       );
       _fail(e);
     }
@@ -361,6 +363,7 @@ class _LedgerFundInvestingSheetState
       route: _route,
       outcome: ledgerFundingOutcomeCode(e),
       amountBucket: _amountBucket(review.amountSats),
+      amountUsd: _amountUsd(review.amountSats),
     );
     _fail(e);
   }
@@ -371,10 +374,12 @@ class _LedgerFundInvestingSheetState
       route: _route,
       outcome: pending ? 'submit_pending' : 'submitted',
       amountBucket: _amountBucket(review.amountSats),
+      amountUsd: _amountUsd(review.amountSats),
     );
     TrackingService.ledgerActionSubmitted(
       action: 'btc_to_hypercore',
       amountBucket: _amountBucket(review.amountSats),
+      amountUsd: _amountUsd(review.amountSats),
     );
     widget.onSubmitted?.call();
     final navigator = Navigator.of(context, rootNavigator: true);

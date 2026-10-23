@@ -32,9 +32,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:kute/helpers/svg_class_styles.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlMarketDirectory;
 import 'package:kute/theme/app_theme.dart';
@@ -343,8 +343,9 @@ Future<HlIconArt?> _loadHlSvg(String url) {
   if (_hlSvgFailed.contains(url)) return Future.value(null);
   return _hlSvgInflight.putIfAbsent(url, () async {
     try {
-      final resp =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      final resp = await SharedHttpClient.get(Uri.parse(url),
+          kind: HttpCallKind.backgroundRead,
+          timeout: const Duration(seconds: 8));
       final ct = (resp.headers['content-type'] ?? '').toLowerCase();
       // A missing logo answers 200 with the web app's HTML shell, not a
       // 404: only a real SVG of a sane size counts. A miss is remembered

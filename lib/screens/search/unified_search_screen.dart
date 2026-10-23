@@ -24,7 +24,8 @@
 //      so the Bitcoin / Spark / swap / Outlogic / Polymarket / USDB
 //      leading icons match the rest of the app.
 //
-// Local results (transactions + the user's own positions) come from
+// Local results (transactions + the user's own positions, both under
+// Transactions: Predictions and Investing list markets only) come from
 // `unifiedSearchResultsProvider` and update instantly. The market groups
 // stream in from the debounced remote providers, drawn with the Investing
 // and Predictions tabs' own cards (positions with the Portfolio's), the
@@ -306,6 +307,7 @@ void _reportSearchClosed(ProviderContainer container) {
                 : 'no_query',
     'results_tapped': stats.resultsTapped,
     'queries': stats.settledQueries,
+    'time_in_flow_ms': stats.watch.elapsed.inMilliseconds,
     'time_in_flow_bucket': _searchTimeBucket(stats.watch.elapsed),
   });
 }
@@ -479,7 +481,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       _searchStats?.settledQueries++;
       TrackingService.track('search_results_settled', params: {
         'category': category,
+        'query_length': query.length,
         'query_length_bucket': _searchLengthBucket(query.length),
+        'result_count': _visibleResults,
         'result_count_bucket': _searchCountBucket(_visibleResults),
         'has_results': _visibleResults > 0,
         'result_types': _visibleTypes.join(','),
@@ -499,9 +503,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
     if (!aiEnabled) {
-      // Length bucket only; the query text never leaves the device.
+      // Its length only; the query text never leaves the device.
       _searchStats?.submitted = true;
       TrackingService.track('search_submitted', params: {
+        'query_length': q.length,
         'query_length_bucket': _searchLengthBucket(q.length),
         'category': ref.read(selectedSearchCategoryProvider).name,
         'ai_enabled': false,
@@ -522,6 +527,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(q,
         input: 'typed', locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
@@ -558,6 +564,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(chip.text,
         context: chip.context,
         input: 'suggested',
@@ -615,11 +622,12 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // dedicated Perpetuals filter.
     final showPerpetuals =
         category == SearchCategory.all || category == SearchCategory.perpetuals;
-    final txSection = showTx && local.transactions.isNotEmpty;
-    final predictionSection = showPredictions &&
-        (local.ownedPositions.isNotEmpty ||
-            globalResults.isNotEmpty ||
-            globalLoading);
+    // The person's own positions are history and sit with Transactions;
+    // Predictions and Investing list markets only.
+    final txSection = showTx &&
+        (local.transactions.isNotEmpty || local.ownedPositions.isNotEmpty);
+    final predictionSection =
+        showPredictions && (globalResults.isNotEmpty || globalLoading);
     final perpetualsSection =
         showPerpetuals && (hlResults.isNotEmpty || hlLoading);
 
@@ -632,15 +640,15 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // a single-type filter only one group shows, whole and unlabelled (the
     // pill already names it).
     //
-    // Within a group the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest; search_result_order.dart). When
+    // Within Investing the market the person named leads (exact ticker or
+    // name, then prefixes, then the rest); within Predictions a game in
+    // play leads, then the most traded (search_result_order.dart). When
     // the query names a market, Investing and Predictions sit above
     // Transactions; that is decided once per query from what is on the
     // device, so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
     final rankedHl = rankInvestingResults(query, hlResults);
     final rankedGlobal = rankPredictionResults(
-      query,
       globalResults,
       (r) => r.event,
       isLive: (r) =>
@@ -668,9 +676,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       loading: globalLoading,
       skeleton: const _MarketCardSkeletons(investing: false),
       rows: [
-        // The person's own positions first.
-        for (final r in local.ownedPositions)
-          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in rankedGlobal)
           (int p) => _GlobalMarketRow(
               key: ValueKey('poly-${r.event.slug}-${r.event.id}'),
@@ -683,6 +688,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       label: context.l10n.transactions,
       filter: SearchCategory.transactions,
       rows: [
+        // The person's own prediction positions first, then the rest.
+        for (final r in local.ownedPositions)
+          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in local.transactions)
           (int p) => _TransactionRow(result: r, position: p),
       ],
@@ -1089,8 +1097,9 @@ class _OwnedPositionRow extends ConsumerWidget {
           eventSlug: p.eventSlug,
           end: polyPositionEnd(p),
           conditionId: p.marketId,
+          // A won position is claimed automatically: it reads "Settled"
+          // like any closed one, never "Ready to claim".
           resolved: p.isResolved,
-          claimable: p.won == true,
           onTap: () {
             HapticFeedback.lightImpact();
             _trackSearchResultTap(ref, 'owned_position', position: position);
@@ -1213,7 +1222,9 @@ class _HlMarketRow extends ConsumerWidget {
     // Resolve THIS row's instrument: the wire id pins the exact market, so
     // a row badged Own never opens the leveraged contract behind the same
     // ticker (and vice versa).
-    final market = ref.read(hyperliquidAccountMarketProvider(result.wireCoin));
+    final market = ref.read(hyperliquidExactMarketProvider(
+            '${result.kind.name}:${result.wireCoin}')) ??
+        result.market;
     final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
     if (ledgerWalletId != null) {
       // Ledger account search: the Ledger order sheet is the only target

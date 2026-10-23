@@ -27,9 +27,13 @@ import 'package:kute/providers/transactions_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/api/orchestra_api.dart';
+import 'package:kute/services/background_sync_service.dart'
+    show BackgroundSyncService;
 import 'package:kute/services/funding/settlement_funding_probes.dart';
 import 'package:kute/services/funding/settlement_http.dart';
 import 'package:kute/services/funding/settlement_reconciler.dart';
+import 'package:kute/services/funding/settlement_registration.dart'
+    show OrchestraActivityRows, adoptRegisteredOrchestraRow;
 import 'package:kute/services/polymarket_onboarding_service.dart'
     show PolymarketOnboardingService;
 import 'package:kute/services/funding/settlement_runner.dart'
@@ -37,8 +41,12 @@ import 'package:kute/services/funding/settlement_runner.dart'
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
 import 'package:kute/services/orchestra_routes.dart'
     show claimOrderTerminalAnalytics, isOrchestraUsdLikeCoin;
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show hypercoreCctpWithdrawalProvider;
 import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart';
 
 /// A completed full Spark SDK sync the payment lookup can count.
@@ -165,6 +173,22 @@ SettlementActivityRowAction settlementActivityRowAction(
   return SettlementActivityRowAction.keep;
 }
 
+/// The order id [row] moves to: the one [op] registered, while the row
+/// still holds its quote. Null when the row already holds an order id or
+/// the operation has none.
+@visibleForTesting
+String? settlementRowOrderId(SwapOrder row, SettlementOperation op) {
+  final orderId = op.orderId;
+  if (!row.id.startsWith('q_') ||
+      orderId == null ||
+      orderId.isEmpty ||
+      orderId.startsWith('q_') ||
+      orderId == row.id) {
+    return null;
+  }
+  return orderId;
+}
+
 /// The Activity rows the reconciler closes.
 abstract class SettlementActivityRows {
   /// Rows linked to an operation that still show as in progress.
@@ -173,6 +197,11 @@ abstract class SettlementActivityRows {
   Future<void> remove(SwapOrder row);
 
   Future<void> markExpired(SwapOrder row);
+
+  /// Moves [row], still under its quote id, to [orderId]: the order its
+  /// operation registered (a submit the reconciler retried, a status read
+  /// that found it). Status polling then reads the order.
+  Future<void> adopt(SwapOrder row, String orderId);
 }
 
 class _SwapOrderActivityRows implements SettlementActivityRows {
@@ -198,6 +227,17 @@ class _SwapOrderActivityRows implements SettlementActivityRows {
     await _ref.read(swapOrdersProvider.notifier).updateExchange(expired);
     _ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(expired);
   }
+
+  @override
+  Future<void> adopt(SwapOrder row, String orderId) async {
+    final moved = await adoptRegisteredOrchestraRow(
+      quoteId: row.id,
+      orderId: orderId,
+      rows: OrchestraActivityRows.of(_ref.read),
+    );
+    // The order's status is read on the next pass, not the next tick.
+    if (moved != null) BackgroundSyncService().syncNow();
+  }
 }
 
 final settlementReconcilerProvider =
@@ -210,6 +250,7 @@ final settlementReconcilerProvider =
     sessionUnlocked: () => ref.read(sessionUnlockedProvider),
     sparkPayments: sparkPayments,
     activityRows: _SwapOrderActivityRows(ref),
+    cctp: (op) => ref.read(hypercoreCctpWithdrawalProvider).reconcile(op),
   );
   final synced =
       BreezSdkSpark().syncedStream.listen((_) => sparkPayments.onSynced());
@@ -246,7 +287,9 @@ class SettlementReconcilerDriver {
     Future<SettlementStore> Function() store = SettlementStore.shared,
     BitcoinChainReader? bitcoinChain,
     RelayerTransactionReader? relayerState,
+    Future<void> Function(SettlementOperation op)? cctp,
   })  : _sessionUnlocked = sessionUnlocked,
+        _cctp = cctp,
         _sparkPayments = sparkPayments,
         _activityRows = activityRows,
         _clock = clock,
@@ -274,6 +317,11 @@ class SettlementReconcilerDriver {
   final SettlementActivityRows? _activityRows;
   final DateTime Function() _clock;
   final Future<SettlementStore> Function() _store;
+
+  /// One pass of the Investing → Dollars CCTP watcher for an operation of
+  /// that flow. Those operations have no quote and no submit, so the
+  /// Orchestra ladder below never sees them.
+  final Future<void> Function(SettlementOperation op)? _cctp;
   DateTime _foregroundedAt;
   Future<void>? _inFlight;
 
@@ -300,6 +348,10 @@ class SettlementReconcilerDriver {
     }
     for (final op in pending) {
       try {
+        if (op.flow.isInvestingCctp) {
+          await _cctp?.call(op);
+          continue;
+        }
         await _reconcile(store, op, visible: visible);
       } catch (_) {
         // One operation's failure never stops the others.
@@ -313,8 +365,13 @@ class SettlementReconcilerDriver {
     } catch (_) {}
   }
 
-  /// Closes Activity rows whose operation ended without moving funds. Runs
-  /// before pruning, so an abandoned record is still readable.
+  /// Keeps the Activity rows linked to an operation in step with it: a row
+  /// still under its quote id moves to the order the operation registered
+  /// (the flow's own background submit may have given up, and the
+  /// reconciler's later submit or status read is then the only place the
+  /// order id is known), and rows whose operation ended without moving
+  /// funds close. Runs before pruning, so an abandoned record is still
+  /// readable.
   Future<void> _closeActivityRows(SettlementStore store) async {
     final rows = _activityRows;
     if (rows == null) return;
@@ -324,6 +381,17 @@ class SettlementReconcilerDriver {
     for (final row in linked) {
       final op = byId[row.operationId];
       if (op == null) continue;
+      // A leg still watched under the quote (an order's run, a leg
+      // followed after a restart) reads the order from now on.
+      final quoteId = op.quote?.quoteId;
+      if (quoteId != null) OrchestraOrderIds.record(quoteId, op.orderId);
+      final orderId = settlementRowOrderId(row, op);
+      if (orderId != null) {
+        try {
+          await rows.adopt(row, orderId);
+        } catch (_) {}
+        continue;
+      }
       switch (settlementActivityRowAction(op)) {
         case SettlementActivityRowAction.keep:
           break;
@@ -431,7 +499,7 @@ class SettlementReconcilerDriver {
             walletKind: walletKind,
             amountUsd: amountUsd,
           );
-          _reportVenueTerminal(op, result.stage, walletKind, amountUsd);
+          reportVenueTerminal(op, result.stage, walletKind, amountUsd);
         case SettlementReconcileSignal.regressionIgnored:
           break;
       }
@@ -448,14 +516,19 @@ class SettlementReconcilerDriver {
   static const _investingWithdrawFlows = {
     SettlementFlow.investingToSparkDirect,
     SettlementFlow.investingToSparkUsdDirect,
+    SettlementFlow.investingToPredictionsDirect,
     SettlementFlow.moveInvestingToBtc,
     SettlementFlow.investingToLedgerBtc,
   };
 
   /// The real Investing (HyperCore) funding outcome, on the operation's
-  /// terminal signal. The Move sheet only reports initiated/submitted.
-  /// Claimed once per operation so overlapping reconciles cannot double it.
-  void _reportVenueTerminal(SettlementOperation op, SettlementStage stage,
+  /// terminal signal. The Move sheet and the sweeper only report
+  /// initiated/submitted. Every flow here is the direct route, so both
+  /// withdraw outcomes carry `route: direct` (the CCTP watcher reports its
+  /// own with `route: cctp`). Claimed once per operation so overlapping
+  /// reconciles cannot double it.
+  @visibleForTesting
+  void reportVenueTerminal(SettlementOperation op, SettlementStage stage,
       String walletKind, double? amountUsd) {
     final deposit = _investingDepositFlows.contains(op.flow);
     final withdraw = _investingWithdrawFlows.contains(op.flow);
@@ -487,8 +560,14 @@ class SettlementReconcilerDriver {
       }
       return;
     }
-    final destination =
-        op.flow == SettlementFlow.investingToSparkUsdDirect ? 'usd' : 'btc';
+    final String destination;
+    if (op.flow == SettlementFlow.investingToSparkUsdDirect) {
+      destination = 'usd';
+    } else if (op.flow == SettlementFlow.investingToPredictionsDirect) {
+      destination = 'predictions';
+    } else {
+      destination = 'btc';
+    }
     if (ok) {
       TrackingService.hyperliquidWithdrawCompleted(
         amountUsd: amountUsd,
@@ -501,6 +580,7 @@ class SettlementReconcilerDriver {
     } else {
       TrackingService.hyperliquidWithdrawFailed(
         reason: stage.name,
+        route: 'direct',
         amountUsd: amountUsd,
         destination: destination,
         walletKind: walletKind,

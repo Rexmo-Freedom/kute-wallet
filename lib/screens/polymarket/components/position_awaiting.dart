@@ -31,6 +31,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/resolution_estimate.dart';
 
 /// When the market [conditionId] is expected to settle, read while an
@@ -95,12 +96,13 @@ bool polyIsShortRound(String? eventSlug) =>
     RegExp(r'-(5|15)m-\d{10}$').hasMatch(eventSlug ?? '');
 
 /// Whether the position's market has stopped (its result is what is left):
-/// a short round past its end, a game the feed or Gamma says is over, a
-/// market Gamma has closed, or a market that is not a game past its end
-/// date. A game's scheduled end alone does not count: games run past it
-/// (overtime, a late kickoff), so a game waits for the feed's final or
-/// Gamma's flags. Without the event (not read yet) only a short round can
-/// tell.
+/// a short round past its end, a game the feed or Gamma says is over, or
+/// an event Gamma's flags say can no longer be traded ([polyTradingOver]).
+/// Past a short round, the end date alone never counts: Polymarket keeps a
+/// market open until it resolves (the Brazil "who wins" market kept its
+/// first-round date while the runoff was weeks away), and games run past
+/// their scheduled end. Without the event (not read yet) only a short
+/// round can tell.
 bool polyMarketHasEnded({
   String? eventSlug,
   DateTime? end,
@@ -115,7 +117,7 @@ bool polyMarketHasEnded({
   if (live?.finished == true) return true;
   if (event == null) return false;
   if (event.ended || event.closed) return true;
-  return !isGame && endPassed;
+  return !isGame && polyTradingOver(event, inPlay: false);
 }
 
 /// The awaiting state of a held side worth [price] (0..1) per share.
@@ -126,7 +128,9 @@ PolyAwaitingResult polyAwaitingResultFor(double? price) {
   return PolyAwaitingResult.pending;
 }
 
-/// The caption of an ended, not yet claimable position. With [settleAt]
+/// The caption of an ended, not yet claimable position. A won side says
+/// only that it won ("You won"): the win is claimed automatically, so it
+/// carries no claim and no timing. With [settleAt]
 /// (Polymarket's expected settlement time) still ahead it says how long is
 /// left: "Result in under a minute", "about N min", or "about N h" past an
 /// hour. Without it, or once it has passed, a short round ([shortRound])
@@ -141,44 +145,30 @@ String polyAwaitingText(AppLocalizations l10n, PolyAwaitingResult result,
     DateTime? settleAt,
     DateTime? roundEnd,
     DateTime? now}) {
+  if (result == PolyAwaitingResult.won) return l10n.polyAwaitingWon;
   final at = now ?? DateTime.now();
   final left = settleAt?.difference(at);
   if ((left == null || left <= Duration.zero) &&
       result != PolyAwaitingResult.lost &&
       polyShortRoundEstimating(roundEnd, at)) {
-    final won = result == PolyAwaitingResult.won;
     if (at.difference(roundEnd!) < kPolyShortRoundUnderMinute) {
-      return won
-          ? l10n.polyAwaitingWonInMinutes(1)
-          : l10n.polyAwaitingResultInMinutes(1);
+      return l10n.polyAwaitingResultInMinutes(1);
     }
-    return won
-        ? l10n.polyAwaitingWonUnderMinute
-        : l10n.polyAwaitingResultUnderMinute;
+    return l10n.polyAwaitingResultUnderMinute;
   }
   if (left != null &&
       left > Duration.zero &&
       result != PolyAwaitingResult.lost) {
-    final won = result == PolyAwaitingResult.won;
     if (left < const Duration(minutes: 1)) {
-      return won
-          ? l10n.polyAwaitingWonUnderMinute
-          : l10n.polyAwaitingResultUnderMinute;
+      return l10n.polyAwaitingResultUnderMinute;
     }
     final minutes = (left.inSeconds / 60).ceil();
-    if (minutes < 60) {
-      return won
-          ? l10n.polyAwaitingWonInMinutes(minutes)
-          : l10n.polyAwaitingResultInMinutes(minutes);
-    }
+    if (minutes < 60) return l10n.polyAwaitingResultInMinutes(minutes);
     final hours = (left.inMinutes / 60).round();
-    return won
-        ? l10n.polyAwaitingWonInHours(hours)
-        : l10n.polyAwaitingResultInHours(hours);
+    return l10n.polyAwaitingResultInHours(hours);
   }
   return switch (result) {
-    PolyAwaitingResult.won =>
-      shortRound ? l10n.polyAwaitingWon : l10n.polyAwaitingWonSoon,
+    PolyAwaitingResult.won => l10n.polyAwaitingWon,
     PolyAwaitingResult.lost => l10n.polyAwaitingLost,
     PolyAwaitingResult.pending =>
       shortRound ? l10n.polyAwaitingResult : l10n.polyAwaitingResultSoon,

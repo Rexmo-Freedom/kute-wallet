@@ -13,6 +13,17 @@ import 'package:kute/services/security/wallet_guard_exception.dart';
 /// Whose address the quote delivers to.
 enum RecipientKind { ownSpark, ownEvm, ownPmWallet, external }
 
+/// The quote [OrchestraQuoteRequest.tag] of a move the person made
+/// themselves from the Move sheet.
+const String kManualMoveQuoteTag = 'kute:manual_move';
+
+/// The quote tag of a one-balance move by [purpose] (`order_funding`,
+/// `sweep`, `rollout_sweep`) into or out of [venue] (`predictions`,
+/// `investing`): `kute:<purpose>_<venue>`. A `manual_move` purpose is the
+/// Move sheet's own, [kManualMoveQuoteTag].
+String oneBalanceQuoteTag(String purpose, {required String venue}) =>
+    purpose == 'manual_move' ? kManualMoveQuoteTag : 'kute:${purpose}_$venue';
+
 class OrchestraQuoteRequest {
   const OrchestraQuoteRequest({
     required this.sourceChain,
@@ -26,6 +37,10 @@ class OrchestraQuoteRequest {
     this.ownAddress,
     this.deliveryMode,
     this.externalDepositMemo = false,
+    this.tag,
+    this.refundOptional = false,
+    this.kuteRoute,
+    this.capabilities,
   });
 
   final String sourceChain;
@@ -39,6 +54,12 @@ class OrchestraQuoteRequest {
   final String refundAddress;
   final RecipientKind recipientKind;
 
+  /// Only a one-time receive from a listed token on a network where the
+  /// wallet has no address of its own (Solana, Tron) sets this: the quote
+  /// may then carry no refund address, as Flashnet allows for listed
+  /// tokens. Every send keeps the refund requirement.
+  final bool refundOptional;
+
   /// Leave existing transfer behavior unchanged unless a flow explicitly
   /// requests variable delivery for a route without fixed delivery support.
   final String? deliveryMode;
@@ -49,6 +70,23 @@ class OrchestraQuoteRequest {
   /// The app-resolved own address for every `own*` [recipientKind]; the
   /// recipient must equal it. Null for [RecipientKind.external].
   final String? ownAddress;
+
+  /// The provider-side `tag` the quote is filed under, so the backend can
+  /// tell a one-balance move (an order's funding leg, a sweep) from a
+  /// Move-sheet move: `kute:order_funding_predictions`,
+  /// `kute:sweep_investing`, [kManualMoveQuoteTag], … Null sends none.
+  final String? tag;
+
+  /// Kute's own route the backend prices the quote under, never sent on to
+  /// Flashnet: `investing_withdrawal` for money leaving Investing by Circle
+  /// CCTP onto this quote's deposit address (priced and gated as the
+  /// Investing withdrawal it is, not as a receive). Null sends none.
+  final String? kuteRoute;
+
+  /// The runtime-policy capabilities the app checks before asking, when
+  /// they are not the route's own ([kuteRoute]'s quote answers to the
+  /// Investing withdrawal's). Null checks the route's.
+  final List<String>? capabilities;
 
   /// Analytics label, e.g. `spark_btc>polygon_usdc.e`. No amounts or
   /// addresses.
@@ -218,9 +256,12 @@ VerifiedOrchestraQuote verifyOrchestraQuote(
     _reject(WalletGuardReason.quoteExpired);
   }
 
-  if (formatMatchesChain(request.sourceChain, request.refundAddress,
-          mainnet: mainnet) !=
-      AddressFormatMatch.ok) {
+  final refundOmitted =
+      request.refundOptional && request.refundAddress.trim().isEmpty;
+  if (!refundOmitted &&
+      formatMatchesChain(request.sourceChain, request.refundAddress,
+              mainnet: mainnet) !=
+          AddressFormatMatch.ok) {
     _reject(WalletGuardReason.refundAddressChain);
   }
   if (formatMatchesChain(request.destinationChain, request.recipientAddress,

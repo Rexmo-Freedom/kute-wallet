@@ -17,6 +17,12 @@
 //   * [KuteStillWhenCovered]: a live screen with a slip open over it draws
 //     its end states at once, as under Reduce Motion, until it is on top
 //     again.
+//   * [KutePressScale]: something tappable that is not a card or a button
+//     (the Investments balance) gives the cards' press feedback.
+//   * [FoldAway] / [StepsReveal]: a slip or sheet whose money steps show
+//     under its button folds its keypad and amount chips away (the
+//     amount cannot change then) and the steps grow into that room and
+//     fade in, so nothing above is squeezed, clipped or jumps.
 //
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
@@ -24,6 +30,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
 
@@ -136,9 +143,91 @@ class _SelectionFadeState extends State<SelectionFade>
       FadeTransition(opacity: opacity, child: widget.child);
 }
 
+/// How long a keypad takes to fold away for the money's steps, and the
+/// steps to grow in.
+const Duration kStepsRoomDuration = Duration(milliseconds: 250);
+
+/// Folds [child] away while [folded]: its height eases to nothing as it
+/// fades (ease-out, [kStepsRoomDuration]; at once under Reduce Motion),
+/// and back the same way. A slip's keypad and amount chips give their
+/// room to the money's steps this way while those show: the amount cannot
+/// change then. Once folded the child leaves the tree (no taps, nothing
+/// read out); while it moves it takes no taps.
+class FoldAway extends StatelessWidget {
+  const FoldAway({super.key, required this.folded, required this.child});
+
+  final bool folded;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: folded ? 0 : 1),
+        duration: kuteMotion(context, kStepsRoomDuration),
+        curve: Curves.easeOut,
+        child: child,
+        builder: (context, open, child) {
+          if (open <= 0) return const SizedBox.shrink();
+          return ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: open,
+              child: IgnorePointer(
+                ignoring: open < 1,
+                child: Opacity(opacity: open, child: child),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+/// The money's steps under a button ([child], null while there are none):
+/// they grow into their room and fade in when they appear, rather than
+/// popping in, and their room eases away when they go. At once under
+/// Reduce Motion.
+class StepsReveal extends StatelessWidget {
+  const StepsReveal({super.key, this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = kuteMotion(context, kStepsRoomDuration);
+    final shown = child;
+    final body = shown == null
+        ? const SizedBox(width: double.infinity)
+        : TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: duration,
+            curve: Curves.easeOut,
+            child: shown,
+            builder: (context, v, child) =>
+                Opacity(opacity: v, alwaysIncludeSemantics: true, child: child),
+          );
+    // No AnimatedSize of no duration (see [ArrivalSwitcher]).
+    if (duration == Duration.zero) return body;
+    return AnimatedSize(
+      duration: duration,
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: body,
+    );
+  }
+}
+
+/// How long a [ArrivalSwitcher.sequential] swap takes: the old child out
+/// in the first half, the new one in over the second.
+const Duration kSequentialSwapDuration = Duration(milliseconds: 240);
+
 /// Cross-fades [child] when [state] changes (and only then: a new child
 /// with the same [state] updates in place), easing the height between the
 /// two when [animateSize]. The outgoing child takes no taps while it fades.
+///
+/// [sequential] never shows the two at once: the old child fades out
+/// first, then the new one fades in ([kSequentialSwapDuration]). For two
+/// things drawn in the same place with words on them (a slip's button
+/// becoming another button), where a cross-fade lays one label over the
+/// other.
 class ArrivalSwitcher extends StatelessWidget {
   /// What the block is showing (e.g. 'title' / 'teams', 'deposit' /
   /// 'trade'); not its data.
@@ -146,6 +235,7 @@ class ArrivalSwitcher extends StatelessWidget {
   final Widget child;
   final AlignmentGeometry alignment;
   final bool animateSize;
+  final bool sequential;
 
   const ArrivalSwitcher({
     super.key,
@@ -153,17 +243,28 @@ class ArrivalSwitcher extends StatelessWidget {
     required this.child,
     this.alignment = Alignment.topLeft,
     this.animateSize = true,
+    this.sequential = false,
   });
 
-  static Widget _fade(Widget child, Animation<double> animation) =>
+  /// Opaque only past the animation's midpoint: run forward the new child
+  /// stays hidden for the first half, run in reverse the old one is gone
+  /// by the half.
+  static final Animatable<double> _secondHalf =
+      CurveTween(curve: const Interval(0.5, 1, curve: Curves.easeOut));
+
+  static Widget _fadeSequential(Widget child, Animation<double> animation) =>
+      _fade(child, animation.drive(_secondHalf), gate: animation);
+
+  static Widget _fade(Widget child, Animation<double> animation,
+          {Animation<double>? gate}) =>
       FadeTransition(
         opacity: animation,
         child: AnimatedBuilder(
-          animation: animation,
+          animation: gate ?? animation,
           child: child,
           builder: (context, child) => IgnorePointer(
-            ignoring: animation.status == AnimationStatus.reverse ||
-                animation.status == AnimationStatus.dismissed,
+            ignoring: (gate ?? animation).status == AnimationStatus.reverse ||
+                (gate ?? animation).status == AnimationStatus.dismissed,
             child: child,
           ),
         ),
@@ -171,19 +272,25 @@ class ArrivalSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = kuteMotion(context, kArrivalDuration);
+    final duration = kuteMotion(
+        context, sequential ? kSequentialSwapDuration : kArrivalDuration);
+    // Sequential runs linear, the easing inside each half: an eased
+    // controller would bend the halves into each other and overlap them.
     final switcher = AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeOut,
-      transitionBuilder: _fade,
+      switchInCurve: sequential ? Curves.linear : Curves.easeOut,
+      switchOutCurve: sequential ? Curves.linear : Curves.easeOut,
+      transitionBuilder: sequential ? _fadeSequential : _fade,
       layoutBuilder: (current, previous) => Stack(
         alignment: alignment,
         children: [...previous, if (current != null) current],
       ),
       child: KeyedSubtree(key: ValueKey<Object>(state), child: child),
     );
-    if (!animateSize) return switcher;
+    // Under Reduce Motion the size snaps with the content: an AnimatedSize
+    // of no duration would notify its listeners inside its own layout and
+    // re-dirty itself there (a Flutter assertion), so none is used.
+    if (!animateSize || duration == Duration.zero) return switcher;
     return AnimatedSize(
       duration: duration,
       curve: Curves.easeInOut,
@@ -357,6 +464,49 @@ class KuteStillWhenCovered extends StatelessWidget {
     return MediaQuery(
       data: media.copyWith(disableAnimations: media.disableAnimations || covered),
       child: child,
+    );
+  }
+}
+
+/// The app's press feedback (AppCard's): the child eases to 97% while a
+/// finger is down, a light haptic on the tap. Under Reduce Motion the
+/// child never scales. Read in build, never in initState.
+class KutePressScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const KutePressScale({super.key, required this.child, required this.onTap});
+
+  @override
+  State<KutePressScale> createState() => _KutePressScaleState();
+}
+
+class _KutePressScaleState extends State<KutePressScale> {
+  bool _pressed = false;
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = kuteReduceMotion(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: reduceMotion ? null : (_) => _press(true),
+      onTapUp: reduceMotion ? null : (_) => _press(false),
+      onTapCancel: reduceMotion ? null : () => _press(false),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed && !reduceMotion ? 0.97 : 1.0,
+        duration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }

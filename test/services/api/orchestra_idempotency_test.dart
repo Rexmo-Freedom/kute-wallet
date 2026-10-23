@@ -13,6 +13,7 @@ import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/funding/settlement_http.dart';
+import 'package:kute/services/tracking_service.dart';
 
 final _quoteBody = jsonEncode({
   'quoteId': 'q_1',
@@ -199,6 +200,65 @@ void main() {
       expect(script.keys.single, 'persisted-key');
     });
 
+    test('a refused submit reports the provider error code, never the text',
+        () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final script = _Scripted([
+        () => http.Response(
+            jsonEncode({
+              'error': {
+                'code': 'invalid_tx_hash',
+                'message': 'No transfer 0123abcd found for quote q_1',
+              }
+            }),
+            400),
+      ]);
+      final result = await http.runWithClient(
+          () => _submit('persisted-key'), () => script.client);
+      expect(result.statusCode, 400);
+      expect(result.errorCode, 'invalid_tx_hash');
+      final submit =
+          events.where((e) => e.$1 == 'orchestra_submit_result').single.$2!;
+      expect(submit['outcome'], 'error');
+      expect(submit['status_class'], '4xx');
+      expect(submit['error_code'], 'invalid_tx_hash');
+      expect(submit.values.join(' '), isNot(contains('0123abcd')));
+    });
+
+    test('an accepted submit carries no error code', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final script = _Scripted([() => http.Response(_submitBody, 200)]);
+      await http.runWithClient(
+          () => _submit('persisted-key'), () => script.client);
+      final submit =
+          events.where((e) => e.$1 == 'orchestra_submit_result').single.$2!;
+      expect(submit.containsKey('error_code'), isFalse);
+    });
+
+    test('only a short code token passes as an error code', () {
+      expect(OrchestraService.parseErrorCode('{"error":{"code":"Quote_Expired"}}'),
+          'quote_expired');
+      expect(OrchestraService.parseErrorCode('{"code":"invalid_tx_hash"}'),
+          'invalid_tx_hash');
+      expect(OrchestraService.parseErrorCode('{"errorCode":"rate_limited"}'),
+          'rate_limited');
+      // A message, a sentence or a non-JSON body is never a code.
+      expect(
+          OrchestraService.parseErrorCode(
+              '{"error":{"code":"no transfer found for 0xabc"}}'),
+          isNull);
+      expect(OrchestraService.parseErrorCode('{"error":"amount_too_small"}'),
+          'amount_too_small');
+      expect(OrchestraService.parseErrorCode('{"error":"Deposit not found"}'),
+          isNull);
+      expect(OrchestraService.parseErrorCode('Bad Gateway'), isNull);
+      expect(OrchestraService.parseErrorCode('{"error":{"code":42}}'), isNull);
+    });
+
     test('submitDeposit without a key still sends one', () async {
       final script = _Scripted([() => http.Response(_submitBody, 200)]);
       await http.runWithClient(
@@ -358,6 +418,51 @@ void main() {
       }
       expect(classifySettlementResult(Result<void>(error: 'timeout')),
           SettlementHttpOutcome.transient);
+    });
+
+    test('409 idempotency_in_progress is in flight, never a rejection', () {
+      final keys = SubmitIdempotencyKeys.create(generateKey: _nextKey);
+      final inProgress = classifySettlementResult(Result<void>(
+          error: 'Request is already being processed',
+          statusCode: 409,
+          errorCode: 'idempotency_in_progress'));
+      expect(inProgress, SettlementHttpOutcome.inProgress);
+      expect(keys.afterOutcome(inProgress, generateKey: _nextKey).current,
+          keys.current,
+          reason: 'the same key keeps the in-flight request');
+      // Any other 409 stays a definitive rejection.
+      expect(
+          classifySettlementResult(Result<void>(
+              error: 'conflict', statusCode: 409, errorCode: 'quote_used')),
+          SettlementHttpOutcome.rejected);
+    });
+
+    test('a submit answered 409 in progress is not asked again', () async {
+      final script = _Scripted([
+        () => http.Response(
+            jsonEncode({
+              'error': {
+                'code': 'idempotency_in_progress',
+                'message': 'Request is already being processed',
+              }
+            }),
+            409),
+        () => http.Response(_submitBody, 200),
+      ]);
+      final attempt = await http.runWithClient(
+        () => submitWithIdempotencyKeys<OrchestraSubmitResponse>(
+          keys: SubmitIdempotencyKeys.create(generateKey: _nextKey),
+          bodyFingerprint: _fingerprint,
+          submit: _submit,
+          generateKey: _nextKey,
+          sleep: fakeSleep,
+        ),
+        () => script.client,
+      );
+      expect(attempt.call.outcome, SettlementHttpOutcome.inProgress);
+      expect(script.keys, hasLength(1));
+      expect(sleeps, isEmpty);
+      expect(attempt.keys.current, script.keys.single);
     });
   });
 

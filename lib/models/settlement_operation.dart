@@ -78,12 +78,47 @@ enum SettlementFlow {
   /// funding unit, so it must reconcile and report under its own name.
   moveDollarsToBtc,
 
+  /// Investing cash brought home to the spending account's DOLLARS by
+  /// Circle CCTP out of HyperCore, the fallback while Orchestra refuses
+  /// HyperCore-source routes: one `sendToEvmWithData` to the wallet's
+  /// Investing-withdrawal standing address on Arbitrum, which Orchestra
+  /// converts to dollars with no quote. No quote, no submit: the funding
+  /// proof is the HyperCore ledger row, the order comes from the standing
+  /// address's deposits (lib/services/hyperliquid/cctp_withdrawal.dart).
+  investingToDollarsCctp,
+
+  /// [investingToDollarsCctp] straight to the final destination: the
+  /// standing address converts the Arbitrum USDC to the wallet's own
+  /// Spark BITCOIN, or to its own Predictions account (Polygon USDC.e).
+  /// Separate values because the delivered asset is what the operation
+  /// is reconciled and reported by.
+  investingToBtcCctp,
+  investingToPredictionsCctp,
+
+  /// Predictions cash straight into the wallet's own Investing account
+  /// (Polygon USDC.e → HyperCore USDC) when another action pulls it.
+  movePredictionsToInvesting,
+
+  /// Investing cash straight into the wallet's own Predictions account by
+  /// the native HyperCore route (HyperCore USDC → Polygon USDC.e, a
+  /// perpetuals `usdSend` to the quote's deposit address). Tried before
+  /// [investingToPredictionsCctp], which runs only when Orchestra refused
+  /// this route before anything was signed.
+  investingToPredictionsDirect,
+
   /// Written by a newer build. Kept raw on disk.
   unknown;
 
   /// Snake case analytics value.
   String get code => name.replaceAllMapped(
       RegExp('[A-Z]'), (m) => '_${m.group(0)!.toLowerCase()}');
+
+  /// One of the Investing moves out of HyperCore by Circle CCTP, which
+  /// the CCTP watcher reconciles (never the generic runner).
+  bool get isInvestingCctp =>
+      this == investingToDollarsCctp ||
+      this == investingToBtcCctp ||
+      this == investingToPredictionsCctp;
 
   static SettlementFlow fromName(String? name) {
     for (final value in values) {

@@ -15,7 +15,14 @@
 //         slip listens to for the fill overlay;
 //   * on orderUpdates: patches the trading notifier's openOrders in
 //     place so cancels/fills reflect immediately (30 s poll remains the
-//     reconciliation backstop).
+//     reconciliation backstop);
+//   * on live userNonFundingLedgerUpdates (never the subscribe-time
+//     history frame): the cash moved outside trading (a deposit credited,
+//     a withdrawal left), so the account is read again at once and a
+//     queued order waiting on a deposit fires on that read
+//     (`PendingHlOrderAutoFire.accountMoved`), instead of on the next
+//     account poll; a USDC credit marks the move into Investing it stands
+//     for as arrived (`VenueArrivals.investingArrived`).
 //
 // CRASH CONTRACT: the WS `messages` stream emits errors (terminal
 // reconnect exhaustion included) — the listener attaches onError and
@@ -29,8 +36,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
+    show pendingHlOrderAutoFireProvider;
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
+import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart';
 
 class HlUserEventsState {
   /// Newest-last ring of recent order lifecycle events, capped at 50. The
@@ -142,7 +156,35 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       _handleLiveFills(msg.fills);
     } else if (msg is HlOrderUpdatesMessage) {
       _handleOrderUpdates(msg.updates);
+    } else if (msg is HlLedgerUpdatesMessage) {
+      // The subscribe-time frame is the account's history, not news.
+      if (msg.isSnapshot || msg.count == 0) return;
+      _handleLedgerUpdates(msg.credits);
     }
+  }
+
+  /// The account's cash moved: read it again now (and fire a queued order
+  /// waiting on it). Never builds the autofire or the account from here.
+  /// Each USDC credit marks the move into Investing it stands for as
+  /// arrived ([VenueArrivals.investingArrived]): a Move sheet deposit's
+  /// journey shows done while its row waits for Orchestra.
+  void _handleLedgerUpdates(List<double> credits) {
+    final account = _address;
+    if (account != null && credits.isNotEmpty) {
+      try {
+        final rows = ref.read(swapOrdersProvider);
+        for (final usd in credits) {
+          VenueArrivals.investingArrived(rows, account: account, usd: usd);
+        }
+      } catch (_) {}
+    }
+    try {
+      if (ref.exists(pendingHlOrderAutoFireProvider)) {
+        ref.read(pendingHlOrderAutoFireProvider).accountMoved();
+      } else if (ref.exists(hyperliquidAccountProvider)) {
+        ref.invalidate(hyperliquidAccountProvider);
+      }
+    } catch (_) {}
   }
 
   void _handleLiveFills(List<HlFill> fillsIn) {
@@ -156,6 +198,12 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
 
     // 2. Fresh account snapshot — the position/balance moved.
     ref.invalidate(hyperliquidAccountProvider);
+
+    // 2b. A fill that reduced, closed, flipped or sold freed venue cash:
+    //     tell the sweeper once per batch so it can bring it home now.
+    if (fillsIn.any(hlFillReleasesCash)) {
+      VenueCashReleased.emit(OneBalanceVenue.investing, 'reduce_fill');
+    }
 
     // 3. Patch the trading notifier's fills ring without a REST
     //    roundtrip — only when it's already alive; instantiating it
@@ -202,6 +250,18 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       } catch (_) {}
     }
   }
+}
+
+/// Whether [fill] freed venue cash: it closed or reduced a perp position
+/// ('Close Long', 'Close Short', a 'Long > Short' flip, a liquidation) or
+/// sold spot ('Sell'). Opens and buys commit cash, they never free it.
+bool hlFillReleasesCash(HlFill fill) {
+  if (fill.liquidated) return true;
+  final dir = fill.dir.trim();
+  if (dir.startsWith('Close')) return true;
+  if (dir.contains('>')) return true;
+  if (dir == 'Sell') return true;
+  return false;
 }
 
 final hyperliquidUserEventsProvider =

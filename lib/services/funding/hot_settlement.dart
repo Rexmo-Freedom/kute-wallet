@@ -5,6 +5,9 @@
 // payment and Activity row code, and this file supplies the runner, the
 // pinned wallet id, route availability, ownership and error copy.
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
+    show CctpUnavailable, CctpUnavailableReason;
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart'
     show BreezSdk, PrepareSendPaymentResponse, SendPaymentMethod_SparkAddress,
         SendPaymentRequest;
@@ -12,6 +15,7 @@ import 'package:kute/helpers/user_error_copy.dart' show readsAsUserCopy;
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/breez/error_handling.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/services/polymarket/hot_withdrawal_guard.dart'
     show EarlierPolymarketWithdrawalPending, PendingPolymarketWithdrawal;
@@ -39,6 +43,10 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart';
+import 'package:kute/services/investment_provider_availability.dart'
+    show ProviderAvailabilityException;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show CapabilityUnavailableException;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/security/address_guard.dart' show sameSparkAddress;
@@ -68,6 +76,11 @@ class HotSettlement {
       throw e;
     });
   }
+
+  /// Test seam: the runner [runner] hands out, or null for the app's own.
+  @visibleForTesting
+  static set debugRunner(SettlementRunner? runner) =>
+      _runner = runner == null ? null : Future.value(runner);
 
   /// The spending wallet the operation is pinned to.
   static String spendingWalletId(ProviderReader read) {
@@ -135,6 +148,7 @@ class HotSettlement {
     double? amountUsd,
     String? walletId,
     SettlementStepUpHook? stepUp,
+    bool registerInBackground = false,
   }) {
     final pinned = walletId ?? spendingWalletId(read);
     final resolver = OwnedAddressResolver(ProviderOwnedAddressSources(read));
@@ -167,6 +181,7 @@ class HotSettlement {
       // Phase 1b: the flow binds its step-up grant here. Flows that pass
       // no hook keep their own approval upstream.
       stepUp: stepUp,
+      registerInBackground: registerInBackground,
     );
   }
 
@@ -257,8 +272,9 @@ class HotSettlement {
       } catch (_) {
         cache = null;
       }
-      final response = await prepared.sdk.sendPayment(
-          request: SendPaymentRequest(prepareResponse: prepared.response));
+      final response = await runSparkMutation(prepared.sdk,
+          () => prepared.sdk.sendPayment(
+              request: SendPaymentRequest(prepareResponse: prepared.response)));
       // A bitcoin send shows in the balance at once (a dollar send holds
       // nothing: `sparkSendDebit` is null for a token transfer).
       if (cache != null) {
@@ -305,8 +321,21 @@ class HotSettlement {
     if (error is EarlierPolymarketWithdrawalPending) {
       return l10n.withdrawalEarlierStillSettlingBody;
     }
+    // The Investing → Dollars CCTP fallback stopped before signing.
+    if (error is CctpUnavailable) {
+      return error.reason == CctpUnavailableReason.belowMinimum
+          ? l10n.routeAmountTooSmallGeneric
+          : l10n.routeUnavailableNothingSent;
+    }
     if (error is WalletGuardException) return error.messageFor(l10n);
     if (error is OrchestraQuoteFailure) {
+      // Refused by policy: the restriction's own words, never a failure.
+      switch (error.denial) {
+        case CapabilityUnavailableException(:final decision):
+          return decision.messageIn(l10n);
+        case ProviderAvailabilityException(:final availability):
+          return availability.messageIn(l10n);
+      }
       final mapped = error.routeError?.messageFor(l10n);
       if (mapped != null) return mapped;
       // A refusal whose code this app does not recognise still arrives

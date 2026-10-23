@@ -57,7 +57,16 @@ void completeUnlock(WidgetRef ref, {required String method}) {
   final shouldReconnect = current is AsyncError ||
       (asData != null && asData.value.instance == null);
   if (shouldReconnect) {
-    ref.invalidate(breezSDKProvider);
+    // A wallet the wrapper can connect again from its kept request does
+    // so now (its retries waited for this unlock; no prompt, no provider
+    // rebuild). One it cannot (never connected, or a seed that needs a
+    // prompt) is connected again through the provider, as the unlock's
+    // own path.
+    if (asData != null && asData.value.canReconnectFromSaved) {
+      asData.value.reconnectIfDown().ignore();
+    } else {
+      ref.invalidate(breezSDKProvider);
+    }
   }
   // Prime the connect so the FFI handshake (when needed) runs in
   // parallel with the unlock transition instead of racing the first

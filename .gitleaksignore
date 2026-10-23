@@ -57,3 +57,7 @@ a0ef181cccbd3174a88b08f9f381bc41d0c5550b:lib/services/sideswap/sideswap.dart:gen
 507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/hardware/eip712_typed_data_test.dart:generic-api-key:103
 507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/hyperliquid/hypercore_native_funding_test.dart:generic-api-key:240
 507063678420a3bf8621ac0c741b7f3b72efbec0:test/services/secure/secure_storage_options_test.dart:generic-api-key:30
+
+# Hive storage key name (pending_btc_purchases_v1), not a credential. Kute and kute-wallet commits.
+f571c52e551e8759ef18ae222412dd56884a4c7b:lib/services/one_balance/pending_bitcoin_purchase.dart:generic-api-key:116
+c1478714123210109b1ea7f4a43526f8a30e9fd5:lib/services/one_balance/pending_bitcoin_purchase.dart:generic-api-key:116

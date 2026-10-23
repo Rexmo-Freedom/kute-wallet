@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/models/breez/error_handling.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 
 enum SparkDepositActionReason {
@@ -101,7 +102,7 @@ class SparkDepositActions {
     try {
       final sdk = await _loadSdk(walletId);
       try {
-        return await execute(sdk);
+        return await runSparkMutation(sdk, () => execute(sdk));
       } on SparkDepositActionException {
         rethrow;
       } on SdkError_MaxDepositClaimFeeExceeded catch (error) {

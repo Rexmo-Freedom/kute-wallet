@@ -654,7 +654,7 @@ class _RefundAddressModalSheetState extends State<RefundAddressModalSheet> {
     _fillAddress(text);
   }
 
-  /// The bitcoin send's smart scanner, in return-value mode.
+  /// The scanner sheet over this one, in recipient mode.
   Future<void> _scan() async {
     final scanned = await scanRecipientRaw(context);
     if (scanned == null || !mounted) return;

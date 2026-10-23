@@ -1,6 +1,8 @@
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/models/settings_model.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -10,8 +12,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
-class SecurityActionCard extends ConsumerWidget {
+class SecurityActionCard extends ConsumerStatefulWidget {
   /// Null is the Home reminder for the spending account. Detail screens pin
   /// their own wallet so no reminder can reveal another wallet's words.
   final String? walletId;
@@ -19,28 +22,81 @@ class SecurityActionCard extends ConsumerWidget {
   const SecurityActionCard({super.key, this.walletId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SecurityActionCard> createState() =>
+      _SecurityActionCardState();
+}
+
+class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
+  /// The passkey confirmation is running: taps wait for it.
+  bool _busy = false;
+
+  /// A passkey wallet whose label is not on the relay yet: one passkey
+  /// confirmation publishes it (`PasskeyService.finishLabelBackup`). The
+  /// reminder stays until that is confirmed; a cancel or a failure says so
+  /// with the usual toast.
+  Future<void> _finishPasskeyBackup(WalletConfig target, String surface) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final result = await ref
+        .read(passkeyLabelBackupRunnerProvider)(target.passkeyLabel!,
+            surface: surface);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (result.succeeded) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.confirmationWalletBackedUp,
+          error: false);
+    } else if (result.cancelled) {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.passkeyFinishBackupBody,
+          error: false,
+          info: true);
+    } else {
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.passkeyFinishBackupFailed,
+          error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
+    final walletId = widget.walletId;
+    final pending = ref.watch(passkeyPendingLabelsProvider);
     final target = walletId == null
         ? ref.watch(pendingSpendingWalletBackupProvider)
         : ref.watch(settingsProvider).wallets
             .where((wallet) => wallet.id == walletId)
             .firstOrNull;
-    if (target == null || !needsWalletBackup(target)) {
+    if (target == null || !needsWalletBackup(target, pendingLabels: pending)) {
       return const SizedBox.shrink();
     }
+    final surface = walletId == null ? 'home' : 'wallet_detail';
+    final passkeyLabel =
+        needsPasskeyLabelPublish(target, pendingLabels: pending);
     // Phase 2 funnel: the prompt is actually on screen. Deduped per
     // surface+wallet per session inside the helper, so rebuilds and
-    // remounts do not recount it.
-    final surface = walletId == null ? 'home' : 'wallet_detail';
-    TrackingService.backupPromptShownOnce(
-        surface: surface, walletKey: target.id);
+    // remounts do not recount it. The passkey variant has its own funnel.
+    if (passkeyLabel) {
+      TrackingService.passkeyLabelBackupShownOnce(
+          surface: surface, walletKey: target.id);
+    } else {
+      TrackingService.backupPromptShownOnce(
+          surface: surface, walletKey: target.id);
+    }
     // One compact neutral row: the whole row is the tap target and the
     // filled "Back up" button is its single visible action. The loss
     // warning lives on the backup screen this opens.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
+        if (passkeyLabel) {
+          _finishPasskeyBackup(target, surface);
+          return;
+        }
         TrackingService.backupPromptTapped(surface: surface);
         context.push('/backup_wallet', extra: target.id);
       },
@@ -68,7 +124,10 @@ class SecurityActionCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(context.l10n.backUpBannerTitle,
+                  Text(
+                      passkeyLabel
+                          ? context.l10n.passkeyFinishBackupTitle
+                          : context.l10n.backUpBannerTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -77,7 +136,10 @@ class SecurityActionCard extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2)),
                   SizedBox(height: 2.h),
-                  Text(context.l10n.backUpBannerSubtitle,
+                  Text(
+                      passkeyLabel
+                          ? context.l10n.passkeyFinishBackupSubtitle
+                          : context.l10n.backUpBannerSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -95,17 +157,22 @@ class SecurityActionCard extends ConsumerWidget {
                 color: context.ctaFill,
                 borderRadius: AppRadius.buttonBorder,
               ),
-              child: Text(
-                context.l10n.backUpBannerAction,
-                maxLines: 1,
-                style: TextStyle(
-                  color: context.ctaOnColor,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.1,
-                  height: 1.0,
-                ),
-              ),
+              child: _busy
+                  ? LoadingAnimationWidget.staggeredDotsWave(
+                      color: context.ctaOnColor, size: 13.sp)
+                  : Text(
+                      passkeyLabel
+                          ? context.l10n.confirm
+                          : context.l10n.backUpBannerAction,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: context.ctaOnColor,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                        height: 1.0,
+                      ),
+                    ),
             ),
           ],
         ),

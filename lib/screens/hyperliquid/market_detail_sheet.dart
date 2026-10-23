@@ -19,7 +19,6 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
-import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -63,7 +62,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -97,7 +95,6 @@ import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
     show HlTrade;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/ledger/ledger_actions.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -438,7 +435,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
-                      // is the question capsule under this header.
+                      // is the "Why is it moving?" row under the chart.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
                     ],
                   ),
@@ -470,15 +467,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     );
                   }
                   final target = 540.h;
-                  // Sal's question sits above the chart: leave it its
-                  // room so the pills still land on screen.
-                  final salRoom =
-                      ref.watch(aiEnabledProvider).asData?.value == false
-                          ? 0.0
-                          : 72.h;
-                  final chartHeight = math.min(
-                          target, bodyCons.maxHeight * 0.78 - salRoom) /
-                      1.h;
+                  final chartHeight =
+                      math.min(target, bodyCons.maxHeight * 0.78) / 1.h;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -501,13 +491,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Sal's question for this market, right under the
-                        // header's price: the one Sal door on this screen.
-                        SalQuestionCapsule(
-                          advisorContext: _salContext(m),
-                          chipSignals: salSignalsForHlMarket(m),
-                          padding: EdgeInsets.only(bottom: 14.h),
-                        ),
                         // Bounded chart (see chartHeight above); Advanced
                         // mode expands it (animated inside the chart).
                         HlCandleChart(
@@ -522,45 +505,24 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                               setState(() => _advancedChart = on),
                         ),
                         SizedBox(height: 20.h),
-                        // The user's own exposure stays ABOVE the Details
-                        // expander — it's the one thing worth surfacing at a
-                        // glance. Its money amounts (PnL / holding value) honour
-                        // the Bitcoin denomination setting; the market quote
-                        // prices below stay in USD.
-                        if (!_advancedChart && position != null) ...[
-                          _PositionSummaryCard(
-                              position: position, funding: m.funding),
-                          SizedBox(height: 16.h),
-                        ] else if (!_advancedChart &&
-                            m.isSpot &&
-                            spotHeld > 0) ...[
-                          Container(
-                            padding: EdgeInsets.all(14.w),
-                            decoration: BoxDecoration(
-                              color: c.surface.withValues(alpha: 0.96),
-                              borderRadius: BorderRadius.circular(14.r),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.account_balance_wallet_outlined,
-                                    color: kHlAccent, size: 18.sp),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Text(
-                                    '${context.l10n.chartYouHold} ${formatHlSize(spotHeld)} ${m.coin} ≈ ${formatPolyAmount(ref, spotHeld * price)}',
-                                    style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        // Sal's one quiet door on this screen, under the
+                        // chart and its intervals: "Why is it moving?",
+                        // only on a big move today (calm, nothing).
+                        if (!_advancedChart)
+                          SalWhyMovingRow(
+                            advisorContext: _salContext(m),
+                            question: salWhyMovingHl(context.l10n,
+                                label: m.coin,
+                                dayChangePct: m.prevDayPx > 0
+                                    ? m.dayChangeAt(price)
+                                    : null),
+                            chipSignals: salSignalsForHlMarket(m),
+                            padding: EdgeInsets.only(bottom: 16.h),
                           ),
-                          SizedBox(height: 16.h),
-                        ],
-
+                        // No "Your investment" card here (founder,
+                        // 2026-10-20): the position has its own screen,
+                        // and the chart already marks entry and
+                        // liquidation.
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -920,137 +882,6 @@ class _HlAboutSheet extends ConsumerWidget {
 }
 
 // ───────────────────────── position summary ─────────────────────────
-
-class _PositionSummaryCard extends ConsumerWidget {
-  final HlPerpPosition position;
-
-  /// The market's current hourly funding rate, when known: adds the
-  /// "next funding" line.
-  final double? funding;
-  const _PositionSummaryCard({required this.position, this.funding});
-
-  /// "Next funding in 23 min: you pay about $0.12": the countdown to the
-  /// top of the hour and what this position pays or receives there at
-  /// the current rate. Null when the rate is unknown or zero.
-  String? _fundingLine(BuildContext context, WidgetRef ref) {
-    final rate = funding;
-    if (rate == null || rate == 0 || position.szi == 0) return null;
-    final now = DateTime.now();
-    final minutes =
-        hlNextFundingTime(now).difference(now).inMinutes.clamp(1, 60);
-    final estimate = hlFundingEstimate(
-      positionValue: position.positionValue,
-      isLong: position.isLong,
-      rate: rate,
-    );
-    final time = context.l10n.hlMinutesShort(minutes);
-    // The person's own money: the Bitcoin denomination setting applies.
-    final amount = estimate.amount < 0.01
-        ? '<${formatPolyAmount(ref, 0.01)}'
-        : formatPolyAmount(ref, estimate.amount);
-    return estimate.pays
-        ? context.l10n.hlNextFundingPay(time, amount)
-        : context.l10n.hlNextFundingReceive(time, amount);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final pos = position;
-    final sideColor = pos.isLong ? greenColor : redColor;
-    final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
-    final pnl =
-        liveMid != null ? (liveMid - pos.entryPx) * pos.szi : pos.unrealizedPnl;
-    final pnlColor = pnl >= 0 ? greenColor : redColor;
-    final fundingLine = _fundingLine(context, ref);
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        HlPositionDetailSheet.show(
-          context,
-          position: pos,
-          market: ref.read(hyperliquidAccountMarketProvider(pos.coin)),
-        );
-      },
-      child: Container(
-        padding: EdgeInsets.all(14.w),
-        decoration: AppDecorations.card(context),
-        child: Row(
-          children: [
-            HlSideChip(
-                text: pos.isLong
-                    ? context.l10n.longLabel
-                    : context.l10n.shortLabel,
-                color: sideColor),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.chartYourInvestment,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    '${pos.isLong ? context.l10n.chartBoughtAt : context.l10n.chartSoldAt} ${formatHlPrice(pos.entryPx, decimalCap: ref.watch(hyperliquidAccountMarketProvider(pos.coin))?.pxDecimalCap)}',
-                    style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (fundingLine != null) ...[
-                    SizedBox(height: 2.h),
-                    Text(
-                      fundingLine,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                RollingNumberText(
-                  // The user's PnL is their money — honour the Bitcoin
-                  // denomination setting (fiat OR sats/BTC), like Predictions.
-                  // The sign stays explicit so gains read `+…`.
-                  text:
-                      '${pnl >= 0 ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
-                  style: TextStyle(
-                    color: pnlColor,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  context.l10n.chartManage,
-                  style: TextStyle(
-                    color: kHlAccent,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ───────────────────────────── chart ─────────────────────────────
 
@@ -1744,11 +1575,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final l = crowd.levels[i];
         final id = 'level:$i';
         targets[id] = (l.event, l.kind.name);
+        final arrow = l.kind == HlCrowdKind.reach ? '↑' : '↓';
         levels.add(ChartSignalLevel(
           id: id,
           price: l.strike,
-          label: '${l.kind == HlCrowdKind.reach ? '↑' : '↓'} '
+          label: '$arrow '
               '${l10n.hlChartCrowdLevel(_crowdPercent(l.chance), _crowdDay(l.day))}',
+          // Where the tag column cannot hold the day: the chance alone.
+          shortLabel: '$arrow ${_crowdPercent(l.chance)}',
         ));
       }
     }
@@ -1767,10 +1601,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final fed = d.kind == HlMacroKind.fedDecision;
         final id = 'date:$i';
         targets[id] = (d.event, fed ? 'fed_date' : 'inflation_date');
+        final name = fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation;
         dates.add(ChartSignalDate(
           timeMs: d.day.millisecondsSinceEpoch,
-          label: '${fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation}'
-              ' · ${_crowdDay(d.day)}',
+          label: '$name · ${_crowdDay(d.day)}',
+          // Where the band cannot hold the day: the event alone.
+          shortLabel: name,
           id: id,
           pinWhenAhead: true,
         ));

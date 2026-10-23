@@ -1,20 +1,30 @@
 // lib/screens/shared/slip_shortfall.dart
 //
-// Top up from the slip: what the bet slip and the order slip share. A hot
-// slip short of venue cash keeps its "Deposit to …" button; the tap opens
-// the Move sheet to that venue, prefilled with the order's own amount (the
-// fee added only when the deposit would otherwise not cover it) on the one
-// spending source that covers it alone. The slip stays open underneath
-// with everything the person typed; once the deposit goes through they are
-// back on it and place the order themselves. Nothing is placed
-// automatically, and the Move sheet authorises and runs the deposit
-// exactly as it always does.
+// Top up from the slip: what the bet slip and the order slip share. One
+// balance (2026-10): a hot slip short of venue cash funds the order from
+// Dollars itself (`OrderFundingController`). When the whole Investments
+// balance cannot cover the move either, the slip's button reads "Add $X
+// to Investments" and its tap decides on the spending bitcoin
+// (`decideSlipFunding`, the same for both slips): the Bitcoin-funded chain
+// when it covers X, run in place on the slip whether or not anything was
+// typed (an empty slip takes the market's minimum first, never a sheet);
+// otherwise [openSlipReceive], the Investments Receive sheet, since the
+// money has to come from outside. Order and bet slips opt into a contextual
+// venue deposit instead only when every source is confirmed empty.
+// [openSlipTopUp] (the Dollars deposit
+// door, prefilled with exactly what is missing: the order's top-up,
+// [ShortfallRules.topUp], the route's fee counted, less the Dollars
+// already held) stays for "Add more". The slip stays open underneath with
+// everything the person typed. A hot slip's "Available"
+// ([slipAvailableUsd]) is the whole spendable Investments, and its Max
+// ([slipMaxFundableUsd]) the largest order its own funding check passes
+// on it.
 //
-// While a deposit into that venue is on its way (started here or anywhere
-// else, read from the persisted Orchestra rows the pool hero's arriving
-// line reads), the button says "Deposit incoming" instead of offering a
-// second deposit, and the slip re-reads the venue's cash until the money
-// lands and the button turns into the order by itself.
+// While a deposit into that venue is on its way (an order's funding leg
+// that has left Dollars, read from the persisted Orchestra rows the pool
+// hero's arriving line reads), the button says "Deposit incoming" instead
+// of offering a second one, and the slip re-reads the venue's cash until
+// the money lands; the autofire places the queued order by itself.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -32,8 +42,12 @@ import 'package:kute/providers/balance_provider.dart'
     show walletBalanceCacheProvider;
 import 'package:kute/providers/currency_conversions_provider.dart'
     show selectedCurrencyProvider;
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/pending_pool_deposits_provider.dart'
-    show isPendingPoolDeposit;
+    show isPendingBitcoinLeg, isPendingPoolDeposit;
+import 'package:kute/providers/polymarket_trading_provider.dart'
+    show polymarketTradingProvider;
 import 'package:kute/providers/settings_provider.dart' show settingsProvider;
 import 'package:kute/providers/swap_orders_provider.dart'
     show swapOrdersProvider;
@@ -42,10 +56,20 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
+import 'package:kute/screens/shared/money_steps_view.dart'
+    show MoneyStepLine, MoneyStepsKeys, MoneyStepsView, moneyStepLines;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
+import 'package:kute/screens/receive/receive_sheet.dart'
+    show showUsdReceiveSheet;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/funding/venue_shortfall.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/empty_slip_sources.dart';
+import 'package:kute/services/one_balance/money_steps.dart'
+    show MoneyPlace, MoneyStepGraph, MoneyStepStatus;
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/tracking_service.dart';
@@ -66,6 +90,12 @@ enum SlipVenue {
 
   /// The Move sheet door into this venue.
   final MoveLockedSide lockedSide;
+
+  /// The one-balance venue this slip funds.
+  OneBalanceVenue get oneBalanceVenue => switch (this) {
+        SlipVenue.predictions => OneBalanceVenue.predictions,
+        SlipVenue.investing => OneBalanceVenue.investing,
+      };
 }
 
 /// The spending balances a top-up can come from, in dollars, and the
@@ -141,8 +171,8 @@ Future<SlipRouteFee> Function(
         SlipVenue venue, ShortfallSource source, double amountUsd)?
     debugSlipRouteFee;
 
-/// Test seam: stands in for the Move sheet [openSlipTopUp] opens, with
-/// the prefill it was given.
+/// Test seam: stands in for the Dollars deposit door [openSlipTopUp]
+/// opens, with the prefill it was given (what is missing from Dollars).
 @visibleForTesting
 Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
     debugShowSlipTopUpSheet;
@@ -152,11 +182,17 @@ Future<void> Function(SlipVenue venue, double? initialTargetUsd)?
 /// for that amount. Falls back to the last estimate, then to
 /// [ShortfallRules.fallbackRouteFee] with the last Kute rate seen. An
 /// estimate is a read: nothing is quoted or moved.
+///
+/// [recipient] is the venue account the deposit lands in (the address its
+/// quote names), so a HyperCore account Hyperliquid already knows is not
+/// priced with the one-time activation. Part of the held estimate's key.
 Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
-    double amountUsd, double usdPerBtc) async {
+    double amountUsd, double usdPerBtc,
+    {String? recipient}) async {
   final seam = debugSlipRouteFee;
   if (seam != null) return seam(venue, source, amountUsd);
-  final key = '${venue.code}:${source.code}';
+  final to = OrchestraService.estimateRecipient(recipient);
+  final key = '${venue.code}:${source.code}:${to ?? ''}';
   final held = _routeFees[key];
   try {
     final destinationChain =
@@ -178,6 +214,7 @@ Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
       destinationChain: destinationChain,
       destinationAsset: destinationAsset,
       amount: amount,
+      recipientAddress: to,
     ).timeout(const Duration(seconds: 4));
     final est = result.data;
     final fee = est == null
@@ -201,27 +238,59 @@ Future<SlipRouteFee> _slipRouteFee(SlipVenue venue, ShortfallSource source,
   return (fee: ShortfallRules.fallbackRouteFee, kuteBps: _lastKuteBps);
 }
 
+/// The venue account a deposit into [venue] lands in, as already resolved
+/// (never awaited): the Investing account's own EVM address, the
+/// Predictions deposit wallet. Null while unknown. Only ever the estimate's
+/// recipient; never sent to analytics or logged.
+String? _slipVenueRecipient(WidgetRef ref, SlipVenue venue) {
+  try {
+    return switch (venue) {
+      SlipVenue.investing => ref.read(hyperliquidAddressProvider).valueOrNull,
+      SlipVenue.predictions =>
+        ref.read(polymarketTradingProvider).valueOrNull?.proxyWalletAddress,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 /// One top-up sheet at a time: a second tap while the route fee is read
 /// opens nothing.
 bool _topUpOpening = false;
 
-/// Opens the Move sheet locked to [venue]'s deposit. The prefill is the
-/// order's own amount [orderUsd], or that plus exactly the fees still
-/// missing so the money that arrives covers [requiredUsd] with
-/// [readyUsd] ([ShortfallRules.topUp]); with [incomingUsd] ("Add more"
-/// under "Deposit incoming") it is the rest of [shortfallUsd] instead.
-/// Both count the deposit route's own fee and the Kute fee the deposit's
-/// quote takes, for the source chosen: Dollars
-/// first when they cover the prefill, else Bitcoin. Without an order
-/// (nothing typed yet) it keeps [fallbackTargetUsd], as the door always
-/// did. [onReturned] runs once the deposit went through and the person is
-/// back on the still-open slip. [onSheetOpening] runs once the top-up is
-/// worked out, right before the Move sheet opens: the slip's door stops
-/// showing its calculation there.
+/// What the Dollars door is prefilled with for a slip short of venue
+/// cash: the order's top-up ([topUpUsd], the move the order would make,
+/// the route's fee counted) less the Dollars held, up to the cent, or
+/// zero when Dollars already cover the move. Pure.
+double slipDollarsShortfallUsd({
+  required double topUpUsd,
+  required double dollarsUsd,
+}) {
+  if (!topUpUsd.isFinite || topUpUsd <= 0) return 0;
+  final held = dollarsUsd.isFinite && dollarsUsd > 0 ? dollarsUsd : 0.0;
+  final missing = topUpUsd - held;
+  if (missing <= 1e-6) return 0;
+  return ((missing * 100) - 1e-9).ceilToDouble() / 100;
+}
+
+/// Opens the Dollars deposit door for a slip whose Dollars cannot cover
+/// the move its order needs. The prefill is what is missing from Dollars:
+/// the order's top-up (its own amount [orderUsd], or that plus exactly
+/// the fees still missing so the money that arrives at [venue] covers
+/// [requiredUsd] with [readyUsd], [ShortfallRules.topUp]) less the
+/// Dollars held; with [incomingUsd] ("Add more" under "Deposit incoming")
+/// the top-up is the rest of [shortfallUsd] instead. Both count the
+/// Dollars route's own fee and the Kute fee the move's quote takes.
+/// [topUpUsd] passes a top-up already worked out (the slip's funding
+/// plan) so nothing is read again. Without an order (nothing typed yet)
+/// it keeps [fallbackTargetUsd], as the door always did. [onReturned]
+/// runs once the deposit went through and the person is back on the
+/// still-open slip. [onSheetOpening] runs once the prefill is worked
+/// out, right before the door opens: the slip's button stops showing its
+/// calculation there.
 ///
-/// Events: `slip_top_up_opened` on the tap (with `prefill_rule`),
-/// `slip_top_up_returned` when the slip is shown again after a deposit.
-/// Bucketed dollars, never balances.
+/// No events of its own: the Dollars door and the order's funding report
+/// themselves.
 Future<void> openSlipTopUp(
   BuildContext context,
   WidgetRef ref, {
@@ -231,6 +300,7 @@ Future<void> openSlipTopUp(
   double requiredUsd = 0,
   double readyUsd = 0,
   double? incomingUsd,
+  double? topUpUsd,
   double? fallbackTargetUsd,
   required VoidCallback onReturned,
   VoidCallback? onSheetOpening,
@@ -238,64 +308,20 @@ Future<void> openSlipTopUp(
   if (_topUpOpening) return;
   _topUpOpening = true;
   double amount;
-  String rule;
-  ShortfallSource? source;
   try {
-    final balances = _spendingBalances(ref);
-    SlipTopUp prefill(SlipRouteFee route) => incomingUsd != null
-        ? (
-            usd: ShortfallRules.remainingTopUpUsd(
-                shortfallUsd: shortfallUsd,
-                incomingUsd: incomingUsd,
-                routeFee: route.fee,
-                kuteFeeBps: route.kuteBps),
-            rule: ShortfallRules.ruleRemaining
-          )
-        : ShortfallRules.topUp(
-            orderUsd: orderUsd,
-            requiredUsd: requiredUsd,
-            readyUsd: readyUsd,
-            routeFee: route.fee,
-            kuteFeeBps: route.kuteBps);
-    // What the route is asked about: the order (or the rest) itself.
-    final base = incomingUsd != null
-        ? math.max(shortfallUsd - incomingUsd, ShortfallRules.minTopUpUsd)
-        : orderUsd;
-    var top = (usd: 0.0, rule: 'none');
-    if (base > 0 && balances.dollars + 1e-9 >= base) {
-      final t = prefill(await _slipRouteFee(
-          venue, ShortfallSource.dollars, base, balances.usdPerBtc));
-      if (balances.dollars + 1e-9 >= t.usd) {
-        top = t;
-        source = ShortfallSource.dollars;
-      }
-    }
-    if (source == null && base > 0) {
-      top = prefill(await _slipRouteFee(
-          venue, ShortfallSource.bitcoin, base, balances.usdPerBtc));
-      source = ShortfallRules.chooseSource(
-                  topUpUsd: top.usd,
-                  dollarsUsd: 0,
-                  bitcoinUsd: balances.bitcoinUsd) ==
-              ShortfallSource.bitcoin
-          ? ShortfallSource.bitcoin
-          : null;
-    }
-    amount = top.usd > 0 ? top.usd : (fallbackTargetUsd ?? 0);
-    rule = top.usd > 0 ? top.rule : 'none';
-    if (top.usd <= 0 && amount > 0) source = slipTopUpSource(ref, amount);
+    amount = await _dollarsDoorPrefill(ref,
+        venue: venue,
+        shortfallUsd: shortfallUsd,
+        orderUsd: orderUsd,
+        requiredUsd: requiredUsd,
+        readyUsd: readyUsd,
+        incomingUsd: incomingUsd,
+        topUpUsd: topUpUsd,
+        fallbackTargetUsd: fallbackTargetUsd);
   } finally {
     _topUpOpening = false;
   }
   if (!context.mounted) return;
-  // Buckets, not figures: shortfall + order amount gives the venue's cash.
-  TrackingService.track('slip_top_up_opened', params: {
-    'venue': venue.code,
-    'shortfall_bucket': TrackingService.usdBucket(shortfallUsd),
-    'top_up_bucket': TrackingService.usdBucket(amount),
-    'prefill_rule': rule,
-    'suggested_source': source?.code ?? 'none',
-  });
   onSheetOpening?.call();
   final sheetSeam = debugShowSlipTopUpSheet;
   if (sheetSeam != null) {
@@ -304,18 +330,176 @@ Future<void> openSlipTopUp(
   }
   await showDepositSheet(
     context,
-    lockedSide: venue.lockedSide,
+    lockedSide: MoveLockedSide.depositToUsd,
     initialTargetUsd: amount > 0 ? amount : null,
-    initialSourceAsset: source == ShortfallSource.dollars ? 'usd' : null,
     onCompleted: () {
       if (!context.mounted) return;
-      TrackingService.track('slip_top_up_returned', params: {
-        'venue': venue.code,
-        'top_up_bucket': TrackingService.usdBucket(amount),
-      });
       onReturned();
     },
   );
+}
+
+/// [openSlipTopUp]'s prefill: the order's top-up (or [topUpUsd]) less
+/// the Dollars held.
+Future<double> _dollarsDoorPrefill(
+  WidgetRef ref, {
+  required SlipVenue venue,
+  required double shortfallUsd,
+  required double orderUsd,
+  required double requiredUsd,
+  required double readyUsd,
+  required double? incomingUsd,
+  required double? topUpUsd,
+  required double? fallbackTargetUsd,
+}) async {
+  final balances = _spendingBalances(ref);
+  var top = topUpUsd ?? 0.0;
+  if (top <= 0) {
+    // What the route is asked about: the order (or the rest) itself.
+    final base = incomingUsd != null
+        ? math.max(shortfallUsd - incomingUsd, ShortfallRules.minTopUpUsd)
+        : orderUsd;
+    if (base > 0) {
+      final route = await _slipRouteFee(
+          venue, ShortfallSource.dollars, base, balances.usdPerBtc,
+          recipient: _slipVenueRecipient(ref, venue));
+      top = incomingUsd != null
+          ? ShortfallRules.remainingTopUpUsd(
+              shortfallUsd: shortfallUsd,
+              incomingUsd: incomingUsd,
+              routeFee: route.fee,
+              kuteFeeBps: route.kuteBps)
+          : ShortfallRules.topUpUsd(
+              orderUsd: orderUsd,
+              requiredUsd: requiredUsd,
+              readyUsd: readyUsd,
+              routeFee: route.fee,
+              kuteFeeBps: route.kuteBps);
+    }
+  }
+  if (top <= 0) top = fallbackTargetUsd ?? 0;
+  return slipDollarsShortfallUsd(topUpUsd: top, dollarsUsd: balances.dollars);
+}
+
+/// What a hot slip's "Available" reads: its own venue's free cash
+/// ([venueUsd]) plus what the rest of Investments can bring
+/// ([otherSpendableUsd], `investmentsSpendableExcludingProvider`), floored
+/// to the cent. The whole spendable Investments, never the venue alone.
+/// Pure.
+double slipAvailableUsd({
+  required double venueUsd,
+  required double otherSpendableUsd,
+}) {
+  final venue = venueUsd.isFinite && venueUsd > 0 ? venueUsd : 0.0;
+  final other =
+      otherSpendableUsd.isFinite && otherSpendableUsd > 0 ? otherSpendableUsd : 0.0;
+  return ((venue + other) * 100 + 1e-6).floorToDouble() / 100;
+}
+
+/// Headroom a slip's Max keeps on the move it would need: the move's cost
+/// is an estimate until the route is asked for that exact amount, and Max
+/// must stay an order the rest of Investments can fund once it is.
+const double kSlipMaxMoveHeadroom = 0.01;
+
+/// The largest amount, to the cent, in `[0, upperUsd]` that [fits]: the
+/// slip's own funding check (venue cash, else a move the rest of
+/// Investments covers). [fits] must be monotone (true up to a point,
+/// false after). Zero when nothing fits. Pure.
+double slipMaxFundableUsd({
+  required double upperUsd,
+  required bool Function(double amountUsd) fits,
+}) {
+  if (!upperUsd.isFinite || upperUsd <= 0) return 0;
+  var hi = (upperUsd * 100 + 1e-6).floor();
+  if (fits(hi / 100)) return hi / 100;
+  var lo = 0;
+  // lo fits (0 always does), hi does not.
+  while (hi - lo > 1) {
+    final mid = (lo + hi) ~/ 2;
+    if (fits(mid / 100)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo / 100;
+}
+
+/// Test seam: stands in for the Investments Receive sheet [openSlipReceive]
+/// opens, with the X the slip's button named.
+@visibleForTesting
+Future<void> Function(SlipVenue venue, double addUsd)? debugShowSlipReceiveSheet;
+
+@visibleForTesting
+Future<void> Function(SlipVenue venue, double targetUsd)?
+    debugShowEmptySlipDepositSheet;
+
+/// The "Add $X to Investments" tap whose X the spending bitcoin cannot
+/// cover (none, or too little once the route's spread is counted): the
+/// money has to come from outside, so this is the Investments Receive
+/// sheet, the one the Investments dock's Receive opens, never the Bitcoin
+/// Move sheet. The sheet takes no amount ([addUsd] is for the seam and the
+/// event only); the slip stays open underneath with everything typed.
+/// Order/bet callers may opt into [depositWhenKnownEmpty]: a confirmed empty
+/// wallet opens the existing deposit pinned to this venue and target. It
+/// queues no order; another user approval is required after funding.
+///
+/// Sends `slip_top_up_opened` once, here, for every caller (the Investing
+/// ticket, the Predictions slip, the margin sheet): [venue]'s code, the
+/// exact [shortfallUsd] the venue's cash lacks and the [addUsd] the button
+/// named (with their legacy buckets), `prefill_rule:
+/// investments_shortfall`, `suggested_source: receive`, and
+/// [entrySource] when the caller is not a slip (`add_margin`).
+Future<void> openSlipReceive(
+  BuildContext context, {
+  required SlipVenue venue,
+  required double addUsd,
+  required double shortfallUsd,
+  String? entrySource,
+  bool depositWhenKnownEmpty = false,
+  VoidCallback? onDepositCompleted,
+}) async {
+  if (!context.mounted) return;
+  if (depositWhenKnownEmpty) {
+    final empty = await ProviderScope.containerOf(context, listen: false)
+        .read(slipKnownEmptySourcesProvider)();
+    if (!context.mounted) return;
+    if (empty) {
+      TrackingService.track('slip_top_up_opened', params: {
+        'venue': venue.code,
+        ...TrackingService.exactUsd('shortfall_usd', shortfallUsd),
+        ...TrackingService.exactUsd('top_up_usd', addUsd),
+        'prefill_rule': 'empty_wallet',
+        'suggested_source': 'deposit',
+      });
+      final seam = debugShowEmptySlipDepositSheet;
+      if (seam != null) {
+        await seam(venue, addUsd);
+      } else {
+        await showDepositSheet(context,
+            lockedSide: venue.lockedSide,
+            initialTargetUsd: addUsd > 0 ? addUsd : null,
+            onCompleted: onDepositCompleted);
+      }
+      return;
+    }
+  }
+  TrackingService.track('slip_top_up_opened', params: {
+    'venue': venue.code,
+    if (entrySource != null) 'entry_source': entrySource,
+    'shortfall_bucket': TrackingService.usdBucket(shortfallUsd),
+    ...TrackingService.exactUsd('shortfall_usd', shortfallUsd),
+    'top_up_bucket': TrackingService.usdBucket(addUsd),
+    ...TrackingService.exactUsd('top_up_usd', addUsd),
+    'prefill_rule': 'investments_shortfall',
+    'suggested_source': 'receive',
+  });
+  final seam = debugShowSlipReceiveSheet;
+  if (seam != null) {
+    await seam(venue, addUsd);
+    return;
+  }
+  await showUsdReceiveSheet(context);
 }
 
 /// What a short hot slip shows for its funding, read by [SlipIncomingDeposit].
@@ -366,7 +550,6 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
   double _landedUsd = 0;
   DateTime? _landedAt;
   bool _incomingFailed = false;
-  bool _incomingShownTracked = false;
   Timer? _incomingPoll;
 
   /// The short slip's funding. Watches the swap rows; starts or stops the
@@ -375,13 +558,20 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
     final orders = ref.watch(swapOrdersProvider);
     final walletId =
         ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    final funded = ref.watch(fundedOrdersProvider);
     final now = DateTime.now();
     final pending = <String, double>{};
     for (final e in orders) {
-      if (!isPendingPoolDeposit(e,
-          network: slipVenue.network,
-          walletId: walletId,
-          nowMs: now.millisecondsSinceEpoch)) {
+      final nowMs = now.millisecondsSinceEpoch;
+      // A Bitcoin → Dollars leg a slip on this venue started for its
+      // order (kept across restarts) is this venue's deposit on its way.
+      final ownBitcoinLeg =
+          isPendingBitcoinLeg(e, walletId: walletId, nowMs: nowMs) &&
+              FundedOrdersNotifier.btcRowVenue(funded, e.id) ==
+                  slipVenue.oneBalanceVenue;
+      if (!ownBitcoinLeg &&
+          !isPendingPoolDeposit(e,
+              network: slipVenue.network, walletId: walletId, nowMs: nowMs)) {
         continue;
       }
       // An unpaid Cash App invoice is not money on its way.
@@ -412,15 +602,6 @@ mixin SlipIncomingDeposit<T extends ConsumerStatefulWidget>
       failed: state == SlipFundingState.deposit && _incomingFailed,
     );
     _pollWhile(funding.isIncoming);
-    if (funding.isIncoming && !_incomingShownTracked) {
-      _incomingShownTracked = true;
-      // What the person saw, once per slip: no amounts.
-      TrackingService.track('slip_deposit_incoming_shown', params: {
-        'venue': slipVenue.code,
-        'covers': state == SlipFundingState.incoming,
-        'wallet_kind': 'hot',
-      });
-    }
     return funding;
   }
 
@@ -565,6 +746,171 @@ class SlipDepositFailedNote extends StatelessWidget {
         padding: EdgeInsets.only(bottom: 8.h),
         child: Text(
           context.l10n.slipDepositFailedNote,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: 13.sp,
+              height: 1.35),
+        ),
+      );
+}
+
+/// The staged progress of an order funded through Investments (founder
+/// decision 14 October 2026): each step a line under the slip's one
+/// button, a check once done, a working ring while active, the rest
+/// waiting in a quieter tone. Drawn by the one steps tree
+/// ([MoneyStepsView]), animated like every other steps surface.
+///
+/// A funding that stopped ([failed]) marks the step it stopped at with
+/// the slips' error sign (the notice's `error_outline`) and says, in
+/// [note], what happened and where the money is now.
+class SlipFundingSteps extends StatelessWidget {
+  const SlipFundingSteps({
+    super.key,
+    required this.steps,
+    required this.active,
+    this.slow = false,
+    this.failed = false,
+    this.note,
+    this.graph,
+    this.money,
+    this.from,
+    this.to,
+  });
+
+  /// The steps, in order.
+  final List<String> steps;
+
+  /// The journey's stations when the graph does not say: where the
+  /// money starts (Bitcoin for a bitcoin-funded order, else Dollars) and
+  /// the venue it goes to.
+  final MoneyPlace? from;
+  final MoneyPlace? to;
+
+  /// The order's step graph (`FundedOrderRecord.steps`): when it has
+  /// steps, every leg shows on its own line with its own state, the
+  /// readiness sub-steps indented under [steps]' second-to-last line, and
+  /// [steps]' last line is the order (`MoneyStepsView`). [money] formats
+  /// the legs' dollars the slip's way.
+  final MoneyStepGraph? graph;
+  final String Function(double usd)? money;
+
+  /// The step running now (or the one that failed); the ones before it
+  /// are done. [steps]'s length: every step done.
+  final int active;
+
+  /// The first step is taking longer than usual.
+  final bool slow;
+
+  /// The [active] step failed: nothing after it runs.
+  final bool failed;
+
+  /// One plain line under the steps: what happened and where the money
+  /// is ("Price moved too fast. Your $5 is in Predictions. Tap to try
+  /// again.").
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = graph;
+    final format = money;
+    if (g != null && !g.isEmpty && format != null && steps.length >= 2) {
+      return MoneyStepsView(
+        lines: moneyStepLines(context.l10n, g, format,
+            readyLabel: steps[steps.length - 2], placeLine: steps.last),
+        graph: g,
+        money: format,
+        from: from,
+        to: to,
+        slow: slow,
+        note: note,
+      );
+    }
+    // The older stage lines: the same journey, one road from the money's
+    // source to the venue with the stages as its checkpoints, under their
+    // own names.
+    return MoneyStepsView(
+      keys: MoneyStepsKeys.slip,
+      from: from ?? MoneyPlace.dollars,
+      to: to,
+      lines: [
+        for (var i = 0; i < steps.length; i++)
+          MoneyStepLine(
+              steps[i],
+              i < active
+                  ? MoneyStepStatus.done
+                  : i == active
+                      ? (failed
+                          ? MoneyStepStatus.failed
+                          : MoneyStepStatus.running)
+                      : MoneyStepStatus.waiting),
+      ],
+      slow: slow,
+      note: note,
+    );
+  }
+}
+
+/// What a slip says under a stopped funded order's steps: what happened,
+/// then where the money is now, in [money]'s format. Funds that reached
+/// the venue stay there as its cash (available); funds still in Dollars
+/// are in Investments.
+String fundedStopLine(
+    AppLocalizations l10n, FundedOrderRecord r, String Function(double) money) {
+  final venue = r.label.venue;
+  // The rail's or the venue's own words already say it all.
+  switch (r.reason) {
+    case 'refunded':
+    case 'maybe_sent':
+    case 'not_sent':
+      return r.message ?? l10n.betActionNotCompleted;
+    case 'funds_timeout' || 'book_unavailable'
+        when venue == OneBalanceVenue.predictions && r.message != null:
+      return r.message!;
+    // A 5-minute round that ended while the money was moving, the money
+    // now Predictions cash: the whole line, no "tap to try again".
+    case 'round_ended'
+        when venue == OneBalanceVenue.predictions &&
+            r.moneyAt == FundedMoneyAt.venue:
+      return l10n.slipFundingRoundEnded(money(r.label.orderUsd));
+  }
+  final what = switch (r.reason) {
+    'price_moved' => l10n.slipFundingPriceMoved,
+    'market_closed' || 'round_ended' => l10n.slipFundingRoundClosed,
+    // A 5-minute round: "Price changed to 81% while your money was moving."
+    'round_price_moved' => r.message ?? l10n.slipFundingPriceMoved,
+    _ => r.message,
+  };
+  final where = switch (r.moneyAt) {
+    FundedMoneyAt.venue => venue == OneBalanceVenue.predictions
+        ? l10n.slipFundingInPredictions(money(r.label.orderUsd))
+        : l10n.slipFundingInInvesting(money(r.label.orderUsd)),
+    FundedMoneyAt.investments => l10n.slipFundingReadyToPlace(
+        money(r.fromBitcoin && r.addUsd > 0 ? r.addUsd : r.label.orderUsd)),
+    FundedMoneyAt.bitcoin || null => null,
+  };
+  return [if (what != null) what, if (where != null) where].join(' ');
+}
+
+/// The plain line above a slip's button when its funding stopped with the
+/// money in Investments and the order not placed: "Your $X is in
+/// Investments. Tap to place." Same type as [SlipDepositFailedNote]. The
+/// margin sheet passes its own line ([text]: "Tap to add margin").
+class SlipFundingReadyNote extends StatelessWidget {
+  const SlipFundingReadyNote({super.key, required this.amount, this.text});
+
+  /// The formatted amount that landed.
+  final String amount;
+
+  /// The line itself, when it is not the slips' "Tap to place".
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        key: const ValueKey('slip-funding-ready'),
+        padding: EdgeInsets.only(bottom: 8.h),
+        child: Text(
+          text ?? context.l10n.slipFundingReadyToPlace(amount),
           textAlign: TextAlign.center,
           style: TextStyle(
               color: context.colors.textSecondary,

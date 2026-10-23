@@ -72,7 +72,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('the key is hidden until the gate passes, warning first',
+  testWidgets('the gate runs as the sheet opens, then the key and its QR show',
       (tester) async {
     var gateRuns = 0;
     await pumpSheet(tester, reveal: (_) async {
@@ -82,36 +82,58 @@ void main() {
 
     expect(find.byType(SecureScreen), findsOneWidget);
     expect(find.text(l10n.walletsPrivateKeyWarning), findsOneWidget);
-    expect(find.text(testKey), findsNothing);
-    expect(find.text(l10n.copy), findsNothing);
-    expect(gateRuns, 0);
-
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
+    expect(gateRuns, 1);
     await tester.pump();
 
-    expect(gateRuns, 1);
     expect(find.byKey(const ValueKey('wallets-private-key')), findsOneWidget);
     expect(find.text(testKey), findsOneWidget);
     expect(find.text(l10n.copy), findsOneWidget);
+    expect(find.text(l10n.walletsShowQr), findsNothing);
+
+    final qr = find.byType(QrImageView);
+    expect(qr, findsOneWidget);
+    // buildQrCode feeds the same string to the QR and its Hero tag;
+    // QrImageView keeps its data private, so read it from the tag.
+    final hero =
+        tester.widget<Hero>(find.ancestor(of: qr, matching: find.byType(Hero)));
+    expect(hero.tag, 'qrCode_$testKey');
+    expect(RegExp(r'^0x[0-9a-f]{64}$').hasMatch(testKey), isTrue);
+    expect(find.ancestor(of: qr, matching: find.byType(SecureContent)),
+        findsOneWidget);
+    // No event carries the key.
+    for (final (_, params) in events) {
+      for (final value in params?.values ?? const <Object>[]) {
+        expect(value.toString(), isNot(contains(testKey.substring(2))));
+      }
+    }
   });
 
-  testWidgets('declining the gate keeps the key hidden', (tester) async {
-    await pumpSheet(tester, reveal: (_) async => null);
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
+  testWidgets('declining the gate keeps the key and QR hidden, Show key retries',
+      (tester) async {
+    var answer = Future<String?>.value(null);
+    await pumpSheet(tester, reveal: (_) => answer);
     await tester.pump();
 
     expect(find.byKey(const ValueKey('wallets-private-key')), findsNothing);
+    expect(find.byType(QrImageView), findsNothing);
     expect(find.text(l10n.walletsPrivateKeyUnavailable), findsNothing);
     expect(
         find.byKey(const ValueKey('wallets-show-private-key')), findsOneWidget);
+
+    answer = Future<String?>.value(testKey);
+    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
+    await tester.pump();
+    expect(find.text(testKey), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
   });
 
-  testWidgets('a failed read shows a note, never a key', (tester) async {
+  testWidgets('a failed read shows a note, never a key or a QR',
+      (tester) async {
     await pumpSheet(tester, reveal: (_) async => throw StateError('mismatch'));
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
     await tester.pump();
 
     expect(find.byKey(const ValueKey('wallets-private-key')), findsNothing);
+    expect(find.byType(QrImageView), findsNothing);
     expect(find.text(l10n.walletsPrivateKeyUnavailable), findsOneWidget);
   });
 
@@ -121,7 +143,6 @@ void main() {
     final copied = <String>[];
     await pumpSheet(tester,
         reveal: (_) async => testKey, onCopy: (k) async => copied.add(k));
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('wallets-copy-private-key')));
     await tester.pump();
@@ -137,76 +158,12 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 5));
   });
 
-  testWidgets(
-      'the QR appears only after the reveal and a tap, encodes '
-      'exactly the key, inside SecureContent', (tester) async {
-    await pumpSheet(tester, reveal: (_) async => testKey);
-
-    // Before the reveal: no QR and no way to ask for one.
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.byKey(const ValueKey('wallets-show-private-key-qr')),
-        findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
-    await tester.pump();
-
-    // Revealed key, QR still hidden until asked for.
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.text(l10n.walletsShowQr), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key-qr')));
-    await tester.pump();
-
-    final qr = find.byType(QrImageView);
-    expect(qr, findsOneWidget);
-    // buildQrCode feeds the same string to the QR and its Hero tag;
-    // QrImageView keeps its data private, so read it from the tag.
-    final hero =
-        tester.widget<Hero>(find.ancestor(of: qr, matching: find.byType(Hero)));
-    expect(hero.tag, 'qrCode_$testKey');
-    expect(RegExp(r'^0x[0-9a-f]{64}$').hasMatch(testKey), isTrue);
-    expect(find.ancestor(of: qr, matching: find.byType(SecureContent)),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('wallets-show-private-key-qr')),
-        findsNothing);
-    // No event carries the key.
-    for (final (_, params) in events) {
-      for (final value in params?.values ?? const <Object>[]) {
-        expect(value.toString(), isNot(contains(testKey.substring(2))));
-      }
-    }
-  });
-
-  testWidgets('a declined or failed reveal never offers a QR', (tester) async {
-    await pumpSheet(tester, reveal: (_) async => null);
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
-    await tester.pump();
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.byKey(const ValueKey('wallets-show-private-key-qr')),
-        findsNothing);
-
-    await pumpSheet(tester, reveal: (_) async => throw StateError('x'));
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
-    await tester.pump();
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.byKey(const ValueKey('wallets-show-private-key-qr')),
-        findsNothing);
-  });
-
   testWidgets('closing the sheet drops the QR with the key', (tester) async {
     await pumpSheet(tester, reveal: (_) async => testKey);
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('wallets-show-private-key-qr')));
     await tester.pump();
     expect(find.byType(QrImageView), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.text(testKey), findsNothing);
-
-    // A fresh sheet starts hidden again.
-    await pumpSheet(tester, reveal: (_) async => testKey);
     expect(find.byType(QrImageView), findsNothing);
     expect(find.text(testKey), findsNothing);
   });

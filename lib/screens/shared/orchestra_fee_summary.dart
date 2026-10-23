@@ -8,9 +8,15 @@ import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
+import 'package:kute/screens/shared/capability_block_note.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/orchestra/orchestra_fee_amount.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode, kOrchestraUsdChain;
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
+import 'package:kute/providers/spark_address_provider.dart'
+    show sparkSelfAddressProvider;
 
 typedef FeeRoute = ({
   String fromChain,
@@ -19,19 +25,33 @@ typedef FeeRoute = ({
   String toAsset,
   String amount
 });
+
+/// One fee estimate: the route and the address it delivers to. The
+/// recipient is part of the key, so two recipients never share an
+/// estimate (a HyperCore account Hyperliquid has already seen costs about
+/// $1.22 less to reach than one it has not). Build it with
+/// [feeEstimateKey].
+typedef FeeEstimateKey = ({FeeRoute route, String? recipient});
+
+/// The key for [route] delivered to [recipient]; blank or null is "not
+/// known", and the estimate is then asked without one.
+FeeEstimateKey feeEstimateKey(FeeRoute route, {String? recipient}) =>
+    (route: route, recipient: OrchestraService.estimateRecipient(recipient));
+
 final orchestraFeeEstimateProvider = FutureProvider.autoDispose
-    .family<OrchestraEstimate, FeeRoute>(
-        (ref, route) => _loadFeeEstimate(ref, route, onramp: false));
+    .family<OrchestraEstimate, FeeEstimateKey>(
+        (ref, key) => _loadFeeEstimate(ref, key, onramp: false));
 
 /// The estimate for a route a Cash App onramp order will run. The backend
 /// prices an onramp at its own rule (not the quote's), so the Kute fee and
 /// what arrives are asked for under that rule.
 final orchestraOnrampFeeEstimateProvider = FutureProvider.autoDispose
-    .family<OrchestraEstimate, FeeRoute>(
-        (ref, route) => _loadFeeEstimate(ref, route, onramp: true));
+    .family<OrchestraEstimate, FeeEstimateKey>(
+        (ref, key) => _loadFeeEstimate(ref, key, onramp: true));
 
-Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeRoute route,
+Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeEstimateKey key,
     {required bool onramp}) async {
+  final route = key.route;
   var active = true;
   ref.onDispose(() => active = false);
   await Future<void>.delayed(const Duration(milliseconds: 350));
@@ -46,9 +66,19 @@ Future<OrchestraEstimate> _loadFeeEstimate(Ref ref, FeeRoute route,
           destinationChain: route.toChain,
           destinationAsset: route.toAsset,
           amount: route.amount,
-          onramp: onramp)
+          onramp: onramp,
+          recipientAddress: key.recipient)
       .timeout(const Duration(seconds: 10));
   if (result.data == null) {
+    final denial = result.cause;
+    if (denial is CapabilityUnavailableException) {
+      // Kute's backend withholds the route here: the screens that gate on
+      // the policy catch up from a fresh read, and the block says so.
+      unawaited(RuntimeCapabilitiesService.instance
+          .refresh()
+          .then<void>((_) {}, onError: (_) {}));
+      throw denial;
+    }
     throw StateError('Fee unavailable');
   }
   return result.data!;
@@ -81,8 +111,20 @@ class OrchestraFeeSummary extends ConsumerWidget {
       this.sourceFeeUsd = 0,
       this.sourceFeeIsMaximum = false,
       this.onramp = false,
-      this.showReceive = false});
+      this.showReceive = false,
+      this.recipient,
+      this.recipientPending = false});
   final FeeRoute route;
+
+  /// Where the move delivers: the address its quote (or onramp order)
+  /// names. Null when not known; the estimate then prices a HyperCore
+  /// destination as an account Hyperliquid has never seen.
+  final String? recipient;
+
+  /// [recipient] is still being read. The block says "Calculating…"
+  /// rather than show, for a moment, a HyperCore fee with the activation
+  /// an account that already exists will never pay.
+  final bool recipientPending;
 
   /// The route runs as a Cash App onramp order: estimated at the rule that
   /// order is charged, not the quote's.
@@ -104,15 +146,25 @@ class OrchestraFeeSummary extends ConsumerWidget {
     if (amount == null || !amount.isFinite || amount <= 0) {
       return const MoneyFeeSummary(label: 'Fees', state: 'Enter an amount');
     }
+    if (recipientPending) {
+      return const MoneyFeeSummary(label: 'Fees', state: 'Calculating…');
+    }
+    final key = feeEstimateKey(route, recipient: recipient);
     final source = onramp
-        ? orchestraOnrampFeeEstimateProvider(route)
-        : orchestraFeeEstimateProvider(route);
+        ? orchestraOnrampFeeEstimateProvider(key)
+        : orchestraFeeEstimateProvider(key);
     final estimate = ref.watch(source);
     void retry() => ref.invalidate(source);
     // A refresh in flight and a refresh that failed both keep the previous
     // estimate; the provider's own timer already retries a failure.
     final quote = estimate.valueOrNull;
     if (quote == null) {
+      // A route the policy withholds is a restriction, not a failed
+      // estimate: its own words, and nothing to retry.
+      if (estimate.error case final CapabilityUnavailableException denial) {
+        return CapabilityBlockNote(denial.decision.message,
+            padding: EdgeInsets.zero);
+      }
       return estimate.hasError
           ? MoneyFeeSummary(
               label: 'Fees', state: 'Estimate unavailable', onRetry: retry)
@@ -334,7 +386,20 @@ class MoveHyperliquidFees extends ConsumerWidget {
             // A withdrawal is a perpetuals usdSend, which costs the source
             // only its amount (hypercoreUsdSendSenderFee): the whole figure
             // is priced, with no activation line and nothing held back.
-            return OrchestraFeeSummary(bitcoinFirst: bitcoinFirst, route: (
+            // The address the move's quote names: the Investing account
+            // on the way in (so an account Hyperliquid already knows is not
+            // priced with the one-time activation), the own Spark address on
+            // the way out (SparkHypercoreFundingService._addresses).
+            final AsyncValue<String?> recipient = deposit
+                ? ref.watch(hyperliquidAddressProvider)
+                : ref.watch(sparkSelfAddressProvider);
+            return OrchestraFeeSummary(
+                bitcoinFirst: bitcoinFirst,
+                recipient: recipient.valueOrNull,
+                // Only the way in has an activation to misstate.
+                recipientPending:
+                    deposit && recipient.isLoading && !recipient.hasValue,
+                route: (
               fromChain: fromChain,
               fromAsset: fromAsset,
               toChain: deposit

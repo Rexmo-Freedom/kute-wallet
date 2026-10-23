@@ -226,4 +226,16 @@ void main() {
           findsOneWidget);
     });
   });
+
+  test('polyIsCryptoUpDown5m: 5-minute crypto rounds only', () {
+    expect(polyIsCryptoUpDown5m('btc-updown-5m-1791152100'), isTrue);
+    expect(polyIsCryptoUpDown5m('ETH-updown-5m-1791152100'), isTrue);
+    expect(polyIsCryptoUpDown5m('btc-updown-15m-1791152100'), isFalse);
+    expect(polyIsCryptoUpDown5m('btc-updown-4h-1791144000'), isFalse);
+    expect(polyIsCryptoUpDown5m('bitcoin-up-or-down-october-4-2026-6pm-et'),
+        isFalse);
+    expect(polyIsCryptoUpDown5m('will-it-rain'), isFalse);
+    expect(polyIsCryptoUpDown5m(null), isFalse);
+    expect(kCryptoUpDown5mKind, 'crypto_updown_5m');
+  });
 }

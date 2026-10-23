@@ -15,6 +15,8 @@
 import 'dart:async';
 
 import 'package:hive_ce/hive.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show noteSparkFlowRecord;
 import 'package:kute/models/orchestra_routes_model.dart' show RouteKey;
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/services/api/orchestra_api.dart';
@@ -260,6 +262,11 @@ class SettlementStore {
     });
   }
 
+  /// Drops the app-wide store. Called by the device wipe after its boxes
+  /// were deleted from disk, so the next [shared] opens fresh boxes
+  /// instead of writing to dead handles.
+  static void forgetShared() => _shared = null;
+
   static Future<SettlementStore> open() async {
     Future<Box<String>> openBox(String name) async => Hive.isBoxOpen(name)
         ? Hive.box<String>(name)
@@ -427,7 +434,9 @@ class SettlementStore {
         updatedAt: now,
         terminalAt: to.isTerminal && to != from ? now : current.terminalAt,
         version: current.version + 1,
-        raw: current.raw,
+        // A patch may add fields of its own (a flow's extra record); the
+        // codec still writes every known field over them.
+        raw: patched.raw,
       );
       await _write(next);
       return SettlementWriteResult(SettlementWriteStatus.applied, next);
@@ -557,6 +566,14 @@ class SettlementStore {
   Future<void> _write(SettlementOperation op) async {
     await _box.put(op.operationId, SettlementCodec.encodeJson(op));
     await _box.flush();
+    // Before its funds are confirmed the operation is a money flow between
+    // steps: a pull-to-refresh meanwhile syncs the SDK rather than
+    // reconnecting it (a quote waiting for its confirm tap, a broadcast
+    // not confirmed yet).
+    noteSparkFlowRecord('settlement:${op.operationId}',
+        open: op.stage.isBeforeBroadcasting ||
+            op.stage == SettlementStage.broadcasting ||
+            op.stage == SettlementStage.fundingUnknown);
   }
 
   Future<SettlementOperation?> _read(String operationId) async {

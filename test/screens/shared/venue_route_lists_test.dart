@@ -6,6 +6,9 @@ import 'package:kute/screens/pay/components/confirm_send.dart'
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
+
+import '../../helpers/runtime_policy_fixture.dart';
 
 Map<String, dynamic> _row(String chain, String asset, {int decimals = 6}) => {
       'id': '$chain:$asset',
@@ -39,6 +42,12 @@ bool _venue(String id) {
 
 void main() {
   final l10n = l10nForLanguage('en');
+  late RuntimeCapabilitiesService policy;
+
+  setUpAll(() async {
+    policy = runtimePolicyFixture();
+    expect(await policy.refresh(), isTrue);
+  });
 
   test('venue rails are HyperCore and Polygon USDC.e / pUSD only', () {
     expect(isVenueInternalRoute('hypercore', 'USDC'), isTrue);
@@ -53,7 +62,7 @@ void main() {
   for (final destination in ['BTC', 'USDB']) {
     test('receive "also accepts" into $destination hides venue rails', () {
       final groups = receiveCoinGroups(_catalog(), l10n,
-          destinationChain: 'spark', destinationAsset: destination);
+          destinationAsset: destination, policy: policy);
       final ids = [
         for (final g in groups)
           for (final o in g.options) '${o.chain}:${o.assetCode}',

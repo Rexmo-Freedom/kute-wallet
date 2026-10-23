@@ -922,11 +922,16 @@ class LedgerPolymarketFundingService {
     throw const WalletGuardException(WalletGuardReason.quoteExpired);
   }
 
+  static double _usdceUsd(BigInt amount) => amount.toDouble() / 1e6;
+
   static String _usdceBucket(BigInt amount) =>
-      TrackingService.usdBucket(amount.toDouble() / 1e6);
+      TrackingService.usdBucket(_usdceUsd(amount));
+
+  static double _satsUsd(BigInt sats, double usdPerBtc) =>
+      sats.toDouble() / 1e8 * usdPerBtc;
 
   static String _satsBucket(BigInt sats, double usdPerBtc) =>
-      TrackingService.usdBucket(sats.toDouble() / 1e8 * usdPerBtc);
+      TrackingService.usdBucket(_satsUsd(sats, usdPerBtc));
 
   // ───────────────────────────── forward ─────────────────────────────
 
@@ -1270,6 +1275,7 @@ class LedgerPolymarketFundingService {
           TrackingService.ledgerFundingBroadcast(
             route: kLedgerBtcToPolygonUsdceRoute,
             amountBucket: _satsBucket(q.amountSats, q.usdPerBtc),
+            amountUsd: _satsUsd(q.amountSats, q.usdPerBtc),
           );
 
           final submit = await _records.submit(operationId);
@@ -1383,7 +1389,8 @@ class LedgerPolymarketFundingService {
                 _collateralFor(plan.account, plan.belongsToLedger))
             .wrap(plan.intent);
         TrackingService.ledgerPmFundsMadeAvailable(
-            amountBucket: _usdceBucket(plan.amount));
+            amountBucket: _usdceBucket(plan.amount),
+            amountUsd: _usdceUsd(plan.amount));
         return hash;
       });
 
@@ -1469,7 +1476,8 @@ class LedgerPolymarketFundingService {
               ).unwrap(intent)
             : await approve(intent, account: account);
         TrackingService.ledgerPmCollateralUnwrapped(
-            amountBucket: _usdceBucket(amount));
+            amountBucket: _usdceBucket(amount),
+            amountUsd: _usdceUsd(amount));
         return hash;
       });
 
@@ -1748,6 +1756,7 @@ class LedgerPolymarketFundingService {
           TrackingService.ledgerFundingBroadcast(
             route: kPolygonUsdceToLedgerBtcRoute,
             amountBucket: _usdceBucket(q.amountUsdce),
+            amountUsd: _usdceUsd(q.amountUsdce),
           );
           final submit = await _records.submit(operationId);
           final accepted = submit.accepted;

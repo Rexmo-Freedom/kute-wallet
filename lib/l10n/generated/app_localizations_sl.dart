@@ -675,9 +675,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get expires => 'Poteče';
 
   @override
-  String get enterRefundAddress => 'Vnesite naslov za vračilo';
-
-  @override
   String get description => 'Opis';
 
   @override
@@ -1195,34 +1192,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get totalFee => 'Skupna provizija';
 
   @override
-  String get usdEarnTitle => 'Donos';
-
-  @override
-  String get usdEarnRate => 'Nedavna letna obrestna mera';
-
-  @override
-  String get usdEarnNextPayment => 'Naslednje izplačilo';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Izplačilo čez';
-
-  @override
-  String get usdEarnRatePending => 'Nalaganje';
-
-  @override
-  String get usdEarnRateUnavailable => 'Trenutno ni na voljo';
-
-  @override
-  String get usdEarnPaidToDate => 'Doslej izplačano vam';
-
-  @override
-  String get usdEarnActivityEmpty => 'Še ni izplačil';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Zgodovina izplačil trenutno ni na voljo';
-
-  @override
   String hlYieldAvailableLine(String amount) {
     return 'Na voljo: $amount';
   }
@@ -1571,10 +1540,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Kode ni bilo mogoče prebrati. Poskusite znova.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Vsebine odložišča ni mogoče uporabiti. Znova kopirajte naslov ali kodo.';
-
-  @override
   String get walletImportCouldNotImport =>
       'Te denarnice ni bilo mogoče uvoziti. Poskusite znova.';
 
@@ -1593,9 +1558,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get jadeErrorWrongDevice =>
       'Ta Jade ni seznanjen s to denarnico. Nič ni bilo podpisano. Povežite seznanjeno napravo Jade ali znova seznanite to tako, da posodobite glavni prstni odtis denarnice.';
-
-  @override
-  String get receiveOtherAssets => 'Prejmi druga sredstva';
 
   @override
   String get medium => 'Srednje';
@@ -1643,10 +1605,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get scanQrCode => 'Skeniraj kodo QR';
 
   @override
-  String get scanAnyQRCodeDescription =>
-      'Skenirajte katero koli kodo QR in poskusili jo bomo prepoznati.';
-
-  @override
   String get importFile => 'Uvozi datoteko';
 
   @override
@@ -1692,9 +1650,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Opomba: ';
 
   @override
   String errorMessage(String err) {
@@ -1888,6 +1843,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Prikaži celoten ključ';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark je hitra plast nad Bitcoinom, kjer Kute hrani vaše stanje. Nadzorujete ga samo vi. Običajna denarnica Bitcoin s temi besedami tega stanja ne bo pokazala. Obnovite jih v denarnici, ki podpira Spark, na primer Kute, Wallet of Satoshi ali Glow podjetja Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Teh besed nikoli ne delite. Kdor jih ima, lahko vzame vse iz te denarnice.';
 
@@ -1962,9 +1921,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get scannerKeepInFrame => 'Kodo držite v okvirju';
-
-  @override
-  String get scannerPointAtCode => 'Kamero usmerite v kodo QR';
 
   @override
   String get trackAddressPasteHint => 'Prilepite Bitcoin naslov';
@@ -2069,6 +2025,36 @@ class AppLocalizationsSl extends AppLocalizations {
       'Nastavitev preklicana. Nič ni bilo ustvarjeno.';
 
   @override
+  String get passkeyBackupSyncing => 'Sinhronizacija varnostne kopije…';
+
+  @override
+  String get passkeyFinishBackupTitle =>
+      'Dokončajte varnostno kopijo s ključem za dostop';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Da jo lahko obnovite v novem telefonu';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Potrdite s ključem za dostop, da bo to denarnico mogoče obnoviti v novem telefonu.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Varnostne kopije s ključem za dostop ni bilo mogoče dokončati. Preverite povezavo in poskusite znova.';
+
+  @override
+  String get passkeyCreateNewTitle => 'Ključ za dostop ni bil najden';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nič ni bilo ustvarjeno. Želite namesto tega ustvariti nov ključ za dostop za to denarnico z $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Ustvari nov ključ za dostop';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return '$method ni bilo mogoče nastaviti. Vaša denarnica je bila namesto tega ustvarjena z obnovitvenimi besedami.';
   }
@@ -2131,13 +2117,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get swapRouteTemporarilyUnavailable =>
       'Ta pot začasno ni na voljo. Poskusite znova pozneje.';
-
-  @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Prejemanje tega sredstva začasno ni na voljo.';
-
-  @override
-  String get clipboardEmpty => 'Odložišče je prazno';
 
   @override
   String get pleaseSetUpPINFirst => 'Najprej nastavite PIN';
@@ -2333,11 +2312,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get receiveBeneficiary => 'Prejemnik';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset v omrežju $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Tečaja ni bilo mogoče pridobiti';
 
   @override
@@ -2347,10 +2321,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Vaš račun za Napovedi se še nastavlja. Poskusite znova čez trenutek.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Sredstva prispejo v vašo denarnico kot Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Povezava ni uspela.';
@@ -2685,9 +2655,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Če vas je povabil prijatelj, vnesite njegovo kodo.';
-
-  @override
-  String get accountEarn => 'Zaslužek';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3556,10 +3523,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ta kriptovaluta in omrežje še nista na voljo za pologe. Izberite drugo.';
 
   @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Druge kriptovalute ne morejo prispeti v Napovedi. Prejmite jih v denarnico za porabo in jih nato premaknite.';
-
-  @override
   String get activityStables => 'Stabilni';
 
   @override
@@ -3684,7 +3647,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get activityProcessingEllipsis => 'Obdelava …';
 
   @override
-  String get usdAccountTab => 'Dolarji';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -4074,6 +4037,9 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get settingsReferralProgram => 'Program priporočil';
+
+  @override
+  String get hubReferrals => 'Priporočila';
 
   @override
   String get settingsEarnAShareOfFees =>
@@ -4501,7 +4467,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyAwaitingResult => 'Končano · Rezultat čez nekaj minut';
 
   @override
-  String get polyAwaitingWon => 'Zmagali ste · Za prevzem čez nekaj minut';
+  String get polyAwaitingWon => 'Zmagali ste';
 
   @override
   String get polyAwaitingLost => 'Končano · Izgubljeno';
@@ -4510,7 +4476,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Končano · Čaka na rezultat';
 
   @override
-  String get polyAwaitingWonSoon => 'Zmagali ste · Kmalu za prevzem';
+  String get polyAwaitingWonSoon => 'Zmagali ste';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {
@@ -5492,11 +5458,6 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Provizija Kute $rate · odšteje se od prejetega zneska';
-  }
-
-  @override
   String feeUiFriendDiscountIncluded(String discount) {
     return 'Vključuje vaš popust prijatelja $discount.';
   }
@@ -5952,9 +5913,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioStatRealized => 'Realiziran dobiček / izguba';
 
   @override
-  String get portfolioStatOpen => 'Odprt dobiček / izguba';
-
-  @override
   String get portfolioStatAmountPredicted => 'Znesek v napovedih';
 
   @override
@@ -6063,7 +6021,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get moveBuyBitcoin => 'Kupi bitcoin';
 
   @override
-  String get dollarDeposit => 'Polog dolarjev';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dvig dolarjev';
@@ -6199,6 +6157,9 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get investingFeeSettingsUnavailable =>
       'Nastavitev provizij za Investiranje ni bilo mogoče preveriti. Poskusite znova.';
+
+  @override
+  String get investingViewOrders => 'Prikaži naročila';
 
   @override
   String get investingViewPositions => 'Prikaži pozicije';
@@ -6515,13 +6476,37 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Dolarji';
+
+  @override
+  String get portfolioRebalance => 'Uravnoteži';
+
+  @override
+  String get portfolioRebalanceMoving => 'Prenaša se v USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Prenaša se v USDB… traja nekaj minut';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Zadržano z odprtimi naročili';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Ohranjeno kot marža za odprte pozicije';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Pod minimumom za prenos';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Zdaj ni mogoče prenesti. Za ponovni poskus tapnite Uravnoteži.';
+
+  @override
   String get sendMoreThanAvailable => 'To je več, kot imate na voljo.';
 
   @override
   String get receiveRequestAmount => 'Zahtevaj znesek';
-
-  @override
-  String get receiveBackToBitcoin => 'Nazaj na Bitcoin';
 
   @override
   String get sendRecentRecipients => 'Nedavni';
@@ -6567,10 +6552,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get searchPredictionsHint => 'Iskanje napovedi';
 
   @override
-  String get assetDollars => 'Dolarji';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Plačajte z dolarskim stanjem';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Naslov dolarskega računa';
@@ -6644,10 +6629,11 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get receiveOneOffNewAddress => 'Pridobi nov naslov';
+  String get receiveOneOffLateDepositRepriced =>
+      'Polog, ki prispe pozneje, lahko dobi drugačno ceno.';
 
   @override
-  String get receiveOneOffAmountTitle => 'Koliko pričakujete?';
+  String get receiveOneOffNewAddress => 'Pridobi nov naslov';
 
   @override
   String get usdFlowStepCoin => 'Izberite kriptovaluto';
@@ -6682,10 +6668,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get usdReceiveCreating => 'Pripravljanje naslova.';
 
   @override
-  String get usdReceiveArriving =>
-      'Vaši dolarji prispejo takoj, ko je plačilo potrjeno.';
-
-  @override
   String get receiveAlsoAccepts => 'Sprejema tudi';
 
   @override
@@ -6696,9 +6678,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Kriptovalute se še nalagajo. Poskusite znova čez trenutek.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Vaš naslov sprejema tudi';
 
   @override
   String get receiveAlsoAcceptsSubtitle =>
@@ -6824,46 +6803,14 @@ class AppLocalizationsSl extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Prodajate celotno pozicijo';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Črtkana črta je ocena po današnji obrestni meri, ne prejeti denar.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Nagrade se začnejo, ko imate $amount. Izplačujejo se dnevno v bitcoinu.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projekcija po današnji meri';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Izberite, kaj prispe na vaš račun za porabo.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Na vaše dolarsko stanje';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Pretvorba v teku';
-
-  @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Vnesite znesek $asset, ki ga boste poslali v omrežju $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Uporabite naslov v omrežju $network, ki ga nadzorujete. Če je vračilo potrebno in podprto, gre na ta naslov. Zaračunajo se lahko provizije.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Vnesite veljaven naslov za vračilo v omrežju $network.';
-  }
-
-  @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Pošljite natanko $amount v enem plačilu, preden ta naslov poteče.';
-  }
 
   @override
   String get quotedReceiveExpired =>
@@ -6876,10 +6823,21 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Vaš račun se je spremenil. Zaprite ta zaslon in začnite znova.';
+      'Vaš račun se je spremenil. Zaprite to in začnite znova.';
 
   @override
-  String get receiveOneOffUseAddress => 'Uporabi enkratni naslov';
+  String get onetimeRefundAddressTitle => 'Naslov za vračilo';
+
+  @override
+  String get optionalLabel => 'Neobvezno';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Vrne se na';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Vrnjeno na $address v omrežju $network';
+  }
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6913,13 +6871,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Preverjanje podrobnosti …';
-
-  @override
-  String get receiveRequiredMemo => 'Obvezna opomba / oznaka';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pologu dodajte to opombo. Sam naslov ne zadošča.';
 
   @override
   String get receiveOwnRefundAddress =>
@@ -7107,6 +7058,10 @@ class AppLocalizationsSl extends AppLocalizations {
       'Razpoložljivosti pri Kute ni bilo mogoče preveriti. Poskusite znova.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute trenutno ni dosegljiv. To je še vedno na voljo glede na vaše zadnje preverjanje.';
+
+  @override
   String get capabilityUnavailable =>
       'Ta funkcija v Kute trenutno ni na voljo.';
 
@@ -7140,6 +7095,9 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Ni na voljo v vaši regiji';
+
+  @override
+  String get checkConnection => 'Preveri povezavo';
 
   @override
   String get gateUnavailableTitle => 'Ni na voljo';
@@ -7433,7 +7391,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Vaša koda se ustvarja. Kadar koli jo najdete v Nastavitve → Zaslužek.';
+      'Vaša koda se ustvarja. Kadar koli jo najdete v Nastavitve → Program priporočil.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7460,7 +7418,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Dodate jo lahko tudi pozneje v Nastavitve → Zaslužek (v 7 dneh).';
+      'Dodate jo lahko tudi pozneje v Nastavitve → Program priporočil (v 7 dneh).';
 
   @override
   String get referrerSkip => 'Preskoči, nimam kode';
@@ -7489,6 +7447,34 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Najdeno v tej napravi. Pred obnovo preverite, ali je stanje pravilno.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'Iz starejše različice v tem telefonu';
+
+  @override
+  String get recoverOlderVersionWallet => 'Denarnica iz starejše različice';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'Odpre se s PIN-om, ki ga je uporabljala ta različica';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Shranjeno v iCloud Keychain';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Vnesite PIN, ki ga je uporabljala ta različica';
+
+  @override
+  String get recoverOlderVersionFailed => 'Te kopije ni bilo mogoče obnoviti.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Kopije vaših denarnic iz starejše različice Kute so še vedno v tem telefonu. Jih uporabite, namesto da začnete znova?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Uporabi shranjene kopije';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8117,6 +8103,9 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Prejšnji krogi';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'V tej kategoriji trenutno ni odprtih trgov';
 
@@ -8575,16 +8564,6 @@ class AppLocalizationsSl extends AppLocalizations {
   @override
   String slipWideSpread(String percent) {
     return 'Širok razpon: $percent %. Tržna naročila se lahko tukaj izvršijo opazno stran od srednje cene.';
-  }
-
-  @override
-  String slipCtaSpotNow(String side, String coin, String amount) {
-    return '$side $coin zdaj · $amount';
-  }
-
-  @override
-  String slipCtaGo(String side, String coin, String leverage, String amount) {
-    return 'Odpri $side $coin ${leverage}x · $amount';
   }
 
   @override
@@ -10501,6 +10480,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get portfolioStatAtStake => 'Vloženi znesek';
 
   @override
+  String get portfolioProfitLoss => 'Dobiček in izguba';
+
+  @override
   String slipCtaAddTo(String side, String amount) {
     String _temp0 = intl.Intl.selectLogic(
       side,
@@ -10649,4 +10631,392 @@ class AppLocalizationsSl extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount se prenaša na $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String slipCtaSideCoin(String side, String coin) {
+    return '$side $coin';
+  }
+
+  @override
+  String slipCtaSideAmount(String side, String amount) {
+    return '$side $amount';
+  }
+
+  @override
+  String betPlaceOnSide(String side) {
+    return 'Napovej $side';
+  }
+
+  @override
+  String betAmountOnSide(String amount, String side) {
+    return '$amount na $side';
+  }
+
+  @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Dodaj $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Do minimuma manjka $amount';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Poveča tvojo pozicijo Long',
+        'other': 'Poveča tvojo pozicijo Short',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · izplača $amount ob zmagi';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get addMoneyToInvestments => 'Dodaj denar v Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Vaša denarnica za porabo';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Vaša denarnica za porabo · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Druga denarnica ali borza';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Pridobite naslov, na katerega pošljete dolarje';
+
+  @override
+  String get portfolioStatOpenPnl => 'Odprt dobiček / izguba';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Pripravite napoved $amount';
+  }
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Pošlji $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Premakni $amount v $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered dostavljeno · $remaining preostane';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Vaših $amount je v $balance. Tapnite za nakup Bitcoina';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Vaših $amount je v $balance. Pošiljanje ni bilo izvedeno';
+  }
+
+  @override
+  String get usdReceiveDepositNow => 'Položi zdaj';
+
+  @override
+  String get usdReceiveFromYourWallet => 'Iz vaše denarnice';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'Iz druge denarnice ali borze';
+
+  @override
+  String get usdWithdrawToYourWallet => 'V vašo denarnico';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'V drugo denarnico ali borzo';
+
+  @override
+  String get usdWithdrawNow => 'Dvigni zdaj';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Dodajanje $amount v Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Pripravljamo vašo napoved';
+
+  @override
+  String get slipStepPreparingOrder => 'Pripravljamo vaše naročilo';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Stava $amount na $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Odpiranje $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger =>
+      'Traja dlje od pričakovanega. Še malo potrpljenja, skoraj končano.';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Vaših $amount je v Investments. Tapnite za oddajo.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Dodajanje v Investments ni uspelo. Vaš bitcoin se vrača.';
+
+  @override
+  String get slipFundingPriceMoved => 'Cena se je premaknila prehitro.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Ta krog se je zaprl, preden je prispel vaš denar.';
+
+  @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena se je spremenila na $price, medtem ko se je vaš denar premikal.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ta krog se je končal, medtem ko se je vaš denar premikal. Vaših $amount je v Napovedih.';
+  }
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Vaših $amount je v Napovedih. Tapnite za ponoven poskus.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Vaših $amount je v Investiranju. Tapnite za ponoven poskus.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Stava $amount na $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Odpiranje naročila $amount za $market';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Dodajanje kritja $amount za $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Vaših $amount je v Investments. Tapnite za dodajanje kritja.';
+  }
+
+  @override
+  String get salWhyMoving => 'Zakaj se premika?';
+
+  @override
+  String get positionProtectIt => 'Zaščiti jo';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Če $market pade na $price, se ta pozicija zapre in izgubiš $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Če $market zraste na $price, se ta pozicija zapre in izgubiš $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Če $outcome izgubi, izgubiš $cost; če zmaga, dobiš $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Prenašanje $amount s stanja $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Preneseno $amount s stanja $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Prenašanje $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Preneseno $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount s stanja $source ni bilo preneseno';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Pot $source je zasedena, gremo prek stanja $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'Iz stanja $source gremo prek stanja $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Pot $source ni na voljo, gremo prek stanja $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Znesek je premajhen za neposredno pot iz stanja $source, gremo prek stanja $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vaših $amount je v $balance. Naročilo ni bilo izvedeno';
+  }
+
+  @override
+  String get moneyStepConverting => 'Pretvarjanje v pUSD';
+
+  @override
+  String get moneyStepConverted => 'Pretvorjeno v pUSD';
+
+  @override
+  String get moneyStepApproving => 'Odobritev porabe';
+
+  @override
+  String get moneyStepApproved => 'Poraba odobrena';
+
+  @override
+  String get moneyStepConfirming => 'Potrjevanje stanja';
+
+  @override
+  String get moneyStepConfirmed => 'Stanje potrjeno';
+
+  @override
+  String get moneyStepCrediting => 'Knjiženje na stanje za trgovanje';
+
+  @override
+  String get moneyStepCredited => 'Knjiženo na stanje za trgovanje';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Nakup Bitcoina za $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Kupljen Bitcoin za $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Prihaja na stanje Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Prispelo na stanje Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Pošiljanje $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Poslano $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
+
+  @override
+  String moneyJourneyAt(String place) {
+    return 'V $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count od $total prispelo';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Oddano!';
+
+  @override
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Vrnjeno na vaš naslov v omrežju $network $address.';
+  }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Če jih želite premakniti, uporabite denarnico, kot je MetaMask, z isto obnovitveno frazo.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Če jih želite premakniti, se obrnite na podporo.';
+
+  @override
+  String get portfolioSectionPnlCharts => 'Grafi P&L';
+
+  @override
+  String get portfolioSectionBalances => 'Stanja';
 }

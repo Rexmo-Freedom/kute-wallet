@@ -196,12 +196,34 @@ class HlPerpCatalogue {
   /// here and has no market in [markets].
   final List<String> dexes;
 
+  /// Builder dexes read in this answer whose collateral is not USDC
+  /// (USDH, USDE, USDT0, …). Dollars fund USDC only, so their markets are
+  /// left out of [markets], and a short answer never brings them back
+  /// from a remembered list.
+  final Set<String> nonUsdcDexes;
+
   const HlPerpCatalogue({
     required this.markets,
     required this.complete,
     required this.annotated,
     this.dexes = const [],
+    this.nonUsdcDexes = const {},
   });
+}
+
+/// Spot token index of USDC: a perp dex whose meta `collateralToken` is
+/// this settles in USDC, the only collateral Dollars can fund.
+const int hlUsdcCollateralToken = 0;
+
+/// The `collateralToken` of a decoded `meta` (a map) or `metaAndAssetCtxs`
+/// (`[meta, ctxs]`) answer, or null when it carries none.
+int? hlMetaCollateralToken(dynamic decoded) {
+  final meta = decoded is List && decoded.isNotEmpty ? decoded[0] : decoded;
+  if (meta is! Map) return null;
+  final token = meta['collateralToken'];
+  if (token is int) return token;
+  if (token is num && token == token.roundToDouble()) return token.toInt();
+  return null;
 }
 
 class HyperliquidModel {
@@ -465,6 +487,10 @@ class HyperliquidModel {
   static final Map<String, ({DateTime at, dynamic decoded})> _builderMeta = {};
   static const Duration _builderMetaTtl = Duration(minutes: 5);
   static DateTime? _builderBackoffUntil;
+
+  /// Each builder dex's collateral token, from any meta read of it. It is
+  /// fixed when the dex is deployed, so one read serves the session.
+  static final Map<String, int> _dexCollateral = {};
   static Duration _builderBackoff = const Duration(seconds: 60);
   static Future<HlPerpCatalogue>? _allPerpInFlight;
   static const int _builderBatchSize = 3;
@@ -474,6 +500,7 @@ class HyperliquidModel {
   @visibleForTesting
   static void resetBuilderCache() {
     _builderMeta.clear();
+    _dexCollateral.clear();
     _builderBackoffUntil = null;
     _builderBackoff = const Duration(seconds: 60);
     _allPerpInFlight = null;
@@ -513,7 +540,15 @@ class HyperliquidModel {
       annotations: ann,
     );
     final metas = await _builderMetas(dexes ?? const []);
+    final nonUsdc = <String>{};
     for (final r in metas) {
+      // Dollars fund USDC only: a dex settling in another stablecoin
+      // lists nothing the app can trade.
+      final collateral = _rememberCollateral(r.dex.name, r.decoded);
+      if (collateral != null && collateral != hlUsdcCollateralToken) {
+        nonUsdc.add(r.dex.name);
+        continue;
+      }
       out.addAll(HlMarket.parsePerpList(
         r.decoded,
         dex: r.dex.name,
@@ -526,6 +561,7 @@ class HyperliquidModel {
       complete: dexes != null && metas.length == dexes.length,
       annotated: ann != null,
       dexes: [for (final d in dexes ?? const <HlPerpDex>[]) d.name],
+      nonUsdcDexes: nonUsdc,
     );
   }
 
@@ -782,6 +818,30 @@ class HyperliquidModel {
     );
   }
 
+  /// The collateral token in [decoded] (a `meta` or `metaAndAssetCtxs`
+  /// answer for [dex]), remembered for [isUsdcCollateralDex].
+  static int? _rememberCollateral(String dex, dynamic decoded) {
+    final token = hlMetaCollateralToken(decoded);
+    if (dex.isNotEmpty && token != null) _dexCollateral[dex] = token;
+    return token;
+  }
+
+  /// Whether [dex]'s perps settle in USDC, the only collateral Dollars can
+  /// fund. The default dex ('') always does. Read once per dex (from the
+  /// market list's metas when they have landed, else one `meta` read) and
+  /// remembered. Throws when it cannot be read: callers that move money
+  /// treat that as "not confirmed".
+  Future<bool> isUsdcCollateralDex(String dex) async {
+    if (dex.isEmpty) return true;
+    var token = _dexCollateral[dex];
+    if (token == null) {
+      final meta = await _infoOrThrow({'type': 'meta', 'dex': dex});
+      token = _rememberCollateral(dex, meta);
+      if (token == null) throw const FormatException('Collateral unavailable');
+    }
+    return token == hlUsdcCollateralToken;
+  }
+
   /// Withdrawable USDC on builder DEXs. Collateral identity is read from
   /// each DEX's metadata; a different stablecoin is not interchangeable.
   Future<Map<String, HlAccountSnapshot>> getUsdcDexAccounts(String address) async {
@@ -793,6 +853,7 @@ class HyperliquidModel {
         await Future.wait(dexes.skip(start).take(8).map((dex) async {
           final meta = await _infoOrThrow({'type': 'meta', 'dex': dex.name});
           if (meta is! Map) throw const FormatException('Collateral unavailable');
+          _rememberCollateral(dex.name, meta);
           if (meta['collateralToken'] == 0) names.add(dex.name);
         }));
       }
@@ -812,9 +873,18 @@ class HyperliquidModel {
   /// Portfolio positions span the default and builder perpetual DEXs.
   /// Withdrawable USDC includes builder DEX cash. Execution explicitly moves
   /// the required collateral within the same account before spending it.
+  ///
+  /// The main account and the builder DEXs are independent reads: both
+  /// go at once, so an account read (a deposit's credit, the slip's
+  /// order) costs one round of requests, not two in a row.
   Future<HlAccountSnapshot> getPortfolioSnapshot(String address) async {
-    final base = await getAccountSnapshot(address);
-    final dexes = await getUsdcDexAccounts(address);
+    final baseRead = getAccountSnapshot(address);
+    final dexesRead = getUsdcDexAccounts(address);
+    // Both settle before either error is rethrown (no unhandled future).
+    await Future.wait<Object?>([baseRead, dexesRead], eagerError: false)
+        .catchError((Object _) => const <Object?>[]);
+    final base = await baseRead;
+    final dexes = await dexesRead;
     return HlAccountSnapshot(
         accountValue: base.accountValue + dexes.values.fold<double>(0, (v, s) => v + s.accountValue),
         withdrawable: base.withdrawable + dexes.values.fold<double>(0, (v, s) => v + s.withdrawable),
@@ -1013,6 +1083,7 @@ class HyperliquidModel {
     ]);
     final meta = results[0];
     final fees = results[1];
+    _rememberCollateral(market.dex, meta);
     if (meta is! Map ||
         fees is! Map ||
         (market.dex.isNotEmpty && meta['collateralToken'] != 0)) {

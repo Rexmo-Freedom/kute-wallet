@@ -227,10 +227,10 @@ void main() {
           reason: 'one definition, one call shared by buy and sell');
       final signing = source.substring(
           source.indexOf('Future<SignedOrderV2> _buildSignedOrder('));
-      expect(
-          signing,
-          contains(
-              'final builderCode = await PolymarketBackendService.getBuilderCode();'));
+      // Signed with the code held now, never a wait on the backend (the
+      // slip's warm-up refreshes it); none held means the zero builder.
+      expect(signing,
+          contains('PolymarketBackendService.signingBuilderCode();'));
       expect(signing, contains('builder: builderCode,'));
       expect(signing, contains("side: side == OrderSide.buy ? 0 : 1,"));
       // The Ledger sell reads the same backend code into its intent.

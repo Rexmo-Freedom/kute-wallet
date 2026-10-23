@@ -3,8 +3,8 @@ import 'package:kute/notifications/push_permission.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import 'package:kute/services/secure_storage.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 
 
 class FirebaseService {
@@ -111,7 +111,10 @@ class FirebaseService {
 
   static Future<void> sendTokenToBackend(String jwt, String token) async {
     try {
-      await http.post(
+      // Storing the token is idempotent, so the background-read policy
+      // (retries with backoff) is safe; it also bounds a call that
+      // previously had no timeout at all.
+      await SharedHttpClient.post(
         Uri.parse('${dotenv.env['BACKEND']!}/users/store_fcm_token'),
         headers: {
           'Content-Type': 'application/json',
@@ -122,6 +125,8 @@ class FirebaseService {
             'fcm_token': token,
           }
         }),
+        kind: HttpCallKind.backgroundRead,
+        timeout: const Duration(seconds: 15),
       );
     } catch (_) {
       // intentionally empty

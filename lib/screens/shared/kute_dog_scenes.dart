@@ -20,8 +20,9 @@
 //  - [KuteDogBitcoin]: Sal holding a bitcoin, the wallet home's Bitcoin
 //    tab while it is selected; he tosses and catches it now and then.
 //  - [KuteDogGlance]: Sal at glyph size, the face of every Ask Sal entry
-//    point. A glance across with a little head tilt and a blink, when he
-//    appears and then every several seconds, never continuously.
+//    point, in one colour outside the Sal sheet. A glance across with a
+//    little head tilt and a blink, when he appears and then every several
+//    seconds, never continuously.
 //
 // Reduce Motion paints one calm frame of each rather than a hole.
 
@@ -986,6 +987,24 @@ KuteDogPose kuteDogGlancePose(double ms) {
   );
 }
 
+/// Every part of Sal in one [color]; [cut] parts (eyes, nose) left for the
+/// mono glyph to punch out, [pupil] the only part drawn back on.
+KuteDogPalette _monoPalette(
+    {Color fill = const Color(0x00000000),
+    Color cut = const Color(0x00000000),
+    Color pupil = const Color(0x00000000)}) =>
+    KuteDogPalette(
+      fur: fill,
+      furDark: fill,
+      furLight: fill,
+      ink: cut,
+      sclera: cut,
+      pupil: pupil,
+      bandana: fill,
+      bandanaShade: fill,
+      tongue: fill,
+    );
+
 class _GlancePainter extends CustomPainter {
   final double ms;
   final bool still;
@@ -993,24 +1012,36 @@ class _GlancePainter extends CustomPainter {
   final double unit;
   final Offset origin;
 
+  /// Paints Sal in this one colour (his silhouette, the eyes and nose
+  /// punched out, the pupils back in) instead of [palette].
+  final Color? mono;
+
   const _GlancePainter({
     required this.ms,
     required this.still,
     required this.palette,
     required this.unit,
     required this.origin,
+    this.mono,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    paintKuteDog(
-      canvas,
-      origin: origin,
-      unit: unit,
-      pose: still ? KuteDogPose.neutral : kuteDogGlancePose(ms),
-      palette: palette,
-      withTail: false,
-    );
+    final pose = still ? KuteDogPose.neutral : kuteDogGlancePose(ms);
+    void dog(KuteDogPalette p) => paintKuteDog(canvas,
+        origin: origin, unit: unit, pose: pose, palette: p, withTail: false);
+    final color = mono;
+    if (color == null) {
+      dog(palette);
+      return;
+    }
+    canvas.saveLayer(null, Paint());
+    dog(_monoPalette(fill: color));
+    canvas.saveLayer(null, Paint()..blendMode = BlendMode.dstOut);
+    dog(_monoPalette(cut: const Color(0xFF000000)));
+    canvas.restore();
+    dog(_monoPalette(pupil: color));
+    canvas.restore();
   }
 
   @override
@@ -1019,15 +1050,16 @@ class _GlancePainter extends CustomPainter {
       old.still != still ||
       old.unit != unit ||
       old.origin != origin ||
-      old.palette != palette;
+      old.palette != palette ||
+      old.mono != mono;
 }
 
 /// Sal at glyph size, the face of every Ask Sal entry point (the round
-/// buttons, the market header capsule, the question capsule). At rest he
-/// is exactly `kute_dog.svg`; he glances across with a little head tilt
-/// and blinks ([kKuteDogGlanceMs]) when he appears, after a small random
-/// beat so two on one screen never move together, and then once every
-/// [interval] give or take [jitter]. Nothing ticks between plays; still
+/// buttons, a market's "Why is it moving?" row), there in one [color]. At
+/// rest, in his own colours, he is exactly `kute_dog.svg`; he glances
+/// across with a little head tilt and blinks ([kKuteDogGlanceMs]) when
+/// he appears, after a small random beat so two on one screen never move
+/// together, and then once every [interval] give or take [jitter]. Nothing ticks between plays; still
 /// while covered or backgrounded, and for good under Reduce Motion.
 ///
 /// His rig pixel is a whole number of device pixels and his square sits on
@@ -1045,12 +1077,18 @@ class KuteDogGlance extends StatefulWidget {
   /// The longest random wait before the first play.
   final Duration firstDelayMax;
 
+  /// One colour for the whole glyph (the text colour of the row it sits
+  /// in): Sal's silhouette with his eyes and nose cut out. Null paints him
+  /// in his own colours.
+  final Color? color;
+
   const KuteDogGlance({
     super.key,
     required this.size,
     this.interval = const Duration(seconds: 7),
     this.jitter = const Duration(seconds: 1),
     this.firstDelayMax = const Duration(milliseconds: 600),
+    this.color,
   });
 
   @override
@@ -1084,7 +1122,12 @@ class _KuteDogGlanceState extends _KuteDogBeatState<KuteDogGlance> {
     final origin = Offset(inset, inset);
 
     _GlancePainter painter(double ms, bool still) => _GlancePainter(
-        ms: ms, still: still, palette: palette, unit: unit, origin: origin);
+        ms: ms,
+        still: still,
+        palette: palette,
+        unit: unit,
+        origin: origin,
+        mono: widget.color);
 
     if (still) return CustomPaint(size: size, painter: painter(0, true));
     return RepaintBoundary(
@@ -1198,7 +1241,8 @@ class _SalAiRingPainter extends CustomPainter {
       !listEquals(old.hues, hues);
 }
 
-/// Sal's "AI" mark around his round dog: a thin ring in a soft sweep of
+/// Sal's "AI" mark around his round dog, for the Sal sheet only (every
+/// entry point outside it shows the one-colour glyph): a thin ring in a soft sweep of
 /// [hues] (the chart palette's violet, cyan and pink at the call sites)
 /// and a small vector sparkle (✦) on it at the top right. The ring turns
 /// once and the sparkle twinkles ([kSalAiRingMs]) when it appears, after

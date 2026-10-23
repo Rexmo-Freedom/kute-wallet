@@ -55,7 +55,8 @@ class ShellWalletScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(height: kShellTopBarSpacing.h),
-              if (needsWalletBackup(wallet))
+              if (needsWalletBackup(wallet,
+                  pendingLabels: ref.watch(passkeyPendingLabelsProvider)))
                 Padding(
                   padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
                   child: SecurityActionCard(walletId: wallet.id),

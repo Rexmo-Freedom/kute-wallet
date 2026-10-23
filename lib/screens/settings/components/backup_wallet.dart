@@ -42,7 +42,8 @@ class BackupWallet extends ConsumerStatefulWidget {
 
 enum _BackupStep { reveal, verify }
 
-/// Coarse time-in-flow bucket for `backup_abandoned` (no raw duration).
+/// Legacy time-in-flow bucket for `backup_abandoned`, sent beside the exact
+/// `time_in_flow_ms`.
 String _flowTimeBucket(Duration d) {
   final s = d.inSeconds;
   if (s < 10) return '<10s';
@@ -149,6 +150,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
     if (!_ended) {
       TrackingService.track('backup_abandoned', params: {
         'step': _step.name,
+        'time_in_flow_ms': _flowTimer.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_flowTimer.elapsed),
         'reason': _abandonReason ?? 'user_closed',
         'quiz_failed': _quizFailed,

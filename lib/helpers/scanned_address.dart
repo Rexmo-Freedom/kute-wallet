@@ -1,30 +1,24 @@
 // lib/helpers/scanned_address.dart
 //
 // The Scan button on a typed-recipient field. Every such field opens the
-// same smart scanner the bitcoin send uses (camera, Gallery and Paste,
-// with its own camera-permission handling) in return-value mode, and
+// same scanner sheet the bitcoin send uses (camera, flash and photos,
+// with its own camera-permission handling) in recipient mode, and
 // reduces what comes back to the bare address the field validates.
 //
 // Nothing scanned is ever sent to analytics from here: the payload is
 // an address, and addresses never leave the device in an event.
 
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:kute/helpers/common_operation_methods.dart'
     show stripBitcoinAddress;
+import 'package:kute/screens/scanner/scanner_sheet.dart' show showScannerSheet;
 
-/// Open the smart scanner in return-value mode and hand back the raw
-/// scanned (or gallery-decoded, or pasted) string, trimmed. Null when the
-/// person closed the scanner without a code.
-Future<String?> scanRecipientRaw(BuildContext context) async {
-  final result = await context.pushNamed<String>(
-    'smartScanner',
-    extra: const {'returnRaw': true},
-  );
-  final scanned = result?.trim() ?? '';
-  return scanned.isEmpty ? null : scanned;
-}
+/// Open the scanner sheet over [context] in recipient mode and hand back
+/// the scanned (or photo-decoded) string, trimmed. Null when the person
+/// closed the scanner without a code; the screen under it is unchanged.
+Future<String?> scanRecipientRaw(BuildContext context) =>
+    showScannerSheet(context);
 
 /// URI schemes whose path is the recipient address itself. `bitcoin:` is
 /// handled by [stripBitcoinAddress], the same reduction the bitcoin send

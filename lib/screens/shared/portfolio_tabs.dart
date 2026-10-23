@@ -8,8 +8,8 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 const kPortfolioTabKeys = ['open', 'orders', 'activity', 'statistics'];
 
 /// Portfolio views use the same pills as the Home Balance / Price strip and
-/// the category rows ([KutePillTabs]). Stays in sync with the enclosing
-/// [DefaultTabController].
+/// the category rows ([KutePillTabs]), each with a 44 pt hit target. Stays
+/// in sync with the enclosing [DefaultTabController].
 class PortfolioTabs extends StatelessWidget {
   const PortfolioTabs({super.key, required this.tabs, this.keys = kPortfolioTabKeys});
 
@@ -19,7 +19,7 @@ class PortfolioTabs extends StatelessWidget {
   /// so a tab reads the same in PostHog in every app language.
   final List<String> keys;
 
-  static double height(BuildContext context) => 44.h;
+  static double height(BuildContext context) => kutePillRowHeight();
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +35,7 @@ class PortfolioTabs extends StatelessWidget {
                 KutePillItem(label: label, icon: icon),
             ],
             selectedIndex: controller.index,
+            height: height(context),
             onTap: (i) {
               if (i != controller.index && i < tabs.length) {
                 TrackingService.track('portfolio_tab_changed',

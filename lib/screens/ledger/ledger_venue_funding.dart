@@ -72,7 +72,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
       hooks.onPredictionsWithdraw != null) {
     withdraw = () => hooks.onPredictionsWithdraw!(context, walletId);
   }
-  void navigate(VoidCallback action) {
+  Future<void> navigate(VoidCallback action) async {
     if (!context.mounted) return;
     final currentIdentity = ref.read(ledgerIdentityProvider(walletId));
     if (currentIdentity == null ||
@@ -91,8 +91,13 @@ import 'package:kute/services/runtime_capabilities_service.dart';
         .read(runtimeCapabilitiesProvider)
         .decision('$venue.deposit');
     if (!decision.allowed) {
-      showCapabilityDecisionSheet(context, decision);
-      return;
+      // A region refusal's "Check connection" that finds the door open
+      // goes on into the deposit.
+      if (!await showCapabilityDecisionSheet(context, decision,
+              capability: '$venue.deposit') ||
+          !context.mounted) {
+        return;
+      }
     }
     action();
   }

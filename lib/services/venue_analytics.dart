@@ -300,7 +300,8 @@ class VenueAnalytics {
 
   /// The kind-of-bet properties for the first of [ids] the registry knows:
   /// market_category, event_tags (≤3), sports_league + is_live (sports
-  /// only) and time_to_resolution_bucket. Falls back to [fallbackCategory]
+  /// only) and time_to_resolution_seconds (exact) beside the legacy
+  /// time_to_resolution_bucket. Falls back to [fallbackCategory]
   /// (the caller's coarse category) when the market was never seen.
   static Map<String, Object> pmKindParams(Iterable<String?> ids,
       {String? fallbackCategory}) {
@@ -322,6 +323,12 @@ class VenueAnalytics {
       if (kind.tags.isNotEmpty) 'event_tags': kind.tags,
       if (sports && kind.league != null) 'sports_league': kind.league!,
       if (sports) 'is_live': kind.live,
+      // Exact seconds to resolution (negative once ended) beside the
+      // legacy bucket.
+      if (kind.endMs != null)
+        'time_to_resolution_seconds':
+            ((kind.endMs! - DateTime.now().millisecondsSinceEpoch) / 1000)
+                .round(),
       'time_to_resolution_bucket': resolutionBucket(kind.endMs == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(kind.endMs!)),
@@ -596,6 +603,15 @@ class VenueAnalytics {
     _ledgerPendingBets.clear();
     _persistTimer?.cancel();
     _persistTimer = null;
+  }
+
+  /// Drops the open box and everything loaded from it. Called by the
+  /// device wipe after the box was deleted from disk, so no later persist
+  /// writes to a dead handle; the next [warmUp] opens a fresh box.
+  static void forgetStorage() {
+    debugReset();
+    _box = null;
+    _opening = null;
   }
 }
 

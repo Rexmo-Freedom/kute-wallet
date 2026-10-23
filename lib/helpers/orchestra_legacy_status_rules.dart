@@ -2,6 +2,8 @@ import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/helpers/reconcile_cadence.dart';
 import 'package:kute/models/orchestra_model.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneTimeReceiveQuoteRow, kOneTimeReceiveLateDepositWatch;
 
 /// What an Orchestra status read proved.
 enum OrchestraStatusReadKind {
@@ -58,12 +60,16 @@ enum LegacyStatusReadAction {
   markExpired,
 }
 
-/// When a not-found read may first mark [row] expired.
+/// When a not-found read may first mark [row] expired. A one-time
+/// receive's row waits [kOneTimeReceiveLateDepositWatch] past its quote:
+/// a late deposit is repriced and still lands.
 DateTime legacyQuoteClosesAt(SwapOrder row) {
   final expiresAt = row.expiresAt;
   if (expiresAt != null) {
-    return DateTime.fromMillisecondsSinceEpoch(expiresAt)
-        .add(kLegacyQuoteNotFoundGrace);
+    return DateTime.fromMillisecondsSinceEpoch(expiresAt).add(
+        isOneTimeReceiveQuoteRow(row)
+            ? kOneTimeReceiveLateDepositWatch
+            : kLegacyQuoteNotFoundGrace);
   }
   return DateTime.fromMillisecondsSinceEpoch(row.timestamp)
       .add(kLegacyQuoteNoExpiryGrace);

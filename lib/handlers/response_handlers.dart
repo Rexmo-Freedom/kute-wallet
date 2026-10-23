@@ -13,12 +13,18 @@ class Result<T> {
   /// the call parsed one. Never a message body.
   final String? errorCode;
 
+  /// The typed refusal behind [error], when the call knows one (a policy
+  /// denial, the app's own or the backend's), so a caller can show it the
+  /// way that refusal is shown everywhere else. Never a raw body.
+  final Object? cause;
+
   Result({
     this.data,
     this.error,
     this.statusCode,
     this.headers,
     this.errorCode,
+    this.cause,
   });
 
   bool get isSuccess => error == null;

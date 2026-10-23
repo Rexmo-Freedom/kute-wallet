@@ -3,19 +3,21 @@
 // Backing state for the unified "Search kute" surface. Searches three
 // sections at once, the ones the All filter shows:
 //
-//   1. TRANSACTIONS — local + synchronous. Iterates the per-wallet
-//      `walletTransactionCacheProvider` (keyed by walletId) so each
-//      matched row keeps its owning wallet's display label, filters by a
-//      per-row lowercased searchable string (id, asset, direction,
-//      amounts, and type-specific text), then sorts the cross-wallet
-//      matches newest-first. Instant, never hits the network.
+//   1. TRANSACTIONS — the person's own history, local + synchronous.
+//      Iterates the per-wallet `walletTransactionCacheProvider` (keyed by
+//      walletId) so each matched row keeps its owning wallet's display
+//      label, filters by a per-row lowercased searchable string (id,
+//      asset, direction, amounts, and type-specific text), then sorts the
+//      cross-wallet matches newest-first. The person's OWN Polymarket
+//      positions (active + resolved + claimable, de-duped by conditionId)
+//      belong here too: past bets are history, never market results.
+//      Instant, never hits the network.
 //
-//   2. PREDICTIONS — the user's OWN positions (active + resolved +
-//      claimable, local + synchronous, de-duped by conditionId) PLUS
-//      global markets from the remote, debounced `polymarketSearchProvider`.
+//   2. PREDICTIONS — markets only: global markets from the remote,
+//      debounced `polymarketSearchProvider`.
 //
-//   3. INVESTING — Hyperliquid markets from the remote, debounced
-//      `hyperliquidMarketSearchProvider`.
+//   3. INVESTING — markets only: Hyperliquid markets from the remote,
+//      debounced `hyperliquidMarketSearchProvider`.
 //
 // The query lives in `searchQueryProvider`. The synchronous results
 // (transactions + owned positions) are computed in
@@ -57,7 +59,8 @@ class TransactionSearchResult extends SearchResult {
 }
 
 /// One of the user's OWN Polymarket positions (active / resolved /
-/// claimable). Tapping resolves the market by slug and opens its detail
+/// claimable). Shown with the Transactions, never under Predictions,
+/// which lists markets only. Tapping resolves the market by slug and opens its detail
 /// sheet, falling back to the predictions tab.
 class OwnedPositionSearchResult extends SearchResult {
   final PolymarketPosition position;
@@ -127,7 +130,11 @@ final selectedSearchCategoryProvider =
 /// rows into one section.
 const int _kMaxTransactionResults = 25;
 const int _kMaxOwnedPositionResults = 5;
+/// Predictions under the All filter (the section shows four and "See all").
 const int kMaxGlobalMarketResults = 5;
+/// Predictions under the Predictions filter: the whole venue page (the
+/// model asks Gamma for 50, its cap), most traded first.
+const int kMaxPredictionsFilterResults = 50;
 const int kMaxHyperliquidResults = 6;
 
 /// Short, user-facing label for a wallet, attached to each transaction
@@ -263,11 +270,11 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
   final searchTransactions = category == SearchCategory.all ||
       category == SearchCategory.transactions;
   final walletScope = ref.watch(searchWalletScopeProvider);
-  final searchPredictions = walletScope == null &&
-      (category == SearchCategory.all || category == SearchCategory.predictions);
-  if (!searchTransactions && !searchPredictions) {
-    return UnifiedSearchResults.empty;
-  }
+  // The person's own positions are history: they travel with the
+  // transactions (All and Transactions), never with the Predictions
+  // markets. A wallet-scoped search keeps to that wallet's transactions.
+  final searchOwnedPositions = walletScope == null && searchTransactions;
+  if (!searchTransactions) return UnifiedSearchResults.empty;
 
   // 1. TRANSACTIONS — iterate the per-wallet cache (keyed by walletId)
   // rather than the flattened merged feed so each matched row keeps its
@@ -285,7 +292,7 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
   };
   final matched = <(BaseTransaction, String)>[];
   final positionSources = <PolymarketPosition>[
-    if (searchPredictions) ...[
+    if (searchOwnedPositions) ...[
       ...ref.watch(polymarketActivePositionsProvider),
       ...ref.watch(polymarketClaimablePositionsProvider),
       ...ref.watch(polymarketResolvedPositionsProvider),
@@ -329,9 +336,8 @@ final unifiedSearchResultsProvider = FutureProvider.autoDispose<UnifiedSearchRes
 
 /// Remote global-market leg. Wraps the debounced `polymarketSearchProvider`
 /// (which already sleeps 300ms before hitting Gamma) and projects the
-/// events into search results, de-duped against the conditionIds the
-/// owned-positions subsection already surfaced (passed by the UI) and
-/// capped at [kMaxGlobalMarketResults].
+/// events into search results, de-duped by conditionId and capped at [kMaxGlobalMarketResults] under All, at
+/// [kMaxPredictionsFilterResults] under the Predictions filter.
 ///
 /// ONGOING / LIVE markets are surfaced FIRST: `polymarketSearchProvider`'s
 /// resolved filter already keeps genuinely in-play games (it returns false
@@ -354,14 +360,6 @@ final globalMarketResultsProvider =
   final query = ref.watch(searchQueryProvider).trim();
   if (query.isEmpty) return const AsyncValue.data([]);
 
-  // conditionIds already shown as owned positions — don't repeat them
-  // as global markets.
-  final ownedConditionIds = ref
-      .watch(unifiedSearchResultsProvider)
-      .valueOrNull?.ownedPositions
-      .map((r) => r.position.marketId)
-      .toSet() ?? <String>{};
-
   final async = ref.watch(polymarketSearchProvider(query));
   // While the venue answers, the markets the Predictions screen already
   // holds in memory that match stand in, so results show at once.
@@ -381,14 +379,13 @@ final globalMarketResultsProvider =
       if (liveMask[i] == '1') events[i],
   };
   List<GlobalMarketSearchResult> project(List<PolymarketEvent> events) {
-    // De-dup first (against owned positions + repeated conditionIds), then
+    // De-dup first (repeated conditionIds), then
     // stable-sort live-first, then cap — so the cap is applied AFTER live
     // markets are pulled to the top, never before.
     final deduped = <PolymarketEvent>[];
     final seen = <String>{};
     for (final e in events) {
       final cid = e.conditionId;
-      if (cid.isNotEmpty && ownedConditionIds.contains(cid)) continue;
       if (cid.isNotEmpty && !seen.add(cid)) continue;
       deduped.add(e);
     }
@@ -402,9 +399,11 @@ final globalMarketResultsProvider =
       ...deduped.where((e) => !isLive(e)),
     ];
 
+    final cap = category == SearchCategory.predictions
+        ? kMaxPredictionsFilterResults
+        : kMaxGlobalMarketResults;
     return [
-      for (final e in sorted.take(kMaxGlobalMarketResults))
-        GlobalMarketSearchResult(e),
+      for (final e in sorted.take(cap)) GlobalMarketSearchResult(e),
     ];
   }
 
@@ -432,7 +431,7 @@ List<PolymarketEvent> _browsedMarketsMatching(Ref ref, String query) {
     if (!ref.exists(provider)) continue;
     for (final e in ref.read(provider).events) {
       if (!e.title.toLowerCase().contains(q)) continue;
-      if (e.liquidity < 1000 || e.closed) continue;
+      if (e.closed || e.marketsClosed) continue;
       if (e.slug.toLowerCase().contains('-updown-5m-')) continue;
       if (seen.add(e.slug.isEmpty ? e.id : e.slug)) out.add(e);
     }

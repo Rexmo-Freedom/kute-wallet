@@ -34,7 +34,8 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
-import 'package:kute/services/orchestra_routes.dart' show isVenueInternalRoute;
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show receiveOtherCoinOptions;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -268,38 +269,31 @@ class CoinAssetTile extends StatelessWidget {
   }
 }
 
-/// Every coin a balance can be funded with, folded to one entry per
-/// coin. Shared by the quiet line that states what a destination takes
-/// and by the sheet it opens, so the marks on the line and the marks in
-/// the grid can never be a different set.
+/// Every coin a balance can be received in from another network, folded
+/// to one entry per coin. Shared by the quiet line that states what a
+/// destination takes and by the sheet it opens, so the marks on the line
+/// and the marks in the grid can never be a different set.
 ///
-/// The destination defaults to the wallet's bitcoin pool. The dollar
-/// balance asks the same question of its own row by naming it, rather
-/// than through a second function that could drift from this one.
-///
-/// One-time rows (a fresh quoted address per payment) are offered only
-/// while `orchestra.onetime_addresses` allows them; with the switch off,
-/// or no readable policy, only the reusable-address rows remain.
+/// The destination defaults to the wallet's bitcoin (`spark:BTC`); the
+/// dollar balance names its own (`USDB`). Each row is a REUSABLE standing
+/// address to `spark:USDB` wherever that route may serve the coin, else a
+/// ONE-TIME quoted address into the destination while
+/// `orchestra.onetime_addresses` allows it ([receiveOtherCoinOptions]).
+/// [standingDestinations] is the provider's standing destination list, or
+/// null while unknown. Never a venue rail, never a legacy accumulation
+/// address.
 List<CoinAssetGroup> receiveCoinGroups(
   OrchestraRoutesCatalog catalog,
   AppLocalizations l10n, {
-  String destinationChain = 'spark',
   String destinationAsset = 'BTC',
+  Set<String>? standingDestinations,
   RuntimeCapabilitiesService? policy,
 }) {
-  final oneTime =
-      oneTimeReceiveAllowed(policy ?? RuntimeCapabilitiesService.instance);
   return groupCoinsByAsset(
-    catalog
-        .receiveOptions(
-          destinationChain: destinationChain,
-          destinationAsset: destinationAsset,
-        )
-        // HyperCore and Polygon USDC.e are Investing's and Predictions'
-        // own rails: open to the venue flows, never a network offered
-        // to a payer.
-        .where((o) => !isVenueInternalRoute(o.chain, o.assetCode))
-        .where((o) => o.reusableAddress || oneTime)
+    receiveOtherCoinOptions(catalog,
+            destinationAsset: destinationAsset,
+            standingDestinations: standingDestinations,
+            policy: policy)
         // The dollar row is an ordinary source here, and it wears plain
         // dollars rather than the catalogue's spelling of the token.
         .map((o) => dollarsRowLabels(o, l10n))
@@ -322,6 +316,40 @@ List<CoinAssetGroup> receiveCoinGroups(
 String? coinNetworkRowNote(
         OrchestraReceiveOption option, AppLocalizations l10n) =>
     option.reusableAddress ? null : l10n.receiveOneOffTag;
+
+/// [groups] minus the networks the runtime policy withdraws for this
+/// region, regrouped so a coin left with no network disappears with
+/// them; and the reason the first hidden row gave. What
+/// [CoinAssetPickerSheet] offers, and what a step that shows the grid
+/// itself offers, so the two can never be a different set.
+({List<CoinAssetGroup> groups, String? hiddenReason})
+    coinGroupsOfferedUnderPolicy(
+  List<CoinAssetGroup> groups, {
+  String otherLegAsset = 'BTC',
+  bool depositAddress = false,
+  String? reusableLegAsset,
+}) {
+  final policy = RuntimeCapabilitiesService.instance;
+  final offered = <CoinAssetGroup>[];
+  String? reason;
+  for (final group in groups) {
+    final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
+        otherLegAsset: otherLegAsset,
+        depositAddress: depositAddress,
+        reusableLegAsset: reusableLegAsset);
+    reason ??= result.hiddenReason;
+    if (result.offered.isEmpty) continue;
+    offered.add(result.offered.length == group.options.length
+        ? group
+        : CoinAssetGroup(
+            key: group.key,
+            displayName: group.displayName,
+            displaySymbol: group.displaySymbol,
+            options: result.offered,
+          ));
+  }
+  return (groups: offered, hiddenReason: reason);
+}
 
 /// The coins a balance can be funded with, or sent to.
 ///
@@ -386,7 +414,16 @@ class CoinAssetPickerSheet extends StatefulWidget {
   /// every deposit address it mints. Sends leave it false.
   final bool depositAddress;
 
+  /// What a reusable row delivers when it is not [otherLegAsset] (see
+  /// `orchestraOptionCapabilities`).
+  final String? reusableLegAsset;
+
   final ValueChanged<OrchestraReceiveOption> onPicked;
+
+  /// The close X on the left, before the heading, as on every receive
+  /// sheet (the receive pickers set it); false keeps it on the right, as
+  /// the send pickers have it.
+  final bool closeOnLeft;
 
   const CoinAssetPickerSheet({
     super.key,
@@ -401,6 +438,8 @@ class CoinAssetPickerSheet extends StatefulWidget {
     this.pinned,
     this.otherLegAsset = 'BTC',
     this.depositAddress = false,
+    this.reusableLegAsset,
+    this.closeOnLeft = false,
   });
 
   @override
@@ -414,27 +453,11 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
   /// [CoinAssetPickerSheet.groups] minus the networks the runtime policy
   /// withdraws for this region, regrouped so a coin left with no network
   /// disappears with them; and the reason the first hidden row gave.
-  ({List<CoinAssetGroup> groups, String? hiddenReason}) _offered() {
-    final policy = RuntimeCapabilitiesService.instance;
-    final groups = <CoinAssetGroup>[];
-    String? reason;
-    for (final group in widget.groups) {
-      final result = orchestraOptionsOfferedUnderPolicy(group.options, policy,
+  ({List<CoinAssetGroup> groups, String? hiddenReason}) _offered() =>
+      coinGroupsOfferedUnderPolicy(widget.groups,
           otherLegAsset: widget.otherLegAsset,
-          depositAddress: widget.depositAddress);
-      reason ??= result.hiddenReason;
-      if (result.offered.isEmpty) continue;
-      groups.add(result.offered.length == group.options.length
-          ? group
-          : CoinAssetGroup(
-              key: group.key,
-              displayName: group.displayName,
-              displaySymbol: group.displaySymbol,
-              options: result.offered,
-            ));
-    }
-    return (groups: groups, hiddenReason: reason);
-  }
+          depositAddress: widget.depositAddress,
+          reusableLegAsset: widget.reusableLegAsset);
 
   @override
   void initState() {
@@ -489,6 +512,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
     final selected = widget.selectedOptionId;
     final pinned = widget.pinned;
     final hiddenReason = offered.hiddenReason;
+    final close = KuteCloseButton(
+      size: 36,
+      onPressed: () => Navigator.of(context).pop(),
+    );
 
     return AppBottomSheetContainer(
       maxHeight: 0.9,
@@ -502,6 +529,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.closeOnLeft) ...[
+                  close,
+                  SizedBox(width: 10.w),
+                ],
                 if (group != null) ...[
                   Padding(
                     padding: EdgeInsets.only(top: 2.h),
@@ -553,11 +584,10 @@ class _CoinAssetPickerSheetState extends State<CoinAssetPickerSheet> {
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
-                KuteCloseButton(
-                  size: 36,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                if (!widget.closeOnLeft) ...[
+                  SizedBox(width: 8.w),
+                  close,
+                ],
               ],
             ),
             SizedBox(height: 16.h),

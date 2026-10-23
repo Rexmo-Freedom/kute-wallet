@@ -55,6 +55,23 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
+  test('a cold cost-basis load may finish after its observer is disposed', () async {
+    final notifier = PolymarketCostBasisNotifier();
+    notifier.dispose();
+    await Hive.openBox<double>('polymarket_cost_basis');
+    await Future<void>.delayed(Duration.zero);
+  });
+
+  test('a late accepted fill stays recorded after its observer is disposed', () async {
+    final box = await Hive.openBox<double>('polymarket_cost_basis');
+    await box.delete('late_fill');
+    final notifier = PolymarketCostBasisNotifier();
+    final write = notifier.addCost('late_fill', 3);
+    notifier.dispose();
+    await write;
+    expect(box.get('late_fill'), 3);
+  });
+
   double boughtCents(List<Activity> activity) {
     final held = predictionHeldCostFromActivity(activity, _token);
     final basis = resolvePolymarketCostBasis(

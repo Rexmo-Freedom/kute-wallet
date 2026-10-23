@@ -22,10 +22,9 @@ import 'package:kute/theme/app_theme.dart';
 /// `sal_closed`: once per Sal open (the Ask Sal sheet, or a search that
 /// became a Sal conversation), read before the conversation is cancelled.
 /// Counts and booleans only, never question or answer text.
-/// [entry] matches `sal_opened`'s entry: chip | header_button |
-/// market_capsule | position_capsule | full_chat | search (insight_row before
-/// the market rows became the header button, market_row before the
-/// Investing row became the market capsule).
+/// [entry] matches `sal_opened`'s entry: chip | market_why_moving |
+/// full_chat | search (legacy: header_button, market_capsule,
+/// position_capsule, insight_row, market_row).
 void trackSalClosed(
   AdvisorSessionState session, {
   required String entry,
@@ -53,12 +52,12 @@ void trackSalClosed(
 /// remains owned by that screen; Sal only returns a supported control name.
 /// [chipSignals] are the public market facts the screen already shows; they
 /// only choose the opening questions and never leave the device.
-/// [initialQuestion] (a market or position screen's question capsule)
-/// opens the sheet already asking that question, the screen's first: no
-/// idle state, the answer streams at once and the composer takes
-/// follow-ups. [entry] overrides the `sal_opened` entry ('market_capsule'
-/// or 'position_capsule' from those screens); by default it is full_chat
-/// or chip.
+/// [initialQuestion] (a market screen's "Why is it moving?" row) opens
+/// the sheet already asking that question: no idle state, the answer
+/// streams at once and the composer takes follow-ups. [entry] overrides
+/// the `sal_opened` entry ('market_why_moving' from that row); by default
+/// it is full_chat or chip. The entry is also every question's
+/// `entry_source`.
 Future<void> showAskSalSheet(
   BuildContext context, {
   required AdvisorContext advisorContext,
@@ -76,6 +75,7 @@ Future<void> showAskSalSheet(
   final container = ProviderScope.containerOf(context, listen: false);
   final session = container.read(advisorSessionProvider.notifier);
   session.clear();
+  session.setEntrySource(entry);
   try {
     if (context.mounted) {
       // The app's sheet at its full height: the shared container and
@@ -243,13 +243,10 @@ class _AskSalSheetState extends ConsumerState<SalChatPanel> {
       String? template,
       int? chipIndex,
       bool haptic = true}) {
-    final session = ref.read(advisorSessionProvider);
-    if (question.trim().isEmpty ||
-        ((session.context == null ||
-                session.context == widget.advisorContext) &&
-            session.turns.any((t) => t.loading))) {
-      return;
-    }
+    // A question sent while Sal is still answering interrupts that answer:
+    // the notifier's ask() cancels the running turn (it keeps what was
+    // streamed, marked stopped) and starts this one.
+    if (question.trim().isEmpty) return;
     if (haptic) HapticFeedback.lightImpact();
     _composer.clear();
     FocusScope.of(context).unfocus();
@@ -382,12 +379,14 @@ class _AskSalSheetState extends ConsumerState<SalChatPanel> {
         Expanded(child: body),
         // The composer, pinned under the conversation from the start: a
         // chat, whether Sal is idle with its opening questions or
-        // answering.
+        // answering. It stays open while an answer streams, so the next
+        // question can be typed and sent without waiting (that send stops
+        // the running answer).
         SizedBox(height: 8.h),
         KuteComposer(
           controller: _composer,
           focusNode: _composerFocus,
-          enabled: enabled && !loading,
+          enabled: enabled,
           loading: loading,
           maxLength: 2000,
           hint: context.l10n.salAskQuestionHint,

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
@@ -21,6 +23,10 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
+import 'package:kute/services/one_balance/predictions_venue_funder.dart'
+    show PredictionsVenueFunder;
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
@@ -62,7 +68,8 @@ class _SetupController extends PolymarketBetController {
   final Object error;
   var prepares = 0;
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     prepares++;
     throw error;
   }
@@ -74,7 +81,8 @@ class _RecordingController extends PolymarketBetController {
   _RecordingController(super.ref);
   final amounts = <double>[];
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     amounts.add(intent.amount);
     throw StateError('stopped by the test');
   }
@@ -108,6 +116,10 @@ Future<void> _pumpSlip(WidgetTester tester,
     // in; null opens empty like a plain tap does.
     double? initialAmountUsd = 10,
     String? ledgerWalletId,
+    // One balance: the spending account's Dollars. Zero, so a short bet
+    // shows the Dollars door ("Add $X · the order") like the old
+    // deposit door did; a balance that covers the move shows the bet.
+    double dollars = 0,
     bool settle = true}) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -132,11 +144,12 @@ Future<void> _pumpSlip(WidgetTester tester,
       livePriceProvider.overrideWith(_Prices.new),
       polymarketOpenOrdersProvider.overrideWith((ref) => Stream.value(orders)),
       aiEnabledProvider.overrideWith((ref) async => false),
-      if (feeTerms != null) ...[
+      usdBalanceProvider.overrideWithValue(dollars),
+      // A fee figure (the venue's, the move's) formats through the app's
+      // rates, whose real notifier opens Hive.
+      currencyProvider.overrideWith((ref) => _Currency()),
+      if (feeTerms != null)
         polymarketFeeTermsProvider.overrideWith((ref, _) async => feeTerms),
-        // A fee figure formats through the app's rates.
-        currencyProvider.overrideWith((ref) => _Currency()),
-      ],
       ...extraOverrides,
     ],
     child: ScreenUtilInit(
@@ -212,8 +225,54 @@ Future<void> _release(
   AffiliateService.debugSessionToken = null;
 }
 
+
+/// Advanced is the pill on the amount's row, right of Max when Max shows,
+/// reading "Advanced" with its sliders; the header has none.
+void _expectAdvancedBesideMax(WidgetTester tester) {
+  final button = find.byKey(const ValueKey('slip-advanced-button'));
+  expect(find.descendant(of: find.byType(BigAmountDisplay), matching: button),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.text('Advanced')),
+      findsOneWidget);
+  expect(find.descendant(of: button, matching: find.byIcon(Icons.tune_rounded)),
+      findsOneWidget);
+  final max = find.byType(AmountMaxChip);
+  if (max.evaluate().isNotEmpty) {
+    final maxRect = tester.getRect(max);
+    final pillRect = tester.getRect(button);
+    expect(pillRect.left, greaterThan(maxRect.right));
+    expect((pillRect.center.dy - maxRect.center.dy).abs(), lessThan(1));
+    expect(pillRect.height, closeTo(maxRect.height, 1));
+  }
+}
+
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    // The short slip reads the venue's estimate for its "Move fee" row:
+    // a route keeping nothing, answered at once, never the network.
+    PredictionsVenueFunder.debugRouteShare = (_) async => 0;
+  });
+  tearDown(() => PredictionsVenueFunder.debugRouteShare = null);
+
+  testWidgets(
+      'the slip is the moment of decision: no Sal button, even with '
+      'Sal on', (tester) async {
+    await _pumpSlip(tester, extraOverrides: [
+      aiEnabledProvider.overrideWith((ref) async => true),
+    ]);
+    expect(find.text('Will it rain?'), findsWidgets);
+    expect(find.byType(AskSalChip), findsNothing);
+    expect(find.byType(KuteDogGlance), findsNothing);
+    expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
+    // Advanced is a pill on the amount's row, right of Max; the default
+    // settings show no chip and no dot.
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    _expectAdvancedBesideMax(tester);
+    expect(find.byKey(const ValueKey('slip-advanced-chip')), findsNothing);
+    expect(find.byKey(const ValueKey('slip-advanced-dot')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('simple slip keeps selection, amount, payout and fees visible',
       (tester) async {
@@ -237,7 +296,7 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.text('NO'));
     await _typeOnKeypad(tester, '20');
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Advanced prediction'), findsOneWidget);
     expect(tester.getSize(find.byType(Scaffold).last).height, 844);
@@ -253,7 +312,16 @@ void main() {
     await tester.ensureVisible(find.byIcon(Icons.add_rounded));
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
+    // The order's details open in a bottom sheet, never in place.
+    expect(find.text('Until canceled'), findsNothing);
+    await tester.ensureVisible(find.text('Details'));
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('slip-detail-sheet')), findsOneWidget);
     expect(find.text('Until canceled'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('slip-detail-sheet')), findsNothing);
     expect(find.textContaining(r'Place $35.00 limit at'), findsOneWidget);
     await tester.tap(find.byType(KuteBackButton));
     await tester.pumpAndSettle();
@@ -266,7 +334,7 @@ void main() {
     expect(find.text(r'Place $35.00 on No'), findsOneWidget);
     expect(find.textContaining('limit at'), findsNothing);
     expect(find.textContaining('Limit · '), findsNothing);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.text('Until canceled'), findsNothing);
     expect(find.text(r'Place $35.00 on No'), findsOneWidget);
@@ -280,7 +348,7 @@ void main() {
       (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('NO'));
     await tester.enterText(find.byType(TextField), '25');
@@ -297,14 +365,15 @@ void main() {
   testWidgets('empty Predictions balance offers deposit directly',
       (tester) async {
     await _pumpSlip(tester, balance: 0);
-    expect(find.text('Deposit to predict'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
     expect(find.text('Max'), findsNothing);
     expect(find.text('Enter an amount'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   group('a deposit into Predictions on its way', () {
-    Finder incoming() => find.byKey(const ValueKey('bet-slip-deposit-incoming'));
+    Finder incoming() =>
+        find.byKey(const ValueKey('bet-slip-deposit-incoming'));
     Finder door() => find.byKey(const ValueKey('bet-slip-deposit-door'));
 
     testWidgets('says Deposit incoming instead of offering a second deposit',
@@ -319,7 +388,9 @@ void main() {
       final cta = tester.widget<PolySlipCta>(incoming());
       expect(cta.enabled, isFalse);
       expect(cta.label, r'Deposit incoming · $20.00');
-      expect(find.text('Your money is on its way. This button unlocks when it lands.'),
+      expect(
+          find.text(
+              'Your money is on its way. This button unlocks when it lands.'),
           findsOneWidget);
       expect(find.text('Add more'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -344,8 +415,8 @@ void main() {
       ]);
       await _pumpSlip(tester, balance: 0, swaps: swaps, settle: false);
       expect(incoming(), findsOneWidget);
-      expect(find.byKey(const ValueKey('slip-deposit-add-more')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('slip-deposit-add-more')), findsOneWidget);
       await _release(tester, policy);
     });
 
@@ -380,7 +451,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(incoming(), findsNothing);
       expect(door(), findsOneWidget);
-      expect(find.text("Your deposit didn't go through. You can deposit again."),
+      expect(
+          find.text("Your deposit didn't go through. You can deposit again."),
           findsOneWidget);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
@@ -412,7 +484,7 @@ void main() {
       expect(await policy.refresh(), isTrue);
       // $5 cannot cover the $10 default stake.
       await _pumpSlip(tester, balance: 5);
-      expect(door(tester).label, 'Deposit to predict');
+      expect(door(tester).label, startsWith(r'Add $'));
       expect(door(tester).enabled, isFalse);
       expect(find.text('This feature is currently unavailable in Kute.'),
           findsOneWidget);
@@ -541,7 +613,7 @@ void main() {
     // the placement check sizes it, so a Max sized at 52.5c was refused.
     await tester.tap(find.byType(AmountMaxChip));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final staked = double.parse(
         tester.widget<TextField>(find.byType(TextField)).controller!.text);
@@ -559,8 +631,9 @@ void main() {
       'the minimum red while the stake is under it', (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester, balance: 60);
-    String typed() =>
-        tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText;
+    String typed() => tester
+        .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+        .amountText;
     final hero = find.byType(BigAmountDisplay);
     Finder infoLine() =>
         find.descendant(of: hero, matching: find.textContaining('Minimum '));
@@ -569,20 +642,18 @@ void main() {
             .children!
             .cast<TextSpan>()
             .singleWhere((s) => s.text!.startsWith('Minimum '));
-    final errorInk = Theme.of(tester.element(hero))
-        .extension<AppColorsExtension>()!
-        .error;
+    final errorInk =
+        Theme.of(tester.element(hero)).extension<AppColorsExtension>()!.error;
     bool placeEnabled() =>
         tester.widget<PolySlipCta>(find.byType(PolySlipCta)).enabled;
 
     // No Min, no full-width chip row: one Max, on the figure's row.
     expect(find.byType(AmountQuickChips), findsNothing);
     expect(find.text('Min'), findsNothing);
-    final max =
-        find.descendant(of: hero, matching: find.byType(AmountMaxChip));
+    final max = find.descendant(of: hero, matching: find.byType(AmountMaxChip));
     expect(max, findsOneWidget);
-    final figure = tester.getRect(
-        find.descendant(of: hero, matching: find.byType(FittedBox)));
+    final figure = tester
+        .getRect(find.descendant(of: hero, matching: find.byType(FittedBox)));
     expect(tester.getRect(max).center.dy, closeTo(figure.center.dy, 1));
     // One quiet line: the balance, then the market's minimum.
     expect(tester.widget<Text>(infoLine()).textSpan!.toPlainText(),
@@ -617,12 +688,10 @@ void main() {
     // A live read: a 3% curve and Kute's 20 bps taker rate.
     const terms = PolymarketFeeTerms(
         rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
-    await _pumpSlip(tester,
-        feeTerms: terms,
-        outcomes: const [
-          PolymarketOutcome(name: 'Yes', price: 0.5, tokenId: 'yes-token'),
-          PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
-        ]);
+    await _pumpSlip(tester, feeTerms: terms, outcomes: const [
+      PolymarketOutcome(name: 'Yes', price: 0.5, tokenId: 'yes-token'),
+      PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
+    ]);
     await _typeOnKeypad(tester, '20');
 
     // $20 at the 50c live price is 40 shares: 40 × 0.03 × 0.5 × 0.5 =
@@ -635,6 +704,44 @@ void main() {
     expect(terms.totalFee(summary.shares, summary.price), closeTo(0.34, 1e-9));
     expect(find.text('Estimated fee'), findsOneWidget);
     expect(find.text(r'$0.34'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'the fee never opens in place: a tap shows its breakdown in a sheet '
+      'and the figures keep their height', (tester) async {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    await _pumpSlip(tester, feeTerms: terms, outcomes: const [
+      PolymarketOutcome(name: 'Yes', price: 0.5, tokenId: 'yes-token'),
+      PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
+    ]);
+    await _typeOnKeypad(tester, '20');
+    final fee = find.byKey(const ValueKey('bet-slip-fee-tile'));
+    final payout = find.byKey(const ValueKey('bet-slip-payout-tile'));
+    final feeRect = tester.getRect(fee);
+    final payoutRect = tester.getRect(payout);
+    final keypad = tester.getRect(find.byType(AmountKeypad));
+    // Two figures, no boxes and no line under them.
+    expect(find.textContaining('profit'), findsNothing);
+    expect(find.text('Polymarket fee'), findsNothing);
+
+    await tester.tap(fee);
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(const ValueKey('money-fee-breakdown-sheet'));
+    expect(sheet, findsOneWidget);
+    expect(find.descendant(of: fee, matching: find.text('Polymarket fee')),
+        findsNothing);
+    for (final part in ['Polymarket fee', 'Kute fee']) {
+      final label = find.descendant(of: sheet, matching: find.text(part));
+      expect(label, findsOneWidget);
+      // One line: no taller than the one-word label beside it.
+      expect(tester.getSize(label).height,
+          tester.getSize(find.descendant(of: sheet, matching: find.text('Kute fee'))).height);
+    }
+    expect(tester.getRect(fee), feeRect);
+    expect(tester.getRect(payout), payoutRect);
+    expect(tester.getRect(find.byType(AmountKeypad)), keypad);
     expect(tester.takeException(), isNull);
   });
 
@@ -662,14 +769,14 @@ void main() {
               'Will the city report more than one hundred millimeters of rainfall '
               'during the first full week of October, according to the official '
               'weather station, with the final report published before the end of the month?');
-      await tester.ensureVisible(find.text('Advanced'));
-      await tester.tap(find.text('Advanced'));
+      await tester.ensureVisible(find.byKey(const ValueKey('slip-advanced-button')));
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
       tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.text('Deposit to predict');
+      final action = find.textContaining(RegExp(r'^Add \$[^ ]+ · '));
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -694,7 +801,7 @@ void main() {
       (tester) async {
     final policy = await _allowEverything();
     await _pumpSlip(tester, balance: 0, height: 1600);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     final scroll =
         find.byKey(const ValueKey('prediction-advanced-form-scroll'));
@@ -706,7 +813,8 @@ void main() {
     expect(position.maxScrollExtent, 0);
     final action = find
         .ancestor(
-            of: find.text('Deposit to predict'), matching: find.byType(InkWell))
+            of: find.textContaining(RegExp(r'^Add \$[^ ]+ · ')),
+            matching: find.byType(InkWell))
         .first;
     expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
     expect(tester.takeException(), isNull);
@@ -721,8 +829,8 @@ void main() {
     RuntimeCapabilitiesService.debugInstance = policy;
     expect(await policy.refresh(), isTrue);
     await _pumpSlip(tester);
-    expect(find.text('Advanced'), findsOneWidget);
-    await tester.tap(find.text('Advanced'));
+    expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
         findsOneWidget);
@@ -739,7 +847,7 @@ void main() {
   testWidgets('no readable policy: Advanced opens the sheet, not the page',
       (tester) async {
     await _pumpSlip(tester);
-    await tester.tap(find.text('Advanced'));
+    await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
         findsOneWidget);
@@ -800,14 +908,26 @@ void main() {
   group('under the minimum', () {
     PolySlipCta cta(WidgetTester tester) =>
         tester.widget<PolySlipCta>(find.byType(PolySlipCta));
+    // Outcomes with tokens, so a tap goes on into the placement.
+    const placeable = [
+      PolymarketOutcome(
+          name: 'Yes', price: 0.5, conditionId: 'cond-1', tokenId: '1'),
+      PolymarketOutcome(
+          name: 'No', price: 0.5, conditionId: 'cond-1', tokenId: '2'),
+    ];
 
-    testWidgets('the button names the minimum and a tap fills it',
-        (tester) async {
+    testWidgets(
+        'the button names the minimum and one tap places exactly it, '
+        'on the typed path', (tester) async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
       addTearDown(() => TrackingService.debugTrackObserver = null);
       final policy = await _allowEverything();
-      await _pumpSlip(tester);
+      late _RecordingController controller;
+      await _pumpSlip(tester, outcomes: placeable, extraOverrides: [
+        polymarketBetControllerProvider
+            .overrideWith((ref) => controller = _RecordingController(ref)),
+      ]);
       await _typeOnKeypad(tester, '0.5');
       expect(cta(tester).label, r'Minimum $1.00');
       expect(cta(tester).enabled, isTrue);
@@ -815,13 +935,83 @@ void main() {
       events.clear();
       await tester.tap(find.byType(PolySlipCta));
       await tester.pumpAndSettle();
+      // The minimum went into the figure and on into the placement, once,
+      // the way a typed $1.00 would.
       expect(find.text(r'$1'), findsOneWidget);
-      expect(cta(tester).label, r'Place $1.00 on Yes');
-      expect(cta(tester).enabled, isTrue);
+      expect(controller.amounts, [1.0]);
+      final tapped =
+          events.where((e) => e.$1 == 'prediction_place_cta_tapped').toList();
+      expect(tapped, hasLength(1));
+      expect(tapped.single.$2?['amount_usd'], 1.0);
+      final step = events.lastWhere((e) => e.$1 == 'polymarket_bet_step');
+      expect(step.$2?['amount_method'], 'min');
       expect(
           events.any((e) =>
               e.$1 == 'bet_slip_available_tapped' && e.$2?['chip'] == 'min'),
           isTrue);
+      expect(tester.takeException(), isNull);
+      await _release(tester, policy);
+    });
+
+    for (final covered in [true, false]) {
+      testWidgets(
+          covered
+              ? 'a Ledger: one tap on the minimum opens its review at it'
+              : 'a Ledger that cannot cover the minimum: the tap writes it '
+                  'and the button turns into the deposit door', (tester) async {
+        final events = <(String, Map<String, Object?>?)>[];
+        TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+        addTearDown(() => TrackingService.debugTrackObserver = null);
+        final policy = await _allowEverything();
+        await _pumpSlip(tester,
+            initialAmountUsd: null,
+            outcomes: placeable,
+            ledgerWalletId: 'ledger-1',
+            extraOverrides: [
+              ledgerPmPendingBetProvider.overrideWith((ref, _) async => false),
+              ledgerPmBuyingPowerProvider.overrideWith((ref, _) async =>
+                  LedgerPmBuyingPower(
+                      // $50, or $0.80: the typed $0.50 fits, $1.00 not.
+                      balance: BigInt.from(covered ? 50000000 : 800000),
+                      reserved: BigInt.zero,
+                      allowances: const {})),
+            ]);
+        await _typeOnKeypad(tester, '0.5');
+        expect(cta(tester).label, r'Minimum $1.00');
+        await tester.tap(find.byType(PolySlipCta));
+        await tester.pump();
+        await tester.pump();
+        expect(find.text(r'$1'), findsOneWidget);
+        final reviews = events
+            .where((e) => e.$1 == 'ledger_prediction_review_opened')
+            .toList();
+        if (covered) {
+          expect(reviews, hasLength(1));
+          expect(reviews.single.$2?['amount_usd'], 1.0);
+        } else {
+          expect(reviews, isEmpty);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
+              findsOneWidget);
+        }
+        await _release(tester, policy);
+      });
+    }
+
+    testWidgets('a typed amount over the minimum places what was typed',
+        (tester) async {
+      final policy = await _allowEverything();
+      late _RecordingController controller;
+      await _pumpSlip(tester, outcomes: placeable, extraOverrides: [
+        polymarketBetControllerProvider
+            .overrideWith((ref) => controller = _RecordingController(ref)),
+      ]);
+      await _typeOnKeypad(tester, '3');
+      expect(cta(tester).label, r'Place $3.00 on Yes');
+      await tester.tap(find.byType(PolySlipCta));
+      await tester.pumpAndSettle();
+      expect(controller.amounts, [3.0]);
+      expect(find.text(r'$3'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
@@ -831,7 +1021,7 @@ void main() {
       final policy = await _allowEverything();
       await _pumpSlip(tester);
       await _typeOnKeypad(tester, '0');
-      expect(cta(tester).label, r'Place $1.00 on Yes');
+      expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
       await _release(tester, policy);
     });
@@ -853,7 +1043,8 @@ void main() {
       expect(polySlipTitle('$same: ${same.toUpperCase()}.'),
           '${same.toUpperCase()}.');
       expect(polySlipTitle('Villena:  villena:   A vs B'), 'villena:   A vs B');
-      expect(polySlipTitle('Maestrelli vs Tarvet: Maestrelli vs Tarvet - Set 1'),
+      expect(
+          polySlipTitle('Maestrelli vs Tarvet: Maestrelli vs Tarvet - Set 1'),
           'Maestrelli vs Tarvet - Set 1');
       // A different question, or an event that is only a word prefix,
       // keeps the joined title.
@@ -907,8 +1098,8 @@ void main() {
           name: 'No', price: 0.5, conditionId: 'cond-1', tokenId: '2'),
     ];
     // The CLOB's own floor for this market: 10 shares at 50c is $5.
-    final tenShares = polymarketMinOrderSizeProvider
-        .overrideWith((ref, _) async => 10.0);
+    final tenShares =
+        polymarketMinOrderSizeProvider.overrideWith((ref, _) async => 10.0);
 
     testWidgets('opens at zero and types from there, nothing to delete',
         (tester) async {
@@ -917,10 +1108,11 @@ void main() {
       addTearDown(() => TrackingService.debugTrackObserver = null);
       final policy = await _allowEverything();
       await _pumpSlip(tester, initialAmountUsd: null);
-      expect(find.text(r'$0'), findsOneWidget);
-      expect(cta(tester).label, r'Place $1.00 on Yes');
+      // The amount, and the payout and fee figures under it.
+      expect(find.text(r'$0'), findsNWidgets(3));
+      expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
-      await tester.tap(find.text('Advanced'));
+      await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
       final step = events.lastWhere((e) => e.$1 == 'polymarket_bet_step');
       expect(step.$2?['amount_method'], 'none');
@@ -935,7 +1127,8 @@ void main() {
       await _release(tester, policy);
     });
 
-    testWidgets('the button names the market\'s minimum and a tap places '
+    testWidgets(
+        'the button names the market\'s minimum and a tap places '
         'exactly it', (tester) async {
       final events = <(String, Map<String, Object?>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -947,12 +1140,12 @@ void main() {
           outcomes: outcomes,
           extraOverrides: [
             tenShares,
-            polymarketBetControllerProvider.overrideWith(
-                (ref) => controller = _RecordingController(ref)),
+            polymarketBetControllerProvider
+                .overrideWith((ref) => controller = _RecordingController(ref)),
           ]);
-      expect(find.text(r'$0'), findsOneWidget);
+      expect(find.text(r'$0'), findsNWidgets(3));
       expect(find.text(r'Available $100.00 · Minimum $5.00'), findsOneWidget);
-      expect(cta(tester).label, r'Place $5.00 on Yes');
+      expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
       await tester.tap(find.byType(PolySlipCta));
       await tester.pumpAndSettle();
@@ -977,15 +1170,17 @@ void main() {
       expect(cta(tester).label, r'Place $7.00 on Yes');
       expect(cta(tester).enabled, isTrue);
       await _typeOnKeypad(tester, '200');
-      expect(find.byKey(const ValueKey('bet-slip-deposit-door')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('bet-slip-deposit-door')), findsOneWidget);
       await _release(tester, policy);
     });
 
     testWidgets('an amount carried in still opens on it', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
-          initialAmountUsd: 12, outcomes: outcomes, extraOverrides: [tenShares]);
+          initialAmountUsd: 12,
+          outcomes: outcomes,
+          extraOverrides: [tenShares]);
       expect(find.text(r'$12'), findsOneWidget);
       expect(cta(tester).label, r'Place $12.00 on Yes');
       await _release(tester, policy);
@@ -1005,8 +1200,8 @@ void main() {
                     reserved: BigInt.zero,
                     allowances: const {})),
           ]);
-      expect(find.text(r'$0'), findsOneWidget);
-      expect(cta(tester).label, r'Place $1.00 on Yes');
+      expect(find.text(r'$0'), findsNWidgets(3));
+      expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
       await _typeOnKeypad(tester, '0.5');
       expect(cta(tester).label, r'Minimum $1.00');
@@ -1015,18 +1210,22 @@ void main() {
       await _release(tester, policy);
     });
 
-    testWidgets('less available than the minimum still offers the minimum',
-        (tester) async {
+    testWidgets(
+        'less in Investments than the minimum: the one button says '
+        '"Add \$X · the order", the bet named after it', (tester) async {
       final policy = await _allowEverything();
       await _pumpSlip(tester,
           balance: 3,
           initialAmountUsd: null,
           outcomes: outcomes,
           extraOverrides: [tenShares]);
-      expect(find.text(r'$0'), findsOneWidget);
-      // The tap runs the placement, which offers the deposit it needs.
-      expect(cta(tester).label, r'Place $5.00 on Yes');
+      expect(find.text(r'$0'), findsNWidgets(3));
+      // Nothing typed: the bet's short name, no amounts; the tap still
+      // adds what the $5 minimum lacks, then places it.
+      expect(cta(tester).label, 'Place on Yes');
       expect(cta(tester).enabled, isTrue);
+      expect(find.byType(PolySlipCta), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       await _release(tester, policy);
     });
   });

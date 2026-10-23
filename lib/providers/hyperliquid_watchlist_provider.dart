@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -41,9 +42,16 @@ class HlWatchlistNotifier extends Notifier<List<String>> {
 
   static const maxEntries = 100;
 
+  /// The load and every save, chained so writes land in order.
+  Future<void> _pending = Future<void>.value();
+
+  /// Completes once the load and the saves queued so far are done.
+  @visibleForTesting
+  Future<void> get idle => _pending;
+
   @override
   List<String> build() {
-    unawaited(_load());
+    _pending = _load();
     return Hive.isBoxOpen(boxName)
         ? _read(Hive.box<String>(boxName))
         : const [];
@@ -96,7 +104,7 @@ class HlWatchlistNotifier extends Notifier<List<String>> {
               if (s != key) s
           ];
     state = next;
-    unawaited(_save(next));
+    _pending = _pending.then((_) => _save(next));
     return added;
   }
 

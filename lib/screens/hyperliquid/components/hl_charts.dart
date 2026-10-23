@@ -8,7 +8,7 @@
 //
 //   * [HlCandlestickChart] — the detail-sheet chart. A proper candlestick
 //     chart: per-bar body (open→close, green up / red down) + high-low
-//     wick, a dashed last-price line with a right-edge price tag, optional
+//     wick, a dashed last-price line with its price tag, optional
 //     volume bars along the bottom, and a touch-scrub crosshair (shared
 //     KuteChartCrosshair layer: hairline + value bubble + bottom time
 //     chip, with the richer readout staying in the header row). Line mode
@@ -18,7 +18,12 @@
 //     1..N candles; empty shows a placeholder. Gestures outside editing
 //     mode follow TradingView: drag pans, two fingers pinch to zoom, a
 //     long press (then slide) shows the crosshair, a vertical drag on the
-//     left price strip scales the axis.
+//     left price strip (or the tag column) scales the axis.
+//     Every label the chart writes beside its data (the latest price,
+//     the trade lines' tags, the price scale) sits in a tag column of its
+//     own at the right ([hlChartTagGutter]); the bars, the line, the
+//     volume, the drawings and the indicator panes end where it starts,
+//     so no label covers them and none is cut.
 //   * [HlLineSparkline] — the market-CARD mini chart. A clean line (up/down
 //     colored vs first→last close) with a subtle gradient fill, min–max
 //     normalized so crypto prices far from zero still read. This is what
@@ -51,6 +56,8 @@ import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/polymarket/components/poly_chart_tags.dart'
+    show kPolyTagLead, kPolyTagMaxGutterShare;
 import 'package:kute/screens/shared/charts/kute_chart_autoscale.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart';
@@ -176,6 +183,12 @@ double _hlPriceAreaHeight(double height, bool showVolume) =>
 }) {
   final priceH = _hlPriceAreaHeight(height, showVolume);
   final morphing = morphSeries != null && morphSeries.isNotEmpty;
+  if (candles.isEmpty && !morphing) {
+    // Nothing to fit (a tape that emptied between layout and paint):
+    // a unit domain keeps every mapping finite instead of asking an
+    // empty list for its first bar.
+    return (priceH: priceH, loP: 0.0, rangeP: 1.0, log: false);
+  }
   if (domain != null && !morphing) {
     final span = domain.hi - domain.lo;
     return (
@@ -235,39 +248,113 @@ double _hlMapPrice(double v, bool log) => log ? kuteLogPrice(v) : v;
 
 // ───────────────────────────── fill markers ─────────────────────────────
 
-/// One of the user's own fills resolved to a marker position on the plot:
-/// the fill, the bar whose time bucket holds it, and the centre of the
-/// small ▲/▼ glyph in canvas px. Produced by [hlResolveFillMarkers] for
-/// both the data painter (drawing) and the host (tap hit-testing) so the
-/// two can never disagree about where a marker sits.
+/// One of the user's own fills resolved to its place on the plot: the
+/// fill, the bar whose time bucket holds it, the exact point it traded at
+/// ([dot]) and the badge that names it ([center], [badgeHalfWidth]).
+/// Fills whose badges would pile up (same side, same or adjacent bars)
+/// share one badge: every member carries the same [cluster], [center] and
+/// [count], and only the [lead] paints the badge and its stem. Produced
+/// by [hlResolveFillMarkers] for both the data painter (drawing) and the
+/// host (tap hit-testing) so the two can never disagree about where a
+/// marker sits.
 class HlFillMarker {
   final HlFill fill;
   final int barIndex;
+
+  /// Centre of the badge, shared by every fill on it.
   final Offset center;
 
-  const HlFillMarker({
+  /// The fill's own time+price point on the plot.
+  final Offset dot;
+
+  /// Half the badge's width: [hlFillMarkerRadius] for one fill, wider for
+  /// a merged badge that also writes its count.
+  final double badgeHalfWidth;
+
+  /// Index of the badge this fill rides; -1 = a badge of its own.
+  final int cluster;
+
+  /// How many fills share the badge.
+  final int count;
+
+  /// Whether this fill paints the shared badge and its stem.
+  final bool lead;
+
+  HlFillMarker({
     required this.fill,
     required this.barIndex,
     required this.center,
-  });
+    Offset? dot,
+    this.badgeHalfWidth = hlFillMarkerRadius,
+    this.cluster = -1,
+    this.count = 1,
+    this.lead = true,
+  }) : dot = dot ?? center;
+
+  /// The badge's bounds: a disc for one fill, a pill for several.
+  Rect get badge => Rect.fromCenter(
+      center: center,
+      width: badgeHalfWidth * 2,
+      height: hlFillMarkerRadius * 2);
+
+  /// Whether the badge sits above its price point.
+  bool get badgeAbove => center.dy < dot.dy;
 }
 
-/// Half-size of the fill marker glyph, in px. Deliberately small: the
-/// marker only says "something happened here"; the tooltip carries the
-/// detail.
-const double hlFillMarkerRadius = 4.0;
+/// Radius of the fill badge, in px: a 17px disc, the size trading apps
+/// give their own buy/sell marks, readable over the line or the candles
+/// at a glance. The tooltip still carries the detail.
+const double hlFillMarkerRadius = 8.5;
+
+/// Radius of the dot at the fill's exact price.
+const double hlFillMarkerDotRadius = 3.0;
+
+/// Price dot → badge centre, in px. The gap between the two carries a
+/// short stem, so the exact point is never ambiguous.
+const double hlFillMarkerOffset = 19.0;
 
 /// Touch radius (px) inside which a tap on the plot picks a fill marker.
-const double hlFillMarkerHitRadius = 18.0;
+const double hlFillMarkerHitRadius = 22.0;
+
+/// Same-side fills closer than this (px) to the first fill of a badge
+/// join that badge instead of drawing one of their own.
+const double hlFillMarkerMergeSpan = hlFillMarkerRadius * 2 + 4;
+
+/// A merged badge grows by this much per count character, plus the gap
+/// between its glyph and the count.
+const double _hlFillCountCharW = 6.5;
+const double _hlFillCountGap = 2.5;
+const double _hlFillGlyphW = 9.0;
+const double _hlFillGlyphH = 7.5;
+const double _hlFillCountSize = 10.5;
+
+/// Gap kept between two badges when one has to step past another.
+const double _hlFillBadgeGap = 1.5;
+
+String _hlFillCountText(int count) => count > 99 ? '99+' : '$count';
+
+double _hlFillBadgeHalfWidth(int count) => count <= 1
+    ? hlFillMarkerRadius
+    : hlFillMarkerRadius +
+        (_hlFillCountGap +
+                _hlFillCountText(count).length * _hlFillCountCharW +
+                2) /
+            2;
 
 /// Maps the user's fills onto the plotted tape. The x position is found by
 /// locating the BAR whose bucket contains the fill's timestamp — never by
 /// linear time→index arithmetic, which is wrong the moment the tape has
 /// gaps (thin markets return only traded buckets, so bar i does NOT sit at
 /// firstT + i×bucket). Fills outside the tape or with no price are
-/// skipped. Buys sit just below the execution price and sells just above
-/// it, so an entry and an exit sharing a candle at nearly the same price
-/// both stay visible. Returns an empty list for a tape under two bars.
+/// skipped.
+///
+/// Each fill gets a dot at its exact price. Its badge sits below that
+/// point for a buy and above it for a sell, so an entry and an exit
+/// sharing a candle at nearly the same price both stay visible; a badge
+/// that would leave the price area flips to the other side, and one that
+/// would touch a badge already placed steps further out. Same-side fills
+/// on the same or adjacent bars share one badge with a count. Returns the
+/// markers in [fills] order, or an empty list for a tape under two bars.
 List<HlFillMarker> hlResolveFillMarkers({
   required List<HyperliquidCandle> candles,
   required List<HlFill> fills,
@@ -302,10 +389,12 @@ List<HlFillMarker> hlResolveFillMarkers({
     bucketMs = lastT - candles[n - 2].openTime.millisecondsSinceEpoch;
   }
   if (bucketMs <= 0) bucketMs = 1;
-  // The marker keeps its whole glyph inside the price area.
-  final minY = hlFillMarkerRadius + 1;
-  final maxY = math.max(minY, priceH - hlFillMarkerRadius - 1);
-  final out = <HlFillMarker>[];
+
+  // ── Each fill's own point, kept inside the price area.
+  const r = hlFillMarkerRadius;
+  const dotMin = hlFillMarkerDotRadius + 1;
+  final dotMax = math.max(dotMin, priceH - hlFillMarkerDotRadius - 1);
+  final raw = <({HlFill fill, int bar, Offset dot})>[];
   for (final f in fills) {
     if (f.px <= 0 || !f.px.isFinite) continue;
     if (f.time < firstT || f.time > lastT + bucketMs) continue;
@@ -319,17 +408,133 @@ List<HlFillMarker> hlResolveFillMarkers({
         hi = mid - 1;
       }
     }
-    final mx = (lo + 0.5) * slot;
-    final my = (toY(f.px) + (f.isBuy ? 8.0 : -8.0)).clamp(minY, maxY);
-    out.add(HlFillMarker(fill: f, barIndex: lo, center: Offset(mx, my)));
+    final y = toY(f.px);
+    raw.add((
+      fill: f,
+      bar: lo,
+      dot: Offset(
+          (lo + 0.5) * slot, y.isFinite ? y.clamp(dotMin, dotMax) : dotMax),
+    ));
   }
-  return out;
+  if (raw.isEmpty) return const [];
+
+  // ── Badges: per side, in x order, a fill joins the open badge while it
+  // sits within [hlFillMarkerMergeSpan] of that badge's first fill.
+  final clusterOf = List<int>.filled(raw.length, -1);
+  final clusters = <List<int>>[];
+  for (final buy in const [true, false]) {
+    final idx = [
+      for (var i = 0; i < raw.length; i++)
+        if (raw[i].fill.isBuy == buy) i
+    ]..sort((a, b) {
+        final c = raw[a].dot.dx.compareTo(raw[b].dot.dx);
+        return c != 0 ? c : raw[a].fill.time.compareTo(raw[b].fill.time);
+      });
+    List<int>? open;
+    var openX = 0.0;
+    for (final i in idx) {
+      if (open == null || raw[i].dot.dx - openX > hlFillMarkerMergeSpan) {
+        open = [i];
+        openX = raw[i].dot.dx;
+        clusters.add(open);
+      } else {
+        open.add(i);
+      }
+      clusterOf[i] = clusters.length - 1;
+    }
+  }
+
+  // ── Place each badge, left to right.
+  const minC = r + 1;
+  final maxC = math.max(minC, priceH - r - 1);
+  final centers = List<Offset>.filled(clusters.length, Offset.zero);
+  final halfW = List<double>.filled(clusters.length, r);
+  final leads = List<int>.filled(clusters.length, 0);
+  final order = List<int>.generate(clusters.length, (i) => i)
+    ..sort((a, b) => raw[clusters[a].first]
+        .dot
+        .dx
+        .compareTo(raw[clusters[b].first].dot.dx));
+  final placed = <Rect>[];
+  for (final c in order) {
+    final members = clusters[c];
+    final buy = raw[members.first].fill.isBuy;
+    // The stem joins the member nearest the badge's side (the lowest buy,
+    // the highest sell), so a badge never covers its own fills' dots.
+    var lead = members.first;
+    for (final i in members) {
+      final dy = raw[i].dot.dy, best = raw[lead].dot.dy;
+      if (buy ? dy > best : dy < best) lead = i;
+    }
+    leads[c] = lead;
+    final d = raw[lead].dot;
+    final hw = _hlFillBadgeHalfWidth(members.length);
+    halfW[c] = hw;
+    final cx =
+        d.dx.clamp(hw + 1, math.max(hw + 1, size.width - hw - 1)).toDouble();
+    // Its own side first (buys below, sells above); past an edge, or with
+    // no room to step clear of a neighbour, the other side.
+    double? place(bool above) {
+      var cy = above ? d.dy - hlFillMarkerOffset : d.dy + hlFillMarkerOffset;
+      for (var guard = 0; guard < 8; guard++) {
+        if (cy < minC || cy > maxC) return null;
+        final rect = Rect.fromCenter(
+                center: Offset(cx, cy), width: hw * 2, height: r * 2)
+            .inflate(_hlFillBadgeGap);
+        Rect? hit;
+        for (final p in placed) {
+          if (p.overlaps(rect)) {
+            hit = p;
+            break;
+          }
+        }
+        if (hit == null) return cy;
+        cy = above
+            ? hit.top - _hlFillBadgeGap - r
+            : hit.bottom + _hlFillBadgeGap + r;
+      }
+      return null;
+    }
+
+    final prefer = !buy;
+    final cy = place(prefer) ??
+        place(!prefer) ??
+        (prefer ? d.dy - hlFillMarkerOffset : d.dy + hlFillMarkerOffset)
+            .clamp(minC, maxC)
+            .toDouble();
+    centers[c] = Offset(cx, cy);
+    placed.add(
+        Rect.fromCenter(center: centers[c], width: hw * 2, height: r * 2));
+  }
+
+  return [
+    for (var i = 0; i < raw.length; i++)
+      HlFillMarker(
+        fill: raw[i].fill,
+        barIndex: raw[i].bar,
+        center: centers[clusterOf[i]],
+        dot: raw[i].dot,
+        badgeHalfWidth: halfW[clusterOf[i]],
+        cluster: clusterOf[i],
+        count: clusters[clusterOf[i]].length,
+        lead: leads[clusterOf[i]] == i,
+      ),
+  ];
+}
+
+/// How far [p] is from [m]: to the nearer of its badge (a pill measures
+/// to its centre line) and its price dot.
+double _hlFillMarkerDistance(HlFillMarker m, Offset p) {
+  final dx = (p.dx - m.center.dx).abs() -
+      (m.badgeHalfWidth - hlFillMarkerRadius);
+  final badge = Offset(dx > 0 ? dx : 0, p.dy - m.center.dy).distance;
+  return math.min(badge, (p - m.dot).distance);
 }
 
 /// The marker nearest to [position] within [hlFillMarkerHitRadius], plus
-/// every other marker on the same bar (an entry and an exit inside one
-/// candle read as one event with two lines). Ordered by fill time. Empty
-/// when nothing is close enough.
+/// every fill sharing its badge and every other fill on those bars (an
+/// entry and an exit inside one candle read as one event with two
+/// lines). Ordered by fill time. Empty when nothing is close enough.
 List<HlFillMarker> hlHitTestFillMarkers(
   List<HlFillMarker> markers,
   Offset position,
@@ -337,16 +542,23 @@ List<HlFillMarker> hlHitTestFillMarkers(
   HlFillMarker? nearest;
   var best = hlFillMarkerHitRadius;
   for (final m in markers) {
-    final d = (m.center - position).distance;
+    final d = _hlFillMarkerDistance(m, position);
     if (d <= best) {
       best = d;
       nearest = m;
     }
   }
   if (nearest == null) return const [];
+  final hit = nearest;
+  bool sameBadge(HlFillMarker m) =>
+      identical(m, hit) || (m.cluster >= 0 && m.cluster == hit.cluster);
+  final bars = {
+    for (final m in markers)
+      if (sameBadge(m)) m.barIndex
+  };
   final group = [
     for (final m in markers)
-      if (m.barIndex == nearest.barIndex) m
+      if (sameBadge(m) || bars.contains(m.barIndex)) m
   ]..sort((a, b) => a.fill.time.compareTo(b.fill.time));
   return group;
 }
@@ -357,31 +569,116 @@ List<HlFillMarker> hlHitTestFillMarkers(
 Object hlFillIdentity(HlFill f) =>
     f.tradeId ?? (f.time, f.px, f.side, f.sz);
 
-/// A small filled triangle (▲ buy / ▼ sell) with a background-coloured
-/// halo so it stays legible over the line/candles in either theme.
-void hlPaintFillMarker(Canvas canvas, Offset o, bool buy, Color col,
-    Color halo) {
+final Map<(int, int), Color> _hlFillGlyphColors = {};
+
+/// White or [background], whichever reads better on [fill]. Cached per
+/// colour pair so a paint pass never recomputes luminance.
+Color hlFillGlyphColor(Color fill, Color background) =>
+    _hlFillGlyphColors.putIfAbsent((fill.toARGB32(), background.toARGB32()),
+        () {
+      double contrast(Color a, Color b) {
+        final la = a.computeLuminance(), lb = b.computeLuminance();
+        return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+      }
+
+      return contrast(Colors.white, fill) >= contrast(background, fill)
+          ? Colors.white
+          : background;
+    });
+
+/// Paints the user's fill markers: a short stem from each badge to its
+/// fill's price, a small dot at every fill's exact price, then the badges
+/// on top, all over one shared background-coloured halo. A badge is a disc in the side colour with ▲
+/// (buy) or ▼ (sell) inside, ringed in [halo] (the chart background) so it
+/// lifts off the line or the candles; several fills on one badge make it
+/// a pill that also writes the count. The count comes from the painter's
+/// TextPainter cache, so nothing is laid out per frame.
+void hlPaintFillMarkers(
+  Canvas canvas,
+  List<HlFillMarker> markers, {
+  required Color up,
+  required Color down,
+  required Color halo,
+}) {
+  if (markers.isEmpty) return;
   const r = hlFillMarkerRadius;
-  final path = Path();
-  if (buy) {
-    path.moveTo(o.dx, o.dy - r);
-    path.lineTo(o.dx - r, o.dy + r);
-    path.lineTo(o.dx + r, o.dy + r);
-  } else {
-    path.moveTo(o.dx, o.dy + r);
-    path.lineTo(o.dx - r, o.dy - r);
-    path.lineTo(o.dx + r, o.dy - r);
+  final haloLine = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.0
+    ..strokeCap = StrokeCap.round
+    ..color = halo;
+  final stem = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5
+    ..strokeCap = StrokeCap.round;
+  final haloFill = Paint()..color = halo;
+  final fill = Paint();
+  final glyphEdge = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2
+    ..strokeJoin = StrokeJoin.round;
+
+  // 0 · Every halo first, so a stem runs unbroken into its dot and badge.
+  for (final m in markers) {
+    if (m.lead) canvas.drawLine(m.dot, m.center, haloLine);
+    canvas.drawCircle(m.dot, hlFillMarkerDotRadius + 1.5, haloFill);
   }
-  path.close();
-  canvas.drawPath(
-    path,
-    Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeJoin = StrokeJoin.round
-      ..color = halo,
-  );
-  canvas.drawPath(path, Paint()..color = col);
+  for (final m in markers) {
+    if (!m.lead) continue;
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            m.badge.inflate(2.0), const Radius.circular(r + 2.0)),
+        haloFill);
+  }
+  // 1 · Stems, badge → price dot.
+  for (final m in markers) {
+    if (!m.lead) continue;
+    canvas.drawLine(m.dot, m.center, stem..color = m.fill.isBuy ? up : down);
+  }
+  // 2 · A dot at every fill's exact price.
+  for (final m in markers) {
+    canvas.drawCircle(
+        m.dot, hlFillMarkerDotRadius, fill..color = m.fill.isBuy ? up : down);
+  }
+  // 3 · Badges.
+  for (final m in markers) {
+    if (!m.lead) continue;
+    final buy = m.fill.isBuy;
+    final col = buy ? up : down;
+    final glyphCol = hlFillGlyphColor(col, halo);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(m.badge, const Radius.circular(r)),
+        fill..color = col);
+
+    var gx = m.center.dx;
+    TextPainter? countTp;
+    if (m.count > 1) {
+      countTp = _HlCandlePainter._cachedTp(_hlFillCountText(m.count),
+          glyphCol, _hlFillCountSize, FontWeight.w800);
+      final contentW = _hlFillGlyphW + _hlFillCountGap + countTp.width;
+      gx = m.center.dx - contentW / 2 + _hlFillGlyphW / 2;
+    }
+    const hw = _hlFillGlyphW / 2, hh = _hlFillGlyphH / 2;
+    final cy = m.center.dy;
+    final tri = Path();
+    if (buy) {
+      tri
+        ..moveTo(gx, cy - hh)
+        ..lineTo(gx + hw, cy + hh)
+        ..lineTo(gx - hw, cy + hh);
+    } else {
+      tri
+        ..moveTo(gx, cy + hh)
+        ..lineTo(gx + hw, cy - hh)
+        ..lineTo(gx - hw, cy - hh);
+    }
+    tri.close();
+    canvas.drawPath(tri, fill..color = glyphCol);
+    // A thin same-colour edge rounds the glyph's corners.
+    canvas.drawPath(tri, glyphEdge..color = glyphCol);
+    countTp?.paint(canvas,
+        Offset(gx + hw + _hlFillCountGap, cy - countTp.height / 2));
+  }
 }
 
 /// 4-6 "nice" price levels inside [lo, hi] (both in real price space).
@@ -442,12 +739,14 @@ List<double> hlNiceLevels(double lo, double hi, {bool log = false}) {
   return out;
 }
 
-/// The y-axis price scale layer: 4-6 nice-number labels hugging the LEFT
-/// edge of the price area with faint full-width hairlines at those
-/// levels. Drawn INSIDE the plot (no gutter is reserved), so the price
-/// geometry every other layer shares is untouched and drawings /
-/// crosshair / markers stay in register. The host fades this layer:
-/// always on in Advanced mode, scrub-only otherwise.
+/// The y-axis price scale layer: 4-6 nice-number labels in the chart's
+/// tag column ([hlChartTagGutter]), each level with its value, and faint
+/// hairlines at those levels across the plot. The labels sit past the end
+/// of the data, so none covers a candle or the line; one that would
+/// cover the latest price's tag, or does not fit the column whole, is
+/// left out. The price geometry every other layer shares is untouched,
+/// so drawings / crosshair / markers stay in register. The host fades
+/// this layer: always on in Advanced mode, scrub-only otherwise.
 class _HlPriceScalePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final bool renderAsLine;
@@ -462,6 +761,13 @@ class _HlPriceScalePainter extends CustomPainter {
   /// The shown (autoscaled or manual) domain; the labels follow it.
   final HlPriceDomain? domain;
 
+  /// The tag column the labels sit in.
+  final double tagGutter;
+
+  /// The price the latest price's tag sits at (the data painter's last
+  /// price line), so no label is written over that tag.
+  final double? lastValue;
+
   _HlPriceScalePainter({
     required this.candles,
     required this.renderAsLine,
@@ -473,6 +779,8 @@ class _HlPriceScalePainter extends CustomPainter {
     required this.labelColor,
     required this.hairlineColor,
     this.domain,
+    this.tagGutter = 0,
+    this.lastValue,
   });
 
   /// Laid-out TextPainters keyed by (text, color, fontSize) — scale
@@ -525,17 +833,39 @@ class _HlPriceScalePainter extends CustomPainter {
       ..color = hairlineColor.withValues(alpha: 0.05)
       ..strokeWidth = 1.0;
     final fontSize = 10.5.sp;
+    final plotW = hlPlotWidth(size.width, tagGutter);
+    // The labels line up with the price tags' text in the column.
+    final labelLeft = plotW + kPolyTagLead + 5.w;
+    // The latest price's tag, where the data painter puts it: no label
+    // goes over it.
+    double? lastTop, lastBottom;
+    final lv = lastValue;
+    if (lv != null && lv.isFinite) {
+      final ly = (priceH *
+              (1 - (_hlMapPrice(lv, geom.log) - geom.loP) / geom.rangeP))
+          .clamp(0.0, priceH);
+      final h = hlPriceTagHeight();
+      lastTop = (ly - h / 2).clamp(0.0, math.max(0.0, priceH - h)).toDouble();
+      lastBottom = lastTop + h;
+    }
     for (final level in levels) {
       final y = priceH *
           (1 - (_hlMapPrice(level, geom.log) - geom.loP) / geom.rangeP);
       if (y < 0 || y > priceH) continue;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+      canvas.drawLine(Offset(0, y), Offset(plotW, y), linePaint);
       final tp = _tp(
           formatHlPrice(level, decimalCap: decimalCap), labelColor, fontSize);
-      final ty = (y - tp.height - 2)
+      // Whole in the column, or not at all.
+      if (labelLeft + tp.width > size.width + 0.5) continue;
+      final ty = (y - tp.height / 2)
           .clamp(0.0, math.max(0.0, priceH - tp.height))
           .toDouble();
-      tp.paint(canvas, Offset(2, ty));
+      if (lastTop != null &&
+          ty < lastBottom! + 2 &&
+          ty + tp.height > lastTop - 2) {
+        continue;
+      }
+      tp.paint(canvas, Offset(labelLeft, ty));
     }
   }
 
@@ -550,7 +880,85 @@ class _HlPriceScalePainter extends CustomPainter {
       old.decimalCap != decimalCap ||
       old.labelColor != labelColor ||
       old.hairlineColor != hairlineColor ||
-      old.domain != domain;
+      old.domain != domain ||
+      old.tagGutter != tagGutter ||
+      old.lastValue != lastValue;
+}
+
+// ─────────────────────────── tag column ───────────────────────────
+
+/// The width the data of a chart [width] wide is drawn across when it
+/// keeps a tag column [gutter] wide at its right; never under a pixel.
+double hlPlotWidth(double width, double gutter) =>
+    math.max(1.0, width - gutter);
+
+/// The height of the latest price's tag (its pill): text and padding.
+double hlPriceTagHeight() =>
+    _HlCandlePainter._cachedTp('0', Colors.white, 10.5.sp, FontWeight.w800)
+        .height +
+    2.5.h * 2;
+
+/// The price the tag column is sized for: the widest price the tape
+/// between [lo] and [hi] writes ([formatHlPrice]), every digit a 0, with
+/// one digit more, so the column holds a price that ticks over a power of
+/// ten ("$9,999.9", "$10,000") and does not jump while the price moves or
+/// the chart pans.
+String hlPriceTagTemplate(double lo, double hi, {int? decimalCap}) {
+  String zeroed(double v) => formatHlPrice(v, decimalCap: decimalCap)
+      .replaceAll(RegExp(r'[0-9]'), '0');
+  final a = zeroed(lo), b = zeroed(hi);
+  return (a.length >= b.length ? a : b).replaceFirst('0', '00');
+}
+
+/// The tag column an Investing chart [width] wide keeps at its right: as
+/// wide as the widest tag it can write, so that tag sits whole past the
+/// end of the data and covers no candle and no line. The latest price's
+/// pill is sized for [priceTemplate] ([hlPriceTagTemplate]); the trade
+/// lines' tags ([kuteTradeTagColumnWidth], written with [formatPrice])
+/// and the market-signal levels' tags ([kuteSignalLevelColumnWidth]) may
+/// widen it up to [kPolyTagMaxGutterShare] of the chart, past which they
+/// write a shorter text; [entryTag] holds the painter's own "Entry" tag.
+/// The lead ([kPolyTagLead]) is included.
+double hlChartTagGutter({
+  required double width,
+  required String priceTemplate,
+  bool entryTag = false,
+  List<ChartTradeLine> tradeLines = const [],
+  String Function(double price)? formatPrice,
+  List<ChartSignalLevel> signalLevels = const [],
+}) {
+  var pill = _HlCandlePainter._cachedTp(
+              priceTemplate, Colors.white, 10.5.sp, FontWeight.w800)
+          .width +
+      5.w * 2;
+  if (entryTag) {
+    final entry = _HlCandlePainter._cachedTp(
+        'Entry', Colors.white, 10.sp, FontWeight.w700);
+    pill = math.max(pill, entry.width + 5.w * 2);
+  }
+  var gutter = pill + kPolyTagLead;
+  if (tradeLines.isNotEmpty) {
+    gutter = math.max(
+      gutter,
+      kuteTradeTagColumnWidth(
+        tradeLines,
+        formatPrice: formatPrice ?? (p) => formatHlPrice(p),
+        maxWidth: math.max(gutter, width * kPolyTagMaxGutterShare),
+        lead: kPolyTagLead,
+      ),
+    );
+  }
+  if (signalLevels.isNotEmpty) {
+    gutter = math.max(
+      gutter,
+      kuteSignalLevelColumnWidth(
+        signalLevels,
+        maxWidth: math.max(gutter, width * kPolyTagMaxGutterShare),
+        lead: kPolyTagLead,
+      ),
+    );
+  }
+  return gutter;
 }
 
 // ─────────────────────────── candlestick chart ───────────────────────────
@@ -603,8 +1011,8 @@ class HlCandlestickChart extends StatefulWidget {
   final List<HlFill> fills;
 
   /// The user's OPEN position's average entry price on this market — drawn
-  /// as a muted dashed horizontal reference with a right-edge "Entry" tag
-  /// (both line and candle modes). Null/<=0 → no line.
+  /// as a muted dashed horizontal reference with an "Entry" tag in the
+  /// tag column (both line and candle modes). Null/<=0 → no line.
   final double? entryPx;
 
   /// Side of that open position (colours the entry line: long = marketUp,
@@ -818,8 +1226,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   bool _outlierLine = false;
   ({double lo, double hi})? _outlierRange;
 
-  /// Price-axis drag (manual scale), editing mode only: a vertical drag
-  /// on the left label strip squeezes or stretches the scale.
+  /// Price-axis drag (manual scale): a vertical drag on the left strip
+  /// or on the tag column (where the scale's labels are) squeezes or
+  /// stretches the scale.
   static const double _axisStripWidth = 48.0;
   bool _axisDragging = false;
   double _axisStartY = 0;
@@ -927,9 +1336,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final startBars = _pinchStartBars ?? widget.candles.length;
     if (startDistance <= 0 || startBars <= 0) return;
     final total = widget.candles.length;
+    if (total == 0) return;
     // Fingers apart → fewer bars (zoom in); together → more (zoom out).
     final scale = (distance / startDistance).clamp(0.05, 20.0);
-    var bars = (startBars / scale).round().clamp(_minViewBars, total);
+    // A tape shorter than the minimum view (a market listed minutes
+    // ago) shows all of it; the bounds must never cross.
+    final minBars = math.min(_minViewBars, total);
+    var bars = (startBars / scale).round().clamp(minBars, total).toInt();
     // Sliding both fingers pans the window by whole bars.
     final slot = chartWidth > 0 ? chartWidth / bars : 0.0;
     final panBars = slot > 0
@@ -1357,7 +1770,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// Crosshair scrub at [dx] (outside editing mode it starts with a long
   /// press, TradingView style, so a plain drag can pan the chart).
   void _scrubAt(double dx, double chartWidth, int dataLen) {
-    if (dataLen == 0) return;
+    if (dataLen == 0 || chartWidth <= 0) return;
     // A scrub takes over the plot: the marker tooltip gets out of its way.
     _dismissFillTip();
     final x = dx.clamp(0.0, chartWidth);
@@ -1386,8 +1799,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final priceH = _hlPriceAreaHeight(size.height, widget.showVolume);
     final total = widget.candles.length;
     _gestureStart = pos;
-    _axisCandidate =
-        pos.dx <= _axisStripWidth && pos.dy <= priceH && _shownDomain != null;
+    _axisCandidate = _onAxisStrip(pos, size.width) &&
+        pos.dy <= priceH &&
+        _shownDomain != null;
     _panningView = !_axisCandidate;
     _panStartX = pos.dx;
     _panStartOffset = _viewEndOffset;
@@ -1741,9 +2155,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         selected == null ? null : kuteHitTestHandle(selected, geom, pos);
     if (handle == null) {
       final hit = kuteHitTestDrawings(widget.drawings, geom, pos);
-      if (hit == null && pos.dx <= _axisStripWidth) {
-        // The price axis (left label strip): a vertical drag scales it
-        // by hand and turns autoscale off.
+      if (hit == null && _onAxisStrip(pos, geom.width)) {
+        // The price axis (the left strip, or the tag column with the
+        // scale's labels): a vertical drag scales it by hand and turns
+        // autoscale off.
         final start = _shownDomain ??
             (
               lo: geom.loP,
@@ -1812,6 +2227,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       final offsets = [
         for (final point in _draggedOriginal!.points) geom.offsetFor(point),
       ];
+      if (offsets.isEmpty) return;
       final left = offsets.map((p) => p.dx).reduce(math.min);
       final right = offsets.map((p) => p.dx).reduce(math.max);
       final top = offsets.map((p) => p.dy).reduce(math.min);
@@ -2305,6 +2721,12 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
             builder: (context, constraints) {
               final w = constraints.maxWidth;
               final chartSize = Size(w, constraints.maxHeight);
+              // The tag column at the right: the data, the drawings and
+              // every gesture's mapping end where it starts; the price
+              // tags and the scale's labels sit in it.
+              final gutter = _gutterFor(w);
+              final plotW = hlPlotWidth(w, gutter);
+              final plotSize = Size(plotW, constraints.maxHeight);
               final drawing = widget.drawingMode;
               return Listener(
                 // Flutter reports a canceled, already-accepted pan as onPanEnd.
@@ -2316,7 +2738,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 // Raw pointers feed the two-finger pinch; the gesture
                 // detector below keeps every one-finger job.
                 onPointerDown: _onPointerDown,
-                onPointerMove: (e) => _onPointerMove(e, w),
+                onPointerMove: (e) => _onPointerMove(e, plotW),
                 onPointerUp: (e) => _onPointerUp(e.pointer),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -2324,30 +2746,30 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                   onPanDown: (d) {
                     if (_pinching) return;
                     drawing
-                        ? _onDrawPanDown(d, chartSize)
-                        : _onTradePanDown(d, chartSize);
+                        ? _onDrawPanDown(d, plotSize)
+                        : _onTradePanDown(d, plotSize);
                   },
                   onTapUp: (d) {
                     if (_pinching) return;
                     drawing
-                        ? _onDrawTapUp(d, chartSize)
-                        : _onTradeTapUp(d, chartSize);
+                        ? _onDrawTapUp(d, plotSize)
+                        : _onTradeTapUp(d, plotSize);
                   },
                   onPanStart: (d) {
                     if (_pinching) return;
                     drawing
-                        ? _onDrawPanStart(d, chartSize)
-                        : _onNormalPanStart(d, chartSize);
+                        ? _onDrawPanStart(d, plotSize)
+                        : _onNormalPanStart(d, plotSize);
                   },
                   onPanUpdate: (d) {
                     if (_pinching) return;
                     drawing
-                        ? _onDrawPanUpdate(d, chartSize)
-                        : _onNormalPanUpdate(d, chartSize);
+                        ? _onDrawPanUpdate(d, plotSize)
+                        : _onNormalPanUpdate(d, plotSize);
                   },
                   onPanEnd: (_) {
                     if (_pinching) return;
-                    drawing ? _onDrawPanEnd(chartSize) : _onNormalPanEnd();
+                    drawing ? _onDrawPanEnd(plotSize) : _onNormalPanEnd();
                   },
                   onPanCancel: () {
                     if (_pinching) return;
@@ -2361,13 +2783,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                       : (d) {
                           if (_pinching) return;
                           HapticFeedback.selectionClick();
-                          _scrubAt(d.localPosition.dx, w, candles.length);
+                          _scrubAt(d.localPosition.dx, plotW, candles.length);
                         },
                   onLongPressMoveUpdate: drawing
                       ? null
                       : (d) {
                           if (_pinching) return;
-                          _scrubAt(d.localPosition.dx, w, candles.length);
+                          _scrubAt(d.localPosition.dx, plotW, candles.length);
                         },
                   onLongPressEnd: drawing
                       ? null
@@ -2449,15 +2871,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     style: widget.style,
                                     volumeMa: _visVolumeMa,
                                     domain: domain,
+                                    tagGutter: gutter,
                                   ),
                                 ),
                               ),
                             ),
-                            // ── Price scale (left-edge labels + faint
-                            // hairlines). Always on in Advanced mode; outside
-                            // it, it rides the crosshair's 120ms fade while
-                            // the user scrubs. Painted INSIDE the plot so the
-                            // shared price geometry never shifts.
+                            // ── Price scale (labels in the tag column +
+                            // faint hairlines). Always on in Advanced mode;
+                            // outside it, it rides the crosshair's 120ms
+                            // fade while the user scrubs. The shared price
+                            // geometry never shifts.
                             Positioned.fill(
                               child: IgnorePointer(
                                 child: AnimatedOpacity(
@@ -2485,6 +2908,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         labelColor: c.textTertiary,
                                         hairlineColor: c.textPrimary,
                                         domain: domain,
+                                        tagGutter: gutter,
+                                        lastValue: morphSeries != null &&
+                                                morphSeries.isNotEmpty
+                                            ? morphSeries.last
+                                            : (_asLine
+                                                ? (leadingClose ??
+                                                    candles.last.close)
+                                                : candles.last.close),
                                       ),
                                     ),
                                   ),
@@ -2498,7 +2929,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             if (widget.drawings.isNotEmpty ||
                                 _draft != null ||
                                 _edited != null)
-                              Positioned.fill(
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
                                 child: IgnorePointer(
                                   child: RepaintBoundary(
                                     child: CustomPaint(
@@ -2545,6 +2980,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   child: RepaintBoundary(
                                     child: CustomPaint(
                                       painter: KuteChartTradeLinesPainter(
+                                        // Tags in the tag column, past
+                                        // the end of the data.
+                                        tagColumn: gutter,
+                                        tagLead: kPolyTagLead,
                                         lines: widget.tradeLines,
                                         dragging: _tradeDrag,
                                         hits: _tradeHits,
@@ -2568,7 +3007,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         resolveGeometry: (size) =>
                                             _tradeDragGeom ??
                                             _drawingGeometry(
-                                              size,
+                                              Size(
+                                                  hlPlotWidth(
+                                                      size.width, gutter),
+                                                  size.height),
                                               leadingClose: leadingClose,
                                               morphSeries: morphSeries,
                                             ),
@@ -2594,8 +3036,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 ),
                               ),
                             // ── Market signals (off unless the host hands
-                            // some in): quiet levels, dates, rings and a
-                            // caption, above the trade lines.
+                            // some in): quiet levels with their tags in the
+                            // tag column, date lines and rings, above the
+                            // trade lines. The dates' names and the caption
+                            // are the band's, under the plot.
                             if (!widget.signals.isEmpty)
                               Positioned.fill(
                                 child: IgnorePointer(
@@ -2604,6 +3048,25 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                       painter: KuteChartSignalsPainter(
                                         signals: widget.signals,
                                         hits: _signalHits,
+                                        tagColumn: gutter,
+                                        tagLead: kPolyTagLead,
+                                        // The latest price's tag and the
+                                        // trade lines' (painted just
+                                        // before) keep their places.
+                                        fixedTags: (size, geom) => [
+                                          for (final t in _latestTags(
+                                              geom,
+                                              candles,
+                                              leadingClose,
+                                              morphSeries))
+                                            (top: t.top, height: t.height),
+                                          if (widget.tradeLines.isNotEmpty)
+                                            for (final h in _tradeHits)
+                                              (
+                                                top: h.rect.top,
+                                                height: h.rect.height,
+                                              ),
+                                        ],
                                         palette: ChartSignalPalette(
                                           neutral: c.textSecondary,
                                           up: AppColors.marketUp,
@@ -2614,7 +3077,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         ),
                                         resolveGeometry: (size) =>
                                             _drawingGeometry(
-                                          size,
+                                          Size(hlPlotWidth(size.width, gutter),
+                                              size.height),
                                           leadingClose: leadingClose,
                                           morphSeries: morphSeries,
                                         ),
@@ -2630,6 +3094,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           widget.logScale,
                                           isDark,
                                           domain,
+                                          widget.tradeLines,
+                                          _tradeDrag,
                                         ),
                                       ),
                                     ),
@@ -2641,7 +3107,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // above the trade lines and below the
                             // crosshair. Mounted only while one is open.
                             if (_fillTip.isNotEmpty && morphSeries == null)
-                              Positioned.fill(
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
                                 child: IgnorePointer(
                                   child: RepaintBoundary(
                                     child: CustomPaint(
@@ -2684,7 +3154,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 ),
                               ),
                             if (_asLine && widget.isLive && _atLiveEdge)
-                              Positioned.fill(
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
                                 child: RepaintBoundary(
                                   child: CustomPaint(
                                     willChange: true,
@@ -2710,7 +3184,11 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   ),
                                 ),
                               ),
-                            Positioned.fill(
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: plotW,
                               child: KuteChartCrosshair(
                                 resolve: !scrubbing
                                     ? null
@@ -2732,7 +3210,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 ),
                                 isDark: isDark,
                                 hairlineColor: c.border,
-                                cardRightInset: kuteScrubCardTagGutter,
                               ),
                             ),
                             // ── Auto: the scale was set by hand; one tap
@@ -2770,24 +3247,28 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         // Editing shows where on the calendar the window sits: a few
         // dates under the plot at the bars they belong to, in a form
         // that suits the window's span.
+        // The signals' dates and caption, under the plot, off the data.
+        if (kuteSignalBandRows(widget.signals) > 0)
+          _signalBand(c, isDark, candles),
         if (widget.drawingMode && candles.isNotEmpty) _dateAxis(c, candles),
         if (widget.indicators.contains('rsi'))
           _pane(
             c,
             context.l10n.chartRsiLabel,
-            _HlPanePainter(
+            (gutter) => _HlPanePainter(
               series: [(_visRsi, kuteIndEma21Color)],
               levels: const [30, 70],
               fixedRange: (0, 100),
               selectedIndex: _touchIndex,
               labelColor: c.textTertiary,
+              gutter: gutter,
             ),
           ),
         if (widget.indicators.contains('macd') && _visMacd != null)
           _pane(
             c,
             'MACD 12/26/9',
-            _HlPanePainter(
+            (gutter) => _HlPanePainter(
               series: [
                 (_visMacd!.macd, kuteIndEma9Color),
                 (_visMacd!.signal, kuteIndSma50Color),
@@ -2798,13 +3279,14 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               levels: const [0],
               selectedIndex: _touchIndex,
               labelColor: c.textTertiary,
+              gutter: gutter,
             ),
           ),
         if (widget.indicators.contains('stoch') && _visStoch != null)
           _pane(
             c,
             'Stochastic 14/3/3',
-            _HlPanePainter(
+            (gutter) => _HlPanePainter(
               series: [
                 (_visStoch!.k, kuteIndEma9Color),
                 (_visStoch!.d, kuteIndSma50Color),
@@ -2813,16 +3295,18 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
               fixedRange: (0, 100),
               selectedIndex: _touchIndex,
               labelColor: c.textTertiary,
+              gutter: gutter,
             ),
           ),
         if (widget.indicators.contains('atr'))
           _pane(
             c,
             'ATR 14',
-            _HlPanePainter(
+            (gutter) => _HlPanePainter(
               series: [(_visAtr, kuteIndBbColor)],
               selectedIndex: _touchIndex,
               labelColor: c.textTertiary,
+              gutter: gutter,
             ),
           ),
         if (widget.footer != null) widget.footer!,
@@ -2863,11 +3347,124 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   Widget _plotBox(Widget plot) =>
       widget.fillHeight ? Expanded(child: plot) : plot;
 
+  // ── tag column ───────────────────────────────────────────────────
+  /// The lowest low and highest high of the loaded tape, kept per tape.
+  List<HyperliquidCandle>? _rangeSource;
+  ({double lo, double hi}) _range = (lo: 0, hi: 0);
+
+  /// The tag column's width and the inputs it was worked out for: kept
+  /// while they hold, so it never jumps as the price ticks or the chart
+  /// pans (see [hlPriceTagTemplate]).
+  Object? _gutterKey;
+  double _gutter = 0;
+
+  /// The tag column a chart [width] wide keeps at its right
+  /// ([hlChartTagGutter]): the price tags, the trade lines' tags and the
+  /// price scale's labels sit in it, and the data ends where it starts.
+  double _gutterFor(double width) {
+    final tape = _styledFull;
+    if (!identical(_rangeSource, tape)) {
+      _rangeSource = tape;
+      var lo = double.infinity, hi = double.negativeInfinity;
+      for (final k in tape) {
+        if (k.low > 0 && k.low < lo) lo = k.low;
+        if (k.high > hi) hi = k.high;
+        if (k.close > hi) hi = k.close;
+      }
+      _range = lo.isFinite && hi.isFinite ? (lo: lo, hi: hi) : (lo: 0, hi: 0);
+    }
+    final template = hlPriceTagTemplate(_range.lo, _range.hi,
+        decimalCap: widget.decimalCap);
+    final entryTag = (widget.entryPx ?? 0) > 0;
+    final reference = tape.isEmpty ? 0.0 : tape.last.close;
+    final key = (
+      width,
+      template,
+      widget.tradeLines,
+      widget.signals.levels,
+      entryTag,
+      hlPriceDecimals(reference, decimalCap: widget.decimalCap),
+    );
+    if (key == _gutterKey) return _gutter;
+    _gutterKey = key;
+    return _gutter = hlChartTagGutter(
+      width: width,
+      priceTemplate: template,
+      entryTag: entryTag,
+      tradeLines: widget.tradeLines,
+      formatPrice: (p) =>
+          formatHlPriceLike(p, reference, decimalCap: widget.decimalCap),
+      signalLevels: widget.signals.levels,
+    );
+  }
+
+  /// Tag rects from the last signal band paint, for tap hit-testing.
+  final List<ChartSignalHit> _bandHits = [];
+
+  /// The band under the plot with the market signals' words
+  /// ([KuteChartSignalBandPainter]): the names of the dates in view
+  /// under their lines, the upcoming dates' tags (tappable) at its right
+  /// end, and the caption. Mapped through the plot's own time scale.
+  Widget _signalBand(
+      AppColorsExtension c, bool isDark, List<HyperliquidCandle> candles) {
+    return SizedBox(
+      height: kuteSignalBandRows(widget.signals) * kuteSignalBandRowHeight,
+      width: double.infinity,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final plotW = hlPlotWidth(w, _gutterFor(w));
+        final geom = _drawingGeometry(Size(plotW, 100));
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapUp: widget.onSignalTapped == null
+              ? null
+              : (d) {
+                  final hit = kuteHitTestSignalTags(_bandHits, d.localPosition,
+                      tolerance: 4);
+                  if (hit == null) return;
+                  HapticFeedback.selectionClick();
+                  widget.onSignalTapped!(hit.id);
+                },
+          child: CustomPaint(
+            painter: KuteChartSignalBandPainter(
+              signals: widget.signals,
+              palette: ChartSignalPalette(
+                neutral: c.textSecondary,
+                up: AppColors.marketUp,
+                down: AppColors.marketDown,
+                tagBackground: isDark ? Colors.black : Colors.white,
+              ),
+              xForTime: (t) => geom?.xForTime(t),
+              plotWidth: plotW,
+              hits: _bandHits,
+              repaintKey: (
+                candles.length,
+                candles.isEmpty
+                    ? 0
+                    : candles.first.openTime.millisecondsSinceEpoch,
+                candles.isEmpty
+                    ? 0
+                    : candles.last.openTime.millisecondsSinceEpoch,
+                w,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  /// A price-axis drag starts here: the left strip, or the tag column at
+  /// the right of the plot, where the scale's labels are.
+  bool _onAxisStrip(Offset pos, double plotWidth) =>
+      pos.dx <= _axisStripWidth || pos.dx >= plotWidth;
+
   /// Dates under the plot for the visible window. Four labels at fixed
   /// fractions of the width, each naming the bar under it; a window
   /// under two days shows the clock time, with the day on the first
   /// label, and a longer window shows dates.
   Widget _dateAxis(AppColorsExtension c, List<HyperliquidCandle> candles) {
+    if (candles.isEmpty) return SizedBox(height: 16.h);
     final span = candles.last.openTime.difference(candles.first.openTime);
     final intraday = span < const Duration(days: 2);
     final multiYear = span > const Duration(days: 365);
@@ -2879,8 +3476,15 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final locale = kuteChartLocale(context);
     return LayoutBuilder(builder: (context, constraints) {
       final w = constraints.maxWidth;
+      // The bars end where the plot's tag column starts.
+      final plotW = hlPlotWidth(w, _gutterFor(w));
       final n = candles.length;
       final labels = <Widget>[];
+      // A label is 80.w wide; on a chart narrower than that the label
+      // simply sits at the left edge (the upper bound can never go below
+      // the lower one, which num.clamp throws on).
+      final labelW = 80.w;
+      final maxLeft = math.max(0.0, w - labelW);
       for (final fraction in const [0.08, 0.36, 0.64, 0.92]) {
         final index = (fraction * n).floor().clamp(0, n - 1);
         final time = candles[index].openTime.toLocal();
@@ -2892,10 +3496,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 ? DateFormat.yMMM(locale).format(time)
                 : DateFormat.MMMd(locale).format(time);
         // Bar centre; the label is centred on it and kept on screen.
-        final x = ((index + 0.5) * w / n).clamp(0.0, w);
+        final x = ((index + 0.5) * plotW / n).clamp(0.0, math.max(0.0, w));
         labels.add(Positioned(
-          left: (x - 40.w).clamp(0.0, w - 80.w),
-          width: 80.w,
+          left: (x - labelW / 2).clamp(0.0, maxLeft),
+          width: labelW,
           top: 0,
           child: Text(text, textAlign: TextAlign.center, style: style),
         ));
@@ -2908,8 +3512,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     });
   }
 
-  /// One indicator pane under the chart: a caption and a small painter.
-  Widget _pane(AppColorsExtension c, String label, CustomPainter painter) =>
+  /// One indicator pane under the chart: a caption and a small painter,
+  /// given the plot's tag column so its bars line up with the plot's.
+  Widget _pane(AppColorsExtension c, String label,
+          CustomPainter Function(double gutter) painter) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2919,7 +3525,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
           SizedBox(
             height: 76.h,
             width: double.infinity,
-            child: CustomPaint(painter: painter),
+            child: LayoutBuilder(
+              builder: (context, constraints) => CustomPaint(
+                  painter: painter(_gutterFor(constraints.maxWidth))),
+            ),
           ),
         ],
       );
@@ -3099,14 +3708,14 @@ class HlAutoScalePill extends StatelessWidget {
 
 /// Candlestick painter: high-low wick + open→close body per candle,
 /// low-alpha volume bars along the bottom, a dashed last-price line with a
-/// right-edge price tag, and the user's own fill markers. Line mode renders
-/// through the shared chart engine (monotone cubic path, cached gradient
-/// fill, 2.0 round-cap stroke, endpoint dot) and honours [morphSeries]
-/// (timeframe tween) / [leadingClose] (live-tick endpoint easing). The
-/// scrub crosshair lives in the shared KuteChartCrosshair layer, so this
-/// canvas never repaints during a scrub. Prices are min–max normalized
-/// across the highs/lows with a small vertical pad; grid-free per the
-/// app's unified chart language.
+/// price tag in the tag column, and the user's own fill markers. Line
+/// mode renders through the shared chart engine (monotone cubic path,
+/// cached gradient fill, 2.0 round-cap stroke, endpoint dot) and honours
+/// [morphSeries] (timeframe tween) / [leadingClose] (live-tick endpoint
+/// easing). The scrub crosshair lives in the shared KuteChartCrosshair
+/// layer, so this canvas never repaints during a scrub. Prices are
+/// min–max normalized across the highs/lows with a small vertical pad;
+/// grid-free per the app's unified chart language.
 class _HlCandlePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final Color upColor;
@@ -3155,6 +3764,11 @@ class _HlCandlePainter extends CustomPainter {
   /// The shown (autoscaled or manual) price domain.
   final HlPriceDomain? domain;
 
+  /// The tag column at the right ([hlChartTagGutter]): the bars, the line
+  /// and the volume end where it starts, and the price tags sit in it,
+  /// [kPolyTagLead] past the end of the data, so no tag covers a candle.
+  final double tagGutter;
+
   _HlCandlePainter({
     required this.candles,
     required this.upColor,
@@ -3176,6 +3790,7 @@ class _HlCandlePainter extends CustomPainter {
     this.style = HlChartStyle.area,
     this.volumeMa = const [],
     this.domain,
+    this.tagGutter = 0,
   });
 
   /// Laid-out TextPainters keyed by (text, color, fontSize) — the rail
@@ -3209,8 +3824,15 @@ class _HlCandlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final n = candles.length;
     if (n == 0) return;
-    final w = size.width;
+    // The data's width: up to the tag column.
+    final w = hlPlotWidth(size.width, tagGutter);
     final h = size.height;
+    // Where a tag [width] wide sits: in the column, just past the data
+    // (never past the chart's edge); a price line runs up to its tag.
+    final tagsLeft = tagGutter > 0 ? w + kPolyTagLead : size.width;
+    double tagLeft(double width) =>
+        math.max(0.0, math.min(tagsLeft, size.width - width));
+    final lineEnd = math.min(tagsLeft, size.width);
 
     final geom = _hlPriceGeometry(
       candles: candles,
@@ -3429,9 +4051,9 @@ class _HlCandlePainter extends CustomPainter {
         }
       }
 
-      // The old right-edge hi/mid/lo rails are gone — the left-edge
-      // price scale layer (_HlPriceScalePainter) carries the spatial
-      // context now, in both candle and line modes.
+      // The old right-edge hi/mid/lo rails are gone — the price scale
+      // layer (_HlPriceScalePainter, in the tag column) carries the
+      // spatial context now, in both candle and line modes.
     }
     canvas.restore();
 
@@ -3453,7 +4075,7 @@ class _HlCandlePainter extends CustomPainter {
 
     // ── Average entry line (open position on this market) ────────────
     // A muted dashed horizontal reference at the position's entry price
-    // with a small right-edge "Entry" tag, long = up colour / short =
+    // with a small "Entry" tag in the column, long = up colour / short =
     // down colour — both line and candle modes. Skipped when the entry
     // sits outside the visible price window: a clamped line would lie
     // about where the price actually is. Painted before the last-price
@@ -3467,9 +4089,9 @@ class _HlCandlePainter extends CustomPainter {
         final entryPaint = Paint()
           ..color = mutedCol
           ..strokeWidth = 1.0;
-        for (double x = 0; x < w; x += 9) {
-          canvas.drawLine(
-              Offset(x, ey), Offset(math.min(x + 4.5, w), ey), entryPaint);
+        for (double x = 0; x < lineEnd; x += 9) {
+          canvas.drawLine(Offset(x, ey),
+              Offset(math.min(x + 4.5, lineEnd), ey), entryPaint);
         }
         // "Entry" tag: same geometry as the last-price tag but muted — a
         // background-coloured pill with a hairline in the side colour.
@@ -3485,8 +4107,9 @@ class _HlCandlePainter extends CustomPainter {
         final eH = etp.height + ePadV * 2;
         final eY =
             (ey - eH / 2).clamp(0.0, math.max(0.0, priceH - eH)).toDouble();
+        final eLeft = tagLeft(eW);
         final eRect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(w - eW, eY, eW, eH),
+          Rect.fromLTWH(eLeft, eY, eW, eH),
           Radius.circular(4.r),
         );
         canvas.drawRRect(
@@ -3498,34 +4121,32 @@ class _HlCandlePainter extends CustomPainter {
             ..strokeWidth = 1.0
             ..color = mutedCol,
         );
-        etp.paint(canvas, Offset(w - eW + ePadH, eY + ePadV));
+        etp.paint(canvas, Offset(eLeft + ePadH, eY + ePadV));
       }
     }
 
     // ── The user's own fill markers (buys ▲ / sells ▼) ───────────────
-    // Small glyphs at each fill's time+price (see hlResolveFillMarkers for
-    // the mapping); the detail lives in the tap tooltip. Painted BEFORE
-    // the last-price tag so the tag always stays on top of them, and
-    // skipped mid-morph because the morph line's x space is resampled.
+    // A dot at each fill's time+price and a ▲/▼ badge on a short stem
+    // (see hlResolveFillMarkers for the mapping and hlPaintFillMarkers for
+    // the look); the detail lives in the tap tooltip. Painted BEFORE the
+    // last-price tag so the tag always stays on top of them, and skipped
+    // mid-morph because the morph line's x space is resampled.
     if (fills.isNotEmpty && n >= 2 && morphSeries == null) {
       final markers = hlResolveFillMarkers(
         candles: candles,
         fills: fills,
-        size: size,
+        size: Size(w, h),
         renderAsLine: renderAsLine,
         showVolume: showVolume,
         logScale: logScale,
         leadingClose: leadingClose,
         domain: domain,
       );
-      for (final m in markers) {
-        final buy = m.fill.isBuy;
-        hlPaintFillMarker(
-            canvas, m.center, buy, buy ? upColor : downColor, labelBg);
-      }
+      hlPaintFillMarkers(canvas, markers,
+          up: upColor, down: downColor, halo: labelBg);
     }
 
-    // ── Last-price line + right-edge tag ─────────────────────────────
+    // ── Last-price line + its tag in the column ──────────────────────
     final lastK = candles.last;
     // Colour by the last candle's direction for candles, the overall line
     // direction (first→last) when rendering as a line.
@@ -3541,8 +4162,9 @@ class _HlCandlePainter extends CustomPainter {
     final dashPaint = Paint()
       ..color = lineColor.withValues(alpha: 0.55)
       ..strokeWidth = 1.0;
-    for (double x = 0; x < w; x += 6) {
-      canvas.drawLine(Offset(x, ly), Offset(math.min(x + 3, w), ly), dashPaint);
+    for (double x = 0; x < lineEnd; x += 6) {
+      canvas.drawLine(
+          Offset(x, ly), Offset(math.min(x + 3, lineEnd), ly), dashPaint);
     }
 
     // Contrast text picked by the pill fill's luminance — the market
@@ -3562,12 +4184,13 @@ class _HlCandlePainter extends CustomPainter {
     final tagH = tag.height + tagPadV * 2;
     var tagY = ly - tagH / 2;
     tagY = tagY.clamp(0.0, math.max(0.0, priceH - tagH));
+    final tagX = tagLeft(tagW);
     final tagRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w - tagW, tagY, tagW, tagH),
+      Rect.fromLTWH(tagX, tagY, tagW, tagH),
       Radius.circular(4.r),
     );
     canvas.drawRRect(tagRect, Paint()..color = lineColor);
-    tag.paint(canvas, Offset(w - tagW + tagPadH, tagY + tagPadV));
+    tag.paint(canvas, Offset(tagX + tagPadH, tagY + tagPadV));
 
     // Crosshair on scrub lives in the shared KuteChartCrosshair layer; the
     // fill-marker tooltip in HlFillTooltipPainter.
@@ -3593,7 +4216,8 @@ class _HlCandlePainter extends CustomPainter {
       !identical(old.overlays, overlays) ||
       !identical(old.band, band) ||
       old.logScale != logScale ||
-      old.domain != domain;
+      old.domain != domain ||
+      old.tagGutter != tagGutter;
 
   static bool _sameMorph(List<double>? a, List<double>? b) {
     if (identical(a, b)) return true;
@@ -3737,10 +4361,13 @@ class HlFillTooltipPainter extends CustomPainter {
       anchorX = 0;
       topY = double.infinity;
       lowY = double.negativeInfinity;
+      // The card clears both the badge and the price dot it points at.
       for (final m in markers) {
         anchorX += m.center.dx;
-        topY = math.min(topY, m.center.dy - hlFillMarkerRadius);
-        lowY = math.max(lowY, m.center.dy + hlFillMarkerRadius);
+        topY = math.min(topY,
+            math.min(m.badge.top, m.dot.dy - hlFillMarkerDotRadius));
+        lowY = math.max(lowY,
+            math.max(m.badge.bottom, m.dot.dy + hlFillMarkerDotRadius));
       }
       anchorX /= markers.length;
     }
@@ -3764,17 +4391,22 @@ class HlFillTooltipPainter extends CustomPainter {
     final markers = frame.markers;
     final core = isDark ? Colors.black : Colors.white;
 
-    // Rings on the selected markers, so the card visibly belongs to them.
+    // A ring on each selected badge (once per shared badge), so the card
+    // visibly belongs to them.
+    final ringed = <Offset>{};
     for (final m in markers) {
+      if (!ringed.add(m.center)) continue;
       final ring = _entryColor(m, entries.first.color);
-      canvas.drawCircle(
-        m.center,
-        hlFillMarkerRadius + 4.5,
+      final rrect = RRect.fromRectAndRadius(
+        m.badge.inflate(4.5),
+        const Radius.circular(hlFillMarkerRadius + 4.5),
+      );
+      canvas.drawRRect(
+        rrect,
         Paint()..color = ring.withValues(alpha: 0.16),
       );
-      canvas.drawCircle(
-        m.center,
-        hlFillMarkerRadius + 4.5,
+      canvas.drawRRect(
+        rrect,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
@@ -3970,8 +4602,11 @@ class _HlLineSparklinePainter extends CustomPainter {
 
 /// A small oscillator pane: one or more series, optional histogram and
 /// guide levels, autoscaled to the visible values (bounded oscillators
-/// such as RSI and stochastic never pad past [fixedRange]). The scrubbed
-/// value of the first series is shown at the top right.
+/// such as RSI and stochastic never pad past [fixedRange]). The series
+/// end where the price chart's data does, before its tag column
+/// ([gutter]); the scrubbed value of the first series sits at the top of
+/// that column and the guide levels' values beside their lines in it, so
+/// no label covers a series.
 class _HlPanePainter extends CustomPainter {
   const _HlPanePainter({
     required this.series,
@@ -3982,7 +4617,12 @@ class _HlPanePainter extends CustomPainter {
     this.histogramDown,
     this.levels = const [],
     this.fixedRange,
+    this.gutter = 0,
   });
+
+  /// The price chart's tag column, kept clear of the series here too, so
+  /// the bars line up in time with the plot's.
+  final double gutter;
 
   final List<(List<double>, Color)> series;
   final List<double>? histogram;
@@ -4033,14 +4673,41 @@ class _HlPanePainter extends CustomPainter {
       hi = math.min(hi, bounds.$2);
     }
     double toY(double v) => size.height * (1 - (v - lo) / (hi - lo));
-    final slot = size.width / n;
+    final plotW = hlPlotWidth(size.width, gutter);
+    final slot = plotW / n;
+    // A label's left in the column: just past the series, never past the
+    // pane's edge.
+    double labelLeft(double width) => math.max(
+        0.0,
+        math.min(gutter > 0 ? plotW + kPolyTagLead : size.width - width,
+            size.width - width));
+
+    // The scrubbed value, at the top of the column.
+    final values = series.first.$1;
+    final index = selectedIndex ?? values.length - 1;
+    TextPainter? valueLabel;
+    if (index >= 0 && index < values.length && values[index].isFinite) {
+      final v = values[index];
+      valueLabel = TextPainter(
+        text: TextSpan(
+          text:
+              v.abs() >= 100 ? v.toStringAsFixed(1) : v.toStringAsPrecision(4),
+          style: TextStyle(
+            fontFamily: kuteChartFontFamily,
+            color: series.first.$2,
+            fontSize: 11,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    }
 
     final guide = Paint()
       ..color = labelColor.withValues(alpha: 0.25)
       ..strokeWidth = 0.5;
     for (final level in levels) {
       final y = toY(level);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), guide);
+      canvas.drawLine(Offset(0, y), Offset(plotW, y), guide);
       final label = TextPainter(
         text: TextSpan(
           text: level == level.roundToDouble()
@@ -4054,7 +4721,12 @@ class _HlPanePainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      label.paint(canvas, Offset(2, y - label.height));
+      final top = (y - label.height / 2)
+          .clamp(0.0, math.max(0.0, size.height - label.height))
+          .toDouble();
+      // Under the scrubbed value, never through it.
+      if (valueLabel != null && top < valueLabel.height + 1) continue;
+      label.paint(canvas, Offset(labelLeft(label.width), top));
     }
 
     final hist = histogram;
@@ -4100,23 +4772,8 @@ class _HlPanePainter extends CustomPainter {
       );
     }
 
-    final values = series.first.$1;
-    final index = selectedIndex ?? values.length - 1;
-    if (index >= 0 && index < values.length && values[index].isFinite) {
-      final v = values[index];
-      final label = TextPainter(
-        text: TextSpan(
-          text:
-              v.abs() >= 100 ? v.toStringAsFixed(1) : v.toStringAsPrecision(4),
-          style: TextStyle(
-            fontFamily: kuteChartFontFamily,
-            color: series.first.$2,
-            fontSize: 11,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      label.paint(canvas, Offset(size.width - label.width, 0));
+    if (valueLabel != null) {
+      valueLabel.paint(canvas, Offset(labelLeft(valueLabel.width), 0));
     }
   }
 
@@ -4128,7 +4785,8 @@ class _HlPanePainter extends CustomPainter {
     }
     return !identical(old.histogram, histogram) ||
         selectedIndex != old.selectedIndex ||
-        labelColor != old.labelColor;
+        labelColor != old.labelColor ||
+        gutter != old.gutter;
   }
 }
 
