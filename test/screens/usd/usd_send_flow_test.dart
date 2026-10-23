@@ -17,9 +17,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
+import 'package:kute/models/orchestra_route_limits.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/advisor_provider.dart';
@@ -38,9 +41,13 @@ import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionBar;
 import 'package:kute/screens/usd/usd_send_screen.dart';
+import 'package:kute/services/continuous_haptics.dart';
+import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/services/one_balance/route_minimums.dart'
+    show RouteLimitsFetcher;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -104,6 +111,39 @@ final _balance = StateProvider<double>((_) => 100);
 /// The puller the screen uses; null is one with no venue cash.
 VenueCashPuller? _puller;
 
+/// What Review's estimate answers: $9.90 out by default.
+Future<Result<OrchestraEstimate>> _priced({
+  required String destinationChain,
+  required String destinationAsset,
+  required String amount,
+  String? recipientAddress,
+}) async =>
+    Result(
+        data: OrchestraEstimate(
+            estimatedOut: '9900000',
+            feeAmount: '0',
+            feeBps: 0,
+            route: const [],
+            estimateIncludesAppFee: true));
+
+/// A refused estimate, as the API reports one.
+UsdSendEstimator _refused({String? code, int? status}) => ({
+      required String destinationChain,
+      required String destinationAsset,
+      required String amount,
+      String? recipientAddress,
+    }) async =>
+        Result(error: 'refused', statusCode: status, errorCode: code);
+
+/// The Review estimate and the route limits the screen reads; set per
+/// test.
+UsdSendEstimator _estimator = _priced;
+RouteLimitsFetcher _limits = (_) async => null;
+
+/// Limits naming [cents] as the route's order minimum.
+OrchestraRouteLimits _minimumOf(int cents) => OrchestraRouteLimits(
+    orderMinUsdCents: cents);
+
 /// A venue whose cash the test sets, recording each pull. With [gate]
 /// set, a pull waits on it, so a test can look at the send mid-pull.
 class _Venue implements VenueCashSource {
@@ -115,6 +155,9 @@ class _Venue implements VenueCashSource {
   final pulls = <double>[];
   Completer<void>? gate;
 
+  /// Thrown by a pull (after [gate]): the leg did not go.
+  Object? error;
+
   @override
   Duration get estimatedArrival => kVenuePullEta[venue]!;
 
@@ -125,6 +168,8 @@ class _Venue implements VenueCashSource {
   Future<VenueMoveResult> pull(double usd, {required String purpose}) async {
     pulls.add(usd);
     await gate?.future;
+    final e = error;
+    if (e != null) throw e;
     return VenueMoveResult(
         quoteId: 'q', sentUsd: usd, arrivingUsdEstimate: usd * 0.99);
   }
@@ -183,6 +228,19 @@ Future<void> _pump(WidgetTester tester,
           .overrideWith((_) => _Routes(_catalog(arbitrumUsdc: arbitrumUsdc))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
       sparkSelfAddressProvider.overrideWith((_) async => _ownSpark),
+      usdSendEstimatorProvider.overrideWithValue(
+          ({
+            required String destinationChain,
+            required String destinationAsset,
+            required String amount,
+            String? recipientAddress,
+          }) =>
+              _estimator(
+                  destinationChain: destinationChain,
+                  destinationAsset: destinationAsset,
+                  amount: amount,
+                  recipientAddress: recipientAddress)),
+      usdSendRouteLimitsProvider.overrideWithValue((r) => _limits(r)),
       // The dock's square reads it; Sal off keeps the plain magnifier.
       aiEnabledProvider.overrideWith((_) async => false),
     ],
@@ -338,6 +396,8 @@ void main() {
     expect(await policy.refresh(), isTrue);
     _clipboard = null;
     _puller = null;
+    _estimator = _priced;
+    _limits = (_) async => null;
   });
 
   tearDown(() {
@@ -999,4 +1059,226 @@ void main() {
     await tester.pump();
     expect(_sheetHeight(tester), moreOrLessEquals(_full(tester)));
   });
+
+  /// Amount → Review with [digits] typed, USDC · Arbitrum to an address.
+  Future<void> toReview(WidgetTester tester, String digits) async {
+    await _toAmount(tester);
+    await _type(tester, digits);
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.sendReview), findsOneWidget);
+  }
+
+  bool sendEnabled(WidgetTester tester) =>
+      _cta(tester, _l10n.send).onPressed != null;
+
+  testWidgets(
+      'Review: an amount under the route\'s minimum is said once under the '
+      'card, never as the fee, and Send stays off', (tester) async {
+    _estimator = _refused(code: 'amount_too_small', status: 400);
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '5');
+
+    expect(find.text(_l10n.routeAmountTooSmallGeneric), findsOneWidget);
+    expect(find.text(_l10n.swapRouteTemporarilyUnavailable), findsNothing);
+    expect(find.text(_l10n.youReceive), findsNothing,
+        reason: 'no fee line carries the refusal');
+    expect(sendEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'Review: with the route\'s minimum known, the refusal names it',
+      (tester) async {
+    _estimator = _refused(code: 'amount_too_small', status: 400);
+    var reads = 0;
+    // Unread when the coin is picked; read once the estimate refuses.
+    _limits = (_) async {
+      if (reads++ == 0) throw TimeoutException('limits');
+      return _minimumOf(800);
+    };
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '5');
+
+    expect(find.text(_l10n.usdSendMinimum('\$8.00')), findsOneWidget);
+    expect(find.text(_l10n.youReceive), findsNothing);
+    expect(sendEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'Review: a route refused for now is said once and keeps Send off',
+      (tester) async {
+    _estimator = _refused(code: 'route_unavailable', status: 400);
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '20');
+
+    expect(find.text(_l10n.swapRouteTemporarilyUnavailable), findsOneWidget);
+    expect(find.text(_l10n.youReceive), findsNothing);
+    expect(sendEnabled(tester), isFalse);
+  });
+
+  testWidgets(
+      'Review: a passing failure is asked once more and the price lands; '
+      'Send waits for it', (tester) async {
+    var calls = 0;
+    _estimator = ({
+      required String destinationChain,
+      required String destinationAsset,
+      required String amount,
+      String? recipientAddress,
+    }) async {
+      calls++;
+      if (calls == 1) return Result(error: 'timeout');
+      return _priced(
+          destinationChain: destinationChain,
+          destinationAsset: destinationAsset,
+          amount: amount);
+    };
+    await withClipboard(tester);
+    await _pump(tester);
+    await _toAmount(tester);
+    await _type(tester, '20');
+    await tester.tap(find.text(_l10n.continueLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(calls, 1);
+    expect(find.text(_l10n.receiveNetworkErrorTapToRetry), findsNothing,
+        reason: 'not shown before the second ask');
+    expect(sendEnabled(tester), isFalse, reason: 'the price is not in yet');
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text('≈ 9.90 USDC'), findsOneWidget);
+    expect(sendEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+      'Amount: the picked coin\'s own minimum is the floor, said before '
+      'Review', (tester) async {
+    _limits = (_) async => _minimumOf(2500);
+    await withClipboard(tester);
+    await _pump(tester);
+    await _toAmount(tester);
+
+    await _type(tester, '10');
+    expect(find.text(_l10n.usdSendMinimum('\$25.00')), findsOneWidget);
+    expect(_continueEnabled(tester), isFalse);
+    await _type(tester, '0');
+    expect(find.text(_l10n.usdSendMinimum('\$25.00')), findsNothing);
+    expect(_continueEnabled(tester), isTrue);
+  });
+
+  testWidgets(
+      'a send under its route\'s minimum never brings venue cash home for '
+      'it: refused before any leg goes', (tester) async {
+    var reads = 0;
+    // Unread when the coin is picked; the send reads it again first.
+    _limits = (_) async {
+      if (reads++ == 0) throw TimeoutException('limits');
+      return _minimumOf(20000);
+    };
+    final venue = _Venue(OneBalanceVenue.predictions, 100);
+    _puller = VenueCashPuller(
+      sources: [venue],
+      readDollars: () => 100,
+      minimumUsd: (_) async => 1,
+    );
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '150');
+    expect(sendEnabled(tester), isTrue);
+
+    await tester.tap(find.text(_l10n.send));
+    await tester.pumpAndSettle();
+    expect(venue.pulls, isEmpty, reason: 'no leg went');
+    expect(find.text(_l10n.usdSendMinimum('\$200.00')), findsOneWidget);
+    expect(reads, 2);
+  });
+
+  testWidgets(
+      'a leg that does not go stops the send at once, while another leg '
+      'is still on its way: the band lets go, its rumble stops, one '
+      'failure tap, and the line says where the money is', (tester) async {
+    ContinuousHaptics.debugReset();
+    KuteHaptics.debugReset();
+    ContinuousHaptics.debugLog = [];
+    addTearDown(() {
+      ContinuousHaptics.debugLog = null;
+      KuteHaptics.debugReset();
+    });
+    final predictions = _Venue(OneBalanceVenue.predictions, 30)
+      ..error = const RouteUnavailable('paused')
+      ..gate = Completer<void>();
+    final investing = _Venue(OneBalanceVenue.investing, 500)
+      ..gate = Completer<void>();
+    var now = DateTime(2026, 10, 23, 12);
+    _puller = VenueCashPuller(
+      sources: [predictions, investing],
+      readDollars: () => 100,
+      minimumUsd: (_) async => 1,
+      clock: () => now,
+      sleep: (d) async => now = now.add(d),
+    );
+    await withClipboard(tester);
+    await _pump(tester);
+    await toReview(tester, '150');
+
+    await tester.tap(find.text(_l10n.send));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(predictions.pulls, hasLength(1));
+    expect(investing.pulls, hasLength(1));
+    final log = ContinuousHaptics.debugLog!;
+    expect(log.map((c) => c.method), contains('start'),
+        reason: 'the band rumbles while the legs go');
+    expect(ContinuousHaptics.isRunning(), isTrue);
+
+    // The Predictions leg does not go; Investing is still on its way.
+    predictions.gate!.complete();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(ContinuousHaptics.isRunning(), isFalse,
+        reason: 'the rumble stops at once');
+
+    // Stopped already: Retry, a line saying the Investing leg is coming
+    // home, and the band at rest.
+    final investingUsd = '\$${investing.pulls.single.toStringAsFixed(2)}';
+    expect(
+        find.text(
+            '${_l10n.oneBalanceComingBack(investingUsd, _l10n.trading)}\n'
+            '${_l10n.activityBitcoinAddedPending}'),
+        findsOneWidget);
+    expect(_cta(tester, _l10n.retry).onPressed, isNotNull,
+        reason: 'Retry for the remainder, at once');
+
+    // A while later, still waiting on the Investing leg: nothing rumbles,
+    // ticks or beats after the release, and the failure tap played once.
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    final methods = log.map((c) => c.method).toList();
+    final tap = methods.indexOf('softTap');
+    expect(methods.where((m) => m == 'softTap'), hasLength(1));
+    expect(methods.lastIndexOf('stop'), lessThan(tap),
+        reason: 'the rumble stopped before the tap');
+    expect(
+        methods.sublist(tap).where(const {'start', 'update', 'tick', 'pulse'}
+            .contains),
+        isEmpty,
+        reason: 'nothing keeps vibrating after the stop');
+
+    // The Investing leg answers: no second tap, the line still says where
+    // the money is.
+    investing.gate!.complete();
+    await tester.pumpAndSettle();
+    expect(log.where((c) => c.method == 'softTap'), hasLength(1));
+    expect(find.textContaining(_l10n.trading), findsWidgets);
+    expect(find.text(_l10n.retry), findsOneWidget);
+  });
 }
+

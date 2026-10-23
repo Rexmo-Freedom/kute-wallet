@@ -64,6 +64,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/orchestra_router.dart'
     show orchestraAmountToDouble;
@@ -71,6 +72,7 @@ import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/helpers/venue_intents.dart' show OrchestraGrants;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/orchestra_model.dart' show OrchestraEstimate;
 import 'package:kute/models/orchestra_routes_model.dart'
     show OrchestraReceiveOption, OrchestraRoutesCatalog, RouteKey;
 import 'package:kute/models/settlement_operation.dart'
@@ -125,6 +127,8 @@ import 'package:kute/services/one_balance/multi_source_move.dart'
     show MultiSourceMoveStore, multiSourceMovesProvider, trackMultiSourceMoveRetry;
 import 'package:kute/screens/shared/move_steps_view.dart'
     show MoveStepsSection;
+import 'package:kute/services/one_balance/route_minimums.dart'
+    show RouteLimitsFetcher;
 import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show investmentsSpendableProvider, venueCashRefreshProvider;
@@ -143,6 +147,46 @@ const double _kMinUsd = 1.0;
 /// is the unit the SDK is handed, and a catalog that disagreed with the
 /// pin makes the route unavailable in the quote gate long before here.
 const int _kUsdDecimals = 6;
+
+/// Prices a dollar send on Review: Orchestra's estimate for the dollar
+/// balance to [destinationChain]:[destinationAsset], [amount] in the
+/// token's base units. Never throws: a refusal comes back as the
+/// result's error, with Flashnet's code when it gave one.
+typedef UsdSendEstimator = Future<Result<OrchestraEstimate>> Function({
+  required String destinationChain,
+  required String destinationAsset,
+  required String amount,
+  String? recipientAddress,
+});
+
+/// The estimate Review asks for (a test seam).
+final usdSendEstimatorProvider = Provider<UsdSendEstimator>(
+  (ref) => ({
+    required String destinationChain,
+    required String destinationAsset,
+    required String amount,
+    String? recipientAddress,
+  }) =>
+      OrchestraService.getEstimate(
+        sourceChain: kOrchestraUsdChain,
+        sourceAsset: kOrchestraUsdAssetCode,
+        destinationChain: destinationChain,
+        destinationAsset: destinationAsset,
+        amount: amount,
+        recipientAddress: recipientAddress,
+      ),
+);
+
+/// The live limits the send's minimum is read from (a test seam).
+final usdSendRouteLimitsProvider = Provider<RouteLimitsFetcher>(
+    (ref) => (route) => OrchestraService.getRouteLimits(route));
+
+/// How long a send waits on the route's limits before going on without
+/// them (the quote stays the enforcement).
+const Duration _kLimitsWait = Duration(seconds: 4);
+
+/// How long a passing estimate failure waits before it is asked once more.
+const Duration _kEstimateRetryAfter = Duration(seconds: 2);
 
 /// Page indices of the stepper, in the bitcoin send's order: the
 /// recipient first (the send sheet's medium-height step), then the
@@ -211,11 +255,24 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   String? _addressMethod;
   String? _amountMethod;
 
-  /// The live estimate Review shows as "You receive".
+  /// The live estimate Review shows as "You receive". [_estimateError]
+  /// is a passing failure (asked once more, then a tap asks again); the
+  /// send's own quote still decides.
   double? _estimateOut;
   bool _estimateLoading = false;
   String? _estimateError;
   int _estimateSeq = 0;
+
+  /// Why this amount and coin cannot be sent, from the Review estimate
+  /// (under the route's minimum, over its maximum, the route refused or
+  /// withheld): said once under the card, never as the "You receive"
+  /// value, and Send stays off until the amount or the coin changes.
+  String? _estimateBlock;
+
+  /// Each picked coin's own smallest send, in base units (null: its
+  /// limits name none), read once per sheet when the coin is picked.
+  final Map<String, BigInt?> _routeMinimums = {};
+  final Map<String, Future<BigInt?>> _routeMinimumReads = {};
 
   bool _reviewToExpanded = false;
   bool _processing = false;
@@ -248,6 +305,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// The last pull stopped with a leg that did not go: the button is
   /// Retry for the remainder until the slip changes.
   bool _retryPull = false;
+
+  /// The venue pull the screen listens to now: a pull it already stopped
+  /// for (a leg that did not go) is not reported again when it returns.
+  int _pullSeq = 0;
 
   @override
   void initState() {
@@ -366,7 +427,25 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   BigInt? get _typedBaseUnits =>
       usdBaseUnitsFromTyped(_typed, decimals: _kUsdDecimals);
 
-  BigInt get _minBaseUnits => BigInt.from((_kMinUsd * 1000000).round());
+  /// The smallest send: the app's floor, or the picked coin's own route
+  /// minimum when it is higher and known. A send under it would be
+  /// refused at the quote, after any venue cash had come home for it.
+  BigInt get _minBaseUnits {
+    final floor = BigInt.from((_kMinUsd * 1000000).round());
+    final d = _destination;
+    final route = d == null ? null : _routeMinimums[d.id];
+    return route != null && route > floor ? route : floor;
+  }
+
+  /// A minimum as the screen says it: to the cent, rounded up, so the
+  /// figure shown always clears it.
+  static String _formatMinimum(BigInt units) {
+    final cents = (units + BigInt.from(9999)) ~/ BigInt.from(10000);
+    return '\$${(cents.toDouble() / 100).toStringAsFixed(2)}';
+  }
+
+  String get _minimumText =>
+      context.l10n.usdSendMinimum(_formatMinimum(_minBaseUnits));
 
   /// The amount this send moves: the exact balance once 100% has been
   /// resolved on Review, else the typed figure.
@@ -506,6 +585,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       _destination = d;
       _estimateOut = null;
       _estimateError = null;
+      _estimateBlock = null;
       _error = null;
       if (!keepsAddress) {
         _address.clear();
@@ -515,6 +595,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         _completedSteps.removeAll({_kSendToStep, _kAmountStep});
       }
     });
+    // The coin's own minimum, read now so the amount step can say it
+    // before anything is asked of the route.
+    unawaited(_routeMinimumFor(d));
     TrackingService.track('usd_send_coin_selected', params: {
       'asset': d.assetCode,
       'network': d.chain,
@@ -843,8 +926,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                   Text(
                     overBalance
                         ? context.l10n.sendMoreThanAvailable
-                        : context.l10n
-                            .usdSendMinimum('\$${_kMinUsd.toStringAsFixed(2)}'),
+                        : _minimumText,
                     style: TextStyle(
                       color: AppColors.marketDown,
                       fontSize: 14.sp,
@@ -1208,8 +1290,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       setState(() {
         _resolvingDrain = false;
         if (units < _minBaseUnits) {
-          _drainError =
-              context.l10n.usdSendMinimum('\$${_kMinUsd.toStringAsFixed(2)}');
+          _drainError = _minimumText;
         } else {
           _drainUnits = units;
         }
@@ -1224,10 +1305,18 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
   }
 
-  /// The live estimate behind "You receive". An Orchestra estimate for
-  /// the exact amount; a plain dollar transfer arrives as sent and needs
-  /// none.
-  Future<void> _fetchEstimate() async {
+  /// The live estimate behind "You receive": Orchestra's estimate for the
+  /// exact amount on the route the send's own quote asks for
+  /// ([usdSendRouteKey]): the dollar balance to the picked coin. Venue
+  /// cash that comes home first lands in Dollars and is not priced here.
+  ///
+  /// A refusal is read for what it is ([usdSendEstimateIssue]): an amount
+  /// under the route's minimum or over its maximum, or a route refused or
+  /// withheld, is said once under the card ([_estimateBlock]) and keeps
+  /// Send off; a passing failure is asked once more after
+  /// [_kEstimateRetryAfter], then offered as a tap to retry, and the
+  /// send's own quote still decides. Never "route unavailable" as the fee.
+  Future<void> _fetchEstimate({bool retried = false}) async {
     final destination = _destination;
     final units = _amountBaseUnits;
     if (destination == null) return;
@@ -1236,12 +1325,14 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     setState(() {
       _estimateLoading = true;
       _estimateError = null;
+      _estimateBlock = null;
       _estimateOut = null;
     });
+    UsdSendEstimateIssue? issue;
+    Object? cause;
+    var out = 0.0;
     try {
-      final est = await OrchestraService.getEstimate(
-        sourceChain: kOrchestraUsdChain,
-        sourceAsset: kOrchestraUsdAssetCode,
+      final est = await ref.read(usdSendEstimatorProvider)(
         destinationChain: destination.chain,
         destinationAsset: orchestraAssetCodeFor(destination.assetCode),
         amount: units.toString(), // dollar base units, six decimals
@@ -1250,31 +1341,126 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         recipientAddress: _recipientReady ? _address.text.trim() : null,
       );
       if (!mounted || seq != _estimateSeq) return;
-      final gross = est.data == null
-          ? 0.0
-          : orchestraAmountToDouble(
-              est.data!.estimatedOut, destination.assetCode,
-              chain: destination.chain);
-      // The estimate leaves the Kute fee out; the quote that is paid
-      // takes it, so "You receive" and the fee note use the net figure.
-      final out = est.data == null
-          ? 0.0
-          : orchestraOutNetOfKuteFee(est.data!, gross) ?? gross;
-      setState(() {
-        _estimateLoading = false;
-        if (out > 0) {
-          _estimateOut = out;
-        } else {
-          _estimateError = context.l10n.swapRouteTemporarilyUnavailable;
-        }
-      });
+      final data = est.data;
+      if (data == null) {
+        cause = est.cause;
+        issue = usdSendEstimateIssue(
+          errorCode: est.errorCode,
+          statusCode: est.statusCode,
+          policyRefusal: isPolicyRefusal(est.cause),
+        );
+      } else {
+        final gross = orchestraAmountToDouble(
+            data.estimatedOut, destination.assetCode,
+            chain: destination.chain);
+        // The estimate leaves the Kute fee out; the quote that is paid
+        // takes it, so "You receive" and the fee note use the net figure.
+        out = orchestraOutNetOfKuteFee(data, gross) ?? gross;
+        // Priced at nothing: the amount does not cover the route's costs.
+        if (out <= 0) issue = UsdSendEstimateIssue.belowMinimum;
+      }
     } catch (_) {
       if (!mounted || seq != _estimateSeq) return;
+      issue = UsdSendEstimateIssue.transient;
+    }
+    if (issue == null) {
       setState(() {
         _estimateLoading = false;
-        _estimateError = context.l10n.receiveNetworkErrorTapToRetry;
+        _estimateOut = out;
+      });
+      return;
+    }
+    if (issue == UsdSendEstimateIssue.transient && !retried) {
+      // A passing failure is asked once more before it is shown.
+      await Future<void>.delayed(_kEstimateRetryAfter);
+      if (!mounted || seq != _estimateSeq) return;
+      return _fetchEstimate(retried: true);
+    }
+    if (issue == UsdSendEstimateIssue.belowMinimum) {
+      // The route's own minimum, for the words.
+      await _routeMinimumFor(destination);
+      if (!mounted || seq != _estimateSeq) return;
+    }
+    final l10n = context.l10n;
+    final blocked = issue.blocksSend;
+    setState(() {
+      _estimateLoading = false;
+      if (blocked) {
+        _estimateBlock = _estimateBlockText(issue!, cause, units);
+      } else {
+        _estimateError = issue == UsdSendEstimateIssue.transient
+            ? l10n.receiveNetworkErrorTapToRetry
+            : l10n.feeUiUnavailableRetry;
+      }
+    });
+    if (blocked) {
+      TrackingService.moneyFlowError('usd_send', switch (issue) {
+        UsdSendEstimateIssue.belowMinimum => 'below_minimum',
+        UsdSendEstimateIssue.aboveMaximum => 'above_maximum',
+        UsdSendEstimateIssue.liquidity => 'amount_exceeds_liquidity',
+        UsdSendEstimateIssue.restricted => 'restricted',
+        _ => 'route_unavailable',
       });
     }
+  }
+
+  /// The one line a blocking estimate refusal shows under the card.
+  String _estimateBlockText(
+      UsdSendEstimateIssue issue, Object? cause, BigInt units) {
+    final l10n = context.l10n;
+    switch (issue) {
+      case UsdSendEstimateIssue.belowMinimum:
+        // The route's minimum when it is known and this amount is under
+        // it; a minimum the route moved past its limits reads generically.
+        final d = _destination;
+        final min = d == null ? null : _routeMinimums[d.id];
+        return min != null && units < min
+            ? l10n.usdSendMinimum(_formatMinimum(min))
+            : l10n.routeAmountTooSmallGeneric;
+      case UsdSendEstimateIssue.aboveMaximum:
+        return l10n.routeAmountTooLargeGeneric;
+      case UsdSendEstimateIssue.liquidity:
+        return l10n.routeAmountLiquidity;
+      case UsdSendEstimateIssue.restricted:
+        // The restriction's own words, never a failure.
+        if (cause is CapabilityUnavailableException) {
+          return cause.decision.messageIn(l10n);
+        }
+        return l10n.swapRouteTemporarilyUnavailable;
+      case UsdSendEstimateIssue.unavailable:
+      case UsdSendEstimateIssue.transient:
+      case UsdSendEstimateIssue.unknown:
+        return l10n.swapRouteTemporarilyUnavailable;
+    }
+  }
+
+  /// The picked coin's own smallest send ([usdSendRouteMinimumUnits]),
+  /// read once per sheet and bounded by [_kLimitsWait]; null when its
+  /// limits name none or could not be read in time (the quote is then
+  /// the enforcement). A read that lands rebuilds the gates.
+  Future<BigInt?> _routeMinimumFor(UsdSendDestination d) {
+    if (_routeMinimums.containsKey(d.id)) {
+      return Future.value(_routeMinimums[d.id]);
+    }
+    return _routeMinimumReads[d.id] ??= () async {
+      BigInt? minimum;
+      var read = false;
+      try {
+        final limits = await ref
+            .read(usdSendRouteLimitsProvider)(usdSendRouteKey(d))
+            .timeout(_kLimitsWait);
+        minimum = usdSendRouteMinimumUnits(limits);
+        read = true;
+      } catch (_) {
+        // Unread limits leave the quote authoritative; asked again later.
+      }
+      _routeMinimumReads.remove(d.id);
+      if (read) {
+        _routeMinimums[d.id] = minimum;
+        if (mounted) setState(() {});
+      }
+      return minimum;
+    }();
   }
 
   static String _formatOut(double v) {
@@ -1295,14 +1481,28 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     final units = _amountBaseUnits;
     final heroText = units == null ? '0.00' : _formatUsdUnits(units);
     final waiting = _resolvingDrain || _estimateLoading;
+    // Not before the route has priced this amount, and never for an
+    // amount or coin it refused: venue cash must not start home for a
+    // send that cannot go.
     final canSend = !_processing &&
-        !_resolvingDrain &&
+        !waiting &&
+        _estimateBlock == null &&
         _completedSteps.containsAll({_kAmountStep, _kSendToStep}) &&
         _recipientReady &&
         _amountValid;
 
+    // The coin's minimum can land after Review opened: an amount under it
+    // says so here (Send is already off through the amount gate).
+    final belowMinimum =
+        units != null && units > BigInt.zero && units < _minBaseUnits;
+    final reviewError = _error ??
+        _drainError ??
+        _estimateBlock ??
+        (belowMinimum ? _minimumText : null);
+
     final feeRows = <Widget>[];
-    if (destination != null) {
+    // A refusal is said once, under the card, never as the fee.
+    if (destination != null && _estimateBlock == null) {
       if (_estimateError != null) {
         feeRows.add(GestureDetector(
           onTap: () => unawaited(_fetchEstimate()),
@@ -1426,9 +1626,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     child: Column(children: feeRows),
                   ),
                 ],
-                if ((_error ?? _drainError) != null) ...[
+                if (reviewError != null) ...[
                   SizedBox(height: 14.h),
-                  SendRecipientError(message: (_error ?? _drainError)!),
+                  SendRecipientError(message: reviewError),
                 ],
               ],
             ),
@@ -1588,7 +1788,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       setState(() {
         _error = exceeds
             ? context.l10n.usdSendNotEnough
-            : context.l10n.usdSendMinimum('\$${_kMinUsd.toStringAsFixed(2)}');
+            : _minimumText;
       });
       _sendFailedFeedback();
       return;
@@ -1616,7 +1816,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     }
     _retryPull = false;
     if (!_drain && amountBaseUnits > _availableBaseUnits) {
-      final ready = await _pullVenueCash(usdForDisplay);
+      final ready =
+          await _pullVenueCash(usdForDisplay, amountBaseUnits, destination);
       if (!ready) return;
     } else if (_moveUsd != usdForDisplay) {
       _moveId = null;
@@ -1902,12 +2103,36 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// bounded, for Dollars to hold it. True to go on with the send; false
   /// when it stopped (the reason is on screen, and whatever was pulled
   /// stays in Dollars: the send never goes twice).
-  Future<bool> _pullVenueCash(double usd) async {
+  ///
+  /// The send is the last stage, so it is held to its route's minimum
+  /// ([units] against [destination]'s) before any leg goes: venue cash is
+  /// never brought home for a send that would be refused. A leg that does
+  /// not go stops the send at once (the band lets go and the one failure
+  /// tap plays) even while other legs are still on their way: their money
+  /// comes home to Dollars, the line under the card says where it is,
+  /// and Retry takes only what is missing.
+  Future<bool> _pullVenueCash(
+      double usd, BigInt units, UsdSendDestination destination) async {
+    final pull = ++_pullSeq;
     setState(() {
       _processing = true;
       _error = null;
       _stepsMoveId = null;
     });
+    final minimum = await _routeMinimumFor(destination);
+    if (!mounted) return false;
+    if (minimum != null && units < minimum) {
+      TrackingService.moneyFlowError('usd_send', 'below_minimum');
+      setState(() {
+        _processing = false;
+        _error = context.l10n.usdSendMinimum(_formatMinimum(minimum));
+      });
+      _sendFailedFeedback();
+      return false;
+    }
+    VenueCashPlan? planned;
+    final reported = <VenueCashLegOutcome>[];
+    String? stoppedText;
     VenueCashPullOutcome? outcome;
     try {
       if (_moveUsd != usd) _moveId = null;
@@ -1916,14 +2141,30 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
             forAction: VenueCashFor.send,
             moveId: _moveId,
             onPlanned: (plan) {
+              planned = plan;
               if (!mounted || plan.pulls.isEmpty) return;
               setState(() =>
                   _pullProgress = venueCashProgressText(context.l10n, plan));
             },
             // The move's steps take the line from here (its record holds
-            // them, live as each leg lands and the send goes).
+            // them, live as each leg lands and the send goes). A Retry
+            // tapped while legs are still on their way continues it.
             onStarted: (id) {
+              _moveId = id;
+              _moveUsd = usd;
               if (mounted) setState(() => _stepsMoveId = id);
+            },
+            onLeg: (leg) {
+              reported.add(leg);
+              if (leg.ok || stoppedText != null) return;
+              if (!mounted || pull != _pullSeq || !_processing) return;
+              final plan = planned;
+              stoppedText = (plan == null
+                      ? null
+                      : venueCashStoppedEarlyText(
+                          context.l10n, plan, reported)) ??
+                  context.l10n.usdSendFailed;
+              _stopPull(stoppedText!);
             },
           );
     } catch (_) {
@@ -1934,6 +2175,20 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       _moveUsd = usd;
     }
     if (!mounted) return false;
+    if (stoppedText != null) {
+      // Already stopped when the leg failed. The legs still on their way
+      // have answered now: the line says where the money really is, while
+      // nothing else took the screen since.
+      if (pull == _pullSeq && !_processing && _error == stoppedText) {
+        final done = outcome;
+        _retryPull = done == null || done.failedLegs.isNotEmpty;
+        final text =
+            done == null ? null : venueCashStoppedText(context.l10n, done);
+        if (text != null) setState(() => _error = text);
+      }
+      return false;
+    }
+    if (pull != _pullSeq) return false;
     if (outcome != null && outcome.dollarsCover) {
       setState(() => _pullProgress = null);
       return true;
@@ -1958,6 +2213,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     });
     _sendFailedFeedback();
     return false;
+  }
+
+  /// A leg did not go while others may still be on their way: the send
+  /// stops now ([message] says where the money is), the band lets go and
+  /// the one failure tap plays. Retry takes the remainder.
+  void _stopPull(String message) {
+    _retryPull = true;
+    TrackingService.moneyFlowError('usd_send', 'venue_cash_pending');
+    setState(() {
+      _processing = false;
+      _pullProgress = null;
+      _stepsMoveId = null;
+      _error = message;
+    });
+    _sendFailedFeedback();
   }
 
   void _showSent(UsdSendDestination destination, {String? detail}) {

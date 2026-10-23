@@ -9,6 +9,7 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/venue_cash_pull_copy.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart';
+import 'package:kute/services/one_balance/venue_funder.dart';
 
 void main() {
   final l10n = lookupAppLocalizations(const Locale('en'));
@@ -45,5 +46,35 @@ void main() {
             direct: {OneBalanceVenue.investing, OneBalanceVenue.predictions}),
         '${l10n.oneBalanceComingBack(usd(p), l10n.predictions)}\n'
         '${l10n.oneBalanceComingBack(usd(i), l10n.trading)}');
+  });
+
+  test(
+      'stopped at the first failed leg: a leg that went and a leg still on '
+      'its way are coming home; the failed one is not named', () {
+    final p = plan.pullFrom(OneBalanceVenue.predictions)!;
+    final i = plan.pullFrom(OneBalanceVenue.investing)!;
+    String usd(double v) => '\$${v.toStringAsFixed(2)}';
+    final failed = VenueCashLegOutcome(
+        pull: p, error: const RouteUnavailable('paused'));
+    // Investing has not answered yet: it is still on its way home.
+    expect(
+        venueCashStoppedEarlyText(l10n, plan, [failed]),
+        '${l10n.oneBalanceComingBack(usd(i.usd), l10n.trading)}\n'
+        '${l10n.activityBitcoinAddedPending}');
+    // Investing failed and Predictions went: only Predictions is named.
+    final went = VenueCashLegOutcome(
+        pull: p,
+        result: VenueMoveResult(
+            quoteId: 'q', sentUsd: p.usd, arrivingUsdEstimate: p.usd));
+    final investingFailed = VenueCashLegOutcome(
+        pull: i, error: const RouteUnavailable('paused'));
+    expect(
+        venueCashStoppedEarlyText(l10n, plan, [investingFailed, went]),
+        '${l10n.oneBalanceComingBack(usd(p.usd), l10n.predictions)}\n'
+        '${l10n.activityBitcoinAddedPending}');
+    // Nothing went and nothing is going.
+    expect(
+        venueCashStoppedEarlyText(l10n, plan, [failed, investingFailed]),
+        isNull);
   });
 }
