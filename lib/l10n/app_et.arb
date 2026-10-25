@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Muutust pole, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kui sul on bitcoini, näed siin oma saldot ajas",
   "balanceChartEmptyDollars": "Kui sul on dollareid, näed siin oma saldot ajas",
+  "pnlChartEmpty": "Kui kaupled või ennustad, näed siin oma kasumit ja kahjumit",
   "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
   "portfolioBuyingPower": "Ostujõud",
   "portfolioBuyingPowerHint": "Valmis igaks tehinguks või ennustuseks",

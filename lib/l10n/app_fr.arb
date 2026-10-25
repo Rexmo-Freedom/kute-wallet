@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Aucun changement, {start} – {end}",
   "balanceChartEmptyBitcoin": "L'évolution de votre solde s'affichera ici dès que vous détiendrez des bitcoins",
   "balanceChartEmptyDollars": "L'évolution de votre solde s'affichera ici dès que vous détiendrez des dollars",
+  "pnlChartEmpty": "Vos gains et pertes s'afficheront ici dès que vous négocierez ou ferez des prédictions",
   "portfolioPositionsCount": "{count, plural, one{{count} position} other{{count} positions}}",
   "portfolioBuyingPower": "Pouvoir d'achat",
   "portfolioBuyingPowerHint": "Prêt pour tout trade ou toute prédiction",

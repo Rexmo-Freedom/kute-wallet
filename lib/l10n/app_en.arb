@@ -6723,6 +6723,8 @@
   "@balanceChartEmptyBitcoin": {"description": "Quiet one-line message centred on the Bitcoin balance chart when the balance is zero across the whole selected range."},
   "balanceChartEmptyDollars": "Your balance over time shows here once you hold dollars",
   "@balanceChartEmptyDollars": {"description": "Quiet one-line message centred on the Dollars balance chart when the balance is zero across the whole selected range."},
+  "pnlChartEmpty": "Your profit and loss shows here once you trade or predict",
+  "@pnlChartEmpty": {"description": "Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction."},
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positions}}",
   "@portfolioPositionsCount": {"description": "Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.", "placeholders": {"count": {"type": "int"}}},
   "portfolioBuyingPower": "Buying power",

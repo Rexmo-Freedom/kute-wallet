@@ -11083,6 +11083,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Saldosi kehitys näkyy tässä, kun sinulla on dollareita';
 
   @override
+  String get pnlChartEmpty =>
+      'Voittosi ja tappiosi näkyvät tässä, kun käyt kauppaa tai ennustat';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

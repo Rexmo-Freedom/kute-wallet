@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Καμία αλλαγή, {start} – {end}",
   "balanceChartEmptyBitcoin": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε bitcoin",
   "balanceChartEmptyDollars": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια",
+  "pnlChartEmpty": "Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις",
   "portfolioPositionsCount": "{count, plural, =1{1 θέση} other{{count} θέσεις}}",
   "portfolioBuyingPower": "Αγοραστική δύναμη",
   "portfolioBuyingPowerHint": "Έτοιμα για κάθε συναλλαγή ή πρόβλεψη",

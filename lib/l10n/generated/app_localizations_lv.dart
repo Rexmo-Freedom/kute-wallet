@@ -11038,6 +11038,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
 
   @override
+  String get pnlChartEmpty =>
+      'Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu un zaudējumus';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Nincs változás, {start} – {end}",
   "balanceChartEmptyBitcoin": "Az egyenleged alakulása itt jelenik meg, amint lesz bitcoinod",
   "balanceChartEmptyDollars": "Az egyenleged alakulása itt jelenik meg, amint lesz dollárod",
+  "pnlChartEmpty": "A nyereséged és veszteséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz",
   "portfolioPositionsCount": "{count, plural, =1{1 pozíció} other{{count} pozíció}}",
   "portfolioBuyingPower": "Vásárlóerő",
   "portfolioBuyingPowerHint": "Bármilyen kereskedésre vagy előrejelzésre kész",

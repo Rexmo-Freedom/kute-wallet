@@ -11068,6 +11068,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Ditt saldo över tid visas här när du har dollar';
 
   @override
+  String get pnlChartEmpty =>
+      'Din vinst och förlust visas här när du handlar eller förutsäger';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -622,8 +622,8 @@ void main() {
       expect(find.byType(PortfolioStatistics), findsNothing);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(find.byType(KuteLineChart), findsOneWidget);
-      // No range row: the whole history, pinched to zoom.
-      expect(find.byType(KuteRangePills), findsNothing);
+      // The range row under the plot, 1W to ALL.
+      expect(find.byType(KuteRangePills), findsOneWidget);
       expect(find.text('Profit and loss'), findsOneWidget);
       String headline() => tester
           .widget<RollingNumberText>(
@@ -642,11 +642,15 @@ void main() {
       // No Earn, ever.
       expect(find.text('Earn', skipOffstage: false), findsNothing);
 
-      expect(find.text('ALL'), findsNothing);
+      double lineEnd() =>
+          tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last;
+      expect(lineEnd(), 19);
       await tester
           .tap(find.byKey(const ValueKey('statistics-venue-polymarket')));
       await tester.pumpAndSettle();
       expect(headline(), r'+$4.00');
+      // The toggle still filters the line: Predictions' alone.
+      expect(lineEnd(), 4);
       expect(events.last.$1, 'portfolio_statistics_venue_toggled');
       expect(events.last.$2, {'venue': 'polymarket'});
 

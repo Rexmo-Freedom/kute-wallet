@@ -11058,6 +11058,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Kui sul on dollareid, näed siin oma saldot ajas';
 
   @override
+  String get pnlChartEmpty =>
+      'Kui kaupled või ennustad, näed siin oma kasumit ja kahjumit';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

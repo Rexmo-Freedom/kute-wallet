@@ -11075,6 +11075,10 @@ class AppLocalizationsSk extends AppLocalizations {
       'Keď budete mať doláre, uvidíte tu vývoj svojho zostatku';
 
   @override
+  String get pnlChartEmpty =>
+      'Keď začnete obchodovať alebo predikovať, uvidíte tu svoj zisk a stratu';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -11114,6 +11114,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Kai turėsite dolerių, čia matysite savo likučio pokyčius';
 
   @override
+  String get pnlChartEmpty =>
+      'Kai prekiausite ar prognozuosite, čia matysite savo pelną ir nuostolius';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

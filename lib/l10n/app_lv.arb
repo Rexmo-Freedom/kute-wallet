@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Bez izmaiņām, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
   "balanceChartEmptyDollars": "Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
+  "pnlChartEmpty": "Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu un zaudējumus",
   "portfolioPositionsCount": "{count, plural, =1{1 pozīcija} other{{count} pozīcijas}}",
   "portfolioBuyingPower": "Pirktspēja",
   "portfolioBuyingPowerHint": "Gatavs jebkuram darījumam vai prognozei",

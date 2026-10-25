@@ -59,7 +59,11 @@
 //     the finger ([KuteLineChart.headerBuilder]), so a chart can write the
 //     scrubbed value there instead of on the floating card, and an
 //     optional dotted baseline at the first value on screen
-//     ([KuteLineChart.startBaseline]).
+//     ([KuteLineChart.startBaseline]);
+//   * an optional fixed baseline ([KuteLineChart.baselineAt], the P&L
+//     chart's zero): dotted across the plot, always on the scale, and with
+//     [KuteLineChart.fillAboveColor] / [KuteLineChart.fillBelowColor] the
+//     fill runs between the line and it, tinted by the side it is on.
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -278,6 +282,18 @@ class KuteLineChart extends StatefulWidget {
   /// so the line reads as up or down from where the window starts.
   final bool startBaseline;
 
+  /// A faint dotted line across the plot at this fixed value (a P&L's
+  /// zero), kept on the scale of every window so it always spans the
+  /// width; takes the place of [startBaseline]. Null draws none.
+  final double? baselineAt;
+
+  /// With [baselineAt], the fill runs between the line and the baseline
+  /// instead of down to the bottom of the plot: this colour (low alpha)
+  /// where the line is above it, [fillBelowColor] where it is below.
+  /// Null for both keeps the standard fill in [lineColor].
+  final Color? fillAboveColor;
+  final Color? fillBelowColor;
+
   /// A new value puts the window back on the whole series (a range pill
   /// tapped again). A series of another length also does, unless
   /// [resetViewOnLengthChange] is off.
@@ -356,6 +372,9 @@ class KuteLineChart extends StatefulWidget {
     this.summaryBuilder,
     this.headerBuilder,
     this.startBaseline = false,
+    this.baselineAt,
+    this.fillAboveColor,
+    this.fillBelowColor,
     this.viewResetKey,
     this.resetViewOnLengthChange = true,
     this.defaultSpan,
@@ -639,7 +658,8 @@ class _KuteLineChartState extends State<KuteLineChart>
         lockedMinY: widget.lockedMinY,
         lockedMaxY: widget.lockedMaxY,
         indices: _drawn(window),
-        minShare: widget.minScaleShare);
+        minShare: widget.minScaleShare,
+        include: widget.baselineAt);
     final y = kuteLineY(values[ti], size.height, d);
     return KuteCrosshairData(
       x: x,
@@ -720,8 +740,15 @@ class _KuteLineChartState extends State<KuteLineChart>
                     strokeWidth: widget.strokeWidth,
                     stepped: widget.stepped,
                     showScale: widget.showScale,
-                    baseline:
-                        widget.startBaseline ? values[firstOnScreen] : null,
+                    baseline: widget.baselineAt ??
+                        (widget.startBaseline ? values[firstOnScreen] : null),
+                    includeBaseline: widget.baselineAt != null,
+                    fillAbove: widget.baselineAt == null
+                        ? null
+                        : widget.fillAboveColor,
+                    fillBelow: widget.baselineAt == null
+                        ? null
+                        : widget.fillBelowColor,
                     projectedFrom: widget.projectedFrom,
                     lockedMinY: widget.lockedMinY,
                     lockedMaxY: widget.lockedMaxY,
@@ -813,7 +840,8 @@ class _KuteLineChartState extends State<KuteLineChart>
           lockedMinY: widget.lockedMinY,
           lockedMaxY: widget.lockedMaxY,
           indices: _drawn(all),
-          minShare: widget.minScaleShare);
+          minShare: widget.minScaleShare,
+          include: widget.baselineAt);
       final levels = kuteScaleLevels(whole.minY, whole.maxY,
           minStep: widget.scaleMinStep);
       final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
@@ -847,7 +875,8 @@ class _KuteLineChartState extends State<KuteLineChart>
                           lockedMinY: widget.lockedMinY,
                           lockedMaxY: widget.lockedMaxY,
                           indices: morphSeries != null ? null : drawn,
-                          minShare: widget.minScaleShare),
+                          minShare: widget.minScaleShare,
+                          include: widget.baselineAt),
                       label: label,
                       color: c.textTertiary,
                       minStep: widget.scaleMinStep,
@@ -988,8 +1017,9 @@ class _KuteScaleLabelsPainter extends CustomPainter {
 /// and where the line crosses an edge of the window, so a point off
 /// screen never stretches the scale. With [minShare] the scale spans at
 /// least that share of its largest value (see
-/// [KuteLineChart.minScaleShare]). A line flat at zero sits in the middle
-/// with a single level, zero.
+/// [KuteLineChart.minScaleShare]). With [include] that value is always on
+/// the scale ([KuteLineChart.baselineAt]). A line flat at zero sits in the
+/// middle with a single level, zero.
 KuteYDomain kuteLineDomain(
   List<double> series,
   KuteIndexWindow window, {
@@ -997,6 +1027,7 @@ KuteYDomain kuteLineDomain(
   double? lockedMaxY,
   List<int>? indices,
   double? minShare,
+  double? include,
 }) {
   if (lockedMinY != null && lockedMaxY != null) {
     return (minY: lockedMinY, maxY: lockedMaxY);
@@ -1034,6 +1065,7 @@ KuteYDomain kuteLineDomain(
       take(series[i]);
     }
   }
+  if (include != null && include.isFinite) take(include);
   if (lo == 0 && hi == 0) return (minY: -0.4, maxY: 0.4);
   var l = lo!, u = hi!;
   final least = (minShare ?? 0) * math.max(l.abs(), u.abs());
@@ -1084,6 +1116,15 @@ class _KuteLinePainter extends CustomPainter {
   /// The value the dotted baseline is drawn at; null draws none.
   final double? baseline;
 
+  /// The baseline is a fixed value kept on the scale
+  /// ([KuteLineChart.baselineAt]).
+  final bool includeBaseline;
+
+  /// The fill between the line and [baseline], per side; null for both
+  /// fills down to the bottom in the line's colour.
+  final Color? fillAbove;
+  final Color? fillBelow;
+
   /// See [KuteLineChart.scaleMinStep].
   final double? scaleMinStep;
 
@@ -1106,6 +1147,9 @@ class _KuteLinePainter extends CustomPainter {
     this.minScaleShare,
     this.scaleMinStep,
     this.baseline,
+    this.includeBaseline = false,
+    this.fillAbove,
+    this.fillBelow,
   });
 
   @override
@@ -1127,7 +1171,8 @@ class _KuteLinePainter extends CustomPainter {
         lockedMinY: lockedMinY,
         lockedMaxY: lockedMaxY,
         indices: drawn,
-        minShare: minScaleShare);
+        minShare: minScaleShare,
+        include: includeBaseline ? baseline : null);
     double toY(double v) => kuteLineY(v, h, d);
     double toX(int i) => n == 1 ? w : view.xOf(i.toDouble(), w);
 
@@ -1203,7 +1248,50 @@ class _KuteLinePainter extends CustomPainter {
     if (historyPts.length >= 2) {
       final path =
           stepped ? kuteStepPath(historyPts) : kuteMonotonePath(historyPts);
-      if (showFill) {
+      final fillBase = morphSeries == null ? baseline : null;
+      if (showFill &&
+          fillBase != null &&
+          fillBase.isFinite &&
+          (fillAbove != null || fillBelow != null)) {
+        // Between the line and the baseline, tinted by the side: the
+        // area above it in one colour, below it in the other, each
+        // fading towards the baseline.
+        final y0 = toY(fillBase);
+        final fill = Path.from(path)
+          ..lineTo(historyPts.last.dx, y0)
+          ..lineTo(historyPts.first.dx, y0)
+          ..close();
+        final bounds = fill.getBounds();
+        void side(Color? color, Rect rect, bool above) {
+          if (color == null || rect.height <= 0) return;
+          canvas.save();
+          // Inside the plot's width: the stroke may run off the edges of a
+          // zoomed window, the shading stops at them.
+          canvas.clipRect(Rect.fromLTRB(0, rect.top, w, rect.bottom));
+          canvas.drawPath(
+              fill,
+              Paint()
+                ..shader = LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: above
+                      ? [
+                          color.withValues(alpha: 0.18),
+                          color.withValues(alpha: 0.03),
+                        ]
+                      : [
+                          color.withValues(alpha: 0.03),
+                          color.withValues(alpha: 0.18),
+                        ],
+                ).createShader(rect));
+          canvas.restore();
+        }
+
+        side(fillAbove, Rect.fromLTRB(0, math.min(bounds.top, y0), w, y0),
+            true);
+        side(fillBelow,
+            Rect.fromLTRB(0, y0, w, math.max(bounds.bottom, y0)), false);
+      } else if (showFill) {
         // The fill stops where the history does: shading under a
         // forecast would give it the weight of money that arrived.
         final fill = Path.from(path)
@@ -1296,6 +1384,9 @@ class _KuteLinePainter extends CustomPainter {
       !listEquals(old.indices, indices) ||
       old.minScaleShare != minScaleShare ||
       old.baseline != baseline ||
+      old.includeBaseline != includeBaseline ||
+      old.fillAbove != fillAbove ||
+      old.fillBelow != fillBelow ||
       old.scaleMinStep != scaleMinStep ||
       old.window != window;
 

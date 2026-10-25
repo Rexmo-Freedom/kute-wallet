@@ -10647,6 +10647,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get balanceChartEmptyDollars => 'ドルを保有すると、残高の推移がここに表示されます';
 
   @override
+  String get pnlChartEmpty => '取引や予測をすると、損益がここに表示されます';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -3085,6 +3085,7 @@
   "balanceNoChangeBetween": "Ei muutosta, {start} – {end}",
   "balanceChartEmptyBitcoin": "Saldosi kehitys näkyy tässä, kun sinulla on bitcoinia",
   "balanceChartEmptyDollars": "Saldosi kehitys näkyy tässä, kun sinulla on dollareita",
+  "pnlChartEmpty": "Voittosi ja tappiosi näkyvät tässä, kun käyt kauppaa tai ennustat",
   "portfolioPositionsCount": "{count, plural, =1{1 positio} other{{count} positiota}}",
   "portfolioBuyingPower": "Ostovoima",
   "portfolioBuyingPowerHint": "Valmiina mihin tahansa kauppaan tai ennusteeseen",

@@ -1,3 +1,5 @@
+import 'package:kute/models/balance_history.dart';
+
 /// Venue-reported cumulative profit and loss. Values are USD, not account
 /// equity, deposits, withdrawals, or a reconstruction from recent fills.
 enum PortfolioPerformanceVenue { trading, predictions }
@@ -460,6 +462,59 @@ double? _pnlDifference(double? current, double? previous) {
     throw const FormatException('Invalid P&L change');
   }
   return difference;
+}
+
+/// The P&L chart's line (portfolio_pnl_chart.dart): [data]'s cumulative
+/// P&L laid on the Balance charts' even grid ([stepGridSeries], the same
+/// ranges, buckets and pinch limits as [BalanceSeries]) up to [now], each
+/// grid point the last observation at or before it, so a bucket draws its
+/// closing P&L and a swing inside it never shows. The last point is the
+/// P&L now ([PortfolioPerformance.totalPnlUsd], else the last
+/// observation).
+///
+/// It starts a short lead-in (a twelfth of the history, at least an hour)
+/// before the first observation off zero, the first trade or prediction
+/// as far as the series knows, held at zero: both venues' series start
+/// with the account at zero, so a range longer than the trading history
+/// opens on the first trade, never on a long flat stretch before it. A
+/// P&L that never left zero is the last week, flat at zero (the chart's
+/// empty state). Times are local wall-clock, as the Balance charts'.
+BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
+  final end = now.toLocal();
+  final changes = <(DateTime, double)>[
+    for (final p in data.points)
+      if (!p.timestamp.toLocal().isAfter(end))
+        (p.timestamp.toLocal(), p.pnlUsd)
+  ];
+  final current =
+      data.totalPnlUsd ?? (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
+  DateTime? start;
+  for (final c in changes) {
+    if (c.$2 != 0) {
+      start = c.$1;
+      break;
+    }
+  }
+  if (start == null && current != 0) start = end;
+  DateTime first;
+  if (start == null) {
+    first = end.subtract(const Duration(days: 7));
+  } else {
+    var lead = Duration(
+        microseconds:
+            (end.difference(start).inMicroseconds * kBalanceHistoryLeadIn)
+                .round());
+    if (lead < kBalanceMinLeadIn) lead = kBalanceMinLeadIn;
+    first = start.subtract(lead);
+  }
+  return stepGridSeries(
+    first: first,
+    now: end,
+    opening: 0,
+    // Nothing on record still means zero before now, not the P&L now.
+    changes: changes.isEmpty ? [(first, 0.0)] : changes,
+    current: current,
+  );
 }
 
 /// Distinct from an empty, successfully read history and a transport failure.
