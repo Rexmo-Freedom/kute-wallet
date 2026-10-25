@@ -160,6 +160,29 @@ class KuteDogPose {
 
   /// Exactly the pose the SVG is drawn in.
   static const KuteDogPose neutral = KuteDogPose();
+
+  /// Every value blended from [a] to [b] by [t] (0 is [a], 1 is [b]), so
+  /// one loop can hand over to another without a pop.
+  static KuteDogPose lerp(KuteDogPose a, KuteDogPose b, double t) {
+    double l(double x, double y) => x + (y - x) * t;
+    return KuteDogPose(
+      headTilt: l(a.headTilt, b.headTilt),
+      headBob: l(a.headBob, b.headBob),
+      headLean: l(a.headLean, b.headLean),
+      earLeft: l(a.earLeft, b.earLeft),
+      earRight: l(a.earRight, b.earRight),
+      tail: l(a.tail, b.tail),
+      blink: l(a.blink, b.blink),
+      squash: l(a.squash, b.squash),
+      bodyBob: l(a.bodyBob, b.bodyBob),
+      lift: l(a.lift, b.lift),
+      pawLeft: l(a.pawLeft, b.pawLeft),
+      pawRight: l(a.pawRight, b.pawRight),
+      lookX: l(a.lookX, b.lookX),
+      lookY: l(a.lookY, b.lookY),
+      tongue: l(a.tongue, b.tongue),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -583,9 +606,10 @@ class KuteDogIdle extends StatelessWidget {
 // Cheer: a short celebratory bounce
 // ─────────────────────────────────────────────────────────────────────
 
-const int _kCheerMs = 1600;
+const int kKuteDogCheerMs = 1600;
 
-KuteDogPose _cheerPose(double ms) {
+/// Two hops with the tail going, then a beat of panting.
+KuteDogPose kuteDogCheerPose(double ms) {
   // Two hops, then a beat of panting so it never looks frantic.
   final hop = kutePulse(ms, 40, 400) + kutePulse(ms, 470, 830);
   final land = kutePulse(ms, 380, 500) + kutePulse(ms, 810, 930);
@@ -619,12 +643,63 @@ class KuteDogCheer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => KuteDogLoop(
         size: size,
-        period: const Duration(milliseconds: _kCheerMs),
-        poseAt: _cheerPose,
+        period: const Duration(milliseconds: kKuteDogCheerMs),
+        poseAt: kuteDogCheerPose,
         restMs: 1450,
         shadowColor: shadowColor,
         cycles: cycles,
       );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Wag: the result sheet's happy burst
+// ─────────────────────────────────────────────────────────────────────
+
+const int kKuteDogWagMs = 1500;
+
+/// A fast, wide tail-wag burst with his ears perked, one small hop as it
+/// starts and his tongue out, easing back to [KuteDogPose.neutral] by the
+/// end (where the idle loop picks up). The swing is wide and quick on
+/// purpose: in a 40 px header the idle loop's wag barely reads. It is
+/// centred below the resting angle, out to his side, because a tail
+/// lifted much past rest disappears behind his body.
+KuteDogPose kuteDogWagPose(double ms) {
+  final rise = (ms / 120).clamp(0.0, 1.0);
+  final fall = 1 - ((ms - 1050) / 450).clamp(0.0, 1.0);
+  final e = Curves.easeInOut.transform(math.min(rise, fall));
+  final hop = kutePulse(ms, 40, 300);
+  final land = kutePulse(ms, 280, 400);
+  return KuteDogPose(
+    lift: 0.7 * hop,
+    squash: 1 + 0.05 * hop - 0.07 * land,
+    headBob: -0.25 * hop,
+    headTilt: 0.08 * e * kuteWave(ms, 760),
+    earLeft: -0.30 * e,
+    earRight: -0.36 * e,
+    tail: e * (-0.25 + 0.5 * kuteWave(ms, 190)),
+    tongue: 0.38 * e,
+    lookY: -0.5 * e,
+  );
+}
+
+/// Sal let down: ears flopped, head low, tail still and dropped, a slow
+/// breath and the odd blink. Eases in over its first 400 ms from neutral.
+const int kKuteDogSadMs = 7200;
+
+KuteDogPose kuteDogSadPose(double ms) {
+  final e = Curves.easeOut.transform((ms / 400).clamp(0.0, 1.0));
+  final breathe = kuteWave(ms, 3600);
+  return KuteDogPose(
+    squash: 1 + 0.016 * breathe,
+    bodyBob: -0.06 * breathe,
+    headBob: 0.45 * e,
+    headTilt: 0.10 * e,
+    earLeft: 0.55 * e,
+    earRight: 0.60 * e,
+    tail: -0.28 * e,
+    blink: kuteBlink(ms, 2200) + kuteBlink(ms, 5600),
+    lookX: -0.6 * e,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────

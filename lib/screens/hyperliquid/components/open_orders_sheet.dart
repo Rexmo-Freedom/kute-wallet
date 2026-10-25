@@ -15,7 +15,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -54,15 +53,12 @@ void _showCancellationReceipt(
               ? l10n.investingAllCancelled
               : l10n.investingCancelled,
       detail: l10n.investingCancellationDetails,
-      showCloseButton: true,
       onDone: () => navigator.pop(),
-      receipt: TradeReceipt(
-        title: coin ?? l10n.trading,
-        rows: {
-          if (reference != null) l10n.investingReference: reference,
-          if (count != null) l10n.investingOrderCount: '$count',
-        },
-      ),
+      contextLine: coin ?? l10n.trading,
+      rows: {
+        if (reference != null) l10n.investingReference: reference,
+        if (count != null) l10n.investingOrderCount: '$count',
+      },
     ),
   );
 }

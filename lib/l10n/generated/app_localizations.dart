@@ -7371,6 +7371,12 @@ abstract class AppLocalizations {
   /// **'Bitcoin sent'**
   String get confirmationBitcoinSent;
 
+  /// Context line on the send result sheet, under the amount: who the payment went to (a shortened address, a Lightning address or a name).
+  ///
+  /// In en, this message translates to:
+  /// **'To {recipient}'**
+  String confirmationSentToRecipient(String recipient);
+
   /// No description provided for @confirmationWalletBackedUp.
   ///
   /// In en, this message translates to:

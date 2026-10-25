@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Ostatnia wycena odbioru wyniosła {sats} sats, co pochłonęłoby całą wpłatę. Możesz poczekać na niższe opłaty lub ją zwrócić.",
   "depositClaimStatusUnknown": "Odbiór mógł zostać wysłany. Sprawdzanie statusu wpłaty.",
   "confirmationBitcoinSent": "Bitcoin wysłany",
+  "confirmationSentToRecipient": "Do {recipient}",
   "confirmationWalletBackedUp": "Kopia portfela gotowa",
   "confirmationPinUpdated": "PIN zmieniony",
   "confirmationWalletRecovered": "Portfel odzyskany",

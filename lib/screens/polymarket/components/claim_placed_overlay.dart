@@ -1,4 +1,3 @@
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 // Confirmation shown after winnings are claimed. The payout stays in the
 // Predictions balance (redeemPosition does not route it to Bitcoin), so
 // there is nothing pending to mention.
@@ -6,7 +5,6 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/l10n/l10n.dart';
 
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -41,29 +39,28 @@ class ClaimPlacedOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final amount = amountUsd;
     return KuteConfirmation(
-      message: context.l10n.confirmationWinningsClaimed,
-      detail: amountUsd == null
-          ? context.l10n.betClaimUpdating
-          : context.l10n.betClaimAdded,
-      showCloseButton: true,
+      tone: KuteConfirmationTone.celebrate,
+      message: l10n.confirmationWinningsClaimed,
+      amount: amount == null ? null : '\$${amount.toStringAsFixed(2)}',
+      contextLine: _context(outcome, marketQuestion),
+      rows: {
+        l10n.ledgerSummaryDestination: l10n.homeNavPredictionsBalance,
+        // The claim is relayer-paid: the one fact the old review page
+        // added, now on the confirmation.
+        l10n.networkFee2: l10n.ledgerFeeFree,
+      },
+      // The credited amount still updating is the one pending fact.
+      detail: amount == null ? l10n.betClaimUpdating : null,
       onDone: () => Navigator.of(context).pop(),
-      receipt: TradeReceipt(
-          leading: const PolyReceiptArtwork(),
-          title: marketQuestion,
-          subtitle: outcome,
-          rows: {
-            context.l10n.payout:
-                amountUsd == null ? '…' : '\$${amountUsd!.toStringAsFixed(2)}',
-            context.l10n.ledgerSummaryDestination:
-                context.l10n.homeNavPredictionsBalance,
-            // The claim is relayer-paid: the one fact the old review page
-            // added, now on the confirmation.
-            context.l10n.networkFee2: context.l10n.ledgerFeeFree,
-          }),
     );
   }
 }
+
+String _context(String outcome, String marketQuestion) =>
+    outcome.isEmpty ? marketQuestion : '$outcome · $marketQuestion';
 
 /// [navigator] when the screen the tap came from is already closing (its
 /// context then no longer reaches one).
@@ -77,12 +74,7 @@ void pushPositionClearedOverlay(
       navigator: nav,
       overlay: KuteConfirmation(
         message: nav.context.l10n.betPositionCleared,
-        showCloseButton: true,
+        contextLine: _context(outcome, marketQuestion),
         onDone: nav.pop,
-        receipt: TradeReceipt(
-            leading: const PolyReceiptArtwork(),
-            title: marketQuestion,
-            subtitle: outcome,
-            rows: const {}),
       ));
 }

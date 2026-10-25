@@ -3634,7 +3634,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             : '₿${outSats.toFormattedString(btcFormat)}',
         fromWalletName: 'Predictions',
         toWalletName: investing ? l10n.trading : dollars ? l10n.assetDollars : spendingName,
-        assetIconAsset: 'lib/assets/polymarket-logo.svg',
         note: l10n.moveConversionOngoing,
       );
     } catch (e) {
@@ -4093,7 +4092,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '₿${sats.toFormattedString(btcFormat)}',
         fromWalletName: fromName,
         toWalletName: 'Predictions',
-        assetIconAsset: 'lib/assets/polymarket-logo.svg',
         // Orchestra credits the Safe in 1–3 min, then the wrap → pUSD
         // happens. Surface that to the user so the home tile bumping
         // ~minute later doesn't feel like a surprise.
@@ -4257,7 +4255,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${estOut.toStringAsFixed(2)}',
         fromWalletName: settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.assetDollars,
-        assetIconAsset: kUsdMarkAsset,
         note: settled.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -4642,7 +4639,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       amount: '\$${usd.toStringAsFixed(2)}',
       fromWalletName: l10n.assetDollars,
       toWalletName: settings.activeWallet?.name ?? l10n.spending,
-      assetIconAsset: 'lib/assets/bitcoin-icon.svg',
       note: l10n.moveConversionOngoing,
     );
   }
@@ -4877,7 +4873,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${sent.sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
         toWalletName: settings.activeWallet?.name ?? l10n.spending,
-        assetIconAsset: 'lib/assets/bitcoin-icon.svg',
         note: sent.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -5136,7 +5131,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
         toWalletName: 'Predictions',
-        assetIconAsset: 'lib/assets/polymarket-logo.svg',
         note: settled.registered
             ? l10n.moveConversionOngoing
             : context.l10n.settlementRegistering,
@@ -5282,7 +5276,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${(result.amountIn.toDouble() / 1e6).toStringAsFixed(2)}',
         fromWalletName: l10n.assetDollars,
         toWalletName: l10n.trading,
-        assetIconAsset: 'lib/assets/hyperliquid-logo.svg',
         note: result.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -5371,7 +5364,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
             '₿${result.amountIn.toInt().toFormattedString(settings.btcFormat)}',
         fromWalletName: settings.activeWallet?.name ?? l10n.spending,
         toWalletName: l10n.trading,
-        assetIconAsset: 'lib/assets/hyperliquid-logo.svg',
         note: result.registered
             ? l10n.moveConversionOngoing
             : l10n.settlementRegistering,
@@ -5517,7 +5509,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
         toWalletName: l10n.predictions,
-        assetIconAsset: 'lib/assets/polymarket-logo.svg',
         note: l10n.moveConversionOngoing,
       );
     } catch (e) {
@@ -5679,7 +5670,6 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         amount: '\$${sentUsd.toStringAsFixed(2)}',
         fromWalletName: l10n.trading,
         toWalletName: dollars ? l10n.assetDollars : name,
-        assetIconAsset: 'lib/assets/hyperliquid-logo.svg',
         note: l10n.moveConversionOngoing,
       );
     } catch (e) {
@@ -6469,21 +6459,19 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       // double-fire here.
       pushKuteSuccessOverlay(
         navigator: nav,
-        overlay: KuteSuccessOverlay(
-          icon: KuteIconSpec(
-            assetImage: destination.icon,
-            tintDisc: false,
-          ),
-          headlineLabel: destination.isVenue
-              ? 'DEPOSIT RECEIVED'
+        overlay: KuteConfirmation(
+          message: destination.isVenue
+              ? l10n.activityDepositReceived
               : destination == CashAppDestination.dollars
-                  ? l10n.cashAppDollarsPurchased.toUpperCase()
-                  : l10n.cashAppBitcoinPurchased.toUpperCase(),
+                  ? l10n.cashAppDollarsPurchased
+                  : l10n.cashAppBitcoinPurchased,
+          // What was paid in Cash App is the hero; what arrived, and
+          // where, is the line under it.
           amount: '\$${_cashAppUsd.toStringAsFixed(2)}',
           // On-chain delivery names the cold wallet it went to; the
           // dollar balance and the default both live on the Spending
           // Account, so they share its line.
-          subtitle: destination.isVenue
+          contextLine: destination.isVenue
               ? '\$${received.toStringAsFixed(2)} added to ${destination.label}${ledgerVenueWalletId != null ? ' on Ledger' : ''}'
               : destination == CashAppDestination.dollars
                   ? l10n.moveAmountArrived('\$${received.toStringAsFixed(2)}')

@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Das letzte Abholangebot lag bei {sats} sats und würde diese Einzahlung aufbrauchen. Du kannst auf niedrigere Gebühren warten oder sie erstatten lassen.",
   "depositClaimStatusUnknown": "Deine Abholung wurde eventuell übermittelt. Der Einzahlungsstatus wird geprüft.",
   "confirmationBitcoinSent": "Bitcoin gesendet",
+  "confirmationSentToRecipient": "An {recipient}",
   "confirmationWalletBackedUp": "Wallet gesichert",
   "confirmationPinUpdated": "PIN geändert",
   "confirmationWalletRecovered": "Wallet wiederhergestellt",

@@ -4175,6 +4175,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get confirmationBitcoinSent => 'Τα bitcoin στάλθηκαν';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Προς $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp =>
       'Το αντίγραφο ασφαλείας του πορτοφολιού δημιουργήθηκε';
 

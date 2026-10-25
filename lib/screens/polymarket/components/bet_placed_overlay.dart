@@ -1,13 +1,13 @@
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 // lib/screens/polymarket/components/bet_placed_overlay.dart
 //
-// Confirmation shown after a prediction is placed. The layout lives in
-// the shared `KuteSuccessOverlay` / `KuteConfirmation`.
+// Result sheet shown after a prediction is placed: the cost on the side
+// as the hero, the market under it, shares and payout as rows. Done
+// closes it; "View prediction" opens the position. The layout lives in
+// the shared `KuteConfirmation`.
 
 import 'package:flutter/material.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart' show PolymarketPosition;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsPositions;
 
@@ -83,11 +83,23 @@ class BetPlacedOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final approx = estimated ? '≈ ' : '';
+    final cost = '\$${total.toStringAsFixed(2)}';
     return KuteConfirmation(
-      message: context.l10n.betPredictionPlaced,
-      showCloseButton: true,
-      buttonText: context.l10n.betViewPrediction,
-      onDone: () {
+      message: l10n.betPredictionPlaced,
+      amount: approx +
+          (outcome.isEmpty ? cost : l10n.betAmountOnSide(cost, outcome)),
+      contextLine: marketQuestion,
+      rows: {
+        l10n.betShares: '$approx${shares.toStringAsFixed(2)}',
+        l10n.betReceiptPayout:
+            '$approx\$${potentialPayout.toStringAsFixed(2)}',
+      },
+      detail: note ?? (estimated ? l10n.betReceiptUpdating : null),
+      onDone: () => Navigator.of(context).pop(),
+      secondaryButtonText: l10n.betViewPrediction,
+      onSecondary: () {
         final nav = Navigator.of(context);
         final placed = position;
         nav.pop();
@@ -98,19 +110,6 @@ class BetPlacedOverlay extends StatelessWidget {
         // What the account holds now: the Investments tab's Positions.
         openInvestmentsPositions(nav.context);
       },
-      detail: note ?? (estimated ? context.l10n.betReceiptUpdating : null),
-      receipt: TradeReceipt(
-          leading: PolyReceiptArtwork(url: marketImage),
-          title: marketQuestion,
-          subtitle: outcome,
-          rows: {
-            context.l10n.betReceiptCost:
-                '${estimated ? "≈ " : ""}\$${total.toStringAsFixed(2)}',
-            context.l10n.betShares:
-                '${estimated ? "≈ " : ""}${shares.toStringAsFixed(2)}',
-            context.l10n.betReceiptPayout:
-                '${estimated ? "≈ " : ""}\$${potentialPayout.toStringAsFixed(2)}',
-          }),
     );
   }
 }

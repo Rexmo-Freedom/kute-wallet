@@ -38,6 +38,8 @@ import 'package:kute/providers/ledger/ledger_action_controller.dart';
 import 'package:kute/providers/ledger/ledger_executors_provider.dart';
 import 'package:kute/providers/ledger/ledger_polymarket_account_provider.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart'
+    show KuteConfirmationTone;
 import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
@@ -409,10 +411,18 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
       await RubberBand.settle(context);
       if (!mounted) {
         // Torn down during the snap: the sale stands, and says so.
+        final matched = outcome.result?.status?.toLowerCase() == 'matched';
         showLedgerConfirmation(navigator,
-            message: outcome.result?.status?.toLowerCase() == 'matched'
-                ? l10n.ledgerSold
-                : l10n.ledgerPendingStatus);
+            message: matched ? l10n.ledgerSold : l10n.ledgerPendingStatus,
+            contextLine: '${_position.outcome} · ${_position.title}',
+            rows: {
+              l10n.ledgerSummaryShares: ledgerFormatShares(quote.makerAmount),
+              l10n.ledgerSummaryMinProceeds:
+                  ledgerFormatMicros(quote.takerAmount),
+            },
+            tone: matched
+                ? KuteConfirmationTone.success
+                : KuteConfirmationTone.pending);
         return;
       }
     }
@@ -432,6 +442,15 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
         showLedgerConfirmation(
           navigator,
           message: matched ? l10n.ledgerSold : l10n.ledgerPendingStatus,
+          contextLine: '${_position.outcome} · ${_position.title}',
+          rows: {
+            l10n.ledgerSummaryShares: ledgerFormatShares(quote.makerAmount),
+            l10n.ledgerSummaryMinProceeds:
+                ledgerFormatMicros(quote.takerAmount),
+          },
+          tone: matched
+              ? KuteConfirmationTone.success
+              : KuteConfirmationTone.pending,
         );
       case LedgerApprovalOutcomeKind.pending:
       case LedgerApprovalOutcomeKind.backgrounded:

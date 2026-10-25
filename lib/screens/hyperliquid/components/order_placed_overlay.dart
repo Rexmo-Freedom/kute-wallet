@@ -1,15 +1,13 @@
 import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 // lib/screens/hyperliquid/components/order_placed_overlay.dart
 //
-// Confirmation shown after an Investing order fills. The order slip
+// Result sheet shown after an Investing order fills. The order slip
 // captures the root navigator BEFORE popping its sheets, then calls
 // [pushHlOrderPlacedOverlay] with the actual fill from the exchange.
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders, openInvestmentsPositions;
 
@@ -132,40 +130,47 @@ class HlOrderPlacedOverlay extends StatelessWidget {
         effect == HlPositionEffect.close ||
         effect == HlPositionEffect.flip;
     final pnl = realizedPnl;
+    final base = HlMarket.baseCoin(coin);
+    final side = isSpot
+        ? (isLong ? l10n.investingBought : l10n.investingSold)
+        : (isLong ? l10n.longLabel : l10n.shortLabel);
+    // The hero: what the fill was worth. An open or an add says the side
+    // and the margin it took ("Long $12.00"), a spot fill its total, an
+    // exit the total it closed.
+    final amount = exits
+        ? formatHlUsd(notionalUsd)
+        : l10n.slipCtaSideAmount(
+            side,
+            formatHlUsd(isSpot || leverage <= 0
+                ? notionalUsd
+                : notionalUsd / leverage));
     return KuteConfirmation(
-      message: context.l10n.confirmationOrderFilled,
-      showCloseButton: true,
-      buttonText: context.l10n.investingViewPositions,
-      onDone: () {
+      message: l10n.confirmationOrderFilled,
+      amount: amount,
+      // The effect on a position already held ("Reduced long · 0.05 BTC",
+      // "Closed long"); the coin itself for an open. The Amount row
+      // carries the coin either way.
+      contextLine: effectLabel ?? base,
+      rows: {
+        l10n.amount: '${formatHlSize(sizeFilled)} $coin',
+        l10n.price2: formatHlPrice(avgPx, decimalCap: market?.pxDecimalCap),
+        if (!isSpot && !exits) ...{
+          l10n.chartPositionSize: formatHlUsd(notionalUsd),
+          l10n.chartLeverage: '$leverage×',
+        },
+        if (exits && pnl != null)
+          l10n.portfolioStatRealized:
+              '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
+      },
+      detail: l10n.investingBalanceUpdating,
+      onDone: () => Navigator.of(context).pop(),
+      secondaryButtonText: l10n.investingViewPositions,
+      onSecondary: () {
         final nav = Navigator.of(context);
         nav.pop();
         // What the account holds now: the Investments tab's Positions.
         openInvestmentsPositions(nav.context);
       },
-      detail: context.l10n.investingBalanceUpdating,
-      receipt: TradeReceipt(
-          leading: HlCoinIcon(
-              coin: HlMarket.baseCoin(coin),
-              wireCoin: market?.wireCoin ?? coin,
-              iconUrl: market?.iconUrl,
-              category: market?.category),
-          title: HlMarket.baseCoin(coin),
-          subtitle: isSpot
-              ? (isLong
-                  ? context.l10n.investingBought
-                  : context.l10n.investingSold)
-              : effectLabel ??
-                  '${isLong ? context.l10n.longLabel : context.l10n.shortLabel} · $leverage×',
-          rows: {
-            context.l10n.amount: '${formatHlSize(sizeFilled)} $coin',
-            context.l10n.price2:
-                formatHlPrice(avgPx, decimalCap: market?.pxDecimalCap),
-            isSpot || exits ? context.l10n.total : context.l10n.chartPositionSize:
-                formatHlUsd(notionalUsd),
-            if (exits && pnl != null)
-              l10n.portfolioStatRealized:
-                  '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
-          }),
     );
   }
 }
@@ -193,11 +198,13 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => KuteConfirmation(
+        tone: KuteConfirmationTone.pending,
         message: isClose
             ? context.l10n.investingCloseOrderAccepted
             : context.l10n.investingOrderAccepted,
+        amount: amount,
+        contextLine: HlMarket.baseCoin(coin),
         detail: context.l10n.investingOrderPendingFill,
-        showCloseButton: true,
         onDone: () => Navigator.of(context).pop(),
         secondaryButtonText:
             viewOrders ? context.l10n.investingViewOrders : null,
@@ -210,14 +217,5 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
                     orderKind: isClose ? 'close' : 'open');
               }
             : null,
-        receipt: TradeReceipt(
-          leading: HlCoinIcon(
-              coin: HlMarket.baseCoin(coin),
-              wireCoin: market?.wireCoin ?? coin,
-              iconUrl: market?.iconUrl,
-              category: market?.category),
-          title: HlMarket.baseCoin(coin),
-          rows: {context.l10n.amount: amount},
-        ),
       );
 }

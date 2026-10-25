@@ -23,6 +23,8 @@ import 'package:kute/providers/ledger/ledger_action_controller.dart';
 import 'package:kute/providers/ledger/ledger_executors_provider.dart';
 import 'package:kute/providers/ledger/ledger_polymarket_account_provider.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart'
+    show KuteConfirmationTone;
 import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -173,7 +175,11 @@ class _LedgerClaimSheetState extends ConsumerState<LedgerClaimSheet> {
       final remaining = _conditions
           .where((p) => _stateFor(p.conditionId) == LedgerClaimRowState.ready);
       if (remaining.isEmpty) Navigator.of(context).pop();
-      showLedgerConfirmation(navigator, message: l10n.ledgerClaimSubmitted);
+      showLedgerConfirmation(navigator,
+          message: l10n.ledgerClaimSubmitted,
+          amount: ledgerFormatUsd(value),
+          contextLine: '${position.outcome} · ${position.title}',
+          tone: KuteConfirmationTone.celebrate);
     } else if (outcome.isPending) {
       ref.invalidate(ledgerPendingActionsProvider(walletId));
     }

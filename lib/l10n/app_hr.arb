@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Zadnja ponuda za preuzimanje bila je {sats} sats, što bi potrošilo cijelu uplatu. Možeš pričekati niže naknade ili zatražiti povrat.",
   "depositClaimStatusUnknown": "Tvoje preuzimanje je možda poslano. Provjera statusa uplate.",
   "confirmationBitcoinSent": "Bitcoin poslan",
+  "confirmationSentToRecipient": "Za {recipient}",
   "confirmationWalletBackedUp": "Sigurnosna kopija novčanika napravljena",
   "confirmationPinUpdated": "PIN ažuriran",
   "confirmationWalletRecovered": "Novčanik oporavljen",

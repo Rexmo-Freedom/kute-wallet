@@ -4140,6 +4140,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get confirmationBitcoinSent => 'Bitcoin odoslaný';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Pre $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp => 'Peňaženka zálohovaná';
 
   @override

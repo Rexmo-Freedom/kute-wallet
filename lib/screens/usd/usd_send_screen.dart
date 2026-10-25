@@ -101,6 +101,8 @@ import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/transaction_modal.dart'
+    show PaymentTransactionOverlay;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -2051,7 +2053,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       setState(() => _sent = true);
       await RubberBand.settle(context);
       if (!mounted) return;
-      _showSent(destination, detail: detail);
+      _showSent(destination,
+          amountUnits: settled.quote.amountIn,
+          recipient: recipient,
+          detail: detail);
     } catch (e) {
       // NOTHING IS RETRIED HERE, on any rail. A declined step-up is
       // silent (the user said no); everything else shows why and leaves
@@ -2254,17 +2259,29 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     _sendFailedFeedback();
   }
 
-  void _showSent(UsdSendDestination destination, {String? detail}) {
+  /// The result sheet over the screen the Withdraw sheet sat on: the
+  /// dollars that went in ([amountUnits], the quote's exact input) and
+  /// the address they went to.
+  void _showSent(UsdSendDestination destination,
+      {required BigInt amountUnits,
+      required String recipient,
+      String? detail}) {
     final navigator = Navigator.of(context);
     final l10n = context.l10n;
     // `true`: the send went out, so the Withdraw sheet under it closes.
     navigator.pop(true);
     pushKuteSuccessOverlay(
       navigator: navigator,
-      overlay: KuteSuccessOverlay(
-        headlineLabel: l10n.confirmationSentToWallet(
+      overlay: KuteConfirmation(
+        message: l10n.confirmationSentToWallet(
             '${destination.displaySymbol} · ${destination.chainDisplayName}'),
+        amount: '\$${_formatUsdUnits(amountUnits)}',
+        contextLine: recipient.isEmpty
+            ? null
+            : l10n.confirmationSentToRecipient(
+                PaymentTransactionOverlay.shortRecipient(recipient)),
         detail: detail,
+        onDone: navigator.pop,
       ),
     );
   }

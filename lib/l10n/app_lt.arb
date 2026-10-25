@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Paskutinis atsiėmimo įvertinimas buvo {sats} sats, o tai sunaudotų visą šį įnašą. Galite palaukti mažesnių mokesčių arba jį grąžinti.",
   "depositClaimStatusUnknown": "Jūsų atsiėmimas galėjo būti pateiktas. Tikrinama įnašo būsena.",
   "confirmationBitcoinSent": "Bitcoin išsiųstas",
+  "confirmationSentToRecipient": "Gavėjas: {recipient}",
   "confirmationWalletBackedUp": "Piniginės atsarginė kopija sukurta",
   "confirmationPinUpdated": "PIN atnaujintas",
   "confirmationWalletRecovered": "Piniginė atkurta",

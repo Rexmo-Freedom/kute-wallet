@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Senaste offerten för hämtning var {sats} sats, vilket skulle förbruka hela insättningen. Du kan vänta på lägre avgifter eller återbetala den.",
   "depositClaimStatusUnknown": "Din hämtning kan ha skickats. Kontrollerar insättningens status.",
   "confirmationBitcoinSent": "Bitcoin skickad",
+  "confirmationSentToRecipient": "Till {recipient}",
   "confirmationWalletBackedUp": "Plånbok säkerhetskopierad",
   "confirmationPinUpdated": "PIN uppdaterad",
   "confirmationWalletRecovered": "Plånbok återställd",

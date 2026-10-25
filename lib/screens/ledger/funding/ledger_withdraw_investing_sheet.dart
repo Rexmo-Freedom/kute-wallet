@@ -414,6 +414,10 @@ class _LedgerWithdrawInvestingSheetState
       navigator: navigator,
       overlay: KuteConfirmation(
         message: l10n.ledgerWithdrawSentMessage,
+        amount: ledgerFormatUsd(_usd(review.amountBaseUnits)),
+        tone: pending
+            ? KuteConfirmationTone.pending
+            : KuteConfirmationTone.success,
         detail: pending
             ? l10n.ledgerSubmitPendingPlain
             : l10n.ledgerArrivesAfterNetwork,

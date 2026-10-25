@@ -846,6 +846,15 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
           txid: txId,
           receiveAddress: address,
           confirmationBlocks: ref.read(sendBlocksProvider),
+          fees: [
+            // The fee the reviewed transaction pays (0 when unknown).
+            if ((widget.feeSatsOverride ?? 0) > 0)
+              SendFeeDetail(
+                label: context.l10n.networkFee2,
+                value:
+                    '${widget.feeSatsOverride!.toFormattedString(settings.btcFormat)} ${settings.btcFormat}',
+              ),
+          ],
         );
 
         ref.read(sendTxProvider.notifier).resetToDefault();

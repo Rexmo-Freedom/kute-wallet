@@ -317,6 +317,10 @@ void main() {
     await tester.pump(RubberBand.snapSettle);
     await tester.pump();
     expect(find.byType(KuteConfirmation), findsOneWidget);
+    // A filled close is a success: the size closed as the hero.
+    final sheet = tester.widget<KuteConfirmation>(find.byType(KuteConfirmation));
+    expect(sheet.resolvedTone, KuteConfirmationTone.success);
+    expect(sheet.amount, contains('0.5'));
     await _frames(tester, 40);
     expect(_band(tester).stretch, 0);
     expect(_band(tester).ticking, isFalse);

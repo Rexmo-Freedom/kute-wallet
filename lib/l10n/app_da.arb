@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Den seneste indløsningspris var {sats} sats, hvilket ville opbruge denne indbetaling. Du kan vente på lavere gebyrer eller refundere den.",
   "depositClaimStatusUnknown": "Din indløsning er muligvis indsendt. Tjekker indbetalingens status.",
   "confirmationBitcoinSent": "Bitcoin sendt",
+  "confirmationSentToRecipient": "Til {recipient}",
   "confirmationWalletBackedUp": "Backup af tegnebog taget",
   "confirmationPinUpdated": "PIN-kode opdateret",
   "confirmationWalletRecovered": "Tegnebog gendannet",

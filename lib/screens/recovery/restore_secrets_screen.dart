@@ -282,16 +282,16 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
     TrackingService.seedRestoreCompleted(
         method: 'phrase', matched: stored != null);
     if (mounted && stored != null) {
-      // The same confirmation every money moment ends on: one check, one
-      // line, Done. Done only pops the overlay; the row behind it already
-      // reads restored and other wallets may still be waiting.
+      // The shared result sheet, over this screen. Done only closes it;
+      // the row behind it already reads restored and other wallets may
+      // still be waiting.
       final rootNav = Navigator.of(context, rootNavigator: true);
       pushKuteSuccessOverlay(
         navigator: rootNav,
         overlay: KuteConfirmation(
           message: context.l10n.confirmationWalletRecovered,
-          detail: context.l10n.restorePhraseMatch(wallet.name),
-          onDone: () => rootNav.pop(),
+          contextLine: context.l10n.restorePhraseMatch(wallet.name),
+          onDone: rootNav.pop,
         ),
       );
     }

@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Viimane kättesaamise pakkumine oli {sats} sats, mis kulutaks selle sissemakse ära. Võid oodata madalamaid tasusid või selle tagastada.",
   "depositClaimStatusUnknown": "Sinu kättesaamine võis olla esitatud. Sissemakse oleku kontrollimine.",
   "confirmationBitcoinSent": "Bitcoin saadetud",
+  "confirmationSentToRecipient": "Saaja: {recipient}",
   "confirmationWalletBackedUp": "Rahakott varundatud",
   "confirmationPinUpdated": "PIN uuendatud",
   "confirmationWalletRecovered": "Rahakott taastatud",

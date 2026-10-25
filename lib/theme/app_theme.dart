@@ -308,6 +308,10 @@ class AppColors {
   static const Color marketUp = Color(0xFF1FA663);
   static const Color marketDown = Color(0xFFD9485A);
 
+  // The win accent: the mark on a result sheet for a won prediction or a
+  // claimed payout. Defined once here; nothing hardcodes the gold.
+  static const Color celebrate = Color(0xFFD4AF37);
+
   static const Color success = Color(0xFF34C759);
   static const Color error = Color(0xFFFF3B30);
   static const Color warning = Color(0xFFF7931A);

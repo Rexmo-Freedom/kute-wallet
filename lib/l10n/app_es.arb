@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "La última cotización de reclamación fue de {sats} sats, lo que consumiría este depósito. Puedes esperar a que bajen las comisiones o reembolsarlo.",
   "depositClaimStatusUnknown": "Es posible que tu reclamación se haya enviado. Comprobando el estado del depósito.",
   "confirmationBitcoinSent": "Bitcoin enviado",
+  "confirmationSentToRecipient": "Para {recipient}",
   "confirmationWalletBackedUp": "Copia de seguridad hecha",
   "confirmationPinUpdated": "PIN actualizado",
   "confirmationWalletRecovered": "Cartera recuperada",

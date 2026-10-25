@@ -112,6 +112,8 @@ import 'package:kute/services/orchestra/onetime_receive.dart'
 import 'package:kute/services/support_service.dart' show openSupportChat;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
+import 'package:kute/screens/shared/transaction_modal.dart'
+    show PaymentTransactionOverlay;
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
@@ -5301,11 +5303,15 @@ class _UnclaimedDepositSheetState
           final detail = result.paymentStatus == breez.PaymentStatus.completed
               ? null
               : context.l10n.activityBitcoinAddedPending;
+          final unit = ref.read(settingsProvider).btcFormat;
           context.pop();
           pushKuteSuccessOverlay(
             navigator: rootNav,
             overlay: KuteConfirmation(
               message: message,
+              amount: claimedSats > 0
+                  ? '${claimedSats.toFormattedString(unit)} $unit'
+                  : null,
               detail: detail,
               onDone: () => rootNav.pop(),
             ),
@@ -5427,13 +5433,18 @@ class _UnclaimedDepositSheetState
         return;
       }
       // Completed action: close the sheet and end on the confirmation.
+      // No amount hero: what arrives is the deposit less a network fee
+      // the refund has not reported, so only where it goes is exact.
       final message = context.l10n.activityRefundStarted;
       final detail = context.l10n.depositRefundSubmitted;
+      final to = context.l10n.confirmationSentToRecipient(
+          PaymentTransactionOverlay.shortRecipient(result.address));
       context.pop();
       pushKuteSuccessOverlay(
         navigator: rootNav,
         overlay: KuteConfirmation(
           message: message,
+          contextLine: to,
           detail: detail,
           onDone: () => rootNav.pop(),
         ),
