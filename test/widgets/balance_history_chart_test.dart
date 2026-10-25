@@ -29,51 +29,40 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 /// The Balance charts (Bitcoin wallets and Dollars) have no range row:
-/// they show the whole history, from a short lead-in before the first
-/// change to now, drawn in steps, with a quiet scale on the left and no
+/// they open on the last 30 days at most, from the first money held, and
+/// pinch out to the whole history, with a quiet scale on the left and no
 /// "+100.0%" from a zero start.
 void main() {
   final now = DateTime(2026, 10, 5, 18, 0);
 
-  group('the window and the steps', () {
-    test('one deposit today: lead-in, step, flat to now (no ramp, no wall)',
-        () {
+  group('the series and the window', () {
+    test('one deposit today: the line opens on it, flat to now', () {
       // João's Dollars case: $5.02 arriving three hours ago, nothing
-      // before. Two points of history, 0 then $5.02.
+      // before. The line starts on the money, never on a zero lead-in.
       final h = BalanceHistory(
         opening: 0,
         changes: [(now.subtract(const Duration(hours: 3)), 5.02)],
         current: 5.02,
       );
-      final w = balanceHistoryWindow(h, now);
-      expect(w.end, now);
-      // A twelfth of the three hours before the deposit.
-      expect(w.start, now.subtract(const Duration(hours: 3, minutes: 15)));
-
-      final samples = sampleBalanceHistory(h, now);
-      expect(samples.length, kBalanceHistorySamples);
-      // Every point is either nothing or the whole deposit: a step, never
-      // a ramp through values in between.
-      expect(samples.map((s) => s.$2).toSet(), {0.0, 5.02});
-      final firstHeld = samples.indexWhere((s) => s.$2 > 0);
-      // The step sits near the left, after a short flat lead-in, and the
-      // rest of the width is flat at the balance: no wall at the right.
-      expect(firstHeld, greaterThan(5));
-      expect(firstHeld / samples.length, lessThan(0.12));
-      expect(samples.sublist(firstHeld).every((s) => s.$2 == 5.02), isTrue);
-      expect(samples.last, (now, 5.02));
+      final s = balanceSeries(h, now);
+      expect(s.cellMinutes, 15);
+      expect(s.times.first, now.subtract(const Duration(hours: 3)));
+      expect(s.times.last, now);
+      expect(s.values.toSet(), {5.02});
+      // Three hours is the whole history: the chart opens on all of it.
+      expect(s.defaultSpan, s.extent);
     });
 
-    test('a deposit this very second still gets a lead-in and a tail', () {
+    test('a deposit this very second: two points, flat', () {
       final h = BalanceHistory(
           opening: 0, changes: [(now, 17520)], current: 17520);
-      final samples = sampleBalanceHistory(h, now);
-      final firstHeld = samples.indexWhere((s) => s.$2 > 0);
-      expect(firstHeld, greaterThan(5));
-      expect(firstHeld, lessThan(samples.length ~/ 4));
+      final s = balanceSeries(h, now);
+      expect(s.length, 2);
+      expect(s.values, [17520, 17520]);
+      expect(s.defaultSpan, s.extent);
     });
 
-    test('a long history starts just before its first change', () {
+    test('a long history: the grid coarsens, the line still ends now', () {
       final first = now.subtract(const Duration(days: 270));
       final h = BalanceHistory(
         opening: 0,
@@ -84,19 +73,34 @@ void main() {
         ],
         current: 690400,
       );
-      final w = balanceHistoryWindow(h, now);
-      expect(w.start, first.subtract(const Duration(days: 22, hours: 12)));
+      final s = balanceSeries(h, now);
+      expect(s.cellMinutes, 60);
+      expect(s.length, lessThanOrEqualTo(kBalanceMaxCells + 2));
+      expect(s.times.first, first);
+      expect(s.values.first, 250000);
+      expect(s.values.last, 690400);
       expect(h.heldAt(now.subtract(const Duration(days: 100))), 250000);
       expect(h.heldAt(first.subtract(const Duration(seconds: 1))), 0);
-      expect(h.heldAt(now), 690400);
+      // Grid points sit on whole hours after the first one.
+      expect(s.times[1].minute, 0);
+      expect(s.times[1].second, 0);
+    });
+
+    test('money held before the first change: a short lead-in', () {
+      final c0 = now.subtract(const Duration(days: 12));
+      final h = BalanceHistory(
+          opening: 100, changes: [(c0, 150)], current: 150);
+      final s = balanceSeries(h, now);
+      expect(s.times.first, c0.subtract(const Duration(days: 1)));
+      expect(s.values.first, 100);
     });
 
     test('no change on record: the last week, flat at the balance', () {
       const h = BalanceHistory(opening: 0, changes: [], current: 1200);
-      final w = balanceHistoryWindow(h, now);
-      expect(w.end.difference(w.start), const Duration(days: 7));
-      expect(
-          sampleBalanceHistory(h, now).every((s) => s.$2 == 1200), isTrue);
+      final s = balanceSeries(h, now);
+      expect(s.times.last.difference(s.times.first),
+          const Duration(days: 7));
+      expect(s.values.every((v) => v == 1200), isTrue);
     });
   });
 
@@ -207,9 +211,11 @@ void main() {
       expect(find.text('+100.0%'), findsNothing);
       expect(find.byType(KuteLineChart), findsOneWidget);
       final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-      expect(chart.stepped, isTrue);
+      // The other line charts' curve, on each bucket's close.
+      expect(chart.stepped, isFalse);
+      expect(chart.buckets, isNotNull);
       expect(chart.scaleLabel, isNotNull);
-      expect(chart.values.toSet(), {0.0, 5.02});
+      expect(chart.values.toSet(), {5.02});
       // No headline above the plot (owner decision): the balance is the
       // hero card above the strip, and a touch reads it off the chart.
       expect(find.byType(RollingNumberText), findsNothing);
@@ -304,7 +310,7 @@ void main() {
       expect(find.text(today()), findsNothing);
       expect(find.text('+100.0%'), findsNothing);
       final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-      expect(chart.stepped, isTrue);
+      expect(chart.stepped, isFalse);
       // The line is the balance in sats, as the headline leads with.
       expect(chart.values.last, 17520);
       // No headline above the plot on home either: a touch reads it.

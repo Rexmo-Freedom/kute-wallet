@@ -48,7 +48,13 @@
 //     sees zooms in a little and back out, once;
 //   * an optional overlay over the line ([KuteLineChart.plotOverlay]),
 //     built for the window on screen, so a mark on the chart's scale
-//     follows every pan and pinch.
+//     follows every pan and pinch;
+//   * optional buckets ([KuteLineChart.buckets]) for a long series laid
+//     evenly in time (the Balance charts): only each bucket's close is
+//     drawn, scaled and scrubbed, the bucket sized for the window on
+//     screen, so a pinch re-buckets and a blip inside a bucket never
+//     reaches the line or the scale; and an optional opening window
+//     ([KuteLineChart.defaultSpan]) narrower than the whole series.
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -107,6 +113,52 @@ class KuteLineTimeAxis {
     this.live = true,
     this.locale,
   });
+}
+
+/// Buckets over a long series laid evenly in time: a window draws only
+/// the points that close a bucket ([strideFor] points apart, counted
+/// from [phase] before the first point) and the last point, so what
+/// moved inside a bucket never shows. Before the first close the line
+/// holds that close's level: the first bucket reads as its close too.
+class KuteLineBuckets {
+  /// The points per bucket for a window [span] points wide.
+  final int Function(double span) strideFor;
+
+  /// Points from a bucket boundary to the series' first point.
+  final int phase;
+
+  const KuteLineBuckets({required this.strideFor, this.phase = 0});
+
+  /// The points drawn for [window] over [n] points, in order: each bucket
+  /// close inside it, and the nearest drawn point beyond each edge so the
+  /// line runs off the plot instead of stopping short.
+  List<int> indicesFor(int n, KuteIndexWindow window) {
+    if (n <= 0) return const [];
+    if (n == 1) return const [0];
+    final k = math.max(1, strideFor(window.span));
+    // The last drawn point at or before [i] (none before the first
+    // close), and the first at or after it.
+    int? prev(int i) {
+      if (i >= n - 1) return n - 1;
+      final c = i - (i + phase) % k;
+      return c >= 0 ? c : null;
+    }
+
+    int next(int i) {
+      if (i >= n - 1) return n - 1;
+      final r = (i + phase) % k;
+      return math.min(n - 1, r == 0 ? i : i + k - r);
+    }
+
+    final out = <int>[];
+    var i = prev(window.start.floor().clamp(0, n - 1).toInt()) ?? next(0);
+    while (true) {
+      out.add(i);
+      if (i >= n - 1 || i >= window.end) break;
+      i = next(i + 1);
+    }
+    return out;
+  }
 }
 
 class KuteLineChart extends StatefulWidget {
@@ -192,8 +244,37 @@ class KuteLineChart extends StatefulWidget {
   final Widget? Function(int start, int end)? summaryBuilder;
 
   /// A new value puts the window back on the whole series (a range pill
-  /// tapped again). A series of another length always does.
+  /// tapped again). A series of another length also does, unless
+  /// [resetViewOnLengthChange] is off.
   final Object? viewResetKey;
+
+  /// Off, a series that grows (a balance gaining a point as time passes)
+  /// keeps the window where the user left it; only [viewResetKey] puts it
+  /// back.
+  final bool resetViewOnLengthChange;
+
+  /// The window the chart opens on, in points, ending on the newest one;
+  /// null opens on the whole series. Followed until the first pinch or
+  /// pan, so data landing late re-fits the opening view.
+  final double? defaultSpan;
+
+  /// The closest a pinch gets, in points; null keeps the shared rule
+  /// ([KuteIndexViewport.minSpanFor]).
+  final double? minSpan;
+
+  /// A pinch keeps what is under the fingers under them (see
+  /// [KuteChartGestures.zoomAroundFingers]).
+  final bool zoomAroundFingers;
+
+  /// Draw only each bucket's close (see [KuteLineBuckets]); null draws
+  /// every point.
+  final KuteLineBuckets? buckets;
+
+  /// The least the scale on screen spans, as a share of the largest value
+  /// on it: a balance that barely moved is drawn as barely moving, not
+  /// magnified into a cliff with labels a few sats apart. Null fits the
+  /// points exactly (prices).
+  final double? minScaleShare;
 
   /// The time axis under the plot; null draws none.
   final KuteLineTimeAxis? timeAxis;
@@ -233,6 +314,12 @@ class KuteLineChart extends StatefulWidget {
     this.zoomable = true,
     this.summaryBuilder,
     this.viewResetKey,
+    this.resetViewOnLengthChange = true,
+    this.defaultSpan,
+    this.minSpan,
+    this.zoomAroundFingers = false,
+    this.buckets,
+    this.minScaleShare,
     this.timeAxis,
     this.zoomHint = false,
     this.plotOverlay,
@@ -325,7 +412,8 @@ class _KuteLineChartState extends State<KuteLineChart>
     }
     // Another range (or the same range picked again) starts on the whole
     // series.
-    if (old.values.length != widget.values.length ||
+    if ((widget.resetViewOnLengthChange &&
+            old.values.length != widget.values.length) ||
         old.viewResetKey != widget.viewResetKey) {
       _viewport.reset();
     }
@@ -437,9 +525,20 @@ class _KuteLineChartState extends State<KuteLineChart>
     if (n == 0 || width <= 0) return;
     final window = _viewport.windowFor(_extent);
     final x = dx.clamp(0.0, width);
-    final idx = n == 1
-        ? 0
-        : window.indexAt(x, width).round().clamp(0, n - 1).toInt();
+    final at = window.indexAt(x, width);
+    final drawn = _drawn(window);
+    var idx = n == 1 ? 0 : at.round().clamp(0, n - 1).toInt();
+    if (drawn != null && n > 1) {
+      // On a bucketed line the finger lands on the nearest drawn point on
+      // screen: the card reads the line, never a blip between its points.
+      var best = -1;
+      for (final i in drawn) {
+        final onScreen = i >= window.start - 1e-6 && i <= window.end + 1e-6;
+        if (!onScreen) continue;
+        if (best < 0 || (i - at).abs() < (best - at).abs()) best = i;
+      }
+      if (best >= 0) idx = best;
+    }
     if (idx == _touchIndex) return;
     if (!_scrubStartReported) {
       _scrubStartReported = true;
@@ -463,10 +562,24 @@ class _KuteLineChartState extends State<KuteLineChart>
     widget.onScrubEnd?.call();
   }
 
+  /// The points drawn for [window]: the bucket closes with
+  /// [KuteLineChart.buckets], else null (every point).
+  List<int>? _drawn(KuteIndexWindow window) =>
+      widget.buckets?.indicesFor(widget.values.length, window);
+
   /// First and last index inside [window].
   (int, int) _visibleRange(KuteIndexWindow window) {
     final n = widget.values.length;
     if (n == 0) return (0, 0);
+    final drawn = _drawn(window);
+    if (drawn != null && drawn.isNotEmpty) {
+      final inside = [
+        for (final i in drawn)
+          if (i >= window.start - 1e-6 && i <= window.end + 1e-6) i
+      ];
+      if (inside.isEmpty) return (drawn.first, drawn.last);
+      return (inside.first, inside.last);
+    }
     final first = (window.start - 1e-6).ceil().clamp(0, n - 1).toInt();
     final last = (window.end + 1e-6).floor().clamp(first, n - 1).toInt();
     return (first, last);
@@ -479,7 +592,10 @@ class _KuteLineChartState extends State<KuteLineChart>
     final n = values.length;
     final x = n == 1 ? size.width : window.xOf(ti.toDouble(), size.width);
     final d = kuteLineDomain(values, window,
-        lockedMinY: widget.lockedMinY, lockedMaxY: widget.lockedMaxY);
+        lockedMinY: widget.lockedMinY,
+        lockedMaxY: widget.lockedMaxY,
+        indices: _drawn(window),
+        minShare: widget.minScaleShare);
     final y = kuteLineY(values[ti], size.height, d);
     return KuteCrosshairData(
       x: x,
@@ -522,7 +638,11 @@ class _KuteLineChartState extends State<KuteLineChart>
     final values = widget.values;
     if (values.isEmpty) return const SizedBox.shrink();
 
+    _viewport
+      ..defaultSpan = widget.defaultSpan
+      ..minSpan = widget.minSpan;
     final window = _nudged(_viewport.windowFor(_extent));
+    final drawn = _drawn(window);
     final ti = _touchIndex;
     final scrubbing =
         widget.interactive && ti != null && ti >= 0 && ti < values.length;
@@ -558,6 +678,8 @@ class _KuteLineChartState extends State<KuteLineChart>
                     projectedFrom: widget.projectedFrom,
                     lockedMinY: widget.lockedMinY,
                     lockedMaxY: widget.lockedMaxY,
+                    indices: drawn,
+                    minScaleShare: widget.minScaleShare,
                   ),
                 ),
               ),
@@ -606,6 +728,7 @@ class _KuteLineChartState extends State<KuteLineChart>
               viewport: _viewport,
               extent: _extent,
               zoomable: widget.zoomable,
+              zoomAroundFingers: widget.zoomAroundFingers,
               onViewChanged: () => setState(() {}),
               onScrub: _scrubTo,
               onScrubEnd: _endScrub,
@@ -631,8 +754,12 @@ class _KuteLineChartState extends State<KuteLineChart>
     } else {
       // The strip is as wide as the labels of the whole series' scale, so
       // a pinch never moves the plot sideways.
-      final whole = kuteLineDomain(values, KuteIndexWindow(0, _extent),
-          lockedMinY: widget.lockedMinY, lockedMaxY: widget.lockedMaxY);
+      final all = KuteIndexWindow(0, _extent);
+      final whole = kuteLineDomain(values, all,
+          lockedMinY: widget.lockedMinY,
+          lockedMaxY: widget.lockedMaxY,
+          indices: _drawn(all),
+          minShare: widget.minScaleShare);
       final levels = kuteScaleLevels(whole.minY, whole.maxY);
       final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
       var stripW = 0.0;
@@ -663,7 +790,9 @@ class _KuteLineChartState extends State<KuteLineChart>
                     painter: _KuteScaleLabelsPainter(
                       domain: kuteLineDomain(series, view,
                           lockedMinY: widget.lockedMinY,
-                          lockedMaxY: widget.lockedMaxY),
+                          lockedMaxY: widget.lockedMaxY,
+                          indices: morphSeries != null ? null : drawn,
+                          minShare: widget.minScaleShare),
                       label: label,
                       color: c.textTertiary,
                     ),
@@ -790,29 +919,70 @@ class _KuteScaleLabelsPainter extends CustomPainter {
 /// The y-domain of a line over the points in [window]: the venue charts'
 /// autoscale ([kuteAutoScaleDomain]: a tenth of the plot free above and
 /// below the visible high and low, a flat line centred), unless the host
-/// locks it.
+/// locks it. With [indices] (a bucketed line) only those points count,
+/// and where the line crosses an edge of the window, so a point off
+/// screen never stretches the scale. With [minShare] the scale spans at
+/// least that share of its largest value (see
+/// [KuteLineChart.minScaleShare]). A line flat at zero sits in the middle
+/// with a single level, zero.
 KuteYDomain kuteLineDomain(
   List<double> series,
   KuteIndexWindow window, {
   double? lockedMinY,
   double? lockedMaxY,
+  List<int>? indices,
+  double? minShare,
 }) {
   if (lockedMinY != null && lockedMaxY != null) {
     return (minY: lockedMinY, maxY: lockedMaxY);
   }
   final n = series.length;
   if (n == 0) return (minY: 0, maxY: 1);
-  // The points on screen plus one either side, so the line entering and
-  // leaving the window is on the scale too.
-  final i0 = (window.start.floor()).clamp(0, n - 1).toInt();
-  final i1 = (window.end.ceil()).clamp(i0, n - 1).toInt();
-  var lo = series[i0], hi = series[i0];
-  for (var i = i0; i <= i1; i++) {
-    final v = series[i];
-    if (v < lo) lo = v;
-    if (v > hi) hi = v;
+  double? lo, hi;
+  void take(double v) {
+    if (lo == null || v < lo!) lo = v;
+    if (hi == null || v > hi!) hi = v;
   }
-  return kuteAutoScaleDomain(lo, hi);
+
+  if (indices != null && indices.isNotEmpty) {
+    for (var k = 0; k < indices.length; k++) {
+      final i = indices[k];
+      if (i < 0 || i >= n) continue;
+      if (i >= window.start - 1e-9 && i <= window.end + 1e-9) take(series[i]);
+      if (k == 0) continue;
+      final a = indices[k - 1];
+      if (a < 0 || a >= n || i <= a) continue;
+      for (final edge in [window.start, window.end]) {
+        if (a < edge && i > edge) {
+          final f = (edge - a) / (i - a);
+          take(series[a] + (series[i] - series[a]) * f);
+        }
+      }
+    }
+  }
+  if (lo == null || hi == null) {
+    // The points on screen plus one either side, so the line entering and
+    // leaving the window is on the scale too.
+    final i0 = (window.start.floor()).clamp(0, n - 1).toInt();
+    final i1 = (window.end.ceil()).clamp(i0, n - 1).toInt();
+    for (var i = i0; i <= i1; i++) {
+      take(series[i]);
+    }
+  }
+  if (lo == 0 && hi == 0) return (minY: -0.4, maxY: 0.4);
+  var l = lo!, u = hi!;
+  final least = (minShare ?? 0) * math.max(l.abs(), u.abs());
+  if (u - l < least) {
+    // Widened about the middle, never below zero for amounts held.
+    final mid = (l + u) / 2;
+    l = mid - least / 2;
+    u = mid + least / 2;
+    if (lo! >= 0 && l < 0) {
+      u -= l;
+      l = 0;
+    }
+  }
+  return kuteAutoScaleDomain(l, u);
 }
 
 /// Value → y inside a plot [h] px tall for domain [d]: the linear mapping
@@ -840,6 +1010,12 @@ class _KuteLinePainter extends CustomPainter {
   final double? lockedMinY;
   final double? lockedMaxY;
 
+  /// The points drawn (a bucketed line); null draws every point.
+  final List<int>? indices;
+
+  /// See [KuteLineChart.minScaleShare].
+  final double? minScaleShare;
+
   _KuteLinePainter({
     required this.values,
     required this.morphSeries,
@@ -855,6 +1031,8 @@ class _KuteLinePainter extends CustomPainter {
     required this.projectedFrom,
     required this.lockedMinY,
     required this.lockedMaxY,
+    this.indices,
+    this.minScaleShare,
   });
 
   @override
@@ -870,8 +1048,13 @@ class _KuteLinePainter extends CustomPainter {
         ? KuteIndexWindow(0, (n - 1).toDouble())
         : window;
 
+    // Mid-morph the series is resampled: every point is drawn.
+    final drawn = morphSeries != null ? null : indices;
     final d = kuteLineDomain(series, view,
-        lockedMinY: lockedMinY, lockedMaxY: lockedMaxY);
+        lockedMinY: lockedMinY,
+        lockedMaxY: lockedMaxY,
+        indices: drawn,
+        minShare: minScaleShare);
     double toY(double v) => kuteLineY(v, h, d);
     double toX(int i) => n == 1 ? w : view.xOf(i.toDouble(), w);
 
@@ -895,11 +1078,22 @@ class _KuteLinePainter extends CustomPainter {
 
     // The points on screen plus one either side, so the line runs off
     // the edges of a zoomed window instead of stopping short of them.
-    final i0 = view.start.floor().clamp(0, n - 1).toInt();
-    final i1 = view.end.ceil().clamp(i0, n - 1).toInt();
+    final idx = drawn != null && drawn.isNotEmpty
+        ? drawn
+        : (() {
+            final a = view.start.floor().clamp(0, n - 1).toInt();
+            final b = view.end.ceil().clamp(a, n - 1).toInt();
+            return List<int>.generate(b - a + 1, (k) => a + k);
+          })();
+    final i0 = idx.first;
+    final i1 = idx.last;
     final pts = List<Offset>.generate(
-        i1 - i0 + 1, (k) => Offset(toX(i0 + k), toY(series[i0 + k])),
-        growable: false);
+        idx.length, (k) => Offset(toX(idx[k]), toY(series[idx[k]])),
+        growable: true);
+    // A bucketed line holds its first close's level back to the start of
+    // the series (nothing is drawn before the first close).
+    final lead = drawn != null && drawn.isNotEmpty && drawn.first > view.start;
+    if (lead) pts.insert(0, Offset(toX(0), pts.first.dy));
 
     // Where history ends. Mid-morph the index space is resampled, so the
     // split rides along proportionally instead of pointing at the wrong
@@ -910,7 +1104,8 @@ class _KuteLinePainter extends CustomPainter {
     }
     final historyEnd = split == null ? n - 1 : split.clamp(0, n - 1).toInt();
     // The same split inside the visible points.
-    final localEnd = (historyEnd - i0).clamp(-1, pts.length - 1).toInt();
+    var localEnd = idx.lastIndexWhere((i) => i <= historyEnd);
+    if (lead && localEnd >= 0) localEnd++;
     final historyPts =
         localEnd < 0 ? const <Offset>[] : pts.sublist(0, localEnd + 1);
     final projectedPts = localEnd < pts.length - 1
@@ -1012,6 +1207,8 @@ class _KuteLinePainter extends CustomPainter {
       old.projectedFrom != projectedFrom ||
       old.lockedMinY != lockedMinY ||
       old.lockedMaxY != lockedMaxY ||
+      !listEquals(old.indices, indices) ||
+      old.minScaleShare != minScaleShare ||
       old.window != window;
 
   static bool _sameMorph(List<double>? a, List<double>? b) {

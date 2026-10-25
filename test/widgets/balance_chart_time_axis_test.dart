@@ -92,11 +92,11 @@ void main() {
       .widget<Text>(find.byKey(const ValueKey('kute-time-axis-end')))
       .data!;
 
-  /// What the start label reads for [history]'s whole window.
-  String wholeStart(BalanceHistory history) {
-    final s = sampleBalanceHistory(history, now);
-    final start = s.first.$1, end = s.last.$1;
-    return kuteAxisTime(start, end.difference(start), 'en');
+  /// What the start label reads for the window [history] opens on.
+  String openingStart(BalanceHistory history) {
+    final s = balanceSeries(history, now);
+    final start = s.times[(s.extent - s.defaultSpan).round()];
+    return kuteAxisTime(start, now.difference(start), 'en');
   }
 
   Future<void> dispose(WidgetTester tester) async {
@@ -115,28 +115,47 @@ void main() {
       await pump(tester, chart(h));
       expect(find.byType(KuteTimeAxis), findsOneWidget);
       expect(startText(tester), matches(hour));
-      expect(startText(tester), wholeStart(h));
-      // A twelfth of the three hours of lead-in before the deposit.
-      expect(startText(tester), '14:45');
+      expect(startText(tester), openingStart(h));
+      // From the deposit itself: no lead-in of nothing before it.
+      expect(startText(tester), '15:00');
       expect(endText(tester), 'Now');
       await dispose(tester);
     });
 
-    testWidgets('a window months long: the day', (tester) async {
+    testWidgets('a history months long opens on its last 30 days: the day',
+        (tester) async {
       final h = since(const Duration(days: 60));
       await pump(tester, chart(h));
       expect(startText(tester), matches(day));
-      expect(startText(tester), wholeStart(h));
-      expect(startText(tester), 'Aug 1');
+      expect(startText(tester), openingStart(h));
+      expect(startText(tester), 'Sep 5');
       expect(endText(tester), 'Now');
       await dispose(tester);
     });
 
-    testWidgets('a window years long: the month', (tester) async {
+    testWidgets('a history years long: a pinch out reaches the month',
+        (tester) async {
       final h = since(const Duration(days: 730));
       await pump(tester, chart(h));
+      expect(startText(tester), matches(day));
+      expect(startText(tester), openingStart(h));
+      final rect = tester.getRect(find.byType(KuteLineChart));
+      // Fingers from far apart to close together, again and again: the
+      // whole history.
+      for (var round = 0; round < 3; round++) {
+        final a = await tester.startGesture(rect.center - const Offset(140, 0));
+        final b = await tester.startGesture(
+            rect.center + const Offset(140, 0),
+            pointer: 50 + round);
+        await tester.pump();
+        await a.moveBy(const Offset(130, 0));
+        await b.moveBy(const Offset(-130, 0));
+        await tester.pump();
+        await a.up();
+        await b.up();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       expect(startText(tester), matches(month));
-      expect(startText(tester), wholeStart(h));
       expect(endText(tester), 'Now');
       await dispose(tester);
     });
@@ -162,8 +181,8 @@ void main() {
       await dispose(tester);
     });
 
-    testWidgets('a pinch narrows the dates; a pan leaves "Now"',
-        (tester) async {
+    testWidgets('a pinch narrows the dates around the fingers; a pan walks '
+        'back', (tester) async {
       final h = since(const Duration(days: 60));
       await pump(tester, chart(h));
       final before = startText(tester);
@@ -178,15 +197,17 @@ void main() {
       await a.up();
       await b.up();
       await tester.pump(const Duration(milliseconds: 300));
-      // Zoomed in on the newest third: a later start, still "Now".
+      // Zoomed in on the middle third of the month: a later start, and an
+      // end before now.
       expect(startText(tester), isNot(before));
       expect(startText(tester), matches(day));
-      expect(endText(tester), 'Now');
+      final end = endText(tester);
+      expect(end, matches(day));
 
-      // A drag to the right walks back in time: the end is a date now.
+      // A drag to the right walks back in time: an earlier end.
       await tester.dragFrom(rect.center, const Offset(120, 0));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(endText(tester), isNot('Now'));
+      expect(endText(tester), isNot(end));
       expect(endText(tester), matches(day));
       await dispose(tester);
     });
@@ -206,7 +227,7 @@ void main() {
         (tester) async {
       await pump(tester, chart(h, key: const ValueKey('first')));
       final rest = startText(tester);
-      expect(rest, wholeStart(h));
+      expect(rest, openingStart(h));
       // Not before the wait.
       await tester.pump(const Duration(milliseconds: 500));
       expect(startText(tester), rest);

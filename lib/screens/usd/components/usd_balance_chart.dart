@@ -5,9 +5,10 @@
 // It is the bitcoin Balance tab part for part: the same card, the same
 // [BalanceHistoryChart], the same scrub card. The ONLY difference is the
 // series: dollars held on the spending account instead of the bitcoin
-// balance. Like the bitcoin one it has no range row: the whole history,
-// from just before the first transfer to now, fitted to the width and
-// drawn in steps (a cash balance only moves when a transfer settles).
+// balance. Like the bitcoin one it has no range row: it opens on the last
+// 30 days at most, from the first moment in them that held dollars, and
+// pinch out reaches the whole history, drawn as each bucket's closing
+// balance (see balance_history.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
