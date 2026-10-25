@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Kui sul on dollareid, näed siin oma saldot ajas",
   "portfolioBalanceReadyToUse": "Kasutamiseks valmis",
   "portfolioBalanceInPositionsLabel": "Positsioonides",
-  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 positsioonis} other{{count} positsioonis}}",
-  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 ennustuses} other{{count} ennustuses}}",
   "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
   "portfolioRowEntry": "sisenemine {price}"

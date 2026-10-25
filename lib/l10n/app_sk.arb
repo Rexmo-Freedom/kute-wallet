@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Keď budete mať doláre, uvidíte tu vývoj svojho zostatku",
   "portfolioBalanceReadyToUse": "Pripravené na použitie",
   "portfolioBalanceInPositionsLabel": "V pozíciách",
-  "portfolioBalanceInPositions": "{amount} v {count, plural, =1{1 pozícii} few{{count} pozíciách} other{{count} pozíciách}}",
-  "portfolioBalanceInPredictions": "{amount} v {count, plural, =1{1 predpovedi} few{{count} predpovediach} other{{count} predpovediach}}",
   "portfolioPositionsCount": "{count, plural, =1{1 pozícia} few{{count} pozície} other{{count} pozícií}}",
   "portfolioRowShares": "{shares} ks · priem. {price}",
   "portfolioRowEntry": "vstup {price}"

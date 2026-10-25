@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Din saldo over tid vises her, når du har dollars",
   "portfolioBalanceReadyToUse": "Klar til brug",
   "portfolioBalanceInPositionsLabel": "I positioner",
-  "portfolioBalanceInPositions": "{amount} i {count, plural, =1{1 position} other{{count} positioner}}",
-  "portfolioBalanceInPredictions": "{amount} i {count, plural, =1{1 forudsigelse} other{{count} forudsigelser}}",
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
   "portfolioRowShares": "{shares} andele · gns. {price}",
   "portfolioRowEntry": "indgang {price}"

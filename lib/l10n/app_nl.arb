@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Je saldo door de tijd verschijnt hier zodra je dollars hebt",
   "portfolioBalanceReadyToUse": "Direct te gebruiken",
   "portfolioBalanceInPositionsLabel": "In posities",
-  "portfolioBalanceInPositions": "{amount} in {count, plural, =1{1 positie} other{{count} posities}}",
-  "portfolioBalanceInPredictions": "{amount} in {count, plural, =1{1 voorspelling} other{{count} voorspellingen}}",
   "portfolioPositionsCount": "{count, plural, =1{1 positie} other{{count} posities}}",
   "portfolioRowShares": "{shares} aandelen · gem. {price}",
   "portfolioRowEntry": "instap {price}"

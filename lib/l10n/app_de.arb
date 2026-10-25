@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Sobald du Dollar hast, siehst du hier dein Guthaben im Zeitverlauf",
   "portfolioBalanceReadyToUse": "Sofort nutzbar",
   "portfolioBalanceInPositionsLabel": "In Positionen",
-  "portfolioBalanceInPositions": "{amount} in {count, plural, =1{1 Position} other{{count} Positionen}}",
-  "portfolioBalanceInPredictions": "{amount} in {count, plural, =1{1 Prognose} other{{count} Prognosen}}",
   "portfolioPositionsCount": "{count, plural, =1{1 Position} other{{count} Positionen}}",
   "portfolioRowShares": "{shares} Anteile · Ø {price}",
   "portfolioRowEntry": "Einstieg {price}"

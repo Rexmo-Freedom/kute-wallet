@@ -2,35 +2,35 @@
 //
 // Investments → Portfolio → Balances (founder request, October 2026:
 // "balances is not clear. for example dollars are always available
-// regardless"). The breakdown's figures as a plain statement, top down:
+// regardless", then "ready to use should be sub divided into the 3 i
+// think no? position no its all the same"). The breakdown's figures as a
+// plain statement, top down:
 //
 //   * TOTAL: a quiet "Total" over the sum of every balance, in the hero's
 //     type a size down;
-//   * one thin SEGMENTED BAR under it (8 pt, rounded), split by each
-//     balance's share of the total, largest first, in the app's chart
-//     ramp by rank (the largest the deepest blue; a sliver under 2% the
-//     chart grey: AppColorsExtension.chartColorsByShare), a hairline gap
-//     between segments, an empty balance drawing none; each row below
-//     carries its segment's colour as a small dot before its name.
-//     Nothing but the track while any balance is unknown: a share cannot
-//     be drawn without a guess;
-//   * two figures side by side: READY TO USE (the cash of all three:
-//     Dollars and the venues' cash) and IN POSITIONS (what the open
-//     positions and predictions are worth);
-//   * one plain ROW per balance, no card, hairlines between: its mark,
-//     name and one secondary line, its total on the right. Dollars always
-//     reads "Available"; a venue reads "$X available", then "· $Y in N
-//     positions" (Investing) or "· $Y in N predictions" (Predictions;
-//     the app never says "bets") when it holds any ("· $Y in open
-//     orders" when only orders hold its money). A Rebalance note or the
-//     open orders' reserve, when there is one, is a quiet caption under
-//     it.
+//   * one thin SEGMENTED BAR under it (8 pt, rounded): each account's
+//     cash (Dollars, Investing, Predictions) and ONE segment for what all
+//     the positions are worth together, each its share of the total,
+//     largest first, in the app's chart ramp by rank (the largest the
+//     deepest blue; a sliver under 2% the chart grey:
+//     AppColorsExtension.chartColorsByShare), a hairline gap between
+//     segments, an empty one drawing none. Nothing but the track while
+//     any figure is unknown: a share cannot be drawn without a guess;
+//   * READY TO USE: a quiet label with the cash of all three on the right
+//     of its line, then one plain ROW per account, no card, hairlines
+//     between: its mark and name, its cash on the right (Dollars' balance,
+//     each venue's cash). No legend dots: the marks name the accounts. A
+//     Rebalance note or the open orders' reserve, when there is one, is a
+//     quiet caption under the name;
+//   * IN POSITIONS: one row for every position and prediction together,
+//     never split by venue: "In positions" with their value on the right
+//     and a quiet "N positions" under it (when any); a tap opens the
+//     Positions section.
 //
-// Unknown figures keep the breakdown's rules: a balance never read
-// reads a dash and its secondary line is a shimmering bone, a cached one
-// is dimmed with the skeleton's sweep ([StaleShimmer]) while it
-// refreshes, never a confident $0.00. The rows are not tappable (the
-// ring's rows only picked a slice); the breakdown wraps each in its
+// Unknown figures keep the breakdown's rules: a figure never read reads
+// a dash, dimmed and sweeping ([StaleShimmer]); a cached one is dimmed
+// with the same sweep while it refreshes; never a confident $0.00. The
+// account rows are not tappable; the breakdown wraps each in its
 // Rebalance band.
 
 import 'dart:math' as math;
@@ -41,17 +41,19 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
-import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonBar;
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The three balances, in bar and row order.
+/// The three accounts, in row order.
 enum BalancesPart { dollars, investing, predictions }
+
+/// The bar's segments: each account's cash, then every position together.
+enum BalancesSegment { dollars, investing, predictions, positions }
 
 /// The bar's first draw.
 const Duration kBalancesBarDrawDuration = Duration(milliseconds: 700);
 
-/// Under this a figure is nothing ("$0.00"): no positions part.
+/// Under this a figure is nothing ("$0.00"): no segment.
 const double kBalancesCentUsd = 0.005;
 
 /// A figure as the breakdown resolved it: its text (masked when balances
@@ -88,11 +90,11 @@ class BalancesEntry {
   final BalancesFigure? positions;
 
   /// How many positions (Investing) or predictions (Predictions) it
-  /// holds.
+  /// holds: the In positions row counts them together.
   final int positionCount;
 
-  /// Quiet captions under the secondary line: a Rebalance note, what open
-  /// orders reserve.
+  /// Quiet captions under the name: a Rebalance note, what open orders
+  /// reserve.
   final List<String> footer;
 
   /// The key part of its widgets ("dollars", "investing").
@@ -111,35 +113,48 @@ class BalancesEntry {
 
 double _clean(double? usd) => usd != null && usd.isFinite && usd > 0 ? usd : 0;
 
-/// The bar's segments: each non-empty balance with its share of the
-/// total (0..1, adding up to 1), largest first (ties in row order). None
-/// while any balance is unknown, or when there is nothing. Pure for the
-/// tests.
-List<(BalancesPart, double)> balancesBarSegments(List<BalancesEntry> entries) {
+BalancesSegment _segmentOf(BalancesPart part) => switch (part) {
+      BalancesPart.dollars => BalancesSegment.dollars,
+      BalancesPart.investing => BalancesSegment.investing,
+      BalancesPart.predictions => BalancesSegment.predictions,
+    };
+
+/// The bar's segments: each account's non-empty cash and, when any, what
+/// every position is worth together, each with its share of the total
+/// (0..1, adding up to 1), largest first (ties in [BalancesSegment]
+/// order). None while any figure is unknown, or when there is nothing.
+/// Pure for the tests.
+List<(BalancesSegment, double)> balancesBarSegments(
+    List<BalancesEntry> entries) {
   if (entries.any((e) => !e.known)) return const [];
-  final total = entries.fold<double>(0, (sum, e) => sum + e.totalUsd);
+  final positions = entries.fold<double>(0, (sum, e) => sum + e.positionsUsd);
+  final parts = <(BalancesSegment, double)>[
+    for (final e in entries) (_segmentOf(e.part), e.cashUsd),
+    (BalancesSegment.positions, positions),
+  ];
+  final total = parts.fold<double>(0, (sum, p) => sum + p.$2);
   if (total < kBalancesCentUsd) return const [];
   return [
-    for (final e in entries)
-      if (e.totalUsd >= kBalancesCentUsd) (e.part, e.totalUsd / total),
+    for (final (segment, usd) in parts)
+      if (usd >= kBalancesCentUsd) (segment, usd / total),
   ]..sort((a, b) {
       final bySize = b.$2.compareTo(a.$2);
       return bySize != 0 ? bySize : a.$1.index.compareTo(b.$1.index);
     });
 }
 
-/// Each segment's colour, by part: the chart ramp by rank of size.
-Map<BalancesPart, Color> balancesBarColors(
-    AppColorsExtension c, List<(BalancesPart, double)> segments) {
+/// Each segment's colour: the chart ramp by rank of size.
+Map<BalancesSegment, Color> balancesBarColors(
+    AppColorsExtension c, List<(BalancesSegment, double)> segments) {
   final colors = c.chartColorsByShare([for (final s in segments) s.$2]);
   return {
     for (var i = 0; i < segments.length; i++) segments[i].$1: colors[i],
   };
 }
 
-/// The summary's three figures in dollars: the total, the cash ready to
-/// use and what is in positions; each null while a part of it is unknown.
-/// Pure for the tests.
+/// The summary's figures in dollars: the total, the cash ready to use and
+/// what is in positions; each null while a part of it is unknown. Pure for
+/// the tests.
 ({double? total, double? ready, double? inPositions}) balancesSummary(
     List<BalancesEntry> entries) {
   final ready = entries.every((e) => e.cash.usd != null)
@@ -159,42 +174,28 @@ Map<BalancesPart, Color> balancesBarColors(
   );
 }
 
-/// A row's secondary line, or null while its figures are not known (a
-/// bone in its place). Dollars: "Available", always. A venue: "$X
-/// available", then "· $Y in N positions" / "· $Y in N predictions"
-/// when it holds any, "· $Y in open orders" when only orders hold its
-/// money.
-/// Pure for the tests.
-String? balancesRowLine(AppLocalizations l10n, BalancesEntry e) {
-  final positions = e.positions;
-  if (positions == null) return l10n.available;
-  if (e.cash.usd == null || positions.usd == null) return null;
-  final available = l10n.hlYieldAvailableLine(e.cash.text);
-  if (_clean(positions.usd) < kBalancesCentUsd) return available;
-  final n = e.positionCount;
-  final held = n <= 0
-      ? l10n.investingInOpenOrders(positions.text)
-      : e.part == BalancesPart.predictions
-          ? l10n.portfolioBalanceInPredictions(positions.text, n)
-          : l10n.portfolioBalanceInPositions(positions.text, n);
-  return '$available · $held';
-}
+/// How many positions and predictions the accounts hold together.
+int balancesPositionCount(List<BalancesEntry> entries) => entries.fold<int>(
+    0, (n, e) => n + (e.positionCount > 0 ? e.positionCount : 0));
 
-/// The total, the bar, the two figures and the rows (see the file
-/// header). [money] writes an amount (masked when balances are hidden);
-/// [wrap] lets the breakdown wrap each row (its Rebalance band, the
-/// Dollars arrival).
+/// The total, the bar, Ready to use over a row per account, then In
+/// positions (see the file header). [money] writes an amount (masked when
+/// balances are hidden); [wrap] lets the breakdown wrap each account row
+/// (its Rebalance band, the Dollars arrival); [onPositions] is a tap on
+/// In positions (null: not tappable).
 class BalancesOverview extends StatelessWidget {
   const BalancesOverview({
     super.key,
     required this.entries,
     required this.money,
     this.wrap,
+    this.onPositions,
   });
 
   final List<BalancesEntry> entries;
   final String Function(double usd) money;
   final Widget Function(BalancesPart part, Widget row)? wrap;
+  final VoidCallback? onPositions;
 
   @override
   Widget build(BuildContext context) {
@@ -204,19 +205,27 @@ class BalancesOverview extends StatelessWidget {
     final segments = balancesBarSegments(entries);
     final colors = balancesBarColors(c, segments);
     final stale = entries.any((e) => e.stale);
+    // Unknown: a dash, dimmed and sweeping, never a confident $0.00.
     BalancesFigure figure(double? usd, bool anyStale) => usd == null
-        ? const BalancesFigure('—')
+        ? const BalancesFigure('—', stale: true)
         : BalancesFigure(money(usd), stale: anyStale, usd: usd);
     final total = figure(sum.total, stale);
     final ready = figure(sum.ready, entries.any((e) => e.cash.stale));
     final inPositions = figure(
         sum.inPositions, entries.any((e) => e.positions?.stale ?? false));
+    final count = balancesPositionCount(entries);
     final label = TextStyle(
       color: c.textSecondary,
       fontSize: 14.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.25,
+    );
+    final hairline = Divider(
+      color: context.isDark ? c.border : c.borderSubtle,
+      height: 1,
+      thickness: 0.5,
+      indent: _kRowMark.w + _kRowGap.w,
     );
 
     return Column(
@@ -249,49 +258,37 @@ class BalancesOverview extends StatelessWidget {
         SizedBox(height: 16.h),
         ExcludeSemantics(
             child: _SegmentBar(segments: segments, colors: colors)),
-        SizedBox(height: 18.h),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _SummaryFigure(
-                key: const ValueKey('portfolio-balance-ready'),
-                label: l10n.portfolioBalanceReadyToUse,
-                figure: ready,
-              ),
-            ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: _SummaryFigure(
-                key: const ValueKey('portfolio-balance-in-positions'),
-                label: l10n.portfolioBalanceInPositionsLabel,
-                figure: inPositions,
-              ),
-            ),
-          ],
+        SizedBox(height: 24.h),
+        _SectionLine(
+          key: const ValueKey('portfolio-balance-ready'),
+          label: l10n.portfolioBalanceReadyToUse,
+          figure: ready,
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 2.h),
         for (final (i, e) in entries.indexed) ...[
-          if (i > 0)
-            Divider(
-              color: context.isDark ? c.border : c.borderSubtle,
-              height: 1,
-              thickness: 0.5,
-              indent: _kRowMark.w + _kRowGap.w,
-            ),
+          if (i > 0) hairline,
           _wrap(
               e.part,
               _AccountRow(
                 key: ValueKey('portfolio-balance-${e.id}'),
                 entry: e,
-                dot: colors[e.part],
-                total: e.known
-                    ? BalancesFigure(money(e.totalUsd),
-                        stale: e.stale, usd: e.totalUsd)
-                    : const BalancesFigure('—'),
-                line: balancesRowLine(l10n, e),
+                cash: e.cash.usd == null
+                    ? const BalancesFigure('—', stale: true)
+                    : e.cash,
               )),
         ],
+        Divider(
+          color: context.isDark ? c.border : c.borderSubtle,
+          height: 1,
+          thickness: 0.5,
+        ),
+        _PositionsRow(
+          key: const ValueKey('portfolio-balance-positions'),
+          label: l10n.portfolioBalanceInPositionsLabel,
+          figure: inPositions,
+          line: count > 0 ? l10n.portfolioPositionsCount(count) : null,
+          onTap: onPositions,
+        ),
       ],
     );
   }
@@ -303,8 +300,18 @@ class BalancesOverview extends StatelessWidget {
 const double _kRowMark = 36;
 const double _kRowGap = 12;
 
+/// An amount on the right of a row.
+TextStyle _amountStyle(BuildContext context) => TextStyle(
+      color: context.colors.textPrimary,
+      fontSize: 16.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.25,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
 /// A live figure: a new value rolls the digits that changed; while it
-/// refreshes it is dimmed with the skeleton's sweep.
+/// refreshes (or is not known yet) it is dimmed with the skeleton's sweep.
 class _Live extends StatelessWidget {
   const _Live({required this.figure, required this.style});
 
@@ -322,9 +329,27 @@ class _Live extends StatelessWidget {
       );
 }
 
-/// One of the two figures under the bar: a quiet label over the amount.
-class _SummaryFigure extends StatelessWidget {
-  const _SummaryFigure({super.key, required this.label, required this.figure});
+/// An amount at the end of a row, scaled down rather than cut.
+class _EndFigure extends StatelessWidget {
+  const _EndFigure({super.key, required this.figure, required this.style});
+
+  final BalancesFigure figure;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 160.w),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerEnd,
+          child: _Live(figure: figure, style: style),
+        ),
+      );
+}
+
+/// Ready to use's line: the quiet label, its sum at the end.
+class _SectionLine extends StatelessWidget {
+  const _SectionLine({super.key, required this.label, required this.figure});
 
   final String label;
   final BalancesFigure figure;
@@ -332,39 +357,32 @@ class _SummaryFigure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final style = TextStyle(
+      color: c.textSecondary,
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.25,
+    );
     return Semantics(
       container: true,
+      header: true,
       label: '$label ${figure.text}',
       excludeSemantics: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textSecondary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.1,
-                height: 1.25,
-              )),
-          SizedBox(height: 2.h),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: _Live(
-              figure: figure,
-              style: TextStyle(
+          Expanded(
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+          ),
+          SizedBox(width: 12.w),
+          _EndFigure(
+            key: const ValueKey('portfolio-balance-ready-amount'),
+            figure: figure,
+            style: style.copyWith(
                 color: c.textPrimary,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-                height: 1.25,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ],
       ),
@@ -372,14 +390,14 @@ class _SummaryFigure extends StatelessWidget {
   }
 }
 
-/// The thin bar: one segment per non-empty balance in its colour, a
+/// The thin bar: one segment per non-empty figure in its colour, a
 /// hairline gap between, over the quiet track; grown in once on first
 /// show (at once under Reduce Motion).
 class _SegmentBar extends StatelessWidget {
   const _SegmentBar({required this.segments, required this.colors});
 
-  final List<(BalancesPart, double)> segments;
-  final Map<BalancesPart, Color> colors;
+  final List<(BalancesSegment, double)> segments;
+  final Map<BalancesSegment, Color> colors;
 
   @override
   Widget build(BuildContext context) {
@@ -408,14 +426,14 @@ class _SegmentBar extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final (i, (part, share)) in segments.indexed) ...[
+                for (final (i, (segment, share)) in segments.indexed) ...[
                   if (i > 0) SizedBox(width: 2.w),
                   Expanded(
                     // Thousandths, never zero: a sliver stays visible.
                     flex: math.max(1, (share * 1000).round()),
                     child: ColoredBox(
-                      key: ValueKey('portfolio-balance-bar-${part.name}'),
-                      color: colors[part] ?? c.chartOther,
+                      key: ValueKey('portfolio-balance-bar-${segment.name}'),
+                      color: colors[segment] ?? c.chartOther,
                     ),
                   ),
                 ],
@@ -448,40 +466,26 @@ class _RevealClipper extends CustomClipper<Rect> {
       old.t != t || old.direction != direction;
 }
 
-/// One balance: mark, name and its secondary line, its total on the
-/// right; any caption under them.
+/// One account: its mark and name, its cash on the right; any caption
+/// under the name.
 class _AccountRow extends StatelessWidget {
-  const _AccountRow({
-    super.key,
-    required this.entry,
-    required this.total,
-    required this.line,
-    this.dot,
-  });
+  const _AccountRow({super.key, required this.entry, required this.cash});
 
   final BalancesEntry entry;
-
-  /// Its segment's colour on the bar, the legend before its name; null
-  /// when it draws no segment.
-  final Color? dot;
-  final BalancesFigure total;
-
-  /// The secondary line; null draws a bone (the figures not read yet).
-  final String? line;
+  final BalancesFigure cash;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final e = entry;
-    final secondary = TextStyle(
-      color: c.textSecondary,
+    final caption = TextStyle(
+      color: c.textTertiary,
       fontSize: 13.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final caption = secondary.copyWith(color: c.textTertiary);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 14.h),
       child: Row(
@@ -493,43 +497,11 @@ class _AccountRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    if (dot case final color?) ...[
-                      Container(
-                        key: ValueKey('portfolio-balance-${e.id}-dot'),
-                        width: 8.w,
-                        height: 8.w,
-                        decoration:
-                            BoxDecoration(color: color, shape: BoxShape.circle),
-                      ),
-                      SizedBox(width: 6.w),
-                    ],
-                    Flexible(
-                      child: Text(e.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.settingsTitle(context)
-                              .copyWith(letterSpacing: -0.2, height: 1.25)),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 2.h),
-                if (line case final text?)
-                  StaleShimmer(
-                    stale: e.stale,
-                    child: Text(text,
-                        key: ValueKey('portfolio-balance-${e.id}-line'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: secondary),
-                  )
-                else
-                  Padding(
-                    key: ValueKey('portfolio-balance-${e.id}-line-loading'),
-                    padding: EdgeInsets.symmetric(vertical: 3.h),
-                    child: SkeletonBar(120.w, 12.h),
-                  ),
+                Text(e.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.settingsTitle(context)
+                        .copyWith(letterSpacing: -0.2, height: 1.25)),
                 for (final note in e.footer) ...[
                   SizedBox(height: 2.h),
                   Text(note, style: caption),
@@ -538,27 +510,90 @@ class _AccountRow extends StatelessWidget {
             ),
           ),
           SizedBox(width: 12.w),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 150.w),
-            child: FittedBox(
-              key: ValueKey('portfolio-balance-${e.id}-total'),
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerEnd,
-              child: _Live(
-                figure: total,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                  height: 1.25,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
+          _EndFigure(
+            key: ValueKey('portfolio-balance-${e.id}-amount'),
+            figure: cash,
+            style: _amountStyle(context),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Every position and prediction together: "In positions" and a quiet
+/// count under it, their value on the right; a tap opens the Positions
+/// section ([onTap], null: not tappable).
+class _PositionsRow extends StatelessWidget {
+  const _PositionsRow({
+    super.key,
+    required this.label,
+    required this.figure,
+    required this.line,
+    this.onTap,
+  });
+
+  final String label;
+  final BalancesFigure figure;
+
+  /// "N positions"; null when none is held.
+  final String? line;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final row = Padding(
+      padding: EdgeInsets.symmetric(vertical: 14.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.settingsTitle(context)
+                        .copyWith(letterSpacing: -0.2, height: 1.25)),
+                if (line case final text?) ...[
+                  SizedBox(height: 2.h),
+                  Text(text,
+                      key: const ValueKey('portfolio-balance-positions-line'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.1,
+                        height: 1.3,
+                      )),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          _EndFigure(
+            key: const ValueKey('portfolio-balance-positions-amount'),
+            figure: figure,
+            style: _amountStyle(context),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      label: [label, figure.text, if (line != null) line!].join(', '),
+      excludeSemantics: true,
+      child: onTap == null
+          ? row
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: onTap, child: row),
+            ),
     );
   }
 }

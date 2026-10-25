@@ -11089,28 +11089,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioBalanceInPositionsLabel => 'Positioissa';
 
   @override
-  String portfolioBalanceInPositions(String amount, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count positiossa',
-      one: '1 positiossa',
-    );
-    return '$amount $_temp0';
-  }
-
-  @override
-  String portfolioBalanceInPredictions(String amount, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count ennusteessa',
-      one: '1 ennusteessa',
-    );
-    return '$amount $_temp0';
-  }
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

@@ -22,10 +22,11 @@
 //     (portfolio_activity.dart), all of it: this is its home now, so no
 //     preview and no "See all";
 //   * BALANCES (last): the total with its segmented bar, Ready to use
-//     and In positions, then one plain row per balance (Dollars,
-//     Investing, Predictions: components/balances_overview.dart) with
-//     Move money under them (PortfolioBalanceBreakdown, overview
-//     layout), moved here from the top of the Portfolio screen.
+//     over one plain row per account (Dollars, Investing, Predictions),
+//     then In positions as one row (a tap opens Positions;
+//     components/balances_overview.dart), Move money under them
+//     (PortfolioBalanceBreakdown, overview layout), moved here from the
+//     top of the Portfolio screen.
 //
 // The section is shared state ([portfolioSectionProvider]) kept for the
 // session, so the pill comes back where it was left and a link
@@ -104,7 +105,9 @@ class InvestmentsPortfolio extends ConsumerWidget {
       child: switch (section) {
         PortfolioSection.positions => _Positions(pills: pills),
         PortfolioSection.charts => _Charts(pills: pills),
-        PortfolioSection.balances => _Balances(pills: pills),
+        PortfolioSection.balances => _Balances(
+            pills: pills,
+            onPositions: () => onSection(PortfolioSection.positions)),
         PortfolioSection.activity => _Activity(pills: pills),
       },
     );
@@ -225,12 +228,14 @@ class _Charts extends ConsumerWidget {
   }
 }
 
-/// Balances: the total and its bar, the two figures, a row per balance
-/// and Move money (PortfolioBalanceBreakdown in its overview layout).
+/// Balances: the total and its bar, Ready to use over a row per account,
+/// In positions (a tap: the Positions section) and Move money
+/// (PortfolioBalanceBreakdown in its overview layout).
 class _Balances extends ConsumerWidget {
-  const _Balances({required this.pills});
+  const _Balances({required this.pills, required this.onPositions});
 
   final Widget pills;
+  final VoidCallback onPositions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -243,7 +248,8 @@ class _Balances extends ConsumerWidget {
           child: PortfolioBalanceBreakdown(
               trading: venues.trading,
               predictions: venues.predictions,
-              overview: true),
+              overview: true,
+              onPositions: onPositions),
         ),
       ),
       _dockClearance(context),

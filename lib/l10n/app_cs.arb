@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Až budete mít dolary, uvidíte zde vývoj svého zůstatku",
   "portfolioBalanceReadyToUse": "Připraveno k použití",
   "portfolioBalanceInPositionsLabel": "V pozicích",
-  "portfolioBalanceInPositions": "{amount} v {count, plural, =1{1 pozici} few{{count} pozicích} other{{count} pozicích}}",
-  "portfolioBalanceInPredictions": "{amount} v {count, plural, =1{1 predikci} few{{count} predikcích} other{{count} predikcích}}",
   "portfolioPositionsCount": "{count, plural, =1{1 pozice} few{{count} pozice} other{{count} pozic}}",
   "portfolioRowShares": "{shares} podílů · prům. {price}",
   "portfolioRowEntry": "vstup {price}"

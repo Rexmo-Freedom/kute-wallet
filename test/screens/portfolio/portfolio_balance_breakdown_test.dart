@@ -1316,44 +1316,69 @@ void main() {
           positionCount: count,
         );
 
-    String figureOf(WidgetTester tester, String key) => tester
-        .widget<RollingFigure>(find.descendant(
+    RollingFigure rolling(WidgetTester tester, String key) =>
+        tester.widget<RollingFigure>(find.descendant(
             of: find.byKey(ValueKey(key)),
-            matching: find.byType(RollingFigure)))
-        .text;
-    String total(WidgetTester tester, String venue) =>
-        figureOf(tester, 'portfolio-balance-$venue-total');
-    String? line(WidgetTester tester, String venue) {
-      final f = find.byKey(ValueKey('portfolio-balance-$venue-line'));
+            matching: find.byType(RollingFigure)));
+    String figureOf(WidgetTester tester, String key) =>
+        rolling(tester, key).text;
+    // An account row's cash, the In positions value ('positions').
+    String amount(WidgetTester tester, String row) =>
+        figureOf(tester, 'portfolio-balance-$row-amount');
+    bool sweeping(WidgetTester tester, String key) => tester
+        .widget<StaleShimmer>(find.descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(StaleShimmer)))
+        .stale;
+    String? positionsLine(WidgetTester tester) {
+      final f = find.byKey(const ValueKey('portfolio-balance-positions-line'));
       return f.evaluate().isEmpty ? null : tester.widget<Text>(f).data;
     }
 
-    final l10n = lookupAppLocalizations(const Locale('en'));
+    Finder segment(String name) =>
+        find.byKey(ValueKey('portfolio-balance-bar-$name'));
 
-    test('the bar: each balance its share, an empty one drawing none', () {
+    test(
+        'the bar: each account its cash, every position one segment, an '
+        'empty one drawing none', () {
       final segments = balancesBarSegments([
         entry(BalancesPart.dollars, 30),
-        entry(BalancesPart.investing, 10, 50),
-        entry(BalancesPart.predictions, 0, 0),
+        entry(BalancesPart.investing, 10, 40),
+        entry(BalancesPart.predictions, 0, 20),
       ]);
-      // Largest first.
-      expect(segments.map((s) => s.$1),
-          [BalancesPart.investing, BalancesPart.dollars]);
-      expect(segments[0].$2, moreOrLessEquals(2 / 3));
-      expect(segments[1].$2, moreOrLessEquals(1 / 3));
+      // Largest first; positions together (60), never per venue.
+      expect(segments.map((s) => s.$1), [
+        BalancesSegment.positions,
+        BalancesSegment.dollars,
+        BalancesSegment.investing,
+      ]);
+      expect(segments[0].$2, moreOrLessEquals(0.6));
+      expect(segments[1].$2, moreOrLessEquals(0.3));
+      expect(segments[2].$2, moreOrLessEquals(0.1));
       // The chart ramp by rank, in light and dark; a sliver is grey.
       for (final c in [AppColorsExtension.light(), AppColorsExtension.dark()]) {
         expect(balancesBarColors(c, segments), {
-          BalancesPart.investing: c.chartCategorical[0],
-          BalancesPart.dollars: c.chartCategorical[1],
+          BalancesSegment.positions: c.chartCategorical[0],
+          BalancesSegment.dollars: c.chartCategorical[1],
+          BalancesSegment.investing: c.chartCategorical[2],
         });
         final sliver = balancesBarSegments([
           entry(BalancesPart.dollars, 99),
           entry(BalancesPart.investing, 1, 0),
         ]);
-        expect(
-            balancesBarColors(c, sliver)[BalancesPart.investing], c.chartOther);
+        expect(sliver.map((s) => s.$1),
+            [BalancesSegment.dollars, BalancesSegment.investing]);
+        expect(balancesBarColors(c, sliver)[BalancesSegment.investing],
+            c.chartOther);
       }
+      // All three cash and the positions: four segments.
+      expect(
+          balancesBarSegments([
+            entry(BalancesPart.dollars, 1),
+            entry(BalancesPart.investing, 2, 3),
+            entry(BalancesPart.predictions, 4, 5),
+          ]).length,
+          4);
       // Nothing anywhere: the track only.
       expect(balancesBarSegments([entry(BalancesPart.dollars, 0)]), isEmpty);
     });
@@ -1369,43 +1394,26 @@ void main() {
       expect(sum.total, isNull);
       expect(sum.ready, isNull);
       expect(sum.inPositions, isNull);
-      expect(balancesRowLine(l10n, unknown[1]), isNull);
-    });
-
-    test('ready to use is every cash, in positions every position', () {
-      final sum = balancesSummary([
-        entry(BalancesPart.dollars, 0.06),
-        entry(BalancesPart.investing, 0.45, 10.82),
-        entry(BalancesPart.predictions, 9.56, 3),
-      ]);
-      expect(sum.ready, moreOrLessEquals(10.07));
-      expect(sum.inPositions, moreOrLessEquals(13.82));
-      expect(sum.total, moreOrLessEquals(23.89));
     });
 
     test(
-        'the lines: Dollars always Available; a venue its cash, then what '
-        'it holds and in how many, pluralised', () {
-      expect(
-          balancesRowLine(l10n, entry(BalancesPart.dollars, 0)), 'Available');
-      expect(balancesRowLine(l10n, entry(BalancesPart.investing, 4.5, 0)),
-          r'$4.5 available');
-      expect(balancesRowLine(l10n, entry(BalancesPart.investing, 4.5, 3, 1)),
-          r'$4.5 available · $3.0 in 1 position');
-      expect(balancesRowLine(l10n, entry(BalancesPart.investing, 4.5, 3, 2)),
-          r'$4.5 available · $3.0 in 2 positions');
-      expect(balancesRowLine(l10n, entry(BalancesPart.predictions, 1, 5, 1)),
-          r'$1.0 available · $5.0 in 1 prediction');
-      expect(balancesRowLine(l10n, entry(BalancesPart.predictions, 1, 5, 4)),
-          r'$1.0 available · $5.0 in 4 predictions');
-      // Money held only by resting orders: said so, never "in 0 ...".
-      expect(balancesRowLine(l10n, entry(BalancesPart.predictions, 1, 4)),
-          r'$1.0 available · $4.0 in open orders');
+        'ready to use is every cash, in positions every position, counted '
+        'across both venues', () {
+      final entries = [
+        entry(BalancesPart.dollars, 0.06),
+        entry(BalancesPart.investing, 0.45, 10.82, 2),
+        entry(BalancesPart.predictions, 9.56, 3, 3),
+      ];
+      final sum = balancesSummary(entries);
+      expect(sum.ready, moreOrLessEquals(10.07));
+      expect(sum.inPositions, moreOrLessEquals(13.82));
+      expect(sum.total, moreOrLessEquals(23.89));
+      expect(balancesPositionCount(entries), 5);
     });
 
     testWidgets(
-        "the founder's balances: the total, its bar, ready to use and in "
-        'positions, then one plain row per balance', (tester) async {
+        "the founder's balances: the total, its bar, Ready to use over a row "
+        'per account, then one In positions row', (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown,
           trading:
@@ -1416,52 +1424,64 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Total'), findsOneWidget);
       expect(figureOf(tester, 'portfolio-balance-total'), r'$20.89');
-      expect(figureOf(tester, 'portfolio-balance-ready'), r'$10.07');
-      expect(figureOf(tester, 'portfolio-balance-in-positions'), r'$10.82');
       expect(find.text('Ready to use'), findsOneWidget);
-      expect(find.text('In positions'), findsOneWidget);
-      // No ring, no tiles, no cards.
+      expect(figureOf(tester, 'portfolio-balance-ready'), r'$10.07');
+      // No ring, no tiles, no cards, no per-venue positions line.
       expect(find.byKey(const ValueKey('portfolio-balance-row')), findsNothing);
       expect(find.text('Cash'), findsNothing);
+      expect(find.textContaining('available'), findsNothing);
+      expect(find.textContaining('prediction'), findsNothing);
 
-      // Every balance holds money: three segments, painted, each row's
-      // dot the colour of its segment (the ramp by rank: Investing,
-      // Predictions, then Dollars, under 2%, grey).
+      // Each account's cash on its row, its mark beside it.
+      expect(amount(tester, 'dollars'), r'$0.06');
+      expect(amount(tester, 'investing'), r'$0.45');
+      expect(amount(tester, 'predictions'), r'$9.56');
+      for (final venue in ['dollars', 'investing', 'predictions']) {
+        expect(_inCard(venue, find.byType(SvgPicture)), findsOneWidget);
+        // No legend dot before the name any more.
+        expect(find.byKey(ValueKey('portfolio-balance-$venue-dot')),
+            findsNothing);
+      }
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-overview')),
+              matching: find.byWidgetPredicate((w) =>
+                  w is Container &&
+                  w.decoration is BoxDecoration &&
+                  (w.decoration! as BoxDecoration).shape == BoxShape.circle)),
+          findsNothing);
+
+      // In positions: one row, every position together, counted.
+      expect(find.text('In positions'), findsOneWidget);
+      expect(amount(tester, 'positions'), r'$10.82');
+      expect(positionsLine(tester), '1 position');
+
+      // Four segments: the three cash and the positions, by rank of size
+      // (positions, Predictions, Investing, then Dollars under 2%, grey).
       final c0 = AppColorsExtension.light();
-      for (final (venue, color) in [
-        ('investing', c0.chartCategorical[0]),
+      for (final (name, color) in [
+        ('positions', c0.chartCategorical[0]),
         ('predictions', c0.chartCategorical[1]),
+        ('investing', c0.chartCategorical[2]),
         ('dollars', c0.chartOther),
       ]) {
-        final segment = find.byKey(ValueKey('portfolio-balance-bar-$venue'));
-        expect(segment, findsOneWidget);
-        expect(tester.getSize(segment).height, greaterThan(0));
-        expect(tester.widget<ColoredBox>(segment).color, color);
-        final dot = tester.widget<Container>(
-            find.byKey(ValueKey('portfolio-balance-$venue-dot')));
-        expect((dot.decoration! as BoxDecoration).color, color);
-        expect(_inCard(venue, find.byType(SvgPicture)), findsOneWidget);
+        expect(segment(name), findsOneWidget);
+        expect(tester.getSize(segment(name)).height, greaterThan(0));
+        expect(tester.widget<ColoredBox>(segment(name)).color, color);
       }
 
-      expect(total(tester, 'dollars'), r'$0.06');
-      expect(total(tester, 'investing'), r'$11.27');
-      expect(total(tester, 'predictions'), r'$9.56');
-      expect(line(tester, 'dollars'), 'Available');
-      expect(
-          line(tester, 'investing'), r'$0.45 available · $10.82 in 1 position');
-      // Nothing held at Predictions: its cash alone.
-      expect(line(tester, 'predictions'), r'$9.56 available');
-
-      // The rows in order under the figures, Move money under them.
+      // In order: Ready to use, the rows, In positions, Move money.
       final ready =
           tester.getRect(find.byKey(const ValueKey('portfolio-balance-ready')));
       final d = _tile(tester, 'dollars');
       final i = _tile(tester, 'investing');
       final p = _tile(tester, 'predictions');
+      final held = _tile(tester, 'positions');
       expect(d.top, greaterThan(ready.bottom));
       expect(i.top, greaterThan(d.bottom));
       expect(p.top, greaterThan(i.bottom));
-      expect(tester.getRect(_rebalance).top, greaterThan(p.bottom));
+      expect(held.top, greaterThan(p.bottom));
+      expect(tester.getRect(_rebalance).top, greaterThan(held.bottom));
       // Plain rows: no card under them.
       expect(
           find.descendant(
@@ -1474,12 +1494,42 @@ void main() {
                   ((w.decoration! as BoxDecoration).color != null ||
                       (w.decoration! as BoxDecoration).boxShadow != null))),
           findsNothing);
+      // Without a Positions section to open, In positions is not a button.
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-positions')),
+              matching: find.byType(InkWell)),
+          findsNothing);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('an empty balance draws no segment', (tester) async {
+    testWidgets('In positions opens the Positions section', (tester) async {
+      var opened = 0;
+      final home = Scaffold(
+          body: SingleChildScrollView(
+              child: PortfolioBalanceBreakdown(
+                  trading: true,
+                  predictions: true,
+                  overview: true,
+                  onPositions: () => opened++)));
+      final c = await _pump(tester, home: home);
+      c.read(_balance.notifier).state = founder;
+      await tester.pumpAndSettle();
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-balance-positions')));
+      await tester.pumpAndSettle();
+      expect(opened, 1);
+      // The account rows stay still.
+      await tester.tap(find.byKey(const ValueKey('portfolio-balance-dollars')));
+      await tester.pumpAndSettle();
+      expect(opened, 1);
+    });
+
+    testWidgets(
+        r'an empty account: its row at $0.00, no segment; nothing held: '
+        'no positions segment, no count', (tester) async {
       final c = await _pump(tester, home: overviewBreakdown);
       c.read(_balance.notifier).state = const OneBalanceState(
         dollarsUsd: 12,
@@ -1488,19 +1538,20 @@ void main() {
         venueCash: {OneBalanceVenue.predictions: 4},
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('portfolio-balance-bar-dollars')),
-          findsOneWidget);
-      expect(find.byKey(const ValueKey('portfolio-balance-bar-investing')),
-          findsNothing);
-      expect(find.byKey(const ValueKey('portfolio-balance-bar-predictions')),
-          findsOneWidget);
-      expect(line(tester, 'investing'), r'$0.00 available');
+      expect(segment('dollars'), findsOneWidget);
+      expect(segment('investing'), findsNothing);
+      expect(segment('predictions'), findsOneWidget);
+      expect(segment('positions'), findsNothing);
+      expect(amount(tester, 'investing'), r'$0.00');
+      expect(figureOf(tester, 'portfolio-balance-ready'), r'$16.00');
+      expect(amount(tester, 'positions'), r'$0.00');
+      expect(positionsLine(tester), isNull);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'predictions held: "in N predictions", and an open order\'s '
-        'reserve under it', (tester) async {
+        'predictions held: counted as positions, and an open order\'s '
+        'reserve under Predictions', (tester) async {
       PolymarketPosition held(String token) => PolymarketPosition(
           marketId: 'm-$token',
           marketQuestion: 'Q $token',
@@ -1526,14 +1577,15 @@ void main() {
         venueCash: {OneBalanceVenue.predictions: 6},
       );
       await tester.pumpAndSettle();
-      expect(line(tester, 'predictions'),
-          r'$6.00 available · $6.00 in 2 predictions');
+      expect(amount(tester, 'predictions'), r'$6.00');
+      expect(amount(tester, 'positions'), r'$6.00');
+      expect(positionsLine(tester), '2 positions');
       expect(_inCard('predictions', find.text(r'$4.00 in open orders')),
           findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(r'a balance not read yet: a dash and a bone, never $0.00',
+    testWidgets(r'a balance not read yet: a sweeping dash, never $0.00',
         (tester) async {
       final c = await _pump(tester, home: overviewBreakdown, overrides: [
         hyperliquidDisplayTradingProvider
@@ -1541,26 +1593,24 @@ void main() {
       ]);
       c.read(_balance.notifier).state =
           const OneBalanceState(dollarsUsd: 0.06, predictionsKnown: true);
-      // The bone shimmers for good: frames, not a settle.
+      // The dash sweeps for good: frames, not a settle.
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
-      expect(total(tester, 'investing'), '—');
+      expect(amount(tester, 'investing'), '—');
+      expect(sweeping(tester, 'portfolio-balance-investing-amount'), isTrue);
       expect(_inCard('investing', _figure(r'$0.00')), findsNothing);
       expect(_inCard('investing', find.textContaining(r'$0.00')), findsNothing);
-      expect(line(tester, 'investing'), isNull);
-      expect(
-          find.byKey(
-              const ValueKey('portfolio-balance-investing-line-loading')),
-          findsOneWidget);
-      // The whole is not known: no total, no bar.
+      // The whole is not known: no total, no sums, no bar.
       expect(figureOf(tester, 'portfolio-balance-total'), '—');
       expect(figureOf(tester, 'portfolio-balance-ready'), '—');
-      for (final venue in ['dollars', 'investing', 'predictions']) {
-        expect(
-            find.byKey(ValueKey('portfolio-balance-bar-$venue')), findsNothing);
+      expect(amount(tester, 'positions'), '—');
+      expect(sweeping(tester, 'portfolio-balance-positions-amount'), isTrue);
+      for (final name in ['dollars', 'investing', 'predictions', 'positions']) {
+        expect(segment(name), findsNothing);
       }
-      expect(total(tester, 'dollars'), r'$0.06');
-      expect(line(tester, 'dollars'), 'Available');
+      expect(amount(tester, 'dollars'), r'$0.06');
+      expect(sweeping(tester, 'portfolio-balance-dollars-amount'), isFalse);
+      expect(amount(tester, 'predictions'), r'$0.00');
       expect(tester.takeException(), isNull);
     });
 
@@ -1576,8 +1626,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump();
-      expect(find.byKey(const ValueKey('portfolio-balance-bar-investing')),
-          findsOneWidget);
+      expect(segment('positions'), findsOneWidget);
       expect(tester.binding.hasScheduledFrame, isFalse);
     });
 
@@ -1599,7 +1648,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(total(tester, 'investing'), r'$1,033,333.22');
+      expect(amount(tester, 'investing'), r'$45,678.90');
+      expect(amount(tester, 'positions'), r'$1,111,111.11');
+      expect(_tile(tester, 'positions').right, lessThanOrEqualTo(375));
       expect(_tile(tester, 'predictions').right, lessThanOrEqualTo(375));
     });
   });

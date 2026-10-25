@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Il tuo saldo nel tempo apparirà qui quando avrai dollari",
   "portfolioBalanceReadyToUse": "Pronto all'uso",
   "portfolioBalanceInPositionsLabel": "In posizioni",
-  "portfolioBalanceInPositions": "{amount} in {count, plural, =1{1 posizione} other{{count} posizioni}}",
-  "portfolioBalanceInPredictions": "{amount} in {count, plural, =1{1 previsione} other{{count} previsioni}}",
   "portfolioPositionsCount": "{count, plural, =1{1 posizione} other{{count} posizioni}}",
   "portfolioRowShares": "{shares} quote · media {price}",
   "portfolioRowEntry": "ingresso {price}"
