@@ -161,13 +161,6 @@ class KuteConfirmation extends StatefulWidget {
   final String? secondaryButtonText;
   final VoidCallback? onSecondary;
 
-  /// Accepted for call-site compatibility; the sheet has no close button.
-  final bool showCloseButton;
-
-  /// Accepted for call-site compatibility; the title always heads the
-  /// sheet.
-  final bool messageAboveReceipt;
-
   const KuteConfirmation({
     super.key,
     required this.message,
@@ -182,8 +175,6 @@ class KuteConfirmation extends StatefulWidget {
     required this.onDone,
     this.detail,
     this.buttonText,
-    this.showCloseButton = false,
-    this.messageAboveReceipt = false,
     this.secondaryButtonText,
     this.onSecondary,
   });
@@ -900,9 +891,8 @@ class _StatusMarkPainter extends CustomPainter {
 
 /// The result sheet from the older parameter set: [headlineLabel] is the
 /// title (in sentence case), [amount] the hero, [subtitle] the context
-/// line, [detail] the pending line. [icon] is accepted but not shown.
+/// line, [detail] the pending line.
 class KuteSuccessOverlay extends StatelessWidget {
-  final KuteIconSpec icon;
   final String headlineLabel;
   final String amount;
   final String? subtitle;
@@ -915,7 +905,6 @@ class KuteSuccessOverlay extends StatelessWidget {
 
   const KuteSuccessOverlay({
     super.key,
-    this.icon = const KuteIconSpec(),
     required this.headlineLabel,
     this.amount = '',
     this.subtitle,
@@ -945,23 +934,4 @@ String _sentenceCase(String label) {
   final t = label.trim();
   if (t.isEmpty || t != t.toUpperCase()) return t;
   return t[0] + t.substring(1).toLowerCase();
-}
-
-/// Icon description accepted by [KuteSuccessOverlay] for call-site
-/// compatibility. Not rendered.
-class KuteIconSpec {
-  final String? imageUrl;
-  final String? assetSvg;
-  final String? assetImage;
-  final IconData fallbackIcon;
-  final Color? fallbackTint;
-  final bool tintDisc;
-  const KuteIconSpec({
-    this.imageUrl,
-    this.assetSvg,
-    this.assetImage,
-    this.fallbackIcon = Icons.check_rounded,
-    this.fallbackTint,
-    this.tintDisc = true,
-  });
 }
