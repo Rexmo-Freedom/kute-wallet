@@ -13,7 +13,6 @@ import 'package:kute/screens/polymarket/components/bet_placed_overlay.dart';
 import 'package:kute/screens/polymarket/components/claim_placed_overlay.dart';
 import 'package:kute/screens/polymarket/components/position_sold_overlay.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
@@ -70,13 +69,8 @@ void main() {
   NavigatorState nav() => rootKey.currentState!;
 
   Future<void> tapDoneAndExpectHost(WidgetTester tester) async {
-    // Receipts whose primary button opens the position (not "Done") are
-    // dismissed with the close button instead.
-    final isReceipt = find.text('View bet').evaluate().isNotEmpty ||
-        find.text('View prediction').evaluate().isNotEmpty ||
-        find.text('View positions').evaluate().isNotEmpty;
-    await tester
-        .tap(isReceipt ? find.byType(KuteCloseButton) : find.byType(AppButton));
+    // Done is always the primary button; a "View ..." is the quiet one.
+    await tester.tap(find.widgetWithText(AppButton, 'Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -97,8 +91,10 @@ void main() {
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text('Prediction placed'), findsOneWidget);
     expect(find.text('Will it rain?'), findsOneWidget);
-    expect(find.text(r'$10.00'), findsOneWidget);
+    expect(find.text(r'$10.00 on Yes'), findsOneWidget);
     expect(find.text(r'$20.00'), findsOneWidget);
+    expect(find.widgetWithText(AppTextButton, 'View prediction'),
+        findsOneWidget);
     await tapDoneAndExpectHost(tester);
   });
 
@@ -158,6 +154,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Order filled'), findsOneWidget);
+    expect(find.widgetWithText(AppTextButton, 'View positions'),
+        findsOneWidget);
     await tapDoneAndExpectHost(tester);
   });
 
@@ -179,10 +177,8 @@ void main() {
       expect(find.text(isClose ? 'Close order placed' : 'Order placed'),
           findsOneWidget);
       expect(find.widgetWithText(AppButton, 'Done'), findsOneWidget);
-      final view = find.widgetWithText(AppButton, 'View orders');
+      final view = find.widgetWithText(AppTextButton, 'View orders');
       expect(view, findsOneWidget);
-      expect(tester.widget<AppButton>(view).variant,
-          AppButtonVariant.secondary);
 
       await tester.tap(view);
       await tester.pumpAndSettle();
@@ -243,18 +239,18 @@ void main() {
       amount: '0.001 BTC',
       fromWalletName: 'Spending',
       toWalletName: 'Savings',
-      assetIconAsset: 'lib/assets/bitcoin-icon.svg',
       note: 'Arriving in ~2 min',
     );
     await tester.pumpAndSettle();
     expect(find.text('Sent to Savings'), findsOneWidget);
     expect(find.text('Arriving in ~2 min'), findsOneWidget);
-    expect(find.text('0.001 BTC'), findsNothing);
+    // The amount is the hero again (the old wrapper dropped it).
+    expect(find.text('0.001 BTC'), findsOneWidget);
     await tapDoneAndExpectHost(tester);
   });
 
   testWidgets(
-      'KuteSuccessOverlay keeps its caller onDone and close button, in sentence case',
+      'KuteSuccessOverlay keeps its caller onDone, amount and subtitle, in sentence case',
       (tester) async {
     await pumpHost(tester);
     var done = 0;
@@ -272,8 +268,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Bitcoin purchased'), findsOneWidget);
-    expect(find.text(r'$20.00'), findsNothing);
-    expect(find.byType(KuteCloseButton), findsOneWidget);
+    expect(find.text(r'$20.00'), findsOneWidget);
+    expect(find.text('Sent to your Spending account'), findsOneWidget);
     await tapDoneAndExpectHost(tester);
     expect(done, 1);
 
@@ -282,13 +278,14 @@ void main() {
       overlay: const KuteSuccessOverlay(headlineLabel: 'Received', amount: ''),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(KuteCloseButton));
+    await tester.tap(find.widgetWithText(AppButton, 'Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
   });
 
   testWidgets(
-      'showFullscreenTransactionSendModal shows Bitcoin sent and Done pops everything then goes home',
+      'showFullscreenTransactionSendModal goes home first, then shows Bitcoin '
+      'sent over home and Done just closes it',
       (tester) async {
     await pumpHost(tester);
     nav().push(MaterialPageRoute<void>(
@@ -303,13 +300,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Bitcoin sent'), findsOneWidget);
-    expect(find.text('bc1qexample'), findsNothing);
-    expect(find.byType(KuteCloseButton), findsNothing);
+    expect(find.text('1,000 sats'), findsOneWidget);
+    // Already home under the sheet.
+    expect(find.text('send sheet'), findsNothing);
+    expect(find.text('home screen'), findsOneWidget);
 
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(find.widgetWithText(AppButton, 'Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
-    expect(find.text('send sheet'), findsNothing);
     expect(find.text('home screen'), findsOneWidget);
   });
 
