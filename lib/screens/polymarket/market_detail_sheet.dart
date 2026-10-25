@@ -382,7 +382,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   PolymarketEvent get event {
     final base = widget.event;
     if (base.hiddenOutcomes.isEmpty) return base;
-    final held = ref.read(polymarketActivePositionsProvider);
+    // The positions are kept in a field by a listener (initState), never
+    // read here: this getter also runs inside live-price selectors, where
+    // Riverpod forbids touching another provider.
+    final held = _heldPositions;
     if (!identical(base, _heldMemoBase) || !identical(held, _heldMemoHeld)) {
       _heldMemoBase = base;
       _heldMemoHeld = held;
@@ -397,6 +400,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   PolymarketEvent? _heldMemoBase;
   List<PolymarketPosition>? _heldMemoHeld;
   PolymarketEvent? _heldMemo;
+  List<PolymarketPosition> _heldPositions = const [];
 
   List<String> _subscribedTokenIds = [];
 
@@ -408,6 +412,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   @override
   void initState() {
     super.initState();
+    // The held positions for [event], followed here so the getter never
+    // reads a provider (it runs inside selectors too).
+    var listening = false;
+    ref.listenManual<List<PolymarketPosition>>(
+        polymarketActivePositionsProvider, (_, next) {
+      if (!listening || !mounted) {
+        _heldPositions = next;
+        return;
+      }
+      setState(() => _heldPositions = next);
+    }, fireImmediately: true);
+    listening = true;
     // acquire() BEFORE addTokens so the tokens subscribe on the revived
     // socket; paired release() in dispose.
     _livePrices = ref.read(livePriceProvider.notifier);
