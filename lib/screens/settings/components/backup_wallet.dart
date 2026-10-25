@@ -356,26 +356,29 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
       TrackingService.track('backup_completed');
     }
     TrackingService.backupVerified();
-    // The same confirmation every money moment ends on: one check, one
-    // line, Done. Done tears down the routes under the overlay and lands
-    // where the quiz used to navigate directly.
+    // The shared result sheet. The routes under it are torn down first and
+    // the user lands where the quiz used to navigate directly; the sheet
+    // then slides up over that screen, so Done only closes it.
     final router = GoRouter.of(context);
     final rootNav = Navigator.of(context, rootNavigator: true);
-    pushKuteSuccessOverlay(
+    final message = context.l10n.confirmationWalletBackedUp;
+    pushKuteSuccessOverlayAfter(
       navigator: rootNav,
+      navigate: () {
+        while (rootNav.canPop()) {
+          rootNav.pop();
+        }
+        if (target.isBitcoinSoftware) {
+          router.goNamed('walletDetail',
+              pathParameters: {'walletId': target.id});
+        } else {
+          router.go('/home');
+        }
+      },
       overlay: KuteConfirmation(
-        message: context.l10n.confirmationWalletBackedUp,
-        onDone: () {
-          while (rootNav.canPop()) {
-            rootNav.pop();
-          }
-          if (target.isBitcoinSoftware) {
-            router.goNamed('walletDetail',
-                pathParameters: {'walletId': target.id});
-          } else {
-            router.go('/home');
-          }
-        },
+        message: message,
+        contextLine: target.name,
+        onDone: rootNav.pop,
       ),
     );
   }

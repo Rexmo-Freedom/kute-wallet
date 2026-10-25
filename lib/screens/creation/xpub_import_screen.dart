@@ -1414,31 +1414,35 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
           importedWalletId: importer.lastImportedWalletId,
           importedWalletType: importer.lastImportedWalletType,
         );
-        // The same confirmation every money moment ends on: one check,
-        // one line, Done. Done tears down the imperative routes under the
-        // overlay and lands where the import used to navigate directly.
+        // The shared result sheet. The imperative routes under it are
+        // torn down first and the user lands where the import used to
+        // navigate directly; the sheet then slides up over that screen, so
+        // Done only closes it.
         final router = GoRouter.of(context);
         final rootNav = Navigator.of(context, rootNavigator: true);
+        final l10n = context.l10n;
         TrackingService.track('wallet_import_confirmation_shown',
             params: {'device': config.id});
-        pushKuteSuccessOverlay(
+        pushKuteSuccessOverlayAfter(
           navigator: rootNav,
+          navigate: () {
+            while (rootNav.canPop()) {
+              rootNav.pop();
+            }
+            if (ledgerSetupWalletId != null) {
+              router.goNamed(
+                'ledgerInvestingSetup',
+                pathParameters: {'walletId': ledgerSetupWalletId},
+                queryParameters: const {'from': 'import'},
+              );
+            } else {
+              router.go('/home');
+            }
+          },
           overlay: KuteConfirmation(
-            message: context.l10n.walletImportedConfirmation,
-            onDone: () {
-              while (rootNav.canPop()) {
-                rootNav.pop();
-              }
-              if (ledgerSetupWalletId != null) {
-                router.goNamed(
-                  'ledgerInvestingSetup',
-                  pathParameters: {'walletId': ledgerSetupWalletId},
-                  queryParameters: const {'from': 'import'},
-                );
-              } else {
-                router.go('/home');
-              }
-            },
+            message: l10n.walletImportedConfirmation,
+            contextLine: l10n.walletImportedWithOthers(config.title),
+            onDone: rootNav.pop,
           ),
         );
       }

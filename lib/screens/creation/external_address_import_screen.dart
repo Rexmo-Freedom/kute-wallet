@@ -317,22 +317,29 @@ class _ExternalAddressImportScreenState
           network: 'bitcoin',
           source: 'add_wallet',
         );
-        // The same confirmation every money moment ends on: one check,
-        // one line, Done. Done tears down the routes under the overlay
-        // and lands on Home, whose wallets menu surfaces the address.
+        // The shared result sheet. The routes under it are torn down
+        // first and the user lands on Home, whose wallets menu surfaces
+        // the address; the sheet then slides up over it, naming the new
+        // wallet, so Done only closes it.
         final router = GoRouter.of(context);
         final rootNav = Navigator.of(context, rootNavigator: true);
+        final l10n = context.l10n;
+        final importedName = _nameController.text.trim();
         TrackingService.track('track_address_confirmation_shown');
-        pushKuteSuccessOverlay(
+        pushKuteSuccessOverlayAfter(
           navigator: rootNav,
+          navigate: () {
+            while (rootNav.canPop()) {
+              rootNav.pop();
+            }
+            router.go('/home');
+          },
           overlay: KuteConfirmation(
-            message: context.l10n.confirmationAddressTracked,
-            onDone: () {
-              while (rootNav.canPop()) {
-                rootNav.pop();
-              }
-              router.go('/home');
-            },
+            message: l10n.confirmationAddressTracked,
+            contextLine: importedName.isEmpty
+                ? null
+                : l10n.walletImportedWithOthers(importedName),
+            onDone: rootNav.pop,
           ),
         );
       }

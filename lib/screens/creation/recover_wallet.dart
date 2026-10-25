@@ -367,6 +367,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         if (mounted && context.mounted) {
           _showRecovered(
             kind: 'bitcoin',
+            walletName: wallet.name,
             navigate: (router) => router.goNamed('walletDetail',
                 pathParameters: {'walletId': wallet.id}),
           );
@@ -473,6 +474,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         ref.read(recoveryModeProvider.notifier).state = false;
         _showRecovered(
           kind: 'spending',
+          walletName: newWallet.name,
           navigate: (router) => router.go('/home'),
         );
       }
@@ -500,27 +502,32 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     }
   }
 
-  /// The same confirmation every money moment ends on: one check, one
-  /// line, Done. Done tears down the routes under the overlay and then
-  /// runs [navigate], which lands where recovery used to go directly.
+  /// The shared result sheet. The routes under it are torn down first and
+  /// [navigate] lands where recovery used to go directly; the sheet then
+  /// slides up over that screen, naming the wallet, so Done only closes
+  /// it.
   void _showRecovered({
     required String kind,
+    required String walletName,
     required void Function(GoRouter router) navigate,
   }) {
     final router = GoRouter.of(context);
     final rootNav = Navigator.of(context, rootNavigator: true);
+    final message = context.l10n.confirmationWalletRecovered;
     TrackingService.track('recovery_confirmation_shown',
         params: {'kind': kind});
-    pushKuteSuccessOverlay(
+    pushKuteSuccessOverlayAfter(
       navigator: rootNav,
+      navigate: () {
+        while (rootNav.canPop()) {
+          rootNav.pop();
+        }
+        navigate(router);
+      },
       overlay: KuteConfirmation(
-        message: context.l10n.confirmationWalletRecovered,
-        onDone: () {
-          while (rootNav.canPop()) {
-            rootNav.pop();
-          }
-          navigate(router);
-        },
+        message: message,
+        contextLine: walletName,
+        onDone: rootNav.pop,
       ),
     );
   }
