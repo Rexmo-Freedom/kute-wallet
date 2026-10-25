@@ -20,10 +20,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/polymarket/components/bet_placed_overlay.dart';
+import 'package:kute/screens/polymarket/components/claim_placed_overlay.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/screens/shared/transaction_modal.dart';
 import 'package:kute/theme/app_theme.dart';
 
 const _enabled = bool.fromEnvironment('CONFIRM_SHEET_RENDER');
@@ -107,51 +109,51 @@ Future<void> _shot(WidgetTester tester, String name) async {
   print('RENDER wrote $_out/$name.png');
 }
 
-/// The states worth looking at, by name.
-Map<String, KuteConfirmation> _states(NavigatorState nav) => {
-      'sent': KuteConfirmation(
-        message: 'Bitcoin sent',
+/// The states worth looking at, by name. Sent, bet placed and win go
+/// through their real entry points; the resting limit buy and the send
+/// failure are built inline by their sheets, so they are mirrored here.
+Map<String, Widget> _states(NavigatorState nav) => {
+      'sent': const PaymentTransactionOverlay(
         amount: '25,000 sats',
-        contextLine: 'To bc1qxy2k…0wlh',
-        rows: const {'Network fee': '312 sats', 'Arrives': '~10 min'},
-        transaction: TradeReceiptTransaction.bitcoin(
-            'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90'),
-        onDone: nav.pop,
+        asset: 'Bitcoin',
+        receiveAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+        fiatAmount: r'$24.31',
+        fees: [SendFeeDetail(label: 'Network fee', value: '312 sats')],
+        txid:
+            'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
       ),
-      'bet_placed': KuteConfirmation(
-        message: 'Prediction placed',
-        amount: r'$5.00 on Yes',
-        contextLine: 'Will Bitcoin close above \$120k on Friday?',
-        rows: const {'Shares': '8.33', 'Pays if right': r'$8.33'},
-        secondaryButtonText: 'View prediction',
-        onSecondary: nav.pop,
-        onDone: nav.pop,
+      'bet_placed': const BetPlacedOverlay(
+        marketQuestion: r'Will Bitcoin close above $120k on Friday?',
+        outcome: 'Yes',
+        shares: 8.33,
+        total: 5,
+        avgPrice: 0.6,
+        potentialPayout: 8.33,
       ),
       'order_resting': KuteConfirmation(
         tone: KuteConfirmationTone.pending,
-        message: r'Order placed · waits for 42¢',
+        message: 'Order placed',
         amount: r'$10.00 on No',
         contextLine: 'Fed cuts rates in December?',
         rows: const {'Limit price': '42¢', 'Shares': '23.81'},
+        detail: 'It fills when the price reaches yours.',
         secondaryButtonText: 'View orders',
         onSecondary: nav.pop,
         onDone: nav.pop,
       ),
       'failure': KuteConfirmation(
         tone: KuteConfirmationTone.failure,
-        message: "Couldn't send",
+        message: 'Payment not sent',
         amount: '25,000 sats',
-        contextLine: 'Nothing left your wallet. Your balance is unchanged.',
+        detail: 'Not enough balance to cover the amount plus the network '
+            'fee. Nothing left your wallet.',
         buttonText: 'Try again',
         onDone: nav.pop,
       ),
-      'win': KuteConfirmation(
-        tone: KuteConfirmationTone.celebrate,
-        message: 'Winnings claimed',
-        amount: r'$42.50',
-        contextLine: 'Yes · Will it rain in London tomorrow?',
-        rows: const {'Destination': 'Predictions balance', 'Network fee': 'Free'},
-        onDone: nav.pop,
+      'win': const ClaimPlacedOverlay(
+        marketQuestion: 'Will it rain in London tomorrow?',
+        outcome: 'Yes',
+        amountUsd: 42.5,
       ),
     };
 
