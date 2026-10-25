@@ -30,7 +30,8 @@ import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
 import 'package:kute/screens/polymarket/components/position_awaiting.dart'
     show polyExpectedSettlementProvider;
-import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
+import 'package:kute/screens/polymarket/components/position_journey.dart';
+import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
@@ -314,6 +315,7 @@ void main() {
           predictionUsdCostProvider.overrideWith((ref, id) async => null),
           polymarketEventDetailsProvider('nfl-sf-den')
               .overrideWith((ref) async => event),
+          polyPositionJourneyProvider.overrideWith((ref, key) async => null),
         ];
 
     testWidgets(
@@ -331,7 +333,7 @@ void main() {
       // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
       // the 49ers win, $50.40 paid for it. No risk sentence.
       final value = find.byKey(const ValueKey('poly-position-value'));
-      expect(find.descendant(of: value, matching: find.text('Current value')),
+      expect(find.descendant(of: value, matching: find.text('Worth now')),
           findsOneWidget);
       expect(
           find.descendant(
@@ -348,7 +350,7 @@ void main() {
       final payout = find.byKey(const ValueKey('poly-position-payout'));
       expect(
           find.descendant(
-              of: payout, matching: find.text('Payout if you win')),
+              of: payout, matching: find.text('If 49ers wins')),
           findsOneWidget);
       expect(find.descendant(of: payout, matching: find.text(r'$120.00')),
           findsOneWidget);
@@ -460,9 +462,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a team\'s side: the chance gauge in the team\'s colour, '
-        'ticked at the price paid, the chance in its middle and nowhere '
-        'else; no bar, no price chart', (tester) async {
+    testWidgets('a team\'s side: the speedometer, ticked at the price paid, '
+        'the chance in its middle and nowhere else; the side named in the '
+        'primary text colour; no bar, no price chart', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(
@@ -485,51 +487,55 @@ void main() {
       await tester.pump();
       expect(find.byType(MarketChart), findsNothing);
       expect(find.byType(PolyPositionChanceBar), findsNothing);
-      final gauge = tester.widget<PolyPositionChanceGauge>(
-          find.byType(PolyPositionChanceGauge));
-      expect(gauge.spec.left, kGameSideColors[0]);
-      expect(gauge.spec.right, isNull);
-      expect(gauge.spec.value, closeTo(0.5, 1e-9));
-      expect(gauge.spec.tick, closeTo(0.42, 1e-9));
-      expect(gauge.chance, closeTo(0.5, 1e-9));
-      expect(find.text('Bought · 42¢'), findsOneWidget);
-      // The chance is the gauge's: no "50% chance" beside the P&L.
+      final dial = tester.widget<PolyPositionSpeedometer>(
+          find.byType(PolyPositionSpeedometer));
+      expect(dial.chance, closeTo(0.5, 1e-9));
+      expect(dial.entry, closeTo(0.42, 1e-9));
+      expect(dial.side, '49ers');
+      expect(find.text('You · 42%'), findsOneWidget);
+      // The dial's own zones, never the team's colour: red under the price
+      // paid, green over it.
+      final painter = tester
+          .widget<CustomPaint>(find.byKey(PolyPositionSpeedometer.dialPaintKey))
+          .painter! as PolySpeedometerDialPainter;
+      expect(painter.zones.map((z) => z.color.withValues(alpha: 1)).toList(), [
+        AppColors.marketDown.withValues(alpha: 1),
+        AppColors.marketUp.withValues(alpha: 1),
+      ]);
+      // The chance is the dial's: no "50% chance" beside the P&L.
       expect(find.byWidgetPredicate(
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
-      expect(find.text('chance'), findsOneWidget);
-      // Under the line naming the held side, the side in the team's
-      // colour; over the tiles. A quiet label as the Investing position
-      // writes its own, no pill: no tinted box, no marker.
+      expect(find.text('chance · live'), findsOneWidget);
+      // Under the line naming the held side, the side in the primary text
+      // colour (a team is neither up nor down); over the tiles.
       final pill = find.byKey(const ValueKey('poly-position-held'));
       final held = tester.widget<Text>(pill);
       expect(held.textSpan!.toPlainText(), 'You hold 49ers');
       final side = (held.textSpan! as TextSpan).children!.last as TextSpan;
       expect(side.text, '49ers');
-      expect(side.style!.color, kGameSideColors[0]);
+      expect(side.style!.color, AppColorsExtension.light().textPrimary);
       expect(held.style!.color, AppColorsExtension.light().textTertiary);
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
-          lessThan(tester.getRect(find.byType(PolyPositionChanceGauge)).top));
+          lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
       expect(
-          tester.getRect(find.byType(PolyPositionChanceGauge)).bottom,
+          tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester
               .getRect(find.byKey(const ValueKey('poly-position-value')))
               .top));
       // The screen's hero: the dial spans the whole content width (390
-      // less the 20 pt gutters), the tick's ends just inside it.
-      final paint = tester.widget<CustomPaint>(
-          find.byKey(PolyPositionChanceGauge.paintKey));
-      final g = (paint.painter! as PolyChanceGaugePainter).geometry;
+      // less the 20 pt gutters), the entry tick's ends just inside it.
+      final g = painter.geometry;
       final content = 390 - 2 * 20 * 390 / 430;
       expect(2 * g.tickOuter, closeTo(content, 1));
-      // The live feed's subscribe debounce runs out.
-      await tester.pump(const Duration(milliseconds: 200));
+      // The live feed's subscribe debounce runs out; the sweep settles.
+      await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a Down side: the green and red split at Up\'s chance, the '
-        'tick measured from the red end', (tester) async {
+    testWidgets('a Down side: the dial reads Down\'s own chance, ticked at '
+        'what Down cost, the side in the down colour', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(
@@ -548,21 +554,20 @@ void main() {
         ),
         overrides: overrides(null),
       );
-      final gauge = tester.widget<PolyPositionChanceGauge>(
-          find.byType(PolyPositionChanceGauge));
-      expect(gauge.spec.left, AppColors.marketUp);
-      expect(gauge.spec.right, AppColors.marketDown);
-      expect(gauge.spec.value, closeTo(0.925, 1e-9));
-      expect(gauge.spec.tick, closeTo(0.46, 1e-6));
-      // The middle says the held side's chance, not Up's.
-      expect(gauge.chance, closeTo(0.075, 1e-9));
+      final dial = tester.widget<PolyPositionSpeedometer>(
+          find.byType(PolyPositionSpeedometer));
+      expect(dial.chance, closeTo(0.075, 1e-9));
+      expect(dial.entry, closeTo(0.54, 1e-6));
+      final held = tester.widget<Text>(
+          find.byKey(const ValueKey('poly-position-held')));
+      final side = (held.textSpan! as TextSpan).children!.last as TextSpan;
+      expect(side.style!.color, AppColors.marketDown);
       expect(find.byType(MarketChart), findsNothing);
-      // The live feed's subscribe debounce runs out.
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('ended, waiting for the result, still priced: the gauge',
+    testWidgets('ended, waiting for the result, still priced: the dial',
         (tester) async {
       await _pump(
         tester,
@@ -585,14 +590,14 @@ void main() {
         overrides: overrides(_game(ended: true)),
       );
       await tester.pump();
-      expect(find.byType(PolyPositionChanceGauge), findsOneWidget);
+      expect(find.byType(PolyPositionSpeedometer), findsOneWidget);
       expect(find.byType(PolyPositionChanceBar), findsNothing);
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('settled: the bar as before, the chance beside the P&L, no '
-        'gauge', (tester) async {
+        'dial', (tester) async {
       await _pump(
         tester,
         const PositionDetailSheet(
@@ -617,7 +622,7 @@ void main() {
         ],
       );
       await tester.pump();
-      expect(find.byType(PolyPositionChanceGauge), findsNothing);
+      expect(find.byType(PolyPositionSpeedometer), findsNothing);
       final bar = tester
           .widget<PolyPositionChanceBar>(find.byType(PolyPositionChanceBar));
       expect(bar.spec.value, closeTo(1, 1e-9));

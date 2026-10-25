@@ -9,7 +9,8 @@ import 'package:kute/screens/polymarket/components/market_chart.dart'
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show kPolyOutcomeColors, polyChartedOutcomes;
 import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
-import 'package:kute/screens/polymarket/components/position_chance_gauge.dart';
+import 'package:kute/screens/polymarket/components/position_journey.dart';
+import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/game_chart_section.dart';
 import 'package:kute/screens/polymarket/components/game_header.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart'
@@ -48,6 +49,7 @@ import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -63,15 +65,20 @@ const Color _kPolyRed = AppColors.marketDown;
 // The open-position screen of a Predictions bet. It reads like the market
 // sheet of the same market: a game shows its two teams with the score
 // between them (PolyGameTeamsHeader); any other market shows the sheet's
-// icon-and-title header. Under it, what is the user's: a pill naming the
-// held side ("▲ You hold Up", in its colour); the chance dial as the
-// screen's hero (where the held outcome's chance is now against the price
-// paid, ticked "Bought · 32¢", the chance in its middle:
-// position_chance_gauge.dart) while the bet is open, the chance bar
-// (position_chance_bar.dart) once it is settled; no price chart here, the
-// market sheet keeps it. Then two tiles: the current value with the profit
-// or loss, and the payout if the held side wins with what was paid (once
-// settled: what it paid out); the end as a pill; and plain rows: "Protect
+// icon-and-title header. Under it, what is the user's: a line naming the
+// held side ("You hold No": Yes / Up in the up colour, No / Down in the
+// down colour, any other outcome in the primary text colour); while the
+// bet is open, the speedometer as the screen's hero (the held side's
+// chance on a 180° dial, green above the price paid and red below it, an
+// elastic needle, drag to explore: position_speedometer.dart), the result
+// since the buy under it ("▲ $3.24 · +81% since you bought"), and once
+// settled the chance bar (position_chance_bar.dart); no price chart here,
+// the market sheet keeps it. Then two tiles: what it is worth now with the
+// profit or loss, and the payout if the held side wins with what was paid
+// (once settled: what it paid out); while the needle is dragged, what it
+// would be worth then beside what it is worth now. While open, the journey
+// line under the tiles (the held side's chance since the buy:
+// position_journey.dart); the end as a pill; and plain rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
 // conditions and "View market" (the event's sheet); and the Sell (or, on a
@@ -171,6 +178,68 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// The live score feed was joined for this position's game.
   bool _joinedScores = false;
 
+  /// The hypothetical chance under the finger while the speedometer is
+  /// dragged; null otherwise.
+  final ValueNotifier<double?> _whatIf = ValueNotifier(null);
+
+  /// Where the last drag ended, for "Set a sell at 72%", for
+  /// [_sellOfferFor] after the release; null otherwise.
+  final ValueNotifier<double?> _sellAt = ValueNotifier(null);
+  Timer? _sellAtTimer;
+
+  /// How long "Set a sell at 72%" stays after the release.
+  static const Duration _sellOfferFor = Duration(seconds: 3);
+
+  /// The what-if not logged yet: logged once it is over (the offer ran
+  /// out, the sell was tapped, another drag began, the screen closed).
+  Map<String, Object>? _pendingWhatIf;
+
+  @override
+  void dispose() {
+    _logWhatIf(sellTapped: false);
+    _sellAtTimer?.cancel();
+    _whatIf.dispose();
+    _sellAt.dispose();
+    super.dispose();
+  }
+
+  static double _pct(double v) => (v * 1000).round() / 10;
+
+  void _onExploreStart() {
+    _logWhatIf(sellTapped: false);
+    _sellAtTimer?.cancel();
+    _sellAt.value = null;
+  }
+
+  void _onExploreEnd(double whatIf,
+      {required double live, double? entry, required Map<String, Object> kind}) {
+    _whatIf.value = null;
+    _sellAt.value = whatIf;
+    _pendingWhatIf = {
+      'venue': 'polymarket',
+      ...kind,
+      'wallet_kind': 'hot',
+      'whatif_pct': _pct(whatIf),
+      'live_pct': _pct(live),
+      if (entry != null) 'entry_pct': _pct(entry),
+      'direction': whatIf >= live ? 'up' : 'down',
+    };
+    _sellAtTimer?.cancel();
+    _sellAtTimer = Timer(_sellOfferFor, () {
+      _logWhatIf(sellTapped: false);
+      if (mounted) _sellAt.value = null;
+    });
+  }
+
+  /// One prediction_position_whatif_used per drag, once it is over.
+  void _logWhatIf({required bool sellTapped}) {
+    final params = _pendingWhatIf;
+    if (params == null) return;
+    _pendingWhatIf = null;
+    TrackingService.track('prediction_position_whatif_used',
+        params: {...params, 'sell_tapped': sellTapped});
+  }
+
   PolySportsTeams? _sportsTeams(
       PolymarketEvent event, List<PolymarketTeam> fetched) {
     if (!identical(_teamsMemoEvent, event) ||
@@ -205,6 +274,19 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     return charted == AppColors.marketUp || charted == AppColors.marketDown
         ? null
         : charted;
+  }
+
+  /// "Set a sell at 72%": the limit sell of "Protect it", started at the
+  /// explored chance.
+  void _sellAtWhatIf(PolymarketPosition pos, double at) {
+    _sellAtTimer?.cancel();
+    _logWhatIf(sellTapped: true);
+    context.pop();
+    SellSheet.show(context,
+        position: pos,
+        source: 'position_whatif',
+        startWithLimit: true,
+        limitPrice: polyWhatIfSellPrice(at));
   }
 
   /// "View market": the event's sheet. When that sheet is already under
@@ -427,25 +509,66 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           keepAlive: true,
                           // Where the held outcome's chance is now against
                           // what was paid for it, under a line naming the
-                          // held side: a Yes / No or Up / Down market's
-                          // green and red split, or a fill in the outcome's
-                          // own line colour, with a "Bought · 32¢" tick at
-                          // the price paid.
-                          // Open: the half-circle gauge with the chance in
-                          // its middle (position_chance_gauge.dart);
-                          // settled: the bar (position_chance_bar.dart).
-                          // Its own Consumer: the game's lines are read for
-                          // the colour alone.
+                          // held side. Open: the speedometer, the result
+                          // since the buy under it
+                          // (position_speedometer.dart); settled: the bar
+                          // (position_chance_bar.dart), a Yes / No or Up /
+                          // Down market's green and red split or a fill in
+                          // the outcome's own line colour, ticked "Bought ·
+                          // 32¢". Its own Consumer: the game's lines are
+                          // read for the bar's colour alone.
                           child: RepaintBoundary(
                             child: Consumer(builder: (context, barRef, _) {
                               final tokenId = pos.tokenId!;
+                              final bought = pos.size > 0 && costBasis > 0
+                                  ? costBasis / pos.size
+                                  : null;
+                              // Which side is held, in the app's own
+                              // colours for it.
+                              final heldLine = _HeldSideLine(
+                                  outcome: pos.outcome,
+                                  color: polyHeldSideColor(pos.outcome, c));
+                              if (showGauge) {
+                                final kind = VenueAnalytics.pmKindParams(
+                                    [pos.tokenId, pos.marketId, pos.eventSlug]);
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    heldLine,
+                                    SizedBox(height: 14.h),
+                                    PolyPositionSpeedometer(
+                                      chance: currentPrice,
+                                      entry: bought,
+                                      side: pos.outcome,
+                                      onExploreStart: _onExploreStart,
+                                      onExplore: (h) => _whatIf.value = h,
+                                      onExploreEnd: (h) => _onExploreEnd(h,
+                                          live: currentPrice,
+                                          entry: bought,
+                                          kind: kind),
+                                    ),
+                                    SizedBox(height: 12.h),
+                                    // The result since the buy, or, while
+                                    // and just after a drag, the offer to
+                                    // sell at the explored chance.
+                                    _ResultOrSellSlot(
+                                      whatIf: _whatIf,
+                                      sellAt: _sellAt,
+                                      result: PolyPositionResultLine(
+                                        pnl: pnl,
+                                        pnlPercent: pnlPercent,
+                                        amountText:
+                                            formatPolyAmount(ref, pnl.abs()),
+                                      ),
+                                      onSell: (at) => _sellAtWhatIf(pos, at),
+                                    ),
+                                  ],
+                                );
+                              }
                               final lineColor = event == null
                                   ? null
                                   : _heldLineColor(barRef, event,
                                       sportsTeams, tokenId);
-                              final bought = pos.size > 0 && costBasis > 0
-                                  ? costBasis / pos.size
-                                  : null;
                               final spec = polyPositionChanceBarSpec(
                                 outcome: pos.outcome,
                                 chance:
@@ -463,31 +586,20 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Which side is held, in its colour.
-                                  _HeldSideLine(
-                                      outcome: pos.outcome, color: spec.held),
+                                  heldLine,
                                   SizedBox(height: 14.h),
-                                  if (showGauge)
-                                    PolyPositionChanceGauge(
-                                      spec: spec,
-                                      chance: currentPrice,
-                                      tickLabel: tickLabel,
-                                    )
-                                  else ...[
-                                    PolyPositionChanceBar(
-                                      spec: spec,
-                                      tickLabel: tickLabel,
-                                    ),
-                                    SizedBox(height: 8.h),
-                                    // Settled: the chance the gauge would
-                                    // write in its middle.
-                                    RollingNumberText(
-                                      text: context.l10n.betPercentChance(
-                                          formatPolyChanceFigure(
-                                              currentPrice)),
-                                      style: positionTileCaptionStyle(c),
-                                    ),
-                                  ],
+                                  PolyPositionChanceBar(
+                                    spec: spec,
+                                    tickLabel: tickLabel,
+                                  ),
+                                  SizedBox(height: 8.h),
+                                  // Settled: the chance the dial would
+                                  // show.
+                                  RollingNumberText(
+                                    text: context.l10n.betPercentChance(
+                                        formatPolyChanceFigure(currentPrice)),
+                                    style: positionTileCaptionStyle(c),
+                                  ),
                                 ],
                               );
                             }),
@@ -500,45 +612,124 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       // what it pays if the held side wins (once settled:
                       // what it paid), each on its own tile.
                       SizedBox(height: 20.h),
-                      PositionStatTiles(
-                        left: PositionStatTile(
-                          key: const ValueKey('poly-position-value'),
-                          label: context.l10n.betCurrentValue,
-                          // `formatPolyAmount` honors the Predictions
-                          // denomination setting. Rolling digits, so the
-                          // value visibly ticks with the live price.
-                          value: RollingNumberText(
-                            text: formatPolyAmount(ref, currentValue),
-                            style: positionTileValueStyle(c),
-                          ),
-                          caption: RollingNumberText(
-                            text: pnlText,
-                            style: positionTileCaptionStyle(c, color: pnlColor),
-                          ),
-                        ),
-                        right: PositionStatTile(
-                          key: const ValueKey('poly-position-payout'),
-                          label: pos.isResolved
-                              ? context.l10n.payout
-                              : context.l10n.betReceiptPayout,
-                          // A dollar a share if the held side wins.
-                          value: Text(
-                            pos.isResolved && !won
-                                ? context.l10n.betNoPayout
-                                : formatPolyAmount(ref, pos.size),
-                            maxLines: 1,
-                            style: positionTileValueStyle(c),
-                          ),
-                          caption: costBasis > 0
-                              ? Text(
-                                  '${context.l10n.paid} $investedText',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: positionTileCaptionStyle(c),
-                                )
-                              : null,
-                        ),
+                      ValueListenableBuilder<double?>(
+                        valueListenable: _whatIf,
+                        builder: (context, whatIf, _) {
+                          final nowTile = PositionStatTile(
+                            key: const ValueKey('poly-position-value'),
+                            label: whatIf != null
+                                ? context.l10n.polyPosNow
+                                : pos.isResolved
+                                    ? context.l10n.betCurrentValue
+                                    : context.l10n.polyPosWorthNow,
+                            // `formatPolyAmount` honors the Predictions
+                            // denomination setting. Rolling digits, so the
+                            // value visibly ticks with the live price.
+                            value: RollingNumberText(
+                              text: formatPolyAmount(ref, currentValue),
+                              style: positionTileValueStyle(c),
+                            ),
+                            caption: RollingNumberText(
+                              text: pnlText,
+                              style:
+                                  positionTileCaptionStyle(c, color: pnlColor),
+                            ),
+                          );
+                          if (whatIf != null && showGauge) {
+                            // Dragging: what it would be worth at the
+                            // explored chance, beside what it is worth now.
+                            final then = pos.size * whatIf;
+                            final change = then - costBasis;
+                            final flat = polyResultIsFlat(change);
+                            final up = change > 0;
+                            final changeColor = flat
+                                ? c.textSecondary
+                                : (up ? _kPolyGreen : _kPolyRed);
+                            return PositionStatTiles(
+                              left: PositionStatTile(
+                                key: const ValueKey('poly-position-worth-then'),
+                                label: context.l10n.polyPosWorthThen,
+                                value: RollingNumberText(
+                                  text: formatPolyAmount(ref, then),
+                                  style: positionTileValueStyle(c),
+                                  duration: const Duration(milliseconds: 120),
+                                ),
+                                caption: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (!flat) ...[
+                                      CustomPaint(
+                                        size: Size(7.w, 5.h),
+                                        painter: PolyCaretPainter(
+                                            up: up, color: changeColor),
+                                      ),
+                                      SizedBox(width: 4.w),
+                                    ],
+                                    Text(
+                                      formatPolyAmount(ref, change.abs()),
+                                      key: const ValueKey(
+                                          'poly-position-worth-then-change'),
+                                      maxLines: 1,
+                                      style: positionTileCaptionStyle(c,
+                                          color: changeColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              right: nowTile,
+                            );
+                          }
+                          return PositionStatTiles(
+                            left: nowTile,
+                            right: PositionStatTile(
+                              key: const ValueKey('poly-position-payout'),
+                              label: pos.isResolved
+                                  ? context.l10n.payout
+                                  : context.l10n.polyPosIfWins(pos.outcome),
+                              // A dollar a share if the held side wins.
+                              value: Text(
+                                pos.isResolved && !won
+                                    ? context.l10n.betNoPayout
+                                    : formatPolyAmount(ref, pos.size),
+                                maxLines: 1,
+                                style: positionTileValueStyle(c),
+                              ),
+                              caption: costBasis > 0
+                                  ? Text(
+                                      '${context.l10n.paid} $investedText',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: positionTileCaptionStyle(c),
+                                    )
+                                  : null,
+                            ),
+                          );
+                        },
                       ),
+
+                      // The journey since the buy: the held side's chance
+                      // from the first buy to now. Open only; nothing
+                      // without history.
+                      if (showGauge)
+                        Consumer(builder: (context, journeyRef, _) {
+                          final journey = journeyRef
+                              .watch(polyPositionJourneyProvider((
+                                tokenId: pos.tokenId!,
+                                fallbackSince: pos.createdAt,
+                              )))
+                              .valueOrNull;
+                          if (journey == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: EdgeInsets.only(top: 20.h),
+                            child: PolyPositionJourneyLine(
+                              journey: journey,
+                              live: currentPrice,
+                              entry: pos.size > 0 && costBasis > 0
+                                  ? costBasis / pos.size
+                                  : null,
+                            ),
+                          );
+                        }),
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[
@@ -848,11 +1039,108 @@ class _PositionDetailsRowState extends State<_PositionDetailsRow> {
       );
 }
 
-/// "You hold Up": which side is held, over the gauge, as a quiet label in
+/// The held side's colour, the same on every market: Yes / Up in the up
+/// colour, No / Down in the down colour, any other outcome (a candidate,
+/// a team, a draw) in the primary text colour.
+Color polyHeldSideColor(String outcome, AppColorsExtension c) =>
+    switch (polyOutcomeDirection(outcome)) {
+      true => AppColors.marketUp,
+      false => AppColors.marketDown,
+      null => c.textPrimary,
+    };
+
+/// The limit price "Set a sell at 72%" starts on: the explored chance,
+/// inside the book's 1¢ to 99¢.
+double polyWhatIfSellPrice(double chance) =>
+    chance.clamp(0.01, 0.99).toDouble();
+
+/// Under the dial: the result since the buy; while the needle is dragged
+/// and for a moment after, a quiet "Set a sell at 72%" in its place.
+class _ResultOrSellSlot extends StatelessWidget {
+  const _ResultOrSellSlot({
+    required this.whatIf,
+    required this.sellAt,
+    required this.result,
+    required this.onSell,
+  });
+
+  final ValueListenable<double?> whatIf;
+  final ValueListenable<double?> sellAt;
+  final Widget result;
+  final ValueChanged<double> onSell;
+
+  static const sellKey = ValueKey('poly-position-whatif-sell');
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return ValueListenableBuilder<double?>(
+      valueListenable: whatIf,
+      builder: (context, dragging, _) => ValueListenableBuilder<double?>(
+        valueListenable: sellAt,
+        builder: (context, released, _) {
+          final at = dragging ?? released;
+          final Widget child;
+          if (at == null) {
+            child = KeyedSubtree(key: const ValueKey('result'), child: result);
+          } else {
+            final price = polyWhatIfSellPrice(at);
+            child = Center(
+              key: const ValueKey('sell'),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  key: sellKey,
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => onSell(at),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: c.borderSubtle, width: 0.5),
+                    ),
+                    child: Text(
+                      context.l10n
+                          .polyPosSetSellAt(formatPolyChanceFigure(price)),
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+          // One height for both, so nothing under it moves.
+          return SizedBox(
+            height: 30.h,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 150),
+                child: child,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// "You hold No": which side is held, over the dial, as a quiet label in
 /// the Investing position's own type (its "If you close now" label), the
-/// side named in its colour as the Investing tile names "Long" (the app's
-/// up / down colours for Yes / Up and No / Down, a team's own). No pill,
-/// no tint, no marker.
+/// side named in its colour ([polyHeldSideColor]). No pill, no tint, no
+/// marker.
 class _HeldSideLine extends StatelessWidget {
   final String outcome;
   final Color color;
