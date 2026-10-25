@@ -22,6 +22,7 @@ import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
+import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/usd/components/usd_balance_chart.dart';
@@ -128,6 +129,82 @@ void main() {
       expect(dollarScaleLabel(0.5, 0.5), r'$0.50');
     });
 
+    group('a zero or tiny bitcoin balance', () {
+      // The labels the Bitcoin Balance chart paints for a series on
+      // screen: its scale (a fifth of the balance at least) stepped at
+      // one sat at least, written in the app's unit.
+      List<String> labels(List<double> sats, String btcFormat) {
+        final d = kuteLineDomain(
+            sats, KuteIndexWindow(0, (sats.length - 1).toDouble()),
+            minShare: 0.2);
+        final levels = kuteScaleLevels(d.minY, d.maxY, minStep: 1);
+        final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
+        return [for (final l in levels) bitcoinScaleLabel(l, step, btcFormat)];
+      }
+
+      test('no balance: a single zero', () {
+        expect(labels([0, 0, 0], 'sats'), ['0 sats']);
+        expect(labels([0, 0, 0], 'BTC'), ['0 BTC']);
+      });
+
+      test('float dust is not a balance: no "0.0000000001"', () {
+        expect(labels([0, 0, 1e-10], 'sats'), ['0 sats']);
+        expect(labels([0, 0, 1e-10], 'BTC'), ['0 BTC']);
+      });
+
+      test('a few sats: whole sats, never half a sat', () {
+        expect(labels([0, 0, 1], 'sats'), ['0 sats', '1 sats']);
+        expect(labels([5, 5, 5], 'sats'), ['5 sats']);
+        expect(labels([0, 3, 5], 'sats'), ['0 sats', '5 sats']);
+        expect(labels([0, 10], 'sats'), ['0 sats', '5 sats', '10 sats']);
+        expect(labels([7, 9], 'sats'), ['7 sats', '8 sats', '9 sats']);
+      });
+
+      test('BTC: one label per level, at most 8 decimals', () {
+        expect(labels([0, 0, 1], 'BTC'), ['0 BTC', '0.00000001 BTC']);
+        expect(labels([1, 1, 1], 'BTC'), ['0.00000001 BTC']);
+        expect(labels([5, 5, 5], 'BTC'), ['0.00000005 BTC']);
+        expect(labels([0, 10], 'BTC'),
+            ['0 BTC', '0.00000005 BTC', '0.00000010 BTC']);
+        expect(labels([7, 9], 'BTC'),
+            ['0.00000007 BTC', '0.00000008 BTC', '0.00000009 BTC']);
+        expect(labels([100, 101], 'BTC'),
+            ['0.0000009 BTC', '0.0000010 BTC', '0.0000011 BTC']);
+      });
+
+      test('every case: whole sats, no exponent, distinct labels', () {
+        final cases = <List<double>>[
+          [0, 0, 0], [0, 0, 1e-10], [0, 0, 2.9999999996], [0, 1, 0],
+          [1, 1, 1], [2, 2, 2], [3, 3, 3], [0, 2], [0, 4], [0, 6], [0, 8],
+          [9, 10], [10, 10], [0, 50], [99, 100], [1234, 1240],
+        ];
+        for (final sats in cases) {
+          for (final f in ['sats', 'BTC']) {
+            final out = labels(sats, f);
+            expect(out, isNotEmpty, reason: '$sats $f');
+            expect(out.toSet().length, out.length, reason: '$sats $f $out');
+            for (final l in out) {
+              expect(l, isNot(contains('e')), reason: '$sats $f $l');
+              if (f == 'sats') {
+                expect(l, matches(RegExp(r'^\d+(\.\d)?K? sats$')),
+                    reason: '$sats $l');
+                expect(l, isNot(matches(RegExp(r'^\d+\.\d sats$'))),
+                    reason: 'fractional sat: $sats $l');
+              } else {
+                expect(l, matches(RegExp(r'^\d+(\.\d{1,8})? BTC$')),
+                    reason: '$sats $l');
+              }
+            }
+          }
+        }
+      });
+
+      test('the dollar scale still steps in cents', () {
+        expect(kuteScaleLevels(-0.1, 1.1), [0, 0.5, 1]);
+        expect(kuteScaleLevels(-0.1, 1.1, minStep: 1), [0, 1]);
+      });
+    });
+
     test('a balance is drawn flat, then straight up or down', () {
       final path = kuteStepPath(
           const [Offset(0, 10), Offset(10, 10), Offset(20, 2)]);
@@ -215,6 +292,8 @@ void main() {
       expect(chart.stepped, isFalse);
       expect(chart.buckets, isNotNull);
       expect(chart.scaleLabel, isNotNull);
+      // Dollars step down to cents.
+      expect(chart.scaleMinStep, isNull);
       expect(chart.values.toSet(), {5.02});
       // No headline above the plot (owner decision): the balance is the
       // hero card above the strip, and a touch reads it off the chart.
@@ -311,6 +390,8 @@ void main() {
       expect(find.text('+100.0%'), findsNothing);
       final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
       expect(chart.stepped, isFalse);
+      // Scale levels at least a sat apart.
+      expect(chart.scaleMinStep, 1);
       // The line is the balance in sats, as the headline leads with.
       expect(chart.values.last, 17520);
       // No headline above the plot on home either: a touch reads it.

@@ -276,6 +276,12 @@ class KuteLineChart extends StatefulWidget {
   /// points exactly (prices).
   final double? minScaleShare;
 
+  /// The least step between two levels of the scale, in the series' unit:
+  /// one sat for a bitcoin balance, so a balance of a few sats is never
+  /// labelled "0.5 sats" or a float artifact. Null steps freely (dollars
+  /// down to cents, prices).
+  final double? scaleMinStep;
+
   /// The time axis under the plot; null draws none.
   final KuteLineTimeAxis? timeAxis;
 
@@ -320,6 +326,7 @@ class KuteLineChart extends StatefulWidget {
     this.zoomAroundFingers = false,
     this.buckets,
     this.minScaleShare,
+    this.scaleMinStep,
     this.timeAxis,
     this.zoomHint = false,
     this.plotOverlay,
@@ -680,6 +687,7 @@ class _KuteLineChartState extends State<KuteLineChart>
                     lockedMaxY: widget.lockedMaxY,
                     indices: drawn,
                     minScaleShare: widget.minScaleShare,
+                    scaleMinStep: widget.scaleMinStep,
                   ),
                 ),
               ),
@@ -760,7 +768,8 @@ class _KuteLineChartState extends State<KuteLineChart>
           lockedMaxY: widget.lockedMaxY,
           indices: _drawn(all),
           minShare: widget.minScaleShare);
-      final levels = kuteScaleLevels(whole.minY, whole.maxY);
+      final levels = kuteScaleLevels(whole.minY, whole.maxY,
+          minStep: widget.scaleMinStep);
       final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
       var stripW = 0.0;
       for (final l in levels) {
@@ -795,6 +804,7 @@ class _KuteLineChartState extends State<KuteLineChart>
                           minShare: widget.minScaleShare),
                       label: label,
                       color: c.textTertiary,
+                      minStep: widget.scaleMinStep,
                     ),
                   );
                 },
@@ -850,8 +860,10 @@ TextPainter _scaleTp(String text, Color color) {
 
 /// Two or three round levels (1, 2 or 5 times a power of ten apart)
 /// inside [lo]..[hi], lowest first, none under zero: the scale of a
-/// series of amounts held.
-List<double> kuteScaleLevels(double lo, double hi, {int maxLevels = 3}) {
+/// series of amounts held. With [minStep] the levels are never closer
+/// than that (one sat for a bitcoin balance).
+List<double> kuteScaleLevels(double lo, double hi,
+    {int maxLevels = 3, double? minStep}) {
   if (!(hi > lo) || !lo.isFinite || !hi.isFinite) return const [];
   double nice(double raw) {
     final mag = math
@@ -874,6 +886,7 @@ List<double> kuteScaleLevels(double lo, double hi, {int maxLevels = 3}) {
   }
 
   var step = nice((hi - lo) / maxLevels);
+  if (minStep != null && step < minStep) step = minStep;
   var out = levelsFor(step);
   for (var guard = 0; out.length > maxLevels && guard < 8; guard++) {
     step = nice(step * 1.01);
@@ -888,16 +901,19 @@ class _KuteScaleLabelsPainter extends CustomPainter {
   final KuteYDomain domain;
   final String Function(double level, double step) label;
   final Color color;
+  final double? minStep;
 
   _KuteScaleLabelsPainter({
     required this.domain,
     required this.label,
     required this.color,
+    this.minStep,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final levels = kuteScaleLevels(domain.minY, domain.maxY);
+    final levels =
+        kuteScaleLevels(domain.minY, domain.maxY, minStep: minStep);
     if (levels.isEmpty) return;
     final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
     for (final level in levels) {
@@ -913,7 +929,10 @@ class _KuteScaleLabelsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KuteScaleLabelsPainter old) =>
-      old.domain != domain || old.color != color || old.label != label;
+      old.domain != domain ||
+      old.color != color ||
+      old.label != label ||
+      old.minStep != minStep;
 }
 
 /// The y-domain of a line over the points in [window]: the venue charts'
@@ -1016,6 +1035,9 @@ class _KuteLinePainter extends CustomPainter {
   /// See [KuteLineChart.minScaleShare].
   final double? minScaleShare;
 
+  /// See [KuteLineChart.scaleMinStep].
+  final double? scaleMinStep;
+
   _KuteLinePainter({
     required this.values,
     required this.morphSeries,
@@ -1033,6 +1055,7 @@ class _KuteLinePainter extends CustomPainter {
     required this.lockedMaxY,
     this.indices,
     this.minScaleShare,
+    this.scaleMinStep,
   });
 
   @override
@@ -1063,7 +1086,8 @@ class _KuteLinePainter extends CustomPainter {
       final hairline = Paint()
         ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)
         ..strokeWidth = 1.0;
-      for (final level in kuteScaleLevels(d.minY, d.maxY)) {
+      for (final level
+          in kuteScaleLevels(d.minY, d.maxY, minStep: scaleMinStep)) {
         final y = toY(level);
         canvas.drawLine(Offset(0, y), Offset(w, y), hairline);
       }
@@ -1209,6 +1233,7 @@ class _KuteLinePainter extends CustomPainter {
       old.lockedMaxY != lockedMaxY ||
       !listEquals(old.indices, indices) ||
       old.minScaleShare != minScaleShare ||
+      old.scaleMinStep != scaleMinStep ||
       old.window != window;
 
   static bool _sameMorph(List<double>? a, List<double>? b) {
