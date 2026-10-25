@@ -11083,18 +11083,33 @@ class AppLocalizationsFi extends AppLocalizations {
       'Saldosi kehitys näkyy tässä, kun sinulla on dollareita';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Käytettävissä heti';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Positioissa';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count positiota',
       one: '1 positio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Ostovoima';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Valmiina mihin tahansa kauppaan tai ennusteeseen';
+
+  @override
+  String get portfolioNoOpenPositions => 'Ei avoimia positioita';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count avointa',
+      one: '1 avoin',
     );
     return '$_temp0';
   }

@@ -11128,12 +11128,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Evoluția soldului tău va apărea aici după ce vei avea dolari';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Gata de folosit';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'În poziții';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11141,6 +11135,28 @@ class AppLocalizationsRo extends AppLocalizations {
       other: '$count de poziții',
       few: '$count poziții',
       one: '1 poziție',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Putere de cumpărare';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Gata pentru orice tranzacție sau predicție';
+
+  @override
+  String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count deschise',
+      few: '$count deschise',
+      one: '1 deschisă',
     );
     return '$_temp0';
   }

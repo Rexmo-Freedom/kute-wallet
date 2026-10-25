@@ -11068,18 +11068,33 @@ class AppLocalizationsSv extends AppLocalizations {
       'Ditt saldo över tid visas här när du har dollar';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Klart att använda';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'I positioner';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count positioner',
       one: '1 position',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Köpkraft';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Redo för alla affärer och förutsägelser';
+
+  @override
+  String get portfolioNoOpenPositions => 'Inga öppna positioner';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count öppna',
+      one: '1 öppen',
     );
     return '$_temp0';
   }

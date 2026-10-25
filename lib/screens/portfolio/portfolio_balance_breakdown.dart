@@ -405,12 +405,13 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
   final bool trading;
   final bool predictions;
 
-  /// The Balances tab's layout: the total, its bar, Ready to use over one
-  /// plain row per account, then In positions ([BalancesOverview])
-  /// instead of the row of tiles.
+  /// The Balances tab's layout: the ring and its legend over Buying power
+  /// (where the cash sits under it), Predictions and Investing
+  /// ([BalancesOverview]) instead of the row of tiles.
   final bool overview;
 
-  /// The overview's In positions row tapped: the Positions section.
+  /// The overview's Predictions or Investing row tapped: the Positions
+  /// section.
   final VoidCallback? onPositions;
 
   @override
@@ -637,7 +638,7 @@ class _PortfolioBalanceBreakdownState
     }
 
     // How many positions each venue holds (the Positions list's rows),
-    // counted together under In positions on the Balances tab.
+    // under Predictions and Investing on the Balances tab.
     final int investingCount = widget.overview && widget.trading
         ? ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
             final hl = s.valueOrNull;
@@ -695,7 +696,8 @@ class _PortfolioBalanceBreakdownState
             BalancesEntry(
               part: BalancesPart.investing,
               asset: venueMarkAsset(InvestmentsProduct.trading),
-              name: l10n.trading,
+              // Where the cash sits, under Buying power: the venue's name.
+              name: 'Hyperliquid',
               cash: figureOf(venueFigure('investing_cash', investing,
                   known: balance.investingKnown,
                   fallback: cachedHl?.available)),
@@ -712,7 +714,7 @@ class _PortfolioBalanceBreakdownState
             BalancesEntry(
               part: BalancesPart.predictions,
               asset: venueMarkAsset(InvestmentsProduct.predictions),
-              name: l10n.predictions,
+              name: 'Polymarket',
               cash: figureOf(venueFigure('predictions_cash', predictionsCash,
                   known: balance.predictionsKnown)),
               positions: figureOf(venueFigure(
@@ -720,9 +722,9 @@ class _PortfolioBalanceBreakdownState
                   known: balance.predictionsKnown)),
               reservedUsd: predictionsSplit.reserved,
               positionCount: predictionsCount,
+              // The open orders' reserve is named under Predictions by
+              // the overview itself (reservedUsd).
               footer: [
-                if (reserved >= kSweepDustUsd)
-                  l10n.investingInOpenOrders(amount(reserved)),
                 if (note(OneBalanceVenue.predictions) case final line?) line,
               ],
             ),

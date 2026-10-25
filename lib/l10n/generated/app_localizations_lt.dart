@@ -11114,12 +11114,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Kai turėsite dolerių, čia matysite savo likučio pokyčius';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Paruošta naudoti';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Pozicijose';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11128,6 +11122,28 @@ class AppLocalizationsLt extends AppLocalizations {
       many: '$count pozicijos',
       few: '$count pozicijos',
       one: '$count pozicija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Perkamoji galia';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Paruošta bet kokiam sandoriui ar prognozei';
+
+  @override
+  String get portfolioNoOpenPositions => 'Atvirų pozicijų nėra';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count atvirų',
+      few: '$count atviros',
+      one: '1 atvira',
     );
     return '$_temp0';
   }

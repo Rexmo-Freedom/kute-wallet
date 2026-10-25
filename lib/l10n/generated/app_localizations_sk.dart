@@ -11075,12 +11075,6 @@ class AppLocalizationsSk extends AppLocalizations {
       'Keď budete mať doláre, uvidíte tu vývoj svojho zostatku';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Pripravené na použitie';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'V pozíciách';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11088,6 +11082,28 @@ class AppLocalizationsSk extends AppLocalizations {
       other: '$count pozícií',
       few: '$count pozície',
       one: '1 pozícia',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Kúpna sila';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Pripravené na akýkoľvek obchod alebo predikciu';
+
+  @override
+  String get portfolioNoOpenPositions => 'Žiadne otvorené pozície';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count otvorených',
+      few: '$count otvorené',
+      one: '1 otvorená',
     );
     return '$_temp0';
   }

@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Muutust pole, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kui sul on bitcoini, näed siin oma saldot ajas",
   "balanceChartEmptyDollars": "Kui sul on dollareid, näed siin oma saldot ajas",
-  "portfolioBalanceReadyToUse": "Kasutamiseks valmis",
-  "portfolioBalanceInPositionsLabel": "Positsioonides",
   "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
+  "portfolioBuyingPower": "Ostujõud",
+  "portfolioBuyingPowerHint": "Valmis igaks tehinguks või ennustuseks",
+  "portfolioNoOpenPositions": "Avatud positsioone pole",
+  "portfolioOpenCount": "{count, plural, =1{1 avatud} other{{count} avatud}}",
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
   "portfolioRowEntry": "sisenemine {price}"
 }

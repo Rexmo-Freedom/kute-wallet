@@ -11070,18 +11070,33 @@ class AppLocalizationsDa extends AppLocalizations {
       'Din saldo over tid vises her, når du har dollars';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Klar til brug';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'I positioner';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count positioner',
       one: '1 position',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Købekraft';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Klar til enhver handel eller forudsigelse';
+
+  @override
+  String get portfolioNoOpenPositions => 'Ingen åbne positioner';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count åbne',
+      one: '1 åben',
     );
     return '$_temp0';
   }

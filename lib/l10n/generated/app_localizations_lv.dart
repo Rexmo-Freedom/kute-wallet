@@ -11038,18 +11038,33 @@ class AppLocalizationsLv extends AppLocalizations {
       'Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Gatavs lietošanai';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Pozīcijās';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count pozīcijas',
       one: '1 pozīcija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Pirktspēja';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Gatavs jebkuram darījumam vai prognozei';
+
+  @override
+  String get portfolioNoOpenPositions => 'Nav atvērtu pozīciju';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count atvērtas',
+      one: '1 atvērta',
     );
     return '$_temp0';
   }

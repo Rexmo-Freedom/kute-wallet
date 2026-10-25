@@ -1,6 +1,7 @@
 // Render harness for the Investments → Portfolio redesign (October 2026):
-// the Balances section (the total, its segmented bar, Ready to use and In
-// positions, one plain row per balance) and the Positions list rows, at
+// the Balances section (the ring and its legend, Buying power and where it
+// sits, Predictions, Investing; also on the founder's own figures) and the
+// Positions list rows, at
 // 390 x 844 in the app's real themes and Inter, light and dark. Writes
 // PNGs.
 //
@@ -307,8 +308,51 @@ List<Override> get _held => [
       livePriceProvider.overrideWith(_Prices.new),
     ];
 
+/// The founder's wallet (build 84, October 2026): no dollars, \$17.21 of
+/// Hyperliquid cash and nothing open there, \$0.43 of Polymarket cash and
+/// two predictions worth \$17.39.
+const _founderState = OneBalanceState(
+  investedUsd: 17.39,
+  investedByVenue: {OneBalanceVenue.predictions: 17.39},
+  investingKnown: true,
+  predictionsKnown: true,
+  venueCash: {
+    OneBalanceVenue.investing: 17.21,
+    OneBalanceVenue.predictions: 0.43,
+  },
+);
+
+List<Override> get _founderHeld => [
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(isInitialized: true))),
+      hyperliquidDisplayTradingProvider
+          .overrideWith((ref) => ref.watch(hyperliquidTradingProvider)),
+      hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      polymarketActivePositionsProvider.overrideWith((_) => const [
+            PolymarketPosition(
+                marketId: 'flavio',
+                marketQuestion: 'Will Flávio Bolsonaro win the 2026 Brazilian '
+                    'presidential election?',
+                outcome: 'No',
+                size: 7.6,
+                avgPrice: 0.93,
+                currentPrice: 0.95,
+                pnl: 0,
+                pnlPercent: 0,
+                isResolved: false,
+                tokenId: 'flavio-no'),
+            _lula,
+          ]),
+      polymarketClaimablePositionsProvider.overrideWith((_) => const []),
+      livePriceProvider.overrideWith(_Prices.new),
+    ];
+
 Future<ui.Image> _shoot(WidgetTester tester, bool dark,
-    {required WidgetBuilder body, List<Override> overrides = const []}) async {
+    {required WidgetBuilder body,
+    List<Override> overrides = const [],
+    OneBalanceState state = _state,
+    List<Override>? held}) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -322,9 +366,9 @@ Future<ui.Image> _shoot(WidgetTester tester, bool dark,
           bitcoinElectrumNode: '',
           nodeType: '',
           reviewDone: true))),
-      oneBalanceProvider.overrideWith((ref) => _state),
+      oneBalanceProvider.overrideWith((ref) => state),
       venueSweeperProvider.overrideWith(_Sweeper.new),
-      ..._held,
+      ...(held ?? _held),
       ...overrides,
     ],
     child: ScreenUtilInit(
@@ -417,12 +461,24 @@ void main() {
       }
       await inter.load();
     }
+    // The app bundles Material's icon font; the test does not, so the
+    // chevrons would draw as boxes. The SDK's own copy, when it is there.
+    final root = Platform.environment['FLUTTER_ROOT'];
+    final icons = File(
+        '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+    if (root != null && icons.existsSync()) {
+      final bytes = icons.readAsBytesSync();
+      await (FontLoader('MaterialIcons')
+            ..addFont(Future.value(ByteData.sublistView(bytes))))
+          .load();
+    }
   });
 
-  for (final (name, section) in [
-    ('balances', PortfolioSection.balances),
-    ('positions', PortfolioSection.positions),
-    ('breakdown_donut', null),
+  for (final (name, section, founder) in [
+    ('balances', PortfolioSection.balances, false),
+    ('balances_founder', PortfolioSection.balances, true),
+    ('positions', PortfolioSection.positions, false),
+    ('breakdown_donut', null, false),
   ]) {
     testWidgets('$name, light and dark', (tester) async {
       tester.view.devicePixelRatio = _dpr;
@@ -430,6 +486,8 @@ void main() {
       addTearDown(tester.view.reset);
       for (final dark in [false, true]) {
         final img = await _shoot(tester, dark,
+            state: founder ? _founderState : _state,
+            held: founder ? _founderHeld : null,
             body: section == null ? _breakdown : (_) => _section(section));
         await _png(tester, img, '${name}_${dark ? 'dark' : 'light'}');
       }

@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Beze změny, {start} – {end}",
   "balanceChartEmptyBitcoin": "Až budete mít bitcoin, uvidíte zde vývoj svého zůstatku",
   "balanceChartEmptyDollars": "Až budete mít dolary, uvidíte zde vývoj svého zůstatku",
-  "portfolioBalanceReadyToUse": "Připraveno k použití",
-  "portfolioBalanceInPositionsLabel": "V pozicích",
   "portfolioPositionsCount": "{count, plural, =1{1 pozice} few{{count} pozice} other{{count} pozic}}",
+  "portfolioBuyingPower": "Kupní síla",
+  "portfolioBuyingPowerHint": "Připraveno na jakýkoli obchod nebo predikci",
+  "portfolioNoOpenPositions": "Žádné otevřené pozice",
+  "portfolioOpenCount": "{count, plural, =1{1 otevřená} few{{count} otevřené} other{{count} otevřených}}",
   "portfolioRowShares": "{shares} podílů · prům. {price}",
   "portfolioRowEntry": "vstup {price}"
 }

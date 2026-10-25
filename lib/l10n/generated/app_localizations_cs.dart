@@ -11060,12 +11060,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Až budete mít dolary, uvidíte zde vývoj svého zůstatku';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Připraveno k použití';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'V pozicích';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11073,6 +11067,28 @@ class AppLocalizationsCs extends AppLocalizations {
       other: '$count pozic',
       few: '$count pozice',
       one: '1 pozice',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Kupní síla';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Připraveno na jakýkoli obchod nebo predikci';
+
+  @override
+  String get portfolioNoOpenPositions => 'Žádné otevřené pozice';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count otevřených',
+      few: '$count otevřené',
+      one: '1 otevřená',
     );
     return '$_temp0';
   }

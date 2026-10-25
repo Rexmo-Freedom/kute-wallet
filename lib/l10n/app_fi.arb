@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Ei muutosta, {start} – {end}",
   "balanceChartEmptyBitcoin": "Saldosi kehitys näkyy tässä, kun sinulla on bitcoinia",
   "balanceChartEmptyDollars": "Saldosi kehitys näkyy tässä, kun sinulla on dollareita",
-  "portfolioBalanceReadyToUse": "Käytettävissä heti",
-  "portfolioBalanceInPositionsLabel": "Positioissa",
   "portfolioPositionsCount": "{count, plural, =1{1 positio} other{{count} positiota}}",
+  "portfolioBuyingPower": "Ostovoima",
+  "portfolioBuyingPowerHint": "Valmiina mihin tahansa kauppaan tai ennusteeseen",
+  "portfolioNoOpenPositions": "Ei avoimia positioita",
+  "portfolioOpenCount": "{count, plural, =1{1 avoin} other{{count} avointa}}",
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
   "portfolioRowEntry": "avaus {price}"
 }

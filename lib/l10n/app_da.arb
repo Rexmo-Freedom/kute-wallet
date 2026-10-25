@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Ingen ændring, {start} – {end}",
   "balanceChartEmptyBitcoin": "Din saldo over tid vises her, når du har bitcoin",
   "balanceChartEmptyDollars": "Din saldo over tid vises her, når du har dollars",
-  "portfolioBalanceReadyToUse": "Klar til brug",
-  "portfolioBalanceInPositionsLabel": "I positioner",
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioBuyingPower": "Købekraft",
+  "portfolioBuyingPowerHint": "Klar til enhver handel eller forudsigelse",
+  "portfolioNoOpenPositions": "Ingen åbne positioner",
+  "portfolioOpenCount": "{count, plural, =1{1 åben} other{{count} åbne}}",
   "portfolioRowShares": "{shares} andele · gns. {price}",
   "portfolioRowEntry": "indgang {price}"
 }

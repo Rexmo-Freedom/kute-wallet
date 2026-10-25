@@ -18620,23 +18620,35 @@ abstract class AppLocalizations {
   /// **'Your balance over time shows here once you hold dollars'**
   String get balanceChartEmptyDollars;
 
-  /// Investments, Portfolio, Balances: section label, its sum (the cash of Dollars and both venues added up: money that can be spent now, not in positions) at the end of the line, one row per account under it.
-  ///
-  /// In en, this message translates to:
-  /// **'Ready to use'**
-  String get portfolioBalanceReadyToUse;
-
-  /// Investments, Portfolio, Balances: the row under the Ready to use accounts for what all open Investing positions and predictions are worth together, the amount at its end.
-  ///
-  /// In en, this message translates to:
-  /// **'In positions'**
-  String get portfolioBalanceInPositionsLabel;
-
-  /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list, and under In positions on Balances.
+  /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 position} other{{count} positions}}'**
   String portfolioPositionsCount(int count);
+
+  /// Investments, Portfolio, Balances: legend label and row title for all spare cash added up (Dollars plus the cash at Hyperliquid and Polymarket): money ready to spend, not in positions. Like Robinhood's "Buying power".
+  ///
+  /// In en, this message translates to:
+  /// **'Buying power'**
+  String get portfolioBuyingPower;
+
+  /// Investments, Portfolio, Balances: small secondary line under "Buying power": the spare cash can fund any Investing trade or prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready for any trade or prediction'**
+  String get portfolioBuyingPowerHint;
+
+  /// Investments, Portfolio, Balances: small secondary line under "Investing" when no Investing position is open.
+  ///
+  /// In en, this message translates to:
+  /// **'No open positions'**
+  String get portfolioNoOpenPositions;
+
+  /// Investments, Portfolio, Balances: small secondary line under "Predictions" or "Investing": how many positions are open there. {count} is the number.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 open} other{{count} open}}'**
+  String portfolioOpenCount(int count);
 
   /// Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).
   ///

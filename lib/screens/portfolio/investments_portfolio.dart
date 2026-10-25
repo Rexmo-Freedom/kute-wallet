@@ -21,9 +21,10 @@
 //   * ACTIVITY: the Investments activity, the one merged list
 //     (portfolio_activity.dart), all of it: this is its home now, so no
 //     preview and no "See all";
-//   * BALANCES (last): the total with its segmented bar, Ready to use
-//     over one plain row per account (Dollars, Investing, Predictions),
-//     then In positions as one row (a tap opens Positions;
+//   * BALANCES (last): a ring with the total in its hole and a legend of
+//     what the money is doing (Buying power, Predictions, Investing), then
+//     a row per category: Buying power with where its cash sits under it,
+//     Predictions and Investing (a tap opens Positions;
 //     components/balances_overview.dart), Move money under them
 //     (PortfolioBalanceBreakdown, overview layout), moved here from the
 //     top of the Portfolio screen.
@@ -228,8 +229,8 @@ class _Charts extends ConsumerWidget {
   }
 }
 
-/// Balances: the total and its bar, Ready to use over a row per account,
-/// In positions (a tap: the Positions section) and Move money
+/// Balances: the ring and its legend, Buying power and where it sits,
+/// Predictions and Investing (a tap: the Positions section) and Move money
 /// (PortfolioBalanceBreakdown in its overview layout).
 class _Balances extends ConsumerWidget {
   const _Balances({required this.pills, required this.onPositions});

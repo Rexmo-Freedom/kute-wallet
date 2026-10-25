@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Sin cambios, {start} – {end}",
   "balanceChartEmptyBitcoin": "Tu saldo a lo largo del tiempo aparecerá aquí cuando tengas bitcoin",
   "balanceChartEmptyDollars": "Tu saldo a lo largo del tiempo aparecerá aquí cuando tengas dólares",
-  "portfolioBalanceReadyToUse": "Listo para usar",
-  "portfolioBalanceInPositionsLabel": "En posiciones",
   "portfolioPositionsCount": "{count, plural, =1{1 posición} other{{count} posiciones}}",
+  "portfolioBuyingPower": "Poder de compra",
+  "portfolioBuyingPowerHint": "Listo para cualquier operación o predicción",
+  "portfolioNoOpenPositions": "Sin posiciones abiertas",
+  "portfolioOpenCount": "{count, plural, =1{1 abierta} other{{count} abiertas}}",
   "portfolioRowShares": "{shares} participaciones · media {price}",
   "portfolioRowEntry": "entrada {price}"
 }

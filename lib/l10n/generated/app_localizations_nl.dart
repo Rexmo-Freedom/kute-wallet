@@ -11105,18 +11105,33 @@ class AppLocalizationsNl extends AppLocalizations {
       'Je saldo door de tijd verschijnt hier zodra je dollars hebt';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Direct te gebruiken';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'In posities';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count posities',
       one: '1 positie',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Koopkracht';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Klaar voor elke trade of voorspelling';
+
+  @override
+  String get portfolioNoOpenPositions => 'Geen open posities';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count open',
+      one: '1 open',
     );
     return '$_temp0';
   }

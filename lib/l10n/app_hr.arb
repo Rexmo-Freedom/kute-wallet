@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Bez promjene, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kretanje vašeg salda prikazat će se ovdje kad budete imali bitcoin",
   "balanceChartEmptyDollars": "Kretanje vašeg salda prikazat će se ovdje kad budete imali dolare",
-  "portfolioBalanceReadyToUse": "Spremno za korištenje",
-  "portfolioBalanceInPositionsLabel": "U pozicijama",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicije} other{{count} pozicija}}",
+  "portfolioBuyingPower": "Kupovna moć",
+  "portfolioBuyingPowerHint": "Spremno za bilo koju trgovinu ili predviđanje",
+  "portfolioNoOpenPositions": "Nema otvorenih pozicija",
+  "portfolioOpenCount": "{count, plural, =1{1 otvorena} few{{count} otvorene} other{{count} otvorenih}}",
   "portfolioRowShares": "{shares} udjela · prosj. {price}",
   "portfolioRowEntry": "ulaz {price}"
 }
