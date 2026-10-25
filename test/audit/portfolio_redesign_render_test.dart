@@ -36,6 +36,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/polymarket_model.dart'
+    show PolymarketEvent, PolymarketOutcome;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
@@ -52,6 +54,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/portfolio/poly_position_events.dart'
+    show polyPositionEventProvider;
 import 'package:kute/screens/shared/charts/kute_category_donut_card.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
@@ -202,7 +206,8 @@ const _kane = PolymarketPosition(
     pnl: 0,
     pnlPercent: 0,
     isResolved: false,
-    tokenId: 'kane-yes');
+    tokenId: 'kane-yes',
+    eventSlug: 'ballon-dor-2026');
 
 const _madrid = PolymarketPosition(
     marketId: 'rm',
@@ -232,7 +237,8 @@ const _lula = PolymarketPosition(
     pnl: 0,
     pnlPercent: 0,
     isResolved: false,
-    tokenId: 'lula-yes');
+    tokenId: 'lula-yes',
+    eventSlug: 'brazil-presidential-election');
 
 const _f1 = PolymarketPosition(
     marketId: 'f1',
@@ -249,7 +255,40 @@ const _f1 = PolymarketPosition(
     won: true,
     tokenId: 'f1-v');
 
+/// A many-outcome event holding the market [conditionId] under its own
+/// name ([candidate], Polymarket's groupItemTitle).
+PolymarketEvent _event(
+        String slug, String title, String conditionId, String candidate) =>
+    PolymarketEvent(
+      id: slug,
+      slug: slug,
+      title: title,
+      volume: 1e6,
+      liquidity: 1e5,
+      category: 'politics',
+      conditionId: conditionId,
+      outcomes: [
+        PolymarketOutcome(
+            name: candidate,
+            price: 0.4,
+            conditionId: conditionId,
+            tokenId: '$conditionId-yes',
+            noTokenId: '$conditionId-no'),
+        PolymarketOutcome(
+            name: 'Someone else',
+            price: 0.2,
+            conditionId: 'other',
+            tokenId: 'other-yes',
+            noTokenId: 'other-no'),
+      ],
+    );
+
 List<Override> get _held => [
+      polyPositionEventProvider('ballon-dor-2026').overrideWith((_) =>
+          _event('ballon-dor-2026', "Ballon d'Or 2026", 'kane', 'Harry Kane')),
+      polyPositionEventProvider('brazil-presidential-election').overrideWith(
+          (_) => _event('brazil-presidential-election',
+              'Brazil Presidential Election', 'lula', 'Lula da Silva')),
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           const HyperliquidTradingState(
               isInitialized: true, positions: [_btc, _nvda]))),
