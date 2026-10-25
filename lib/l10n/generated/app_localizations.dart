@@ -18620,31 +18620,19 @@ abstract class AppLocalizations {
   /// **'Your balance over time shows here once you hold dollars'**
   String get balanceChartEmptyDollars;
 
-  /// Investments, Portfolio, Balances: label over the cash of Dollars and both venues added up (money that can be spent now, not in positions).
+  /// Investments, Portfolio, Balances: section label, its sum (the cash of Dollars and both venues added up: money that can be spent now, not in positions) at the end of the line, one row per account under it.
   ///
   /// In en, this message translates to:
   /// **'Ready to use'**
   String get portfolioBalanceReadyToUse;
 
-  /// Investments, Portfolio, Balances: label over what all open Investing positions and predictions are worth, beside 'Ready to use'.
+  /// Investments, Portfolio, Balances: the row under the Ready to use accounts for what all open Investing positions and predictions are worth together, the amount at its end.
   ///
   /// In en, this message translates to:
   /// **'In positions'**
   String get portfolioBalanceInPositionsLabel;
 
-  /// Investments, Portfolio, Balances: the Investing row's secondary line, after '{amount} available ·'. {amount} is a formatted dollar amount, {count} the number of open positions.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} in {count, plural, =1{1 position} other{{count} positions}}'**
-  String portfolioBalanceInPositions(String amount, int count);
-
-  /// Investments, Portfolio, Balances: the Predictions row's secondary line, after '{amount} available ·'. {amount} is a formatted dollar amount, {count} the number of open predictions (never 'bets').
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} in {count, plural, =1{1 prediction} other{{count} predictions}}'**
-  String portfolioBalanceInPredictions(String amount, int count);
-
-  /// Investments, Portfolio, Positions: small secondary line above the list of open positions, how many there are.
+  /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list, and under In positions on Balances.
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 position} other{{count} positions}}'**

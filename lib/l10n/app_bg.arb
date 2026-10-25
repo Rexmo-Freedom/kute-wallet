@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Салдото ви във времето ще се показва тук, щом имате долари",
   "portfolioBalanceReadyToUse": "Готови за ползване",
   "portfolioBalanceInPositionsLabel": "В позиции",
-  "portfolioBalanceInPositions": "{amount} в {count, plural, =1{1 позиция} other{{count} позиции}}",
-  "portfolioBalanceInPredictions": "{amount} в {count, plural, =1{1 прогноза} other{{count} прогнози}}",
   "portfolioPositionsCount": "{count, plural, =1{1 позиция} other{{count} позиции}}",
   "portfolioRowShares": "{shares} дяла · ср. {price}",
   "portfolioRowEntry": "вход {price}"

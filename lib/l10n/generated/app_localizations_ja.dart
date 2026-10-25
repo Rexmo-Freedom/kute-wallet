@@ -10653,28 +10653,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioBalanceInPositionsLabel => 'ポジション内';
 
   @override
-  String portfolioBalanceInPositions(String amount, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count件のポジションに$amount',
-      one: '1件のポジションに$amount',
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String portfolioBalanceInPredictions(String amount, int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count件の予測に$amount',
-      one: '1件の予測に$amount',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

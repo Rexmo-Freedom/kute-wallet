@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "L'évolution de votre solde s'affichera ici dès que vous détiendrez des dollars",
   "portfolioBalanceReadyToUse": "Prêt à utiliser",
   "portfolioBalanceInPositionsLabel": "En positions",
-  "portfolioBalanceInPositions": "{amount} dans {count, plural, one{{count} position} other{{count} positions}}",
-  "portfolioBalanceInPredictions": "{amount} dans {count, plural, one{{count} prédiction} other{{count} prédictions}}",
   "portfolioPositionsCount": "{count, plural, one{{count} position} other{{count} positions}}",
   "portfolioRowShares": "{shares} parts · moy. {price}",
   "portfolioRowEntry": "entrée {price}"

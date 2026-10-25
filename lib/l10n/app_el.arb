@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια",
   "portfolioBalanceReadyToUse": "Έτοιμα για χρήση",
   "portfolioBalanceInPositionsLabel": "Σε θέσεις",
-  "portfolioBalanceInPositions": "{amount} σε {count, plural, =1{1 θέση} other{{count} θέσεις}}",
-  "portfolioBalanceInPredictions": "{amount} σε {count, plural, =1{1 πρόβλεψη} other{{count} προβλέψεις}}",
   "portfolioPositionsCount": "{count, plural, =1{1 θέση} other{{count} θέσεις}}",
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
   "portfolioRowEntry": "είσοδος {price}"

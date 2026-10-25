@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Ko boste imeli dolarje, bo tukaj prikazano gibanje vašega stanja",
   "portfolioBalanceReadyToUse": "Pripravljeno za uporabo",
   "portfolioBalanceInPositionsLabel": "V pozicijah",
-  "portfolioBalanceInPositions": "{amount} v {count, plural, one{{count} poziciji} two{{count} pozicijah} few{{count} pozicijah} other{{count} pozicijah}}",
-  "portfolioBalanceInPredictions": "{amount} v {count, plural, one{{count} napovedi} two{{count} napovedih} few{{count} napovedih} other{{count} napovedih}}",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} two{{count} poziciji} few{{count} pozicije} other{{count} pozicij}}",
   "portfolioRowShares": "Deleži: {shares} · povpr. {price}",
   "portfolioRowEntry": "vstop {price}"

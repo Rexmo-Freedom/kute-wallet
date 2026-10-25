@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Az egyenleged alakulása itt jelenik meg, amint lesz dollárod",
   "portfolioBalanceReadyToUse": "Azonnal felhasználható",
   "portfolioBalanceInPositionsLabel": "Pozíciókban",
-  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 pozícióban} other{{count} pozícióban}}",
-  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 előrejelzésben} other{{count} előrejelzésben}}",
   "portfolioPositionsCount": "{count, plural, =1{1 pozíció} other{{count} pozíció}}",
   "portfolioRowShares": "{shares} egység · átl. {price}",
   "portfolioRowEntry": "belépés {price}"

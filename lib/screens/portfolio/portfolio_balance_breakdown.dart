@@ -360,15 +360,19 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     required this.trading,
     required this.predictions,
     this.overview = false,
+    this.onPositions,
   });
 
   final bool trading;
   final bool predictions;
 
-  /// The Balances tab's layout: the total, its bar, Ready to use and In
-  /// positions over one plain row per balance ([BalancesOverview])
+  /// The Balances tab's layout: the total, its bar, Ready to use over one
+  /// plain row per account, then In positions ([BalancesOverview])
   /// instead of the row of tiles.
   final bool overview;
+
+  /// The overview's In positions row tapped: the Positions section.
+  final VoidCallback? onPositions;
 
   @override
   ConsumerState<PortfolioBalanceBreakdown> createState() =>
@@ -594,7 +598,7 @@ class _PortfolioBalanceBreakdownState
     }
 
     // How many positions each venue holds (the Positions list's rows),
-    // for its row's line on the Balances tab.
+    // counted together under In positions on the Balances tab.
     final int investingCount = widget.overview && widget.trading
         ? ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
             final hl = s.valueOrNull;
@@ -623,6 +627,7 @@ class _PortfolioBalanceBreakdownState
           BalancesFigure(f.text, stale: f.stale, usd: f.usd);
       return BalancesOverview(
         money: amount,
+        onPositions: widget.onPositions,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
@@ -670,8 +675,7 @@ class _PortfolioBalanceBreakdownState
                   known: balance.predictionsKnown)),
               positionCount: predictionsCount,
               footer: [
-                // With nothing held the line itself says "in open orders".
-                if (reserved >= kSweepDustUsd && predictionsCount > 0)
+                if (reserved >= kSweepDustUsd)
                   l10n.investingInOpenOrders(amount(reserved)),
                 if (note(OneBalanceVenue.predictions) case final line?) line,
               ],

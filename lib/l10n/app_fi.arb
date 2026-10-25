@@ -3087,8 +3087,6 @@
   "balanceChartEmptyDollars": "Saldosi kehitys näkyy tässä, kun sinulla on dollareita",
   "portfolioBalanceReadyToUse": "Käytettävissä heti",
   "portfolioBalanceInPositionsLabel": "Positioissa",
-  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 positiossa} other{{count} positiossa}}",
-  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 ennusteessa} other{{count} ennusteessa}}",
   "portfolioPositionsCount": "{count, plural, =1{1 positio} other{{count} positiota}}",
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
   "portfolioRowEntry": "avaus {price}"
