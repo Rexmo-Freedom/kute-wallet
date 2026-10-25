@@ -5978,6 +5978,48 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartYouHold => 'Tev ir';
 
   @override
+  String get polyPosChanceLive => 'iespēja · tiešraidē';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Tu · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Ja $side sasniegs';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Vērtība tagad';
+
+  @override
+  String get polyPosWorthThen => 'Vērtība tad';
+
+  @override
+  String get polyPosNow => 'Tagad';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Ja $side uzvarēs';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Iestatīt pārdošanu pie $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change kopš pirkuma';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Nopirki · $price';
+  }
+
+  @override
   String get chartNoData => 'Nav grafika datu';
 
   @override

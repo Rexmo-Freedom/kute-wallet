@@ -10522,6 +10522,66 @@ abstract class AppLocalizations {
   /// **'You hold'**
   String get chartYouHold;
 
+  /// Predictions open-position screen: small caption under the big live chance in the middle of the speedometer dial ('66%' above it). Lowercase.
+  ///
+  /// In en, this message translates to:
+  /// **'chance · live'**
+  String get polyPosChanceLive;
+
+  /// Predictions open-position speedometer: tiny label beside the bold tick on the dial at the user's average buy price ('You · 19%'). {percent} is the price paid as a chance, without the percent sign.
+  ///
+  /// In en, this message translates to:
+  /// **'You · {percent}%'**
+  String polyPosYouAt(String percent);
+
+  /// Predictions open-position speedometer, while the user drags the needle to explore: small line above the hypothetical chance ('If No reaches' / '72%'). {side} is the held outcome (Yes, No, a candidate, a team).
+  ///
+  /// In en, this message translates to:
+  /// **'If {side} reaches'**
+  String polyPosIfReaches(String side);
+
+  /// Predictions open-position screen: label of the tile with what the position is worth at the live price.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth now'**
+  String get polyPosWorthNow;
+
+  /// Predictions open-position screen, while the user drags the speedometer needle: label of the tile with what the position would be worth at the hypothetical chance.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth then'**
+  String get polyPosWorthThen;
+
+  /// Predictions open-position screen: 'Now' — the tile with the live value while exploring, and the right end of the journey chart's time axis.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get polyPosNow;
+
+  /// Predictions open-position screen: label of the tile with the payout if the held side wins. {side} is the held outcome (Yes, No, a candidate, a team).
+  ///
+  /// In en, this message translates to:
+  /// **'If {side} wins'**
+  String polyPosIfWins(String side);
+
+  /// Predictions open-position screen: quiet button shown after the user drags the speedometer needle; opens a limit sell at that chance. {percent} is the chance without the percent sign.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a sell at {percent}%'**
+  String polyPosSetSellAt(String percent);
+
+  /// Predictions open-position screen: result line under the dial. {change} is the coloured profit or loss, e.g. '$3.24 · +81%' (a painted caret before it).
+  ///
+  /// In en, this message translates to:
+  /// **'{change} since you bought'**
+  String polyPosSinceBought(String change);
+
+  /// Predictions open-position screen: label at the start of the journey chart, at the price paid, e.g. 'You bought · 19¢'. {price} is the average price paid in cents.
+  ///
+  /// In en, this message translates to:
+  /// **'You bought · {price}'**
+  String polyPosYouBought(String price);
+
   /// No description provided for @chartNoData.
   ///
   /// In en, this message translates to:

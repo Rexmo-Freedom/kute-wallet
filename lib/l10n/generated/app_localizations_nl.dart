@@ -6017,6 +6017,48 @@ class AppLocalizationsNl extends AppLocalizations {
   String get chartYouHold => 'Je bezit';
 
   @override
+  String get polyPosChanceLive => 'kans · live';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Jij · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Als $side staat op';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Nu waard';
+
+  @override
+  String get polyPosWorthThen => 'Dan waard';
+
+  @override
+  String get polyPosNow => 'Nu';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Als $side wint';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Verkoop instellen op $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change sinds aankoop';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Gekocht · $price';
+  }
+
+  @override
   String get chartNoData => 'Geen grafiekgegevens';
 
   @override

@@ -6001,6 +6001,48 @@ class AppLocalizationsDa extends AppLocalizations {
   String get chartYouHold => 'Du har';
 
   @override
+  String get polyPosChanceLive => 'chance · live';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Dig · $percent %';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Hvis $side når';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Værd nu';
+
+  @override
+  String get polyPosWorthThen => 'Værd da';
+
+  @override
+  String get polyPosNow => 'Nu';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Hvis $side vinder';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Sæt et salg ved $percent %';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change siden du købte';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Du købte · $price';
+  }
+
+  @override
   String get chartNoData => 'Ingen grafdata';
 
   @override

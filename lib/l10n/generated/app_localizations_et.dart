@@ -5981,6 +5981,48 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartYouHold => 'Sul on';
 
   @override
+  String get polyPosChanceLive => 'tõenäosus · otse';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Sina · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Kui $side jõuab';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Väärtus praegu';
+
+  @override
+  String get polyPosWorthThen => 'Väärtus siis';
+
+  @override
+  String get polyPosNow => 'Praegu';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Kui $side võidab';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Sea müük $percent% juures';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change ostust saati';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Ostsid · $price';
+  }
+
+  @override
   String get chartNoData => 'Graafiku andmed puuduvad';
 
   @override

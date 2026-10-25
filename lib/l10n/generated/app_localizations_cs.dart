@@ -5991,6 +5991,48 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartYouHold => 'Držíš';
 
   @override
+  String get polyPosChanceLive => 'šance · živě';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Ty · $percent %';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Když $side dosáhne';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Hodnota teď';
+
+  @override
+  String get polyPosWorthThen => 'Hodnota pak';
+
+  @override
+  String get polyPosNow => 'Teď';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Když $side vyhraje';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Nastavit prodej na $percent %';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change od nákupu';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Koupeno · $price';
+  }
+
+  @override
   String get chartNoData => 'Žádná data grafu';
 
   @override

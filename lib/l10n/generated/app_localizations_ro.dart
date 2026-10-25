@@ -6027,6 +6027,48 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartYouHold => 'Deții';
 
   @override
+  String get polyPosChanceLive => 'șanse · live';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Tu · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Dacă $side ajunge la';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Valoare acum';
+
+  @override
+  String get polyPosWorthThen => 'Valoare atunci';
+
+  @override
+  String get polyPosNow => 'Acum';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Dacă $side câștigă';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Setează o vânzare la $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change de la cumpărare';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Ai cumpărat · $price';
+  }
+
+  @override
   String get chartNoData => 'Nu există date pentru grafic';
 
   @override

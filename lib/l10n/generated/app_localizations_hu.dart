@@ -6010,6 +6010,48 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartYouHold => 'Birtokodban';
 
   @override
+  String get polyPosChanceLive => 'esély · élő';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Te · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Ha $side eléri';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Érték most';
+
+  @override
+  String get polyPosWorthThen => 'Érték akkor';
+
+  @override
+  String get polyPosNow => 'Most';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Ha $side nyer';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Eladás beállítása $percent%-on';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change a vétel óta';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Vétel · $price';
+  }
+
+  @override
   String get chartNoData => 'Nincs diagramadat';
 
   @override
