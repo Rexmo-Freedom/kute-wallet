@@ -422,6 +422,42 @@ void main() {
         at: 0.5);
   });
 
+  // Home: the founder's wallet of 2026-10-25. Money that came and went
+  // within minutes 19 days ago, nothing since, then a top-up yesterday
+  // that mostly passed on (to Investments) within the hour: the chart
+  // opens on what stayed, never on the pass-through or weeks of zero.
+  _case('home_balance_passthrough', (tester, dark, locale) async {
+    final now = DateTime.now();
+    final early = now.subtract(const Duration(days: 19));
+    final top = now.subtract(const Duration(hours: 26));
+    final history = BalanceHistory(
+      opening: 0,
+      changes: [
+        (early, 5000),
+        (early.add(const Duration(minutes: 30)), 0),
+        (top, 110000),
+        (top.add(const Duration(minutes: 5)), 90000),
+        (top.add(const Duration(minutes: 12)), 52000),
+        (top.add(const Duration(minutes: 20)), 6938),
+      ],
+      current: 6938,
+    );
+    await _show(
+      tester,
+      const SingleChildScrollView(
+          child: HomeAnalyticsWidget(surface: 'home')),
+      dark: dark,
+      locale: locale,
+      overrides: [
+        ..._bitcoinOverrides(locale),
+        bitcoinBalanceStepsProvider.overrideWith((_) => history),
+      ],
+    );
+    final name = 'home_balance_passthrough_${dark ? 'dark' : 'light'}_$locale';
+    await _shot(tester, name);
+    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
+  });
+
   // Home: the Price tab.
   _case('home_price', (tester, dark, locale) async {
     await _show(

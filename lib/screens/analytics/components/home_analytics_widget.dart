@@ -765,8 +765,8 @@ class _InternalAnalyticsViewState
                     ),
                   ),
                   // The range row is the Price tab's (and the legacy
-                  // views'). The Balance tab shows the whole history, so
-                  // it has no row and its chart takes the room.
+                  // views'). The Balance tab pinches through the whole
+                  // history, so it has no row and its chart takes the room.
                   if (tab != AnalyticsTab.utxo &&
                       tab != AnalyticsTab.allocation &&
                       tab != AnalyticsTab.valuation) ...[
@@ -1032,8 +1032,8 @@ class _InternalAnalyticsViewState
       case AnalyticsTab.fees:
         return const FeeChart();
       case AnalyticsTab.valuation:
-        // The Balance tab: the wallet's whole history, no range (the
-        // range row and LIVE are the Price tab's).
+        // The Balance tab: the wallet's history to pinch through, no
+        // range (the range row and LIVE are the Price tab's).
         return _BitcoinBalanceHistory(
           currency: currency,
           btcFormat: btcFormat,
@@ -1176,9 +1176,10 @@ class _InternalAnalyticsViewState
 }
 
 /// The Balance tab of a Bitcoin wallet (spending, hardware, watch-only,
-/// Ledger): the viewed wallet's sats as the moments they changed, over
-/// the whole history, in the unit the headline leads with. The scrub
-/// card adds what the touched balance was worth that day.
+/// Ledger): the viewed wallet's sats as the moments they changed (the
+/// chart opens on the last 30 days at most and pinches out to the whole
+/// history), in the unit the headline leads with. The scrub card adds
+/// what the touched balance was worth that day.
 class _BitcoinBalanceHistory extends ConsumerWidget {
   final String currency;
   final String btcFormat;
