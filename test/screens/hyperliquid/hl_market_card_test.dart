@@ -125,13 +125,15 @@ List<RollingNumberText> _numbers(WidgetTester tester) =>
     tester.widgetList<RollingNumberText>(find.byType(RollingNumberText)).toList();
 
 void main() {
-  testWidgets('a perp shows its name, ticker and leverage, price and change',
+  testWidgets('a perp shows its name, ticker, price and change',
       (tester) async {
     final m = _market();
     await _pump(tester, m, closes: [80000, 82000, 85000]);
 
     expect(find.text('Bitcoin'), findsOneWidget);
-    expect(find.text('BTC · 40x'), findsOneWidget);
+    // The ticker alone: never the max leverage (leverage is blocked).
+    expect(find.text('BTC'), findsOneWidget);
+    expect(find.textContaining('40x'), findsNothing);
     final numbers = _numbers(tester);
     expect(numbers, hasLength(2));
     expect(numbers[0].text, formatHlPrice(85806, decimalCap: m.pxDecimalCap));
@@ -194,9 +196,12 @@ void main() {
             px: 5.42,
             prevDayPx: 5.42));
 
-    // The ticker is the title, so the caption does not say it again.
+    // The ticker is the title, so the caption does not say it again: a
+    // perp then has no caption, and its name sits centred in the row.
     expect(find.text('WHEAT'), findsOneWidget);
-    expect(find.text('10x'), findsOneWidget);
+    expect(find.textContaining('10x'), findsNothing);
+    final row = tester.getCenter(find.byType(HlMarketCard)).dy;
+    expect(tester.getCenter(find.text('WHEAT')).dy, closeTo(row, 1));
   });
 
   testWidgets('a builder-dex perp is named by its bare symbol',
@@ -214,7 +219,8 @@ void main() {
             prevDayPx: 3300));
 
     expect(find.text('Gold'), findsOneWidget);
-    expect(find.text('GOLD · 20x'), findsOneWidget);
+    expect(find.text('GOLD'), findsOneWidget);
+    expect(find.textContaining('20x'), findsNothing);
   });
 
   testWidgets('a spot token says Spot in the caption', (tester) async {
@@ -334,7 +340,20 @@ void main() {
             isHip3: true,
             dex: 'unit'));
     expect(find.text('WHEAT'), findsOneWidget);
-    expect(find.text('10x'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'\d+x')), findsNothing);
+
+    // A thin perp titled by its ticker: the note alone under it.
+    await _pump(
+        tester,
+        _market(
+            coin: 'WHEAT',
+            wireCoin: 'unit:WHEAT',
+            isHip3: true,
+            dex: 'unit',
+            dayNtlVlm: 0));
+    expect(find.text('WHEAT'), findsOneWidget);
+    expect(find.text('Low liquidity'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   for (final c in [
@@ -375,7 +394,7 @@ void main() {
         closes: [420, 425, 430], width: 375);
     expect(tester.takeException(), isNull);
     expect(find.text('Tesla'), findsOneWidget);
-    expect(find.text('TSLA · 10x'), findsOneWidget);
+    expect(find.text('TSLA'), findsOneWidget);
     expect(find.byType(HlLineSparkline), findsOneWidget);
     expect(_numbers(tester), hasLength(2));
   });

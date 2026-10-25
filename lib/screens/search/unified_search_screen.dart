@@ -1173,8 +1173,8 @@ class _GlobalMarketRow extends ConsumerWidget {
 
 /// An Investing market from [globalHyperliquidResultsProvider], drawn with
 /// the Investing list's own card ([HlMarketCard]): the logo, the name over
-/// "TICKER · 40x", the daily line, and the live price over the day's
-/// change. Tapping re-resolves the full [HlMarket] and opens the Investing
+/// its ticker ("TICKER · Spot" for a spot token), the daily line, and the
+/// live price over the day's change. Tapping re-resolves the full [HlMarket] and opens the Investing
 /// detail sheet on the root navigator (so it stacks ON TOP of search); if
 /// the universe hasn't loaded yet it falls back to the Investing tab.
 class _HlMarketRow extends ConsumerWidget {

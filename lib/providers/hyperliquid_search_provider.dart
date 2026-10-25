@@ -70,7 +70,8 @@ class HlMarketSearchResult {
   final double dayChangePct;
 
   /// How far a perp can be geared ([HlMarket.offeredMaxLeverage]), for
-  /// the row's "40x"; null for a token or when not known.
+  /// the market a bare result is drawn from (never shown on the row);
+  /// null for a token or when not known.
   final int? maxLeverage;
 
   /// The decimals the venue prices this market to, as the browse cards
