@@ -327,6 +327,13 @@ class PolymarketEvent {
   /// `tweetCount`; null on every other market.
   final int? tweetCount;
 
+  /// Placeholder outcomes left out of [outcomes]: seats for outcomes
+  /// nobody has announced ("Person O", "Other"), switched off and never
+  /// priced (polyRawMarketPlaceholder, event_trading_over.dart). Kept only
+  /// so a holding in one still lists ([withHeldOutcomes]); nothing else
+  /// reads them.
+  final List<PolymarketOutcome> hiddenOutcomes;
+
   const PolymarketEvent({
     required this.id,
     required this.slug,
@@ -362,7 +369,62 @@ class PolymarketEvent {
     this.oneDayPriceChange,
     this.seriesId,
     this.tweetCount,
+    this.hiddenOutcomes = const [],
   });
+
+  /// This event with the [hiddenOutcomes] whose Yes or No token is in
+  /// [heldTokenIds] listed again, after [outcomes]: an outcome the user
+  /// holds is never hidden. The event itself when none is held.
+  PolymarketEvent withHeldOutcomes(Set<String> heldTokenIds) {
+    if (hiddenOutcomes.isEmpty || heldTokenIds.isEmpty) return this;
+    final held = [
+      for (final o in hiddenOutcomes)
+        if (heldTokenIds.contains(o.tokenId) ||
+            heldTokenIds.contains(o.noTokenId))
+          o,
+    ];
+    if (held.isEmpty) return this;
+    return PolymarketEvent(
+      id: id,
+      slug: slug,
+      title: title,
+      imageUrl: imageUrl,
+      volume: volume,
+      volume24hr: volume24hr,
+      liquidity: liquidity,
+      category: category,
+      startDate: startDate,
+      gameStart: gameStart,
+      startTime: startTime,
+      finishedAt: finishedAt,
+      endDate: endDate,
+      active: active,
+      closed: closed,
+      description: description,
+      conditionId: conditionId,
+      outcomes: [...outcomes, ...held],
+      streamUrl: streamUrl,
+      isLive: isLive,
+      gameId: gameId,
+      metadataGameId: metadataGameId,
+      score: score,
+      period: period,
+      elapsed: elapsed,
+      ended: ended,
+      marketsClosed: marketsClosed,
+      negRisk: negRisk,
+      teams: teams,
+      isSyntheticBinary: isSyntheticBinary,
+      tags: tags,
+      oneDayPriceChange: oneDayPriceChange,
+      seriesId: seriesId,
+      tweetCount: tweetCount,
+      hiddenOutcomes: [
+        for (final o in hiddenOutcomes)
+          if (!held.contains(o)) o,
+      ],
+    );
+  }
 
   /// True once the event's scheduled start has passed. A null [startDate]
   /// (non-dated / non-sports markets) is treated as already started so those
@@ -1939,55 +2001,62 @@ class PolymarketModel {
     // question-shaped labels and fall back to the full market
     // `question` field which carries the full context (e.g. "Will
     // Team Falcons win Map 1?").
-    return markets.map((raw) {
-      final m = raw as Map<String, dynamic>;
-      final tokens = PolyMarketProtocol.outcomeIds(m);
-      final prices = _jsonListDoubles(m['outcomePrices']);
-      final candidate = (m['groupItemTitle'] as String?)?.trim();
-      final question = (m['question'] as String?)?.trim() ?? 'Unknown';
-      final isQuestionShaped =
-          candidate != null && _kQuestionShapedRegex.hasMatch(candidate);
-      final kind = (m['sportsMarketType'] as String?)?.trim() ?? '';
-      final name = (candidate != null &&
-              candidate.isNotEmpty &&
-              !isQuestionShaped)
-          ? candidate
-          : question;
-      final yesTokenId = tokens.isNotEmpty ? tokens.first : null;
-      final noTokenId = tokens.length > 1 ? tokens[1] : null;
-      // Polymarket's rule for the chance shown: the midpoint, or the last
-      // trade when the spread is wider than 10¢ (Gamma's own figure counts
-      // a missing bid as 0, so an ask alone at 74¢ read as 37%).
-      final shown =
-          polyGammaShownPrice(m, prices.isNotEmpty ? prices.first : 0.0);
-      return PolymarketOutcome(
-        name: name,
-        price: shown.price,
-        unpriced: shown.unpriced,
-        tokenId: yesTokenId,
-        noTokenId: noTokenId,
-        // groupItemImage is the per-candidate image (team logo,
-        // flag, candidate portrait) — exactly what polymarket.com
-        // renders alongside each sub-market row. Fall back to the
-        // generic per-market `image`/`icon` fields when the API
-        // omits the group-item image.
-        imageUrl: polymarketArtworkUrl(m['groupItemImage']) ??
-            polymarketArtworkFromJson(m),
-        volume: (m['volumeNum'] as num?)?.toDouble(),
-        conditionId: m['conditionId'] as String?,
-        gammaMarketId: m['id']?.toString(),
-        marketLine: kind.isEmpty
-            ? null
-            : PolymarketMarketLine(
-                kind: kind,
-                question: question,
-                line: _jsonNum(m['line']),
-                sides: _jsonListStrings(m['outcomes']),
-                prices: prices,
-                closed: m['closed'] == true,
-              ),
-      );
-    }).toList();
+    return [
+      for (final raw in markets)
+        _candidateOutcomeFromRaw(raw as Map<String, dynamic>),
+    ];
+  }
+
+  /// One market of a many-outcome event as its outcome: the candidate's
+  /// name (`groupItemTitle`, else the question), its image, its Yes price
+  /// by Polymarket's display rule and both token ids.
+  static PolymarketOutcome _candidateOutcomeFromRaw(Map<String, dynamic> m) {
+    final tokens = PolyMarketProtocol.outcomeIds(m);
+    final prices = _jsonListDoubles(m['outcomePrices']);
+    final candidate = (m['groupItemTitle'] as String?)?.trim();
+    final question = (m['question'] as String?)?.trim() ?? 'Unknown';
+    final isQuestionShaped =
+        candidate != null && _kQuestionShapedRegex.hasMatch(candidate);
+    final kind = (m['sportsMarketType'] as String?)?.trim() ?? '';
+    final name = (candidate != null &&
+            candidate.isNotEmpty &&
+            !isQuestionShaped)
+        ? candidate
+        : question;
+    final yesTokenId = tokens.isNotEmpty ? tokens.first : null;
+    final noTokenId = tokens.length > 1 ? tokens[1] : null;
+    // Polymarket's rule for the chance shown: the midpoint, or the last
+    // trade when the spread is wider than 10¢ (Gamma's own figure counts
+    // a missing bid as 0, so an ask alone at 74¢ read as 37%).
+    final shown =
+        polyGammaShownPrice(m, prices.isNotEmpty ? prices.first : 0.0);
+    return PolymarketOutcome(
+      name: name,
+      price: shown.price,
+      unpriced: shown.unpriced,
+      tokenId: yesTokenId,
+      noTokenId: noTokenId,
+      // groupItemImage is the per-candidate image (team logo,
+      // flag, candidate portrait) — exactly what polymarket.com
+      // renders alongside each sub-market row. Fall back to the
+      // generic per-market `image`/`icon` fields when the API
+      // omits the group-item image.
+      imageUrl: polymarketArtworkUrl(m['groupItemImage']) ??
+          polymarketArtworkFromJson(m),
+      volume: (m['volumeNum'] as num?)?.toDouble(),
+      conditionId: m['conditionId'] as String?,
+      gammaMarketId: m['id']?.toString(),
+      marketLine: kind.isEmpty
+          ? null
+          : PolymarketMarketLine(
+              kind: kind,
+              question: question,
+              line: _jsonNum(m['line']),
+              sides: _jsonListStrings(m['outcomes']),
+              prices: prices,
+              closed: m['closed'] == true,
+            ),
+    );
   }
 
   /// A sub-market label that reads as a question ("Map 1 Winner", "O/U
@@ -2226,6 +2295,14 @@ class PolymarketModel {
     final primaryMarket =
         markets.isNotEmpty ? markets.first as Map<String, dynamic> : null;
     final outcomes = _buildOutcomesFromRaw(markets);
+    // Placeholder seats ("Person O", "Other") are not listed, but kept for
+    // a holding in one (PolymarketEvent.withHeldOutcomes).
+    final hiddenOutcomes = markets.length > 1
+        ? [
+            for (final m in polyHiddenPlaceholderMarkets(allMarkets))
+              if (m is Map<String, dynamic>) _candidateOutcomeFromRaw(m),
+          ]
+        : const <PolymarketOutcome>[];
     // Volume and liquidity are the event's totals, over every market.
     double totalVolume = 0;
     double totalLiquidity = 0;
@@ -2395,6 +2472,7 @@ class PolymarketModel {
       oneDayPriceChange: _eventDayChange(markets),
       seriesId: _seriesIdOf(e),
       tweetCount: (e['tweetCount'] as num?)?.toInt(),
+      hiddenOutcomes: hiddenOutcomes,
     );
   }
 

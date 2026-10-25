@@ -7,7 +7,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketActivePositionsProvider, PolyPriceHistoryCache;
+    show
+        polymarketActivePositionsProvider,
+        PolymarketPosition,
+        PolyPriceHistoryCache;
 import 'package:kute/providers/polymarket_cost_basis_provider.dart'
     show polymarketPositionCostBasis;
 import 'package:kute/providers/polymarket_sports_provider.dart'
@@ -340,7 +343,27 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// standard iPhone.
   static const double _chartHeight = 380;
 
-  PolymarketEvent get event => widget.event;
+  /// The event as this sheet lists it: [MarketDetailSheet.event], with any
+  /// placeholder outcome the user holds listed again
+  /// ([PolymarketEvent.withHeldOutcomes]); an outcome held is never hidden.
+  PolymarketEvent get event {
+    final base = widget.event;
+    if (base.hiddenOutcomes.isEmpty) return base;
+    final held = ref.read(polymarketActivePositionsProvider);
+    if (!identical(base, _heldMemoBase) || !identical(held, _heldMemoHeld)) {
+      _heldMemoBase = base;
+      _heldMemoHeld = held;
+      _heldMemo = base.withHeldOutcomes({
+        for (final p in held)
+          if (p.tokenId != null && p.tokenId!.isNotEmpty) p.tokenId!,
+      });
+    }
+    return _heldMemo!;
+  }
+
+  PolymarketEvent? _heldMemoBase;
+  List<PolymarketPosition>? _heldMemoHeld;
+  PolymarketEvent? _heldMemo;
 
   List<String> _subscribedTokenIds = [];
 
@@ -487,6 +510,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // toggle slide) on it. Essential motion (chart price updates, loading
     // spinners, live LIVE chip) stays untouched.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // A holding in a placeholder outcome lists it again ([event]).
+    if (widget.event.hiddenOutcomes.isNotEmpty) {
+      ref.watch(polymarketActivePositionsProvider);
+    }
     // Backfill team crests for events that arrived without them (the search
     // path drops `teams`) so the vs-header logos work everywhere, not just on
     // browse-opened events. Gate on `gameId != null` (an actual match) so
