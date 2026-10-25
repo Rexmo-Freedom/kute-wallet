@@ -1923,50 +1923,6 @@ class PolymarketModel {
     return points;
   }
 
-  static List<PolymarketOutcome> _parseOutcomes(Market? market) {
-    if (market == null) return [];
-    final names = market.outcomesList;
-    final prices = market.outcomePricesList;
-    final tokens = market.tokenIdsList;
-
-    return List.generate(names.length, (i) {
-      return PolymarketOutcome(
-        gammaMarketId: market.id.toString(),
-        name: names[i],
-        price: i < prices.length ? prices[i] : 0.0,
-        tokenId: i < tokens.length ? tokens[i] : null,
-      );
-    });
-  }
-
-  /// Multi-market events: each market becomes an outcome (question as name, YES price).
-  /// Single-market events: use the market's own outcomes (Yes/No or custom).
-  static List<PolymarketOutcome> _buildEventOutcomes(List<Market> markets) {
-    if (markets.isEmpty) return [];
-
-    // Single market → use its own outcomes (Yes/No or custom)
-    if (markets.length == 1) return _parseOutcomes(markets.first);
-
-    // Multiple markets → each market is an outcome. Both YES and NO token ids
-    // are kept; otherwise the bet slip falls back to a "Predict" CTA with no
-    // YES/NO toggle, because `_isCandidatePicker` keys off `noTokenId`.
-    return markets.map((m) {
-      final question = m.question ?? 'Unknown';
-      final yesPrice = m.yesPrice;
-      final tokens = m.tokenIdsList;
-      final yesTokenId = tokens.isNotEmpty ? tokens.first : null;
-      final noTokenId = tokens.length > 1 ? tokens[1] : null;
-
-      return PolymarketOutcome(
-        gammaMarketId: m.id.toString(),
-        name: question,
-        price: yesPrice,
-        tokenId: yesTokenId,
-        noTokenId: noTokenId,
-      );
-    }).toList();
-  }
-
   /// Build outcomes from raw JSON so we can pull `groupItemTitle` (candidate
   /// name), per-market `image`, and both YES/NO token ids — none of which are
   /// exposed by the SDK's Market model.
@@ -2435,7 +2391,7 @@ class PolymarketModel {
       endDate: endDate,
       active: (e['active'] as bool?) ?? true,
       // `closed` is the reliable Gamma settlement flag. Parse it on BOTH
-      // event parse paths (here + `_flattenEventsForSearch`) so the
+      // event parse paths (the lists and the search both read here) so the
       // resolved-market filter catches a settled-but-still-`active:true`
       // market everywhere, including search-sourced cards.
       closed: (e['closed'] as bool?) ?? false,
@@ -2683,166 +2639,33 @@ class PolymarketModel {
   /// ties. No title re-ranking: Gamma already matched the title and the
   /// candidate names. Games in play go first further up, where the live
   /// feed is known (unified_search_provider.dart, search_result_order.dart).
+  ///
+  /// Each event is read by the same parser as the category lists
+  /// ([_eventFromRawJson]), so a search result is the card the Politics
+  /// list shows: each candidate under its own name (`groupItemTitle`) with
+  /// its portrait, the chance by Polymarket's display rule, only the
+  /// markets an open event still trades and no placeholder seats.
   static List<PolymarketEvent> _parseSearchResponse(Uint8List bytes) {
     final data = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     final rows = data['events'] as List? ?? [];
     final seen = <String>{};
-    final hits = <({Event event, double volume, bool marketsClosed})>[];
+    final hits = <PolymarketEvent>[];
     for (final raw in rows.take(kSearchPageSize)) {
       try {
-        final prepared = PolyMarketProtocol.eventWithTradingIds(
-            raw as Map<String, dynamic>);
-        final allMarkets = (prepared['markets'] as List?) ?? const [];
-        // An open event shows only its tradable markets (polyShownRawMarkets;
-        // the SDK's Market reads a missing `acceptingOrders` as false, so
-        // the raw rows decide). Volume stays the event total.
-        final shown = polyShownRawMarkets(allMarkets);
-        final event = Event.fromJson(identical(shown, allMarkets)
-            ? prepared
-            : {...prepared, 'markets': shown});
-        if (!event.active || event.closed || !seen.add(event.id)) continue;
-        hits.add((
-          event: event,
-          volume: _eventTotalVolume(prepared, allMarkets),
-          marketsClosed: polyAllRawMarketsClosed(allMarkets),
-        ));
+        final event = _eventFromRawJson(PolyMarketProtocol.eventWithTradingIds(
+            raw as Map<String, dynamic>));
+        if (event.outcomes.isEmpty ||
+            !event.active ||
+            event.closed ||
+            !seen.add(event.id)) {
+          continue;
+        }
+        hits.add(event);
       } catch (_) {
         // A malformed event must not discard the other matching events.
       }
     }
-    return _flattenEventsForSearch(_mostTradedFirst(hits, (h) => h.volume));
-  }
-
-  /// An event's total volume: the sum of its markets' `volumeNum`, else
-  /// Gamma's event `volume` when the markets do not carry theirs.
-  static double _eventTotalVolume(
-      Map<String, dynamic> event, List<dynamic> markets) {
-    var sum = 0.0;
-    for (final m in markets) {
-      if (m is Map) sum += _jsonNum(m['volumeNum']) ?? 0;
-    }
-    return sum > 0 ? sum : _jsonNum(event['volume']) ?? 0;
-  }
-
-  static List<PolymarketEvent> _flattenEventsForSearch(
-      List<({Event event, double volume, bool marketsClosed})> hits) {
-    final results = <PolymarketEvent>[];
-
-    for (final hit in hits) {
-      final e = hit.event;
-      final markets = e.markets ?? [];
-      if (markets.isEmpty) continue;
-
-      // Event-level liquidity (clob / amm / generic) is far more
-      // reliable than the per-market liquidityNum which is often
-      // null in Gamma's search payload — that's the root of the
-      // long-standing "Liquidity $0" bug.
-      final eventLiquidity = e.liquidityClob ??
-          e.liquidity ??
-          e.liquidityAmm ??
-          0;
-
-      // Single market → keep as one event (normal behavior)
-      if (markets.length == 1) {
-        final m = markets.first;
-        results.add(PolymarketEvent(
-          id: e.id,
-          slug: e.slug ?? '',
-          title: e.title ?? 'Unknown Event',
-          // Same fallback spirit as `_eventFromRawJson`: the search payload
-          // sometimes omits `image` while `featuredImage`/`icon` carry art.
-          imageUrl: e.image ?? e.featuredImage ?? e.icon,
-          volume: hit.volume,
-          volume24hr: e.volume24hr ?? 0,
-          liquidity: (m.liquidityNum ?? 0) > 0
-              ? (m.liquidityNum ?? 0)
-              : eventLiquidity,
-          category: _tagToCategory(e.tags),
-          startDate: e.startDate,
-          endDate: e.endDate,
-          active: e.active,
-          // Carry `closed`, `ended` and `marketsClosed` through the SEARCH
-          // path too. Without them a settled-but-active:true market (Gamma
-          // keeps active:true for a while after `closed`) slips through
-          // search as a tappable card the CLOB rejects — the resolved
-          // filter on `polymarketSearchProvider` keys off these flags.
-          closed: e.closed,
-          ended: e.ended,
-          marketsClosed: hit.marketsClosed,
-          negRisk: e.negRisk,
-          description: e.description,
-          conditionId: m.conditionId,
-          outcomes: _parseOutcomes(m),
-          streamUrl: PolymarketEvent.streamUrlFrom(e.resolutionSource),
-          isLive: e.live,
-          tags: _tagSlugs(e.tags),
-        ));
-        continue;
-      }
-
-      // Multi-market event → keep grouped, with each market as one
-      // outcome. The previous behavior flattened each market into its
-      // own result card, which produced the noisy "Will X win? / Will
-      // they draw? / Will Y win?" row triplet for a single Porto vs
-      // Santa Clara match. Polymarket's web UI shows one card per
-      // event with three buttons (POR / DRAW / CDS), and we now match
-      // that shape: one PolymarketEvent per event, with `outcomes`
-      // carrying the per-market questions + yes-prices.
-      final perMarketMax = markets.fold<double>(
-          0, (max, m) => (m.liquidityNum ?? 0) > max ? (m.liquidityNum ?? 0) : max);
-      final maxLiquidity = eventLiquidity > perMarketMax
-          ? eventLiquidity
-          : perMarketMax;
-      results.add(PolymarketEvent(
-        id: e.id,
-        slug: e.slug ?? '',
-        title: e.title ?? 'Unknown Event',
-        imageUrl: e.image ?? e.featuredImage ?? e.icon,
-        volume: hit.volume,
-        volume24hr: e.volume24hr ?? 0,
-        liquidity: maxLiquidity,
-        category: _tagToCategory(e.tags),
-        startDate: e.startDate,
-        endDate: e.endDate,
-        active: e.active,
-        closed: e.closed,
-        ended: e.ended,
-        marketsClosed: hit.marketsClosed,
-        negRisk: e.negRisk,
-        description: e.description,
-        // For a multi-market event there's no single conditionId —
-        // fall back to the first market's so the live-price cache
-        // has something to key against. Per-outcome conditionIds
-        // live on the individual `PolymarketOutcome` entries.
-        conditionId: markets.first.conditionId,
-        outcomes: _buildEventOutcomes(markets),
-        streamUrl: PolymarketEvent.streamUrlFrom(e.resolutionSource),
-        isLive: e.live,
-        tags: _tagSlugs(e.tags),
-      ));
-    }
-
-    return results;
-  }
-
-  static List<String> _tagSlugs(List<Tag>? tags) => [
-        for (final t in tags ?? const <Tag>[])
-          if ((t.slug ?? '').isNotEmpty) t.slug!.toLowerCase(),
-      ];
-
-  static String _tagToCategory(List<Tag>? tags) {
-    if (tags == null || tags.isEmpty) return 'other';
-    final slugs = tags
-        .map((t) => t.slug?.toLowerCase() ?? '')
-        .where((s) => s.isNotEmpty)
-        .toSet();
-    if (slugs.contains('crypto') || slugs.contains('cryptocurrency')) {
-      return 'crypto';
-    }
-    if (slugs.contains('sports')) return 'sports';
-    if (slugs.contains('politics')) return 'politics';
-    if (slugs.contains('science') || slugs.contains('tech')) return 'science';
-    return 'other';
+    return _mostTradedFirst(hits, (e) => e.volume);
   }
 
   Future<Map<String, dynamic>> getSportsMetadata() async {

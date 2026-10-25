@@ -157,4 +157,102 @@ void main() {
     expect(rows.map((r) => r.id), ['3', '1', '2']);
     model.dispose();
   });
+
+  test('a result is the Politics card: candidates by name, with their '
+      'portraits, no placeholder seats', () async {
+    // As public-search sends the Brazil event: per-market `image`, no
+    // `groupItemImage`, the seats switched off with no prices.
+    Map<String, Object?> candidate(String name, double yes,
+            {bool closed = false}) =>
+        {
+          'id': name,
+          'question': 'Will $name win the 2026 Brazilian presidential election?',
+          'groupItemTitle': name,
+          'conditionId': 'cond-$name',
+          'active': true,
+          'closed': closed,
+          'acceptingOrders': !closed,
+          'outcomes': '["Yes","No"]',
+          'outcomePrices': '["$yes","${1 - yes}"]',
+          'bestBid': closed ? null : yes - 0.005,
+          'bestAsk': closed ? 0.001 : yes + 0.005,
+          'lastTradePrice': closed ? 0.001 : yes,
+          'clobTokenIds': '["y-$name","n-$name"]',
+          'volumeNum': 1e6,
+          'image': 'https://example.com/${name.length}.jpg',
+        };
+    Map<String, Object?> seat(String name) => {
+          'id': name,
+          'question': 'Will $name win?',
+          'groupItemTitle': name,
+          'active': false,
+          'closed': false,
+          'acceptingOrders': true,
+          'outcomes': '["Yes","No"]',
+          'outcomePrices': null,
+          'bestBid': 0,
+          'bestAsk': 1,
+          'lastTradePrice': 0,
+          'clobTokenIds': '["y-$name","n-$name"]',
+          'image': 'https://example.com/flag-br.png',
+        };
+    final model = PolymarketModel(
+        searchClient: MockClient((_) async => http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'events': [
+                {
+                  'id': '45915',
+                  'slug': 'brazil-presidential-election',
+                  'title': 'Brazil Presidential Election',
+                  'image': 'https://example.com/brazil.png',
+                  'active': true,
+                  'closed': false,
+                  'negRisk': true,
+                  'tags': [
+                    {'id': '2', 'slug': 'politics', 'label': 'Politics'}
+                  ],
+                  'markets': [
+                    candidate('Tarcisio de Freitas', 0, closed: true),
+                    candidate('Luiz Inácio Lula da Silva', 0.215),
+                    candidate('Flávio Bolsonaro', 0.7885),
+                    seat('Person O'),
+                    seat('Person P'),
+                    seat('Other'),
+                  ],
+                },
+              ],
+            })),
+            200)));
+    final e = (await model.searchEvents('bolsonaro')).single;
+    model.dispose();
+    expect(e.outcomes.map((o) => o.name),
+        ['Luiz Inácio Lula da Silva', 'Flávio Bolsonaro']);
+    expect(e.outcomes.map((o) => o.imageUrl), [
+      'https://example.com/25.jpg', // Lula's portrait
+      'https://example.com/16.jpg', // Flávio's
+    ]);
+    // Both sides of each candidate, for its Yes / No slip.
+    expect(e.outcomes.every((o) => o.hasYesNo && o.conditionId != null),
+        isTrue);
+    // The card's icon is the leading candidate's face, as in Politics.
+    expect(e.displayIconUrl, 'https://example.com/16.jpg');
+    expect(e.category, 'politics');
+    expect(e.negRisk, isTrue);
+    // Read as the category list reads the same event.
+    final listed = PolymarketModel().parseEventsRaw([
+      {
+        'id': '45915',
+        'slug': 'brazil-presidential-election',
+        'title': 'Brazil Presidential Election',
+        'active': true,
+        'closed': false,
+        'markets': [
+          candidate('Luiz Inácio Lula da Silva', 0.215),
+          candidate('Flávio Bolsonaro', 0.7885),
+        ],
+      },
+    ]).single;
+    expect(e.outcomes.map((o) => (o.name, o.price, o.imageUrl, o.tokenId)),
+        listed.outcomes.map((o) => (o.name, o.price, o.imageUrl, o.tokenId)));
+  });
 }
