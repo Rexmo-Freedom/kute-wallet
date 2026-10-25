@@ -6007,6 +6007,48 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartYouHold => 'Imate';
 
   @override
+  String get polyPosChanceLive => 'verjetnost · v živo';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Vi · $percent %';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Če $side doseže';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Vredno zdaj';
+
+  @override
+  String get polyPosWorthThen => 'Vredno takrat';
+
+  @override
+  String get polyPosNow => 'Zdaj';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Če $side zmaga';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Nastavi prodajo pri $percent %';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change od nakupa';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Kupili ste · $price';
+  }
+
+  @override
   String get chartNoData => 'Ni podatkov za graf';
 
   @override

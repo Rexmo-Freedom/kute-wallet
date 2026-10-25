@@ -6043,6 +6043,48 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartYouHold => 'Κατέχεις';
 
   @override
+  String get polyPosChanceLive => 'πιθανότητα · ζωντανά';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Εσύ · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Αν το $side φτάσει';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Αξία τώρα';
+
+  @override
+  String get polyPosWorthThen => 'Αξία τότε';
+
+  @override
+  String get polyPosNow => 'Τώρα';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Αν κερδίσει το $side';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Όρισε πώληση στο $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change από την αγορά';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Αγόρασες · $price';
+  }
+
+  @override
   String get chartNoData => 'Δεν υπάρχουν δεδομένα γραφήματος';
 
   @override

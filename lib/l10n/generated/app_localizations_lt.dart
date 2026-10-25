@@ -6023,6 +6023,48 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartYouHold => 'Turite';
 
   @override
+  String get polyPosChanceLive => 'tikimybė · tiesiogiai';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Jūs · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Jei $side pasieks';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Vertė dabar';
+
+  @override
+  String get polyPosWorthThen => 'Vertė tada';
+
+  @override
+  String get polyPosNow => 'Dabar';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Jei $side laimės';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Nustatyti pardavimą ties $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change nuo pirkimo';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Nupirkote · $price';
+  }
+
+  @override
   String get chartNoData => 'Grafiko duomenų nėra';
 
   @override

@@ -469,6 +469,7 @@ prediction_claim_tapped
 prediction_match_markets_opened
 prediction_outcome_tapped
 prediction_place_cta_tapped
+prediction_position_whatif_used
 prediction_prefund_declined
 prediction_prefund_started
 prediction_prefund_used

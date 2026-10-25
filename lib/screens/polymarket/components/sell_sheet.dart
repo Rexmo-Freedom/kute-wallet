@@ -90,11 +90,16 @@ class SellSheet extends ConsumerStatefulWidget {
   /// showing: the position screen's "Protect it".
   final bool startWithLimit;
 
+  /// With [startWithLimit]: the limit price to start on (0 to 1), instead
+  /// of the live price (the position screen's "Set a sell at 72%").
+  final double? limitPrice;
+
   const SellSheet(
       {super.key,
       required this.position,
       this.source = 'position_detail',
-      this.startWithLimit = false});
+      this.startWithLimit = false,
+      this.limitPrice});
 
   /// Route name used to identify the sell route when popping back after a
   /// sell succeeds — mirrors BetSlipSheet.routeName.
@@ -103,7 +108,8 @@ class SellSheet extends ConsumerStatefulWidget {
   static void show(BuildContext context,
       {required PolymarketPosition position,
       String source = 'position_detail',
-      bool startWithLimit = false}) {
+      bool startWithLimit = false,
+      double? limitPrice}) {
     // A resolved market cannot be sold (the CLOB rejects it as "market
     // does not exist"): it is claimed in one tap where it is shown
     // (PolyClaimButton on the card and the position screen), never here.
@@ -137,7 +143,8 @@ class SellSheet extends ConsumerStatefulWidget {
         child: SellSheet(
             position: position,
             source: source,
-            startWithLimit: startWithLimit),
+            startWithLimit: startWithLimit,
+            limitPrice: limitPrice),
       ),
     );
   }
@@ -1556,10 +1563,13 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final lp = pos.tokenId != null
         ? ref.read(livePriceProvider).prices[pos.tokenId]
         : null;
+    final asked = widget.limitPrice;
     setState(() {
       _isLimitMode = true;
       if (_limitPrice <= 0) {
-        _limitPrice = (lp ?? pos.currentPrice).clamp(0.01, 0.99).toDouble();
+        _limitPrice = (asked != null && asked > 0 ? asked : lp ?? pos.currentPrice)
+            .clamp(0.01, 0.99)
+            .toDouble();
       }
     });
     unawaited(_openAdvanced());

@@ -6006,6 +6006,48 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartYouHold => 'Държиш';
 
   @override
+  String get polyPosChanceLive => 'шанс · на живо';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'Ти · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return 'Ако $side стигне';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Стойност сега';
+
+  @override
+  String get polyPosWorthThen => 'Стойност тогава';
+
+  @override
+  String get polyPosNow => 'Сега';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Ако $side спечели';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Задай продажба при $percent%';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '$change откакто купи';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return 'Купи · $price';
+  }
+
+  @override
   String get chartNoData => 'Няма данни за графиката';
 
   @override

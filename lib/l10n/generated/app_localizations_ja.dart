@@ -5770,6 +5770,48 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartYouHold => '保有数量';
 
   @override
+  String get polyPosChanceLive => '確率 · ライブ';
+
+  @override
+  String polyPosYouAt(String percent) {
+    return 'あなた · $percent%';
+  }
+
+  @override
+  String polyPosIfReaches(String side) {
+    return '$sideがこの確率なら';
+  }
+
+  @override
+  String get polyPosWorthNow => '現在の価値';
+
+  @override
+  String get polyPosWorthThen => 'その時の価値';
+
+  @override
+  String get polyPosNow => '現在';
+
+  @override
+  String polyPosIfWins(String side) {
+    return '$sideが勝てば';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return '$percent%で売却を設定';
+  }
+
+  @override
+  String polyPosSinceBought(String change) {
+    return '購入時から$change';
+  }
+
+  @override
+  String polyPosYouBought(String price) {
+    return '購入 · $price';
+  }
+
+  @override
   String get chartNoData => 'チャートデータがありません';
 
   @override
