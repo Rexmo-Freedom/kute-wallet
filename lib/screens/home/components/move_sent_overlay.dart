@@ -1,8 +1,9 @@
 // lib/screens/home/components/move_sent_overlay.dart
 //
-// Confirmation shown after a move between the user's own accounts.
-// [note] is the caller's pending line (e.g. that Bitcoin is still
-// arriving) and is shown under the message when present.
+// Result sheet shown after a move between the user's own accounts: the
+// amount as the hero, where it came from as a row, and [note], the
+// caller's pending line (a conversion still running, a transfer still
+// registering), under it.
 
 import 'package:flutter/material.dart';
 
@@ -15,7 +16,6 @@ void pushMoveSentOverlay({
   required String amount,
   required String fromWalletName,
   required String toWalletName,
-  required String assetIconAsset,
   String? note,
 }) {
   TrackingService.screenView('move_sent_overlay');
@@ -25,7 +25,6 @@ void pushMoveSentOverlay({
       amount: amount,
       fromWalletName: fromWalletName,
       toWalletName: toWalletName,
-      assetIconAsset: assetIconAsset,
       note: note,
     ),
   );
@@ -35,7 +34,6 @@ class MoveSentOverlay extends StatelessWidget {
   final String amount;
   final String fromWalletName;
   final String toWalletName;
-  final String assetIconAsset;
   final String? note;
 
   const MoveSentOverlay({
@@ -43,15 +41,18 @@ class MoveSentOverlay extends StatelessWidget {
     required this.amount,
     required this.fromWalletName,
     required this.toWalletName,
-    required this.assetIconAsset,
     this.note,
   });
 
   @override
   Widget build(BuildContext context) {
-    return KuteSuccessOverlay(
-      headlineLabel: context.l10n.confirmationSentToWallet(toWalletName),
+    final l10n = context.l10n;
+    return KuteConfirmation(
+      message: l10n.confirmationSentToWallet(toWalletName),
+      amount: amount.isEmpty ? null : amount,
+      rows: {l10n.from: fromWalletName},
       detail: note,
+      onDone: () => Navigator.of(context).pop(),
     );
   }
 }
