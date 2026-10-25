@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Geen verandering, {start} – {end}",
   "balanceChartEmptyBitcoin": "Je saldo door de tijd verschijnt hier zodra je bitcoin hebt",
   "balanceChartEmptyDollars": "Je saldo door de tijd verschijnt hier zodra je dollars hebt",
+  "pnlChartEmpty": "Je winst en verlies verschijnt hier zodra je handelt of voorspelt",
   "portfolioPositionsCount": "{count, plural, =1{1 positie} other{{count} posities}}",
   "portfolioBuyingPower": "Koopkracht",
   "portfolioBuyingPowerHint": "Klaar voor elke trade of voorspelling",

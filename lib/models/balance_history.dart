@@ -217,8 +217,40 @@ BalanceSeries balanceSeries(BalanceHistory raw, DateTime now) {
     if (lead < kBalanceMinLeadIn) lead = kBalanceMinLeadIn;
     first = start.subtract(lead);
   }
-  if (first.isAfter(now)) first = now;
+  return stepGridSeries(
+    first: first,
+    now: now,
+    opening: h.opening,
+    changes: h.changes,
+    current: h.current,
+    floorAtZero: true,
+  );
+}
 
+/// A value that moves in steps ([opening] before the first of [changes],
+/// each change as (when, value after), oldest first, [current] now) laid
+/// on the Balance charts' even grid from [first] to [now] (see the file
+/// comment): each grid point holds the value at that moment, the close of
+/// the stretch ending there, and the last point is [current] at [now].
+/// With no change on record every point is [current]. [floorAtZero] keeps
+/// a balance from reading below nothing; a profit and loss
+/// (portfolio_performance.dart's pnlSeries) goes below zero.
+BalanceSeries stepGridSeries({
+  required DateTime first,
+  required DateTime now,
+  required double opening,
+  required List<(DateTime, double)> changes,
+  required double current,
+  bool floorAtZero = false,
+}) {
+  double floor(double v) => floorAtZero && v < 0 ? 0.0 : v;
+  return _grid(first.isAfter(now) ? now : first, now, opening, changes,
+      current, floor);
+}
+
+BalanceSeries _grid(DateTime first, DateTime now, double opening,
+    List<(DateTime, double)> changes, double current,
+    double Function(double) floor) {
   final totalMinutes = now.difference(first).inMinutes;
   final cell = kBalanceCellMinutes.firstWhere(
       (m) => totalMinutes / m <= kBalanceMaxCells,
@@ -242,19 +274,18 @@ BalanceSeries balanceSeries(BalanceHistory raw, DateTime now) {
     final t = at(i);
     if (i > 0 && !t.isBefore(now)) break;
     final moment = i == 0 ? first : t;
-    while (j < h.changes.length && !h.changes[j].$1.isAfter(moment)) {
+    while (j < changes.length && !changes[j].$1.isAfter(moment)) {
       j++;
     }
-    // With nothing on record the balance as it stands is all we know.
-    final held = h.changes.isEmpty
-        ? h.current
-        : (j == 0 ? h.opening : h.changes[j - 1].$2);
+    // With nothing on record the value as it stands is all we know.
+    final held =
+        changes.isEmpty ? current : (j == 0 ? opening : changes[j - 1].$2);
     times.add(i == 0 ? first : t);
-    values.add(held < 0 ? 0.0 : held);
+    values.add(floor(held));
   }
-  // The line ends on the balance now, the figure the header shows.
+  // The line ends on the value now, the figure the header shows.
   times.add(now);
-  values.add(h.current < 0 ? 0.0 : h.current);
+  values.add(floor(current));
   return BalanceSeries(
     times: List.unmodifiable(times),
     values: List.unmodifiable(values),

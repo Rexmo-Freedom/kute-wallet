@@ -51,6 +51,7 @@ import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/market_chart.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
@@ -556,6 +557,65 @@ void main() {
       await _shot(tester, '${label}_${dark ? 'dark' : 'light'}_$locale');
     });
   }
+
+  // The Portfolio's P&L chart: a history that goes up, then through zero
+  // and down, then partly back (the fill green above zero, red below), at
+  // rest on 3M and 1M, scrubbing, pinched and panned, and with nothing
+  // traded yet.
+  _case('pnl_chart', (tester, dark, locale) async {
+    final now = DateTime.now();
+    final points = <PortfolioPnlPoint>[];
+    for (var h = 75 * 24; h >= 0; h -= 6) {
+      final d = h / 24;
+      final double v;
+      if (d > 70) {
+        v = 0;
+      } else if (d > 40) {
+        v = 46 * (70 - d) / 30 + 4 * math.sin(h / 17);
+      } else if (d > 12) {
+        v = 46 - 72 * (40 - d) / 28 + 3 * math.sin(h / 13);
+      } else {
+        v = -26 + 20 * (12 - d) / 12 + 2 * math.sin(h / 7);
+      }
+      points.add(PortfolioPnlPoint(
+          timestamp: now.subtract(Duration(hours: h)), pnlUsd: v));
+    }
+    final data = PortfolioPerformance(
+      points: points,
+      totalPnlUsd: -6.38,
+      sourceLabel: 'Hyperliquid',
+      basisLabel: 'Reported account P&L',
+      coverageLabel: 'All time',
+    );
+    Future<void> showData(PortfolioPerformance p) => _show(
+          tester,
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: PortfolioPnlChart(venue: null, data: p),
+          ),
+          dark: dark,
+          locale: locale,
+          overrides: [
+            settingsProvider
+                .overrideWith((_) => SettingsModel(_settings(locale))),
+          ],
+        );
+    final name = 'pnl_chart_${dark ? 'dark' : 'light'}_$locale';
+    await showData(data);
+    await _tapText(tester, '3M');
+    await _shot(tester, '${name}_3m');
+    await _scrubShot(tester, '${name}_3m_scrub', find.byType(KuteLineChart),
+        at: 0.4);
+    await _tapText(tester, '1M');
+    await _shot(tester, '${name}_1m');
+    await _pannedShot(tester, '${name}_panned', find.byType(KuteLineChart));
+    await showData(const PortfolioPerformance(
+        points: [],
+        sourceLabel: 'Hyperliquid',
+        basisLabel: 'Reported account P&L',
+        coverageLabel: 'All time'));
+    await _shot(tester, '${name}_empty');
+  });
 
   // The reference: a Predictions market chart, 1W.
   _case('market_chart', (tester, dark, locale) async {

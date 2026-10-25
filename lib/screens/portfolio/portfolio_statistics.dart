@@ -47,13 +47,14 @@ enum StatisticsScope { active, historic }
 ///
 ///   * The profit and loss chart leads ([PortfolioPnlChart]): the
 ///     account's P&L (realised plus open) as the headline, the venue's
-///     whole P&L history as a line coloured by its change with a dashed
-///     baseline at zero, a pinch zooming the time window, a long press
-///     scrubbing the header; no range row. The same chart on both
-///     sub-tabs. No observations yet, or a P&L that never
-///     moved off zero: no chart, never a flat line. Nothing on either
-///     sub-tab either: the whole tab is the app's empty state
-///     ([NoActivityState]: Sal, the headline, a tagline), nothing else.
+///     P&L over the range picked under the plot (1W to ALL, 1M to start)
+///     with a dotted baseline at zero and the fill green above it and red
+///     below, a pinch zooming the time window, a long press scrubbing the
+///     quiet line above the plot. The same chart on both sub-tabs. No
+///     observations yet, or a P&L that never moved off zero: the chart's
+///     calm empty state. Nothing on either sub-tab either: the whole tab
+///     is the app's empty state ([NoActivityState]: Sal, the headline, a
+///     tagline), nothing else.
 ///   * Two small pills under it (the app's [KutePill] pair, as the
 ///     Breakdown tab's Sent | Received), Active first and picked.
 ///   * Active: what is open now. The donut splits the open positions'
@@ -145,15 +146,15 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 /// once, from the top down.
 ///
 ///   * ONE profit and loss card leads ([PortfolioPnlChart]): one headline,
-///     one line over the whole history, pinch to zoom. With both venues'
-///     P&L moving, a
+///     one line over the range picked under it (1W to ALL), pinch to zoom.
+///     With both venues' P&L moving, a
 ///     small All · Investing · Predictions toggle at the top of the card
 ///     switches the series drawn in the same chart (All: the venues added
 ///     on the moments either published, [PortfolioPerformance.combine]),
 ///     and the headline and change with it. A venue whose P&L never moved
 ///     is not offered (it would draw a flat line); with one left the
-///     toggle is gone. A P&L that never moved draws no line, never a
-///     flat one. Earn (the dollar rewards programme) is never shown here,
+///     toggle is gone. A P&L that never moved draws the chart's calm
+///     empty state. Earn (the dollar rewards programme) is never shown here,
 ///     whatever the backend's `usd.earn` says (owner decision).
 ///   * ONE Active | Historic pair under it, and under the pair ONE
 ///     allocation donut ([_AllocationCard]) by CATEGORY with both venues
@@ -461,22 +462,20 @@ class _OverviewBody extends ConsumerWidget {
     }
 
     return page([
-      // A P&L that never moved, with something below: no chart, and no
-      // second empty state over the figures.
-      if (combined.hasMovement) ...[
-        PortfolioPnlChart(
-          venue: series,
-          eventVenue: _eventVenue(series),
-          data: toggled ? data[charted]! : combined,
-          selector: moving.length > 1
-              ? _VenueToggle(
-                  venues: moving,
-                  selected: toggled ? charted : null,
-                  onSelected: onChart)
-              : null,
-        ),
-        SizedBox(height: 12.h),
-      ],
+      // A P&L that never moved, with something below: the chart's calm
+      // empty state over it.
+      PortfolioPnlChart(
+        venue: series,
+        eventVenue: _eventVenue(series),
+        data: toggled ? data[charted]! : combined,
+        selector: moving.length > 1
+            ? _VenueToggle(
+                venues: moving,
+                selected: toggled ? charted : null,
+                onSelected: onChart)
+            : null,
+      ),
+      SizedBox(height: 12.h),
       _ScopePills(scope: scope, onScope: onScope),
       _AllocationCard(
         venues: venues,
@@ -1064,18 +1063,16 @@ class _PerformanceBody extends ConsumerWidget {
 
     // The chart leads, whatever sub-tab is picked: the account's P&L
     // over time, realised and open together. Nothing published yet, or a
-    // P&L that never moved off zero: no chart (never a flat line at
-    // zero). With nothing on either sub-tab either, the page is one empty
-    // state, no pills over nothing.
+    // P&L that never moved off zero: the chart's calm empty state. With
+    // nothing on either sub-tab either, the page is one empty state, no
+    // pills over nothing.
     if (!data.hasMovement && quietOn(scope) && quietOn(_otherScope(scope))) {
       return _PageEmpty(
           text: predictions ? l10n.betHistoryEmpty : l10n.hlNoHistoryYet);
     }
     final content = _scopeContent(context, ref,
         venue: venue, data: data, scope: scope, walletId: walletId);
-    final lead = [
-      if (data.hasMovement) PortfolioPnlChart(venue: venue, data: data)
-    ];
+    final lead = [PortfolioPnlChart(venue: venue, data: data)];
 
     return ListView(
       padding: EdgeInsets.fromLTRB(

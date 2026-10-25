@@ -11200,6 +11200,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'L\'évolution de votre solde s\'affichera ici dès que vous détiendrez des dollars';
 
   @override
+  String get pnlChartEmpty =>
+      'Vos gains et pertes s\'afficheront ici dès que vous négocierez ou ferez des prédictions';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

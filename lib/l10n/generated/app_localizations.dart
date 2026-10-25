@@ -18680,6 +18680,12 @@ abstract class AppLocalizations {
   /// **'Your balance over time shows here once you hold dollars'**
   String get balanceChartEmptyDollars;
 
+  /// Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profit and loss shows here once you trade or predict'**
+  String get pnlChartEmpty;
+
   /// Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.
   ///
   /// In en, this message translates to:

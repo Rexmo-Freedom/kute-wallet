@@ -11170,6 +11170,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Evoluția soldului tău va apărea aici după ce vei avea dolari';
 
   @override
+  String get pnlChartEmpty =>
+      'Profitul și pierderea ta vor apărea aici după ce tranzacționezi sau faci predicții';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

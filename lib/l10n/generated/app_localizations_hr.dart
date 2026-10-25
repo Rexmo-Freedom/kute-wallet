@@ -11139,6 +11139,10 @@ class AppLocalizationsHr extends AppLocalizations {
       'Kretanje vašeg salda prikazat će se ovdje kad budete imali dolare';
 
   @override
+  String get pnlChartEmpty =>
+      'Vaš dobit i gubitak prikazat će se ovdje kad počnete trgovati ili predviđati';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

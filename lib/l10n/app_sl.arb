@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Brez spremembe, {start} – {end}",
   "balanceChartEmptyBitcoin": "Ko boste imeli bitcoin, bo tukaj prikazano gibanje vašega stanja",
   "balanceChartEmptyDollars": "Ko boste imeli dolarje, bo tukaj prikazano gibanje vašega stanja",
+  "pnlChartEmpty": "Ko boste trgovali ali napovedovali, bo tukaj prikazan vaš dobiček in izguba",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} two{{count} poziciji} few{{count} pozicije} other{{count} pozicij}}",
   "portfolioBuyingPower": "Kupna moč",
   "portfolioBuyingPowerHint": "Pripravljeno za vsako trgovanje ali napoved",

@@ -11138,6 +11138,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
 
   @override
+  String get pnlChartEmpty =>
+      'A nyereséged és veszteséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

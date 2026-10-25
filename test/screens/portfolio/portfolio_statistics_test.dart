@@ -476,7 +476,7 @@ void main() {
       'the category donut and the tiles', (tester) async {
     await _pump(tester, predictions: true);
     // The chart card: caption, the account's P&L (6 realised + 10 open)
-    // and the line over the whole history; no range row.
+    // and the line over the range picked under it.
     expect(_chartCard, findsOneWidget);
     expect(find.byType(PortfolioPnlChart), findsOneWidget);
     expect(find.text('Profit and loss'), findsOneWidget);
@@ -486,24 +486,24 @@ void main() {
                 find.byKey(const ValueKey('statistics-pnl-headline')))
             .text,
         r'+$16.00');
-    expect(find.textContaining('past'), findsNothing);
     final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-    expect(chart.lineColor, AppColors.marketUp);
+    // The neutral line colour; the fill carries the sign.
+    expect(chart.lineColor, AppColorsExtension.light().accent);
     expect(chart.zoomable, isTrue);
-    // From zero (the day before the first observation) through the
-    // venue's points to now.
-    expect(chart.values, [0, -5, 9, 15, 16]);
-    // No range pills: the whole history, pinched to zoom.
-    expect(find.byType(KuteRangePills), findsNothing);
-    for (final pill in ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'ALL']) {
-      expect(find.text(pill), findsNothing);
+    // From zero before the first trade to the P&L now.
+    expect(chart.values.first, 0);
+    expect(chart.values.last, 16);
+    expect(chart.values.toSet(), containsAll(<double>[0, -5, 9, 15, 16]));
+    // The range row under the plot, 1M to start.
+    expect(find.byType(KuteRangePills), findsOneWidget);
+    for (final pill in ['1W', '1M', '3M', '1Y', 'ALL']) {
+      expect(find.text(pill), findsOneWidget);
     }
-    // No fill under the line; it moves, so the dashed baseline is drawn.
-    expect(chart.showFill, isFalse);
-    expect(
-        find.byWidgetPredicate(
-            (w) => w is CustomPaint && w.painter is PnlBaselinePainter),
-        findsOneWidget);
+    // The fill between the line and the dotted baseline at zero.
+    expect(chart.showFill, isTrue);
+    expect(chart.baselineAt, 0);
+    expect(chart.fillAboveColor, AppColors.marketUp);
+    expect(chart.fillBelowColor, AppColors.marketDown);
     // The figure leads: the balance type, over the 20sp tile figures.
     final hero = tester
         .widget<RollingNumberText>(
@@ -627,12 +627,6 @@ void main() {
           coverageLabel: 'All time');
     }
 
-    bool baselineDrawn() => find
-        .byWidgetPredicate(
-            (w) => w is CustomPaint && w.painter is PnlBaselinePainter)
-        .evaluate()
-        .isNotEmpty;
-
     testWidgets(
         'a P&L at zero all the way draws no line: the quiet line in its '
         'place', (tester) async {
@@ -646,25 +640,30 @@ void main() {
     });
 
     testWidgets(
-        'a line flat for its last months still moved from zero: the whole '
-        'history and its dashed baseline', (tester) async {
+        'a line flat for its last months still moved from zero: no change '
+        'in the month, over the baseline at zero', (tester) async {
       // Five dollars made two months ago, nothing since.
       await _pump(tester, series: series([(60, 5), (40, 5), (1, 5)]));
       expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values,
-          [0, 5, 5, 5]);
-      expect(baselineDrawn(), isTrue);
+      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+      expect(chart.values.first, 0);
+      expect(chart.values.last, 5);
+      expect(chart.baselineAt, 0);
+      expect(find.text('No change in the past month'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a young account opens on its whole history, no range row',
-        (tester) async {
+    testWidgets(
+        'a young account: the month opens on its whole history, from the '
+        'first trade', (tester) async {
       await _pump(tester, series: series([(10, 2), (1, 5)]));
       expect(
           find.byKey(const ValueKey('statistics-pnl-chart')), findsOneWidget);
-      expect(tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values,
-          [0, 2, 5]);
-      expect(find.byType(KuteRangePills), findsNothing);
+      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+      expect(chart.values.first, 0);
+      expect(chart.values.last, 5);
+      expect(chart.defaultSpan, chart.values.length - 1);
+      expect(find.byType(KuteRangePills), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
@@ -1573,7 +1572,8 @@ void main() {
     void expectOneOfEach(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(find.byType(KuteRangePills), findsNothing);
+      // The range row under the plot (1W to ALL).
+      expect(find.byType(KuteRangePills), findsOneWidget);
       expect(find.text('Profit and loss'), findsOneWidget);
       expect(find.byType(KuteDonutChart, skipOffstage: false), findsOneWidget);
       expect(find.byType(PortfolioCategoryCard, skipOffstage: false),
@@ -1593,6 +1593,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(headline(tester), r'+$15.00');
       expect(find.byType(KuteLineChart), findsOneWidget);
+      // The line is Investing's alone, ending on its P&L now.
+      expect(
+          tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last,
+          15);
       expect(events.where((e) => e.$1 == 'portfolio_performance_range_changed'),
           isEmpty);
       await tester.tap(find.byKey(const ValueKey('statistics-venue-all')));

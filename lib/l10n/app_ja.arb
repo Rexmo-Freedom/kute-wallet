@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "変動なし、{start}〜{end}",
   "balanceChartEmptyBitcoin": "ビットコインを保有すると、残高の推移がここに表示されます",
   "balanceChartEmptyDollars": "ドルを保有すると、残高の推移がここに表示されます",
+  "pnlChartEmpty": "取引や予測をすると、損益がここに表示されます",
   "portfolioPositionsCount": "{count, plural, =1{1件のポジション} other{{count}件のポジション}}",
   "portfolioBuyingPower": "購買力",
   "portfolioBuyingPowerHint": "どの取引や予想にもすぐ使えます",

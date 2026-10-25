@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Ingen förändring, {start} – {end}",
   "balanceChartEmptyBitcoin": "Ditt saldo över tid visas här när du har bitcoin",
   "balanceChartEmptyDollars": "Ditt saldo över tid visas här när du har dollar",
+  "pnlChartEmpty": "Din vinst och förlust visas här när du handlar eller förutsäger",
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
   "portfolioBuyingPower": "Köpkraft",
   "portfolioBuyingPowerHint": "Redo för alla affärer och förutsägelser",

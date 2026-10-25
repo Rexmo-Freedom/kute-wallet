@@ -11161,6 +11161,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'O seu saldo ao longo do tempo aparece aqui quando tiver dólares';
 
   @override
+  String get pnlChartEmpty =>
+      'Os seus ganhos e perdas aparecem aqui quando negociar ou fizer previsões';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

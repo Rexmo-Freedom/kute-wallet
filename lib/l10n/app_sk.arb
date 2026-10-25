@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Bez zmeny, {start} – {end}",
   "balanceChartEmptyBitcoin": "Keď budete mať bitcoin, uvidíte tu vývoj svojho zostatku",
   "balanceChartEmptyDollars": "Keď budete mať doláre, uvidíte tu vývoj svojho zostatku",
+  "pnlChartEmpty": "Keď začnete obchodovať alebo predikovať, uvidíte tu svoj zisk a stratu",
   "portfolioPositionsCount": "{count, plural, =1{1 pozícia} few{{count} pozície} other{{count} pozícií}}",
   "portfolioBuyingPower": "Kúpna sila",
   "portfolioBuyingPowerHint": "Pripravené na akýkoľvek obchod alebo predikciu",

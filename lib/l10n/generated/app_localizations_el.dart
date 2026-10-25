@@ -11191,6 +11191,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια';
 
   @override
+  String get pnlChartEmpty =>
+      'Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις';
+
+  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

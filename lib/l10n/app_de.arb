@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Keine Veränderung, {start} – {end}",
   "balanceChartEmptyBitcoin": "Sobald du Bitcoin hast, siehst du hier dein Guthaben im Zeitverlauf",
   "balanceChartEmptyDollars": "Sobald du Dollar hast, siehst du hier dein Guthaben im Zeitverlauf",
+  "pnlChartEmpty": "Sobald du investierst oder eine Prognose abgibst, siehst du hier deinen Gewinn und Verlust",
   "portfolioPositionsCount": "{count, plural, =1{1 Position} other{{count} Positionen}}",
   "portfolioBuyingPower": "Kaufkraft",
   "portfolioBuyingPowerHint": "Bereit für jeden Trade und jede Prognose",

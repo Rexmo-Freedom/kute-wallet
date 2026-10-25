@@ -3095,6 +3095,7 @@
   "balanceNoChangeBetween": "Pokyčių nėra, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kai turėsite bitkoinų, čia matysite savo likučio pokyčius",
   "balanceChartEmptyDollars": "Kai turėsite dolerių, čia matysite savo likučio pokyčius",
+  "pnlChartEmpty": "Kai prekiausite ar prognozuosite, čia matysite savo pelną ir nuostolius",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicijos} many{{count} pozicijos} other{{count} pozicijų}}",
   "portfolioBuyingPower": "Perkamoji galia",
   "portfolioBuyingPowerHint": "Paruošta bet kokiam sandoriui ar prognozei",
