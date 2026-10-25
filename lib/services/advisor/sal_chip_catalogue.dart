@@ -27,17 +27,13 @@ const kSalClosingSoon = Duration(hours: 24);
 /// [kSalOddsMoveThreshold] that only ranks the opening questions.
 const kSalWhyMovingOddsThreshold = 0.08;
 
-/// The "Why is it moving?" question for an Investing market, or null when
-/// it is calm: its 24 h change (a fraction) is at least
-/// [kSalMoveThreshold] either way. The question is the catalogue's own
-/// `hl.moving_today` template.
-SalChip? salWhyMovingHl(AppLocalizations l10n,
-        {required String label, required double? dayChangePct}) =>
-    dayChangePct != null &&
-            dayChangePct.isFinite &&
-            dayChangePct.abs() >= kSalMoveThreshold
-        ? SalChip('hl.moving_today', l10n.salChipHlMovingToday(label))
-        : null;
+/// The "Why is it moving?" question for an Investing market: every
+/// Hyperliquid market screen (perp, spot, HIP-3) carries the row, calm or
+/// not (founder, 2026-10-25). A 3 % gate left most perps without it: the
+/// majors and the stock perps rarely move that much in a day. The question
+/// is the catalogue's own `hl.moving_today` template.
+SalChip salWhyMovingHl(AppLocalizations l10n, {required String label}) =>
+    SalChip('hl.moving_today', l10n.salChipHlMovingToday(label));
 
 /// The "Why is it moving?" question for a Predictions market, or null when
 /// it is calm: a game in play asks the catalogue's `pm.live_game`, a one-day

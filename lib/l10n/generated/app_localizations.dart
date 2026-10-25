@@ -18283,7 +18283,7 @@ abstract class AppLocalizations {
   /// **'Your {amount} is in Investments. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
 
-  /// A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move.
+  /// A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move.
   ///
   /// In en, this message translates to:
   /// **'Why is it moving?'**

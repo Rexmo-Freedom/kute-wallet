@@ -507,15 +507,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         SizedBox(height: 20.h),
                         // Sal's one quiet door on this screen, under the
                         // chart and its intervals: "Why is it moving?",
-                        // only on a big move today (calm, nothing).
+                        // on every market (perp, spot, HIP-3), calm or not.
                         if (!_advancedChart)
                           SalWhyMovingRow(
                             advisorContext: _salContext(m),
                             question: salWhyMovingHl(context.l10n,
-                                label: m.coin,
-                                dayChangePct: m.prevDayPx > 0
-                                    ? m.dayChangeAt(price)
-                                    : null),
+                                label: m.coin),
                             chipSignals: salSignalsForHlMarket(m),
                             padding: EdgeInsets.only(bottom: 16.h),
                           ),

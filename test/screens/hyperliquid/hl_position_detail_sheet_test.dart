@@ -614,14 +614,14 @@ void main() {
             of: find.byType(KuteCircleBackButton), matching: find.byType(Row))
         .first;
 
-    testWidgets('a calm market (+1.5% today): no Sal row, no question pill, '
-        'no button', (tester) async {
+    testWidgets('a calm market (+1.5% today): the same one quiet row, no '
+        'question pill, no button', (tester) async {
       await pumpScreen(tester, const HlMarketDetailSheet(market: btc),
           ai: true);
-      expect(row, findsNothing);
-      expect(find.text('Why is it moving?'), findsNothing);
+      expect(row, findsOneWidget);
+      expect(find.text('Why is it moving?'), findsOneWidget);
       expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byType(KuteDogGlance), findsNothing);
+      expect(find.byType(KuteDogGlance), findsOneWidget);
       expect(find.text('What drives the price of BTC?'), findsNothing);
       expect(find.textContaining('protect'), findsNothing);
       expect(aboutRow, findsOneWidget);
