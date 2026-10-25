@@ -186,16 +186,32 @@ String _text(WidgetTester tester, String key) =>
 RollingFigure _figure(WidgetTester tester, String key) =>
     tester.widget<RollingFigure>(find.byKey(ValueKey(key)));
 
-Color _pillColor(WidgetTester tester) => ((tester
-        .widget<DecoratedBox>(
-            find.byKey(const ValueKey('portfolio-row-pnl-pill')))
-        .decoration) as BoxDecoration)
-    .color!;
+Color _pillColor(WidgetTester tester) =>
+    _figure(tester, 'portfolio-row-pnl').style.color!;
 
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     _livePrices = const LivePriceState();
+  });
+
+  testWidgets('the chance bar ticks where the position was bought',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Builder(builder: (context) {
+            return const PortfolioChanceBar(
+                chance: 0.71, entry: 0.5, width: 200);
+          }),
+        ),
+      ),
+      theme: ThemeData(extensions: [AppColorsExtension.light()]),
+    ));
+    final tick = find.byKey(const ValueKey('portfolio-row-entry-tick'));
+    expect(tick, findsOneWidget);
+    final bar = tester.getTopLeft(find.byType(PortfolioChanceBar));
+    expect(tester.getTopLeft(tick).dx - bar.dx, closeTo(99, 0.5));
   });
 
   group('the P&L pill', () {
@@ -323,9 +339,9 @@ void main() {
     expect(_figure(tester, 'portfolio-row-value').text, r'$3.58');
     final pnl = _figure(tester, 'portfolio-row-pnl');
     // The % alone: the $ P&L is on the position screen.
-    expect(pnl.text, '−0.3%');
+    expect(pnl.text, '0.3%');
     expect(pnl.style.color, AppColors.marketDown);
-    expect(_pillColor(tester), AppColors.marketDown.withValues(alpha: 0.12));
+    expect(_pillColor(tester), AppColors.marketDown);
     expect(find.textContaining('shares'), findsNothing);
     // No card: no surface, no border around the row.
     expect(
@@ -348,8 +364,8 @@ void main() {
                 find.byKey(const ValueKey('portfolio-row-chance')))
             .chance,
         0.81);
-    expect(_figure(tester, 'portfolio-row-pnl').text, '+12.5%');
-    expect(_pillColor(tester), AppColors.marketUp.withValues(alpha: 0.12));
+    expect(_figure(tester, 'portfolio-row-pnl').text, '12.5%');
+    expect(_pillColor(tester), AppColors.marketUp);
   });
 
   testWidgets('a P&L that rounds to no cent reads flat in the quiet colour',
@@ -369,7 +385,7 @@ void main() {
     final pnl = _figure(tester, 'portfolio-row-pnl');
     expect(pnl.text, '0.0%');
     expect(pnl.style.color, AppColorsExtension.light().textSecondary);
-    expect(_pillColor(tester), AppColorsExtension.light().surfaceLight);
+    expect(_pillColor(tester), AppColorsExtension.light().textSecondary);
     expect(find.textContaining('−'), findsNothing);
   });
 
@@ -391,7 +407,7 @@ void main() {
     expect(_text(tester, 'portfolio-row-title'), 'Won');
     expect(_text(tester, 'portfolio-row-subtitle'), 'Up · Settled');
     expect(find.byType(PortfolioChanceBar), findsNothing);
-    expect(_figure(tester, 'portfolio-row-pnl').text, '+78.6%');
+    expect(_figure(tester, 'portfolio-row-pnl').text, '78.6%');
   });
 
   testWidgets(
@@ -406,7 +422,7 @@ void main() {
     expect(find.textContaining('3x'), findsNothing);
     expect(find.textContaining('Liq'), findsNothing);
     final pnl = _figure(tester, 'portfolio-row-pnl');
-    expect(pnl.text, '+3.7%');
+    expect(pnl.text, '3.7%');
     expect(pnl.style.color, AppColors.marketUp);
   });
 
@@ -420,7 +436,7 @@ void main() {
     expect(_text(tester, 'portfolio-row-subtitle'), 'Short · 3 NVDA');
     expect(
         _figure(tester, 'portfolio-row-pnl').style.color, AppColors.marketDown);
-    expect(_pillColor(tester), AppColors.marketDown.withValues(alpha: 0.12));
+    expect(_pillColor(tester), AppColors.marketDown);
   });
 
   testWidgets('a tap opens what the card opened, with the same event',

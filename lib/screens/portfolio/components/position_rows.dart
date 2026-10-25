@@ -314,36 +314,64 @@ class PortfolioPositionsCount extends StatelessWidget {
 /// figures beside it.
 const double kPortfolioRowValueRoom = 96;
 
-/// The held side's chance as a thin bar: 3 pt, rounded, [width] long (80%
-/// of the row's text column), the accent over the border colour.
+/// The held side's chance as a thin bar: 3 pt, rounded, [width] long, the
+/// accent over the border colour, with a small upright tick at [entry],
+/// the price the position was bought at (where it sits): fill past the
+/// tick is the way to a gain.
 class PortfolioChanceBar extends StatelessWidget {
   const PortfolioChanceBar(
-      {super.key, required this.chance, required this.width});
+      {super.key, required this.chance, required this.width, this.entry});
 
   /// 0 to 1.
   final double chance;
   final double width;
 
+  /// The average price paid, 0 to 1; null draws no tick.
+  final double? entry;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final fill = chance.isFinite ? chance.clamp(0.0, 1.0) : 0.0;
+    final at = entry;
     return SizedBox(
       width: width,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(1.5),
-        child: SizedBox(
-          height: 3,
-          child: ColoredBox(
-            color: c.border,
-            child: FractionallySizedBox(
-              widthFactor: fill,
-              alignment: AlignmentDirectional.centerStart,
-              heightFactor: 1,
-              child: ColoredBox(color: c.accent),
+      height: 9,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: AlignmentDirectional.centerStart,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(1.5),
+            child: SizedBox(
+              height: 3,
+              width: width,
+              child: ColoredBox(
+                color: c.border,
+                child: FractionallySizedBox(
+                  widthFactor: fill,
+                  alignment: AlignmentDirectional.centerStart,
+                  heightFactor: 1,
+                  child: ColoredBox(color: c.accent),
+                ),
+              ),
             ),
           ),
-        ),
+          if (at != null && at.isFinite && at > 0 && at < 1)
+            PositionedDirectional(
+              key: const ValueKey('portfolio-row-entry-tick'),
+              start: (width * at - 1).clamp(0.0, width - 2),
+              top: 0,
+              child: Container(
+                width: 2,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: c.textPrimary,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -381,29 +409,61 @@ class PortfolioPnlPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = colorsFor(context, tone);
-    return DecoratedBox(
+    // Plain figure, brokerage style: a small caret for the direction and
+    // the unsigned %, in the up/down colour; flat reads "0.0%" quietly.
+    final shown = text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+    return Row(
       key: const ValueKey('portfolio-row-pnl-pill'),
-      decoration: BoxDecoration(
-        color: colors.background,
-        borderRadius: BorderRadius.circular(6.r),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-        child: RollingFigure(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (tone != PortfolioPnlTone.flat) ...[
+          CustomPaint(
+            size: Size(7.w, 5.h),
+            painter: _CaretPainter(
+                up: tone == PortfolioPnlTone.up, color: colors.foreground),
+          ),
+          SizedBox(width: 4.w),
+        ],
+        RollingFigure(
           key: const ValueKey('portfolio-row-pnl'),
-          text: text,
+          text: shown,
           style: TextStyle(
             color: colors.foreground,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w500,
             letterSpacing: -0.1,
             height: 1.3,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-      ),
+      ],
     );
   }
+}
+
+/// The small solid triangle before a P&L figure: up or down.
+class _CaretPainter extends CustomPainter {
+  const _CaretPainter({required this.up, required this.color});
+
+  final bool up;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = up
+        ? (Path()
+          ..moveTo(0, size.height)
+          ..lineTo(size.width / 2, 0)
+          ..lineTo(size.width, size.height))
+        : (Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width / 2, size.height)
+          ..lineTo(size.width, 0));
+    canvas.drawPath(path..close(), Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_CaretPainter old) => old.up != up || old.color != color;
 }
 
 /// One position as a list row (see the file header): its picture, title
@@ -418,6 +478,7 @@ class PortfolioPositionRow extends StatelessWidget {
     required this.subtitle,
     required this.value,
     this.chance,
+    this.entry,
     this.pnl,
     this.detail,
     this.onTap,
@@ -428,6 +489,10 @@ class PortfolioPositionRow extends StatelessWidget {
   final String subtitle;
   final String value;
   final double? chance;
+
+  /// The price the held side was bought at (0 to 1): a tick on the chance
+  /// bar.
+  final double? entry;
   final ({String text, PortfolioPnlTone tone})? pnl;
   final String? detail;
   final VoidCallback? onTap;
@@ -491,6 +556,7 @@ class PortfolioPositionRow extends StatelessWidget {
                         PortfolioChanceBar(
                             key: const ValueKey('portfolio-row-chance'),
                             chance: chance,
+                            entry: entry,
                             width: barWidth),
                       ],
                     ],
@@ -656,6 +722,7 @@ class PolyPositionRow extends ConsumerWidget {
         subtitle: polyPositionRowLine(names, p.outcome, status: status),
         value: money(value),
         chance: p.isResolved ? null : price,
+        entry: p.isResolved ? null : p.avgPrice,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
         onTap: () {
           HapticFeedback.selectionClick();
