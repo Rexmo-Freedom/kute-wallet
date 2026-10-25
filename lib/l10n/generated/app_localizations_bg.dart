@@ -11089,18 +11089,32 @@ class AppLocalizationsBg extends AppLocalizations {
       'Салдото ви във времето ще се показва тук, щом имате долари';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Готови за ползване';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'В позиции';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count позиции',
       one: '1 позиция',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Покупателна сила';
+
+  @override
+  String get portfolioBuyingPowerHint => 'Готови за всяка сделка или прогноза';
+
+  @override
+  String get portfolioNoOpenPositions => 'Няма отворени позиции';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count отворени',
+      one: '1 отворена',
     );
     return '$_temp0';
   }

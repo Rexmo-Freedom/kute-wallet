@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Καμία αλλαγή, {start} – {end}",
   "balanceChartEmptyBitcoin": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε bitcoin",
   "balanceChartEmptyDollars": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια",
-  "portfolioBalanceReadyToUse": "Έτοιμα για χρήση",
-  "portfolioBalanceInPositionsLabel": "Σε θέσεις",
   "portfolioPositionsCount": "{count, plural, =1{1 θέση} other{{count} θέσεις}}",
+  "portfolioBuyingPower": "Αγοραστική δύναμη",
+  "portfolioBuyingPowerHint": "Έτοιμα για κάθε συναλλαγή ή πρόβλεψη",
+  "portfolioNoOpenPositions": "Καμία ανοιχτή θέση",
+  "portfolioOpenCount": "{count, plural, =1{1 ανοιχτή} other{{count} ανοιχτές}}",
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
   "portfolioRowEntry": "είσοδος {price}"
 }

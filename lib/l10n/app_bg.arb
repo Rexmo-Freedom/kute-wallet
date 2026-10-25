@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Без промяна, {start} – {end}",
   "balanceChartEmptyBitcoin": "Салдото ви във времето ще се показва тук, щом имате биткойн",
   "balanceChartEmptyDollars": "Салдото ви във времето ще се показва тук, щом имате долари",
-  "portfolioBalanceReadyToUse": "Готови за ползване",
-  "portfolioBalanceInPositionsLabel": "В позиции",
   "portfolioPositionsCount": "{count, plural, =1{1 позиция} other{{count} позиции}}",
+  "portfolioBuyingPower": "Покупателна сила",
+  "portfolioBuyingPowerHint": "Готови за всяка сделка или прогноза",
+  "portfolioNoOpenPositions": "Няма отворени позиции",
+  "portfolioOpenCount": "{count, plural, =1{1 отворена} other{{count} отворени}}",
   "portfolioRowShares": "{shares} дяла · ср. {price}",
   "portfolioRowEntry": "вход {price}"
 }

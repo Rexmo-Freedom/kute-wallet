@@ -1,60 +1,66 @@
 // lib/screens/portfolio/components/balances_overview.dart
 //
-// Investments → Portfolio → Balances (founder request, October 2026:
-// "balances is not clear. for example dollars are always available
-// regardless", then "ready to use should be sub divided into the 3 i
-// think no? position no its all the same"). The breakdown's figures as a
-// plain statement, top down:
+// Investments → Portfolio → Balances. What the money is DOING first, where
+// it sits only as detail (founder, October 2026, after a competitor review:
+// Robinhood's "Buying power", Revolut's "Total wealth"; the account-by-
+// account layout before it read "it means nothing, I don't know which is
+// which"). Top down:
 //
-//   * TOTAL: a quiet "Total" over the sum of every balance, in the hero's
-//     type a size down;
-//   * one thin SEGMENTED BAR under it (8 pt, rounded): each account's
-//     cash (Dollars, Investing, Predictions) and ONE segment for what all
-//     the positions are worth together, each its share of the total,
-//     largest first, in the app's chart ramp by rank (the largest the
-//     deepest blue; a sliver under 2% the chart grey:
-//     AppColorsExtension.chartColorsByShare), a hairline gap between
-//     segments, an empty one drawing none. Nothing but the track while
-//     any figure is unknown: a share cannot be drawn without a guess;
-//   * READY TO USE: a quiet label with the cash of all three on the right
-//     of its line, then one plain ROW per account, no card, hairlines
-//     between: its mark and name, its cash on the right (Dollars' balance,
-//     each venue's cash). No legend dots: the marks name the accounts. A
-//     Rebalance note or the open orders' reserve, when there is one, is a
-//     quiet caption under the name;
-//   * IN POSITIONS: one row for every position and prediction together,
-//     never split by venue: "In positions" with their value on the right
-//     and a quiet "N positions" under it (when any); a tap opens the
-//     Positions section.
+//   * a moderate RING on the left (the engine's KuteDonutChart) with
+//     "Total" and the total in its hole, and a three-line LEGEND to its
+//     right: a dot, the label and its share of the total, for
+//       Buying power — every spare dollar: Dollars + Hyperliquid cash +
+//                      Polymarket cash,
+//       Predictions  — what the open Polymarket positions are worth (and
+//                      the cash open BUY orders reserve: money at work
+//                      there, named under the row),
+//       Investing    — what the open Hyperliquid positions are worth.
+//     Each category wears a FIXED colour of the muted chart palette
+//     (Buying power indigo, Investing teal, Predictions amber:
+//     AppColorsExtension.chartCategorical), never a rank colour, so the
+//     legend, the slices and the rows' dots always agree. A category at
+//     0% stays in the legend, dimmed, with no slice; thin gaps between
+//     slices (the ring's own);
+//   * one hairline ROW per category, its dot first:
+//       Buying power — "Ready for any trade or prediction", the spare cash
+//                      on the right; under it quiet indented sub-rows,
+//                      where it sits, largest first: Hyperliquid,
+//                      Polymarket, Dollars (all three, $0.00 when known);
+//       Predictions  — "N open", the value and a chevron: a tap opens the
+//                      Positions section (it has no venue filter);
+//       Investing    — "N open" or "No open positions" (or what open
+//                      orders hold, when that is all there is), the value
+//                      and a chevron, the same tap.
+//     A Rebalance note sits under its venue's sub-row; an open order's
+//     reserve under Predictions. Every amount ends on one column.
 //
-// Unknown figures keep the breakdown's rules: a figure never read reads
-// a dash, dimmed and sweeping ([StaleShimmer]); a cached one is dimmed
-// with the same sweep while it refreshes; never a confident $0.00. The
-// account rows are not tappable; the breakdown wraps each in its
-// Rebalance band.
-
-import 'dart:math' as math;
+// Unknown figures keep the breakdown's rules: a figure never read reads a
+// dash, dimmed and sweeping ([StaleShimmer]); a cached one is dimmed with
+// the same sweep while it refreshes; never a confident $0.00. While any
+// part of the total is unknown the ring shows its track only and the
+// legend no shares: a share cannot be drawn without a guess.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/screens/shared/kute_motion.dart'
-    show RollingFigure, kuteReduceMotion;
+import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The three accounts, in row order.
+/// The three accounts the figures come from.
 enum BalancesPart { dollars, investing, predictions }
 
-/// The bar's segments: each account's cash, then every position together.
-enum BalancesSegment { dollars, investing, predictions, positions }
+/// What the money is doing, in legend and row order.
+enum BalancesCategory { buyingPower, predictions, investing }
 
-/// The bar's first draw.
-const Duration kBalancesBarDrawDuration = Duration(milliseconds: 700);
-
-/// Under this a figure is nothing ("$0.00"): no segment.
+/// Under this a figure is nothing ("$0.00"): no slice.
 const double kBalancesCentUsd = 0.005;
+
+/// The ring's size: moderate, beside its legend (the Breakdown card's
+/// ring is 184 on a row of its own).
+const double kBalancesRingDiameter = 140;
+const double kBalancesRingThickness = 12;
 
 /// A figure as the breakdown resolved it: its text (masked when balances
 /// are hidden, a dash when never read), whether it is still refreshing,
@@ -68,7 +74,7 @@ class BalancesFigure {
   final double? usd;
 }
 
-/// One balance as its row shows it.
+/// One account as the breakdown read it.
 @immutable
 class BalancesEntry {
   const BalancesEntry({
@@ -78,23 +84,30 @@ class BalancesEntry {
     required this.cash,
     this.positions,
     this.positionCount = 0,
+    this.reservedUsd = 0,
     this.footer = const [],
   });
 
   final BalancesPart part;
   final String asset;
+
+  /// Where the money sits, as the Buying power sub-row names it
+  /// ("Hyperliquid", "Polymarket", "Dollars").
   final String name;
   final BalancesFigure cash;
 
   /// What it holds in positions; null for Dollars, which hold none.
   final BalancesFigure? positions;
 
-  /// How many positions (Investing) or predictions (Predictions) it
-  /// holds: the In positions row counts them together.
+  /// How many positions (Investing) or predictions (Predictions) it holds.
   final int positionCount;
 
-  /// Quiet captions under the name: a Rebalance note, what open orders
-  /// reserve.
+  /// Cash its open orders reserve: neither spare cash nor a position
+  /// (a prediction not yet bought). Part of the account's money at work,
+  /// with [positions], and of its total; known whenever [positions] is.
+  final double reservedUsd;
+
+  /// Quiet captions under its sub-row: a Rebalance note.
   final List<String> footer;
 
   /// The key part of its widgets ("dollars", "investing").
@@ -106,83 +119,115 @@ class BalancesEntry {
 
   double get cashUsd => _clean(cash.usd);
   double get positionsUsd => _clean(positions?.usd);
-  double get totalUsd => cashUsd + positionsUsd;
+
+  /// What open orders reserve, counted only while [positions] is known.
+  double get reservedCashUsd =>
+      positions?.usd == null ? 0 : _clean(reservedUsd);
+
+  /// Positions and the reserve together: the account's money at work (its
+  /// share of the header's Invested).
+  double get atWorkUsd => positionsUsd + reservedCashUsd;
+  double get totalUsd => cashUsd + atWorkUsd;
 
   bool get stale => cash.stale || (positions?.stale ?? false);
 }
 
 double _clean(double? usd) => usd != null && usd.isFinite && usd > 0 ? usd : 0;
 
-BalancesSegment _segmentOf(BalancesPart part) => switch (part) {
-      BalancesPart.dollars => BalancesSegment.dollars,
-      BalancesPart.investing => BalancesSegment.investing,
-      BalancesPart.predictions => BalancesSegment.predictions,
-    };
+/// One category's figure: its value (null while a part of it is unknown)
+/// and whether any part is refreshing.
+typedef BalancesCategoryFigure = ({double? usd, bool stale});
 
-/// The bar's segments: each account's non-empty cash and, when any, what
-/// every position is worth together, each with its share of the total
-/// (0..1, adding up to 1), largest first (ties in [BalancesSegment]
-/// order). None while any figure is unknown, or when there is nothing.
-/// Pure for the tests.
-List<(BalancesSegment, double)> balancesBarSegments(
+/// The categories the accounts make, in legend order: Buying power (every
+/// account's cash), then Predictions and Investing (what each venue has at
+/// work), each only when its venue is on the account. Pure for the tests.
+Map<BalancesCategory, BalancesCategoryFigure> balancesCategories(
     List<BalancesEntry> entries) {
-  if (entries.any((e) => !e.known)) return const [];
-  final positions = entries.fold<double>(0, (sum, e) => sum + e.positionsUsd);
-  final parts = <(BalancesSegment, double)>[
-    for (final e in entries) (_segmentOf(e.part), e.cashUsd),
-    (BalancesSegment.positions, positions),
-  ];
-  final total = parts.fold<double>(0, (sum, p) => sum + p.$2);
-  if (total < kBalancesCentUsd) return const [];
-  return [
-    for (final (segment, usd) in parts)
-      if (usd >= kBalancesCentUsd) (segment, usd / total),
-  ]..sort((a, b) {
-      final bySize = b.$2.compareTo(a.$2);
-      return bySize != 0 ? bySize : a.$1.index.compareTo(b.$1.index);
-    });
-}
+  BalancesEntry? of(BalancesPart part) {
+    for (final e in entries) {
+      if (e.part == part) return e;
+    }
+    return null;
+  }
 
-/// Each segment's colour: the chart ramp by rank of size.
-Map<BalancesSegment, Color> balancesBarColors(
-    AppColorsExtension c, List<(BalancesSegment, double)> segments) {
-  final colors = c.chartColorsByShare([for (final s in segments) s.$2]);
+  BalancesCategoryFigure atWork(BalancesEntry e) => (
+        usd: e.positions?.usd == null ? null : e.atWorkUsd,
+        stale: e.positions?.stale ?? false,
+      );
+  final predictions = of(BalancesPart.predictions);
+  final investing = of(BalancesPart.investing);
   return {
-    for (var i = 0; i < segments.length; i++) segments[i].$1: colors[i],
+    BalancesCategory.buyingPower: (
+      usd: entries.every((e) => e.cash.usd != null)
+          ? entries.fold<double>(0, (s, e) => s + e.cashUsd)
+          : null,
+      stale: entries.any((e) => e.cash.stale),
+    ),
+    if (predictions != null) BalancesCategory.predictions: atWork(predictions),
+    if (investing != null) BalancesCategory.investing: atWork(investing),
   };
 }
 
-/// The summary's figures in dollars: the total, the cash ready to use and
-/// what is in positions; each null while a part of it is unknown. Pure for
-/// the tests.
-({double? total, double? ready, double? inPositions}) balancesSummary(
-    List<BalancesEntry> entries) {
-  final ready = entries.every((e) => e.cash.usd != null)
-      ? entries.fold<double>(0, (s, e) => s + e.cashUsd)
-      : null;
-  final held = [
-    for (final e in entries)
-      if (e.positions case final p?) p,
-  ];
-  final inPositions = held.every((p) => p.usd != null)
-      ? held.fold<double>(0, (s, p) => s + _clean(p.usd))
-      : null;
-  return (
-    total: ready != null && inPositions != null ? ready + inPositions : null,
-    ready: ready,
-    inPositions: inPositions,
-  );
+/// The total of [categories], null while any is unknown.
+double? balancesTotal(
+        Map<BalancesCategory, BalancesCategoryFigure> categories) =>
+    categories.values.every((c) => c.usd != null)
+        ? categories.values.fold<double>(0, (s, c) => s + _clean(c.usd))
+        : null;
+
+/// Each category's share of the total (0..1, adding up to 1), in legend
+/// order, zero for an empty one; empty while any figure is unknown or when
+/// there is nothing at all. Pure for the tests.
+Map<BalancesCategory, double> balancesShares(
+    Map<BalancesCategory, BalancesCategoryFigure> categories) {
+  final total = balancesTotal(categories);
+  if (total == null || total < kBalancesCentUsd) return const {};
+  return {
+    for (final e in categories.entries)
+      e.key: _clean(e.value.usd) < kBalancesCentUsd
+          ? 0.0
+          : _clean(e.value.usd) / total,
+  };
 }
 
-/// How many positions and predictions the accounts hold together.
-int balancesPositionCount(List<BalancesEntry> entries) => entries.fold<int>(
-    0, (n, e) => n + (e.positionCount > 0 ? e.positionCount : 0));
+/// A share as the legend writes it: whole percents, "<1%" for a sliver
+/// that is not nothing, ">99%" for all but a sliver, "0%" for nothing.
+/// Pure for the tests.
+String balancesPercent(double share) {
+  if (!share.isFinite || share <= 0) return '0%';
+  final pct = share * 100;
+  if (pct < 1) return '<1%';
+  if (pct > 99 && pct < 100) return '>99%';
+  return '${pct.round()}%';
+}
 
-/// The total, the bar, Ready to use over a row per account, then In
-/// positions (see the file header). [money] writes an amount (masked when
-/// balances are hidden); [wrap] lets the breakdown wrap each account row
-/// (its Rebalance band, the Dollars arrival); [onPositions] is a tap on
-/// In positions (null: not tappable).
+/// Each category's fixed colour: the muted chart palette's indigo, amber
+/// and teal, the same in the legend, the ring and the rows.
+Color balancesCategoryColor(AppColorsExtension c, BalancesCategory category) =>
+    switch (category) {
+      BalancesCategory.buyingPower => c.chartCategorical[0],
+      BalancesCategory.investing => c.chartCategorical[1],
+      BalancesCategory.predictions => c.chartCategorical[2],
+    };
+
+/// The accounts under Buying power, largest cash first (an unknown one
+/// last; ties in account order). Pure for the tests.
+List<BalancesEntry> balancesBuyingPowerPlaces(List<BalancesEntry> entries) =>
+    [...entries]..sort((a, b) {
+        final au = a.cash.usd, bu = b.cash.usd;
+        if (au == null || bu == null) {
+          if (au == null && bu == null) return a.part.index - b.part.index;
+          return au == null ? 1 : -1;
+        }
+        final bySize = _clean(bu).compareTo(_clean(au));
+        return bySize != 0 ? bySize : a.part.index - b.part.index;
+      });
+
+/// The ring and its legend over one row per category (see the file
+/// header). [money] writes an amount (masked when balances are hidden);
+/// [wrap] lets the breakdown wrap each account's sub-row (its Rebalance
+/// band, the Dollars arrival); [onPositions] is a tap on Predictions or
+/// Investing (null: not tappable).
 class BalancesOverview extends StatelessWidget {
   const BalancesOverview({
     super.key,
@@ -201,32 +246,65 @@ class BalancesOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
-    final sum = balancesSummary(entries);
-    final segments = balancesBarSegments(entries);
-    final colors = balancesBarColors(c, segments);
-    final stale = entries.any((e) => e.stale);
+    final categories = balancesCategories(entries);
+    final shares = balancesShares(categories);
+    final total = balancesTotal(categories);
     // Unknown: a dash, dimmed and sweeping, never a confident $0.00.
-    BalancesFigure figure(double? usd, bool anyStale) => usd == null
+    BalancesFigure figure(BalancesCategoryFigure f) => f.usd == null
         ? const BalancesFigure('—', stale: true)
-        : BalancesFigure(money(usd), stale: anyStale, usd: usd);
-    final total = figure(sum.total, stale);
-    final ready = figure(sum.ready, entries.any((e) => e.cash.stale));
-    final inPositions = figure(
-        sum.inPositions, entries.any((e) => e.positions?.stale ?? false));
-    final count = balancesPositionCount(entries);
-    final label = TextStyle(
-      color: c.textSecondary,
-      fontSize: 14.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.25,
-    );
+        : BalancesFigure(money(f.usd!), stale: f.stale, usd: f.usd);
+    final totalFigure = total == null
+        ? const BalancesFigure('—', stale: true)
+        : BalancesFigure(money(total),
+            stale: categories.values.any((f) => f.stale), usd: total);
+    String label(BalancesCategory category) => switch (category) {
+          BalancesCategory.buyingPower => l10n.portfolioBuyingPower,
+          BalancesCategory.predictions => l10n.predictions,
+          BalancesCategory.investing => l10n.trading,
+        };
+    BalancesEntry? entryOf(BalancesPart part) {
+      for (final e in entries) {
+        if (e.part == part) return e;
+      }
+      return null;
+    }
+
     final hairline = Divider(
       color: context.isDark ? c.border : c.borderSubtle,
       height: 1,
       thickness: 0.5,
-      indent: _kRowMark.w + _kRowGap.w,
     );
+
+    // A venue's secondary line: how many are open; what open orders hold
+    // when that is all there is; or nothing open.
+    String openLine(BalancesEntry e) {
+      if (e.positionCount > 0) return l10n.portfolioOpenCount(e.positionCount);
+      if (e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd) {
+        return l10n.investingInOpenOrders(money(e.atWorkUsd));
+      }
+      return l10n.portfolioNoOpenPositions;
+    }
+
+    Widget venueRow(BalancesCategory category, BalancesEntry e) {
+      final reserve = e.positionCount > 0 &&
+              e.reservedCashUsd >= kBalancesCentUsd
+          ? l10n.investingInOpenOrders(money(e.reservedCashUsd))
+          : null;
+      return _CategoryRow(
+        key: ValueKey('portfolio-balance-category-${category.name}'),
+        category: category,
+        color: balancesCategoryColor(c, category),
+        title: label(category),
+        line: openLine(e),
+        caption: reserve,
+        figure: figure(categories[category]!),
+        onTap: onPositions,
+      );
+    }
+
+    final places = balancesBuyingPowerPlaces(entries);
+    final predictions = entryOf(BalancesPart.predictions);
+    final investing = entryOf(BalancesPart.investing);
 
     return Column(
       key: const ValueKey('portfolio-balance-overview'),
@@ -234,61 +312,76 @@ class BalancesOverview extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 8.h),
-        Text(l10n.total, style: label),
-        SizedBox(height: 4.h),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: FittedBox(
-            key: const ValueKey('portfolio-balance-total'),
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: _Live(
-              figure: total,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 34.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.0,
-                height: 1.1,
-                fontFeatures: const [FontFeature.tabularFigures()],
+        Row(
+          children: [
+            _Ring(
+              categories: categories.keys.toList(),
+              shares: shares,
+              total: totalFigure,
+              label: l10n.total,
+              semantics: [
+                '${l10n.total} ${totalFigure.text}',
+                if (shares.isNotEmpty)
+                  for (final k in categories.keys)
+                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+              ].join(', '),
+            ),
+            SizedBox(width: 20.w),
+            Expanded(
+              child: ExcludeSemantics(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, k) in categories.keys.indexed) ...[
+                      if (i > 0) SizedBox(height: 12.h),
+                      _LegendLine(
+                        key: ValueKey('portfolio-balance-legend-${k.name}'),
+                        color: balancesCategoryColor(c, k),
+                        label: label(k),
+                        // No share while the total is unknown.
+                        share: shares.isEmpty
+                            ? null
+                            : balancesPercent(shares[k] ?? 0),
+                        dimmed: shares.isNotEmpty && (shares[k] ?? 0) <= 0,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
-        SizedBox(height: 16.h),
-        ExcludeSemantics(
-            child: _SegmentBar(segments: segments, colors: colors)),
-        SizedBox(height: 24.h),
-        _SectionLine(
-          key: const ValueKey('portfolio-balance-ready'),
-          label: l10n.portfolioBalanceReadyToUse,
-          figure: ready,
+        SizedBox(height: 20.h),
+        hairline,
+        _CategoryRow(
+          key: const ValueKey('portfolio-balance-category-buyingPower'),
+          category: BalancesCategory.buyingPower,
+          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+          title: l10n.portfolioBuyingPower,
+          line: l10n.portfolioBuyingPowerHint,
+          figure: figure(categories[BalancesCategory.buyingPower]!),
         ),
-        SizedBox(height: 2.h),
-        for (final (i, e) in entries.indexed) ...[
-          if (i > 0) hairline,
+        for (final e in places)
           _wrap(
               e.part,
-              _AccountRow(
+              _PlaceRow(
                 key: ValueKey('portfolio-balance-${e.id}'),
                 entry: e,
                 cash: e.cash.usd == null
                     ? const BalancesFigure('—', stale: true)
                     : e.cash,
               )),
+        SizedBox(height: 10.h),
+        if (predictions != null) ...[
+          hairline,
+          venueRow(BalancesCategory.predictions, predictions),
         ],
-        Divider(
-          color: context.isDark ? c.border : c.borderSubtle,
-          height: 1,
-          thickness: 0.5,
-        ),
-        _PositionsRow(
-          key: const ValueKey('portfolio-balance-positions'),
-          label: l10n.portfolioBalanceInPositionsLabel,
-          figure: inPositions,
-          line: count > 0 ? l10n.portfolioPositionsCount(count) : null,
-          onTap: onPositions,
-        ),
+        if (investing != null) ...[
+          hairline,
+          venueRow(BalancesCategory.investing, investing),
+        ],
+        hairline,
       ],
     );
   }
@@ -296,19 +389,17 @@ class BalancesOverview extends StatelessWidget {
   Widget _wrap(BalancesPart part, Widget row) => wrap?.call(part, row) ?? row;
 }
 
-/// A row's mark and the gap after it.
-const double _kRowMark = 36;
-const double _kRowGap = 12;
+/// The legend's and the rows' dot.
+const double _kDot = 8;
 
-/// An amount on the right of a row.
-TextStyle _amountStyle(BuildContext context) => TextStyle(
-      color: context.colors.textPrimary,
-      fontSize: 16.sp,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.2,
-      height: 1.25,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+/// A row's text starts after its dot and this gap; the sub-rows line up
+/// with it.
+const double _kDotGap = 12;
+
+/// The chevron's room at a row's end: rows without one keep it empty, so
+/// every amount ends on one column.
+const double _kChevron = 20;
+const double _kChevronGap = 4;
 
 /// A live figure: a new value rolls the digits that changed; while it
 /// refreshes (or is not known yet) it is dimmed with the skeleton's sweep.
@@ -338,7 +429,7 @@ class _EndFigure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 160.w),
+        constraints: BoxConstraints(maxWidth: 150.w),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: AlignmentDirectional.centerEnd,
@@ -347,12 +438,259 @@ class _EndFigure extends StatelessWidget {
       );
 }
 
-/// Ready to use's line: the quiet label, its sum at the end.
-class _SectionLine extends StatelessWidget {
-  const _SectionLine({super.key, required this.label, required this.figure});
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color, this.dimmed = false});
 
+  final Color color;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: _kDot.w,
+        height: _kDot.w,
+        decoration: BoxDecoration(
+          color: dimmed ? context.colors.textDisabled : color,
+          shape: BoxShape.circle,
+        ),
+      );
+}
+
+/// The ring: one slice per non-empty category in its colour, "Total" and
+/// the total in the hole. Only the track while a figure is unknown. Not a
+/// control: the rows below carry the detail and the taps.
+class _Ring extends StatelessWidget {
+  const _Ring({
+    required this.categories,
+    required this.shares,
+    required this.total,
+    required this.label,
+    required this.semantics,
+  });
+
+  final List<BalancesCategory> categories;
+  final Map<BalancesCategory, double> shares;
+  final BalancesFigure total;
   final String label;
+  final String semantics;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      container: true,
+      label: semantics,
+      excludeSemantics: true,
+      child: IgnorePointer(
+        child: KuteDonutChart(
+          key: const ValueKey('portfolio-balance-ring'),
+          diameter: kBalancesRingDiameter.w,
+          thickness: kBalancesRingThickness.w,
+          trackColor: context.isDark ? c.surfaceLight : c.surfaceElevated,
+          onSelected: (_) {},
+          segments: [
+            for (final k in categories)
+              if ((shares[k] ?? 0) > 0)
+                KuteDonutSegment(
+                  id: k,
+                  value: shares[k]!,
+                  color: balancesCategoryColor(c, k),
+                  semanticsLabel: '',
+                ),
+          ],
+          center: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                  )),
+              SizedBox(height: 2.h),
+              // The hole is narrow: a long total scales down, never spills.
+              FittedBox(
+                key: const ValueKey('portfolio-balance-total'),
+                fit: BoxFit.scaleDown,
+                child: _Live(
+                  figure: total,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.4,
+                    height: 1.2,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One legend line: the dot, the label, the share at the end; dimmed at
+/// 0%.
+class _LegendLine extends StatelessWidget {
+  const _LegendLine({
+    super.key,
+    required this.color,
+    required this.label,
+    required this.share,
+    required this.dimmed,
+  });
+
+  final Color color;
+  final String label;
+
+  /// Null while the total is unknown.
+  final String? share;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final style = TextStyle(
+      color: dimmed ? c.textTertiary : c.textPrimary,
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.25,
+    );
+    return Row(
+      children: [
+        _Dot(color: color, dimmed: dimmed),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: Text(label,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+        ),
+        SizedBox(width: 8.w),
+        Text(share ?? '—',
+            key: const ValueKey('portfolio-balance-legend-share'),
+            style: style.copyWith(
+                color:
+                    dimmed || share == null ? c.textTertiary : c.textSecondary,
+                fontFeatures: const [FontFeature.tabularFigures()])),
+      ],
+    );
+  }
+}
+
+/// A category row: its dot, its title over a quiet line (and a caption),
+/// its figure on the right; a chevron and a tap when [onTap] is given.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    super.key,
+    required this.category,
+    required this.color,
+    required this.title,
+    required this.line,
+    required this.figure,
+    this.caption,
+    this.onTap,
+  });
+
+  final BalancesCategory category;
+  final Color color;
+  final String title;
+  final String line;
+  final String? caption;
   final BalancesFigure figure;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final row = Padding(
+      padding: EdgeInsets.symmetric(vertical: 14.h),
+      child: Row(
+        children: [
+          _Dot(color: color),
+          SizedBox(width: _kDotGap.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.settingsTitle(context)
+                        .copyWith(letterSpacing: -0.2, height: 1.25)),
+                SizedBox(height: 2.h),
+                Text(line,
+                    key: ValueKey('portfolio-balance-category-${category.name}-line'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: quiet),
+                if (caption case final text?) ...[
+                  SizedBox(height: 2.h),
+                  Text(text,
+                      key: ValueKey(
+                          'portfolio-balance-category-${category.name}-caption'),
+                      style: quiet.copyWith(color: c.textTertiary)),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          _EndFigure(
+            key: ValueKey('portfolio-balance-category-${category.name}-amount'),
+            figure: figure,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              height: 1.25,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          SizedBox(width: _kChevronGap.w),
+          if (onTap != null)
+            Icon(Icons.chevron_right_rounded,
+                size: _kChevron.w, color: c.textTertiary)
+          else
+            SizedBox(width: _kChevron.w),
+        ],
+      ),
+    );
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      label: [title, figure.text, line, if (caption != null) caption!]
+          .join(', '),
+      excludeSemantics: true,
+      child: onTap == null
+          ? row
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: onTap, child: row),
+            ),
+    );
+  }
+}
+
+/// Where spare cash sits: a quiet indented line under Buying power, the
+/// account's name and its cash, any Rebalance note under it.
+class _PlaceRow extends StatelessWidget {
+  const _PlaceRow({super.key, required this.entry, required this.cash});
+
+  final BalancesEntry entry;
+  final BalancesFigure cash;
 
   @override
   Widget build(BuildContext context) {
@@ -362,238 +700,48 @@ class _SectionLine extends StatelessWidget {
       fontSize: 14.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
-      height: 1.25,
-    );
-    return Semantics(
-      container: true,
-      header: true,
-      label: '$label ${figure.text}',
-      excludeSemantics: true,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-          ),
-          SizedBox(width: 12.w),
-          _EndFigure(
-            key: const ValueKey('portfolio-balance-ready-amount'),
-            figure: figure,
-            style: style.copyWith(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w600,
-                fontFeatures: const [FontFeature.tabularFigures()]),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The thin bar: one segment per non-empty figure in its colour, a
-/// hairline gap between, over the quiet track; grown in once on first
-/// show (at once under Reduce Motion).
-class _SegmentBar extends StatelessWidget {
-  const _SegmentBar({required this.segments, required this.colors});
-
-  final List<(BalancesSegment, double)> segments;
-  final Map<BalancesSegment, Color> colors;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final height = 8.h;
-    final track = context.isDark ? c.surfaceLight : c.surfaceElevated;
-    return ClipRRect(
-      key: const ValueKey('portfolio-balance-bar'),
-      borderRadius: BorderRadius.circular(height / 2),
-      child: SizedBox(
-        height: height,
-        child: ColoredBox(
-          color: track,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: kuteReduceMotion(context)
-                ? Duration.zero
-                : kBalancesBarDrawDuration,
-            curve: Curves.easeOutCubic,
-            // Laid out whole, revealed from the start edge: the gaps never
-            // squeeze a row narrower than they are.
-            builder: (context, t, child) => ClipRect(
-              clipper: _RevealClipper(t, Directionality.of(context)),
-              child: child,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (i, (segment, share)) in segments.indexed) ...[
-                  if (i > 0) SizedBox(width: 2.w),
-                  Expanded(
-                    // Thousandths, never zero: a sliver stays visible.
-                    flex: math.max(1, (share * 1000).round()),
-                    child: ColoredBox(
-                      key: ValueKey('portfolio-balance-bar-${segment.name}'),
-                      color: colors[segment] ?? c.chartOther,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The share [t] of the bar shown, from the start edge.
-class _RevealClipper extends CustomClipper<Rect> {
-  _RevealClipper(this.t, this.direction);
-
-  final double t;
-  final TextDirection direction;
-
-  @override
-  Rect getClip(Size size) {
-    final w = size.width * t.clamp(0.0, 1.0);
-    return direction == TextDirection.rtl
-        ? Rect.fromLTWH(size.width - w, 0, w, size.height)
-        : Rect.fromLTWH(0, 0, w, size.height);
-  }
-
-  @override
-  bool shouldReclip(_RevealClipper old) =>
-      old.t != t || old.direction != direction;
-}
-
-/// One account: its mark and name, its cash on the right; any caption
-/// under the name.
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({super.key, required this.entry, required this.cash});
-
-  final BalancesEntry entry;
-  final BalancesFigure cash;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final e = entry;
-    final caption = TextStyle(
-      color: c.textTertiary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
       height: 1.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 14.h),
-      child: Row(
-        children: [
-          SvgPicture.asset(e.asset, width: _kRowMark.w, height: _kRowMark.w),
-          SizedBox(width: _kRowGap.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(e.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.settingsTitle(context)
-                        .copyWith(letterSpacing: -0.2, height: 1.25)),
-                for (final note in e.footer) ...[
-                  SizedBox(height: 2.h),
-                  Text(note, style: caption),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          _EndFigure(
-            key: ValueKey('portfolio-balance-${e.id}-amount'),
-            figure: cash,
-            style: _amountStyle(context),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Every position and prediction together: "In positions" and a quiet
-/// count under it, their value on the right; a tap opens the Positions
-/// section ([onTap], null: not tappable).
-class _PositionsRow extends StatelessWidget {
-  const _PositionsRow({
-    super.key,
-    required this.label,
-    required this.figure,
-    required this.line,
-    this.onTap,
-  });
-
-  final String label;
-  final BalancesFigure figure;
-
-  /// "N positions"; null when none is held.
-  final String? line;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final row = Padding(
-      padding: EdgeInsets.symmetric(vertical: 14.h),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.settingsTitle(context)
-                        .copyWith(letterSpacing: -0.2, height: 1.25)),
-                if (line case final text?) ...[
-                  SizedBox(height: 2.h),
-                  Text(text,
-                      key: const ValueKey('portfolio-balance-positions-line'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: c.textSecondary,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                        height: 1.3,
-                      )),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          _EndFigure(
-            key: const ValueKey('portfolio-balance-positions-amount'),
-            figure: figure,
-            style: _amountStyle(context),
-          ),
-        ],
-      ),
-    );
     return Semantics(
       container: true,
-      button: onTap != null,
-      label: [label, figure.text, if (line != null) line!].join(', '),
+      label: [entry.name, cash.text, ...entry.footer].join(', '),
       excludeSemantics: true,
-      child: onTap == null
-          ? row
-          : Material(
-              color: Colors.transparent,
-              child: InkWell(onTap: onTap, child: row),
+      child: Padding(
+        padding: EdgeInsetsDirectional.only(
+            start: (_kDot + _kDotGap).w,
+            end: (_kChevron + _kChevronGap).w,
+            top: 4.h,
+            bottom: 4.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style),
+                ),
+                SizedBox(width: 12.w),
+                _EndFigure(
+                  key: ValueKey('portfolio-balance-${entry.id}-amount'),
+                  figure: cash,
+                  style: style,
+                ),
+              ],
             ),
+            for (final note in entry.footer) ...[
+              SizedBox(height: 2.h),
+              Text(note,
+                  style:
+                      style.copyWith(color: c.textTertiary, fontSize: 13.sp)),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

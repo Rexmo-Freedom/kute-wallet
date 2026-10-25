@@ -11058,18 +11058,33 @@ class AppLocalizationsEt extends AppLocalizations {
       'Kui sul on dollareid, näed siin oma saldot ajas';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Kasutamiseks valmis';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Positsioonides';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count positsiooni',
       one: '1 positsioon',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Ostujõud';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Valmis igaks tehinguks või ennustuseks';
+
+  @override
+  String get portfolioNoOpenPositions => 'Avatud positsioone pole';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count avatud',
+      one: '1 avatud',
     );
     return '$_temp0';
   }

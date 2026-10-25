@@ -11096,18 +11096,33 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Azonnal felhasználható';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Pozíciókban';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count pozíció',
       one: '1 pozíció',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Vásárlóerő';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Bármilyen kereskedésre vagy előrejelzésre kész';
+
+  @override
+  String get portfolioNoOpenPositions => 'Nincs nyitott pozíció';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nyitott',
+      one: '1 nyitott',
     );
     return '$_temp0';
   }

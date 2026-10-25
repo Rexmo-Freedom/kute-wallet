@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Bez izmaiņām, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
   "balanceChartEmptyDollars": "Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
-  "portfolioBalanceReadyToUse": "Gatavs lietošanai",
-  "portfolioBalanceInPositionsLabel": "Pozīcijās",
   "portfolioPositionsCount": "{count, plural, =1{1 pozīcija} other{{count} pozīcijas}}",
+  "portfolioBuyingPower": "Pirktspēja",
+  "portfolioBuyingPowerHint": "Gatavs jebkuram darījumam vai prognozei",
+  "portfolioNoOpenPositions": "Nav atvērtu pozīciju",
+  "portfolioOpenCount": "{count, plural, =1{1 atvērta} other{{count} atvērtas}}",
   "portfolioRowShares": "{shares} daļas · vid. {price}",
   "portfolioRowEntry": "ieeja {price}"
 }

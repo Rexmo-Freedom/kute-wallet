@@ -11099,12 +11099,6 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ko boste imeli dolarje, bo tukaj prikazano gibanje vašega stanja';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Pripravljeno za uporabo';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'V pozicijah';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11113,6 +11107,29 @@ class AppLocalizationsSl extends AppLocalizations {
       few: '$count pozicije',
       two: '$count poziciji',
       one: '$count pozicija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Kupna moč';
+
+  @override
+  String get portfolioBuyingPowerHint =>
+      'Pripravljeno za vsako trgovanje ali napoved';
+
+  @override
+  String get portfolioNoOpenPositions => 'Ni odprtih pozicij';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count odprtih',
+      few: '$count odprte',
+      two: '2 odprti',
+      one: '1 odprta',
     );
     return '$_temp0';
   }

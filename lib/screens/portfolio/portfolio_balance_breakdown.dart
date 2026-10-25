@@ -25,12 +25,13 @@ import 'package:kute/providers/investment_balances_provider.dart'
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show
+        kPolyDustShares,
         polymarketActivePositionsProvider,
         polymarketClaimablePositionsProvider;
 import 'package:kute/providers/polymarket_combos_provider.dart'
     show polymarketCombosProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart'
-    show polymarketTradingProvider;
+    show PolymarketTradingState, polymarketTradingProvider;
 import 'package:kute/providers/portfolio_rebalance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
@@ -75,6 +76,44 @@ double breakdownVenueCash(OneBalanceState state, OneBalanceVenue venue) {
 double breakdownVenuePositions(OneBalanceState state, OneBalanceVenue venue) {
   final usd = state.investedByVenue[venue] ?? 0;
   return usd.isFinite && usd > 0 ? usd : 0;
+}
+
+/// Predictions' share of Invested split in two (Balances): what its
+/// predictions are worth, and the cash its open BUY orders reserve
+/// ([reserved], as `polymarketInvestmentBalances(...).committed` reads it).
+/// Invested counts both together (the header's "Invested"); the reserve is
+/// cash waiting on a fill, not a prediction, so "in N predictions" never
+/// carries it. The two add up to the venue's Invested. Pure for the tests.
+({double held, double reserved}) breakdownPredictionsSplit(
+    OneBalanceState state,
+    {required double reserved}) {
+  final invested = breakdownVenuePositions(state, OneBalanceVenue.predictions);
+  final r = reserved.isFinite && reserved > 0
+      ? (reserved < invested ? reserved : invested)
+      : 0.0;
+  final held = invested - r;
+  return (held: held > 0 ? held : 0.0, reserved: r);
+}
+
+/// How many predictions Balances counts beside their value: the positions
+/// the venue lists ([listed]: active and claimable, combos), plus each
+/// outcome a buy just matched that the positions read does not list yet.
+/// Those fills are already in the value (at their fill price,
+/// `PolymarketTradingState.pendingFills`); left out of the count, a bet
+/// placed a moment ago read "$X in 1 prediction" for two. Pure for the
+/// tests.
+int breakdownPredictionsCount(PolymarketTradingState? pm,
+    {required int listed}) {
+  if (pm == null) return listed;
+  final shown = {
+    for (final p in pm.openPositions)
+      if (p.size >= kPolyDustShares) p.asset,
+  };
+  final pending = {
+    for (final f in pm.pendingFills)
+      if (f.valueUsd > 0 && !shown.contains(f.tokenId)) f.tokenId,
+  };
+  return listed + pending.length;
 }
 
 /// Below-minimum cash under this is not worth a disabled Rebalance and a
@@ -366,12 +405,13 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
   final bool trading;
   final bool predictions;
 
-  /// The Balances tab's layout: the total, its bar, Ready to use over one
-  /// plain row per account, then In positions ([BalancesOverview])
-  /// instead of the row of tiles.
+  /// The Balances tab's layout: the ring and its legend over Buying power
+  /// (where the cash sits under it), Predictions and Investing
+  /// ([BalancesOverview]) instead of the row of tiles.
   final bool overview;
 
-  /// The overview's In positions row tapped: the Positions section.
+  /// The overview's Predictions or Investing row tapped: the Positions
+  /// section.
   final VoidCallback? onPositions;
 
   @override
@@ -598,7 +638,7 @@ class _PortfolioBalanceBreakdownState
     }
 
     // How many positions each venue holds (the Positions list's rows),
-    // counted together under In positions on the Balances tab.
+    // under Predictions and Investing on the Balances tab.
     final int investingCount = widget.overview && widget.trading
         ? ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
             final hl = s.valueOrNull;
@@ -610,15 +650,21 @@ class _PortfolioBalanceBreakdownState
           }))
         : 0;
     final int predictionsCount = widget.overview && widget.predictions
-        ? ref.watch(polymarketActivePositionsProvider).length +
-            ref.watch(polymarketClaimablePositionsProvider).length +
-            ref.watch(polymarketCombosProvider.select<int>((s) {
-              final combos = s.valueOrNull;
-              return combos == null
-                  ? 0
-                  : combos.open.length + combos.claimable.length;
-            }))
+        ? breakdownPredictionsCount(
+            ref.watch(polymarketTradingProvider).valueOrNull,
+            listed: ref.watch(polymarketActivePositionsProvider).length +
+                ref.watch(polymarketClaimablePositionsProvider).length +
+                ref.watch(polymarketCombosProvider.select<int>((s) {
+                  final combos = s.valueOrNull;
+                  return combos == null
+                      ? 0
+                      : combos.open.length + combos.claimable.length;
+                })))
         : 0;
+    // Predictions' Invested, its predictions apart from what its open
+    // orders reserve (cash, not a prediction).
+    final predictionsSplit =
+        breakdownPredictionsSplit(balance, reserved: reserved);
 
     // The Balances tab: the same figures, notes and bands around the
     // total and its rows.
@@ -650,7 +696,8 @@ class _PortfolioBalanceBreakdownState
             BalancesEntry(
               part: BalancesPart.investing,
               asset: venueMarkAsset(InvestmentsProduct.trading),
-              name: l10n.trading,
+              // Where the cash sits, under Buying power: the venue's name.
+              name: 'Hyperliquid',
               cash: figureOf(venueFigure('investing_cash', investing,
                   known: balance.investingKnown,
                   fallback: cachedHl?.available)),
@@ -667,16 +714,17 @@ class _PortfolioBalanceBreakdownState
             BalancesEntry(
               part: BalancesPart.predictions,
               asset: venueMarkAsset(InvestmentsProduct.predictions),
-              name: l10n.predictions,
+              name: 'Polymarket',
               cash: figureOf(venueFigure('predictions_cash', predictionsCash,
                   known: balance.predictionsKnown)),
-              positions: figureOf(venueFigure('predictions_positions',
-                  breakdownVenuePositions(balance, OneBalanceVenue.predictions),
+              positions: figureOf(venueFigure(
+                  'predictions_held', predictionsSplit.held,
                   known: balance.predictionsKnown)),
+              reservedUsd: predictionsSplit.reserved,
               positionCount: predictionsCount,
+              // The open orders' reserve is named under Predictions by
+              // the overview itself (reservedUsd).
               footer: [
-                if (reserved >= kSweepDustUsd)
-                  l10n.investingInOpenOrders(amount(reserved)),
                 if (note(OneBalanceVenue.predictions) case final line?) line,
               ],
             ),

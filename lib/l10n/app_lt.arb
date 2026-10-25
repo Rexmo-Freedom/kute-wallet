@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Pokyčių nėra, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kai turėsite bitkoinų, čia matysite savo likučio pokyčius",
   "balanceChartEmptyDollars": "Kai turėsite dolerių, čia matysite savo likučio pokyčius",
-  "portfolioBalanceReadyToUse": "Paruošta naudoti",
-  "portfolioBalanceInPositionsLabel": "Pozicijose",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicijos} many{{count} pozicijos} other{{count} pozicijų}}",
+  "portfolioBuyingPower": "Perkamoji galia",
+  "portfolioBuyingPowerHint": "Paruošta bet kokiam sandoriui ar prognozei",
+  "portfolioNoOpenPositions": "Atvirų pozicijų nėra",
+  "portfolioOpenCount": "{count, plural, =1{1 atvira} few{{count} atviros} other{{count} atvirų}}",
   "portfolioRowShares": "{shares} vnt. · vid. {price}",
   "portfolioRowEntry": "įėjimas {price}"
 }

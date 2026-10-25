@@ -11149,18 +11149,32 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια';
 
   @override
-  String get portfolioBalanceReadyToUse => 'Έτοιμα για χρήση';
-
-  @override
-  String get portfolioBalanceInPositionsLabel => 'Σε θέσεις';
-
-  @override
   String portfolioPositionsCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count θέσεις',
       one: '1 θέση',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Αγοραστική δύναμη';
+
+  @override
+  String get portfolioBuyingPowerHint => 'Έτοιμα για κάθε συναλλαγή ή πρόβλεψη';
+
+  @override
+  String get portfolioNoOpenPositions => 'Καμία ανοιχτή θέση';
+
+  @override
+  String portfolioOpenCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ανοιχτές',
+      one: '1 ανοιχτή',
     );
     return '$_temp0';
   }

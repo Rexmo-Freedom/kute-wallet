@@ -3085,9 +3085,11 @@
   "balanceNoChangeBetween": "Nicio modificare, {start} – {end}",
   "balanceChartEmptyBitcoin": "Evoluția soldului tău va apărea aici după ce vei avea bitcoin",
   "balanceChartEmptyDollars": "Evoluția soldului tău va apărea aici după ce vei avea dolari",
-  "portfolioBalanceReadyToUse": "Gata de folosit",
-  "portfolioBalanceInPositionsLabel": "În poziții",
   "portfolioPositionsCount": "{count, plural, =1{1 poziție} few{{count} poziții} other{{count} de poziții}}",
+  "portfolioBuyingPower": "Putere de cumpărare",
+  "portfolioBuyingPowerHint": "Gata pentru orice tranzacție sau predicție",
+  "portfolioNoOpenPositions": "Nicio poziție deschisă",
+  "portfolioOpenCount": "{count, plural, =1{1 deschisă} few{{count} deschise} other{{count} deschise}}",
   "portfolioRowShares": "{shares} unități · medie {price}",
   "portfolioRowEntry": "intrare {price}"
 }
