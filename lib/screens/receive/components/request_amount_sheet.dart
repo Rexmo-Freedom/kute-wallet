@@ -201,7 +201,8 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final fixed = widget.fixedCurrency;
-    final String currency = fixed ?? ref.watch<String>(inputCurrencyProvider);
+    final String currency =
+        fixed ?? ref.watch<String>(receiveInputCurrencyProvider);
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
     final typed = _typed;
     // A fixed unit is its own amount: no conversion to sats behind it.
@@ -332,10 +333,10 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
   void _showUnitPicker() {
     showAmountUnitPicker(
       context,
-      selected: ref.read(inputCurrencyProvider),
+      selected: ref.read(receiveInputCurrencyProvider),
       iconBuilder: _currencyIcon,
       onSelected: (currency) {
-        ref.read(inputCurrencyProvider.notifier).state = currency;
+        ref.read(receiveInputCurrencyProvider.notifier).state = currency;
         ref.read(isBitcoinInputProvider.notifier).state =
             _isBitcoinUnit(currency);
         // The typed digits belong to the old unit's decimals; start over.

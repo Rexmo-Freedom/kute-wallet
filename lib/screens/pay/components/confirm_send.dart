@@ -1427,19 +1427,22 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     btcFormat = settings.btcFormat;
     currency = settings.currency;
     final sendTxState = ref.read(sendTxProvider);
-    // The amount opens in the currency chosen in Settings when it is one
-    // the keypad can price (owner decision); bitcoin stays one flip away.
-    // Written after the first frame so an autoDispose default is not
-    // fought during build.
-    final settingsFiat = settings.currency.toUpperCase();
-    if (const {'USD', 'EUR', 'GBP', 'BRL', 'CHF'}.contains(settingsFiat)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (ref.read(sendTxProvider).amount > 0) return;
-        ref.read(inputCurrencyProvider.notifier).state = settingsFiat;
-        _lastFiatUnit = settingsFiat;
-      });
-    }
+    // The amount always opens in Bitcoin: sats, or BTC when that is the
+    // Bitcoin unit in Settings (founder decision) — never fiat, whatever
+    // the display currency or the unit a previous send flipped to. Fiat
+    // stays one flip away. `inputCurrencyProvider` already defaults to
+    // this; the post-frame write only matters when another listener kept
+    // an older unit alive, and runs after the first frame so the
+    // autoDispose default is not fought during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final entryUnit =
+          bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+      if (ref.read(inputCurrencyProvider) == entryUnit) return;
+      ref.read(inputCurrencyProvider.notifier).state = entryUnit;
+      final sats = ref.read(sendTxProvider).amount;
+      if (sats > 0) updateControllerText(sats);
+    });
 
     // Capture the entry account once. The header identifies this wallet;
     // changing wallets happens before entering Send. Step 0 is Amount.
