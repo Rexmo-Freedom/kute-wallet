@@ -1513,12 +1513,14 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
 
   // ─── Hardware verify (Ledger / Jade) ──────────────────────────
 
-  /// The same confirmation every money moment ends on: one check, one
-  /// line, Done. Done only pops the overlay, so the user lands back on
-  /// the share step with the verified address still on screen.
+  /// The same result sheet every money moment ends on, with the address
+  /// the device confirmed in full as its context line. Done only closes
+  /// the sheet, so the user is back on the share step with the verified
+  /// address still on screen.
   void _showAddressVerified({
     required String message,
     required String device,
+    required String address,
   }) {
     if (device == 'ledger') {
       TrackingService.ledgerAddressVerified(context: 'receive');
@@ -1530,6 +1532,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       navigator: rootNav,
       overlay: KuteConfirmation(
         message: message,
+        contextLine: address.isEmpty ? null : address,
         onDone: () => rootNav.pop(),
       ),
     );
@@ -1580,6 +1583,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           _showAddressVerified(
             message: context.l10n.addressVerifiedOnLedger,
             device: 'ledger',
+            address: displayAddress,
           );
         } else {
           showMessageSnackBar(
@@ -1683,6 +1687,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           _showAddressVerified(
             message: context.l10n.addressVerifiedOnJade,
             device: 'jade',
+            address: displayAddress,
           );
         } else {
           showMessageSnackBar(

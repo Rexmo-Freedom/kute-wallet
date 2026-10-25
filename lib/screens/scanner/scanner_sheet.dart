@@ -627,7 +627,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
         navigator: navigator,
         overlay: KuteConfirmation(
           message: l10n.walletImportedConfirmation,
-          detail: l10n.walletImportedWithOthers(selected.title),
+          contextLine: l10n.walletImportedWithOthers(selected.title),
           onDone: navigator.pop,
         ),
       );
@@ -757,19 +757,10 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
       _popSafely();
       pushKuteSuccessOverlay(
         navigator: navigator,
-        overlay: KuteSuccessOverlay(
-          // Same Lightning logo the send-success modal uses
-          // (`getAssetImage('Lightning')`), so a withdraw and a send
-          // read as the same rail. Keeps the green bolt as a fallback.
-          icon: const KuteIconSpec(
-            assetImage: 'lib/assets/Bitcoin_lightning_logo.png',
-            fallbackIcon: Icons.bolt_rounded,
-            // No green backing disc on the Lightning receive overlay.
-            tintDisc: false,
-          ),
-          headlineLabel: l10n.received,
+        overlay: KuteConfirmation(
+          message: l10n.received,
           amount: '${_formatSats(maxSats)} sats',
-          subtitle: l10n.receiveLightningWithdrawal,
+          contextLine: l10n.receiveLightningWithdrawal,
           onDone: navigator.pop,
         ),
       );
