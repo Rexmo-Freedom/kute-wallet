@@ -416,6 +416,8 @@ void main() {
       'Moving \$4.20 from Predictions',
       'Moving \$5.00 from Dollars',
       'Preparing your order',
+      // Nothing at Investing before both legs' money is there.
+      'Waiting for both to arrive',
       'Crediting to trading balance',
       'Opening \$10.76 Long BTC',
     ]);
@@ -522,8 +524,12 @@ void main() {
     expect(r.moneyAt, FundedMoneyAt.venue);
     expect(r.steps.byId('leg:predictions')!.status, MoneyStepStatus.failed);
     expect(r.steps.byId('leg:predictions')!.reason, 'timeout');
-    await h.until(() => h.record.steps.byId('ready:credit')!.status.ended);
-    expect(h.record.steps.byId('ready:credit')!.status, MoneyStepStatus.failed);
+    // The wait for both legs stops with the run; nothing at Investing
+    // (the credit, the order) ever started.
+    await h.until(() => h.record.steps.byId('ready:gather')!.status.ended);
+    expect(h.record.steps.byId('ready:gather')!.status, MoneyStepStatus.failed);
+    expect(
+        h.record.steps.byId('ready:credit')!.status, MoneyStepStatus.waiting);
     expect(h.record.steps.byId('place')!.status, MoneyStepStatus.waiting);
     expect(
         events

@@ -13,6 +13,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/services/polymarket/usdce_wrap_gate.dart'
+    show FundedConversionHold;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
@@ -427,8 +429,9 @@ void main() {
   }
 
   test(
-      'staggered mixed sources: a first delivery cannot certify the full '
-      'funding or skip the second pUSD conversion', () async {
+      'staggered mixed sources: a first delivery certifies nothing and '
+      'converts nothing; ONE conversion once every leg\'s money is there',
+      () async {
     final r = await start();
     final id = graph(r.c, const [
       MoneyStep(
@@ -455,9 +458,16 @@ void main() {
     expect(r.trading.orders, isEmpty);
     expect(PredictionFundingLedger.instance.record('ref_move')!.stage,
         PredictionFundingStage.sent);
-    expect(r.trading.nudges, greaterThan(0));
+    // Founder, 25 October 2026: nothing at Predictions runs before all
+    // the money is there. The first leg's USDC.e is not converted: no
+    // conversion is asked for, every trigger is held, the bet waits.
+    expect(r.trading.nudges, 0);
+    expect(FundedConversionHold.held, isTrue);
+    expect(r.c.read(pendingPolymarketBetProvider)!.readiness,
+        PredictionsReadiness.waitingFunds);
 
-    r.trading.reads = _reads(pusd: 4, usdce: 6.6, counted: 4);
+    // Every leg landed and the wallet's own balances show all of it.
+    r.trading.reads = _reads(usdce: 10.6, counted: 0);
     r.c.read(fundedOrdersProvider.notifier).setSteps(
         id,
         const MoneyStepGraph([
@@ -476,6 +486,9 @@ void main() {
         ]));
     await Future<void>.delayed(const Duration(milliseconds: 80));
     expect(r.trading.orders, isEmpty);
+    // Released: the one conversion for the whole delivered amount.
+    expect(FundedConversionHold.held, isFalse);
+    expect(r.trading.nudges, greaterThan(0));
     expect(r.c.read(pendingPolymarketBetProvider)!.readiness,
         PredictionsReadiness.converting);
     r.trading.reads = _reads(pusd: 10.6, counted: 4);

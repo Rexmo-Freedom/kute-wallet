@@ -2862,6 +2862,19 @@ class PolymarketTradingNotifier
         // once it does, as before.
       }
       if (!current()) return;
+      if (FundedConversionHold.held) {
+        // A funded bet's legs are still landing: this delivery is not
+        // converted on its own. Read the balance now and tell the bet's
+        // autofire, which converts everything at once when the wallet
+        // shows all of it; the long watch keeps an eye on it meanwhile.
+        await refresh();
+        if (!current()) return;
+        if (!_depositSettledController.isClosed) {
+          _depositSettledController.add(null);
+        }
+        wrapIncomingUsdcEToPusd();
+        return;
+      }
       final until = deliveredAt.add(patience);
       var wrapped = BigInt.zero;
       while (current() && DateTime.now().isBefore(until)) {
