@@ -4135,6 +4135,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get confirmationBitcoinSent => 'Bitcoin lähetetty';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Vastaanottaja: $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp => 'Lompakko varmuuskopioitu';
 
   @override

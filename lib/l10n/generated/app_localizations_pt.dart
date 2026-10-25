@@ -4158,6 +4158,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get confirmationBitcoinSent => 'Bitcoin enviado';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Para $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp => 'Cópia de segurança concluída';
 
   @override

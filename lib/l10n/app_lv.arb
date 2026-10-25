@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Pēdējā saņemšanas cena bija {sats} sats, kas iztērētu visu šo iemaksu. Vari pagaidīt zemākas maksas vai to atmaksāt.",
   "depositClaimStatusUnknown": "Tava saņemšana, iespējams, ir iesniegta. Pārbauda iemaksas statusu.",
   "confirmationBitcoinSent": "Bitcoin nosūtīts",
+  "confirmationSentToRecipient": "Saņēmējs: {recipient}",
   "confirmationWalletBackedUp": "Maciņš dublēts",
   "confirmationPinUpdated": "PIN atjaunināts",
   "confirmationWalletRecovered": "Maciņš atgūts",

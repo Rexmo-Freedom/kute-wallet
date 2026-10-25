@@ -4018,6 +4018,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get confirmationBitcoinSent => 'ビットコインを送金しました';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return '宛先: $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp => 'ウォレットをバックアップしました';
 
   @override

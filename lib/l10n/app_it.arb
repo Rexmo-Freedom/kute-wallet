@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "L'ultimo preventivo di riscossione era di {sats} sats, che consumerebbe tutto il deposito. Puoi attendere commissioni più basse o rimborsarlo.",
   "depositClaimStatusUnknown": "La riscossione potrebbe essere stata inviata. Verifica dello stato del deposito.",
   "confirmationBitcoinSent": "Bitcoin inviati",
+  "confirmationSentToRecipient": "A {recipient}",
   "confirmationWalletBackedUp": "Backup del wallet completato",
   "confirmationPinUpdated": "PIN aggiornato",
   "confirmationWalletRecovered": "Wallet recuperato",

@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Zadnja ponudba za prevzem je bila {sats} sats, kar bi porabilo ta polog. Lahko počakate na nižje provizije ali ga vrnete.",
   "depositClaimStatusUnknown": "Vaš prevzem je bil morda oddan. Preverjanje stanja pologa.",
   "confirmationBitcoinSent": "Bitcoin poslan",
+  "confirmationSentToRecipient": "Za {recipient}",
   "confirmationWalletBackedUp": "Denarnica varnostno kopirana",
   "confirmationPinUpdated": "PIN posodobljen",
   "confirmationWalletRecovered": "Denarnica obnovljena",

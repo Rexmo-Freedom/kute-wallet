@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Η τελευταία τιμή είσπραξης ήταν {sats} sats, που θα εξαντλούσε αυτή την κατάθεση. Μπορείς να περιμένεις χαμηλότερες χρεώσεις ή να ζητήσεις επιστροφή.",
   "depositClaimStatusUnknown": "Η είσπραξή σου μπορεί να έχει υποβληθεί. Έλεγχος της κατάστασης της κατάθεσης.",
   "confirmationBitcoinSent": "Τα bitcoin στάλθηκαν",
+  "confirmationSentToRecipient": "Προς {recipient}",
   "confirmationWalletBackedUp": "Το αντίγραφο ασφαλείας του πορτοφολιού δημιουργήθηκε",
   "confirmationPinUpdated": "Το PIN ενημερώθηκε",
   "confirmationWalletRecovered": "Το πορτοφόλι ανακτήθηκε",

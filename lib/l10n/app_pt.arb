@@ -1323,6 +1323,7 @@
   "claimFeeQuoteExceedsDeposit": "A última cotação de resgate foi de {sats} sats, o que consumiria este depósito. Pode aguardar por taxas mais baixas ou reembolsá-lo.",
   "depositClaimStatusUnknown": "O pedido de resgate pode ter sido enviado. A verificar o estado do depósito.",
   "confirmationBitcoinSent": "Bitcoin enviado",
+  "confirmationSentToRecipient": "Para {recipient}",
   "confirmationWalletBackedUp": "Cópia de segurança concluída",
   "confirmationPinUpdated": "PIN atualizado",
   "confirmationWalletRecovered": "Carteira recuperada",

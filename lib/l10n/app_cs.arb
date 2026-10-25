@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Poslední nabídka za vyzvednutí byla {sats} sats, což by spotřebovalo celý vklad. Můžeš počkat na nižší poplatky nebo vklad vrátit.",
   "depositClaimStatusUnknown": "Tvoje vyzvednutí mohlo být odesláno. Kontroluje se stav vkladu.",
   "confirmationBitcoinSent": "Bitcoin odeslán",
+  "confirmationSentToRecipient": "Pro {recipient}",
   "confirmationWalletBackedUp": "Peněženka zálohována",
   "confirmationPinUpdated": "PIN změněn",
   "confirmationWalletRecovered": "Peněženka obnovena",

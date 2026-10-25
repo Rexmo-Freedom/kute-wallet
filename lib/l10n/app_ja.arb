@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "直近の受け取り見積もりは{sats} satsで、この入金額をすべて使い切ってしまいます。手数料が下がるのを待つか、返金してください。",
   "depositClaimStatusUnknown": "受け取りが送信された可能性があります。入金ステータスを確認しています。",
   "confirmationBitcoinSent": "ビットコインを送金しました",
+  "confirmationSentToRecipient": "宛先: {recipient}",
   "confirmationWalletBackedUp": "ウォレットをバックアップしました",
   "confirmationPinUpdated": "PINを更新しました",
   "confirmationWalletRecovered": "ウォレットを復元しました",

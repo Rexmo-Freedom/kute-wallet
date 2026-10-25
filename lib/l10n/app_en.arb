@@ -2319,6 +2319,15 @@
   },
   "depositClaimStatusUnknown": "Your claim may have been submitted. Checking the deposit status.",
   "confirmationBitcoinSent": "Bitcoin sent",
+  "confirmationSentToRecipient": "To {recipient}",
+  "@confirmationSentToRecipient": {
+    "description": "Context line on the send result sheet, under the amount: who the payment went to (a shortened address, a Lightning address or a name).",
+    "placeholders": {
+      "recipient": {
+        "type": "String"
+      }
+    }
+  },
   "confirmationWalletBackedUp": "Wallet backed up",
   "confirmationPinUpdated": "PIN updated",
   "confirmationWalletRecovered": "Wallet recovered",

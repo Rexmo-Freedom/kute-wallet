@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "A legutóbbi átvételi ajánlat {sats} sats volt, ami felemésztené ezt a befizetést. Várhatsz alacsonyabb díjakra, vagy visszatérítheted.",
   "depositClaimStatusUnknown": "Lehet, hogy az átvételed beküldésre került. A befizetés állapotát ellenőrizzük.",
   "confirmationBitcoinSent": "Bitcoin elküldve",
+  "confirmationSentToRecipient": "Címzett: {recipient}",
   "confirmationWalletBackedUp": "Tárca mentve",
   "confirmationPinUpdated": "PIN frissítve",
   "confirmationWalletRecovered": "Tárca helyreállítva",

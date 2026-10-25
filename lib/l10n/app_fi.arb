@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Viimeisin lunastushinta oli {sats} sats, mikä kuluttaisi koko talletuksen. Voit odottaa pienempiä maksuja tai palauttaa sen.",
   "depositClaimStatusUnknown": "Lunastuksesi on ehkä lähetetty. Tarkistetaan talletuksen tilaa.",
   "confirmationBitcoinSent": "Bitcoin lähetetty",
+  "confirmationSentToRecipient": "Vastaanottaja: {recipient}",
   "confirmationWalletBackedUp": "Lompakko varmuuskopioitu",
   "confirmationPinUpdated": "PIN päivitetty",
   "confirmationWalletRecovered": "Lompakko palautettu",

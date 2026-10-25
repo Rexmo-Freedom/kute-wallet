@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "La dernière cotation de récupération était de {sats} sats, ce qui consommerait tout ce dépôt. Vous pouvez attendre des frais plus bas ou le rembourser.",
   "depositClaimStatusUnknown": "Votre récupération a peut-être été envoyée. Vérification du statut du dépôt.",
   "confirmationBitcoinSent": "Bitcoin envoyé",
+  "confirmationSentToRecipient": "À {recipient}",
   "confirmationWalletBackedUp": "Portefeuille sauvegardé",
   "confirmationPinUpdated": "PIN mis à jour",
   "confirmationWalletRecovered": "Portefeuille récupéré",

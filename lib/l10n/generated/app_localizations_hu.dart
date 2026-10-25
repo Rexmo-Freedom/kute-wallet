@@ -4146,6 +4146,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get confirmationBitcoinSent => 'Bitcoin elküldve';
 
   @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Címzett: $recipient';
+  }
+
+  @override
   String get confirmationWalletBackedUp => 'Tárca mentve';
 
   @override

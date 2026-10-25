@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Ultima ofertă de revendicare a fost {sats} sats, ceea ce ar consuma toată depunerea. Poți aștepta comisioane mai mici sau o poți rambursa.",
   "depositClaimStatusUnknown": "Revendicarea ta poate să fi fost trimisă. Se verifică starea depunerii.",
   "confirmationBitcoinSent": "Bitcoin trimis",
+  "confirmationSentToRecipient": "Către {recipient}",
   "confirmationWalletBackedUp": "Backup portofel făcut",
   "confirmationPinUpdated": "PIN actualizat",
   "confirmationWalletRecovered": "Portofel recuperat",

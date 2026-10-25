@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "Последната оферта за вземане беше {sats} sats, което би изразходвало целия депозит. Можеш да изчакаш по-ниски такси или да го възстановиш.",
   "depositClaimStatusUnknown": "Вземането може вече да е изпратено. Проверяваме статуса на депозита.",
   "confirmationBitcoinSent": "Bitcoin е изпратен",
+  "confirmationSentToRecipient": "До {recipient}",
   "confirmationWalletBackedUp": "Портфейлът е архивиран",
   "confirmationPinUpdated": "PIN кодът е обновен",
   "confirmationWalletRecovered": "Портфейлът е възстановен",

@@ -1212,6 +1212,7 @@
   "claimFeeQuoteExceedsDeposit": "De laatste claimofferte was {sats} sats. Dat zou deze storting opmaken. Je kunt wachten op lagere kosten of hem terugbetalen.",
   "depositClaimStatusUnknown": "Je claim is mogelijk ingediend. De status van de storting wordt gecontroleerd.",
   "confirmationBitcoinSent": "Bitcoin verstuurd",
+  "confirmationSentToRecipient": "Aan {recipient}",
   "confirmationWalletBackedUp": "Back-up van wallet gemaakt",
   "confirmationPinUpdated": "PIN bijgewerkt",
   "confirmationWalletRecovered": "Wallet hersteld",
