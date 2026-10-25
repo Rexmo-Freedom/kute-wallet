@@ -5748,6 +5748,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get chartStyleTitle => 'Graafiku stiil';
 
   @override
+  String get hlAdvancedChart => 'Täpsem graafik';
+
+  @override
   String get chartStyleCandles => 'Küünlad';
 
   @override

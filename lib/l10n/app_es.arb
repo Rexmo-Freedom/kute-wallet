@@ -1666,6 +1666,7 @@
   "chartToolDateAndPriceRange": "Rango de fechas y precios",
   "chartToolsButton": "Herramientas",
   "chartStyleTitle": "Estilo del gráfico",
+  "hlAdvancedChart": "Gráfico avanzado",
   "chartStyleCandles": "Velas",
   "chartStyleHollow": "Velas huecas",
   "chartStyleBars": "Barras",

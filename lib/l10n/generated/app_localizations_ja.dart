@@ -5544,6 +5544,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartStyleTitle => 'チャートの種類';
 
   @override
+  String get hlAdvancedChart => '高度なチャート';
+
+  @override
   String get chartStyleCandles => 'ローソク足';
 
   @override

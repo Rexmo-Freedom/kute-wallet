@@ -5810,6 +5810,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartStyleTitle => 'Στυλ γραφήματος';
 
   @override
+  String get hlAdvancedChart => 'Προηγμένο γράφημα';
+
+  @override
   String get chartStyleCandles => 'Κεριά';
 
   @override

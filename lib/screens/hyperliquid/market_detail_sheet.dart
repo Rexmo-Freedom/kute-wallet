@@ -1,5 +1,6 @@
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -520,6 +521,16 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         // 2026-10-20): the position has its own screen,
                         // and the chart already marks entry and
                         // liquidation.
+                        // The chart's editing mode (drawing tools,
+                        // indicators), above About, in About's own row.
+                        if (!_advancedChart)
+                          PositionLinkRow(
+                            key: const ValueKey('hl-advanced-chart'),
+                            label: context.l10n.hlAdvancedChart,
+                            icon: Icons.candlestick_chart_rounded,
+                            onTap: () =>
+                                HlCandleChart.openAdvanced(_chartHostKey),
+                          ),
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -926,6 +937,16 @@ class HlCandleChart extends ConsumerStatefulWidget {
     this.positionTagOpensPosition = true,
     this.showSummary = true,
   });
+
+  /// Opens the chart under [key] in Advanced (editing) mode, as its old
+  /// pencil did: the host screen's "Advanced chart" row. Nothing while it
+  /// is already open.
+  static void openAdvanced(GlobalKey key) {
+    final state = key.currentState;
+    if (state is _HlCandleChartState && !state._drawingMode) {
+      state._toggleDrawingMode();
+    }
+  }
 
   @override
   ConsumerState<HlCandleChart> createState() => _HlCandleChartState();
@@ -2798,13 +2819,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final showPressure =
         widget.showSignals && !indicators.contains(kHlLayerPressureOff);
 
-    // Candle sizes or ranges, then the chart-type and Advanced buttons.
+    // Candle sizes or ranges, then the chart-type button. Advanced (the
+    // editing mode) opens from the host screen's "Advanced chart" row.
     final pillRow =
         Row(
           children: [
             // Candle sizes (candle charts) or ranges (line charts) scroll
-            // horizontally while the chart-type and Advanced buttons stay
-            // pinned on the right.
+            // horizontally while the chart-type button stays pinned on
+            // the right.
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -2847,33 +2869,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 ),
               ),
             ),
-            SizedBox(width: 6.w),
-            // ── "Advanced" pill: toggles the drawing tools (trendlines,
-            // levels, rays, rectangles) on the chart above. Drawings stay
-            // visible when the mode is off.
-            Tooltip(
-              message: context.l10n.advanced,
-              child: GestureDetector(
-                onTap: _toggleDrawingMode,
-                child: Container(
-                  padding: EdgeInsets.all(7.w),
-                  decoration: BoxDecoration(
-                    color: _drawingMode
-                        ? c.textPrimary.withValues(alpha: 0.10)
-                        : c.textPrimary.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(9.r),
-                  ),
-                  child: Icon(
-                    Icons.draw_rounded,
-                    size: 18.sp,
-                    color: _drawingMode ? c.textPrimary : c.textTertiary,
-                  ),
-                ),
-              ),
-            ),
-            // The old fullscreen icon is gone — the Advanced pill above
-            // is the ONE mode toggle (exit via the pill or the toolbar's
-            // Done button).
           ],
         );
 

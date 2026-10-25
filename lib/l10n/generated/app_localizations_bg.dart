@@ -5773,6 +5773,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartStyleTitle => 'Стил на графиката';
 
   @override
+  String get hlAdvancedChart => 'Разширена графика';
+
+  @override
   String get chartStyleCandles => 'Свещи';
 
   @override

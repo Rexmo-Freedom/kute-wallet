@@ -5794,6 +5794,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get chartStyleTitle => 'Stil grafic';
 
   @override
+  String get hlAdvancedChart => 'Grafic avansat';
+
+  @override
   String get chartStyleCandles => 'Lumânări';
 
   @override

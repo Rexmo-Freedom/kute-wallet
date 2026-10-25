@@ -1666,6 +1666,7 @@
   "chartToolDateAndPriceRange": "期間と価格範囲",
   "chartToolsButton": "ツール",
   "chartStyleTitle": "チャートの種類",
+  "hlAdvancedChart": "高度なチャート",
   "chartStyleCandles": "ローソク足",
   "chartStyleHollow": "中空ローソク足",
   "chartStyleBars": "バー",

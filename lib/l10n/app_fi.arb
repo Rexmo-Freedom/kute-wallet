@@ -1666,6 +1666,7 @@
   "chartToolDateAndPriceRange": "Aika- ja hintaväli",
   "chartToolsButton": "Työkalut",
   "chartStyleTitle": "Kaavion tyyli",
+  "hlAdvancedChart": "Laajennettu kaavio",
   "chartStyleCandles": "Kynttilät",
   "chartStyleHollow": "Ontot kynttilät",
   "chartStyleBars": "Palkit",

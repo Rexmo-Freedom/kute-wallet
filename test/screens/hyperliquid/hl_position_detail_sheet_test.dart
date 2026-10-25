@@ -521,8 +521,10 @@ void main() {
     }
 
     Future<void> enterEdit(WidgetTester tester) async {
-      await tester.ensureVisible(find.byIcon(Icons.draw_rounded));
-      await tester.tap(find.byIcon(Icons.draw_rounded));
+      // The "Advanced chart" row under the chart (the pencil is gone).
+      final row = find.byKey(const ValueKey('hl-advanced-chart'));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
     }
@@ -809,8 +811,11 @@ void main() {
           isFalse);
       expect(find.textContaining('past'), findsNothing);
       expect(find.byType(HlLiveDot), findsNothing);
-      // The interval pills stay.
-      expect(find.byIcon(Icons.draw_rounded), findsOneWidget);
+      // The interval pills stay; the pencil left them for the
+      // "Advanced chart" row.
+      expect(find.text('1h'), findsOneWidget);
+      expect(find.byIcon(Icons.draw_rounded), findsNothing);
+      expect(find.byKey(const ValueKey('hl-advanced-chart')), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
 
       await pumpScreen(

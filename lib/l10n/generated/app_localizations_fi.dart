@@ -5762,6 +5762,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get chartStyleTitle => 'Kaavion tyyli';
 
   @override
+  String get hlAdvancedChart => 'Laajennettu kaavio';
+
+  @override
   String get chartStyleCandles => 'Kynttilät';
 
   @override

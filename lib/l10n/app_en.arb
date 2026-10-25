@@ -3038,6 +3038,8 @@
   "chartToolDateAndPriceRange": "Date and price range",
   "chartToolsButton": "Tools",
   "chartStyleTitle": "Chart style",
+  "hlAdvancedChart": "Advanced chart",
+  "@hlAdvancedChart": {"description": "Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators."},
   "chartStyleCandles": "Candles",
   "chartStyleHollow": "Hollow candles",
   "chartStyleBars": "Bars",

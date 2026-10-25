@@ -10096,6 +10096,12 @@ abstract class AppLocalizations {
   /// **'Chart style'**
   String get chartStyleTitle;
 
+  /// Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced chart'**
+  String get hlAdvancedChart;
+
   /// No description provided for @chartStyleCandles.
   ///
   /// In en, this message translates to:

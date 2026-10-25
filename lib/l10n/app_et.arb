@@ -1666,6 +1666,7 @@
   "chartToolDateAndPriceRange": "Kuupäeva- ja hinnavahemik",
   "chartToolsButton": "Tööriistad",
   "chartStyleTitle": "Graafiku stiil",
+  "hlAdvancedChart": "Täpsem graafik",
   "chartStyleCandles": "Küünlad",
   "chartStyleHollow": "Õõnsad küünlad",
   "chartStyleBars": "Tulbad",

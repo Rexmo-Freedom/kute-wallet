@@ -5807,6 +5807,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartStyleTitle => 'Style du graphique';
 
   @override
+  String get hlAdvancedChart => 'Graphique avancé';
+
+  @override
   String get chartStyleCandles => 'Bougies';
 
   @override

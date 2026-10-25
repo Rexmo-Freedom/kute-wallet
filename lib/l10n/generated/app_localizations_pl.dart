@@ -5779,6 +5779,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get chartStyleTitle => 'Styl wykresu';
 
   @override
+  String get hlAdvancedChart => 'Wykres zaawansowany';
+
+  @override
   String get chartStyleCandles => 'Świece';
 
   @override
