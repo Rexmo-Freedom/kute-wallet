@@ -88,6 +88,12 @@ abstract final class MoveSteps {
   /// Dollars' part going on into the venue (a move into a venue).
   static const String onwardId = 'onward';
 
+  /// The wait for every leg home to Dollars before the action's own step
+  /// (founder, 25 October 2026: the send, the purchase, the move on only
+  /// once all the money is there): done when Dollars hold all of it
+  /// ([dollarsLanded]), only with two or more such legs.
+  static const String gatherId = 'gather';
+
   /// The action's own step, after the legs: at most one per graph.
   static const Set<String> finalIds = {buyId, sendId, onwardId};
 
@@ -236,11 +242,48 @@ abstract final class MoveSteps {
     ];
     final fin = finalOf(g);
     final arrive = g.byId(arriveId);
+    // Two or more legs coming home for the action's own step: a wait for
+    // all of them first. Done once they all landed, which only the
+    // Dollars balance holding all of it says ([dollarsLanded]); stopped
+    // with a leg that failed.
+    MoneyStep? gather;
+    if (fin != null && via.length > 1) {
+      final waited = [for (final s in live) if (via.contains(s.id)) s];
+      final old = g.byId(gatherId);
+      final status = waited.any((s) => s.status == MoneyStepStatus.failed)
+          ? MoneyStepStatus.failed
+          : waited.every((s) => s.status.satisfies)
+              ? MoneyStepStatus.done
+              : MoneyStepStatus.running;
+      gather = MoneyStep(
+        id: gatherId,
+        kind: MoneyStepKind.gather,
+        after: via,
+        afterAny: true,
+        status: status,
+        startedAt: old?.startedAt ??
+            waited.map((s) => s.startedAt).whereType<DateTime>().firstOrNull,
+        endedAt: status.ended
+            ? (old?.endedAt ??
+                waited
+                    .map((s) => s.endedAt)
+                    .whereType<DateTime>()
+                    .fold<DateTime?>(
+                        null, (a, b) => a == null || b.isAfter(a) ? b : a))
+            : null,
+        reason: status == MoneyStepStatus.failed ? 'stopped' : null,
+      );
+    }
     return MoneyStepGraph([
       ...legs,
       for (final s in g.steps)
-        if (!isVenueLeg(s) && !finalIds.contains(s.id) && s.id != arriveId) s,
-      if (fin != null) fin.copyWith(after: via),
+        if (!isVenueLeg(s) &&
+            !finalIds.contains(s.id) &&
+            s.id != arriveId &&
+            s.id != gatherId)
+          s,
+      if (gather != null) gather,
+      if (fin != null) fin.copyWith(after: gather == null ? via : [gatherId]),
       if (arrive != null)
         arrive.copyWith(after: [if (fin != null) fin.id, ...direct]),
     ]);
@@ -496,14 +539,14 @@ abstract final class MoveSteps {
   /// What came home landed: Dollars hold what the action's own step
   /// takes, so every leg on its way to Dollars is done.
   static MoneyStepGraph dollarsLanded(MoneyStepGraph g, {DateTime? at}) =>
-      MoneyStepGraph([
+      _wire(MoneyStepGraph([
         for (final s in g.steps)
           isVenueLeg(s) &&
                   s.route != MoneyRoute.direct &&
                   s.status == MoneyStepStatus.running
               ? s.copyWith(status: MoneyStepStatus.done, endedAt: at)
               : s,
-      ]);
+      ]));
 
   /// [g] for [move] as it stands: a failed leg is waited on only while the
   /// move is partial (its Retry is still owed); once a Retry covered the

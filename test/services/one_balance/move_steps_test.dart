@@ -267,7 +267,7 @@ void main() {
         totalUsd: 50,
         at: _t0,
       );
-      expect(_ids(g), ['leg:predictions', 'leg:investing', 'send']);
+      expect(_ids(g), ['leg:predictions', 'leg:investing', 'gather', 'send']);
       expect(g.byId('leg:investing')!.to, MoneyPlace.dollars);
       expect(g.byId('leg:investing')!.route, MoneyRoute.viaDollars);
       final send = g.byId('send')!;
@@ -275,7 +275,41 @@ void main() {
       expect(send.from, MoneyPlace.dollars);
       expect(send.to, isNull);
       expect(send.usd, 50);
-      expect(send.after, ['leg:predictions', 'leg:investing']);
+      // Founder, 25 October 2026: the send only once all the money is
+      // there. Two legs home: one wait for both, which only Dollars
+      // holding all of it ends.
+      final gather = g.byId('gather')!;
+      expect(gather.kind, MoneyStepKind.gather);
+      expect(gather.after, ['leg:predictions', 'leg:investing']);
+      expect(gather.status, MoneyStepStatus.running);
+      expect(send.after, ['gather']);
+      final landed = MoveSteps.dollarsLanded(g, at: _t0);
+      expect(landed.byId('gather')!.status, MoneyStepStatus.done);
+      expect(landed.byId('leg:predictions')!.status, MoneyStepStatus.done);
+      expect(landed.byId('leg:investing')!.status, MoneyStepStatus.done);
+    });
+
+    test('a leg that failed stops the wait: nothing is sent after it', () {
+      final g = MoveSteps.planned(
+        destination: VenueCashDestination.dollars,
+        forAction: VenueCashFor.send,
+        legs: const [
+          (venue: _p, usd: 10, direct: false),
+          (venue: _i, usd: 15, direct: false),
+        ],
+        onwardUsd: 50,
+        totalUsd: 50,
+        at: _t0,
+      );
+      final failed = MoneyStepGraph([
+        for (final s in g.steps)
+          s.id == 'leg:investing'
+              ? s.copyWith(status: MoneyStepStatus.failed)
+              : s,
+      ]);
+      final landed = MoveSteps.dollarsLanded(failed, at: _t0);
+      expect(landed.byId('gather')!.status, MoneyStepStatus.failed);
+      expect(landed.byId('send')!.status, MoneyStepStatus.waiting);
     });
 
     test('the puller: legs land after the wait, the send is attached',
