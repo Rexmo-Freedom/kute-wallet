@@ -39,13 +39,12 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color modalBarrier;
 
   /// The charts' palette (every donut, pie and allocation bar and their
-  /// legends; founder request October 2026: "more fintech like"): ONE
-  /// sequential ramp of the brand blue, five steps from the deepest, most
-  /// saturated (the largest slice) to the lightest, most muted, then a
-  /// neutral grey last for "Other" (and any slice under 2%). Colours follow
-  /// a slice's rank by size, never its category. Stepped per mode against
-  /// the card surface: every step clears 3:1 on it and rises in
-  /// lightness, so neighbours stay apart in light and dark. No rainbow, never the market up/down pair.
+  /// legends; founder choice October 2026, "muted fintech"): five distinct,
+  /// toned-down hues (indigo, teal, amber, coral, violet), then a neutral
+  /// grey last for "Other" (and any slice under 2%). Colours follow a
+  /// slice's rank by size, so the largest is always indigo. Stepped per mode
+  /// against the card surface: every colour clears 3:1 on it in light and
+  /// dark. Never the market up/down pair.
   /// [chartColorsByShare] hands them out.
   final List<Color> chartCategorical;
 
@@ -102,12 +101,12 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         modalBarrier: Colors.black.withValues(alpha: 0.3),
         // The brand blue, saturated to muted and lighter; slate for Other.
         chartCategorical: const [
-          Color(0xFF3B7BF2),
-          Color(0xFF6496EE),
-          Color(0xFF8AB0EC),
-          Color(0xFFADC7EC),
-          Color(0xFFCFDDF0),
-          Color(0xFF747A83),
+          Color(0xFF7B86F0), // indigo
+          Color(0xFF2FB9BD), // teal
+          Color(0xFFF2A93B), // amber
+          Color(0xFFF07A6C), // coral
+          Color(0xFFB48CEB), // violet
+          Color(0xFF8A9098), // Other
         ],
       );
 
@@ -151,12 +150,12 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         modalBarrier: Colors.black.withValues(alpha: 0.20),
         // The brand blue, deep navy to light; slate for Other.
         chartCategorical: const [
-          Color(0xFF13307A),
-          Color(0xFF1E49B0),
-          Color(0xFF2C62D8),
-          Color(0xFF4479E6),
-          Color(0xFF5E8DEA),
-          Color(0xFF7D838C),
+          Color(0xFF4F5BD5), // indigo
+          Color(0xFF138A8E), // teal
+          Color(0xFFC27A12), // amber
+          Color(0xFFD4513F), // coral
+          Color(0xFF8A5CC9), // violet
+          Color(0xFF747A83), // Other
         ],
       );
 

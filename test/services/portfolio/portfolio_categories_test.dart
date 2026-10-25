@@ -236,8 +236,9 @@ void main() {
 
   group('donut engine', () {
     test(
-        'the chart palette: one blue ramp per mode and a grey, none of '
-        'them the accent or the market pair, every one clear of the card', () {
+        'the chart palette: five distinct muted hues per mode and a grey, '
+        'none of them the accent or the market pair, every one clear of '
+        'the card', () {
       double contrast(Color a, Color b) {
         final la = a.computeLuminance(), lb = b.computeLuminance();
         return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
@@ -256,16 +257,18 @@ void main() {
           expect(contrast(color, c.surface), greaterThanOrEqualTo(3),
               reason: '$color on ${c.surface}');
         }
-        // A single hue: every step is the brand blue, no rainbow.
-        for (final color in palette.take(5)) {
-          final hue = HSLColor.fromColor(color).hue;
-          expect(hue, inInclusiveRange(210, 230), reason: '$color');
-        }
-        // Sequential: each step lighter than the one before (the largest
-        // slice the deepest).
-        for (var i = 1; i < 5; i++) {
-          expect(palette[i].computeLuminance(),
-              greaterThan(palette[i - 1].computeLuminance()));
+        // Distinct hues (indigo, teal, amber, coral, violet): every pair of
+        // colours sits at least 25 degrees apart on the colour wheel, so
+        // neighbouring slices never read as one.
+        final hues = [
+          for (final color in palette.take(5)) HSLColor.fromColor(color).hue
+        ];
+        for (var i = 0; i < hues.length; i++) {
+          for (var j = i + 1; j < hues.length; j++) {
+            final d = (hues[i] - hues[j]).abs();
+            expect(math.min(d, 360 - d), greaterThanOrEqualTo(25),
+                reason: '${palette[i]} vs ${palette[j]}');
+          }
         }
         // Other's grey is the last slot: no hue to speak of.
         final grey = HSLColor.fromColor(palette.last);
