@@ -841,8 +841,8 @@ void main() {
     });
 
     testWidgets(
-        'the tool rail opens tucked away, comes out from its tab, tucks '
-        'back, and stays as last left for the session', (tester) async {
+        'the tool rail opens out, tucks away from its button, comes back '
+        'from its tab, and stays as last left for the session', (tester) async {
       debugResetHlChartRail();
       addTearDown(debugResetHlChartRail);
       final rail = find.byKey(const ValueKey('hl-chart-tool-rail'));
@@ -853,32 +853,32 @@ void main() {
 
       await pumpScreen(tester, const HlMarketDetailSheet(market: btc));
       await enterEdit(tester);
-      expect(rail, findsNothing);
-      expect(show, findsOneWidget);
-      final full = plotWidth();
-
-      await tester.tap(show);
-      await tester.pump();
+      // Out on the first Advanced of the session: every tool in sight.
       expect(rail, findsOneWidget);
       expect(show, findsNothing);
-      // The rail's width (44) and its gap come out of the plot.
-      expect(plotWidth(), lessThan(full - 44));
-      // Every tool is still there.
       expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
       expect(find.byIcon(Icons.auto_fix_high_rounded), findsOneWidget);
       expect(find.byIcon(Icons.delete_sweep_outlined), findsOneWidget);
-
-      // Next time Advanced opens, the rail is out as it was left.
-      await tester.tap(find.text('Done'));
-      await tester.pump(const Duration(milliseconds: 400));
-      await enterEdit(tester);
-      expect(rail, findsOneWidget);
+      final withRail = plotWidth();
 
       await tester.tap(hide);
       await tester.pump();
       expect(rail, findsNothing);
       expect(show, findsOneWidget);
-      expect(plotWidth(), full);
+      // The rail's width (44) and its gap go back to the plot.
+      expect(plotWidth(), greaterThan(withRail + 44));
+
+      // Next time Advanced opens, the rail stays tucked as it was left.
+      await tester.tap(find.text('Done'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await enterEdit(tester);
+      expect(rail, findsNothing);
+      expect(show, findsOneWidget);
+
+      await tester.tap(show);
+      await tester.pump();
+      expect(rail, findsOneWidget);
+      expect(show, findsNothing);
       expect(tester.takeException(), isNull);
     });
 
