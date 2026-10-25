@@ -1,42 +1,48 @@
 // lib/screens/shared/kute_success_overlay.dart
 //
-// The one success confirmation used after every money moment: bet
-// placed, position sold, winnings claimed, order filled, move sent,
-// payment sent, conversion started.
+// The one result sheet used after every money moment and every other
+// outcome worth confirming: bet placed, position sold, winnings claimed,
+// order filled or resting, move sent, payment sent, wallet imported,
+// backup done, and the failures among them.
 //
-// Layout: the app background, a single centered check, a short message
-// near the bottom (plus at most one small line when something is still
-// pending) and the standard Done button. Nothing else.
+// Presentation: a bottom sheet over a dimmed scrim, as tall as its
+// content. Swiping it down, tapping the scrim or the system back gesture
+// all do exactly what Done does. There is no close X.
 //
-// Motion: the green disc pops in on a soft spring, the white check
-// draws from its short leg to its long leg, then one faint ring expands
-// from the disc edge and fades. The success haptic fires exactly when
-// the stroke completes. Reduced motion shows the final disc and check at
-// once with no pop and no ring.
+// Layout, left aligned: a header row with the status mark, the title and
+// Sal on the right; the amount as the hero; one context line; up to four
+// hairline-divided detail rows (the transaction as a row action); the
+// primary button and at most one quiet text button.
+//
+// Motion: the sheet slides up, then the small disc pops in on a soft
+// spring and its glyph draws (a check, a "!" for a failure, a clock for
+// something pending). As the check lands Sal wags his tail in a quick
+// burst (a cheer for a win, ears down for a failure) and settles into his
+// idle loop. The success haptic fires exactly when the stroke completes;
+// a failure plays the soft failure tap at the same moment instead.
+// Reduce Motion shows everything in its final state at once.
 
-import 'package:kute/screens/shared/kute_dog_rig.dart';
-import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_dog_scenes.dart';
+import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// Push a success confirmation using a pre-captured navigator. Every
-/// `pushXxxOverlay` helper routes through this so the route plumbing
-/// (fade transition, opaque: false) is identical everywhere.
+/// Present a result sheet using a pre-captured navigator. Every
+/// `pushXxxOverlay` helper routes through this so the route plumbing is
+/// identical everywhere: a transparent route the sheet slides up in.
 void pushKuteSuccessOverlay({
   required NavigatorState navigator,
   required Widget overlay,
 }) {
-  // Respect Reduce Motion: the fade-in is a decorative route transition,
-  // so collapse it to zero duration when the user has disabled animations.
+  // Respect Reduce Motion: the slide is a decorative route transition, so
+  // collapse it to zero duration when the user has disabled animations.
   //
   // Read the accessibility flag straight off the platform dispatcher (the
   // same value MediaQueryData.fromView derives `disableAnimations` from),
@@ -53,57 +59,124 @@ void pushKuteSuccessOverlay({
     PageRouteBuilder(
       opaque: false,
       transitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 320),
       reverseTransitionDuration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 240),
       pageBuilder: (context, _, __) => overlay,
-      transitionsBuilder: (context, animation, _, child) =>
-          FadeTransition(opacity: animation, child: child),
+      // The sheet slides and the scrim fades inside [KuteConfirmation],
+      // off this route's animation; the route itself draws nothing.
+      transitionsBuilder: (context, animation, _, child) => child,
     ),
   );
 }
 
+/// For a flow whose Done would take the user somewhere else (a send goes
+/// home): [navigate] there first, then present [overlay] over the screen
+/// they land on, so Done only has to close the sheet. The sheet is pushed
+/// once the navigation's frame has run: pushed earlier, it would sit on
+/// the page being replaced and leave with it.
+Future<void> pushKuteSuccessOverlayAfter({
+  required NavigatorState navigator,
+  required VoidCallback navigate,
+  required Widget overlay,
+}) async {
+  navigate();
+  await WidgetsBinding.instance.endOfFrame;
+  if (!navigator.mounted) return;
+  pushKuteSuccessOverlay(navigator: navigator, overlay: overlay);
+}
+
+/// What a result sheet is saying, which picks its mark, Sal's mood and
+/// the haptic.
+enum KuteConfirmationTone {
+  /// Done. Green check, Sal wags, the success haptic.
+  success,
+
+  /// A win (winnings, a won prediction). Gold check, Sal cheers, the
+  /// success haptic.
+  celebrate,
+
+  /// Accepted but not finished (an order resting, funds on their way).
+  /// Neutral clock, Sal calm, no haptic.
+  pending,
+
+  /// It did not happen. Red "!", Sal's ears down, the failure tap.
+  failure,
+
+  /// A result read again later. Neutral receipt glyph, Sal calm, no
+  /// haptic.
+  neutral,
+}
+
 // ─────────────────────────────────────────────────────────────────────
-// KuteConfirmation: the shared screen
+// KuteConfirmation: the shared sheet
 // ─────────────────────────────────────────────────────────────────────
 
-/// Full-screen success confirmation: centered check, short message near
-/// the bottom, optional pending line, Done button.
+/// The result sheet. See the file header for the layout.
 class KuteConfirmation extends StatefulWidget {
-  /// Short plain sentence, e.g. "Prediction placed".
+  /// The title beside the mark: a short plain sentence, e.g. "Prediction
+  /// placed", "Couldn't send".
   final String message;
 
+  /// The hero line, whenever the flow has an amount: "$5.00 on Yes",
+  /// "Long $12.00", "0.001 BTC". Shown large and tabular.
+  final String? amount;
+
+  /// One line of context under the amount: the recipient, the market, "to
+  /// Bitcoin".
+  final String? contextLine;
+
+  /// Label/value rows under the context, in order. Keep it to four.
+  final Map<String, String> rows;
+
+  /// The on-chain transaction, as a "View on blockchain" row action.
+  final TradeReceiptTransaction? transaction;
+
+  /// A small honest line for something still pending (funds arriving, a
+  /// balance updating), or, on a failure, where the money is. Under the
+  /// context line, or under the rows when there are rows.
+  final String? detail;
+
+  /// Legacy receipt slot. A [TradeReceipt] is read into the sheet's own
+  /// parts (its title becomes the context line, its first row the amount,
+  /// the rest rows, its transaction the row action) wherever those are not
+  /// given directly; any other widget is shown under the rows (the send
+  /// failure's Details disclosure).
   final Widget? receipt;
+
+  /// What the sheet says. Null derives it from [celebrate] and [success].
+  final KuteConfirmationTone? tone;
   final bool celebrate;
   final bool success;
 
-  /// Optional small line under the message. Only for flows that must stay
-  /// honest about something still pending (e.g. funds still arriving).
-  final String? detail;
-
-  /// Done button label. Defaults to the localized "Done".
+  /// Primary button label. Defaults to the localized "Done".
   final String? buttonText;
 
   /// What Done does. Each entry point passes its existing navigation.
+  /// Swiping the sheet down, tapping the scrim and the system back gesture
+  /// run it too.
   final VoidCallback onDone;
 
-  /// Shows the circled close button top left (the shared overlays have
-  /// always had one; the send confirmation never did).
-  final bool showCloseButton;
-
-  /// A receipt read later (a results-inbox notification): the message is
-  /// the heading at the top, above [receipt], instead of a line near the
-  /// bottom, and a neutral result shows only the receipt (no mascot).
-  final bool messageAboveReceipt;
-
-  /// Optional second, quieter button under the main one.
+  /// One optional quiet text button under the primary one.
   final String? secondaryButtonText;
   final VoidCallback? onSecondary;
+
+  /// Accepted for call-site compatibility; the sheet has no close button.
+  final bool showCloseButton;
+
+  /// Accepted for call-site compatibility; the title always heads the
+  /// sheet.
+  final bool messageAboveReceipt;
 
   const KuteConfirmation({
     super.key,
     required this.message,
+    this.amount,
+    this.contextLine,
+    this.rows = const {},
+    this.transaction,
     this.receipt,
+    this.tone,
     this.celebrate = false,
     this.success = true,
     required this.onDone,
@@ -115,33 +188,53 @@ class KuteConfirmation extends StatefulWidget {
     this.onSecondary,
   });
 
-  /// Test seam for the success haptic. The real haptic schedules a timer,
-  /// so widget tests install a fake here.
+  /// Test seams for the haptics. The real ones schedule timers, so widget
+  /// tests install fakes here.
   @visibleForTesting
   static Future<void> Function()? debugFeedbackOverride;
+  @visibleForTesting
+  static Future<void> Function()? debugFailureFeedbackOverride;
 
-  // Timeline (ms). Pop 0..350, stroke 300..580, ring and message from 580.
+  // Timeline (ms) after the sheet is up. Pop 0..350, stroke 300..580, ring
+  // from 580. Sal wakes a beat before the stroke ends so his wag and the
+  // check land together.
   static const int totalMs = 1080;
   static const int popEndMs = 350;
   static const int strokeStartMs = 300;
   static const int strokeEndMs = 580;
   static const int ringEndMs = 1080;
-  static const int messageEndMs = 930;
+  static const int salWakeMs = 480;
+
+  /// The tone [tone], or the one the legacy flags describe.
+  KuteConfirmationTone get resolvedTone =>
+      tone ??
+      (celebrate
+          ? KuteConfirmationTone.celebrate
+          : success
+              ? KuteConfirmationTone.success
+              : KuteConfirmationTone.failure);
 
   @override
   State<KuteConfirmation> createState() => _KuteConfirmationState();
 }
 
 class _KuteConfirmationState extends State<KuteConfirmation>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
-  late final CurvedAnimation _messageOpacity;
-  bool _hapticFired = false;
-  bool _started = false;
 
-  /// The route's entrance animation while it is still running. The check
-  /// waits for it so the pop is not hidden under the route fade.
+  /// The sheet's drag offset in logical pixels, down from rest.
+  late final AnimationController _drag;
+  final _sheetKey = GlobalKey();
+  bool _feedbackFired = false;
+  bool _salAwake = false;
+  bool _started = false;
+  bool _closing = false;
+
+  /// The route's entrance animation while it is still running. The mark
+  /// waits for it so the pop is not hidden under the slide.
   Animation<double>? _routeEntrance;
+  Animation<double> _entrance = kAlwaysCompleteAnimation;
+  CurvedAnimation? _slide;
 
   static double _t(int ms) => ms / KuteConfirmation.totalMs;
 
@@ -151,20 +244,23 @@ class _KuteConfirmationState extends State<KuteConfirmation>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: KuteConfirmation.totalMs),
-    )..addListener(_maybeFireHaptic);
-    _messageOpacity = CurvedAnimation(
-      parent: _controller,
-      curve: Interval(
-        _t(KuteConfirmation.strokeEndMs),
-        _t(KuteConfirmation.messageEndMs),
-        curve: Curves.easeOut,
-      ),
-    );
+    )..addListener(_onTick);
+    _drag = AnimationController.unbounded(vsync: this);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final entrance = ModalRoute.of(context)?.animation;
+    if (entrance != null && entrance != _entrance) {
+      _entrance = entrance;
+      _slide?.dispose();
+      _slide = CurvedAnimation(
+        parent: entrance,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+    }
     if (_started) return;
     _started = true;
     if (MediaQuery.disableAnimationsOf(context)) {
@@ -172,7 +268,7 @@ class _KuteConfirmationState extends State<KuteConfirmation>
       _controller.value = 1.0;
       return;
     }
-    // Wait for the route fade so the pop plays on a fully visible page.
+    // Wait for the slide so the pop plays on a sheet that is all there.
     // The route's animation is only wired up after the first frame (it
     // reports completed while building), so read it post frame.
     final route = ModalRoute.of(context);
@@ -194,18 +290,71 @@ class _KuteConfirmationState extends State<KuteConfirmation>
     if (mounted) _controller.forward();
   }
 
-  void _maybeFireHaptic() {
-    if (_hapticFired || !widget.success) return;
-    if (_controller.value < _t(KuteConfirmation.strokeEndMs)) return;
-    _hapticFired = true;
-    // Single choke point for the success haptic: callers never fire it.
-    (KuteConfirmation.debugFeedbackOverride ?? moneySuccessFeedback)();
+  void _onTick() {
+    final v = _controller.value;
+    if (!_salAwake && v >= _t(KuteConfirmation.salWakeMs)) {
+      setState(() => _salAwake = true);
+    }
+    if (_feedbackFired || v < _t(KuteConfirmation.strokeEndMs)) return;
+    _feedbackFired = true;
+    // Single choke point for the result haptic: callers never fire the
+    // success one, and the failure one claims its moment once, so a
+    // caller that already played it stays the only tap.
+    switch (widget.resolvedTone) {
+      case KuteConfirmationTone.success || KuteConfirmationTone.celebrate:
+        (KuteConfirmation.debugFeedbackOverride ?? moneySuccessFeedback)();
+      case KuteConfirmationTone.failure:
+        (KuteConfirmation.debugFailureFeedbackOverride ??
+            moneyFailureFeedback)();
+      case KuteConfirmationTone.pending || KuteConfirmationTone.neutral:
+        break;
+    }
+  }
+
+  /// Runs [action] once for any of the ways out (Done, the secondary
+  /// button, a swipe, the scrim, back). If the sheet is still the top
+  /// route a frame later (an action that navigates nowhere), it takes
+  /// taps again and springs back from any drag.
+  void _finish(VoidCallback? action) {
+    if (_closing || action == null) return;
+    _closing = true;
+    action();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ModalRoute.of(context)?.isCurrent ?? true) {
+        _closing = false;
+        _settleDrag();
+      }
+    });
+  }
+
+  void _settleDrag() {
+    if (_drag.value == 0) return;
+    _drag.animateTo(0,
+        duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_closing) return;
+    _drag.value = math.max(0, _drag.value + details.delta.dy);
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_closing) return;
+    final height = _sheetKey.currentContext?.size?.height ?? 400;
+    if (_drag.value > height * 0.25 ||
+        details.velocity.pixelsPerSecond.dy > 700) {
+      _finish(widget.onDone);
+    } else {
+      _settleDrag();
+    }
   }
 
   @override
   void dispose() {
     _routeEntrance?.removeStatusListener(_onRouteEntranceStatus);
-    _messageOpacity.dispose();
+    _slide?.dispose();
+    _drag.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -213,274 +362,399 @@ class _KuteConfirmationState extends State<KuteConfirmation>
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final markSize = 88.sp;
-    final detail = widget.detail;
-    final above = widget.messageAboveReceipt && widget.receipt != null;
-
-    return Scaffold(
-      backgroundColor: c.background,
-      body: SafeArea(
+    final slide = _slide ?? kAlwaysCompleteAnimation;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _finish(widget.onDone);
+      },
+      child: Material(
+        type: MaterialType.transparency,
         child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Everything above the buttons scrolls as one: the mark
-                  // (or the receipt) centred in the room the message leaves,
-                  // the message under it near the bottom. On a small screen
-                  // or with large text the page scrolls instead of clipping
-                  // the message, its detail or the receipt, and the buttons
-                  // stay where they are.
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, viewport) => SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints:
-                              BoxConstraints(minHeight: viewport.maxHeight),
-                          child: Column(
-                            mainAxisAlignment: above
-                                ? MainAxisAlignment.start
-                                : MainAxisAlignment.spaceBetween,
-                            children: [
-                              // With spaceBetween this empty first child
-                              // keeps the mark in the middle of the room
-                              // above the message, as it always sat.
-                              if (!above) const SizedBox.shrink(),
-                              _buildMarkAndReceipt(c, above, reduceMotion,
-                                  markSize, detail),
-                              if (!above)
-                                _buildMessage(context, reduceMotion, detail),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 28.h),
-                  AppButton(
-                    text: widget.buttonText ?? context.l10n.done,
-                    onPressed: widget.onDone,
-                  ),
-                  if (widget.secondaryButtonText != null &&
-                      widget.onSecondary != null) ...[
-                    SizedBox(height: 10.h),
-                    AppButton(
-                      text: widget.secondaryButtonText!,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: widget.onSecondary,
-                    ),
-                  ],
-                ],
+            Positioned.fill(
+              child: GestureDetector(
+                key: const ValueKey('kute-confirmation-scrim'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _finish(widget.onDone),
+                child: FadeTransition(
+                  opacity: _entrance,
+                  child: ColoredBox(color: c.modalBarrier),
+                ),
               ),
             ),
-            if (widget.showCloseButton)
-              Positioned(
-                left: 20.w,
-                top: 8.h,
-                child: const KuteCloseButton(),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([slide, _drag]),
+                builder: (context, child) => FractionalTranslation(
+                  translation: Offset(0, 1 - slide.value),
+                  child: Transform.translate(
+                    offset: Offset(0, _drag.value),
+                    child: child,
+                  ),
+                ),
+                child: _buildSheet(context, c),
               ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// The mark (the check, or Sal with the receipt icon) and the receipt,
-  /// with the message on top of the receipt for a read-later receipt.
-  Widget _buildMarkAndReceipt(AppColorsExtension c, bool above,
-      bool reduceMotion, double markSize, String? detail) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (above && widget.showCloseButton) SizedBox(height: 56.h),
-        if (!above || widget.success)
-          RepaintBoundary(
-            child: ExcludeSemantics(
-              child: !widget.success
-                  // A receipt view (a pending bet, a notification already
-                  // read): Sal sits with it instead of a bare icon.
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        KuteDogIdle(
-                            size: 96.sp,
-                            cycles: 2,
-                            shadowColor:
-                                c.textPrimary.withValues(alpha: 0.14)),
-                        SizedBox(height: 10.h),
-                        Icon(Icons.receipt_long_outlined,
-                            size: 34.sp, color: c.textSecondary),
-                      ],
-                    )
-                  : KuteCheckMark(
-                      key: const ValueKey('kute-confirmation-check'),
-                      animation: _controller,
-                      size: markSize,
-                      color: widget.celebrate
-                          ? const Color(0xFFD4AF37)
-                          : AppColors.marketUp,
-                      reduceMotion: reduceMotion,
-                    ),
-            ),
-          ),
-        if (widget.success) ...[
-          SizedBox(height: 8.h),
-          // Sal arrives once the check has drawn: fades in with the
-          // message, cheers, and throws one burst of confetti. The check
-          // itself is untouched.
-          FadeTransition(
-            opacity: _messageOpacity,
-            child: ExcludeSemantics(
-              child: KuteDogCelebration(
-                size: 84.sp,
-                ink: c.textPrimary,
-                accent: widget.celebrate
-                    ? const Color(0xFFD4AF37)
-                    : AppColors.marketUp,
-                delay: const Duration(
-                    milliseconds: KuteConfirmation.strokeEndMs),
+  Widget _buildSheet(BuildContext context, AppColorsExtension c) {
+    final media = MediaQuery.of(context);
+    final parts = _SheetParts.of(widget);
+    final secondary = widget.secondaryButtonText;
+    return GestureDetector(
+      onVerticalDragUpdate: _onDragUpdate,
+      onVerticalDragEnd: _onDragEnd,
+      child: Container(
+        key: _sheetKey,
+        width: double.infinity,
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.92),
+        decoration: AppDecorations.bottomSheet(context),
+        padding: EdgeInsets.fromLTRB(
+            20.w, 0, 20.w, math.max(media.padding.bottom, 12.h) + 8.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 10.h),
+            AppDecorations.dragHandle(context),
+            SizedBox(height: 18.h),
+            // Everything above the buttons scrolls as one, so large text
+            // or a long receipt scrolls instead of clipping; the buttons
+            // stay put.
+            Flexible(
+              child: SingleChildScrollView(
+                child: _buildContent(context, c, parts),
               ),
             ),
+            SizedBox(height: 24.h),
+            AppButton(
+              text: widget.buttonText ?? context.l10n.done,
+              onPressed: () => _finish(widget.onDone),
+            ),
+            if (secondary != null && widget.onSecondary != null) ...[
+              SizedBox(height: 6.h),
+              AppTextButton(
+                key: const ValueKey('kute-confirmation-secondary'),
+                text: secondary,
+                textColor: c.textPrimary,
+                onPressed: () => _finish(widget.onSecondary),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+      BuildContext context, AppColorsExtension c, _SheetParts parts) {
+    final tone = widget.resolvedTone;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final amount = parts.amount;
+    final contextLine = parts.contextLine;
+    final detail = widget.detail;
+    final hasRows = parts.rows.isNotEmpty || parts.transaction != null;
+    final detailText = detail == null || detail.isEmpty
+        ? const SizedBox.shrink()
+        : Padding(
+            key: ValueKey(detail),
+            padding: EdgeInsets.only(top: hasRows ? 14.h : 6.h),
+            child: Text(
+              detail,
+              key: const ValueKey('kute-confirmation-detail'),
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: hasRows ? 13.sp : 15.sp,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+          );
+    final animatedDetail = AnimatedSwitcher(
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topLeft,
+        children: [...previous, if (current != null) current],
+      ),
+      child: detailText,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ExcludeSemantics(
+              child: KuteStatusMark(
+                key: const ValueKey('kute-confirmation-check'),
+                animation: _controller,
+                tone: tone,
+                size: 30.sp,
+                reduceMotion: reduceMotion,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Semantics(
+                header: true,
+                liveRegion: true,
+                child: Text(
+                  widget.message,
+                  key: const ValueKey('kute-confirmation-message'),
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 19.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            ExcludeSemantics(
+              child: KuteDogConfirmation(
+                key: const ValueKey('kute-confirmation-sal'),
+                size: 42.sp,
+                awake: _salAwake,
+                mood: switch (tone) {
+                  KuteConfirmationTone.success => KuteDogMood.happy,
+                  KuteConfirmationTone.celebrate => KuteDogMood.cheer,
+                  KuteConfirmationTone.failure => KuteDogMood.sad,
+                  KuteConfirmationTone.pending ||
+                  KuteConfirmationTone.neutral =>
+                    KuteDogMood.calm,
+                },
+              ),
+            ),
+          ],
+        ),
+        if (amount != null && amount.isNotEmpty) ...[
+          SizedBox(height: 16.h),
+          Text(
+            amount,
+            key: const ValueKey('kute-confirmation-amount'),
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 34.sp,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.0,
+              height: 1.12,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
-        if (above) ...[
-          if (widget.success) SizedBox(height: 16.h),
-          _ReceiptHeading(
-            message: widget.message,
-            detail: detail,
-            opacity:
-                widget.success ? _messageOpacity : kAlwaysCompleteAnimation,
+        if (contextLine != null && contextLine.isNotEmpty) ...[
+          SizedBox(height: amount == null || amount.isEmpty ? 12.h : 6.h),
+          Text(
+            contextLine,
+            key: const ValueKey('kute-confirmation-context'),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w500,
+              height: 1.35,
+            ),
           ),
         ],
-        if (widget.receipt != null) ...[
-          SizedBox(height: above ? 20.h : 24.h),
-          widget.receipt!,
+        if (!hasRows) animatedDetail,
+        if (hasRows) ...[
+          SizedBox(height: 18.h),
+          _ConfirmationRows(rows: parts.rows, transaction: parts.transaction),
         ],
+        if (parts.extra != null) ...[
+          SizedBox(height: 12.h),
+          parts.extra!,
+        ],
+        if (hasRows) animatedDetail,
       ],
     );
   }
+}
 
-  /// The message near the bottom and its detail, both wrapped in full: a
-  /// line cut off after two lines once hid what to do next.
-  Widget _buildMessage(
-      BuildContext context, bool reduceMotion, String? detail) {
-    return FadeTransition(
-      opacity: _messageOpacity,
-      child: Semantics(
-        liveRegion: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 16.h),
-            Text(
-              widget.message,
-              key: const ValueKey('kute-confirmation-message'),
-              textAlign: TextAlign.center,
-              style: AppTextStyles.heading2(context).copyWith(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.4,
-                height: 1.2,
-              ),
-            ),
-            AnimatedSwitcher(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 200),
-              child: detail == null || detail.isEmpty
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      key: ValueKey(detail),
-                      padding: EdgeInsets.only(top: 6.h),
-                      child: Text(
-                        detail,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodySmall(context)
-                            .copyWith(height: 1.35),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
+/// The sheet's content with a legacy [TradeReceipt] read in.
+class _SheetParts {
+  final String? amount;
+  final String? contextLine;
+  final Map<String, String> rows;
+  final TradeReceiptTransaction? transaction;
+  final Widget? extra;
+
+  const _SheetParts({
+    required this.amount,
+    required this.contextLine,
+    required this.rows,
+    required this.transaction,
+    required this.extra,
+  });
+
+  factory _SheetParts.of(KuteConfirmation w) {
+    final receipt = w.receipt;
+    if (receipt is! TradeReceipt) {
+      return _SheetParts(
+        amount: w.amount,
+        contextLine: w.contextLine,
+        rows: w.rows,
+        transaction: w.transaction,
+        extra: receipt,
+      );
+    }
+    final entries = receipt.rows.entries.toList();
+    final takeHero = w.amount == null && entries.isNotEmpty;
+    final subtitle = receipt.subtitle;
+    return _SheetParts(
+      amount: w.amount ?? (takeHero ? entries.first.value : null),
+      contextLine: w.contextLine ??
+          (subtitle == null || subtitle.isEmpty
+              ? receipt.title
+              : '$subtitle · ${receipt.title}'),
+      rows: w.rows.isNotEmpty
+          ? w.rows
+          : {for (final e in entries.skip(takeHero ? 1 : 0)) e.key: e.value},
+      transaction: w.transaction ?? receipt.transaction,
+      extra: null,
     );
   }
 }
 
-/// The message as a receipt's heading ([KuteConfirmation.messageAboveReceipt]).
-class _ReceiptHeading extends StatelessWidget {
-  final String message;
-  final String? detail;
-  final Animation<double> opacity;
-  const _ReceiptHeading(
-      {required this.message, required this.detail, required this.opacity});
+/// Hairline-divided label/value rows, the transaction last as a row
+/// action. The label gives way first: numbers stay on one line, right
+/// aligned; only long sentences wrap.
+class _ConfirmationRows extends StatelessWidget {
+  final Map<String, String> rows;
+  final TradeReceiptTransaction? transaction;
+
+  const _ConfirmationRows({required this.rows, required this.transaction});
 
   @override
   Widget build(BuildContext context) {
-    final detail = this.detail;
-    return FadeTransition(
-      opacity: opacity,
-      child: Semantics(
-        header: true,
-        liveRegion: true,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(
-            message,
-            key: const ValueKey('kute-confirmation-message'),
-            textAlign: TextAlign.center,
-            style: AppTextStyles.heading2(context).copyWith(
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-              height: 1.2,
-            ),
-          ),
-          if (detail != null && detail.isNotEmpty)
+    final c = context.colors;
+    final tx = transaction;
+    final labelStyle = TextStyle(
+        color: c.textSecondary, fontSize: 14.sp, fontWeight: FontWeight.w500);
+    final valueStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final divider = Divider(height: 1, thickness: 0.5, color: c.border);
+    return LayoutBuilder(
+      builder: (context, box) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in rows.entries) ...[
+            divider,
             Padding(
-              padding: EdgeInsets.only(top: 6.h),
-              child: Text(
-                detail,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodySmall(context).copyWith(height: 1.35),
+              padding: EdgeInsets.symmetric(vertical: 12.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Text(entry.key, style: labelStyle)),
+                  SizedBox(width: 16.w),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth * .6),
+                    child: Text(entry.value,
+                        textAlign: TextAlign.end, style: valueStyle),
+                  ),
+                ],
               ),
             ),
-        ]),
+          ],
+          if (tx != null) ...[
+            divider,
+            InkWell(
+              key: const ValueKey('trade-receipt-explorer'),
+              onTap: tx.open,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                child: Row(
+                  children: [
+                    Expanded(
+                        child: Text(context.l10n.tnTransaction,
+                            style: labelStyle)),
+                    Text(context.l10n.activityViewOnBlockchain,
+                        style: valueStyle),
+                    SizedBox(width: 6.w),
+                    Icon(Icons.open_in_new_rounded,
+                        size: 15.sp, color: c.textPrimary),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// The animated disc and check. Driven by the confirmation's controller
-/// (0..1 over [KuteConfirmation.totalMs]).
-class KuteCheckMark extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────
+// KuteStatusMark: the small disc in the header row
+// ─────────────────────────────────────────────────────────────────────
+
+/// The animated disc and its glyph. Driven by the sheet's controller
+/// (0..1 over [KuteConfirmation.totalMs]). Laid out at [size]; the ring
+/// paints a little beyond it.
+class KuteStatusMark extends StatelessWidget {
   final Animation<double> animation;
+  final KuteConfirmationTone tone;
   final double size;
   final bool reduceMotion;
-  final Color color;
 
-  const KuteCheckMark({
+  const KuteStatusMark({
     super.key,
     required this.animation,
     required this.size,
+    this.tone = KuteConfirmationTone.success,
     this.reduceMotion = false,
-    this.color = AppColors.marketUp,
   });
 
-  /// The ring reaches 1.55x the disc radius, so the paint box leaves room.
-  static const double _ringReach = 1.55;
+  /// The disc colour for [tone]: one success green (the theme's success
+  /// token), the theme's error red, the gold [AppColors.celebrate], and
+  /// a neutral fill for pending and read-later results.
+  static Color discColor(BuildContext context, KuteConfirmationTone tone) {
+    final c = context.colors;
+    return switch (tone) {
+      KuteConfirmationTone.success => c.success,
+      KuteConfirmationTone.celebrate => AppColors.celebrate,
+      KuteConfirmationTone.failure => c.error,
+      KuteConfirmationTone.pending ||
+      KuteConfirmationTone.neutral =>
+        c.surfaceElevated,
+    };
+  }
+
+  static Color glyphColor(BuildContext context, KuteConfirmationTone tone) =>
+      switch (tone) {
+        KuteConfirmationTone.pending ||
+        KuteConfirmationTone.neutral =>
+          context.colors.textPrimary,
+        _ => Colors.white,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final box = size * _ringReach + 4;
     return SizedBox(
-      width: box,
-      height: box,
+      width: size,
+      height: size,
       child: CustomPaint(
-        painter: _CheckMarkPainter(
+        painter: _StatusMarkPainter(
           progress: animation,
-          discDiameter: size,
-          color: color,
+          tone: tone,
+          color: discColor(context, tone),
+          glyph: glyphColor(context, tone),
           reduceMotion: reduceMotion,
         ),
       ),
@@ -498,62 +772,75 @@ class _SoftSpringCurve extends Curve {
       1 - math.exp(-6.5 * t) * math.cos(9.0 * t);
 }
 
-class _CheckMarkPainter extends CustomPainter {
+class _StatusMarkPainter extends CustomPainter {
   final Animation<double> progress;
-  final double discDiameter;
+  final KuteConfirmationTone tone;
   final Color color;
+  final Color glyph;
   final bool reduceMotion;
 
-  _CheckMarkPainter({
+  _StatusMarkPainter({
     required this.progress,
-    required this.discDiameter,
+    required this.tone,
     required this.color,
+    required this.glyph,
     required this.reduceMotion,
   }) : super(repaint: progress);
 
   static double _t(int ms) => ms / KuteConfirmation.totalMs;
   static const _spring = _SoftSpringCurve();
+  static const double _ringReach = 1.55;
 
   static double _interval(double value, int startMs, int endMs) =>
       ((value - _t(startMs)) / (_t(endMs) - _t(startMs))).clamp(0.0, 1.0);
+
+  /// The glyph for [tone] in a disc of radius [r] centred on the origin.
+  Path _glyph(double r) => switch (tone) {
+        KuteConfirmationTone.success || KuteConfirmationTone.celebrate => Path()
+          ..moveTo(-0.40 * r, 0.02 * r)
+          ..lineTo(-0.12 * r, 0.30 * r)
+          ..lineTo(0.42 * r, -0.28 * r),
+        // The "!" stroke; its dot is drawn once the stroke is done.
+        KuteConfirmationTone.failure => Path()
+          ..moveTo(0, -0.44 * r)
+          ..lineTo(0, 0.10 * r),
+        // Clock hands.
+        KuteConfirmationTone.pending => Path()
+          ..moveTo(0, -0.38 * r)
+          ..lineTo(0, 0)
+          ..lineTo(0.28 * r, 0.14 * r),
+        // Receipt lines.
+        KuteConfirmationTone.neutral => Path()
+          ..moveTo(-0.36 * r, -0.26 * r)
+          ..lineTo(0.36 * r, -0.26 * r)
+          ..moveTo(-0.36 * r, 0)
+          ..lineTo(0.36 * r, 0)
+          ..moveTo(-0.36 * r, 0.26 * r)
+          ..lineTo(0.12 * r, 0.26 * r),
+      };
 
   @override
   void paint(Canvas canvas, Size size) {
     final v = reduceMotion ? 1.0 : progress.value;
     final center = size.center(Offset.zero);
-    final radius = discDiameter / 2;
+    final radius = size.shortestSide / 2;
+    final celebratory = tone == KuteConfirmationTone.success ||
+        tone == KuteConfirmationTone.celebrate;
 
     // Ring: one soft expansion from the disc edge, faded out by the end.
-    if (!reduceMotion) {
+    if (!reduceMotion && celebratory) {
       final ringT = _interval(
           v, KuteConfirmation.strokeEndMs, KuteConfirmation.ringEndMs);
       if (ringT > 0 && ringT < 1) {
         final eased = Curves.easeOut.transform(ringT);
-        final ringRadius =
-            radius + (radius * (KuteCheckMark._ringReach - 1)) * eased;
         canvas.drawCircle(
           center,
-          ringRadius,
+          radius + radius * (_ringReach - 1) * eased,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = radius * 0.06
-            ..color = color.withValues(alpha: 0.28 * (1 - eased)),
+            ..strokeWidth = math.max(1.0, radius * 0.08)
+            ..color = color.withValues(alpha: 0.32 * (1 - eased)),
         );
-      }
-    }
-
-    if (!reduceMotion && color == const Color(0xFFD4AF37)) {
-      final burst = _interval(
-          v, KuteConfirmation.strokeEndMs, KuteConfirmation.ringEndMs);
-      if (burst > 0 && burst < 1) {
-        for (var i = 0; i < 12; i++) {
-          final angle = i * math.pi / 6;
-          final distance = radius * (1 + .5 * burst);
-          canvas.drawCircle(
-              center + Offset(math.cos(angle), math.sin(angle)) * distance,
-              2.5 * (1 - burst),
-              Paint()..color = color.withValues(alpha: 1 - burst));
-        }
       }
     }
 
@@ -568,57 +855,61 @@ class _CheckMarkPainter extends CustomPainter {
     canvas.drawCircle(
       Offset.zero,
       radius,
-      Paint()..color = color.withValues(alpha: discOpacity),
+      Paint()..color = color.withValues(alpha: color.a * discOpacity),
     );
 
-    // Check: drawn from the short leg to the long leg.
+    // Glyph: drawn along its path.
     final strokeT = Curves.easeOut.transform(_interval(
         v, KuteConfirmation.strokeStartMs, KuteConfirmation.strokeEndMs));
     if (strokeT > 0) {
-      final path = Path()
-        ..moveTo(-0.40 * radius, 0.02 * radius)
-        ..lineTo(-0.12 * radius, 0.30 * radius)
-        ..lineTo(0.42 * radius, -0.28 * radius);
-      final metric = path.computeMetrics().first;
-      canvas.drawPath(
-        metric.extractPath(0, metric.length * strokeT),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = radius * 0.16
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..color = Colors.white,
-      );
+      final stroke = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius * 0.17
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..color = glyph;
+      final metrics = _glyph(radius).computeMetrics().toList();
+      final total = metrics.fold<double>(0, (sum, m) => sum + m.length);
+      var remaining = total * strokeT;
+      for (final metric in metrics) {
+        if (remaining <= 0) break;
+        canvas.drawPath(
+            metric.extractPath(0, math.min(metric.length, remaining)), stroke);
+        remaining -= metric.length;
+      }
+      if (tone == KuteConfirmationTone.failure && strokeT >= 1) {
+        canvas.drawCircle(
+            Offset(0, 0.40 * radius), radius * 0.1, Paint()..color = glyph);
+      }
     }
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _CheckMarkPainter old) =>
+  bool shouldRepaint(covariant _StatusMarkPainter old) =>
       old.progress != progress ||
-      old.discDiameter != discDiameter ||
+      old.tone != tone ||
       old.color != color ||
+      old.glyph != glyph ||
       old.reduceMotion != reduceMotion;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// KuteSuccessOverlay: the entry point used by existing call sites
+// KuteSuccessOverlay: the entry point used by older call sites
 // ─────────────────────────────────────────────────────────────────────
 
-/// Kept so call sites outside the confirmation wrappers (Cash App
-/// purchase, LNURL withdraw, Investing close) need no changes. The screen
-/// now shows only the check and [headlineLabel]; [icon], [amount],
-/// [statusPill], [subtitle] and [accentCard] are accepted but not shown.
+/// The result sheet from the older parameter set: [headlineLabel] is the
+/// title (in sentence case), [amount] the hero, [subtitle] the context
+/// line, [detail] the pending line. [icon] is accepted but not shown.
 class KuteSuccessOverlay extends StatelessWidget {
   final KuteIconSpec icon;
   final String headlineLabel;
   final String amount;
-  final KuteStatusPill? statusPill;
   final String? subtitle;
-  final Widget? accentCard;
 
-  /// Small pending line under the message (see [KuteConfirmation.detail]).
+  /// Small pending line (see [KuteConfirmation.detail]).
   final String? detail;
+  final Map<String, String> rows;
   final String? ctaText;
   final VoidCallback? onDone;
 
@@ -627,10 +918,9 @@ class KuteSuccessOverlay extends StatelessWidget {
     this.icon = const KuteIconSpec(),
     required this.headlineLabel,
     this.amount = '',
-    this.statusPill,
     this.subtitle,
-    this.accentCard,
     this.detail,
+    this.rows = const {},
     this.ctaText,
     this.onDone,
   });
@@ -639,10 +929,12 @@ class KuteSuccessOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return KuteConfirmation(
       message: _sentenceCase(headlineLabel),
+      amount: amount.isEmpty ? null : amount,
+      contextLine: subtitle,
+      rows: rows,
       detail: detail,
       buttonText: ctaText,
-      showCloseButton: true,
-      onDone: onDone ?? () => context.pop(),
+      onDone: onDone ?? () => Navigator.of(context).pop(),
     );
   }
 }
@@ -672,12 +964,4 @@ class KuteIconSpec {
     this.fallbackTint,
     this.tintDisc = true,
   });
-}
-
-/// Status chip accepted by [KuteSuccessOverlay] for call-site
-/// compatibility. Not rendered.
-class KuteStatusPill {
-  final String text;
-  final Color color;
-  const KuteStatusPill({required this.text, required this.color});
 }
