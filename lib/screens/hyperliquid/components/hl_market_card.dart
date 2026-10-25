@@ -7,9 +7,11 @@ import 'package:kute/l10n/l10n.dart';
 // (AppDecorations.card):
 //   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
 //   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
-//     known) over a caption "TICKER · 40x" (a perp's max leverage) or
-//     "TICKER · Spot"; the ticker is left out when the name already is
-//     the ticker ("40x", "Spot");
+//     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
+//     Spot" for a spot token. The ticker is left out when the name
+//     already is the ticker: a spot token then reads "Spot", and a perp
+//     has no caption at all (its name sits centred in the row). Never a
+//     max leverage: leverage is blocked in the app, so no row hints at it;
 //   * a small LINE sparkline (HlLineSparkline) of the daily closes, in the
 //     up / down colour of the 24h change (neutral when flat or unknown),
 //     from the device cache (one request per coin per UTC day; see
@@ -117,15 +119,16 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // token reads as the asset it holds (UBTC: Bitcoin), the way
     // Hyperliquid's own app names it. The ticker when no name is known.
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    // What the market is: how far a perp can be geared, or that a spot
-    // token is held outright. A spot market and a perp for the same
-    // underlying can share a list, and this line tells them apart. The
-    // ticker leads it, unless the title already is the ticker (a market
-    // with no name of its own): it is not said twice.
-    final kind = m.isSpot
-        ? context.l10n.investingSpot
-        : '${m.offeredMaxLeverage}x';
-    final caption = name == m.coin ? kind : '${m.coin} · $kind';
+    // The ticker, and for a spot token that it is held outright: a spot
+    // market and a perp for the same underlying can share a list, and
+    // this line tells them apart. Never the perp's max leverage
+    // (leverage is blocked in the app: no row hints at it). The ticker is
+    // not said twice when the title already is the ticker (a market with
+    // no name of its own), so such a perp has no caption: empty.
+    final caption = [
+      if (name != m.coin) m.coin,
+      if (m.isSpot) context.l10n.investingSpot,
+    ].join(' · ');
     // A thinly traded market says so, and draws no sparkline: its line is
     // a few carried-forward steps, and the room goes to the caption.
     final thin = m.isLowLiquidity;
@@ -194,18 +197,20 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,
                       ),
-                      SizedBox(height: 2.h),
-                      if (!thin)
+                      // No caption: the name alone, centred in the row.
+                      if (thin || caption.isNotEmpty)
+                        SizedBox(height: 2.h),
+                      if (thin)
+                        _ThinCaption(
+                          caption: caption,
+                          note: context.l10n.investingLowLiquidity,
+                          style: captionStyle,
+                        )
+                      else if (caption.isNotEmpty)
                         Text(
                           caption,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: captionStyle,
-                        )
-                      else
-                        _ThinCaption(
-                          caption: caption,
-                          note: context.l10n.investingLowLiquidity,
                           style: captionStyle,
                         ),
                     ],
@@ -278,6 +283,11 @@ class _ThinCaption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A perp titled by its ticker has no caption: the note alone.
+    if (caption.isEmpty) {
+      return Text(note,
+          maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    }
     final whole = '$caption · $note';
     return LayoutBuilder(builder: (context, box) {
       final painter = TextPainter(

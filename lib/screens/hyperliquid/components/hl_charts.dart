@@ -24,10 +24,10 @@
 //     own at the right ([hlChartTagGutter]); the bars, the line, the
 //     volume, the drawings and the indicator panes end where it starts,
 //     so no label covers them and none is cut.
-//   * [HlLineSparkline] — the market-CARD mini chart. A clean line (up/down
-//     colored vs first→last close) with a subtle gradient fill, min–max
-//     normalized so crypto prices far from zero still read. This is what
-//     the browse cards use.
+//   * [HlLineSparkline] — the market-CARD mini chart. A clean 1.5 px line
+//     (up/down colored vs first→last close) over a faint dotted baseline
+//     at its first value, no fill, min–max normalized so crypto prices far
+//     from zero still read. This is what the browse cards use.
 //   * [HlLiveDot] — the small green "LIVE" pip reused wherever a live WS
 //     feed is on.
 //
@@ -38,7 +38,9 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show PointMode;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show DragStartBehavior, kDoubleTapSlop, kDoubleTapTimeout;
@@ -4558,12 +4560,20 @@ class HlFillTooltipPainter extends CustomPainter {
 
 // ───────────────────────────── line sparkline ─────────────────────────────
 
-/// Clean line sparkline for the market CARDS — the Trading tab's browse-card
-/// mini chart. [closes] are ascending close prices; the stroke is colored
-/// up/down vs the first→last close, drawn edge-to-edge with no fill. Min–max
-/// normalized with a small vertical pad (crypto prices sit far from zero, so
-/// a zero baseline would read flat). Renders nothing until there are ≥2
-/// points so a card never jumps.
+/// Clean line sparkline for the market CARDS — the browse lists' mini
+/// chart. [closes] are ascending close prices; the stroke (1.5 px) is
+/// colored up/down vs the first→last close (the cards pass one colour,
+/// the sign of the change they show), drawn edge-to-edge with no fill,
+/// over a faint dotted baseline at the series' FIRST value (where the
+/// window opened), so above / below the start reads at a glance. Min–max
+/// normalized with a small vertical pad (crypto prices sit far from zero,
+/// so a zero baseline would read flat). Renders nothing until there are
+/// ≥2 points so a card never jumps.
+///
+/// Long lists: the painting sits behind its own RepaintBoundary (the
+/// card's rolling digits never re-record it), the painter builds its path
+/// and dots once per size and reuses them, and an equal series does not
+/// repaint.
 class HlLineSparkline extends StatelessWidget {
   final List<double> closes;
   final double width;
@@ -4601,37 +4611,88 @@ class HlLineSparkline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final data = _sparklineData(closes);
     return SizedBox(
       width: width.w,
       height: height.h,
-      child: _sparklineData(closes).length < 2
+      child: data.length < 2
           ? null
-          : CustomPaint(
-              painter: _HlLineSparklinePainter(
-                data: _sparklineData(closes),
-                upColor: upColor ?? AppColors.marketUp,
-                downColor: downColor ?? AppColors.marketDown,
+          : RepaintBoundary(
+              child: CustomPaint(
+                painter: HlLineSparklinePainter(
+                  data: data,
+                  upColor: upColor ?? AppColors.marketUp,
+                  downColor: downColor ?? AppColors.marketDown,
+                ),
               ),
             ),
     );
   }
 }
 
-class _HlLineSparklinePainter extends CustomPainter {
+/// [HlLineSparkline]'s painter (public for its tests).
+@visibleForTesting
+class HlLineSparklinePainter extends CustomPainter {
   final List<double> data;
   final Color upColor;
   final Color downColor;
 
-  _HlLineSparklinePainter({
+  HlLineSparklinePainter({
     required this.data,
     required this.upColor,
     required this.downColor,
   });
 
-  @override
-  void paint(Canvas canvas, Size size) {
+  /// The line's width.
+  static const strokeWidth = 1.5;
+
+  /// The baseline: dots this wide, this far apart (centre to centre), in
+  /// the line's colour at this opacity.
+  static const dotSize = 1.2;
+  static const dotSpacing = 3.5;
+  static const baselineOpacity = 0.4;
+
+  /// Small vertical pad so the extremes don't kiss the top/bottom edges.
+  static const padFrac = 0.12;
+
+  Color get color => data.last >= data.first ? upColor : downColor;
+
+  // Built on first paint at a size and reused for every later paint of
+  // this painter (a new series makes a new painter).
+  Size? _size;
+  Path? _line;
+  List<Offset>? _dots;
+  late final Paint _linePaint = kuteStrokePaint(color, width: strokeWidth);
+  late final Paint _dotPaint = Paint()
+    ..color = color.withValues(alpha: baselineOpacity)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = dotSize
+    ..strokeCap = StrokeCap.round;
+
+  /// The y of [v] in a box [h] tall.
+  double _y(double v, double min, double range, double h) {
+    final norm = range > 0 ? (v - min) / range : 0.5;
+    return h * (padFrac + (1 - 2 * padFrac) * (1 - norm));
+  }
+
+  /// The baseline's y at [size]: the first value's.
+  @visibleForTesting
+  double baselineY(Size size) {
+    _layout(size);
+    return _dots!.isEmpty ? 0 : _dots!.first.dy;
+  }
+
+  /// The baseline's dots at [size].
+  @visibleForTesting
+  List<Offset> baselineDots(Size size) {
+    _layout(size);
+    return _dots!;
+  }
+
+  void _layout(Size size) {
+    if (_size == size && _line != null) return;
+    _size = size;
     final n = data.length;
-    if (n < 2) return;
     final w = size.width;
     final h = size.height;
 
@@ -4642,37 +4703,41 @@ class _HlLineSparklinePainter extends CustomPainter {
     }
     final range = max - min;
 
-    // Small vertical pad so the extremes don't kiss the top/bottom edges.
-    const padFrac = 0.12;
-    double toY(double v) {
-      final norm = range > 0 ? (v - min) / range : 0.5;
-      return h * (padFrac + (1 - 2 * padFrac) * (1 - norm));
-    }
-
-    double toX(int i) => (i / (n - 1)) * w;
-
-    final up = data.last >= data.first;
-    final color = up ? upColor : downColor;
-
     final line = Path();
     for (var i = 0; i < n; i++) {
-      final x = toX(i);
-      final y = toY(data[i]);
+      final x = (i / (n - 1)) * w;
+      final y = _y(data[i], min, range, h);
       if (i == 0) {
         line.moveTo(x, y);
       } else {
         line.lineTo(x, y);
       }
     }
+    _line = line;
 
-    // The line only — no gradient fill (the card wants a clean edge-to-edge
-    // stroke, no shade under it).
-    canvas.drawPath(line, kuteStrokePaint(color));
+    // Across the whole width, the leftover split evenly at both ends.
+    final by = _y(data.first, min, range, h);
+    final count = w > 0 ? (w / dotSpacing).floor() + 1 : 0;
+    final start = count > 0 ? (w - (count - 1) * dotSpacing) / 2 : 0.0;
+    _dots = [
+      for (var i = 0; i < count; i++) Offset(start + i * dotSpacing, by),
+    ];
   }
 
   @override
-  bool shouldRepaint(covariant _HlLineSparklinePainter old) =>
-      old.data != data || old.upColor != upColor || old.downColor != downColor;
+  void paint(Canvas canvas, Size size) {
+    if (data.length < 2) return;
+    _layout(size);
+    // The baseline under the line; the line only, no fill under it.
+    canvas.drawPoints(PointMode.points, _dots!, _dotPaint);
+    canvas.drawPath(_line!, _linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant HlLineSparklinePainter old) =>
+      old.upColor != upColor ||
+      old.downColor != downColor ||
+      !listEquals(old.data, data);
 }
 
 /// A small oscillator pane: one or more series, optional histogram and
