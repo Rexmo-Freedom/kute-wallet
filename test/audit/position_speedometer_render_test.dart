@@ -280,6 +280,32 @@ void main() {
     });
   }
 
+  // The needle at 20%, 50% and 85%: never across the chance's digits.
+  for (final live in [0.20, 0.50, 0.85]) {
+    final (_, base, journey) = cases.first;
+    final position = PolymarketPosition(
+      marketId: base.marketId,
+      marketQuestion: base.marketQuestion,
+      outcome: base.outcome,
+      size: base.size,
+      avgPrice: base.avgPrice,
+      currentPrice: live,
+      pnl: (live - base.avgPrice) * base.size,
+      pnlPercent: (live - base.avgPrice) / base.avgPrice * 100,
+      isResolved: false,
+      tokenId: base.tokenId,
+      eventSlug: base.eventSlug,
+      endDateStr: base.endDateStr,
+    );
+    final id = 'needle_${(live * 100).round()}_light';
+    testWidgets(id, (tester) async {
+      await _show(tester, position, dark: false, journey: journey);
+      await _shot(tester, id);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 8));
+    });
+  }
+
   testWidgets('sweep_frames', (tester) async {
     final (_, position, journey) = cases.first;
     await _show(tester, position, dark: false, journey: journey, settle: 0);

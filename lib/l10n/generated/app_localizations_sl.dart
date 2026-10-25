@@ -6007,14 +6007,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartYouHold => 'Imate';
 
   @override
-  String get polyPosChanceLive => 'verjetnost · v živo';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'Vi · $percent %';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return 'Če $side doseže';
   }
@@ -6039,13 +6031,13 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '$change od nakupa';
+  String polyPosSinceBoughtAt(String price) {
+    return 'od nakupa po $price';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return 'Kupili ste · $price';
+  String polyPosYourAvg(String price) {
+    return 'Vaše povp. $price';
   }
 
   @override

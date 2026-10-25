@@ -6010,14 +6010,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartYouHold => 'Birtokodban';
 
   @override
-  String get polyPosChanceLive => 'esély · élő';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'Te · $percent%';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return 'Ha $side eléri';
   }
@@ -6042,13 +6034,13 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '$change a vétel óta';
+  String polyPosSinceBoughtAt(String price) {
+    return 'a vétel óta, $price áron';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return 'Vétel · $price';
+  String polyPosYourAvg(String price) {
+    return 'Átlagod $price';
   }
 
   @override

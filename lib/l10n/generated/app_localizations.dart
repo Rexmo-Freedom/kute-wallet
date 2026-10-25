@@ -10522,18 +10522,6 @@ abstract class AppLocalizations {
   /// **'You hold'**
   String get chartYouHold;
 
-  /// Predictions open-position screen: small caption under the big live chance in the middle of the speedometer dial ('66%' above it). Lowercase.
-  ///
-  /// In en, this message translates to:
-  /// **'chance · live'**
-  String get polyPosChanceLive;
-
-  /// Predictions open-position speedometer: tiny label beside the bold tick on the dial at the user's average buy price ('You · 19%'). {percent} is the price paid as a chance, without the percent sign.
-  ///
-  /// In en, this message translates to:
-  /// **'You · {percent}%'**
-  String polyPosYouAt(String percent);
-
   /// Predictions open-position speedometer, while the user drags the needle to explore: small line above the hypothetical chance ('If No reaches' / '72%'). {side} is the held outcome (Yes, No, a candidate, a team).
   ///
   /// In en, this message translates to:
@@ -10570,17 +10558,17 @@ abstract class AppLocalizations {
   /// **'Set a sell at {percent}%'**
   String polyPosSetSellAt(String percent);
 
-  /// Predictions open-position screen: result line under the dial. {change} is the coloured profit or loss, e.g. '$3.24 · +81%' (a painted caret before it).
+  /// Predictions open-position screen: quiet second line under the result ('▲ $9.40 · +247%'). {price} is the average price paid in cents, e.g. 'since you bought at 19¢'. Lowercase.
   ///
   /// In en, this message translates to:
-  /// **'{change} since you bought'**
-  String polyPosSinceBought(String change);
+  /// **'since you bought at {price}'**
+  String polyPosSinceBoughtAt(String price);
 
-  /// Predictions open-position screen: label at the start of the journey chart, at the price paid, e.g. 'You bought · 19¢'. {price} is the average price paid in cents.
+  /// Predictions open-position screen: small label at the left of the chart's dashed line at the user's average price, e.g. 'Your avg 19¢'. {price} is in cents; abbreviate 'average' as is natural.
   ///
   /// In en, this message translates to:
-  /// **'You bought · {price}'**
-  String polyPosYouBought(String price);
+  /// **'Your avg {price}'**
+  String polyPosYourAvg(String price);
 
   /// No description provided for @chartNoData.
   ///

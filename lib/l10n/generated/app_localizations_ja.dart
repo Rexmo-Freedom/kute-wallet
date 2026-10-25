@@ -5770,14 +5770,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chartYouHold => '保有数量';
 
   @override
-  String get polyPosChanceLive => '確率 · ライブ';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'あなた · $percent%';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return '$sideがこの確率なら';
   }
@@ -5802,13 +5794,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '購入時から$change';
+  String polyPosSinceBoughtAt(String price) {
+    return '$priceで購入してから';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return '購入 · $price';
+  String polyPosYourAvg(String price) {
+    return '平均取得 $price';
   }
 
   @override

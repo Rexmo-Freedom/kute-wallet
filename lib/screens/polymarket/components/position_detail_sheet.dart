@@ -69,16 +69,17 @@ const Color _kPolyRed = AppColors.marketDown;
 // held side ("You hold No": Yes / Up in the up colour, No / Down in the
 // down colour, any other outcome in the primary text colour); while the
 // bet is open, the speedometer as the screen's hero (the held side's
-// chance on a 180° dial, green above the price paid and red below it, an
+// chance on a calm 180° dial, the price paid a dot on its track, an
 // elastic needle, drag to explore: position_speedometer.dart), the result
-// since the buy under it ("▲ $3.24 · +81% since you bought"), and once
-// settled the chance bar (position_chance_bar.dart); no price chart here,
-// the market sheet keeps it. Then two tiles: what it is worth now with the
-// profit or loss, and the payout if the held side wins with what was paid
-// (once settled: what it paid out); while the needle is dragged, what it
-// would be worth then beside what it is worth now. While open, the journey
-// line under the tiles (the held side's chance since the buy:
-// position_journey.dart); the end as a pill; and plain rows: "Protect
+// since the buy under it ("▲ $9.40 · +247%", "since you bought at 19¢"),
+// and once settled the chance bar (position_chance_bar.dart). Then two
+// tiles: what it is worth now with the profit or loss, and the payout if
+// the held side wins with what was paid (once settled: what it paid out);
+// while the needle is dragged, what it would be worth then beside what it
+// is worth now. While open, the chart under the tiles (the held side's
+// chance since the buy in the result's colour, a dashed line at the
+// average price: position_journey.dart); the end as a pill; and plain
+// rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
 // conditions and "View market" (the event's sheet); and the Sell (or, on a
@@ -559,6 +560,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                         pnlPercent: pnlPercent,
                                         amountText:
                                             formatPolyAmount(ref, pnl.abs()),
+                                        boughtText: bought == null
+                                            ? null
+                                            : formatPolyBoughtCents(bought),
                                       ),
                                       onSell: (at) => _sellAtWhatIf(pos, at),
                                     ),
@@ -724,6 +728,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             child: PolyPositionJourneyLine(
                               journey: journey,
                               live: currentPrice,
+                              // The result's colour: up, down, or neutral.
+                              color: polyJourneyColor(pnl, c.textSecondary),
                               entry: pos.size > 0 && costBasis > 0
                                   ? costBasis / pos.size
                                   : null,
@@ -1121,7 +1127,7 @@ class _ResultOrSellSlot extends StatelessWidget {
           }
           // One height for both, so nothing under it moves.
           return SizedBox(
-            height: 30.h,
+            height: 44.h,
             child: Center(
               child: AnimatedSwitcher(
                 duration: reduceMotion

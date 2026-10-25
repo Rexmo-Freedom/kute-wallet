@@ -6013,14 +6013,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get chartYouHold => 'Possiedi';
 
   @override
-  String get polyPosChanceLive => 'probabilità · live';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'Tu · $percent%';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return 'Se $side arriva a';
   }
@@ -6045,13 +6037,13 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '$change da quando hai comprato';
+  String polyPosSinceBoughtAt(String price) {
+    return 'da quando hai comprato a $price';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return 'Hai comprato · $price';
+  String polyPosYourAvg(String price) {
+    return 'Tua media $price';
   }
 
   @override

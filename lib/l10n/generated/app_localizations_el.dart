@@ -6043,14 +6043,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get chartYouHold => 'Κατέχεις';
 
   @override
-  String get polyPosChanceLive => 'πιθανότητα · ζωντανά';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'Εσύ · $percent%';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return 'Αν το $side φτάσει';
   }
@@ -6075,13 +6067,13 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '$change από την αγορά';
+  String polyPosSinceBoughtAt(String price) {
+    return 'από την αγορά στα $price';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return 'Αγόρασες · $price';
+  String polyPosYourAvg(String price) {
+    return 'Μ.Ο. σου $price';
   }
 
   @override
