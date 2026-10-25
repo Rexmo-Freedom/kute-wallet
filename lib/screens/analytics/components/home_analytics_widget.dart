@@ -1246,6 +1246,9 @@ class _BitcoinBalanceHistory extends ConsumerWidget {
                   '${sats.round().toFormattedString(btcFormat)} $unit',
               scaleLabel: (level, step) =>
                   bitcoinScaleLabel(level, step, btcFormat),
+              // Levels at least a sat apart: a balance of a few sats
+              // reads "5 sats", never "0.5 sats" or "0.0000000001".
+              scaleMinStep: 1,
               // What the balance was worth that day, as the header's
               // fiat line says it for now.
               detailText: (t, sats) =>
@@ -1258,17 +1261,21 @@ class _BitcoinBalanceHistory extends ConsumerWidget {
 }
 
 /// A level of a bitcoin Balance chart's scale ([level] and [step] in
-/// sats), in the app's unit: "10K sats", "0.0001 BTC", "0 sats".
+/// sats), in the app's unit: "10K sats", "5 sats", "0.0001 BTC",
+/// "0 sats". Whole sats only, and BTC to at most 8 decimals, so a level
+/// never reads "0.5 sats" or a float artifact like "0.0000000001".
 String bitcoinScaleLabel(double level, double step, String btcFormat) {
+  final sats = level.round();
   if (btcFormat == 'sats') {
-    return '${NumberFormat.compact(locale: 'en_US').format(level)} sats';
+    return '${NumberFormat.compact(locale: 'en_US').format(sats)} sats';
   }
-  if (level == 0) return '0 BTC';
-  final btcStep = step / 1e8;
+  if (sats == 0) return '0 BTC';
+  final btcStep = math.max(step, 1.0) / 1e8;
+  // A hair over the log so 1e-7 (log10 just under -7) keeps 7 decimals.
   final decimals = btcStep >= 1
       ? 0
-      : (-(math.log(btcStep) / math.ln10).floor()).clamp(0, 8).toInt();
-  return '${(level / 1e8).toStringAsFixed(decimals)} BTC';
+      : (-(math.log(btcStep) / math.ln10 + 1e-9).floor()).clamp(0, 8).toInt();
+  return '${(sats / 1e8).toStringAsFixed(decimals)} BTC';
 }
 
 class _ValueHeader extends StatelessWidget {

@@ -50,6 +50,10 @@ class BalanceHistoryChart extends ConsumerWidget {
   /// the step between levels.
   final String Function(double level, double step) scaleLabel;
 
+  /// The least step between two levels of the scale (one sat for
+  /// bitcoin); null steps freely (dollars down to cents).
+  final double? scaleMinStep;
+
   /// A quiet line under the scrub card's value for the point at [t]
   /// holding [held] (a bitcoin balance's value that day); null for none.
   final String? Function(DateTime t, double held)? detailText;
@@ -66,6 +70,7 @@ class BalanceHistoryChart extends ConsumerWidget {
     required this.format,
     required this.scaleLabel,
     required this.trackingChart,
+    this.scaleMinStep,
     this.detailText,
     this.now,
   });
@@ -123,6 +128,7 @@ class BalanceHistoryChart extends ConsumerWidget {
         // A balance that barely moved reads as barely moving: the scale
         // spans at least a fifth of the balance.
         minScaleShare: 0.2,
+        scaleMinStep: scaleMinStep,
         defaultSpan: defaultSpan,
         minSpan: series.minSpan,
         zoomAroundFingers: true,
