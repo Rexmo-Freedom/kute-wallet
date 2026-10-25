@@ -1492,39 +1492,33 @@ class CryptoPredictBanner extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(width: 8.w),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: brandColor.withValues(alpha: 0.14),
-                    // Squared like the rest of the chip language, not a
-                    // capsule (user decision).
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6.w,
-                        height: 6.w,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF4444),
-                          shape: BoxShape.circle,
-                        ),
+                // Time left as a plain figure, brokerage style: the red
+                // live dot and the clock in the primary text colour, no
+                // tinted chip.
+                Row(
+                  key: const ValueKey('crypto-round-countdown'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6.w,
+                      height: 6.w,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF4444),
+                        shape: BoxShape.circle,
                       ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        countdown,
-                        style: TextStyle(
-                          color: brandColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                    ),
+                    SizedBox(width: 6.w),
+                    Text(
+                      countdown,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -2054,16 +2048,10 @@ class _FiveMinTile extends ConsumerWidget {
             ),
           );
 
-    // Quiet chip: neutral surface + hairline border. The red pulsing dot
-    // stays as the only color (no pastel tint rule).
-    Widget countdownPill() => Container(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            border: Border.all(color: c.borderSubtle, width: 0.5),
-            // Squared like the rest of the chip language (user decision).
-            borderRadius: BorderRadius.circular(10.r),
-          ),
+    // Time left as a plain figure (no chip): the red live dot is the only
+    // colour, the clock in the primary text colour.
+    Widget countdownPill() => Padding(
+          padding: EdgeInsets.symmetric(vertical: 4.h),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
