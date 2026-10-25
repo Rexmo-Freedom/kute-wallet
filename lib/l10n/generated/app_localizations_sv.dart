@@ -5759,6 +5759,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get chartStyleTitle => 'Diagramstil';
 
   @override
+  String get hlAdvancedChart => 'Avancerat diagram';
+
+  @override
   String get chartStyleCandles => 'Ljus';
 
   @override

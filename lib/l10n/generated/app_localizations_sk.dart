@@ -5766,6 +5766,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get chartStyleTitle => 'Štýl grafu';
 
   @override
+  String get hlAdvancedChart => 'Pokročilý graf';
+
+  @override
   String get chartStyleCandles => 'Sviečky';
 
   @override

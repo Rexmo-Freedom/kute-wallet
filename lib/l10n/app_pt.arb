@@ -1783,6 +1783,7 @@
   "chartToolDateRange": "Intervalo de tempo",
   "chartToolDateAndPriceRange": "Intervalo de tempo e preço",
   "chartStyleTitle": "Estilo do gráfico",
+  "hlAdvancedChart": "Gráfico avançado",
   "chartStyleCandles": "Velas",
   "chartStyleHollow": "Velas ocas",
   "chartStyleBars": "Barras",

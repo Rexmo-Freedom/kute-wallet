@@ -5759,6 +5759,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get chartStyleTitle => 'Styl grafu';
 
   @override
+  String get hlAdvancedChart => 'Pokročilý graf';
+
+  @override
   String get chartStyleCandles => 'Svíčky';
 
   @override

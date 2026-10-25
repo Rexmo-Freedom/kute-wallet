@@ -5746,6 +5746,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chartStyleTitle => 'Chart style';
 
   @override
+  String get hlAdvancedChart => 'Advanced chart';
+
+  @override
   String get chartStyleCandles => 'Candles';
 
   @override

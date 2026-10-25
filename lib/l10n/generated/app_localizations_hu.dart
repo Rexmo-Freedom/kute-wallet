@@ -5777,6 +5777,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get chartStyleTitle => 'Diagramstílus';
 
   @override
+  String get hlAdvancedChart => 'Speciális diagram';
+
+  @override
   String get chartStyleCandles => 'Gyertyák';
 
   @override

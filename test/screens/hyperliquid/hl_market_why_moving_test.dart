@@ -1,6 +1,8 @@
 // "Why is it moving?" sits under the chart on every Investing market
 // screen: a calm perp, a calm HIP-3 perp and a spot token all carry it
 // (founder, 2026-10-25). Before, a 3 % gate left most perps without it.
+// Under it, the "Advanced chart" row (which replaced the pencil in the
+// interval row) and then About.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,6 +151,35 @@ void main() {
       expect(row.question!.template, 'hl.moving_today');
       expect(row.question!.text, 'Why is ${m.coin} moving today?');
       expect(row.advisorContext.marketId, m.wireCoin);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('${m.coin}: Why is it moving?, then Advanced chart, then '
+        'About; no pencil in the interval row; the row opens the editor',
+        (tester) async {
+      await _pump(tester, m);
+      final why = find.byKey(const ValueKey('sal-why-moving-row'));
+      final advanced = find.byKey(const ValueKey('hl-advanced-chart'));
+      final about = find.byWidgetPredicate(
+          (w) => w is Text && (w.data ?? '').startsWith('About '));
+      expect(advanced, findsOneWidget);
+      expect(find.text('Advanced chart'), findsOneWidget);
+      expect(about, findsOneWidget);
+      expect(tester.getTopLeft(why).dy,
+          lessThan(tester.getTopLeft(advanced).dy));
+      expect(tester.getTopLeft(advanced).dy,
+          lessThan(tester.getTopLeft(about).dy));
+      expect(find.byTooltip('Advanced'), findsNothing);
+      expect(find.byIcon(Icons.draw_rounded), findsNothing);
+      expect(find.byType(HlChartEditBody), findsNothing);
+
+      await tester.tap(advanced);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(HlChartEditBody), findsOneWidget);
+      expect(advanced, findsNothing);
+      expect(find.text('Done'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 1));
     });

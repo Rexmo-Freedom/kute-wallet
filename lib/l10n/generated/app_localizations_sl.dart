@@ -5774,6 +5774,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get chartStyleTitle => 'Slog grafa';
 
   @override
+  String get hlAdvancedChart => 'Napredni graf';
+
+  @override
   String get chartStyleCandles => 'Sveče';
 
   @override

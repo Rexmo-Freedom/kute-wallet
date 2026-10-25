@@ -5790,6 +5790,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get chartStyleTitle => 'Grafiko stilius';
 
   @override
+  String get hlAdvancedChart => 'Išplėstinis grafikas';
+
+  @override
   String get chartStyleCandles => 'Žvakės';
 
   @override

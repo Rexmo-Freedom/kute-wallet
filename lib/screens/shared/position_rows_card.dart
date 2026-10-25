@@ -281,6 +281,10 @@ class PositionLinkRow extends StatelessWidget {
   final String? value;
   final VoidCallback onTap;
 
+  /// An optional glyph before the label (the chart screens' "Advanced
+  /// chart" row).
+  final IconData? icon;
+
   /// No hairline over it (the first row inside a card).
   final bool divider;
 
@@ -289,6 +293,7 @@ class PositionLinkRow extends StatelessWidget {
     required this.label,
     this.value,
     required this.onTap,
+    this.icon,
     this.divider = true,
   });
 
@@ -311,6 +316,10 @@ class PositionLinkRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              if (icon != null) ...[
+                Icon(icon, color: c.textSecondary, size: 20.sp),
+                SizedBox(width: 10.w),
+              ],
               Expanded(
                 child: Text(
                   label,
