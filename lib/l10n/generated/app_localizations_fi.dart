@@ -11006,4 +11006,53 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Saldot';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Käytettävissä heti';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'Positioissa';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positiossa',
+      one: '1 positiossa',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ennusteessa',
+      one: '1 ennusteessa',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positiota',
+      one: '1 positio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares osuutta · keskim. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'avaus $price';
+  }
 }

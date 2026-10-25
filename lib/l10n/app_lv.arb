@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Lai to pārvietotu, izmanto maku, piemēram, MetaMask, ar to pašu atkopšanas frāzi.",
   "cctpRefundContactSupport": "Lai to pārvietotu, sazinies ar atbalstu.",
   "portfolioSectionPnlCharts": "P&L grafiki",
-  "portfolioSectionBalances": "Atlikumi"
+  "portfolioSectionBalances": "Atlikumi",
+  "portfolioBalanceReadyToUse": "Gatavs lietošanai",
+  "portfolioBalanceInPositionsLabel": "Pozīcijās",
+  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 pozīcijā} other{{count} pozīcijās}}",
+  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 prognozē} other{{count} prognozēs}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 pozīcija} other{{count} pozīcijas}}",
+  "portfolioRowShares": "{shares} daļas · vid. {price}",
+  "portfolioRowEntry": "ieeja {price}"
 }

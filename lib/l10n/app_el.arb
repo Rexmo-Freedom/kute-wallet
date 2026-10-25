@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Για να τα μετακινήσεις, χρησιμοποίησε ένα πορτοφόλι όπως το MetaMask με την ίδια φράση ανάκτησης.",
   "cctpRefundContactSupport": "Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.",
   "portfolioSectionPnlCharts": "Γραφήματα P&L",
-  "portfolioSectionBalances": "Υπόλοιπα"
+  "portfolioSectionBalances": "Υπόλοιπα",
+  "portfolioBalanceReadyToUse": "Έτοιμα για χρήση",
+  "portfolioBalanceInPositionsLabel": "Σε θέσεις",
+  "portfolioBalanceInPositions": "{amount} σε {count, plural, =1{1 θέση} other{{count} θέσεις}}",
+  "portfolioBalanceInPredictions": "{amount} σε {count, plural, =1{1 πρόβλεψη} other{{count} προβλέψεις}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 θέση} other{{count} θέσεις}}",
+  "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
+  "portfolioRowEntry": "είσοδος {price}"
 }

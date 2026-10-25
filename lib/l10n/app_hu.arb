@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Az áthelyezéséhez használj egy MetaMaskhoz hasonló tárcát ugyanazzal a helyreállítási kifejezéssel.",
   "cctpRefundContactSupport": "Az áthelyezéséhez fordulj az ügyfélszolgálathoz.",
   "portfolioSectionPnlCharts": "P&L grafikonok",
-  "portfolioSectionBalances": "Egyenlegek"
+  "portfolioSectionBalances": "Egyenlegek",
+  "portfolioBalanceReadyToUse": "Azonnal felhasználható",
+  "portfolioBalanceInPositionsLabel": "Pozíciókban",
+  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 pozícióban} other{{count} pozícióban}}",
+  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 előrejelzésben} other{{count} előrejelzésben}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 pozíció} other{{count} pozíció}}",
+  "portfolioRowShares": "{shares} egység · átl. {price}",
+  "portfolioRowEntry": "belépés {price}"
 }

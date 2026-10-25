@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Um es zu bewegen, nutze eine Wallet wie MetaMask mit derselben Wiederherstellungsphrase.",
   "cctpRefundContactSupport": "Um es zu bewegen, kontaktiere den Support.",
   "portfolioSectionPnlCharts": "GuV-Charts",
-  "portfolioSectionBalances": "Guthaben"
+  "portfolioSectionBalances": "Guthaben",
+  "portfolioBalanceReadyToUse": "Sofort nutzbar",
+  "portfolioBalanceInPositionsLabel": "In Positionen",
+  "portfolioBalanceInPositions": "{amount} in {count, plural, =1{1 Position} other{{count} Positionen}}",
+  "portfolioBalanceInPredictions": "{amount} in {count, plural, =1{1 Prognose} other{{count} Prognosen}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 Position} other{{count} Positionen}}",
+  "portfolioRowShares": "{shares} Anteile · Ø {price}",
+  "portfolioRowEntry": "Einstieg {price}"
 }

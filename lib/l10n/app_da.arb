@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Brug en wallet som MetaMask med den samme gendannelsesfrase for at flytte dem.",
   "cctpRefundContactSupport": "Kontakt support for at flytte dem.",
   "portfolioSectionPnlCharts": "P&L-grafer",
-  "portfolioSectionBalances": "Saldi"
+  "portfolioSectionBalances": "Saldi",
+  "portfolioBalanceReadyToUse": "Klar til brug",
+  "portfolioBalanceInPositionsLabel": "I positioner",
+  "portfolioBalanceInPositions": "{amount} i {count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioBalanceInPredictions": "{amount} i {count, plural, =1{1 forudsigelse} other{{count} forudsigelser}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioRowShares": "{shares} andele · gns. {price}",
+  "portfolioRowEntry": "indgang {price}"
 }

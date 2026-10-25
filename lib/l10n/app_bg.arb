@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "За да го преместиш, използвай портфейл като MetaMask със същата фраза за възстановяване.",
   "cctpRefundContactSupport": "За да го преместиш, свържи се с поддръжката.",
   "portfolioSectionPnlCharts": "Графики P&L",
-  "portfolioSectionBalances": "Баланси"
+  "portfolioSectionBalances": "Баланси",
+  "portfolioBalanceReadyToUse": "Готови за ползване",
+  "portfolioBalanceInPositionsLabel": "В позиции",
+  "portfolioBalanceInPositions": "{amount} в {count, plural, =1{1 позиция} other{{count} позиции}}",
+  "portfolioBalanceInPredictions": "{amount} в {count, plural, =1{1 прогноза} other{{count} прогнози}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 позиция} other{{count} позиции}}",
+  "portfolioRowShares": "{shares} дяла · ср. {price}",
+  "portfolioRowEntry": "вход {price}"
 }

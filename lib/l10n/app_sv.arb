@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Använd en plånbok som MetaMask med samma återställningsfras för att flytta dem.",
   "cctpRefundContactSupport": "Kontakta supporten för att flytta dem.",
   "portfolioSectionPnlCharts": "P&L-diagram",
-  "portfolioSectionBalances": "Saldon"
+  "portfolioSectionBalances": "Saldon",
+  "portfolioBalanceReadyToUse": "Klart att använda",
+  "portfolioBalanceInPositionsLabel": "I positioner",
+  "portfolioBalanceInPositions": "{amount} i {count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioBalanceInPredictions": "{amount} i {count, plural, =1{1 prognos} other{{count} prognoser}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioRowShares": "{shares} andelar · snitt {price}",
+  "portfolioRowEntry": "ingång {price}"
 }

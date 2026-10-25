@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Da ga premjestiš, koristi novčanik poput MetaMaska s istom frazom za oporavak.",
   "cctpRefundContactSupport": "Da ga premjestiš, javi se podršci.",
   "portfolioSectionPnlCharts": "Grafikoni P&L",
-  "portfolioSectionBalances": "Stanja"
+  "portfolioSectionBalances": "Stanja",
+  "portfolioBalanceReadyToUse": "Spremno za korištenje",
+  "portfolioBalanceInPositionsLabel": "U pozicijama",
+  "portfolioBalanceInPositions": "{amount} u {count, plural, one{{count} poziciji} few{{count} pozicija} other{{count} pozicija}}",
+  "portfolioBalanceInPredictions": "{amount} u {count, plural, one{{count} predviđanju} few{{count} predviđanja} other{{count} predviđanja}}",
+  "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicije} other{{count} pozicija}}",
+  "portfolioRowShares": "{shares} udjela · prosj. {price}",
+  "portfolioRowEntry": "ulaz {price}"
 }

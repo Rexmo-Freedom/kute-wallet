@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Gebruik een wallet zoals MetaMask met dezelfde herstelzin om het te verplaatsen.",
   "cctpRefundContactSupport": "Neem contact op met support om het te verplaatsen.",
   "portfolioSectionPnlCharts": "W&V-grafieken",
-  "portfolioSectionBalances": "Saldi"
+  "portfolioSectionBalances": "Saldi",
+  "portfolioBalanceReadyToUse": "Direct te gebruiken",
+  "portfolioBalanceInPositionsLabel": "In posities",
+  "portfolioBalanceInPositions": "{amount} in {count, plural, =1{1 positie} other{{count} posities}}",
+  "portfolioBalanceInPredictions": "{amount} in {count, plural, =1{1 voorspelling} other{{count} voorspellingen}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 positie} other{{count} posities}}",
+  "portfolioRowShares": "{shares} aandelen · gem. {price}",
+  "portfolioRowEntry": "instap {price}"
 }

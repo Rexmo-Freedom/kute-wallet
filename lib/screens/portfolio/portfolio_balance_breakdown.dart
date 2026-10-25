@@ -23,6 +23,12 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart'
 import 'package:kute/providers/investment_balances_provider.dart'
     show polymarketInvestmentBalances, hyperliquidInvestmentBalances;
 import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show
+        polymarketActivePositionsProvider,
+        polymarketClaimablePositionsProvider;
+import 'package:kute/providers/polymarket_combos_provider.dart'
+    show polymarketCombosProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/providers/portfolio_rebalance_provider.dart';
@@ -32,7 +38,7 @@ import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
-import 'package:kute/screens/portfolio/components/balances_ring.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -353,15 +359,16 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     super.key,
     required this.trading,
     required this.predictions,
-    this.ring = false,
+    this.overview = false,
   });
 
   final bool trading;
   final bool predictions;
 
-  /// The Balances tab's layout: the allocation ring over one row per
-  /// balance ([BalancesRingView]) instead of the row of tiles.
-  final bool ring;
+  /// The Balances tab's layout: the total, its bar, Ready to use and In
+  /// positions over one plain row per balance ([BalancesOverview])
+  /// instead of the row of tiles.
+  final bool overview;
 
   @override
   ConsumerState<PortfolioBalanceBreakdown> createState() =>
@@ -586,63 +593,86 @@ class _PortfolioBalanceBreakdownState
               stale: (refresh && _refreshing) || !known, usd: value);
     }
 
-    // The Balances tab: the same figures, notes and bands around the ring
-    // and its rows.
-    Widget ringView() {
-      BalancesRingFigure ringFigure(_Figure f) =>
-          BalancesRingFigure(f.text, stale: f.stale, usd: f.usd);
-      return BalancesRingView(
-        visible: visible,
+    // How many positions each venue holds (the Positions list's rows),
+    // for its row's line on the Balances tab.
+    final int investingCount = widget.overview && widget.trading
+        ? ref.watch(hyperliquidDisplayTradingProvider.select<int>((s) {
+            final hl = s.valueOrNull;
+            if (hl == null) return 0;
+            return hl.positions.length +
+                hl.spotBalances
+                    .where((b) => b.coin != 'USDC' && b.total > 0)
+                    .length;
+          }))
+        : 0;
+    final int predictionsCount = widget.overview && widget.predictions
+        ? ref.watch(polymarketActivePositionsProvider).length +
+            ref.watch(polymarketClaimablePositionsProvider).length +
+            ref.watch(polymarketCombosProvider.select<int>((s) {
+              final combos = s.valueOrNull;
+              return combos == null
+                  ? 0
+                  : combos.open.length + combos.claimable.length;
+            }))
+        : 0;
+
+    // The Balances tab: the same figures, notes and bands around the
+    // total and its rows.
+    Widget overviewView() {
+      BalancesFigure figureOf(_Figure f) =>
+          BalancesFigure(f.text, stale: f.stale, usd: f.usd);
+      return BalancesOverview(
         money: amount,
         wrap: (part, row) => switch (part) {
-          BalancesRingPart.dollars => _ArrivalCatch(
+          BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
               arrivals: _arrivals,
               child: row),
-          BalancesRingPart.investing => band(OneBalanceVenue.investing, row),
-          BalancesRingPart.predictions =>
-            band(OneBalanceVenue.predictions, row),
+          BalancesPart.investing => band(OneBalanceVenue.investing, row),
+          BalancesPart.predictions => band(OneBalanceVenue.predictions, row),
         },
         entries: [
-          BalancesRingEntry(
-            part: BalancesRingPart.dollars,
+          BalancesEntry(
+            part: BalancesPart.dollars,
             asset: kUsdMarkAsset,
             name: l10n.portfolioBalanceDollars,
-            cash: ringFigure(venueFigure('dollars', dollars,
+            cash: figureOf(venueFigure('dollars', dollars,
                 refresh: false,
                 known: balance.dollarsKnown &&
                     !ref.watch(usdBalanceUnknownProvider))),
           ),
           if (widget.trading)
-            BalancesRingEntry(
-              part: BalancesRingPart.investing,
+            BalancesEntry(
+              part: BalancesPart.investing,
               asset: venueMarkAsset(InvestmentsProduct.trading),
               name: l10n.trading,
-              cash: ringFigure(venueFigure('investing_cash', investing,
+              cash: figureOf(venueFigure('investing_cash', investing,
                   known: balance.investingKnown,
                   fallback: cachedHl?.available)),
-              positions: ringFigure(venueFigure('investing_positions',
+              positions: figureOf(venueFigure('investing_positions',
                   breakdownVenuePositions(balance, OneBalanceVenue.investing),
                   known: balance.investingKnown,
                   fallback: cachedHl?.portfolio)),
+              positionCount: investingCount,
               footer: [
                 if (note(OneBalanceVenue.investing) case final line?) line,
               ],
             ),
           if (widget.predictions)
-            BalancesRingEntry(
-              part: BalancesRingPart.predictions,
+            BalancesEntry(
+              part: BalancesPart.predictions,
               asset: venueMarkAsset(InvestmentsProduct.predictions),
               name: l10n.predictions,
-              cash: ringFigure(venueFigure('predictions_cash', predictionsCash,
+              cash: figureOf(venueFigure('predictions_cash', predictionsCash,
                   known: balance.predictionsKnown)),
-              positions: ringFigure(venueFigure('predictions_positions',
+              positions: figureOf(venueFigure('predictions_positions',
                   breakdownVenuePositions(balance, OneBalanceVenue.predictions),
                   known: balance.predictionsKnown)),
-              reserved: reserved >= kSweepDustUsd
-                  ? l10n.investingInOpenOrders(amount(reserved))
-                  : null,
+              positionCount: predictionsCount,
               footer: [
+                // With nothing held the line itself says "in open orders".
+                if (reserved >= kSweepDustUsd && predictionsCount > 0)
+                  l10n.investingInOpenOrders(amount(reserved)),
                 if (note(OneBalanceVenue.predictions) case final line?) line,
               ],
             ),
@@ -655,8 +685,8 @@ class _PortfolioBalanceBreakdownState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.ring)
-          ringView()
+        if (widget.overview)
+          overviewView()
         else
           PortfolioTileRow(
             key: const ValueKey('portfolio-balance-row'),

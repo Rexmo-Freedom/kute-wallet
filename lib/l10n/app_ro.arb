@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Ca să îi muți, folosește un portofel precum MetaMask cu aceeași frază de recuperare.",
   "cctpRefundContactSupport": "Ca să îi muți, contactează suportul.",
   "portfolioSectionPnlCharts": "Grafice P&L",
-  "portfolioSectionBalances": "Solduri"
+  "portfolioSectionBalances": "Solduri",
+  "portfolioBalanceReadyToUse": "Gata de folosit",
+  "portfolioBalanceInPositionsLabel": "În poziții",
+  "portfolioBalanceInPositions": "{amount} în {count, plural, =1{1 poziție} few{{count} poziții} other{{count} de poziții}}",
+  "portfolioBalanceInPredictions": "{amount} în {count, plural, =1{1 predicție} few{{count} predicții} other{{count} de predicții}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 poziție} few{{count} poziții} other{{count} de poziții}}",
+  "portfolioRowShares": "{shares} unități · medie {price}",
+  "portfolioRowEntry": "intrare {price}"
 }

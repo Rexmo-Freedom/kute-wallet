@@ -11024,4 +11024,59 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Stanja';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Pripravljeno za uporabo';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'V pozicijah';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicijah',
+      few: '$count pozicijah',
+      two: '$count pozicijah',
+      one: '$count poziciji',
+    );
+    return '$amount v $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count napovedih',
+      few: '$count napovedih',
+      two: '$count napovedih',
+      one: '$count napovedi',
+    );
+    return '$amount v $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicij',
+      few: '$count pozicije',
+      two: '$count poziciji',
+      one: '$count pozicija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return 'Deleži: $shares · povpr. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'vstop $price';
+  }
 }

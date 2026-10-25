@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Selle liigutamiseks kasuta rahakotti nagu MetaMask sama taastefraasiga.",
   "cctpRefundContactSupport": "Selle liigutamiseks võta ühendust toega.",
   "portfolioSectionPnlCharts": "P&L graafikud",
-  "portfolioSectionBalances": "Saldod"
+  "portfolioSectionBalances": "Saldod",
+  "portfolioBalanceReadyToUse": "Kasutamiseks valmis",
+  "portfolioBalanceInPositionsLabel": "Positsioonides",
+  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 positsioonis} other{{count} positsioonis}}",
+  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 ennustuses} other{{count} ennustuses}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
+  "portfolioRowShares": "{shares} osakut · kesk. {price}",
+  "portfolioRowEntry": "sisenemine {price}"
 }

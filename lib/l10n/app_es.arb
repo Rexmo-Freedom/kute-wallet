@@ -3067,5 +3067,12 @@
   "cctpRefundMoveWithWallet": "Para moverlo, usa una billetera como MetaMask con la misma frase de recuperación.",
   "cctpRefundContactSupport": "Para moverlo, contacta con soporte.",
   "portfolioSectionPnlCharts": "Gráficos de P&L",
-  "portfolioSectionBalances": "Saldos"
+  "portfolioSectionBalances": "Saldos",
+  "portfolioBalanceReadyToUse": "Listo para usar",
+  "portfolioBalanceInPositionsLabel": "En posiciones",
+  "portfolioBalanceInPositions": "{amount} en {count, plural, =1{1 posición} other{{count} posiciones}}",
+  "portfolioBalanceInPredictions": "{amount} en {count, plural, =1{1 predicción} other{{count} predicciones}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 posición} other{{count} posiciones}}",
+  "portfolioRowShares": "{shares} participaciones · media {price}",
+  "portfolioRowEntry": "entrada {price}"
 }

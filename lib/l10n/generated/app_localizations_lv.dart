@@ -10963,4 +10963,53 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Atlikumi';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Gatavs lietošanai';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'Pozīcijās';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozīcijās',
+      one: '1 pozīcijā',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count prognozēs',
+      one: '1 prognozē',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozīcijas',
+      one: '1 pozīcija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares daļas · vid. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'ieeja $price';
+  }
 }
