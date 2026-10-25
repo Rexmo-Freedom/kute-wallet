@@ -53,7 +53,9 @@ import 'package:kute/services/one_balance/sweep_rules.dart'
     show SweepSkipReason;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
-import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
+import 'package:kute/services/polymarket/pending_fills.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
+    show Order, Position;
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/portfolio_overrides.dart';
@@ -1409,6 +1411,116 @@ void main() {
       expect(sum.inPositions, moreOrLessEquals(13.82));
       expect(sum.total, moreOrLessEquals(23.89));
       expect(balancesPositionCount(entries), 5);
+    });
+
+    test(
+        'Predictions\' Invested: its predictions apart from what open orders '
+        'reserve, the two adding up to it', () {
+      const state = OneBalanceState(
+        investedUsd: 17.39,
+        investedByVenue: {OneBalanceVenue.predictions: 17.39},
+        predictionsKnown: true,
+      );
+      final split = breakdownPredictionsSplit(state, reserved: 0.22);
+      expect(split.held, moreOrLessEquals(17.17));
+      expect(split.reserved, moreOrLessEquals(0.22));
+      expect(split.held + split.reserved, moreOrLessEquals(17.39));
+      // No order: everything is predictions.
+      expect(breakdownPredictionsSplit(state, reserved: 0).held,
+          moreOrLessEquals(17.39));
+      // A reserve the read has not counted yet never goes negative.
+      final over = breakdownPredictionsSplit(state, reserved: 40);
+      expect(over.held, 0);
+      expect(over.reserved, moreOrLessEquals(17.39));
+      expect(breakdownPredictionsSplit(state, reserved: double.nan).reserved,
+          0);
+    });
+
+    test(
+        'a bet matched a moment ago counts as a prediction beside its value, '
+        'once, until the positions read lists it', () {
+      Position listed(String asset) => Position(
+            proxyWallet: '0xw',
+            asset: asset,
+            conditionId: 'c-$asset',
+            size: 10,
+            avgPrice: 0.5,
+            initialValue: 5,
+            currentValue: 5,
+            cashPnl: 0,
+            percentPnl: 0,
+            totalBought: 5,
+            realizedPnl: 0,
+            percentRealizedPnl: 0,
+            curPrice: 0.5,
+            redeemable: false,
+            title: 'Q $asset',
+            slug: 's-$asset',
+            eventSlug: 'e-$asset',
+            outcome: 'Yes',
+            outcomeIndex: 0,
+            oppositeOutcome: 'No',
+            oppositeAsset: 'o-$asset',
+          );
+      PolymarketPendingFill fill(String token, {bool indexed = false}) =>
+          PolymarketPendingFill(
+            key: 'k-$token-$indexed',
+            tokenId: token,
+            shares: 10,
+            price: 0.5,
+            costUsd: 5,
+            expectedShares: 10,
+            cashBeforeUsd: 20,
+            at: DateTime(2026, 10, 25),
+            indexed: indexed,
+          );
+      // One listed, one just matched (not listed), one matched and already
+      // listed, one indexed: two predictions.
+      final pm = PolymarketTradingState(
+        isAuthenticated: true,
+        openPositions: [listed('a')],
+        pendingFills: [fill('b'), fill('a'), fill('c', indexed: true)],
+      );
+      expect(breakdownPredictionsCount(pm, listed: 1), 2);
+      // Two fills of the same outcome: one prediction.
+      final twice = PolymarketTradingState(
+          isAuthenticated: true,
+          pendingFills: [fill('b'), fill('b', indexed: false)]);
+      expect(breakdownPredictionsCount(twice, listed: 0), 1);
+      expect(breakdownPredictionsCount(null, listed: 3), 3);
+    });
+
+    test(
+        'an open order\'s reserve: in the account\'s total and in positions '
+        '(the header\'s Invested), never ready to use', () {
+      final entries = [
+        entry(BalancesPart.dollars, 0),
+        entry(BalancesPart.investing, 17.21, 0),
+        BalancesEntry(
+          part: BalancesPart.predictions,
+          asset: '',
+          name: 'predictions',
+          cash: const BalancesFigure(r'$0.43', usd: 0.43),
+          positions: const BalancesFigure(r'$17.17', usd: 17.17),
+          reservedUsd: 0.22,
+          positionCount: 2,
+        ),
+      ];
+      final sum = balancesSummary(entries);
+      expect(sum.ready, moreOrLessEquals(17.64));
+      expect(sum.inPositions, moreOrLessEquals(17.39));
+      expect(sum.total, moreOrLessEquals(35.03));
+      expect(entries[2].totalUsd, moreOrLessEquals(17.82));
+      // Unknown positions: the reserve is not counted on its own.
+      const unknown = BalancesEntry(
+          part: BalancesPart.predictions,
+          asset: '',
+          name: 'predictions',
+          cash: BalancesFigure(r'$0.43', usd: 0.43),
+          positions: BalancesFigure('—'),
+          reservedUsd: 0.22);
+      expect(unknown.totalUsd, moreOrLessEquals(0.43));
+      expect(balancesSummary([unknown]).inPositions, isNull);
     });
 
     testWidgets(

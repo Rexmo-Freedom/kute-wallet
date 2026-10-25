@@ -78,6 +78,7 @@ class BalancesEntry {
     required this.cash,
     this.positions,
     this.positionCount = 0,
+    this.reservedUsd = 0,
     this.footer = const [],
   });
 
@@ -93,6 +94,11 @@ class BalancesEntry {
   /// holds: the In positions row counts them together.
   final int positionCount;
 
+  /// Cash its open orders reserve: neither ready to use nor a position
+  /// (a prediction not yet bought). Part of the account's money at work,
+  /// with [positions], and of its total; known whenever [positions] is.
+  final double reservedUsd;
+
   /// Quiet captions under the name: a Rebalance note, what open orders
   /// reserve.
   final List<String> footer;
@@ -106,7 +112,14 @@ class BalancesEntry {
 
   double get cashUsd => _clean(cash.usd);
   double get positionsUsd => _clean(positions?.usd);
-  double get totalUsd => cashUsd + positionsUsd;
+
+  /// What open orders reserve, counted only while [positions] is known.
+  double get reservedCashUsd => positions?.usd == null ? 0 : _clean(reservedUsd);
+
+  /// Positions and the reserve together: the account's money at work (its
+  /// share of the header's Invested).
+  double get atWorkUsd => positionsUsd + reservedCashUsd;
+  double get totalUsd => cashUsd + atWorkUsd;
 
   bool get stale => cash.stale || (positions?.stale ?? false);
 }
@@ -127,7 +140,7 @@ BalancesSegment _segmentOf(BalancesPart part) => switch (part) {
 List<(BalancesSegment, double)> balancesBarSegments(
     List<BalancesEntry> entries) {
   if (entries.any((e) => !e.known)) return const [];
-  final positions = entries.fold<double>(0, (sum, e) => sum + e.positionsUsd);
+  final positions = entries.fold<double>(0, (sum, e) => sum + e.atWorkUsd);
   final parts = <(BalancesSegment, double)>[
     for (final e in entries) (_segmentOf(e.part), e.cashUsd),
     (BalancesSegment.positions, positions),
@@ -162,10 +175,11 @@ Map<BalancesSegment, Color> balancesBarColors(
       : null;
   final held = [
     for (final e in entries)
-      if (e.positions case final p?) p,
+      if (e.positions != null) e,
   ];
-  final inPositions = held.every((p) => p.usd != null)
-      ? held.fold<double>(0, (s, p) => s + _clean(p.usd))
+  // Positions and what open orders reserve: the header's Invested.
+  final inPositions = held.every((e) => e.positions!.usd != null)
+      ? held.fold<double>(0, (s, e) => s + e.atWorkUsd)
       : null;
   return (
     total: ready != null && inPositions != null ? ready + inPositions : null,
