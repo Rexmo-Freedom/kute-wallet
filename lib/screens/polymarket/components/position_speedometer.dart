@@ -5,21 +5,16 @@
 // price, not settled). A settled position keeps the chance bar
 // (position_chance_bar.dart).
 //
-// What it draws, the same for every market (Yes / No, Up / Down, a
-// candidate, a team):
-//   * a thin track, tinted soft green above the price paid and soft red
-//     below it (the app's up / down colours at a low alpha); neutral when
-//     the price paid is unknown. No outcome colours on the dial;
-//   * ticks every 5% (longer every 10%) inside the track, the figures
-//     0 / 25 / 50 / 75 / 100 inside those, in the tertiary text colour;
-//   * a short bold tick across the track at the price paid, "You · 19%"
-//     beside it, just outside the arc (polyChanceGaugeGeometry places it);
-//   * a needle from the centre hub, both in the primary text colour, the
-//     hub with an inner dot;
-//   * the live chance, large, above the hub, "chance · live" under it,
-//     on a plate of the screen's background over the needle, so the
-//     needle passes behind the figures.
-//
+// What it draws, calm and the same for every market (Yes / No, Up /
+// Down, a candidate, a team):
+//   * a thin neutral track with round ends, three small ticks at 0, 50
+//     and 100, no figures, no zones;
+//   * the price paid as a small filled dot on the track;
+//   * a thin needle from a small solid hub, both in the primary text
+//     colour, short enough that its tip always stops below the chance;
+//   * the live chance, large, in the upper middle of the dial, so the
+//     needle never crosses its digits.
+
 // The needle is a car's tachometer needle: its angle is a spring
 // ([kPolyNeedleSpring], slightly under-damped), so it accelerates,
 // overshoots by a few percent of the move and settles. A new live price
@@ -40,9 +35,10 @@
 // Drag to explore: a finger on the dial (pan anywhere on it; a touch on
 // the needle or the hub grabs it at once, elsewhere a sideways drag wins
 // over the page's scroll) sets a hypothetical chance, whole percents. The
-// centre reads "If No reaches" over that chance, a selection tick every
-// 5% crossed (at most one per [kPolyNeedleTickGap]); [onExploreStart] / [onExplore] / [onExploreEnd] let the
-// screen show what the position would be worth. On release the needle
+// chance reads that value with "If No reaches" over it, a selection tick
+// every 5% crossed (at most one per [kPolyNeedleTickGap]);
+// [onExploreStart] / [onExplore] / [onExploreEnd] let the screen show what
+// the position would be worth. On release the needle
 // springs back to the live chance. Nothing here is logged; the screen
 // logs the what-if once it is over.
 
@@ -58,6 +54,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/polymarket/components/market_chart.dart'
+    show formatPolyBoughtCents;
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyChanceFigure;
 import 'package:kute/screens/shared/rolling_number_text.dart';
@@ -215,27 +213,8 @@ class PolyNeedleMotion {
   }
 }
 
-/// The track's zones, from the left: soft red below the price paid, soft
-/// green above it (the app's down and up colours at a low alpha). One
-/// neutral zone when the price paid is unknown.
-List<({double from, double to, Color color})> polySpeedometerZones({
-  required double? entry,
-  required Color neutral,
-  required bool dark,
-}) {
-  final alpha = dark ? 0.42 : 0.34;
-  final e = entry;
-  if (e == null || !(e > 0) || e >= 1) {
-    return [(from: 0.0, to: 1.0, color: neutral)];
-  }
-  return [
-    (from: 0.0, to: e, color: AppColors.marketDown.withValues(alpha: alpha)),
-    (from: e, to: 1.0, color: AppColors.marketUp.withValues(alpha: alpha)),
-  ];
-}
-
 /// Where everything of the dial sits, in the dial's own box.
-typedef PolyChanceGaugeGeometry = ({
+typedef PolySpeedometerGeometry = ({
   Size size,
   Offset center,
 
@@ -243,88 +222,32 @@ typedef PolyChanceGaugeGeometry = ({
   double radius,
   double stroke,
 
-  /// The entry tick's two ends, from the centre.
-  double tickInner,
-  double tickOuter,
-
-  /// The entry tick's angle (canvas radians); null without one.
-  double? tickAngle,
-
-  /// The "You · 19%" tag; null without a tick or a tag.
-  Rect? labelRect,
+  /// The needle's length, from the hub's centre.
+  double needle,
 });
 
-/// How high (sin of the angle) a tick still counts as at an end of the
-/// arc: the first and last 10% of it.
-final double _endBand = math.sin(math.pi * 0.1) + 1e-9;
+/// The track's width, the hub's and the entry dot's radius.
+const double kPolySpeedometerStroke = 4;
+const double kPolySpeedometerHub = 5;
+const double kPolySpeedometerEntryDot = 4;
 
-/// Lays the dial out across [width]: a track of [outerRadius] and
-/// [stroke], centred; the entry tick ([tick], 0 to 1 from the left)
-/// running [overhang] past both edges of the track; the tag of [tag] size
-/// pushed out from the tick's outer end by [gap], along the tick; and
-/// [belowCenter] of room under the centre line (the hub). The box is as
-/// tall as all of that, and no taller.
-PolyChanceGaugeGeometry polyChanceGaugeGeometry({
-  required double width,
-  required double outerRadius,
-  required double stroke,
-  double overhang = 3,
-  double gap = 2,
-  double belowCenter = 0,
-  double? tick,
-  Size? tag,
-}) {
-  final radius = outerRadius - stroke / 2;
-  final tickOuter = outerRadius + overhang;
-  final tickInner = math.max(0.0, outerRadius - stroke - overhang);
-  final tickAngle = tick == null ? null : polyGaugeAngle(tick);
-
-  // Laid out about the centre first, then moved into the box.
-  var top = -(tick == null ? outerRadius : tickOuter);
-  var bottom = math.max(stroke / 2, belowCenter);
-  Rect? label;
-  if (tickAngle != null && tag != null) {
-    final u = Offset(math.cos(tickAngle), math.sin(tickAngle));
-    // The tag's nearest side touches a point just past the tick's end,
-    // straight out from the centre: clear of the arc and the tick.
-    final reach = tickOuter + gap;
-    final push = tag.width / 2 * u.dx.abs() + tag.height / 2 * u.dy.abs();
-    var c = u * (reach + push);
-    final lowest = bottom - tag.height / 2;
-    if (c.dy > lowest) c = Offset(c.dx, lowest);
-    final half = width / 2;
-    final minX = -half + tag.width / 2;
-    final maxX = math.max(minX, half - tag.width / 2);
-    var dx = c.dx.clamp(minX, maxX).toDouble();
-    var dy = c.dy;
-    if ((dx - c.dx).abs() > 0.5) {
-      if (u.dy.abs() <= _endBand) {
-        // Near an end: under the arc's end, just below the hub's line.
-        dx = (u.dx.sign * radius).clamp(minX, maxX).toDouble();
-        dy = math.max(stroke / 2, belowCenter) + gap + tag.height / 2;
-      } else {
-        // Higher up: lifted only as far as clears the arc and the tick.
-        final near = math.max(0.0, dx.abs() - tag.width / 2);
-        final clear =
-            near >= reach ? 0.0 : math.sqrt(reach * reach - near * near);
-        dy = math.min(dy, -(clear + tag.height / 2));
-      }
-    }
-    label = Rect.fromCenter(
-        center: Offset(dx, dy), width: tag.width, height: tag.height);
-    top = math.min(top, label.top);
-    bottom = math.max(bottom, label.bottom);
-  }
-  final center = Offset(width / 2, -top);
+/// Lays the dial out across [width]: the track as wide as it allows
+/// (capped on tablets), room above it for the entry dot and below the
+/// centre line for the hub; the needle under half the track's radius, so
+/// the chance above it is never crossed.
+PolySpeedometerGeometry polySpeedometerGeometry(double width) {
+  const margin = kPolySpeedometerEntryDot + 2;
+  final outer =
+      (width / 2 - margin).clamp(math.min(60.0, width / 4), 190.0).toDouble();
+  final radius = outer - kPolySpeedometerStroke / 2;
+  final top = outer + margin - kPolySpeedometerStroke / 2;
+  const below = kPolySpeedometerHub + 1;
   return (
-    size: Size(width, bottom - top),
-    center: center,
+    size: Size(width, top + below),
+    center: Offset(width / 2, top),
     radius: radius,
-    stroke: stroke,
-    tickInner: tickInner,
-    tickOuter: tickOuter,
-    tickAngle: tickAngle,
-    labelRect: label?.shift(center),
+    stroke: kPolySpeedometerStroke,
+    needle: radius * 0.45,
   );
 }
 
@@ -452,7 +375,7 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
   double? _hypo;
 
   /// Where the dial sits, for the drag's angle.
-  PolyChanceGaugeGeometry? _geometry;
+  PolySpeedometerGeometry? _geometry;
   late final _DialPanRecognizer _pan;
 
   /// The needle's position (0..1), for tests.
@@ -698,24 +621,13 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
 
   // ─── Build ────────────────────────────────────────────────────────
 
-  static const double _overhang = 5;
-  static const double _platePad = 2;
-  static const double _hubGap = 30;
-  static const double _gap = 4;
-
-  static TextStyle _tagStyle(Color color) => TextStyle(
-        color: color,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        height: 1.2,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+  /// The room between the needle's reach and the chance's baseline.
+  static const double _figureGap = 8;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
-    final dark = context.isDark;
     final scaler =
         MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
     final entry = widget.entry != null &&
@@ -723,70 +635,25 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
             widget.entry! < 1
         ? widget.entry
         : null;
-    final label =
-        entry == null ? null : l10n.polyPosYouAt(formatPolyChanceFigure(entry));
-    final labelStyle = _tagStyle(c.textSecondary);
 
     final hypo = _hypo;
     final shown = hypo ?? widget.chance;
     final figureText = formatPolyChanceFigure(shown);
     final full = l10n.betPercentChance(figureText);
     final figure = polyGaugeChanceParts(full, figureText).figure;
-    final caption = l10n.polyPosChanceLive;
     final readout = l10n.polyPosIfReaches(widget.side);
     final smallStyle = TextStyle(
-      color: c.textTertiary,
+      color: c.textSecondary,
       fontSize: 13.sp,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.1,
       height: 1.2,
     );
-    // The readout sits on a plate of the screen's own background, over
-    // the needle: the needle passes behind the figures, never through
-    // them.
-    Widget plate(Widget child) => DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.background,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 6, vertical: _platePad),
-            child: child,
-          ),
-        );
 
     return LayoutBuilder(builder: (context, constraints) {
-      final w = constraints.maxWidth;
-      Size? tag;
-      if (label != null) {
-        final tp = TextPainter(
-          text: TextSpan(text: label, style: labelStyle),
-          textDirection: TextDirection.ltr,
-          textScaler: scaler,
-          maxLines: 1,
-        )..layout(maxWidth: w);
-        tag = Size(math.min(w, tp.width + 4), tp.height + 2);
-        tp.dispose();
-      }
-      final double outerRadius =
-          (w / 2 - _overhang).clamp(math.min(60.0, w / 4), 190.0).toDouble();
-      final stroke = (outerRadius * 0.05).clamp(6.0, 10.0).toDouble();
-      // The hub: a 12 px disc.
-      const hub = 6.0;
-      final g = polyChanceGaugeGeometry(
-        width: w,
-        outerRadius: outerRadius,
-        stroke: stroke,
-        overhang: _overhang,
-        gap: _gap,
-        belowCenter: hub + 2,
-        tick: entry,
-        tag: tag,
-      );
+      final g = polySpeedometerGeometry(constraints.maxWidth);
       _geometry = g;
-      final inner = g.radius - stroke / 2;
-      final figureSize = (outerRadius * 0.28).clamp(28.0, 50.0).toDouble();
+      final figureSize = (g.radius * 0.27).clamp(28.0, 48.0).toDouble();
       final figureStyle = TextStyle(
         color: c.textPrimary,
         fontSize: figureSize,
@@ -796,32 +663,27 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
         fontFeatures: const [FontFeature.tabularFigures()],
       );
       final tp = TextPainter(
-        text: TextSpan(text: caption, style: smallStyle),
+        text: TextSpan(text: readout, style: smallStyle),
         textDirection: TextDirection.ltr,
         textScaler: scaler,
         maxLines: 1,
       )..layout();
       final smallH = tp.height;
       tp.dispose();
-      // From the box's bottom: the caption just above the hub, the chance
-      // on it, the drag's readout over the chance.
-      // Each line's box carries its plate's padding ([_platePad] above
-      // and below); the figure's plate overlaps the caption's, so the
-      // needle never shows between them.
+      // From the box's bottom: the chance's baseline just past the
+      // needle's reach, the drag's line over it.
       final below = g.size.height - g.center.dy;
-      // The caption's plate ends [_hubGap] above the hub's top.
-      final captionBottom = below + hub + _hubGap;
-      final captionH = smallH + 2 * _platePad;
-      final figureBottom = captionBottom + captionH - 3;
-      final figureH = scaler.scale(figureSize) * 1.05 + 2 * _platePad;
-      final readoutBottom = figureBottom + figureH - 3;
-      final textLeft = g.center.dx - inner * 0.6;
-      final textWidth = inner * 1.2;
-      final labelRect = g.labelRect;
-      final semantics = label == null ? full : '$full, $label';
+      final figureBottom = below + g.needle + _figureGap;
+      final figureH = scaler.scale(figureSize) * 1.05;
+      final readoutBottom = figureBottom + figureH + 2;
+      final textWidth = g.radius * 1.1;
+      final textLeft = g.center.dx - textWidth / 2;
       final duration = _reduceMotion
           ? Duration.zero
           : Duration(milliseconds: hypo != null ? 120 : 250);
+      final semantics = entry == null
+          ? full
+          : '$full, ${l10n.polyPosSinceBoughtAt(formatPolyBoughtCents(entry))}';
 
       return Semantics(
         container: true,
@@ -842,24 +704,11 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                       key: PolyPositionSpeedometer.dialPaintKey,
                       painter: PolySpeedometerDialPainter(
                         geometry: g,
-                        zones: polySpeedometerZones(
-                            entry: entry, neutral: c.border, dark: dark),
+                        entry: entry,
+                        trackColor: c.border,
                         tickColor: c.textTertiary,
-                        entryColor: c.textPrimary,
-                        // The app's own type (a painter inherits none).
-                        labelStyle: DefaultTextStyle.of(context).style.merge(
-                              TextStyle(
-                                color: c.textTertiary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                height: 1.0,
-                                decoration: TextDecoration.none,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures()
-                                ],
-                              ),
-                            ),
-                        textScaler: scaler,
+                        entryColor: c.textSecondary,
+                        ringColor: c.background,
                       ),
                     ),
                   ),
@@ -869,9 +718,7 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                       painter: PolySpeedometerNeedlePainter(
                         geometry: g,
                         needle: _needle,
-                        hubRadius: hub,
                         color: c.textPrimary,
-                        dot: c.background,
                       ),
                     ),
                   ),
@@ -881,14 +728,12 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                       left: textLeft,
                       width: textWidth,
                       bottom: readoutBottom,
-                      height: captionH,
+                      height: smallH,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.bottomCenter,
-                        child: plate(Text(readout,
-                            style: smallStyle.copyWith(color: c.textSecondary),
-                            maxLines: 1,
-                            softWrap: false)),
+                        child: Text(readout,
+                            style: smallStyle, maxLines: 1, softWrap: false),
                       ),
                     ),
                   Positioned(
@@ -900,41 +745,13 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.bottomCenter,
-                      child: plate(RollingNumberText(
+                      child: RollingNumberText(
                         text: figure,
                         style: figureStyle,
                         duration: duration,
-                      )),
+                      ),
                     ),
                   ),
-                  if (hypo == null)
-                    Positioned(
-                      key: PolyPositionSpeedometer.captionKey,
-                      left: textLeft,
-                      width: textWidth,
-                      bottom: captionBottom,
-                      height: captionH,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.bottomCenter,
-                        child: plate(Text(caption,
-                            style: smallStyle, maxLines: 1, softWrap: false)),
-                      ),
-                    ),
-                  if (labelRect != null)
-                    Positioned.fromRect(
-                      key: PolyPositionSpeedometer.entryLabelKey,
-                      rect: labelRect,
-                      child: Center(
-                        child: Text(
-                          label!,
-                          style: labelStyle,
-                          maxLines: 1,
-                          overflow: TextOverflow.clip,
-                          softWrap: false,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -945,149 +762,87 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
   }
 }
 
-/// The still part of the dial: the tinted track, the ticks and their
-/// figures, the bold tick at the price paid.
+/// The still part of the dial: the thin track, the ticks at 0, 50 and
+/// 100, the dot at the price paid.
 class PolySpeedometerDialPainter extends CustomPainter {
   PolySpeedometerDialPainter({
     required this.geometry,
-    required this.zones,
+    required this.entry,
+    required this.trackColor,
     required this.tickColor,
     required this.entryColor,
-    required this.labelStyle,
-    required this.textScaler,
+    required this.ringColor,
   });
 
-  final PolyChanceGaugeGeometry geometry;
-  final List<({double from, double to, Color color})> zones;
+  final PolySpeedometerGeometry geometry;
+
+  /// The price paid (0 to 1); null without one.
+  final double? entry;
+  final Color trackColor;
   final Color tickColor;
   final Color entryColor;
-  final TextStyle labelStyle;
-  final TextScaler textScaler;
 
-  /// Where the 5% ticks start inside the track, and how long a 5% and a
-  /// 10% tick are.
-  static const double tickInset = 4;
-  static const double minorLength = 6;
-  static const double majorLength = 11;
+  /// Around the entry dot: the screen's background, so it sits clear on
+  /// the track.
+  final Color ringColor;
+
+  /// The three ticks, as fractions of the dial.
+  static const ticks = [0.0, 0.5, 1.0];
+  static const double tickLength = 6;
+
+  /// Where the entry dot sits, in the dial's box; null without one.
+  Offset? get entryDot {
+    final e = entry;
+    if (e == null) return null;
+    final a = polyGaugeAngle(e);
+    return geometry.center +
+        Offset(math.cos(a), math.sin(a)) * geometry.radius;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final g = geometry;
-    final rect = Rect.fromCircle(center: g.center, radius: g.radius);
-    for (var i = 0; i < zones.length; i++) {
-      final z = zones[i];
-      final paint = Paint()
+    canvas.drawArc(
+      Rect.fromCircle(center: g.center, radius: g.radius),
+      math.pi,
+      math.pi,
+      false,
+      Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = g.stroke
-        // Round at the dial's two ends only; zones meet flat (the entry
-        // tick sits on the seam).
-        ..strokeCap = StrokeCap.butt
+        ..strokeCap = StrokeCap.round
         ..isAntiAlias = true
-        ..color = z.color;
-      final start = polyGaugeAngle(z.from);
-      final sweep = (z.to - z.from) * math.pi;
-      if (sweep <= 0) continue;
-      canvas.drawArc(rect, start, sweep, false, paint);
-      // The round caps at the ends of the dial.
-      final capPaint = Paint()
-        ..color = z.color
-        ..isAntiAlias = true;
-      if (z.from <= 0) {
-        canvas.drawArc(
-            Rect.fromCircle(
-                center: g.center + Offset(-g.radius, 0), radius: g.stroke / 2),
-            0,
-            math.pi,
-            true,
-            capPaint);
-      }
-      if (z.to >= 1) {
-        canvas.drawArc(
-            Rect.fromCircle(
-                center: g.center + Offset(g.radius, 0), radius: g.stroke / 2),
-            0,
-            math.pi,
-            true,
-            capPaint);
-      }
-    }
-
-    // Ticks every 5%, longer every 10%, inside the track.
-    final inner = g.radius - g.stroke / 2 - tickInset;
-    final minor = Paint()
-      ..color = tickColor.withValues(alpha: 0.55)
-      ..strokeWidth = 1.2
+        ..color = trackColor,
+    );
+    final tick = Paint()
+      ..color = tickColor.withValues(alpha: 0.7)
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
-    final major = Paint()
-      ..color = tickColor
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-    for (var i = 0; i <= 20; i++) {
-      final a = polyGaugeAngle(i / 20);
-      final u = Offset(math.cos(a), math.sin(a));
-      final isMajor = i.isEven;
-      final len = isMajor ? majorLength : minorLength;
-      canvas.drawLine(g.center + u * inner, g.center + u * (inner - len),
-          isMajor ? major : minor);
-    }
-
-    // 0 / 25 / 50 / 75 / 100, inside the ticks.
-    final labelRadius = inner - majorLength - 5;
-    for (final v in const [0, 25, 50, 75, 100]) {
-      final tp = TextPainter(
-        text: TextSpan(text: '$v', style: labelStyle),
-        textDirection: TextDirection.ltr,
-        textScaler: textScaler,
-        maxLines: 1,
-      )..layout();
-      final a = polyGaugeAngle(v / 100);
-      final u = Offset(math.cos(a), math.sin(a));
-      // Pushed in from the label circle by its own half extent along the
-      // radius, so every figure sits the same gap inside the ticks; at
-      // the ends, its bottom on the hub's line.
-      final push = tp.width / 2 * u.dx.abs() + tp.height / 2 * u.dy.abs();
-      var c = g.center + u * (labelRadius - push);
-      final maxY = g.center.dy - tp.height / 2;
-      if (c.dy > maxY) c = Offset(c.dx, maxY);
-      tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
-      tp.dispose();
-    }
-
-    // The price paid: a short bold tick across the track.
-    final a = g.tickAngle;
-    if (a != null) {
+    final inner = g.radius - g.stroke / 2 - 4;
+    for (final f in ticks) {
+      final a = polyGaugeAngle(f);
       final u = Offset(math.cos(a), math.sin(a));
       canvas.drawLine(
-        g.center + u * g.tickInner,
-        g.center + u * g.tickOuter,
-        Paint()
-          ..color = entryColor
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round
-          ..isAntiAlias = true,
-      );
+          g.center + u * inner, g.center + u * (inner - tickLength), tick);
+    }
+    final dot = entryDot;
+    if (dot != null) {
+      canvas.drawCircle(dot, kPolySpeedometerEntryDot + 1.5,
+          Paint()..color = ringColor..isAntiAlias = true);
+      canvas.drawCircle(dot, kPolySpeedometerEntryDot,
+          Paint()..color = entryColor..isAntiAlias = true);
     }
   }
 
   @override
   bool shouldRepaint(PolySpeedometerDialPainter old) =>
       old.geometry != geometry ||
-      !_sameZones(old.zones, zones) ||
+      old.entry != entry ||
+      old.trackColor != trackColor ||
       old.tickColor != tickColor ||
       old.entryColor != entryColor ||
-      old.labelStyle != labelStyle ||
-      old.textScaler != textScaler;
-
-  static bool _sameZones(List<({double from, double to, Color color})> a,
-      List<({double from, double to, Color color})> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
+      old.ringColor != ringColor;
 }
 
 /// The needle and the hub, repainted on every frame of the spring
@@ -1096,60 +851,37 @@ class PolySpeedometerNeedlePainter extends CustomPainter {
   PolySpeedometerNeedlePainter({
     required this.geometry,
     required this.needle,
-    required this.hubRadius,
     required this.color,
-    required this.dot,
   }) : super(repaint: needle);
 
-  final PolyChanceGaugeGeometry geometry;
+  final PolySpeedometerGeometry geometry;
   final ValueListenable<double> needle;
-  final double hubRadius;
   final Color color;
 
-  /// The needle's half-width at the hub and at its rounded tip.
-  static const double needleBase = 2.2;
-  static const double needleTip = 0.9;
+  static const double width = 2.5;
 
-  /// The hub's inner dot: the screen's background.
-  final Color dot;
+  /// Where the needle's tip is, in the dial's box.
+  Offset get tip {
+    final a = polyGaugeAngle(needle.value);
+    return geometry.center +
+        Offset(math.cos(a), math.sin(a)) * geometry.needle;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final g = geometry;
-    final a = polyGaugeAngle(needle.value);
-    final u = Offset(math.cos(a), math.sin(a));
-    final n = Offset(-u.dy, u.dx);
-    // A straight tapered line from the hub's centre to just inside the
-    // ticks, its tip rounded; no tail. Then the hub: a solid disc with a
-    // small inner dot, nothing else.
-    final tipR = g.radius - g.stroke / 2 - 2;
-    final c = g.center;
-    final tip = c + u * tipR;
-    final path = Path()
-      ..moveTo(c.dx + n.dx * needleBase, c.dy + n.dy * needleBase)
-      ..lineTo(tip.dx + n.dx * needleTip, tip.dy + n.dy * needleTip)
-      ..arcToPoint(Offset(tip.dx - n.dx * needleTip, tip.dy - n.dy * needleTip),
-          radius: const Radius.circular(needleTip))
-      ..lineTo(c.dx - n.dx * needleBase, c.dy - n.dy * needleBase)
-      ..close();
     final paint = Paint()
       ..color = color
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
-    canvas.drawPath(path, paint);
-    canvas.drawCircle(c, hubRadius, paint);
-    canvas.drawCircle(
-        c,
-        hubRadius * 0.36,
-        Paint()
-          ..color = dot
-          ..isAntiAlias = true);
+    // A thin straight line from the hub's centre, its tip rounded; then
+    // the hub, a small solid disc.
+    canvas.drawLine(geometry.center, tip, paint);
+    canvas.drawCircle(geometry.center, kPolySpeedometerHub,
+        Paint()..color = color..isAntiAlias = true);
   }
 
   @override
   bool shouldRepaint(PolySpeedometerNeedlePainter old) =>
-      old.geometry != geometry ||
-      old.needle != needle ||
-      old.hubRadius != hubRadius ||
-      old.color != color ||
-      old.dot != dot;
+      old.geometry != geometry || old.needle != needle || old.color != color;
 }

@@ -1,6 +1,6 @@
 // The open-position speedometer (position_speedometer.dart): an elastic
-// needle on a 0–100% dial, green above the price paid and red below it,
-// a tap each time the live chance shown changes, drag to explore.
+// needle on a calm 0–100% dial, the price paid a dot on its track, a tap
+// each time the live chance shown changes, drag to explore.
 
 import 'dart:math' as math;
 
@@ -178,27 +178,14 @@ void main() {
   });
 
   group('the dial', () {
-    test('green above the price paid, red below it, for every market', () {
-      for (final entry in [0.19, 0.34]) {
-        final zones = polySpeedometerZones(
-            entry: entry, neutral: Colors.grey, dark: false);
-        expect(zones, hasLength(2));
-        expect(zones[0].from, 0);
-        expect(zones[0].to, entry);
-        expect(zones[0].color.withValues(alpha: 1),
-            AppColors.marketDown.withValues(alpha: 1));
-        expect(zones[1].from, entry);
-        expect(zones[1].to, 1);
-        expect(zones[1].color.withValues(alpha: 1),
-            AppColors.marketUp.withValues(alpha: 1));
-        // Soft tints, not the full colours.
-        expect(zones[0].color.a, lessThan(0.5));
-        expect(zones[1].color.a, lessThan(0.5));
+    test('the needle stops short of the chance at every angle', () {
+      for (final w in [320.0, 350.0, 390.0, 600.0]) {
+        final g = polySpeedometerGeometry(w);
+        // Under half the track's radius, so its highest reach (at 50%)
+        // stays below the chance's baseline.
+        expect(g.needle, lessThan(g.radius * 0.5));
+        expect(g.stroke, 4);
       }
-      // No price paid: the neutral track alone.
-      final none =
-          polySpeedometerZones(entry: null, neutral: Colors.grey, dark: true);
-      expect(none.single.color, Colors.grey);
     });
 
     test('a 5% mark crossed', () {
@@ -217,33 +204,54 @@ void main() {
           (figure: '66 %', caption: 'de chances'));
     });
 
-    testWidgets('the entry tick at the price paid, "You · 19%" beside it, the '
-        'live chance in the middle', (tester) async {
+    testWidgets('calm: a thin neutral track, ticks at 0, 50 and 100 only, '
+        'the price paid a dot on the track; no figures, no zones, no tag',
+        (tester) async {
       await _pump(tester, sweep: false);
-      expect(find.text('You · 19%'), findsOneWidget);
-      expect(find.text('chance · live'), findsOneWidget);
-      final paint = tester.widget<CustomPaint>(
-          find.byKey(PolyPositionSpeedometer.dialPaintKey));
-      final dial = paint.painter! as PolySpeedometerDialPainter;
-      expect(dial.geometry.tickAngle, closeTo(polyGaugeAngle(0.19), 1e-9));
-      expect(dial.zones[0].to, 0.19);
-      // The tag sits outside the arc, on the tick's side.
-      final tag = tester.getRect(find.byKey(PolyPositionSpeedometer.entryLabelKey));
-      final box = tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
-      expect(tag.center.dx, lessThan(box.center.dx));
+      final dial = tester
+          .widget<CustomPaint>(find.byKey(PolyPositionSpeedometer.dialPaintKey))
+          .painter! as PolySpeedometerDialPainter;
+      expect(PolySpeedometerDialPainter.ticks, [0.0, 0.5, 1.0]);
+      expect(dial.trackColor, AppColorsExtension.light().border);
+      expect(dial.entryColor, AppColorsExtension.light().textSecondary);
+      expect(dial.entry, 0.19);
+      // On the track, at 19% of the way round.
+      final g = dial.geometry;
+      final dot = dial.entryDot!;
+      expect((dot - g.center).distance, closeTo(g.radius, 1e-6));
+      expect((dot - g.center).direction, closeTo(polyGaugeAngle(0.19) - 2 * 3.141592653589793, 1e-6));
+      for (final gone in ['You · 19%', 'chance · live', '0', '25', '50', '75',
+          '100']) {
+        expect(find.text(gone), findsNothing, reason: gone);
+      }
       expect(_state(tester).debugNeedle, closeTo(0.66, 1e-9));
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('no price paid: no tick, no tag, a neutral track',
-        (tester) async {
+    testWidgets('the needle never crosses the digits: at 20, 50, 66 and 85% '
+        'its tip stays below the chance', (tester) async {
+      for (final c in [0.20, 0.50, 0.66, 0.85]) {
+        await _pump(tester, chance: c, sweep: false);
+        final box =
+            tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
+        final needle = tester
+            .widget<CustomPaint>(
+                find.byKey(PolyPositionSpeedometer.needlePaintKey))
+            .painter! as PolySpeedometerNeedlePainter;
+        final tip = box.topLeft + needle.tip;
+        final figure =
+            tester.getRect(find.byKey(PolyPositionSpeedometer.figureKey));
+        expect(tip.dy, greaterThan(figure.bottom), reason: '$c');
+      }
+    });
+
+    testWidgets('no price paid: no dot', (tester) async {
       await _pump(tester, entry: null, sweep: false);
-      expect(find.byKey(PolyPositionSpeedometer.entryLabelKey), findsNothing);
       final dial = tester
           .widget<CustomPaint>(find.byKey(PolyPositionSpeedometer.dialPaintKey))
           .painter! as PolySpeedometerDialPainter;
-      expect(dial.geometry.tickAngle, isNull);
-      expect(dial.zones, hasLength(1));
+      expect(dial.entry, isNull);
+      expect(dial.entryDot, isNull);
     });
   });
 
@@ -361,7 +369,6 @@ void main() {
       await tester.pump();
       expect(host.starts, 1);
       expect(find.text('If No reaches'), findsOneWidget);
-      expect(find.text('chance · live'), findsNothing);
       // Sweep to the left end in a few big steps, inside one frame each.
       final r = paint.geometry.radius * 0.7;
       for (final f in [0.6, 0.45, 0.30, 0.15]) {
@@ -387,7 +394,6 @@ void main() {
       await tester.pump();
       expect(host.ended, [closeTo(0.05, 1e-9)]);
       expect(find.text('If No reaches'), findsNothing);
-      expect(find.text('chance · live'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
       expect(s.debugNeedle, closeTo(0.66, 0.003));
       // The spring back is silent.

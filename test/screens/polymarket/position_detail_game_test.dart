@@ -462,7 +462,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a team\'s side: the speedometer, ticked at the price paid, '
+    testWidgets('a team\'s side: the speedometer, the price paid a dot, '
         'the chance in its middle and nowhere else; the side named in the '
         'primary text colour; no bar, no price chart', (tester) async {
       await _pump(
@@ -492,21 +492,17 @@ void main() {
       expect(dial.chance, closeTo(0.5, 1e-9));
       expect(dial.entry, closeTo(0.42, 1e-9));
       expect(dial.side, '49ers');
-      expect(find.text('You · 42%'), findsOneWidget);
-      // The dial's own zones, never the team's colour: red under the price
-      // paid, green over it.
+      // The calm dial, never the team's colour: a neutral track, the
+      // price paid a dot on it.
       final painter = tester
           .widget<CustomPaint>(find.byKey(PolyPositionSpeedometer.dialPaintKey))
           .painter! as PolySpeedometerDialPainter;
-      expect(painter.zones.map((z) => z.color.withValues(alpha: 1)).toList(), [
-        AppColors.marketDown.withValues(alpha: 1),
-        AppColors.marketUp.withValues(alpha: 1),
-      ]);
+      expect(painter.entry, closeTo(0.42, 1e-9));
+      expect(painter.trackColor, AppColorsExtension.light().border);
       // The chance is the dial's: no "50% chance" beside the P&L.
       expect(find.byWidgetPredicate(
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
-      expect(find.text('chance · live'), findsOneWidget);
       // Under the line naming the held side, the side in the primary text
       // colour (a team is neither up nor down); over the tiles.
       final pill = find.byKey(const ValueKey('poly-position-held'));
@@ -525,10 +521,11 @@ void main() {
               .getRect(find.byKey(const ValueKey('poly-position-value')))
               .top));
       // The screen's hero: the dial spans the whole content width (390
-      // less the 20 pt gutters), the entry tick's ends just inside it.
+      // less the 20 pt gutters), the entry dot's room just inside it.
       final g = painter.geometry;
       final content = 390 - 2 * 20 * 390 / 430;
-      expect(2 * g.tickOuter, closeTo(content, 1));
+      expect(2 * (g.radius + g.stroke / 2 + kPolySpeedometerEntryDot + 2),
+          closeTo(content, 1));
       // The live feed's subscribe debounce runs out; the sweep settles.
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);

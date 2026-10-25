@@ -6006,14 +6006,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get chartYouHold => 'Държиш';
 
   @override
-  String get polyPosChanceLive => 'шанс · на живо';
-
-  @override
-  String polyPosYouAt(String percent) {
-    return 'Ти · $percent%';
-  }
-
-  @override
   String polyPosIfReaches(String side) {
     return 'Ако $side стигне';
   }
@@ -6038,13 +6030,13 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String polyPosSinceBought(String change) {
-    return '$change откакто купи';
+  String polyPosSinceBoughtAt(String price) {
+    return 'откакто купи при $price';
   }
 
   @override
-  String polyPosYouBought(String price) {
-    return 'Купи · $price';
+  String polyPosYourAvg(String price) {
+    return 'Твоята ср. $price';
   }
 
   @override

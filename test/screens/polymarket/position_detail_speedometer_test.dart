@@ -1,6 +1,6 @@
 // The open-position screen's speedometer, read through the screen
 // (position_detail_sheet.dart): the result line under the dial, the
-// held side's colour, the dial's zones on a binary and a many-outcome
+// held side's colour, the dial on a binary and a many-outcome
 // market, drag to explore (what it would be worth, the sell offer, the
 // what-if event) and the journey line.
 
@@ -214,7 +214,7 @@ void main() {
         find.byType(PolyPositionSpeedometer));
     expect(dial.chance, closeTo(0.66, 1e-9));
     expect(dial.entry, closeTo(0.19, 1e-9));
-    expect(find.text('You · 19%'), findsOneWidget);
+    expect(find.text('You · 19%'), findsNothing);
     // No is the down side: its word in the down colour, as everywhere.
     expect(_heldSide(tester).style!.color, AppColors.marketDown);
     // ▲ $9.40 · +247% since you bought.
@@ -222,7 +222,7 @@ void main() {
         find.byKey(PolyPositionResultLine.figureKey));
     expect(figure.data, r'$9.40 · +247%');
     expect(figure.style!.color, AppColors.marketUp);
-    expect(find.text('since you bought'), findsOneWidget);
+    expect(find.text('since you bought at 19¢'), findsOneWidget);
     final caret = tester.widget<CustomPaint>(
         find.byKey(PolyPositionResultLine.caretKey));
     expect((caret.painter! as PolyCaretPainter).up, isTrue);
@@ -244,21 +244,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a Lula Yes on a many-outcome market: the same zones, the '
+  testWidgets('a Lula Yes on a many-outcome market: the same dial, the '
       'side in the up colour, the result a small loss', (tester) async {
     await _pump(tester, _lula, event: _election);
     await tester.pump(const Duration(milliseconds: 100));
     final painter = tester
         .widget<CustomPaint>(find.byKey(PolyPositionSpeedometer.dialPaintKey))
         .painter! as PolySpeedometerDialPainter;
-    // Red under 34%, green over it: no candidate colours on the dial.
-    expect(painter.zones, hasLength(2));
-    expect(painter.zones[0].to, closeTo(0.34, 1e-9));
-    expect(painter.zones[0].color.withValues(alpha: 1),
-        AppColors.marketDown.withValues(alpha: 1));
-    expect(painter.zones[1].color.withValues(alpha: 1),
-        AppColors.marketUp.withValues(alpha: 1));
-    expect(find.text('You · 34%'), findsOneWidget);
+    // The same calm dial: a neutral track, the price paid a dot on it, no
+    // candidate colours.
+    expect(painter.entry, closeTo(0.34, 1e-9));
+    expect(painter.trackColor, AppColorsExtension.light().border);
+    expect(find.text('since you bought at 34¢'), findsOneWidget);
     expect(_heldSide(tester).style!.color, AppColors.marketUp);
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
@@ -428,8 +425,8 @@ void main() {
     expect(polyWhatIfSellPrice(0.0), 0.01);
   });
 
-  testWidgets('the journey: from the buy at 19¢ to now, hidden without '
-      'history', (tester) async {
+  testWidgets('the chart: from the buy at 19¢ to now in the result\'s '
+      'colour, a dashed line at "Your avg 19¢"', (tester) async {
     final since = DateTime.now().subtract(const Duration(days: 9));
     await _pump(tester, _no, journey: (
       since: since,
@@ -441,7 +438,7 @@ void main() {
       ],
     ));
     expect(find.byType(PolyPositionJourneyLine), findsOneWidget);
-    expect(find.text('You bought · 19¢'), findsOneWidget);
+    expect(find.text('Your avg 19¢'), findsOneWidget);
     expect(find.text('Now'), findsOneWidget);
     final painter = tester
         .widget<CustomPaint>(find.byKey(PolyPositionJourneyLine.paintKey))
@@ -452,6 +449,8 @@ void main() {
     expect(painter.points.last.p, closeTo(0.66, 1e-9));
     expect(painter.points.last.t, 1);
     expect(painter.entry, closeTo(0.19, 1e-9));
+    // Up since the buy: the up colour.
+    expect(painter.color, AppColors.marketUp);
     // Under the tiles.
     expect(
         tester.getRect(find.byType(PolyPositionJourneyLine)).top,
@@ -510,6 +509,12 @@ void main() {
       expect(r.hi, greaterThan(0.35));
       final top = polyJourneyRange([0.97, 0.99], 0.95);
       expect(top.hi, lessThanOrEqualTo(1));
+    });
+
+    test('the chart\'s colour is the result\'s', () {
+      expect(polyJourneyColor(9.4, Colors.grey), AppColors.marketUp);
+      expect(polyJourneyColor(-0.05, Colors.grey), AppColors.marketDown);
+      expect(polyJourneyColor(0.001, Colors.grey), Colors.grey);
     });
 
     test('result percents: whole from 10%, one decimal under it', () {
