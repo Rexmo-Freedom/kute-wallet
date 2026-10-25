@@ -9408,6 +9408,11 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/val. (≈ $annual per metus)';
+  }
+
+  @override
   String get hlWideSpreadAck =>
       'Suprantu, kad šioje rinkoje šiuo metu labai didelis kainų skirtumas.';
 

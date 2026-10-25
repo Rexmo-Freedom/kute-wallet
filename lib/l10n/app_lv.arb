@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 h min.",
   "hl24hVolume": "24 h apjoms",
   "hlFundingIn": "pēc {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/h (≈ {annual} gadā)",
   "hlWideSpreadAck": "Es saprotu, ka šim tirgum šobrīd ir ļoti liela cenu starpība.",
   "hlTwapOver": "TWAP · {size} {minutes} min laikā",
   "ledgerNoPositionsYet": "Vēl nav pozīciju",

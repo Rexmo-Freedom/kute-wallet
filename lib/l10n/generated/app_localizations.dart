@@ -16115,6 +16115,12 @@ abstract class AppLocalizations {
   /// **'in {minutes}m'**
   String hlFundingIn(int minutes);
 
+  /// A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.
+  ///
+  /// In en, this message translates to:
+  /// **'{payer} {hourly}/hr (≈ {annual} annualized)'**
+  String hlFundingRateLine(String payer, String hourly, String annual);
+
   /// No description provided for @hlWideSpreadAck.
   ///
   /// In en, this message translates to:

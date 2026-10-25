@@ -2668,6 +2668,7 @@
   "hl24hLow": "24u laag",
   "hl24hVolume": "24u-volume",
   "hlFundingIn": "over {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/u (≈ {annual} op jaarbasis)",
   "hlWideSpreadAck": "Ik begrijp dat deze markt nu een zeer grote spread heeft.",
   "hlTwapOver": "TWAP · {size} over {minutes} min",
   "ledgerNoPositionsYet": "Nog geen posities",

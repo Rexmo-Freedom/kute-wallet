@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 órás mélypont",
   "hl24hVolume": "24 órás forgalom",
   "hlFundingIn": "{minutes} p múlva",
+  "hlFundingRateLine": "{payer} {hourly}/óra (≈ {annual} évesítve)",
   "hlWideSpreadAck": "Tudomásul veszem, hogy ezen a piacon most nagyon széles az árrés.",
   "hlTwapOver": "TWAP · {size}, {minutes} p alatt",
   "ledgerNoPositionsYet": "Még nincs pozíció",

@@ -820,9 +820,7 @@ class _HlAboutSheet extends ConsumerWidget {
                         // Who pays whom, and when: funding settles on
                         // the hour.
                         Text(
-                          '${m.funding! >= 0 ? context.l10n.hlLongsPayShorts : context.l10n.hlShortsPayLongs} '
-                          '${(m.funding!.abs() * 100).toStringAsFixed(4)}%/hr '
-                          '(≈ ${(m.funding!.abs() * 24 * 365 * 100).toStringAsFixed(1)}% annualized) · '
+                          '${formatHlFundingLine(context.l10n, m.funding!)} · '
                           '${context.l10n.hlFundingIn(60 - DateTime.now().minute)}',
                           style: TextStyle(
                             color: c.textTertiary,

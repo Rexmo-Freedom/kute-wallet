@@ -9368,6 +9368,11 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/h (≈ $annual ročne)';
+  }
+
+  @override
   String get hlWideSpreadAck =>
       'Rozumiem, že tento trh má teraz veľmi široký spread.';
 

@@ -2668,6 +2668,7 @@
   "hl24hLow": "24時間安値",
   "hl24hVolume": "24時間出来高",
   "hlFundingIn": "{minutes}分後",
+  "hlFundingRateLine": "{payer} {hourly}/時間（年換算 ≈ {annual}）",
   "hlWideSpreadAck": "現在このマーケットのスプレッドが非常に広いことを理解しました。",
   "hlTwapOver": "TWAP · {minutes}分間で{size}",
   "ledgerNoPositionsYet": "ポジションはまだありません",

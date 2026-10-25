@@ -150,4 +150,43 @@ void main() {
     expect(find.text('\$85,971'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  group('the funding line: the venue\'s hourly rate, who pays, a year of it',
+      () {
+    // Live from api.hyperliquid.xyz on 2026-10-25 (metaAndAssetCtxs,
+    // default dex and dex xyz); app.hyperliquid.xyz showed the same
+    // hourly figures.
+    final en = l10nForLanguage('en');
+    test('BTC at the base rate: longs pay 0.0013%/hr, about 11% a year', () {
+      expect(formatHlFundingLine(en, 0.0000125),
+          'Longs pay shorts 0.0013%/hr (≈ 11.0% annualized)');
+    });
+    test('negative funding: shorts pay longs, never a minus sign', () {
+      expect(formatHlFundingLine(en, -0.0004424258),
+          'Shorts pay longs 0.0442%/hr (≈ 387.6% annualized)');
+    });
+    test('HIP-3 (xyz:NVDA) reads its dex\'s funding the same way', () {
+      expect(formatHlFundingLine(en, -0.0000052743),
+          'Shorts pay longs 0.0005%/hr (≈ 4.6% annualized)');
+    });
+    test('hourly, not 8-hourly: a year is 8,760 settlements, no compounding',
+        () {
+      // 0.01 %/hr: 87.6 % a year (8-hourly would read 10.95 %).
+      expect(formatHlFundingLine(en, 0.0001),
+          'Longs pay shorts 0.0100%/hr (≈ 87.6% annualized)');
+      // The venue's cap, 4 %/hr.
+      expect(formatHlFundingLine(en, 0.04),
+          'Longs pay shorts 4.0000%/hr (≈ 35040.0% annualized)');
+    });
+    test('zero: longs pay shorts nothing; every locale fills all three', () {
+      expect(formatHlFundingLine(en, 0),
+          'Longs pay shorts 0.0000%/hr (≈ 0.0% annualized)');
+      for (final locale in AppLocalizations.supportedLocales) {
+        final line =
+            formatHlFundingLine(l10nForLanguage(locale.languageCode), 0.0000125);
+        expect(line, contains('0.0013%'), reason: '$locale');
+        expect(line, contains('11.0%'), reason: '$locale');
+      }
+    });
+  });
 }

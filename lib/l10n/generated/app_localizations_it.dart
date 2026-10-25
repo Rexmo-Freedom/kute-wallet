@@ -9400,6 +9400,11 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/h (≈ $annual annualizzato)';
+  }
+
+  @override
   String get hlWideSpreadAck =>
       'Ho capito che questo mercato ha uno spread molto ampio in questo momento.';
 

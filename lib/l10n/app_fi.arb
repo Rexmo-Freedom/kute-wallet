@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 h alin",
   "hl24hVolume": "24 h volyymi",
   "hlFundingIn": "{minutes} min kuluttua",
+  "hlFundingRateLine": "{payer} {hourly}/h (≈ {annual} vuodessa)",
   "hlWideSpreadAck": "Ymmärrän, että tällä markkinalla on juuri nyt erittäin leveä hintaero.",
   "hlTwapOver": "TWAP · {size} {minutes} min aikana",
   "ledgerNoPositionsYet": "Ei vielä positioita",

@@ -5495,6 +5495,8 @@
       }
     }
   },
+  "hlFundingRateLine": "{payer} {hourly}/hr (≈ {annual} annualized)",
+  "@hlFundingRateLine": {"description": "A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.", "placeholders": {"payer": {"type": "String"}, "hourly": {"type": "String"}, "annual": {"type": "String"}}},
   "hlWideSpreadAck": "I understand this market has a very wide spread right now.",
   "hlTwapOver": "TWAP · {size} over {minutes}m",
   "@hlTwapOver": {

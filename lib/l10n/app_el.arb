@@ -2668,6 +2668,7 @@
   "hl24hLow": "Χαμηλό 24ω",
   "hl24hVolume": "Όγκος 24ω",
   "hlFundingIn": "σε {minutes}λ",
+  "hlFundingRateLine": "{payer} {hourly}/ώρα (≈ {annual} ετησίως)",
   "hlWideSpreadAck": "Καταλαβαίνω ότι αυτή η αγορά έχει πολύ μεγάλο spread αυτή τη στιγμή.",
   "hlTwapOver": "TWAP · {size} σε {minutes}λ",
   "ledgerNoPositionsYet": "Δεν υπάρχουν θέσεις ακόμα",

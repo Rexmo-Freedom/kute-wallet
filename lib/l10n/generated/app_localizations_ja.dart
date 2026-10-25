@@ -8985,6 +8985,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/時間（年換算 ≈ $annual）';
+  }
+
+  @override
   String get hlWideSpreadAck => '現在このマーケットのスプレッドが非常に広いことを理解しました。';
 
   @override
