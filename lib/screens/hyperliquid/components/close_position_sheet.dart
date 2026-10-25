@@ -17,7 +17,6 @@ import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 // the same reviewed submission path. Ledger approval stays wallet-scoped.
 
 import 'package:flutter/material.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1084,35 +1083,40 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
     final realizedPnl =
         closedSz > 0 ? (avgPx - pos.entryPx) * closedSz * direction : 0.0;
     final remaining = (pos.szi.abs() - closedSz).clamp(0.0, double.infinity);
+    final filled = closedSz > 0;
+    final partial = remaining > 0.00000001;
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: KuteConfirmation(
-        message: closedSz <= 0
+        message: !filled
             ? l10n.investingNoFillConfirmed
-            : remaining > 0.00000001
+            : partial
                 ? l10n.investingPartiallyClosed
                 : l10n.investingPositionClosed,
-        success: closedSz > 0,
-        showCloseButton: true,
+        // Nothing filled: the position is as it was.
+        tone: filled
+            ? KuteConfirmationTone.success
+            : KuteConfirmationTone.failure,
         onDone: () => nav.pop(),
-        detail: checkOpenOrders && remaining > 0.00000001
-            ? l10n.investingCloseRemainderNote
-            : l10n.investingBalanceUpdating,
-        receipt: TradeReceipt(
-            leading: _marketArtwork(),
-            title: _displayCoin,
-            subtitle: pos.isLong ? l10n.longLabel : l10n.shortLabel,
-            rows: {
-              l10n.investingAmountClosed:
-                  '${formatHlSize(closedSz)} $_displayCoin',
-              l10n.investingExitPrice:
-                  formatHlPrice(avgPx, decimalCap: _market?.pxDecimalCap),
-              l10n.investingProfitBeforeCosts:
-                  '${realizedPnl >= 0 ? '+' : '−'}\$${realizedPnl.abs().toStringAsFixed(2)}',
-              if (remaining > 0.00000001)
-                l10n.investingStillOpen:
-                    '${formatHlSize(remaining)} $_displayCoin',
-            }),
+        amount: filled ? '${formatHlSize(closedSz)} $_displayCoin' : null,
+        contextLine:
+            '${pos.isLong ? l10n.longLabel : l10n.shortLabel} · $_displayCoin',
+        rows: filled
+            ? {
+                l10n.investingExitPrice:
+                    formatHlPrice(avgPx, decimalCap: _market?.pxDecimalCap),
+                l10n.investingProfitBeforeCosts:
+                    '${realizedPnl >= 0 ? '+' : '−'}\$${realizedPnl.abs().toStringAsFixed(2)}',
+                if (partial)
+                  l10n.investingStillOpen:
+                      '${formatHlSize(remaining)} $_displayCoin',
+              }
+            : const {},
+        detail: !filled
+            ? null
+            : checkOpenOrders && partial
+                ? l10n.investingCloseRemainderNote
+                : l10n.investingBalanceUpdating,
       ),
     );
   }

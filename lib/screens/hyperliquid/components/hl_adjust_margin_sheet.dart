@@ -92,7 +92,6 @@ import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyPlace;
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
@@ -851,24 +850,20 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
       navigator: rootNav,
       overlay: KuteConfirmation(
         message: _add ? l10n.hlMarginAdded : l10n.hlMarginRemoved,
-        showCloseButton: true,
         onDone: () => rootNav.pop(),
+        amount: formatHlUsd(amount),
+        contextLine:
+            '${pos.isLong ? l10n.longLabel : l10n.shortLabel} · ${_market.coin}',
         detail: l10n.investingBalanceUpdating,
-        receipt: TradeReceipt(
-          leading: _artwork(),
-          title: _market.coin,
-          subtitle: pos.isLong ? l10n.longLabel : l10n.shortLabel,
-          rows: {
-            _add ? l10n.hlMarginAdd : l10n.hlMarginRemove: formatHlUsd(amount),
-            if (preview.moneyAfter != null)
-              l10n.hlPositionMoney: '≈ ${formatHlUsd(preview.moneyAfter!)}',
-            if (preview.liqAfter != null)
-              l10n.chartLiquidationPrice:
-                  '≈ ${formatHlPrice(preview.liqAfter!, decimalCap: _market.pxDecimalCap)}',
-            l10n.moveInvestingBalance:
-                '≈ ${formatHlUsd(math.max(0, preview.cashAfter))}',
-          },
-        ),
+        rows: {
+          if (preview.moneyAfter != null)
+            l10n.hlPositionMoney: '≈ ${formatHlUsd(preview.moneyAfter!)}',
+          if (preview.liqAfter != null)
+            l10n.chartLiquidationPrice:
+                '≈ ${formatHlPrice(preview.liqAfter!, decimalCap: _market.pxDecimalCap)}',
+          l10n.moveInvestingBalance:
+              '≈ ${formatHlUsd(math.max(0, preview.cashAfter))}',
+        },
       ),
     );
   }
