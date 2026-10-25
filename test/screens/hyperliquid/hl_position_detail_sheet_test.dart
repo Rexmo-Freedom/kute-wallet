@@ -32,7 +32,11 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
-    show HlCandleChart, HlChartEditBody, HlMarketDetailSheet;
+    show
+        HlCandleChart,
+        HlChartEditBody,
+        HlMarketDetailSheet,
+        debugResetHlChartRail;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
@@ -828,6 +832,48 @@ void main() {
       await pumpScreen(tester, const HlMarketDetailSheet(market: btc));
       expect(find.text('Your investment'), findsNothing);
       expect(find.byKey(const ValueKey('hl-investment-manage')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'the tool rail opens tucked away, comes out from its tab, tucks '
+        'back, and stays as last left for the session', (tester) async {
+      debugResetHlChartRail();
+      addTearDown(debugResetHlChartRail);
+      final rail = find.byKey(const ValueKey('hl-chart-tool-rail'));
+      final show = find.byKey(const ValueKey('hl-chart-rail-show'));
+      final hide = find.byKey(const ValueKey('hl-chart-rail-hide'));
+      double plotWidth() =>
+          tester.getSize(find.byType(HlCandlestickChart)).width;
+
+      await pumpScreen(tester, const HlMarketDetailSheet(market: btc));
+      await enterEdit(tester);
+      expect(rail, findsNothing);
+      expect(show, findsOneWidget);
+      final full = plotWidth();
+
+      await tester.tap(show);
+      await tester.pump();
+      expect(rail, findsOneWidget);
+      expect(show, findsNothing);
+      // The rail's width (44) and its gap come out of the plot.
+      expect(plotWidth(), lessThan(full - 44));
+      // Every tool is still there.
+      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.auto_fix_high_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.delete_sweep_outlined), findsOneWidget);
+
+      // Next time Advanced opens, the rail is out as it was left.
+      await tester.tap(find.text('Done'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await enterEdit(tester);
+      expect(rail, findsOneWidget);
+
+      await tester.tap(hide);
+      await tester.pump();
+      expect(rail, findsNothing);
+      expect(show, findsOneWidget);
+      expect(plotWidth(), full);
       expect(tester.takeException(), isNull);
     });
 
