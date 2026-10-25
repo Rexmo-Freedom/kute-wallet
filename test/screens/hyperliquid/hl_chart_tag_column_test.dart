@@ -237,11 +237,103 @@ void main() {
     await inter.load();
   });
 
-  test('the price template has a digit to spare and no ellipsis', () {
-    expect(hlPriceTagTemplate(85900, 86340), r'$000,000');
-    expect(hlPriceTagTemplate(9990.5, 10020), r'$00,000.0');
-    expect(hlPriceTagTemplate(0.012, 0.0131), r'$00.0000');
+  test('the price template is the widest tag the tape can write, no more',
+      () {
+    // No dollar sign and no spare digit: the integer digits of the high,
+    // the decimals of the low.
+    expect(hlPriceTagTemplate(85900, 86340), '00,000');
+    expect(hlPriceTagTemplate(120500, 131312.1), '000,000');
+    expect(hlPriceTagTemplate(9990.5, 10020), '00,000.0');
+    expect(hlPriceTagTemplate(0.012, 0.0131), '0.000000');
     expect(hlPriceTagTemplate(85900, 86340), isNot(contains('…')));
+    // Every tag the range writes fits it.
+    for (final (lo, hi, px) in [
+      (120500.0, 131312.1, 131312.1),
+      (9990.5, 10020.0, 9999.9),
+      (0.012, 0.0131, 0.012345),
+      (205.1, 212.43, 212.43),
+    ]) {
+      expect(formatHlTagPrice(px).length,
+          lessThanOrEqualTo(hlPriceTagTemplate(lo, hi).length),
+          reason: '$px in $lo..$hi');
+    }
+  });
+
+  test('the latest price tag: the venue price without the dollar sign', () {
+    expect(formatHlTagPrice(131312.1), '131,312');
+    expect(formatHlTagPrice(86140), '86,140');
+    expect(formatHlTagPrice(3912.44), '3,912.4');
+    expect(formatHlTagPrice(212.43), '212.43');
+    expect(formatHlTagPrice(0.0123456), '0.012346');
+  });
+
+  group('price axis labels: compact, one format down the ladder', () {
+    test('BTC around 86k: grouped thousands, no dollar, no decimals', () {
+      expect(hlAxisLabels([85800, 86000, 86200, 86400]),
+          ['85,800', '86,000', '86,200', '86,400']);
+    });
+    test('six figures count in thousands so a label stays six characters',
+        () {
+      expect(hlAxisLabels([131000, 131500, 132000]),
+          ['131.0k', '131.5k', '132.0k']);
+      expect(hlAxisLabels([120000, 130000, 140000]), ['120k', '130k', '140k']);
+      for (final l in hlAxisLabels([131000, 131500, 132000])) {
+        expect(l.length, lessThanOrEqualTo(6));
+      }
+    });
+    test('a step thousands cannot write shorter keeps the grouped number',
+        () {
+      expect(hlAxisLabels([131250, 131500, 131750]),
+          ['131,250', '131,500', '131,750']);
+    });
+    test('millions', () {
+      expect(hlAxisLabels([1000000, 1250000, 1500000]),
+          ['1.00M', '1.25M', '1.50M']);
+    });
+    test('ETH, a HIP-3 stock, a small cap: only the decimals the step needs',
+        () {
+      expect(hlAxisLabels([3900, 3925, 3950]), ['3,900', '3,925', '3,950']);
+      expect(hlAxisLabels([211.5, 212, 212.5, 213]),
+          ['211.5', '212.0', '212.5', '213.0']);
+      expect(hlAxisLabels([0.0122, 0.0124, 0.0126]),
+          ['0.0122', '0.0124', '0.0126']);
+    });
+    test('float sums from the ladder never leak extra digits', () {
+      var v = 0.1;
+      final ladder = [for (var i = 0; i < 4; i++) v += 0.1];
+      expect(hlAxisLabels(ladder), ['0.2', '0.3', '0.4', '0.5']);
+    });
+    test('a log ladder', () {
+      expect(hlAxisLabels([10000, 20000, 50000, 100000]),
+          ['10k', '20k', '50k', '100k']);
+    });
+  });
+
+  test('an indicator pane never writes "131312.1"', () {
+    expect(hlPaneValue(131312.1), '131.3k');
+    expect(hlPaneValue(-131312.1), '-131.3k');
+    expect(hlPaneValue(1312.1), '1312');
+    expect(hlPaneValue(412.34), '412.3');
+    expect(hlPaneValue(57.123), '57.12');
+    expect(hlPaneValue(2500000), '2.50M');
+  });
+
+  testWidgets(
+      'the column is the latest price\'s tag and its padding, narrower than '
+      'the old dollar-and-spare-digit column', (tester) async {
+    await _pump(tester, lines: const []);
+    final column = (tester
+            .widgetList<CustomPaint>(find.byType(CustomPaint))
+            .map((w) => w.painter)
+            .firstWhere((p) =>
+                p.runtimeType.toString() == '_HlCandlePainter') as dynamic)
+        .tagGutter as double;
+    final width = _layer(tester, '_HlCandlePainter').size.width;
+    final now = hlChartTagGutter(
+        width: width, priceTemplate: hlPriceTagTemplate(85900, 86440));
+    final before = hlChartTagGutter(width: width, priceTemplate: r'$000,000');
+    expect(column, closeTo(now, 0.01));
+    expect(column, lessThan(before - 8));
   });
 
   test('a trade tag writes a shorter whole text when the column is narrow', () {

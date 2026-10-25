@@ -828,6 +828,7 @@ class _HlPriceScalePainter extends CustomPainter {
         geom.log ? math.exp(geom.loP + geom.rangeP) : geom.loP + geom.rangeP;
     final levels = hlNiceLevels(loPrice, hiPrice, log: geom.log);
     if (levels.isEmpty) return;
+    final labels = hlAxisLabels(levels);
 
     final linePaint = Paint()
       ..color = hairlineColor.withValues(alpha: 0.05)
@@ -848,13 +849,13 @@ class _HlPriceScalePainter extends CustomPainter {
       lastTop = (ly - h / 2).clamp(0.0, math.max(0.0, priceH - h)).toDouble();
       lastBottom = lastTop + h;
     }
-    for (final level in levels) {
+    for (var i = 0; i < levels.length; i++) {
+      final level = levels[i];
       final y = priceH *
           (1 - (_hlMapPrice(level, geom.log) - geom.loP) / geom.rangeP);
       if (y < 0 || y > priceH) continue;
       canvas.drawLine(Offset(0, y), Offset(plotW, y), linePaint);
-      final tp = _tp(
-          formatHlPrice(level, decimalCap: decimalCap), labelColor, fontSize);
+      final tp = _tp(labels[i], labelColor, fontSize);
       // Whole in the column, or not at all.
       if (labelLeft + tp.width > size.width + 0.5) continue;
       final ty = (y - tp.height / 2)
@@ -898,16 +899,90 @@ double hlPriceTagHeight() =>
         .height +
     2.5.h * 2;
 
-/// The price the tag column is sized for: the widest price the tape
-/// between [lo] and [hi] writes ([formatHlPrice]), every digit a 0, with
-/// one digit more, so the column holds a price that ticks over a power of
-/// ten ("$9,999.9", "$10,000") and does not jump while the price moves or
-/// the chart pans.
+/// The latest price's tag on an Investing chart: the venue-accurate
+/// price ([formatHlPrice]) without the dollar sign, the way a chart's
+/// price axis writes it ("131,312", "3,912.4", "0.012345"), so the tag
+/// column holds it with a glyph less.
+String formatHlTagPrice(double px, {int? decimalCap}) =>
+    formatHlPrice(px, decimalCap: decimalCap).replaceFirst(r'$', '');
+
+/// The price the tag column is sized for: the widest tag
+/// ([formatHlTagPrice]) a price between [lo] and [hi] can write, every
+/// digit a 0: the integer digits of [hi] with the most decimals any price
+/// in the range is given (those of [lo]). Sized from the whole tape, not
+/// the window on screen, so the column holds still while the price moves
+/// or the chart pans; it changes only when the tape reaches a new power
+/// of ten.
 String hlPriceTagTemplate(double lo, double hi, {int? decimalCap}) {
-  String zeroed(double v) => formatHlPrice(v, decimalCap: decimalCap)
+  final top = math.max(lo, hi);
+  if (!(top > 0) || !top.isFinite) return '0';
+  final low = lo > 0 && lo.isFinite ? math.min(lo, hi > 0 ? hi : lo) : top;
+  final decimals = hlPriceDecimals(low, decimalCap: decimalCap);
+  return NumberFormat(
+          decimals == 0 ? '#,##0' : '#,##0.${'0' * decimals}', 'en_US')
+      .format(top)
       .replaceAll(RegExp(r'[0-9]'), '0');
-  final a = zeroed(lo), b = zeroed(hi);
-  return (a.length >= b.length ? a : b).replaceFirst('0', '00');
+}
+
+/// The price axis's labels for [levels] ([hlNiceLevels], ascending), in
+/// one format down the ladder: no dollar sign, only the decimals the
+/// levels need to be told apart, thousands grouped ("80,500", "3,912.5",
+/// "0.0125"). A ladder that would write more than [maxChars] characters
+/// counts in thousands or millions when that is shorter ("131.5k",
+/// "1.25M"), so the tag column stays narrow; a small price keeps every
+/// decimal its step needs.
+List<String> hlAxisLabels(List<double> levels, {int maxChars = 6}) {
+  if (levels.isEmpty) return const [];
+  int decimalsAt(double scale) {
+    for (var d = 0; d < 8; d++) {
+      final f = math.pow(10, d).toDouble();
+      final exact = levels.every((v) {
+        final x = v / scale * f;
+        return (x - x.roundToDouble()).abs() <
+            1e-6 * math.max(1.0, x.abs());
+      });
+      if (exact) return d;
+    }
+    return 8;
+  }
+
+  List<String> write(double scale, String suffix) {
+    final d = decimalsAt(scale);
+    final f =
+        NumberFormat(d == 0 ? '#,##0' : '#,##0.${'0' * d}', 'en_US');
+    return [for (final v in levels) '${f.format(v / scale)}$suffix'];
+  }
+
+  int widest(List<String> labels) =>
+      labels.fold(0, (w, l) => math.max(w, l.length));
+
+  var best = write(1, '');
+  if (widest(best) <= maxChars) return best;
+  final top = levels.fold(0.0, (m, v) => math.max(m, v.abs()));
+  if (top >= 1e4) {
+    final k = write(1e3, 'k');
+    if (widest(k) < widest(best)) best = k;
+  }
+  if (top >= 1e6) {
+    final m = write(1e6, 'M');
+    if (widest(m) < widest(best)) best = m;
+  }
+  return best;
+}
+
+/// An indicator pane's value (MACD, ATR, ...) as its tag column writes
+/// it: four significant figures for a small value, one decimal from 100,
+/// none from 1,000, then thousands and millions ("131.3k", "1.31M"), so
+/// a value on a six-figure market never writes "131312.1".
+String hlPaneValue(double v) {
+  if (!v.isFinite) return '—';
+  final a = v.abs();
+  final sign = v < 0 ? '-' : '';
+  if (a >= 1e6) return '$sign${(a / 1e6).toStringAsFixed(2)}M';
+  if (a >= 1e4) return '$sign${(a / 1e3).toStringAsFixed(1)}k';
+  if (a >= 1000) return '$sign${a.toStringAsFixed(0)}';
+  if (a >= 100) return v.toStringAsFixed(1);
+  return v.toStringAsPrecision(4);
 }
 
 /// The tag column an Investing chart [width] wide keeps at its right: as
@@ -3617,7 +3692,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (!y.isFinite) return const [];
     final ly = y.clamp(0.0, geom.priceH).toDouble();
     final tp = _HlCandlePainter._cachedTp(
-      formatHlPrice(lastK.close, decimalCap: widget.decimalCap),
+      formatHlTagPrice(lastK.close, decimalCap: widget.decimalCap),
       Colors.white,
       10.5.sp,
       FontWeight.w800,
@@ -4173,7 +4248,7 @@ class _HlCandlePainter extends CustomPainter {
     final tagFg =
         lineColor.computeLuminance() > 0.55 ? Colors.black : Colors.white;
     final tag = _cachedTp(
-      formatHlPrice(lastK.close, decimalCap: decimalCap),
+      formatHlTagPrice(lastK.close, decimalCap: decimalCap),
       tagFg,
       10.5.sp,
       FontWeight.w800,
@@ -4690,8 +4765,7 @@ class _HlPanePainter extends CustomPainter {
       final v = values[index];
       valueLabel = TextPainter(
         text: TextSpan(
-          text:
-              v.abs() >= 100 ? v.toStringAsFixed(1) : v.toStringAsPrecision(4),
+          text: hlPaneValue(v),
           style: TextStyle(
             fontFamily: kuteChartFontFamily,
             color: series.first.$2,
