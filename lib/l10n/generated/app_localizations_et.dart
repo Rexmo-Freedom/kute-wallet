@@ -10978,4 +10978,69 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Saldod';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change viimase nädalaga';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change viimase kuuga';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change viimase 3 kuuga';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change viimase aastaga';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change kokku';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change alates $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Viimase nädalaga muutust pole';
+
+  @override
+  String get balanceNoChangePastMonth => 'Viimase kuuga muutust pole';
+
+  @override
+  String get balanceNoChangePast3Months => 'Viimase 3 kuuga muutust pole';
+
+  @override
+  String get balanceNoChangePastYear => 'Viimase aastaga muutust pole';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Alates $date muutust pole';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Muutust pole, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Kui sul on bitcoini, näed siin oma saldot ajas';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Kui sul on dollareid, näed siin oma saldot ajas';
 }

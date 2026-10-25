@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Az áthelyezéséhez használj egy MetaMaskhoz hasonló tárcát ugyanazzal a helyreállítási kifejezéssel.",
   "cctpRefundContactSupport": "Az áthelyezéséhez fordulj az ügyfélszolgálathoz.",
   "portfolioSectionPnlCharts": "P&L grafikonok",
-  "portfolioSectionBalances": "Egyenlegek"
+  "portfolioSectionBalances": "Egyenlegek",
+  "balanceChangePastWeek": "{change} az elmúlt héten",
+  "balanceChangePastMonth": "{change} az elmúlt hónapban",
+  "balanceChangePast3Months": "{change} az elmúlt 3 hónapban",
+  "balanceChangePastYear": "{change} az elmúlt évben",
+  "balanceChangeAllTime": "{change} összesen",
+  "balanceChangeSince": "{change} {date} óta",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Nincs változás az elmúlt héten",
+  "balanceNoChangePastMonth": "Nincs változás az elmúlt hónapban",
+  "balanceNoChangePast3Months": "Nincs változás az elmúlt 3 hónapban",
+  "balanceNoChangePastYear": "Nincs változás az elmúlt évben",
+  "balanceNoChangeSince": "Nincs változás {date} óta",
+  "balanceNoChangeBetween": "Nincs változás, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Az egyenleged alakulása itt jelenik meg, amint lesz bitcoinod",
+  "balanceChartEmptyDollars": "Az egyenleged alakulása itt jelenik meg, amint lesz dollárod"
 }

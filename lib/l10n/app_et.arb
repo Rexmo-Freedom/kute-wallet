@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Selle liigutamiseks kasuta rahakotti nagu MetaMask sama taastefraasiga.",
   "cctpRefundContactSupport": "Selle liigutamiseks võta ühendust toega.",
   "portfolioSectionPnlCharts": "P&L graafikud",
-  "portfolioSectionBalances": "Saldod"
+  "portfolioSectionBalances": "Saldod",
+  "balanceChangePastWeek": "{change} viimase nädalaga",
+  "balanceChangePastMonth": "{change} viimase kuuga",
+  "balanceChangePast3Months": "{change} viimase 3 kuuga",
+  "balanceChangePastYear": "{change} viimase aastaga",
+  "balanceChangeAllTime": "{change} kokku",
+  "balanceChangeSince": "{change} alates {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Viimase nädalaga muutust pole",
+  "balanceNoChangePastMonth": "Viimase kuuga muutust pole",
+  "balanceNoChangePast3Months": "Viimase 3 kuuga muutust pole",
+  "balanceNoChangePastYear": "Viimase aastaga muutust pole",
+  "balanceNoChangeSince": "Alates {date} muutust pole",
+  "balanceNoChangeBetween": "Muutust pole, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Kui sul on bitcoini, näed siin oma saldot ajas",
+  "balanceChartEmptyDollars": "Kui sul on dollareid, näed siin oma saldot ajas"
 }

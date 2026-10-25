@@ -5,21 +5,25 @@
 //
 // The series is laid on an even grid in wall-clock time (a quarter
 // hour, an hour or a day apart, the finest that keeps a long history
-// under [kBalanceMaxCells] points), from the moment the account first
-// held money to now; the last point is the balance now. Each grid point
+// under [kBalanceMaxCells] points), from a short lead-in before the
+// account first held money that stayed (money that came and went the same
+// day does not start the history) to now; the last point is the balance
+// now. The lead-in lets the line rise from what was held before, so the
+// change over a range that reaches the start reads from there. Each grid point
 // holds the balance at that moment, which is the closing balance of the
 // stretch that ends there. The chart draws only every few points, as
 // many as the window on screen calls for ([balanceBucketMinutes]: a
 // quarter hour under a day, hourly under a week, daily, weekly past a
-// year), so money that passes through within one bucket (in and out
-// minutes later, a top-up routed on to Investments) never spikes the
-// line or the scale, and a pinch re-buckets as it goes. Buckets close on
+// year), and a balance held for less than [kBalanceSettle] is not drawn
+// at all, so money that passes through (in and out minutes later, a
+// top-up routed on to Investments) never spikes the line or the scale,
+// and a pinch re-buckets as it goes. Buckets close on
 // the hour, at midnight and on Mondays, wherever the series starts.
 //
-// The chart opens on the last 30 days at most, and never on a stretch of
-// zero before the account held money: it starts on the first bucket in
-// that window that closes on a balance ([BalanceSeries.defaultSpan]).
-// Pinch out reaches the whole history.
+// The chart shows a range ([BalanceRange]: the past week, month, three
+// months, year, or all of it) ending now, never reaching back past the
+// lead-in ([BalanceSeries.spanFor]); pinch and pan move inside the whole
+// history.
 
 import 'dart:math' as math;
 
@@ -63,13 +67,38 @@ const List<int> kBalanceCellMinutes = [15, 60, 1440];
 /// hour for about two years).
 const int kBalanceMaxCells = 20000;
 
-/// The share of the window spent before the first change when money was
-/// already held before it (a history that starts mid-way): a short flat
-/// lead-in, so the first change reads as a change and not as the edge.
+/// The share of the history spent on the lead-in before the first money
+/// held (or before the first change, when money was already held before
+/// it): a short flat stretch, so the first change reads as a change and
+/// not as the edge.
 const double kBalanceHistoryLeadIn = 1 / 12;
 
-/// The longest window a Balance chart opens on, ending now.
-const Duration kBalanceDefaultWindow = Duration(days: 30);
+/// The shortest lead-in, so a deposit minutes old still rises from what
+/// was held before it.
+const Duration kBalanceMinLeadIn = Duration(hours: 1);
+
+/// How long a balance must hold to be drawn at all: a balance that lasted
+/// less (money in and straight on to Investments, a send moments after a
+/// receive) is passing through, not held, whatever bucket boundary it
+/// straddles. The balance now always counts.
+const Duration kBalanceSettle = Duration(hours: 1);
+
+/// The ranges a Balance chart offers under the plot, each ending now.
+enum BalanceRange {
+  week('1W', Duration(days: 7)),
+  month('1M', Duration(days: 30)),
+  threeMonths('3M', Duration(days: 91)),
+  year('1Y', Duration(days: 365)),
+  all('ALL', null);
+
+  const BalanceRange(this.label, this.duration);
+
+  /// The pill's label, as every range row in the app writes it.
+  final String label;
+
+  /// How far back it reaches; null is the whole history.
+  final Duration? duration;
+}
 
 /// The closest a pinch gets: a few hours on screen.
 const Duration kBalanceMinWindow = Duration(hours: 4);
@@ -128,53 +157,65 @@ class BalanceSeries {
   double get minSpan => math.min(
       extent, math.max(2.0, kBalanceMinWindow.inMinutes / cellMinutes));
 
-  /// The window the chart opens on, in points, ending now: the last
-  /// [kBalanceDefaultWindow] at most, starting on the first drawn point
-  /// in it that holds money when the line would otherwise open on zero (a
-  /// wallet funded yesterday opens on yesterday, not on weeks of nothing
-  /// or on money that came and went within a bucket weeks ago).
-  double get defaultSpan {
+  /// The window [range] shows, in points, ending now: from the first
+  /// point inside it (the whole history for [BalanceRange.all], or when
+  /// the account is younger than the range), never under [minSpan].
+  double spanFor(BalanceRange range) {
     final n = values.length;
-    if (n < 2) return extent;
-    final from = times.last.subtract(kBalanceDefaultWindow);
+    final back = range.duration;
+    if (n < 2 || back == null) return extent;
+    final from = times.last.subtract(back);
     var start = 0;
     while (start < n - 1 && times[start].isBefore(from)) {
       start++;
-    }
-    final stride = strideFor((n - 1 - start).toDouble());
-    var first = start;
-    while (!isDrawn(first, stride)) {
-      first++;
-    }
-    if (values[first] <= 0) {
-      for (var i = first + 1; i < n; i++) {
-        if (isDrawn(i, stride) && values[i] > 0) {
-          start = i;
-          break;
-        }
-      }
     }
     return math.max(extent - start, minSpan).clamp(0.0, extent).toDouble();
   }
 }
 
 /// [h] laid on the grid up to [now] (see the file comment).
-BalanceSeries balanceSeries(BalanceHistory h, DateTime now) {
-  // Where the line starts: when money was first held, or (money held
-  // before the first change on record) a short lead-in before it; with
-  // nothing on record, the last week, flat.
+BalanceSeries balanceSeries(BalanceHistory raw, DateTime now) {
+  // Only balances that held for [kBalanceSettle] (or still hold now): a
+  // chain of moves minutes apart reads as the balance it settled on.
+  final settled = <(DateTime, double)>[
+    for (var k = 0; k < raw.changes.length; k++)
+      if (k == raw.changes.length - 1 ||
+          raw.changes[k + 1].$1.difference(raw.changes[k].$1) >=
+              kBalanceSettle)
+        raw.changes[k]
+  ];
+  final h = BalanceHistory(
+      opening: raw.opening, changes: settled, current: raw.current);
+  // Where the history starts: the first money held that stayed past the
+  // day it came in (a deposit routed straight on does not start it), or
+  // with money held before the first change on record, that change; with
+  // nothing on record, the last week, flat. The line starts a short
+  // lead-in before it.
   DateTime first;
   if (h.changes.isEmpty) {
     first = now.subtract(const Duration(days: 7));
-  } else if (h.opening > 0) {
-    final c0 = h.changes.first.$1;
-    final span = (now.isAfter(c0) ? now : c0).difference(c0);
-    first = c0.subtract(Duration(
-        microseconds: (span.inMicroseconds * kBalanceHistoryLeadIn).round()));
   } else {
-    first = h.changes
-        .firstWhere((c) => c.$2 > 0, orElse: () => h.changes.first)
-        .$1;
+    var start = h.changes.first.$1;
+    if (h.opening <= 0) {
+      DateTime? held, stayed;
+      for (final c in h.changes) {
+        if (c.$2 <= 0) continue;
+        held ??= c.$1;
+        final midnight = DateTime(c.$1.year, c.$1.month, c.$1.day + 1);
+        if (h.heldAt(midnight.isBefore(now) ? midnight : now) > 0) {
+          stayed = c.$1;
+          break;
+        }
+      }
+      start = stayed ?? held ?? start;
+    }
+    if (start.isAfter(now)) start = now;
+    var lead = Duration(
+        microseconds:
+            (now.difference(start).inMicroseconds * kBalanceHistoryLeadIn)
+                .round());
+    if (lead < kBalanceMinLeadIn) lead = kBalanceMinLeadIn;
+    first = start.subtract(lead);
   }
   if (first.isAfter(now)) first = now;
 
@@ -200,8 +241,6 @@ BalanceSeries balanceSeries(BalanceHistory h, DateTime now) {
   for (var i = 0;; i++) {
     final t = at(i);
     if (i > 0 && !t.isBefore(now)) break;
-    // The first point is the moment the line starts, not the step before
-    // it, so the line opens on the money first held, never on a zero.
     final moment = i == 0 ? first : t;
     while (j < h.changes.length && !h.changes[j].$1.isAfter(moment)) {
       j++;

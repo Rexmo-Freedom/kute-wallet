@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Per spostarlo, usa un wallet come MetaMask con la stessa frase di recupero.",
   "cctpRefundContactSupport": "Per spostarlo, contatta il supporto.",
   "portfolioSectionPnlCharts": "Grafici P&L",
-  "portfolioSectionBalances": "Saldi"
+  "portfolioSectionBalances": "Saldi",
+  "balanceChangePastWeek": "{change} nell'ultima settimana",
+  "balanceChangePastMonth": "{change} nell'ultimo mese",
+  "balanceChangePast3Months": "{change} negli ultimi 3 mesi",
+  "balanceChangePastYear": "{change} nell'ultimo anno",
+  "balanceChangeAllTime": "{change} in totale",
+  "balanceChangeSince": "{change} dal {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Nessuna variazione nell'ultima settimana",
+  "balanceNoChangePastMonth": "Nessuna variazione nell'ultimo mese",
+  "balanceNoChangePast3Months": "Nessuna variazione negli ultimi 3 mesi",
+  "balanceNoChangePastYear": "Nessuna variazione nell'ultimo anno",
+  "balanceNoChangeSince": "Nessuna variazione dal {date}",
+  "balanceNoChangeBetween": "Nessuna variazione, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Il tuo saldo nel tempo apparirà qui quando avrai bitcoin",
+  "balanceChartEmptyDollars": "Il tuo saldo nel tempo apparirà qui quando avrai dollari"
 }

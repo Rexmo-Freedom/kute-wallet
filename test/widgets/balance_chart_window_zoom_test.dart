@@ -11,7 +11,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
-import 'package:kute/screens/usd/components/usd_balance_chart.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How the Balance charts open and zoom (the founder's 2026-10-25
@@ -44,9 +43,10 @@ void main() {
     );
   }
 
-  /// The window a series opens on, and the points drawn in it.
-  KuteIndexWindow opening(BalanceSeries s) =>
-      KuteIndexWindow(s.extent - s.defaultSpan, s.extent);
+  /// The window a range shows, and the points drawn in it.
+  KuteIndexWindow opening(BalanceSeries s,
+          [BalanceRange range = BalanceRange.month]) =>
+      KuteIndexWindow(s.extent - s.spanFor(range), s.extent);
   KuteLineBuckets bucketsOf(BalanceSeries s) =>
       KuteLineBuckets(strideFor: s.strideFor, phase: s.phase);
   List<double> drawnIn(BalanceSeries s, KuteIndexWindow w) => [
@@ -55,18 +55,20 @@ void main() {
       ];
 
   group('how it opens', () {
-    test('never on weeks of zero or a pass-through: on the first funded '
-        'bucket close, ending now', () {
+    test('never on weeks of zero or a pass-through: the money that stayed, '
+        'rising from nothing, ending now', () {
       final s = balanceSeries(founder(), now);
       final w = opening(s);
-      // Daily closes over the 19 days: Oct 6 closed on nothing, Oct 24
-      // closed on what stayed. The window starts at that close.
-      expect(s.times[w.start.round()], DateTime(2026, 10, 25));
+      // Oct 6 came and went the same morning: the history starts shortly
+      // before the top-up of Oct 24 that stayed.
+      expect(s.times.first.isAfter(DateTime(2026, 10, 24)), isTrue);
+      expect(w.start, 0);
       expect(w.end, s.extent);
       expect(s.times.last, now);
       final drawn = drawnIn(s, w);
-      expect(drawn, isNotEmpty);
-      expect(drawn.every((v) => v == 6938), isTrue);
+      // Nothing, then what stayed: no 110,000 spike.
+      expect(drawn.toSet(), {0, 6938});
+      expect(drawn.last, 6938);
     });
 
     test('a pass-through inside one bucket never reaches the line or the '
@@ -85,19 +87,19 @@ void main() {
       );
       final s = balanceSeries(h, now);
       final w = opening(s);
-      // Twenty days is the whole history: the chart opens on all of it,
-      // in daily closes.
+      // The month reaches past the start: all of it, in daily closes.
       expect(w.start, 0);
       expect(s.strideFor(w.span) * s.cellMinutes, 1440);
-      expect(drawnIn(s, w).every((v) => v == 7000), isTrue);
+      expect(drawnIn(s, w).every((v) => v == 7000 || v == 0), isTrue);
       final d = kuteLineDomain(s.values, w,
           indices: bucketsOf(s).indicesFor(s.length, w), minShare: 0.2);
       expect(d.maxY, lessThan(10000));
-      // A constant balance sits in the middle of the plot.
-      expect(kuteLineY(7000, 200, d), closeTo(100, 1e-6));
+      // On the week (hourly closes) it still never shows.
+      final week = opening(s, BalanceRange.week);
+      expect(drawnIn(s, week).every((v) => v == 7000), isTrue);
     });
 
-    test('a long history opens on its last 30 days, ending now', () {
+    test('a long history shows each range ending now', () {
       final h = BalanceHistory(
         opening: 0,
         changes: [
@@ -115,9 +117,10 @@ void main() {
       expect(start.difference(cut).inMinutes, lessThan(s.cellMinutes));
       expect(w.end, s.extent);
       expect(drawnIn(s, w).toSet(), {50000, 80000});
+      expect(opening(s, BalanceRange.all).start, 0);
     });
 
-    test('a short history opens on all of it', () {
+    test('a short history shows all of it on the month', () {
       final h = BalanceHistory(
         opening: 0,
         changes: [
@@ -127,24 +130,8 @@ void main() {
         current: 26000,
       );
       final s = balanceSeries(h, now);
-      expect(s.defaultSpan, s.extent);
-    });
-
-    test('a wallet funded again after weeks empty opens on the new money', () {
-      final h = BalanceHistory(
-        opening: 0,
-        changes: [
-          (now.subtract(const Duration(days: 60)), 40000),
-          (now.subtract(const Duration(days: 50)), 0),
-          (now.subtract(const Duration(days: 3, hours: 4)), 15000),
-        ],
-        current: 15000,
-      );
-      final s = balanceSeries(h, now);
-      final w = opening(s);
-      final start = s.times[w.start.round()];
-      expect(start.isAfter(now.subtract(const Duration(days: 4))), isTrue);
-      expect(drawnIn(s, w).every((v) => v == 15000), isTrue);
+      expect(s.spanFor(BalanceRange.month), s.extent);
+      expect(s.spanFor(BalanceRange.week), lessThan(s.extent));
     });
 
     test('a pinch re-buckets: quarter hours, hours, days, weeks', () {
@@ -388,7 +375,7 @@ void main() {
           wallets: [WalletConfig(id: 'spending', name: 'Spending')],
         );
 
-    testWidgets('the founder\'s wallet opens on what stayed, a level line',
+    testWidgets('the founder\'s wallet: what stayed, never the pass-through',
         (tester) async {
       tester.view.physicalSize = const Size(393, 852) * 2;
       tester.view.devicePixelRatio = 2;
@@ -410,8 +397,8 @@ void main() {
                 height: 300,
                 child: BalanceHistoryChart(
                   history: founder(),
-                  format: (v) => '${v.round()} sats',
-                  scaleLabel: dollarScaleLabel,
+                  format: (v) => '₿${v.round()}',
+                  emptyMessage: 'Nothing held yet',
                   trackingChart: 'valuation',
                   now: now,
                 ),
@@ -433,19 +420,25 @@ void main() {
         for (final i in chart.buckets!.indicesFor(chart.values.length, w))
           if (i >= w.start - 1e-6) chart.values[i]
       ];
-      expect(drawn.toSet(), {6938});
+      // Nothing, then what stayed; never the 110,000 that passed on.
+      expect(drawn.toSet(), {0, 6938});
       expect(
           tester
               .widget<Text>(find.byKey(const ValueKey('kute-time-axis-start')))
               .data,
-          '00:00');
+          'Oct 24');
       expect(
           tester
               .widget<Text>(find.byKey(const ValueKey('kute-time-axis-end')))
               .data,
           'Now');
-      // A balance that sat still writes no change above the plot.
-      expect(find.textContaining('(0.0%)'), findsNothing);
+      // Up from nothing this month: the amount, no percent.
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('balance-chart-header')))
+              .textSpan!
+              .toPlainText(),
+          '+₿6938 past month');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 8));
     });

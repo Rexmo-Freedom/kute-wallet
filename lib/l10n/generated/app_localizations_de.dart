@@ -11073,4 +11073,71 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Guthaben';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change in der letzten Woche';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change im letzten Monat';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change in den letzten 3 Monaten';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change im letzten Jahr';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change insgesamt';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change seit $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek =>
+      'Keine Veränderung in der letzten Woche';
+
+  @override
+  String get balanceNoChangePastMonth => 'Keine Veränderung im letzten Monat';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Keine Veränderung in den letzten 3 Monaten';
+
+  @override
+  String get balanceNoChangePastYear => 'Keine Veränderung im letzten Jahr';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Keine Veränderung seit $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Keine Veränderung, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Sobald du Bitcoin hast, siehst du hier dein Guthaben im Zeitverlauf';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Sobald du Dollar hast, siehst du hier dein Guthaben im Zeitverlauf';
 }

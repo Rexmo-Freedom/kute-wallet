@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Če jih želite premakniti, uporabite denarnico, kot je MetaMask, z isto obnovitveno frazo.",
   "cctpRefundContactSupport": "Če jih želite premakniti, se obrnite na podporo.",
   "portfolioSectionPnlCharts": "Grafi P&L",
-  "portfolioSectionBalances": "Stanja"
+  "portfolioSectionBalances": "Stanja",
+  "balanceChangePastWeek": "{change} v zadnjem tednu",
+  "balanceChangePastMonth": "{change} v zadnjem mesecu",
+  "balanceChangePast3Months": "{change} v zadnjih 3 mesecih",
+  "balanceChangePastYear": "{change} v zadnjem letu",
+  "balanceChangeAllTime": "{change} skupaj",
+  "balanceChangeSince": "{change} od {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Brez spremembe v zadnjem tednu",
+  "balanceNoChangePastMonth": "Brez spremembe v zadnjem mesecu",
+  "balanceNoChangePast3Months": "Brez spremembe v zadnjih 3 mesecih",
+  "balanceNoChangePastYear": "Brez spremembe v zadnjem letu",
+  "balanceNoChangeSince": "Brez spremembe od {date}",
+  "balanceNoChangeBetween": "Brez spremembe, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Ko boste imeli bitcoin, bo tukaj prikazano gibanje vašega stanja",
+  "balanceChartEmptyDollars": "Ko boste imeli dolarje, bo tukaj prikazano gibanje vašega stanja"
 }

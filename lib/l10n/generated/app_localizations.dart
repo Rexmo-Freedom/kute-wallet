@@ -18511,6 +18511,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Balances'**
   String get portfolioSectionBalances;
+
+  /// Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} past week'**
+  String balanceChangePastWeek(String change);
+
+  /// Balance chart header for the 1M range; {change} as in balanceChangePastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} past month'**
+  String balanceChangePastMonth(String change);
+
+  /// Balance chart header for the 3M range; {change} as in balanceChangePastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} past 3 months'**
+  String balanceChangePast3Months(String change);
+
+  /// Balance chart header for the 1Y range; {change} as in balanceChangePastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} past year'**
+  String balanceChangePastYear(String change);
+
+  /// Balance chart header for the ALL range (the whole history); {change} as in balanceChangePastWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} all time'**
+  String balanceChangeAllTime(String change);
+
+  /// Balance chart header after a pinch or pan, for a window ending now: {change} as in balanceChangePastWeek, {date} the window's first day ('Oct 6').
+  ///
+  /// In en, this message translates to:
+  /// **'{change} since {date}'**
+  String balanceChangeSince(String change, String date);
+
+  /// Balance chart header after a pan back in time: {change} as in balanceChangePastWeek, {start} and {end} the window's first and last dates.
+  ///
+  /// In en, this message translates to:
+  /// **'{change}, {start} – {end}'**
+  String balanceChangeBetween(String change, String start, String end);
+
+  /// Balance chart header for the 1W range when the balance is the same at both ends.
+  ///
+  /// In en, this message translates to:
+  /// **'No change in the past week'**
+  String get balanceNoChangePastWeek;
+
+  /// Balance chart header for the 1M range when the balance is the same at both ends.
+  ///
+  /// In en, this message translates to:
+  /// **'No change in the past month'**
+  String get balanceNoChangePastMonth;
+
+  /// Balance chart header for the 3M range when the balance is the same at both ends.
+  ///
+  /// In en, this message translates to:
+  /// **'No change in the past 3 months'**
+  String get balanceNoChangePast3Months;
+
+  /// Balance chart header for the 1Y range when the balance is the same at both ends.
+  ///
+  /// In en, this message translates to:
+  /// **'No change in the past year'**
+  String get balanceNoChangePastYear;
+
+  /// Balance chart header, balance the same at both ends of a window ending now (ALL, or after a pinch); {date} the window's first day.
+  ///
+  /// In en, this message translates to:
+  /// **'No change since {date}'**
+  String balanceNoChangeSince(String date);
+
+  /// Balance chart header, balance the same at both ends of a window panned back in time; {start} and {end} its dates.
+  ///
+  /// In en, this message translates to:
+  /// **'No change, {start} – {end}'**
+  String balanceNoChangeBetween(String start, String end);
+
+  /// Quiet one-line message centred on the Bitcoin balance chart when the balance is zero across the whole selected range.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance over time shows here once you hold bitcoin'**
+  String get balanceChartEmptyBitcoin;
+
+  /// Quiet one-line message centred on the Dollars balance chart when the balance is zero across the whole selected range.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance over time shows here once you hold dollars'**
+  String get balanceChartEmptyDollars;
 }
 
 class _AppLocalizationsDelegate

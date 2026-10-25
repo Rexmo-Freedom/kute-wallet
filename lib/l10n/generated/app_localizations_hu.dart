@@ -11015,4 +11015,70 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Egyenlegek';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change az elmúlt héten';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change az elmúlt hónapban';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change az elmúlt 3 hónapban';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change az elmúlt évben';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change összesen';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change $date óta';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Nincs változás az elmúlt héten';
+
+  @override
+  String get balanceNoChangePastMonth => 'Nincs változás az elmúlt hónapban';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Nincs változás az elmúlt 3 hónapban';
+
+  @override
+  String get balanceNoChangePastYear => 'Nincs változás az elmúlt évben';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Nincs változás $date óta';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Nincs változás, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Az egyenleged alakulása itt jelenik meg, amint lesz bitcoinod';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
 }

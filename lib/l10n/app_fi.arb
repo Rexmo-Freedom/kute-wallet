@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Siirtääksesi sen käytä MetaMaskin kaltaista lompakkoa samalla palautuslausekkeella.",
   "cctpRefundContactSupport": "Siirtääksesi sen ota yhteyttä tukeen.",
   "portfolioSectionPnlCharts": "P&L-kaaviot",
-  "portfolioSectionBalances": "Saldot"
+  "portfolioSectionBalances": "Saldot",
+  "balanceChangePastWeek": "{change} viimeisen viikon aikana",
+  "balanceChangePastMonth": "{change} viimeisen kuukauden aikana",
+  "balanceChangePast3Months": "{change} viimeisten 3 kuukauden aikana",
+  "balanceChangePastYear": "{change} viimeisen vuoden aikana",
+  "balanceChangeAllTime": "{change} yhteensä",
+  "balanceChangeSince": "{change} {date} lähtien",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Ei muutosta viimeisen viikon aikana",
+  "balanceNoChangePastMonth": "Ei muutosta viimeisen kuukauden aikana",
+  "balanceNoChangePast3Months": "Ei muutosta viimeisten 3 kuukauden aikana",
+  "balanceNoChangePastYear": "Ei muutosta viimeisen vuoden aikana",
+  "balanceNoChangeSince": "Ei muutosta {date} lähtien",
+  "balanceNoChangeBetween": "Ei muutosta, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Saldosi kehitys näkyy tässä, kun sinulla on bitcoinia",
+  "balanceChartEmptyDollars": "Saldosi kehitys näkyy tässä, kun sinulla on dollareita"
 }

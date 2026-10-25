@@ -46,7 +46,7 @@ void main() {
         child: BalanceHistoryChart(
           history: history,
           format: (v) => '\$${v.toStringAsFixed(2)}',
-          scaleLabel: dollarScaleLabel,
+          emptyMessage: 'Nothing held yet',
           trackingChart: 'valuation',
           now: now,
         ),
@@ -95,7 +95,7 @@ void main() {
   /// What the start label reads for the window [history] opens on.
   String openingStart(BalanceHistory history) {
     final s = balanceSeries(history, now);
-    final start = s.times[(s.extent - s.defaultSpan).round()];
+    final start = s.times[(s.extent - s.spanFor(BalanceRange.month)).round()];
     return kuteAxisTime(start, now.difference(start), 'en');
   }
 
@@ -116,8 +116,8 @@ void main() {
       expect(find.byType(KuteTimeAxis), findsOneWidget);
       expect(startText(tester), matches(hour));
       expect(startText(tester), openingStart(h));
-      // From the deposit itself: no lead-in of nothing before it.
-      expect(startText(tester), '15:00');
+      // An hour of what was held before the deposit, then the deposit.
+      expect(startText(tester), '14:00');
       expect(endText(tester), 'Now');
       await dispose(tester);
     });

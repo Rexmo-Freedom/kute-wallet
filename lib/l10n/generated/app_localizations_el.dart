@@ -11068,4 +11068,70 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Υπόλοιπα';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change την τελευταία εβδομάδα';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change τον τελευταίο μήνα';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change τους τελευταίους 3 μήνες';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change τον τελευταίο χρόνο';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change συνολικά';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change από $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Καμία αλλαγή την τελευταία εβδομάδα';
+
+  @override
+  String get balanceNoChangePastMonth => 'Καμία αλλαγή τον τελευταίο μήνα';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Καμία αλλαγή τους τελευταίους 3 μήνες';
+
+  @override
+  String get balanceNoChangePastYear => 'Καμία αλλαγή τον τελευταίο χρόνο';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Καμία αλλαγή από $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Καμία αλλαγή, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε bitcoin';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια';
 }

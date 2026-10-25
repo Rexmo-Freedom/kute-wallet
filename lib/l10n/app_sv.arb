@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Använd en plånbok som MetaMask med samma återställningsfras för att flytta dem.",
   "cctpRefundContactSupport": "Kontakta supporten för att flytta dem.",
   "portfolioSectionPnlCharts": "P&L-diagram",
-  "portfolioSectionBalances": "Saldon"
+  "portfolioSectionBalances": "Saldon",
+  "balanceChangePastWeek": "{change} senaste veckan",
+  "balanceChangePastMonth": "{change} senaste månaden",
+  "balanceChangePast3Months": "{change} senaste 3 månaderna",
+  "balanceChangePastYear": "{change} senaste året",
+  "balanceChangeAllTime": "{change} totalt",
+  "balanceChangeSince": "{change} sedan {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Ingen förändring senaste veckan",
+  "balanceNoChangePastMonth": "Ingen förändring senaste månaden",
+  "balanceNoChangePast3Months": "Ingen förändring senaste 3 månaderna",
+  "balanceNoChangePastYear": "Ingen förändring senaste året",
+  "balanceNoChangeSince": "Ingen förändring sedan {date}",
+  "balanceNoChangeBetween": "Ingen förändring, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Ditt saldo över tid visas här när du har bitcoin",
+  "balanceChartEmptyDollars": "Ditt saldo över tid visas här när du har dollar"
 }

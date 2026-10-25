@@ -4,7 +4,6 @@ import 'package:kute/providers/bitcoin_labels_provider.dart';
 import 'package:kute/providers/bitcoin_coins_display_provider.dart';
 import 'package:kute/screens/shared/bitcoin_labels.dart';
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -765,8 +764,8 @@ class _InternalAnalyticsViewState
                     ),
                   ),
                   // The range row is the Price tab's (and the legacy
-                  // views'). The Balance tab pinches through the whole
-                  // history, so it has no row and its chart takes the room.
+                  // views'). The Balance tab carries its own range row
+                  // under its plot, so this one is left out.
                   if (tab != AnalyticsTab.utxo &&
                       tab != AnalyticsTab.allocation &&
                       tab != AnalyticsTab.valuation) ...[
@@ -1032,13 +1031,9 @@ class _InternalAnalyticsViewState
       case AnalyticsTab.fees:
         return const FeeChart();
       case AnalyticsTab.valuation:
-        // The Balance tab: the wallet's history to pinch through, no
-        // range (the range row and LIVE are the Price tab's).
-        return _BitcoinBalanceHistory(
-          currency: currency,
-          btcFormat: btcFormat,
-          onError: (e) => _reportErrorState('analytics_chart', e),
-        );
+        // The Balance tab: its own range row under the plot (the range
+        // row above and LIVE are the Price tab's).
+        return _BitcoinBalanceHistory(btcFormat: btcFormat);
       default:
         break;
     }
@@ -1176,106 +1171,26 @@ class _InternalAnalyticsViewState
 }
 
 /// The Balance tab of a Bitcoin wallet (spending, hardware, watch-only,
-/// Ledger): the viewed wallet's sats as the moments they changed (the
-/// chart opens on the last 30 days at most and pinches out to the whole
-/// history), in the unit the headline leads with. The scrub card adds
-/// what the touched balance was worth that day.
+/// Ledger): the viewed wallet's sats as the moments they changed, over
+/// the range picked under the plot, written as the app writes a bitcoin
+/// amount in the unit the headline leads with.
 class _BitcoinBalanceHistory extends ConsumerWidget {
-  final String currency;
   final String btcFormat;
-  final void Function(Object error) onError;
 
-  const _BitcoinBalanceHistory({
-    required this.currency,
-    required this.btcFormat,
-    required this.onError,
-  });
+  const _BitcoinBalanceHistory({required this.btcFormat});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final history = ref.watch(bitcoinBalanceStepsProvider);
-    final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
-    return ref.watch(bitcoinMarketDataProvider).when(
-          loading: () => const SkeletonLineChart(padding: EdgeInsets.zero),
-          error: (e, s) {
-            onError(e);
-            return Center(
-                child: Text(context.l10n.errorLoadingData,
-                    style: TextStyle(color: c.textTertiary)));
-          },
-          data: (market) {
-            // Daily prices, oldest first, already in the display
-            // currency. A day before the feed starts takes its first
-            // price, as the day-keyed chart did; with no feed at all the
-            // live price stands in.
-            final days = <DateTime>[];
-            final prices = <double>[];
-            final sorted = market.where((d) => d.price != null).toList()
-              ..sort((a, b) => a.date.compareTo(b.date));
-            for (final d in sorted) {
-              final day = _dateOnly(d.date.toLocal());
-              if (days.isNotEmpty && days.last == day) {
-                prices[prices.length - 1] = d.price!.toDouble();
-              } else {
-                days.add(day);
-                prices.add(d.price!.toDouble());
-              }
-            }
-            double priceOn(DateTime t) {
-              if (days.isEmpty) return fiatPerBtc;
-              final day = _dateOnly(t);
-              var lo = 0, hi = days.length - 1, found = 0;
-              while (lo <= hi) {
-                final mid = (lo + hi) >> 1;
-                if (!days[mid].isAfter(day)) {
-                  found = mid;
-                  lo = mid + 1;
-                } else {
-                  hi = mid - 1;
-                }
-              }
-              return prices[found];
-            }
-
-            final fiat = NumberFormat.simpleCurrency(name: currency);
-            final unit = btcFormat == 'sats' ? 'sats' : 'BTC';
-            return BalanceHistoryChart(
-              history: history,
-              format: (sats) =>
-                  '${sats.round().toFormattedString(btcFormat)} $unit',
-              scaleLabel: (level, step) =>
-                  bitcoinScaleLabel(level, step, btcFormat),
-              // Levels at least a sat apart: a balance of a few sats
-              // reads "5 sats", never "0.5 sats" or "0.0000000001".
-              scaleMinStep: 1,
-              // What the balance was worth that day, as the header's
-              // fiat line says it for now.
-              detailText: (t, sats) =>
-                  sats <= 0 ? null : fiat.format(sats / 1e8 * priceOn(t)),
-              trackingChart: 'valuation',
-            );
-          },
-        );
+    return BalanceHistoryChart(
+      history: history,
+      // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
+      format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
+      emptyMessage: context.l10n.balanceChartEmptyBitcoin,
+      rangeKey: 'bitcoin',
+      trackingChart: 'valuation',
+    );
   }
-}
-
-/// A level of a bitcoin Balance chart's scale ([level] and [step] in
-/// sats), in the app's unit: "10K sats", "5 sats", "0.0001 BTC",
-/// "0 sats". Whole sats only, and BTC to at most 8 decimals, so a level
-/// never reads "0.5 sats" or a float artifact like "0.0000000001".
-String bitcoinScaleLabel(double level, double step, String btcFormat) {
-  final sats = level.round();
-  if (btcFormat == 'sats') {
-    return '${NumberFormat.compact(locale: 'en_US').format(sats)} sats';
-  }
-  if (sats == 0) return '0 BTC';
-  final btcStep = math.max(step, 1.0) / 1e8;
-  // A hair over the log so 1e-7 (log10 just under -7) keeps 7 decimals.
-  final decimals = btcStep >= 1
-      ? 0
-      : (-(math.log(btcStep) / math.ln10 + 1e-9).floor()).clamp(0, 8).toInt();
-  return '${(sats / 1e8).toStringAsFixed(decimals)} BTC';
 }
 
 class _ValueHeader extends StatelessWidget {

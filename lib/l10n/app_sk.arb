@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Ak ich chceš presunúť, použi peňaženku ako MetaMask s rovnakou frázou na obnovenie.",
   "cctpRefundContactSupport": "Ak ich chceš presunúť, kontaktuj podporu.",
   "portfolioSectionPnlCharts": "Grafy P&L",
-  "portfolioSectionBalances": "Zostatky"
+  "portfolioSectionBalances": "Zostatky",
+  "balanceChangePastWeek": "{change} za posledný týždeň",
+  "balanceChangePastMonth": "{change} za posledný mesiac",
+  "balanceChangePast3Months": "{change} za posledné 3 mesiace",
+  "balanceChangePastYear": "{change} za posledný rok",
+  "balanceChangeAllTime": "{change} celkovo",
+  "balanceChangeSince": "{change} od {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Za posledný týždeň bez zmeny",
+  "balanceNoChangePastMonth": "Za posledný mesiac bez zmeny",
+  "balanceNoChangePast3Months": "Za posledné 3 mesiace bez zmeny",
+  "balanceNoChangePastYear": "Za posledný rok bez zmeny",
+  "balanceNoChangeSince": "Od {date} bez zmeny",
+  "balanceNoChangeBetween": "Bez zmeny, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Keď budete mať bitcoin, uvidíte tu vývoj svojho zostatku",
+  "balanceChartEmptyDollars": "Keď budete mať doláre, uvidíte tu vývoj svojho zostatku"
 }

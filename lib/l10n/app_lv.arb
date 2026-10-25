@@ -3066,5 +3066,20 @@
   "cctpRefundMoveWithWallet": "Lai to pārvietotu, izmanto maku, piemēram, MetaMask, ar to pašu atkopšanas frāzi.",
   "cctpRefundContactSupport": "Lai to pārvietotu, sazinies ar atbalstu.",
   "portfolioSectionPnlCharts": "P&L grafiki",
-  "portfolioSectionBalances": "Atlikumi"
+  "portfolioSectionBalances": "Atlikumi",
+  "balanceChangePastWeek": "{change} pēdējā nedēļā",
+  "balanceChangePastMonth": "{change} pēdējā mēnesī",
+  "balanceChangePast3Months": "{change} pēdējos 3 mēnešos",
+  "balanceChangePastYear": "{change} pēdējā gadā",
+  "balanceChangeAllTime": "{change} kopā",
+  "balanceChangeSince": "{change} kopš {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Pēdējā nedēļā bez izmaiņām",
+  "balanceNoChangePastMonth": "Pēdējā mēnesī bez izmaiņām",
+  "balanceNoChangePast3Months": "Pēdējos 3 mēnešos bez izmaiņām",
+  "balanceNoChangePastYear": "Pēdējā gadā bez izmaiņām",
+  "balanceNoChangeSince": "Kopš {date} bez izmaiņām",
+  "balanceNoChangeBetween": "Bez izmaiņām, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
+  "balanceChartEmptyDollars": "Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā"
 }
