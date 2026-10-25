@@ -40,6 +40,8 @@ import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
+import 'package:kute/screens/polymarket/market_detail_sheet.dart'
+    show MarketDetailSheet;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
@@ -71,8 +73,9 @@ const Color _kPolyRed = AppColors.marketDown;
 // or loss, and the payout if the held side wins with what was paid (once
 // settled: what it paid out); the end as a pill; and plain rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
-// the shared bottom sheet, as on the Investing position) and the closing
-// conditions; and the Sell (or, on a resolved losing side, Clear) action.
+// the shared bottom sheet, as on the Investing position), the closing
+// conditions and "View market" (the event's sheet); and the Sell (or, on a
+// resolved losing side, Clear) action.
 // A won position has no action: it is claimed automatically
 // (claim_auto_fire.dart) and reads "Settled".
 
@@ -87,6 +90,13 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
   });
 
   static const routeName = 'polymarket-position-detail-sheet';
+
+  /// polymarket_viewed's source for a market opened from this screen's
+  /// "View market" row.
+  static const seeMarketSource = 'position_see_market';
+
+  /// The "View market" row's key.
+  static const seeMarketRowKey = ValueKey('poly-position-see-market');
 
   static void show(
     BuildContext context, {
@@ -195,6 +205,26 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
     return charted == AppColors.marketUp || charted == AppColors.marketDown
         ? null
         : charted;
+  }
+
+  /// "View market": the event's sheet. When that sheet is already under
+  /// this one (the position was opened from it), back to it rather than a
+  /// second copy on top; otherwise this screen closes and the sheet opens,
+  /// as Sell and Protect it hand over to theirs.
+  void _seeMarket(PolymarketEvent event) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final under = MarketDetailSheet.openRouteFor(event.slug);
+    if (under != null) {
+      MarketDetailSheet.trackViewed(event,
+          source: PositionDetailSheet.seeMarketSource);
+      navigator.popUntil((route) => route == under);
+      return;
+    }
+    navigator.pop();
+    MarketDetailSheet.show(navigator.context,
+        event: event,
+        onDeposit: widget.onDeposit,
+        source: PositionDetailSheet.seeMarketSource);
   }
 
   @override
@@ -653,6 +683,18 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             return _ClosingConditionsRow(
                                 description: event.description!);
                           },
+                        ),
+
+                      // The market the position belongs to: its event's
+                      // sheet, with the chart (a candidate's position opens
+                      // the whole race). Once the event is read; never a
+                      // dead row.
+                      if (event != null)
+                        PositionLinkRow(
+                          key: PositionDetailSheet.seeMarketRowKey,
+                          label: context.l10n.salViewMarket,
+                          icon: Icons.show_chart_rounded,
+                          onTap: () => _seeMarket(event),
                         ),
 
                       // (Balance row removed — BTC-native model: users think in BTC,

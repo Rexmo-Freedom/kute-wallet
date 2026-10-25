@@ -178,27 +178,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     String? ledgerWalletId,
     String source = 'unknown',
   }) {
-    // Single market-view event (consolidated). Enriched with category +
-    // liquidity bucket + outcome-count bucket so the predictions funnel
-    // and cohort dashboards can split market traffic by vertical and
-    // depth — previously this was a second raw `prediction_market_viewed`
-    // event firing alongside the bare one, splitting the metric.
-    VenueAnalytics.rememberPolymarketEvent(event);
-    TrackingService.polymarketViewed(
-      marketId: event.id,
-      category: event.category,
-      liquidityUsd: event.liquidity,
-      outcomeCount: event.outcomes.length,
-      source: source,
-      eventSlug: event.slug,
-      // One outcome opened as its own screen is titled by the outcome:
-      // the parent event's title is the one on record for it.
-      eventTitle: event.isSyntheticBinary ? null : event.title,
-      extra: {
-        'entry_source': source,
-        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
-      },
-    );
+    trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
     // Drop the active focus before we push the detail route. The
     // predictions search field stays focused when the route pushes,
     // so when the user closes the detail sheet the keyboard
@@ -259,6 +239,50 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
         },
       ),
     );
+  }
+
+  /// The one market-view event, polymarket_viewed: fired by [show], and
+  /// by a surface that brings an [event]'s sheet already open back into
+  /// view (a position's "View market" popping back to it).
+  static void trackViewed(PolymarketEvent event,
+      {required String source, String? ledgerWalletId}) {
+    // Single market-view event (consolidated). Enriched with category +
+    // liquidity bucket + outcome-count bucket so the predictions funnel
+    // and cohort dashboards can split market traffic by vertical and
+    // depth — previously this was a second raw `prediction_market_viewed`
+    // event firing alongside the bare one, splitting the metric.
+    VenueAnalytics.rememberPolymarketEvent(event);
+    TrackingService.polymarketViewed(
+      marketId: event.id,
+      category: event.category,
+      liquidityUsd: event.liquidity,
+      outcomeCount: event.outcomes.length,
+      source: source,
+      eventSlug: event.slug,
+      // One outcome opened as its own screen is titled by the outcome:
+      // the parent event's title is the one on record for it.
+      eventTitle: event.isSyntheticBinary ? null : event.title,
+      extra: {
+        'entry_source': source,
+        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
+      },
+    );
+  }
+
+  /// The event sheets on screen, the newest last: each one's event slug
+  /// and route. A single outcome drilled into as its own Yes / No screen
+  /// is left out: it is not the event's sheet.
+  static final List<({String slug, Route<dynamic> route})> _onScreen = [];
+
+  /// The newest sheet of the event [slug] still on screen, or null: a
+  /// position of that event opening "View market" pops back to it rather
+  /// than stacking a second copy.
+  static Route<dynamic>? openRouteFor(String slug) {
+    if (slug.isEmpty) return null;
+    for (final open in _onScreen.reversed) {
+      if (open.slug == slug && open.route.isActive) return open.route;
+    }
+    return null;
   }
 
   /// Starts the history read of the chart [event]'s sheet opens on, for a
@@ -482,8 +506,27 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
+  /// This sheet's place in [MarketDetailSheet._onScreen], once its route
+  /// is known.
+  ({String slug, Route<dynamic> route})? _onScreenEntry;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (_onScreenEntry == null &&
+        route != null &&
+        !widget.event.isSyntheticBinary &&
+        widget.event.slug.isNotEmpty) {
+      _onScreenEntry = (slug: widget.event.slug, route: route);
+      MarketDetailSheet._onScreen.add(_onScreenEntry!);
+    }
+  }
+
   @override
   void dispose() {
+    final entry = _onScreenEntry;
+    if (entry != null) MarketDetailSheet._onScreen.remove(entry);
     // Release the live-feed hold exactly once (nulled to guard a double
     // dispose from decrementing another surface's hold).
     _livePrices?.release();
