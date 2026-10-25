@@ -43,6 +43,7 @@ import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow;
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -634,7 +635,7 @@ void main() {
     expect(tester.widget<KutePill>(_section('positions')).selected, isTrue);
     expect(find.byKey(const ValueKey('portfolio-positions-list')),
         findsOneWidget);
-    expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+    expect(find.byType(HlPositionRow), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-positions-heading')),
         findsNothing);
     // "Positions" is said once, by the pill.

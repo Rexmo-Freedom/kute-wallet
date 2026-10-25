@@ -11056,4 +11056,53 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Kui sul on dollareid, näed siin oma saldot ajas';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Kasutamiseks valmis';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'Positsioonides';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positsioonis',
+      one: '1 positsioonis',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ennustuses',
+      one: '1 ennustuses',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positsiooni',
+      one: '1 positsioon',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares osakut · kesk. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'sisenemine $price';
+  }
 }

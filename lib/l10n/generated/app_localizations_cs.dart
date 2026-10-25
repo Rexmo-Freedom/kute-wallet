@@ -11058,4 +11058,56 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Až budete mít dolary, uvidíte zde vývoj svého zůstatku';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Připraveno k použití';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'V pozicích';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozicích',
+      few: '$count pozicích',
+      one: '1 pozici',
+    );
+    return '$amount v $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count predikcích',
+      few: '$count predikcích',
+      one: '1 predikci',
+    );
+    return '$amount v $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozic',
+      few: '$count pozice',
+      one: '1 pozice',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares podílů · prům. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'vstup $price';
+  }
 }

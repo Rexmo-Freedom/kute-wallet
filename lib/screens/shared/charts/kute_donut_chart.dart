@@ -19,13 +19,11 @@
 //   * every slice is its own semantics node (its label, selectable by a
 //     tap), so a screen reader reads the ring slice by slice.
 //
-// The ring's colours are the theme's categorical chart palette
-// (AppColorsExtension.chartCategorical: five hues and a muted grey for
-// "Other", stepped per mode, never the accent or the market up/down pair).
-// [KuteCategoryColorSlots] hands them out: the first time a donut draws,
-// slot order is slice order (the largest slice takes the first hue); from
-// then on a category keeps its hue while values move, so a slice that
-// changes rank never repaints.
+// The ring's colours are the theme's chart ramp
+// (AppColorsExtension.chartCategorical: five steps of the brand blue and a
+// neutral grey for "Other", stepped per mode). The callers hand them out
+// by rank of size ([AppColorsExtension.chartColorsByShare]): the largest
+// slice wears the deepest step, a slice under 2% the grey.
 
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
@@ -34,46 +32,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-
-/// Which palette slot each category of a donut wears. Colour follows the
-/// category, never its rank: a category keeps its slot for as long as it
-/// stays in the donut, a newcomer takes the lowest free slot, and the
-/// grouped "Other" always wears the palette's last (grey) slot. The first
-/// assignment is rank order, so slot order starts out as slice order.
-class KuteCategoryColorSlots {
-  final Map<Object, int> _slots = {};
-
-  /// Forget every assignment (another set of categories in the same place).
-  void reset() => _slots.clear();
-
-  /// The slot of each of [named] (the categories with their own slice,
-  /// largest first). A slot past the palette's hues (a sixth category
-  /// kept because it alone would have been "Other") wears the grey.
-  Map<Object, int> assign(List<Object> named) {
-    final present = named.toSet();
-    _slots.removeWhere((key, _) => !present.contains(key));
-    for (final key in named) {
-      if (_slots.containsKey(key)) continue;
-      final taken = _slots.values.toSet();
-      var slot = 0;
-      while (taken.contains(slot)) {
-        slot++;
-      }
-      _slots[key] = slot;
-    }
-    return Map.unmodifiable(_slots);
-  }
-
-  /// The colour of a named category's [slot] or, with [other], the grey
-  /// last slot, from the theme's categorical [palette].
-  static Color colorOf(List<Color> palette, {int? slot, bool other = false}) {
-    if (palette.isEmpty) return Colors.transparent;
-    if (other || slot == null || slot >= palette.length - 1) {
-      return palette.last;
-    }
-    return palette[slot];
-  }
-}
 
 /// One slice of a [KuteDonutChart]. [id] keeps its identity across value
 /// changes (the morph and the selection follow it); [value] is any

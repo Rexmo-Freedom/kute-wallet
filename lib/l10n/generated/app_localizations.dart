@@ -18619,6 +18619,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your balance over time shows here once you hold dollars'**
   String get balanceChartEmptyDollars;
+
+  /// Investments, Portfolio, Balances: label over the cash of Dollars and both venues added up (money that can be spent now, not in positions).
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to use'**
+  String get portfolioBalanceReadyToUse;
+
+  /// Investments, Portfolio, Balances: label over what all open Investing positions and predictions are worth, beside 'Ready to use'.
+  ///
+  /// In en, this message translates to:
+  /// **'In positions'**
+  String get portfolioBalanceInPositionsLabel;
+
+  /// Investments, Portfolio, Balances: the Investing row's secondary line, after '{amount} available ·'. {amount} is a formatted dollar amount, {count} the number of open positions.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in {count, plural, =1{1 position} other{{count} positions}}'**
+  String portfolioBalanceInPositions(String amount, int count);
+
+  /// Investments, Portfolio, Balances: the Predictions row's secondary line, after '{amount} available ·'. {amount} is a formatted dollar amount, {count} the number of open predictions (never 'bets').
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in {count, plural, =1{1 prediction} other{{count} predictions}}'**
+  String portfolioBalanceInPredictions(String amount, int count);
+
+  /// Investments, Portfolio, Positions: small secondary line above the list of open positions, how many there are.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 position} other{{count} positions}}'**
+  String portfolioPositionsCount(int count);
+
+  /// Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).
+  ///
+  /// In en, this message translates to:
+  /// **'{shares} shares · avg {price}'**
+  String portfolioRowShares(String shares, String price);
+
+  /// Investments, Portfolio, Positions: an Investing row's entry price at the end of its facts ('Long · 0.00012 BTC · entry $90,120'). Lowercase mid-line. {price} is a formatted dollar price.
+  ///
+  /// In en, this message translates to:
+  /// **'entry {price}'**
+  String portfolioRowEntry(String price);
 }
 
 class _AppLocalizationsDelegate

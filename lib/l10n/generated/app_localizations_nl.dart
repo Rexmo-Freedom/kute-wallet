@@ -11103,4 +11103,53 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Je saldo door de tijd verschijnt hier zodra je dollars hebt';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Direct te gebruiken';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'In posities';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posities',
+      one: '1 positie',
+    );
+    return '$amount in $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count voorspellingen',
+      one: '1 voorspelling',
+    );
+    return '$amount in $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posities',
+      one: '1 positie',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares aandelen · gem. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'instap $price';
+  }
 }

@@ -11094,4 +11094,53 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Azonnal felhasználható';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'Pozíciókban';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozícióban',
+      one: '1 pozícióban',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count előrejelzésben',
+      one: '1 előrejelzésben',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozíció',
+      one: '1 pozíció',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares egység · átl. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'belépés $price';
+  }
 }

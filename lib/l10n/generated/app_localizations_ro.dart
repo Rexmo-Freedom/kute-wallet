@@ -11126,4 +11126,56 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Evoluția soldului tău va apărea aici după ce vei avea dolari';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Gata de folosit';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'În poziții';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count de poziții',
+      few: '$count poziții',
+      one: '1 poziție',
+    );
+    return '$amount în $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count de predicții',
+      few: '$count predicții',
+      one: '1 predicție',
+    );
+    return '$amount în $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count de poziții',
+      few: '$count poziții',
+      one: '1 poziție',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares unități · medie $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'intrare $price';
+  }
 }

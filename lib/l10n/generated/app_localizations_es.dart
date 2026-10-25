@@ -11127,4 +11127,53 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Tu saldo a lo largo del tiempo aparecerá aquí cuando tengas dólares';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Listo para usar';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'En posiciones';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posiciones',
+      one: '1 posición',
+    );
+    return '$amount en $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count predicciones',
+      one: '1 predicción',
+    );
+    return '$amount en $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count posiciones',
+      one: '1 posición',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares participaciones · media $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'entrada $price';
+  }
 }

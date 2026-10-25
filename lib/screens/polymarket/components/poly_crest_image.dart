@@ -46,6 +46,11 @@ class PolyCrestImage extends StatelessWidget {
     this.cacheManager,
   });
 
+  /// Render harnesses only: the cache every artwork without its own
+  /// [cacheManager] reads from (local files, no network or database).
+  @visibleForTesting
+  static BaseCacheManager? debugCacheManager;
+
   static bool isSvgUrl(String url) =>
       Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') ?? false;
 
@@ -63,7 +68,8 @@ class PolyCrestImage extends StatelessWidget {
               size: size,
               fit: fit,
               fallback: fb,
-              cacheManager: cacheManager ?? DefaultCacheManager(),
+              cacheManager:
+                  cacheManager ?? debugCacheManager ?? DefaultCacheManager(),
             ),
     );
   }

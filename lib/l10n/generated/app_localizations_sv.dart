@@ -11066,4 +11066,53 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Ditt saldo över tid visas här när du har dollar';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Klart att använda';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'I positioner';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positioner',
+      one: '1 position',
+    );
+    return '$amount i $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count prognoser',
+      one: '1 prognos',
+    );
+    return '$amount i $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positioner',
+      one: '1 position',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares andelar · snitt $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'ingång $price';
+  }
 }

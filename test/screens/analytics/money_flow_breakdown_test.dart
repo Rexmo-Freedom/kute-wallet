@@ -28,6 +28,8 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/services/portfolio/money_flow_categories.dart';
+import 'package:kute/services/portfolio/portfolio_categories.dart'
+    show kPortfolioOtherCategory;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -327,6 +329,23 @@ void main() {
       expect(find.byType(KuteDonutChart), findsOneWidget);
       // The pills report nothing of their own.
       expect(events.where((e) => e.$1 != 'analytics_tab_selected'), isEmpty);
+    });
+
+    testWidgets('the ring wears the chart ramp by rank of size, slivers grey',
+        (tester) async {
+      await _pump(tester, _homeStrip(_spending), history: _history());
+      await _openBreakdown(tester);
+      final ring = tester.widget<KuteDonutChart>(find.byType(KuteDonutChart));
+      final c = AppColorsExtension.light();
+      final total = ring.segments.fold<double>(0, (s, x) => s + x.value);
+      final expected = c.chartColorsByShare([
+        for (final s in ring.segments)
+          s.id == kPortfolioOtherCategory ? -1 : s.value / total,
+      ]);
+      expect([for (final s in ring.segments) s.color], expected);
+      // The largest slice the deepest blue.
+      expect(ring.segments.first.color, c.chartCategorical.first);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(

@@ -3084,5 +3084,12 @@
   "balanceNoChangeSince": "Ingen förändring sedan {date}",
   "balanceNoChangeBetween": "Ingen förändring, {start} – {end}",
   "balanceChartEmptyBitcoin": "Ditt saldo över tid visas här när du har bitcoin",
-  "balanceChartEmptyDollars": "Ditt saldo över tid visas här när du har dollar"
+  "balanceChartEmptyDollars": "Ditt saldo över tid visas här när du har dollar",
+  "portfolioBalanceReadyToUse": "Klart att använda",
+  "portfolioBalanceInPositionsLabel": "I positioner",
+  "portfolioBalanceInPositions": "{amount} i {count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioBalanceInPredictions": "{amount} i {count, plural, =1{1 prognos} other{{count} prognoser}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
+  "portfolioRowShares": "{shares} andelar · snitt {price}",
+  "portfolioRowEntry": "ingång {price}"
 }

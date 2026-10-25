@@ -10645,4 +10645,53 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get balanceChartEmptyDollars => 'ドルを保有すると、残高の推移がここに表示されます';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'すぐ使える金額';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'ポジション内';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のポジションに$amount',
+      one: '1件のポジションに$amount',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件の予測に$amount',
+      one: '1件の予測に$amount',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count件のポジション',
+      one: '1件のポジション',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$sharesシェア · 平均$price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'エントリー $price';
+  }
 }

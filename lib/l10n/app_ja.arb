@@ -3084,5 +3084,12 @@
   "balanceNoChangeSince": "{date}から変動なし",
   "balanceNoChangeBetween": "変動なし、{start}〜{end}",
   "balanceChartEmptyBitcoin": "ビットコインを保有すると、残高の推移がここに表示されます",
-  "balanceChartEmptyDollars": "ドルを保有すると、残高の推移がここに表示されます"
+  "balanceChartEmptyDollars": "ドルを保有すると、残高の推移がここに表示されます",
+  "portfolioBalanceReadyToUse": "すぐ使える金額",
+  "portfolioBalanceInPositionsLabel": "ポジション内",
+  "portfolioBalanceInPositions": "{count, plural, =1{1件のポジションに{amount}} other{{count}件のポジションに{amount}}}",
+  "portfolioBalanceInPredictions": "{count, plural, =1{1件の予測に{amount}} other{{count}件の予測に{amount}}}",
+  "portfolioPositionsCount": "{count, plural, =1{1件のポジション} other{{count}件のポジション}}",
+  "portfolioRowShares": "{shares}シェア · 平均{price}",
+  "portfolioRowEntry": "エントリー {price}"
 }

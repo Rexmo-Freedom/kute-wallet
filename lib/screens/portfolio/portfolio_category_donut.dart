@@ -101,6 +101,19 @@ class CategorySlice {
 /// Categories that keep their own slice before the rest are grouped.
 const int kCategoryTopSlices = 5;
 
+/// Each slice's chart colour by key ([AppColorsExtension.chartColorsByShare]):
+/// the named slices take the ramp by their rank by size; "Other" and any
+/// slice under 2% of the whole wear the grey. Pure for the tests.
+Map<String, Color> chartSliceColors(
+    AppColorsExtension c, List<CategorySlice> slices) {
+  final total = slices.fold<double>(0, (sum, s) => sum + s.value);
+  final colors = c.chartColorsByShare([
+    for (final s in slices)
+      s.kind == CategorySliceKind.other || total <= 0 ? -1 : s.value / total,
+  ]);
+  return {for (var i = 0; i < slices.length; i++) slices[i].key: colors[i]};
+}
+
 /// The donut's slices for [values] (category key → amount): nothing worth
 /// zero, less or not a number; the rest by amount, largest first (ties by
 /// key); the [top] largest each a slice and the rest one "Other" slice,
@@ -400,8 +413,6 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
 
   String? _selected;
 
-  /// Which hue each category wears (kept while values move).
-  final _colorSlots = KuteCategoryColorSlots();
   Timer? _settleTimer;
 
   /// The pick last reported; cleared with the selection, so picking the
@@ -422,7 +433,6 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
       _settleTimer?.cancel();
       _selected = null;
       _reported = null;
-      _colorSlots.reset();
     }
   }
 
@@ -495,15 +505,9 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
       return const SizedBox.shrink();
     }
 
-    // Each category keeps its hue while values move; "Other" is grey.
-    final slots = _colorSlots.assign([
-      for (final s in slices)
-        if (s.kind == CategorySliceKind.category) s.key,
-      ...zero,
-    ]);
-    Color colorOf(CategorySlice s) =>
-        KuteCategoryColorSlots.colorOf(c.chartCategorical,
-            slot: slots[s.key], other: s.kind == CategorySliceKind.other);
+    // The chart ramp by rank of size; "Other" and slivers are grey.
+    final colors = chartSliceColors(c, slices);
+    Color colorOf(CategorySlice s) => colors[s.key] ?? c.chartOther;
     String label(CategorySlice s) => _labelOf(l10n, s.key);
     String money(double v) => visible ? formatPolyAmount(ref, v) : '••••••';
     String share(CategorySlice s) => !visible
@@ -653,9 +657,7 @@ class _PortfolioCategoryCardState extends ConsumerState<PortfolioCategoryCard> {
                       for (final key in zero)
                         _LegendRow(
                           key: ValueKey('category-legend-$key'),
-                          color: KuteCategoryColorSlots.colorOf(
-                              c.chartCategorical,
-                              slot: slots[key]),
+                          color: c.chartOther,
                           label: _labelOf(l10n, key),
                           share: visible ? '0%' : '••%',
                           value: money(0),

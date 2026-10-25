@@ -3084,5 +3084,12 @@
   "balanceNoChangeSince": "Kopš {date} bez izmaiņām",
   "balanceNoChangeBetween": "Bez izmaiņām, {start} – {end}",
   "balanceChartEmptyBitcoin": "Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
-  "balanceChartEmptyDollars": "Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā"
+  "balanceChartEmptyDollars": "Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā",
+  "portfolioBalanceReadyToUse": "Gatavs lietošanai",
+  "portfolioBalanceInPositionsLabel": "Pozīcijās",
+  "portfolioBalanceInPositions": "{amount} {count, plural, =1{1 pozīcijā} other{{count} pozīcijās}}",
+  "portfolioBalanceInPredictions": "{amount} {count, plural, =1{1 prognozē} other{{count} prognozēs}}",
+  "portfolioPositionsCount": "{count, plural, =1{1 pozīcija} other{{count} pozīcijas}}",
+  "portfolioRowShares": "{shares} daļas · vid. {price}",
+  "portfolioRowEntry": "ieeja {price}"
 }

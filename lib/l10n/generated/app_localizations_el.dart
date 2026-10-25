@@ -11147,4 +11147,53 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get balanceChartEmptyDollars =>
       'Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια';
+
+  @override
+  String get portfolioBalanceReadyToUse => 'Έτοιμα για χρήση';
+
+  @override
+  String get portfolioBalanceInPositionsLabel => 'Σε θέσεις';
+
+  @override
+  String portfolioBalanceInPositions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count θέσεις',
+      one: '1 θέση',
+    );
+    return '$amount σε $_temp0';
+  }
+
+  @override
+  String portfolioBalanceInPredictions(String amount, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count προβλέψεις',
+      one: '1 πρόβλεψη',
+    );
+    return '$amount σε $_temp0';
+  }
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count θέσεις',
+      one: '1 θέση',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares μερίδια · μ.ο. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'είσοδος $price';
+  }
 }

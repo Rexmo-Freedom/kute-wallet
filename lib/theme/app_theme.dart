@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Under this share of the whole a chart slice wears the "Other" grey.
+const double kChartOtherShare = 0.02;
+
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color accent;
   final Color accentLight;
@@ -35,13 +38,15 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color dragHandle;
   final Color modalBarrier;
 
-  /// The charts' categorical palette (the allocation donuts and their
-  /// legends): five distinct hues for the named slices, in slot order, and
-  /// a muted grey last for "Other". Stepped per mode against the card
-  /// surface: every slot clears 3:1 on it, and neighbouring slots differ in
-  /// lightness as well as hue so they stay apart under red-green colour
-  /// blindness. None is the market up/down pair or the accent, so an
-  /// allocation never reads as a gain, a loss or an action.
+  /// The charts' palette (every donut, pie and allocation bar and their
+  /// legends; founder request October 2026: "more fintech like"): ONE
+  /// sequential ramp of the brand blue, five steps from the deepest, most
+  /// saturated (the largest slice) to the lightest, most muted, then a
+  /// neutral grey last for "Other" (and any slice under 2%). Colours follow
+  /// a slice's rank by size, never its category. Stepped per mode against
+  /// the card surface: every step clears 3:1 on it and rises in
+  /// lightness, so neighbours stay apart in light and dark. No rainbow, never the market up/down pair.
+  /// [chartColorsByShare] hands them out.
   final List<Color> chartCategorical;
 
   const AppColorsExtension({
@@ -95,14 +100,14 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         cardShadow: Colors.black.withValues(alpha: 0.4),
         dragHandle: Colors.white.withValues(alpha: 0.2),
         modalBarrier: Colors.black.withValues(alpha: 0.3),
-        // Violet, cyan, azure, sand, pink; slate for Other.
+        // The brand blue, saturated to muted and lighter; slate for Other.
         chartCategorical: const [
-          Color(0xFF9B79EE),
-          Color(0xFF4CD1EE),
-          Color(0xFF347EC4),
-          Color(0xFFEBD56A),
-          Color(0xFFEC78C9),
-          Color(0xFF70777F),
+          Color(0xFF3B7BF2),
+          Color(0xFF6496EE),
+          Color(0xFF8AB0EC),
+          Color(0xFFADC7EC),
+          Color(0xFFCFDDF0),
+          Color(0xFF747A83),
         ],
       );
 
@@ -144,16 +149,40 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         cardShadow: const Color(0x14000000),
         dragHandle: Colors.black.withValues(alpha: 0.10),
         modalBarrier: Colors.black.withValues(alpha: 0.20),
-        // Violet, cyan, cobalt, ochre, magenta; slate for Other.
+        // The brand blue, deep navy to light; slate for Other.
         chartCategorical: const [
-          Color(0xFF6443CC),
-          Color(0xFF0999B2),
-          Color(0xFF1E5099),
-          Color(0xFFB88513),
-          Color(0xFFC348A9),
-          Color(0xFF666C75),
+          Color(0xFF13307A),
+          Color(0xFF1E49B0),
+          Color(0xFF2C62D8),
+          Color(0xFF4479E6),
+          Color(0xFF5E8DEA),
+          Color(0xFF7D838C),
         ],
       );
+
+  /// The chart grey: "Other", and any slice under [kChartOtherShare].
+  Color get chartOther => chartCategorical.last;
+
+  /// The chart colour of each of [shares] (each slice's share of the
+  /// whole, in any order), by its rank by size: the largest takes the
+  /// ramp's first step, the next the second, and so on; a slice under
+  /// [kChartOtherShare] or past the ramp's steps wears [chartOther]. Ties
+  /// keep their order. Pure for the tests.
+  List<Color> chartColorsByShare(List<double> shares) {
+    final steps = chartCategorical.length - 1;
+    final order = [for (var i = 0; i < shares.length; i++) i]..sort((a, b) {
+        final bySize = shares[b].compareTo(shares[a]);
+        return bySize != 0 ? bySize : a.compareTo(b);
+      });
+    final colors = List<Color>.filled(shares.length, chartOther);
+    for (var rank = 0; rank < order.length; rank++) {
+      final i = order[rank];
+      if (rank < steps && shares[i] >= kChartOtherShare) {
+        colors[i] = chartCategorical[rank];
+      }
+    }
+    return colors;
+  }
 
   @override
   ThemeExtension<AppColorsExtension> copyWith({
