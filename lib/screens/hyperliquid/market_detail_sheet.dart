@@ -506,8 +506,23 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                               setState(() => _advancedChart = on),
                         ),
                         SizedBox(height: 20.h),
+                        // No "Your investment" card here (founder,
+                        // 2026-10-20): the position has its own screen,
+                        // and the chart already marks entry and
+                        // liquidation.
+                        // The chart's editing mode (drawing tools,
+                        // indicators), first under the intervals, in
+                        // About's own row style.
+                        if (!_advancedChart)
+                          PositionLinkRow(
+                            key: const ValueKey('hl-advanced-chart'),
+                            label: context.l10n.hlAdvancedChart,
+                            icon: Icons.candlestick_chart_rounded,
+                            onTap: () =>
+                                HlCandleChart.openAdvanced(_chartHostKey),
+                          ),
                         // Sal's one quiet door on this screen, under the
-                        // chart and its intervals: "Why is it moving?",
+                        // Advanced chart row: "Why is it moving?",
                         // on every market (perp, spot, HIP-3), calm or not.
                         if (!_advancedChart)
                           SalWhyMovingRow(
@@ -516,20 +531,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                                 label: m.coin),
                             chipSignals: salSignalsForHlMarket(m),
                             padding: EdgeInsets.only(bottom: 16.h),
-                          ),
-                        // No "Your investment" card here (founder,
-                        // 2026-10-20): the position has its own screen,
-                        // and the chart already marks entry and
-                        // liquidation.
-                        // The chart's editing mode (drawing tools,
-                        // indicators), above About, in About's own row.
-                        if (!_advancedChart)
-                          PositionLinkRow(
-                            key: const ValueKey('hl-advanced-chart'),
-                            label: context.l10n.hlAdvancedChart,
-                            icon: Icons.candlestick_chart_rounded,
-                            onTap: () =>
-                                HlCandleChart.openAdvanced(_chartHostKey),
                           ),
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
@@ -699,6 +700,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
         ),
         child: Row(
           children: [
+            // The same leading icon as the Advanced chart row above.
+            Icon(Icons.info_outline_rounded,
+                color: c.textSecondary, size: 20.sp),
+            SizedBox(width: 10.w),
             Expanded(
               child: Text(
                 context.l10n.investingAboutMarket(name),
@@ -953,9 +958,9 @@ class HlCandleChart extends ConsumerStatefulWidget {
 }
 
 /// Tests: the next Advanced opens as on a fresh launch, the tool rail
-/// tucked away.
+/// out.
 @visibleForTesting
-void debugResetHlChartRail() => _HlCandleChartState._railShownThisSession = false;
+void debugResetHlChartRail() => _HlCandleChartState._railShownThisSession = true;
 
 class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   String get _marketKey => hlChartDrawingMarketKey(widget.market);
@@ -1139,11 +1144,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
 
   String? _selectedDrawingId;
 
-  /// Whether the edit mode's tool rail is out. Hidden on the first
-  /// Advanced of a session, so the plot opens on the full width; after
-  /// that it stays as the user last left it, on every chart, until the
-  /// app restarts.
-  static bool _railShownThisSession = false;
+  /// Whether the edit mode's tool rail is out. Out on the first
+  /// Advanced of a session, so the tools are in sight; after that it
+  /// stays as the user last left it, on every chart, until the app
+  /// restarts.
+  static bool _railShownThisSession = true;
   bool _railShown = _railShownThisSession;
 
   void _toggleRail() {

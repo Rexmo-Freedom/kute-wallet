@@ -155,7 +155,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     });
 
-    testWidgets('${m.coin}: Why is it moving?, then Advanced chart, then '
+    testWidgets('${m.coin}: Advanced chart, then Why is it moving?, then '
         'About; no pencil in the interval row; the row opens the editor',
         (tester) async {
       await _pump(tester, m);
@@ -166,9 +166,9 @@ void main() {
       expect(advanced, findsOneWidget);
       expect(find.text('Advanced chart'), findsOneWidget);
       expect(about, findsOneWidget);
-      expect(tester.getTopLeft(why).dy,
-          lessThan(tester.getTopLeft(advanced).dy));
       expect(tester.getTopLeft(advanced).dy,
+          lessThan(tester.getTopLeft(why).dy));
+      expect(tester.getTopLeft(why).dy,
           lessThan(tester.getTopLeft(about).dy));
       expect(find.byTooltip('Advanced'), findsNothing);
       expect(find.byIcon(Icons.draw_rounded), findsNothing);
