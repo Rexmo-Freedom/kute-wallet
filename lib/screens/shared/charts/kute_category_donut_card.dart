@@ -21,7 +21,7 @@
 //     and kind and the category's public slug. Never an amount.
 //
 // The card is the app's card surface and the list cards' type; the ring
-// wears the theme's categorical chart palette, a hue per category.
+// wears the theme's chart ramp, its colours by rank of size.
 
 import 'dart:async';
 
@@ -37,7 +37,7 @@ import 'package:kute/screens/polymarket/components/market_card.dart'
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart'
-    show CategorySlice, CategorySliceKind, categorySlices;
+    show CategorySlice, categorySlices, chartSliceColors;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -91,8 +91,6 @@ class _KuteCategoryDonutCardState extends ConsumerState<KuteCategoryDonutCard> {
 
   String? _selected;
 
-  /// Which hue each category wears (kept while values move).
-  final _colorSlots = KuteCategoryColorSlots();
   Timer? _settleTimer;
 
   /// The pick last reported; cleared with the selection, so picking the
@@ -104,8 +102,6 @@ class _KuteCategoryDonutCardState extends ConsumerState<KuteCategoryDonutCard> {
   void didUpdateWidget(covariant KuteCategoryDonutCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.scope != widget.scope) {
-      // Another set of categories starts over in slice order.
-      _colorSlots.reset();
       _settleTimer?.cancel();
       _selected = null;
       _reported = null;
@@ -160,15 +156,9 @@ class _KuteCategoryDonutCardState extends ConsumerState<KuteCategoryDonutCard> {
     _slices = slices;
     if (slices.isEmpty) return const SizedBox.shrink();
 
-    // Each category keeps its hue while values move; "Other" is grey.
-    final slots = _colorSlots.assign([
-      for (final s in slices)
-        if (s.kind == CategorySliceKind.category) s.key,
-    ]);
-    Color colorOf(CategorySlice s) => KuteCategoryColorSlots.colorOf(
-        c.chartCategorical,
-        slot: slots[s.key],
-        other: s.kind == CategorySliceKind.other);
+    // The chart ramp by rank of size; "Other" and slivers are grey.
+    final colors = chartSliceColors(c, slices);
+    Color colorOf(CategorySlice s) => colors[s.key] ?? c.chartOther;
     String label(CategorySlice s) => widget.labelOf(s.key);
     String money(double v) => visible ? widget.formatValue(ref, v) : '••••••';
     String share(CategorySlice s) => !visible
