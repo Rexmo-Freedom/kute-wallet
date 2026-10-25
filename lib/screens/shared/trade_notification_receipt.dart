@@ -40,12 +40,14 @@ class TradeNotificationArtwork extends StatelessWidget {
   }
 }
 
-/// The receipt card for a stored result. Stored rows are English records
+/// The receipt for a stored result. Stored rows are English records
 /// (trade_notification_copy); here they become what a person reads: the
-/// amount first, shares and the average price at the precision the
-/// Activity sheets use, the status in plain words, the date, the wallet
-/// only when there is more than one, and the transaction hash as a short
-/// copyable value with a block-explorer link instead of a 66-character row.
+/// amount first (the result sheet's hero), then at most four details —
+/// shares and the average price at the precision the Activity sheets use,
+/// a status other than filled in plain words, the date, the wallet only
+/// when there is more than one — and the transaction as a block-explorer
+/// link instead of a 66-character row. When there are more details than
+/// fit, the stored ones give way to the date and the wallet.
 TradeReceipt tradeNotificationReceipt(
     AppLocalizations l10n, TradeNotification item,
     {required bool showWallet}) {
@@ -71,17 +73,23 @@ TradeReceipt tradeNotificationReceipt(
         rows[l10n.tnAverageFillPrice] =
             cents == null ? e.value : '${cents.toStringAsFixed(1)}¢';
       case 'Status' when e.value == 'Filled':
-        rows[l10n.status] = l10n.completed;
+        break; // A filled receipt says nothing a fill does not.
       default:
         rows[tradeNotificationCopy(l10n, e.key)] =
             tradeNotificationCopy(l10n, e.value);
     }
   }
-  rows[l10n.date] = DateFormat('d MMM yyyy, HH:mm', l10n.localeName)
-      .format(DateTime.fromMillisecondsSinceEpoch(item.time));
-  if (showWallet && item.walletName?.isNotEmpty == true) {
-    rows[l10n.accountWallet] = item.walletName!;
+  final tail = <String, String>{
+    l10n.date: DateFormat('d MMM yyyy, HH:mm', l10n.localeName)
+        .format(DateTime.fromMillisecondsSinceEpoch(item.time)),
+    if (showWallet && item.walletName?.isNotEmpty == true)
+      l10n.accountWallet: item.walletName!,
+  };
+  // The first stored row is the hero; four details at most after it.
+  while (rows.length > 1 && rows.length - 1 + tail.length > 4) {
+    rows.remove(rows.keys.last);
   }
+  rows.addAll(tail);
   return TradeReceipt(
     leading: TradeNotificationArtwork(item: item),
     title: title,
@@ -102,31 +110,41 @@ String? tradeNotificationAsset(TradeNotification item) {
   return null;
 }
 
-/// The results-inbox receipt screen: the result as the heading at the top,
-/// then the receipt card. "View prediction" leads when the position is
-/// still open in the spending wallet; the list the receipt belongs to
-/// (Activity for fills, Positions otherwise) is then the second button.
+/// The results-inbox receipt as the shared result sheet: the result as
+/// the title (gold for a win not seen yet, neutral once read), the amount
+/// as the hero, the market as the context line, the details and the
+/// transaction. Done closes it; the one quiet button is "View prediction"
+/// when the position is still open in the spending wallet, else the list
+/// the receipt belongs to (Activity for fills, Positions otherwise).
 KuteConfirmation tradeNotificationConfirmation(
   AppLocalizations l10n,
   TradeNotification item, {
   required bool showWallet,
   required VoidCallback onList,
   VoidCallback? onViewPrediction,
+  VoidCallback? onDone,
 }) {
   final listLabel = item.id.startsWith('pm-fill:')
       ? l10n.activity
       : l10n.ledgerPositionsTitle;
+  final receipt = tradeNotificationReceipt(l10n, item, showWallet: showWallet);
+  final entries = receipt.rows.entries.toList();
+  final outcome = receipt.subtitle;
   return KuteConfirmation(
     message: tradeNotificationCopy(l10n, item.title),
-    messageAboveReceipt: true,
-    success: item.positive && !item.read,
-    celebrate: item.positive && !item.read,
-    showCloseButton: true,
-    buttonText: onViewPrediction == null ? listLabel : l10n.betViewPrediction,
-    onDone: onViewPrediction ?? onList,
-    secondaryButtonText: onViewPrediction == null ? null : listLabel,
-    onSecondary: onViewPrediction == null ? null : onList,
-    receipt: tradeNotificationReceipt(l10n, item, showWallet: showWallet),
+    tone: item.positive && !item.read
+        ? KuteConfirmationTone.celebrate
+        : KuteConfirmationTone.neutral,
+    amount: entries.isEmpty ? null : entries.first.value,
+    contextLine: outcome == null || outcome.isEmpty
+        ? receipt.title
+        : '$outcome · ${receipt.title}',
+    rows: {for (final e in entries.skip(1)) e.key: e.value},
+    transaction: receipt.transaction,
+    onDone: onDone ?? onList,
+    secondaryButtonText:
+        onViewPrediction == null ? listLabel : l10n.betViewPrediction,
+    onSecondary: onViewPrediction ?? onList,
   );
 }
 
@@ -163,6 +181,7 @@ void openTradeNotificationReceipt({
       l10n,
       item,
       showWallet: settings.wallets.length > 1,
+      onDone: navigator.pop,
       onViewPrediction: position == null
           ? null
           : () {
