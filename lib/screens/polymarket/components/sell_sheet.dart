@@ -15,13 +15,10 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
         polymarketSellSendPrice;
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
-    show PolyReceiptArtwork;
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
 import 'package:kute/services/polymarket_backend_service.dart';
@@ -1215,24 +1212,22 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         pushKuteSuccessOverlay(
           navigator: rootNavigator,
           overlay: KuteConfirmation(
-            message: l10n.betLimitSellPartial(
+            message: l10n.betPositionSold,
+            amount: proceeds != null
+                ? '\$${proceeds.toStringAsFixed(2)}'
+                : l10n.portfolioPredictionEntry(
+                    sold.toStringAsFixed(2), _formatPriceCompact(at)),
+            contextLine: '$outcome · $question',
+            rows: {l10n.betShares: sold.toStringAsFixed(2)},
+            // How much sold, and that the rest is still for sale at the
+            // person's price.
+            detail: l10n.betLimitSellPartial(
               sold.toStringAsFixed(2),
               s.offeredShares.toStringAsFixed(2),
               _formatPriceCompact(at),
               s.remainingShares.toStringAsFixed(2),
             ),
-            detail: l10n.betRestingSellNote,
             onDone: rootNavigator.pop,
-            receipt: TradeReceipt(
-              leading: PolyReceiptArtwork(url: image),
-              title: question,
-              subtitle: outcome,
-              rows: {
-                l10n.betShares: sold.toStringAsFixed(2),
-                if (proceeds != null)
-                  l10n.betSaleProceeds: '\$${proceeds.toStringAsFixed(2)}',
-              },
-            ),
           ),
         );
         return;
@@ -1269,8 +1264,12 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     pushKuteSuccessOverlay(
         navigator: navigator,
         overlay: KuteConfirmation(
-          message:
-              l10n.betLimitSellPlaced('${(price * 100).toStringAsFixed(2)}¢'),
+          // Accepted, resting until it fills: the pending clock.
+          tone: KuteConfirmationTone.pending,
+          message: l10n.investingOrderAccepted,
+          amount: l10n.portfolioPredictionEntry(shares.toStringAsFixed(2),
+              '${(price * 100).toStringAsFixed(2)}¢'),
+          contextLine: '${pos.outcome} · ${pos.marketQuestion}',
           detail: l10n.betRestingSellNote,
           onDone: navigator.pop,
           // The sell rests: "View orders" opens the Portfolio's P&L
@@ -1281,10 +1280,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
             openInvestmentsOrders(navigator.context,
                 product: 'predictions', orderKind: 'limit_sell');
           },
-          receipt: TradeReceipt(
-              title: pos.marketQuestion,
-              subtitle: pos.outcome,
-              rows: {l10n.betShares: shares.toStringAsFixed(2)}),
         ));
   }
 
@@ -1382,9 +1377,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         message: read ? l10n.betSaleStatusChecked : l10n.betSalePending,
         detail:
             read ? l10n.betSaleStatusCheckedDetail : l10n.betSalePendingDetail,
-        success: read,
-        showCloseButton: true,
-        buttonText: l10n.done,
+        tone: read
+            ? KuteConfirmationTone.success
+            : KuteConfirmationTone.pending,
         onDone: navigator.pop,
       ),
     );

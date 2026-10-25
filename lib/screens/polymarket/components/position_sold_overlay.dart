@@ -1,16 +1,14 @@
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 // lib/screens/polymarket/components/position_sold_overlay.dart
 //
 // Confirmation shown after a position is sold. The sale itself is done
 // when this is pushed (the sell sheet waits for the trade to be mined), so
-// the check shows straight away. The proceeds are the venue's own figures;
-// when it gave none the receipt shows the shares alone. When a
+// the check shows straight away. The proceeds (the venue's own figure)
+// are the hero; when it gave none the sheet shows the shares alone. When a
 // conversion back to Bitcoin is still running ([conversionFuture]), a
 // small pending line says so until it resolves. The conversion runs on
 // the trading notifier and keeps going if the user dismisses.
 
 import 'package:flutter/material.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -99,24 +97,22 @@ class _PositionSoldOverlayState extends State<PositionSoldOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final proceeds = widget.proceeds;
     return KuteConfirmation(
-      message: context.l10n.betPositionSold,
-      showCloseButton: true,
+      message: l10n.betPositionSold,
+      amount: proceeds == null ? null : '\$${proceeds.toStringAsFixed(2)}',
+      contextLine: widget.outcome.isEmpty
+          ? widget.marketQuestion
+          : '${widget.outcome} · ${widget.marketQuestion}',
+      rows: {
+        l10n.betShares: widget.shares.toStringAsFixed(2),
+        if (widget.pnl case final pnl?)
+          l10n.betSaleReturn:
+              '≈ ${pnl >= 0 ? '+' : '−'}\$${pnl.abs().toStringAsFixed(2)}',
+      },
+      detail: _converting ? l10n.betRoutingToBitcoinWallet : widget.note,
       onDone: () => Navigator.of(context).pop(),
-      detail:
-          _converting ? context.l10n.betRoutingToBitcoinWallet : widget.note,
-      receipt: TradeReceipt(
-          leading: PolyReceiptArtwork(url: widget.marketImage),
-          title: widget.marketQuestion,
-          subtitle: widget.outcome,
-          rows: {
-            context.l10n.betShares: widget.shares.toStringAsFixed(2),
-            if (widget.proceeds case final proceeds?)
-              context.l10n.betSaleProceeds: '\$${proceeds.toStringAsFixed(2)}',
-            if (widget.pnl case final pnl?)
-              context.l10n.betSaleReturn:
-                  '≈ ${pnl >= 0 ? '+' : '−'}\$${pnl.abs().toStringAsFixed(2)}',
-          }),
     );
   }
 }

@@ -97,10 +97,16 @@ void main() {
         find.descendant(of: message, matching: find.byType(RichText)));
     expect(paragraph.didExceedMaxLines, isFalse);
 
+    // Not settled reads as pending (the clock), never as a failure.
+    KuteStatusMark mark() =>
+        tester.widget<KuteStatusMark>(find.byType(KuteStatusMark));
+    expect(mark().tone, KuteConfirmationTone.pending);
+
     await tester.tap(find.text(l10n.ledgerBetCheckStatus));
     await tester.pumpAndSettle();
     expect(rechecks, 1);
     expect(find.text(l10n.betPreviousOrderChecked), findsOneWidget);
+    expect(mark().tone, KuteConfirmationTone.success);
     // Settled: nothing left to check.
     expect(find.text(l10n.ledgerBetCheckStatus), findsNothing);
     expect(tester.takeException(), isNull);
