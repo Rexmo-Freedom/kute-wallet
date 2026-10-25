@@ -4,13 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// Inter is in the engine before any text is laid out (test config and
-/// `main.dart` await [loadAppFonts]). When it landed mid-test instead, a
+/// Inter is in the engine before any text is laid out (`main.dart` and the
+/// tests that need it await [loadAppFonts]). When it landed mid-test instead, a
 /// figure measured in the fallback font and then changed only in colour
 /// (the P&L headline from red −$6.38 to green +$40.00, its `$` in place)
 /// was repainted in Inter inside the old box: TextPainter's
 /// `debugSize == size` assertion on CI.
 void main() {
+  // Loaded for this file the way main.dart loads it before the first
+  // frame.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadAppFonts);
+
   // First in the file, before any theme is built here: the font must
   // already be registered, not merely requested.
   test('the app font is loaded before the first layout', () {

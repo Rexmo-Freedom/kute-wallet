@@ -28,6 +28,12 @@ import 'package:kute/theme/app_theme.dart';
 /// change line above the plot (never a percent), the scrubbed P&L written
 /// there, a calm empty state, and the Balance charts' pinch.
 void main() {
+  // Inter loaded before any layout here (see loadAppFonts): its figures
+  // change colour alone, which a font landing mid-test turns into
+  // TextPainter's debugSize assertion on slow runners.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadAppFonts);
+
   final now = DateTime(2026, 10, 25, 17, 0);
   DateTime ago(Duration d) => now.subtract(d);
 
