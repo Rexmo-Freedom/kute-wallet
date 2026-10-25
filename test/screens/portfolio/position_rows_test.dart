@@ -174,15 +174,16 @@ void main() {
   });
 
   testWidgets(
-      'a Polymarket row: its image, the question on one line, '
+      'a Polymarket row: its image, the whole question, '
       '"Yes · 4.99 shares · avg 72¢", the value and the loss', (tester) async {
     await _pump(tester, const PolyPositionRow(position: _kane));
     expect(find.byType(PolyCardThumbnail), findsOneWidget);
     final title =
         tester.widget<Text>(find.byKey(const ValueKey('portfolio-row-title')));
     expect(title.data, "Will Harry Kane win the 2026 Ballon d'Or?");
-    expect(title.maxLines, 1);
-    expect(title.overflow, TextOverflow.ellipsis);
+    // The whole question shows, wrapping, never cut with an ellipsis.
+    expect(title.maxLines, isNull);
+    expect(title.overflow, isNull);
     expect(
         _text(tester, 'portfolio-row-subtitle'), 'Yes · 4.99 shares · avg 72¢');
     expect(_figure(tester, 'portfolio-row-value').text, r'$3.58');

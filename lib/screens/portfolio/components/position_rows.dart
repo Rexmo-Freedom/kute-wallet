@@ -170,7 +170,10 @@ class PortfolioPositionRow extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 14.h),
+          // Titles wrap in full (never cut with an ellipsis), so the row
+          // hangs from its top edge.
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox.square(dimension: kPortfolioRowImage.w, child: leading),
               SizedBox(width: kPortfolioRowGap.w),
@@ -181,15 +184,11 @@ class PortfolioPositionRow extends StatelessWidget {
                   children: [
                     Text(title,
                         key: const ValueKey('portfolio-row-title'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.settingsTitle(context)
                             .copyWith(letterSpacing: -0.2, height: 1.25)),
                     SizedBox(height: 2.h),
                     Text(subtitle,
                         key: const ValueKey('portfolio-row-subtitle'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: secondary),
                   ],
                 ),

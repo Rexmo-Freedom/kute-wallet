@@ -530,7 +530,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             question: salWhyMovingHl(context.l10n,
                                 label: m.coin),
                             chipSignals: salSignalsForHlMarket(m),
-                            padding: EdgeInsets.only(bottom: 16.h),
                           ),
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
