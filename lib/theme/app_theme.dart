@@ -593,6 +593,27 @@ const _actionButtonStyle = ButtonStyle(
   ),
 );
 
+/// Loads the app font (Inter, from the bundled assets) and waits until the
+/// engine has it, so no text is ever laid out before it.
+///
+/// `GoogleFonts.inter()` in the themes registers the font asynchronously.
+/// Text laid out before it lands is measured in the fallback font, and
+/// Flutter re-measures it only a frame after the font's change notice. A
+/// change of colour alone in that window (a P&L figure turning from red to
+/// green with its `$` in place) repaints the text in Inter inside a box
+/// measured in the fallback: a glyph drawn at the wrong size for a frame,
+/// and TextPainter's `debugSize == size` assertion in debug and in tests.
+///
+/// Awaited before the first frame (`main.dart`) and before every test file
+/// (`test/flutter_test_config.dart`). Never throws: without the asset the
+/// app keeps its fallback font, as it did before.
+Future<void> loadAppFonts() async {
+  try {
+    await GoogleFonts.pendingFonts([GoogleFonts.inter()])
+        .timeout(const Duration(seconds: 3));
+  } catch (_) {}
+}
+
 ThemeData buildDarkTheme() {
   final ext = AppColorsExtension.dark();
   return ThemeData(
