@@ -389,6 +389,11 @@ class _LedgerFundInvestingSheetState
       navigator: navigator,
       overlay: KuteConfirmation(
         message: l10n.ledgerFundSentMessage,
+        amount: '${review.amountSats.toFormattedString(_btcFormat)} '
+            '${_btcFormat == 'sats' ? 'sats' : 'BTC'}',
+        tone: pending
+            ? KuteConfirmationTone.pending
+            : KuteConfirmationTone.success,
         detail: pending
             ? l10n.ledgerSubmitPendingPlain
             : l10n.ledgerFundSentDetail,

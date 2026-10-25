@@ -14,6 +14,8 @@
 // Connecting is not approval: nothing is stored until the device flow
 // succeeds. There is no phone-side fallback.
 
+import 'dart:async';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -157,16 +159,13 @@ class _LedgerInvestingSetupScreenState
       if (!mounted) return;
       setState(() => _busy = false);
       final navigator = Navigator.of(context, rootNavigator: true);
-      pushKuteSuccessOverlay(
+      final message = context.l10n.ledgerSetupTurnedOnTitle;
+      // Leave setup first, so the sheet sits over where Done lands.
+      unawaited(pushKuteSuccessOverlayAfter(
         navigator: navigator,
-        overlay: KuteSuccessOverlay(
-          headlineLabel: context.l10n.ledgerSetupTurnedOnTitle,
-          onDone: () {
-            navigator.pop();
-            _finish();
-          },
-        ),
-      );
+        navigate: _finish,
+        overlay: KuteConfirmation(message: message, onDone: navigator.pop),
+      ));
     } catch (error) {
       final failure = LedgerFailure.from(error);
       TrackingService.ledgerEvmVerifyResult(failure.code.name);

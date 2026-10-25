@@ -186,6 +186,7 @@ class _LedgerMakeFundsAvailableSheetState
         pushLedgerPmFundsAvailableConfirmation(
           navigator: navigator,
           l10n: l10n,
+          amount: ledgerFormatUsd(_usd(plan.amount)),
           onDone: () => navigator.pop(),
         );
         return;

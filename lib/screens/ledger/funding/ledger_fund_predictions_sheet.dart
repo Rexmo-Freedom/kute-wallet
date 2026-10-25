@@ -32,6 +32,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/constants/feature_flags.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/balance_provider.dart'
     show balanceForWalletProvider;
@@ -344,12 +345,15 @@ class _LedgerFundPredictionsSheetState
     widget.onSubmitted?.call();
     final navigator = Navigator.of(context, rootNavigator: true);
     final l10n = context.l10n;
+    final btcFormat = ref.read(settingsProvider).btcFormat;
     Navigator.of(context).pop();
     // Plan B13: the copy stays "Bitcoin sent. Waiting for confirmations."
     // whether or not Orchestra accepted the submit yet.
     pushLedgerPmFundingSentConfirmation(
       navigator: navigator,
       l10n: l10n,
+      amount: '${quote.amountSats.toInt().toFormattedString(btcFormat)} '
+          '${btcFormat == 'sats' ? 'sats' : 'BTC'}',
       onDone: () => navigator.pop(),
     );
   }

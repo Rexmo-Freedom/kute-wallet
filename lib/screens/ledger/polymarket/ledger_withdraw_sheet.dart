@@ -131,7 +131,8 @@ class _LedgerWithdrawSheetState extends ConsumerState<LedgerWithdrawSheet> {
     setState(() => _busy = false);
     if (outcome.isSuccess) {
       ref.invalidate(ledgerPmAccountProvider(walletId));
-      showLedgerConfirmation(navigator, message: l10n.ledgerUnwrapDone);
+      showLedgerConfirmation(navigator,
+          message: l10n.ledgerUnwrapDone, amount: ledgerFormatMicros(amount));
     } else if (outcome.isPending) {
       ref.invalidate(ledgerPendingActionsProvider(walletId));
     }
@@ -180,7 +181,11 @@ class _LedgerWithdrawSheetState extends ConsumerState<LedgerWithdrawSheet> {
         widget.onSubmitted?.call(outcome.result);
         Navigator.of(context).pop();
         showLedgerConfirmation(navigator,
-            message: l10n.ledgerWithdrawSentPlain);
+            message: l10n.ledgerWithdrawSentPlain,
+            amount: ledgerFormatMicros(widget.amount),
+            rows: {
+              l10n.ledgerSummaryDestination: l10n.ledgerWithdrawDestination,
+            });
       case LedgerApprovalOutcomeKind.pending:
       case LedgerApprovalOutcomeKind.backgrounded:
         ref.invalidate(ledgerPendingActionsProvider(walletId));

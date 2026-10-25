@@ -40,19 +40,28 @@ double? ledgerParseAmount(String text) {
   return value;
 }
 
-/// The shared success confirmation. Push with a navigator captured before
-/// any sheet was popped.
+/// The shared result sheet. Push with a navigator captured before any
+/// sheet was popped. [amount] is the hero, [contextLine] the one line
+/// under it, [rows] at most four details; [tone] pending for something
+/// accepted but not finished.
 void showLedgerConfirmation(
   NavigatorState navigator, {
   required String message,
+  String? amount,
+  String? contextLine,
+  Map<String, String> rows = const {},
   String? detail,
+  KuteConfirmationTone tone = KuteConfirmationTone.success,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
     overlay: KuteConfirmation(
       message: message,
+      amount: amount,
+      contextLine: contextLine,
+      rows: rows,
       detail: detail,
-      showCloseButton: true,
+      tone: tone,
       onDone: () => navigator.pop(),
     ),
   );

@@ -3416,6 +3416,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     showLedgerConfirmation(
       navigator,
       message: filled ? l10n.ledgerOrderFilled : l10n.ledgerOrderPlaced,
+      amount: l10n.slipCtaSideAmount(
+          isSpot
+              ? (_isLong ? l10n.buy : l10n.sell)
+              : (_isLong ? l10n.longLabel : l10n.shortLabel),
+          formatHlUsd(marginUsd)),
+      contextLine: HlMarket.baseCoin(market.coin),
+      rows: {if (!isSpot) l10n.ledgerSummaryLeverage: '$ledgerLev×'},
+      tone: filled ? KuteConfirmationTone.success : KuteConfirmationTone.pending,
     );
   }
 

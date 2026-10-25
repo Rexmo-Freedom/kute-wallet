@@ -396,33 +396,37 @@ class _DeployConfirmationRow extends StatelessWidget {
 
 // ─────────────────────────── confirmations ───────────────────────────
 
-/// Shared success confirmation after the forward BTC broadcast (plan
-/// B13: "Bitcoin sent. Waiting for confirmations.").
+/// Shared result sheet after the forward BTC broadcast (plan B13:
+/// "Bitcoin sent. Waiting for confirmations."), [amount] as the hero.
 void pushLedgerPmFundingSentConfirmation({
   required NavigatorState navigator,
   required AppLocalizations l10n,
+  String? amount,
   VoidCallback? onDone,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
     overlay: KuteSuccessOverlay(
       headlineLabel: l10n.ledgerPmFundSentHeadline,
+      amount: amount ?? '',
       detail: l10n.ledgerPmFundSentDetail,
       onDone: onDone,
     ),
   );
 }
 
-/// Shared confirmation after "Make funds available" was accepted.
+/// Shared result sheet after "Make funds available" was accepted.
 void pushLedgerPmFundsAvailableConfirmation({
   required NavigatorState navigator,
   required AppLocalizations l10n,
+  String? amount,
   VoidCallback? onDone,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
     overlay: KuteSuccessOverlay(
       headlineLabel: l10n.ledgerPmFundsAvailableHeadline,
+      amount: amount ?? '',
       detail: l10n.ledgerPmFundsAvailableDetail,
       onDone: onDone,
     ),
