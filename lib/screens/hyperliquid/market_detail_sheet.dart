@@ -507,15 +507,12 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         SizedBox(height: 20.h),
                         // Sal's one quiet door on this screen, under the
                         // chart and its intervals: "Why is it moving?",
-                        // only on a big move today (calm, nothing).
+                        // on every market (perp, spot, HIP-3), calm or not.
                         if (!_advancedChart)
                           SalWhyMovingRow(
                             advisorContext: _salContext(m),
                             question: salWhyMovingHl(context.l10n,
-                                label: m.coin,
-                                dayChangePct: m.prevDayPx > 0
-                                    ? m.dayChangeAt(price)
-                                    : null),
+                                label: m.coin),
                             chipSignals: salSignalsForHlMarket(m),
                             padding: EdgeInsets.only(bottom: 16.h),
                           ),
@@ -823,9 +820,7 @@ class _HlAboutSheet extends ConsumerWidget {
                         // Who pays whom, and when: funding settles on
                         // the hour.
                         Text(
-                          '${m.funding! >= 0 ? context.l10n.hlLongsPayShorts : context.l10n.hlShortsPayLongs} '
-                          '${(m.funding!.abs() * 100).toStringAsFixed(4)}%/hr '
-                          '(≈ ${(m.funding!.abs() * 24 * 365 * 100).toStringAsFixed(1)}% annualized) · '
+                          '${formatHlFundingLine(context.l10n, m.funding!)} · '
                           '${context.l10n.hlFundingIn(60 - DateTime.now().minute)}',
                           style: TextStyle(
                             color: c.textTertiary,
@@ -935,6 +930,11 @@ class HlCandleChart extends ConsumerStatefulWidget {
   @override
   ConsumerState<HlCandleChart> createState() => _HlCandleChartState();
 }
+
+/// Tests: the next Advanced opens as on a fresh launch, the tool rail
+/// tucked away.
+@visibleForTesting
+void debugResetHlChartRail() => _HlCandleChartState._railShownThisSession = false;
 
 class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   String get _marketKey => hlChartDrawingMarketKey(widget.market);
@@ -1117,6 +1117,18 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   int? _armedColorValue;
 
   String? _selectedDrawingId;
+
+  /// Whether the edit mode's tool rail is out. Hidden on the first
+  /// Advanced of a session, so the plot opens on the full width; after
+  /// that it stays as the user last left it, on every chart, until the
+  /// app restarts.
+  static bool _railShownThisSession = false;
+  bool _railShown = _railShownThisSession;
+
+  void _toggleRail() {
+    HapticFeedback.selectionClick();
+    setState(() => _railShownThisSession = _railShown = !_railShown);
+  }
 
   /// Last non-empty candle set actually shown. While a newly-picked
   /// timeframe's window is still loading, the chart keeps painting these
@@ -2388,6 +2400,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final groups = _railGroups;
     final l10n = context.l10n;
     return Container(
+      key: const ValueKey('hl-chart-tool-rail'),
       width: 44,
       decoration: BoxDecoration(
         color: c.textPrimary.withValues(alpha: 0.04),
@@ -2397,6 +2410,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(
           children: [
+            // Tucks the rail away; the plot takes its width.
+            KeyedSubtree(
+              key: const ValueKey('hl-chart-rail-hide'),
+              child: _editIconButton(
+                c,
+                icon: Icons.chevron_left_rounded,
+                tip: l10n.chartToolsButton,
+                onTap: _toggleRail,
+              ),
+            ),
             _editIconButton(
               c,
               icon: Icons.touch_app_rounded,
@@ -2524,16 +2547,19 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     required Set<String> indicators,
     required bool magnet,
   }) {
+    final railShown = _railShown;
     final body = Row(
       crossAxisAlignment: widget.fillHeight
           ? CrossAxisAlignment.stretch
           : CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: widget.fillHeight ? null : widget.height.h,
-          child: _toolRail(c, drawings, magnet),
-        ),
-        SizedBox(width: 6.w),
+        if (railShown) ...[
+          SizedBox(
+            height: widget.fillHeight ? null : widget.height.h,
+            child: _toolRail(c, drawings, magnet),
+          ),
+          SizedBox(width: 6.w),
+        ],
         Expanded(
           child: Stack(
             fit: widget.fillHeight ? StackFit.expand : StackFit.loose,
@@ -2545,6 +2571,25 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   left: 0,
                   right: 0,
                   child: Center(child: _contextBar(c, drawings, selectedId)),
+                ),
+              // The rail tucked away: one small tab at the plot's top
+              // left brings it back.
+              if (!railShown)
+                Positioned(
+                  top: 6,
+                  left: 0,
+                  child: AppCard(
+                    key: const ValueKey('hl-chart-rail-show'),
+                    padding: EdgeInsets.zero,
+                    radius: 12.r,
+                    color: context.isDark ? c.surfaceElevated : Colors.white,
+                    child: _editIconButton(
+                      c,
+                      icon: Icons.chevron_right_rounded,
+                      tip: context.l10n.chartToolsButton,
+                      onTap: _toggleRail,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -2563,7 +2608,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           SizedBox(height: 6.h),
           _flexed(body),
           Padding(
-            padding: EdgeInsets.only(top: 4.h, left: 44 + 6.w),
+            padding:
+                EdgeInsets.only(top: 4.h, left: railShown ? 44 + 6.w : 0),
             child: Text(
               _toolbarHint(selectedId),
               style: TextStyle(color: c.textTertiary, fontSize: 11.5.sp),

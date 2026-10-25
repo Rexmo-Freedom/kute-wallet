@@ -2668,6 +2668,7 @@
   "hl24hLow": "Най-ниска 24ч",
   "hl24hVolume": "Обем 24ч",
   "hlFundingIn": "след {minutes}м",
+  "hlFundingRateLine": "{payer} {hourly}/ч (≈ {annual} годишно)",
   "hlWideSpreadAck": "Разбирам, че този пазар в момента има много голям спред.",
   "hlTwapOver": "TWAP · {size} за {minutes}м",
   "ledgerNoPositionsYet": "Още няма позиции",

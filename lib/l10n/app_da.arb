@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 t lav",
   "hl24hVolume": "24 t volumen",
   "hlFundingIn": "om {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/t (≈ {annual} årligt)",
   "hlWideSpreadAck": "Jeg forstår, at dette marked har et meget bredt spread lige nu.",
   "hlTwapOver": "TWAP · {size} over {minutes} min",
   "ledgerNoPositionsYet": "Ingen positioner endnu",

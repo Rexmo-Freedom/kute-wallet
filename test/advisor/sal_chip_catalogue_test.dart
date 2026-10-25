@@ -56,16 +56,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final en = l10nForLanguage('en');
 
-  group('"Why is it moving?" shows only when there is a move to explain', () {
-    test('Investing: 3% or more either way today asks hl.moving_today', () {
-      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: 0.029), isNull);
-      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: null), isNull);
-      expect(salWhyMovingHl(en, label: 'NVDA', dayChangePct: double.nan),
-          isNull);
-      for (final move in [0.03, -0.031, 0.12]) {
-        final chip = salWhyMovingHl(en, label: 'NVDA', dayChangePct: move)!;
+  group('"Why is it moving?"', () {
+    test('Investing: every market asks hl.moving_today, calm or not', () {
+      for (final label in ['NVDA', 'BTC', 'PURR']) {
+        final chip = salWhyMovingHl(en, label: label);
         expect(chip.template, 'hl.moving_today');
-        expect(chip.text, 'Why is NVDA moving today?');
+        expect(chip.text, 'Why is $label moving today?');
         expect(kSalChipTemplates, contains(chip.template));
       }
     });

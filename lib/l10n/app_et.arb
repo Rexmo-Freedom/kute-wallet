@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 h madalaim",
   "hl24hVolume": "24 h maht",
   "hlFundingIn": "{minutes} min pärast",
+  "hlFundingRateLine": "{payer} {hourly}/h (≈ {annual} aastas)",
   "hlWideSpreadAck": "Saan aru, et sellel turul on praegu väga lai hinnavahe.",
   "hlTwapOver": "TWAP · {size}, kestus {minutes} min",
   "ledgerNoPositionsYet": "Positsioone veel pole",

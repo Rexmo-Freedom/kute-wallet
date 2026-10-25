@@ -9387,6 +9387,11 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/óra (≈ $annual évesítve)';
+  }
+
+  @override
   String get hlWideSpreadAck =>
       'Tudomásul veszem, hogy ezen a piacon most nagyon széles az árrés.';
 

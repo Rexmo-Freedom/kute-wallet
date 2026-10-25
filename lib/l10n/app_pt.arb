@@ -2941,6 +2941,7 @@
   "hl24hLow": "Mínimo 24h",
   "hl24hVolume": "Volume 24h",
   "hlFundingIn": "dentro de {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/h (≈ {annual} anualizado)",
   "hlWideSpreadAck": "Compreendo que este mercado tem um spread muito largo neste momento.",
   "hlTwapOver": "TWAP · {size} ao longo de {minutes} min",
   "ledgerNoPositionsYet": "Ainda sem posições",

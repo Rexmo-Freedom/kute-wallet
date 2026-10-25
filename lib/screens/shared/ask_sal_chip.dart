@@ -73,10 +73,10 @@ class AskSalChip extends ConsumerWidget {
 /// A market screen's one quiet Sal door: "Why is it moving?" as a plain
 /// details row under the chart (the hairline above it, the row's title
 /// style, a chevron), led by the dog as a small one-colour glyph in the
-/// title's colour. Drawn only while there is something worth explaining:
-/// [question] is that market's why-moving question ([salWhyMovingHl] or
-/// [salWhyMovingPm]), null when the market is calm, and then nothing is
-/// drawn at all (not even [padding]).
+/// title's colour. [question] is that market's why-moving question
+/// ([salWhyMovingHl], on every Investing market; [salWhyMovingPm], null
+/// while a Predictions market is calm, and then nothing is drawn at all,
+/// not even [padding]).
 ///
 /// Once shown for a market it stays while the screen is open, so a live
 /// price crossing back over the threshold never pulls the row from under

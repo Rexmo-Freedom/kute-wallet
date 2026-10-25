@@ -2668,6 +2668,7 @@
   "hl24hLow": "Najnižja 24 h",
   "hl24hVolume": "Obseg 24 h",
   "hlFundingIn": "čez {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/h (≈ {annual} letno)",
   "hlWideSpreadAck": "Razumem, da ima ta trg trenutno zelo širok razpon.",
   "hlTwapOver": "TWAP · {size} v {minutes} min",
   "ledgerNoPositionsYet": "Še ni pozicij",

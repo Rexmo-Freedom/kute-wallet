@@ -2668,6 +2668,7 @@
   "hl24hLow": "Minim 24h",
   "hl24hVolume": "Volum 24h",
   "hlFundingIn": "în {minutes} min",
+  "hlFundingRateLine": "{payer} {hourly}/oră (≈ {annual} anualizat)",
   "hlWideSpreadAck": "Înțeleg că această piață are acum un spread foarte mare.",
   "hlTwapOver": "TWAP · {size} în {minutes} min",
   "ledgerNoPositionsYet": "Încă nu ai poziții",

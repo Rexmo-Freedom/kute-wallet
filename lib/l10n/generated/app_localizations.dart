@@ -16115,6 +16115,12 @@ abstract class AppLocalizations {
   /// **'in {minutes}m'**
   String hlFundingIn(int minutes);
 
+  /// A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.
+  ///
+  /// In en, this message translates to:
+  /// **'{payer} {hourly}/hr (≈ {annual} annualized)'**
+  String hlFundingRateLine(String payer, String hourly, String annual);
+
   /// No description provided for @hlWideSpreadAck.
   ///
   /// In en, this message translates to:
@@ -18283,7 +18289,7 @@ abstract class AppLocalizations {
   /// **'Your {amount} is in Investments. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
 
-  /// A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move.
+  /// A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move.
   ///
   /// In en, this message translates to:
   /// **'Why is it moving?'**

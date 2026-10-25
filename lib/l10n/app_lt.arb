@@ -2668,6 +2668,7 @@
   "hl24hLow": "24 val. žemiausia",
   "hl24hVolume": "24 val. apyvarta",
   "hlFundingIn": "po {minutes} min.",
+  "hlFundingRateLine": "{payer} {hourly}/val. (≈ {annual} per metus)",
   "hlWideSpreadAck": "Suprantu, kad šioje rinkoje šiuo metu labai didelis kainų skirtumas.",
   "hlTwapOver": "TWAP · {size} per {minutes} min.",
   "ledgerNoPositionsYet": "Pozicijų dar nėra",

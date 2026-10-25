@@ -5495,6 +5495,8 @@
       }
     }
   },
+  "hlFundingRateLine": "{payer} {hourly}/hr (≈ {annual} annualized)",
+  "@hlFundingRateLine": {"description": "A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.", "placeholders": {"payer": {"type": "String"}, "hourly": {"type": "String"}, "annual": {"type": "String"}}},
   "hlWideSpreadAck": "I understand this market has a very wide spread right now.",
   "hlTwapOver": "TWAP · {size} over {minutes}m",
   "@hlTwapOver": {
@@ -6606,7 +6608,7 @@
   "hlMarginFundingReady": "Your {amount} is in Investments. Tap to add margin.",
   "@hlMarginFundingReady": {"description": "Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.", "placeholders": {"amount": {"type": "String"}}},
   "salWhyMoving": "Why is it moving?",
-  "@salWhyMoving": {"description": "A market screen's row under the chart, shown only on a big move or a live game; opens Sal (the AI helper) explaining the move."},
+  "@salWhyMoving": {"description": "A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move."},
   "positionProtectIt": "Protect it",
   "@positionProtectIt": {"description": "Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order)."},
   "hlRiskLiquidationLong": "If {market} falls to {price}, this position closes and you lose {amount}.",
