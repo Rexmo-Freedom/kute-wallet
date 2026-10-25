@@ -9,9 +9,9 @@
 //  - [KuteDogNotHere]: sitting beside a striped barrier, a slow shake of
 //    the head, then a look up at the user. For every "not available here"
 //    wall and sheet, so a refusal has the same face everywhere.
-//  - [KuteDogCelebration]: the cheer, with one burst of confetti thrown
-//    up as he lands. For the confirmation overlays, beside the check mark,
-//    which stays exactly as it is.
+//  - [KuteDogConfirmation]: Sal in a result sheet's header. A fast
+//    tail-wag burst as the check lands (a cheer for a win, ears down for
+//    a failure), then his calm idle loop for a while before he rests.
 //  - [KuteDogMagnifier]: a magnifying glass whose lens is Sal's face, his
 //    ears over the rim, the dock's search-or-ask-Sal glyph. The glass scans
 //    a little left and right with his eyes following, an ear flicks and he
@@ -35,11 +35,6 @@ import 'package:flutter/material.dart';
 import 'package:kute/helpers/accessibility.dart';
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 
-double _noise(int seed) {
-  final x = math.sin(seed * 12.9898) * 43758.5453;
-  return x - x.floorToDouble();
-}
-
 /// One controller, one painter, the shared plumbing of the scenes below.
 class _SceneLoop extends StatefulWidget {
   final Size size;
@@ -49,7 +44,6 @@ class _SceneLoop extends StatefulWidget {
   /// here is bounded: a screen left open should settle, and widget tests
   /// wait for the tree to settle.
   final int cycles;
-  final Duration delay;
   final CustomPainter Function(double ms, bool still, KuteDogPalette palette)
       painter;
 
@@ -58,7 +52,6 @@ class _SceneLoop extends StatefulWidget {
     required this.periodMs,
     required this.painter,
     this.cycles = 1,
-    this.delay = Duration.zero,
   });
 
   @override
@@ -89,10 +82,7 @@ class _SceneLoopState extends State<_SceneLoop>
     }
     if (_started) return;
     _started = true;
-    Future<void>.delayed(widget.delay, () {
-      if (!mounted || _reduce) return;
-      _controller.forward();
-    });
+    _controller.forward();
   }
 
   @override
@@ -270,105 +260,160 @@ class KuteDogNotHere extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Celebration: the cheer plus one burst of confetti
+// Confirmation: Sal in the result sheet's header
 // ─────────────────────────────────────────────────────────────────────
 
-const int _kBurstMs = 1500;
-const int _kPieces = 14;
+/// How Sal takes a result.
+enum KuteDogMood {
+  /// A success: the tail-wag burst ([kuteDogWagPose]).
+  happy,
 
-class _ConfettiPainter extends CustomPainter {
-  final double ms;
-  final bool still;
-  final Color ink;
-  final Color accent;
+  /// A win: the two-hop cheer ([kuteDogCheerPose]).
+  cheer,
 
-  const _ConfettiPainter(
-      {required this.ms,
-      required this.still,
-      required this.ink,
-      required this.accent});
+  /// A failure: ears down, no wag ([kuteDogSadPose]).
+  sad,
+
+  /// Something still pending or read later: the idle loop alone.
+  calm,
+}
+
+/// Sal beside a result sheet's title.
+///
+/// While [awake] is false he holds still in the neutral frame (the sheet
+/// is sliding up, the check has not landed). The moment it turns true he
+/// reacts once for [mood], hands over to the idle loop (or the sad one)
+/// for two of its cycles, and comes to rest, so a sheet left open
+/// settles. Reduce Motion paints the resting frame only.
+class KuteDogConfirmation extends StatefulWidget {
+  final double size;
+  final KuteDogMood mood;
+  final bool awake;
+
+  const KuteDogConfirmation({
+    super.key,
+    required this.size,
+    this.mood = KuteDogMood.happy,
+    this.awake = true,
+  });
+
+  /// The reaction's length for [mood]; the loop after it starts there.
+  static int reactionMs(KuteDogMood mood) => switch (mood) {
+        KuteDogMood.happy => kKuteDogWagMs,
+        KuteDogMood.cheer => kKuteDogCheerMs,
+        KuteDogMood.sad || KuteDogMood.calm => 0,
+      };
+
+  static int _loopMs(KuteDogMood mood) =>
+      mood == KuteDogMood.sad ? kKuteDogSadMs : kKuteDogIdleMs;
+
+  /// Reaction plus two loop cycles.
+  static int totalMs(KuteDogMood mood) => reactionMs(mood) + 2 * _loopMs(mood);
+
+  /// The frame [ms] into the play for [mood].
+  static KuteDogPose poseAt(KuteDogMood mood, double ms) {
+    final react = reactionMs(mood);
+    final loop = _loopMs(mood);
+    KuteDogPose after(double t) => mood == KuteDogMood.sad
+        ? kuteDogSadPose(t < loop ? t : loop + t % loop)
+        : kuteDogIdlePose(t % loop);
+    if (ms >= react) return after(ms - react);
+    final reaction =
+        mood == KuteDogMood.cheer ? kuteDogCheerPose(ms) : kuteDogWagPose(ms);
+    // The cheer ends mid-pant: blend its last 200 ms into the idle start.
+    final blend = ((ms - (react - 200)) / 200).clamp(0.0, 1.0);
+    return blend > 0
+        ? KuteDogPose.lerp(reaction, after(0), blend)
+        : reaction;
+  }
+
+  /// Where he rests: after the play, and the one frame under Reduce Motion.
+  static KuteDogPose restPose(KuteDogMood mood) => mood == KuteDogMood.sad
+      ? kuteDogSadPose(400)
+      : const KuteDogPose(tail: 0.12);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (still || ms <= 0) return;
-    final w = size.width;
-    final u = w / 40;
-    final origin = Offset(w / 2, size.height * 0.72);
-    for (var i = 0; i < _kPieces; i++) {
-      // Each piece leaves on its own beat, so the burst reads as thrown
-      // rather than fired.
-      final start = _noise(i) * 220;
-      final age = ms - start;
-      if (age < 0) continue;
-      final life = (age / (_kBurstMs - 220)).clamp(0.0, 1.0);
-      if (life >= 1) continue;
-      final angle = (35 + _noise(i + 7) * 110) * math.pi / 180;
-      final speed = (5.5 + _noise(i + 19) * 4.5) * u;
-      final t = age / 260;
-      final x = origin.dx + math.cos(angle) * speed * t;
-      final y = origin.dy - math.sin(angle) * speed * t + 1.9 * u * t * t;
-      final s = u * (1.1 + _noise(i + 3) * 0.8);
-      final spin = t * (2 + _noise(i + 11) * 4);
-      final color = i.isEven ? accent : ink;
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(spin);
-      canvas.drawRect(
-          Rect.fromCenter(center: Offset.zero, width: s, height: s * 0.6),
-          Paint()..color = color.withValues(alpha: (1 - life) * 0.95));
-      canvas.restore();
-    }
+  State<KuteDogConfirmation> createState() => _KuteDogConfirmationState();
+}
+
+class _KuteDogConfirmationState extends State<KuteDogConfirmation>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _reduce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        vsync: this,
+        duration: Duration(
+            milliseconds: KuteDogConfirmation.totalMs(widget.mood)));
+  }
+
+  void _maybeStart() {
+    if (_reduce || !widget.awake) return;
+    if (_controller.isAnimating || _controller.isCompleted) return;
+    _controller.forward();
   }
 
   @override
-  bool shouldRepaint(covariant _ConfettiPainter old) => true;
-}
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduce = reduceMotion(context);
+    if (_reduce) {
+      if (_controller.isAnimating) _controller.stop();
+      return;
+    }
+    _maybeStart();
+  }
 
-/// Sal cheering, with confetti thrown up once as he lands. Sits under or
-/// beside a check mark; it never replaces one.
-class KuteDogCelebration extends StatelessWidget {
-  final double size;
-  final Color ink;
-  final Color accent;
+  @override
+  void didUpdateWidget(covariant KuteDogConfirmation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.mood != oldWidget.mood) {
+      _controller
+        ..duration =
+            Duration(milliseconds: KuteDogConfirmation.totalMs(widget.mood))
+        ..reset();
+    }
+    _maybeStart();
+  }
 
-  /// How long to wait before the burst, so it lands after the check has
-  /// finished drawing rather than over it.
-  final Duration delay;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-  const KuteDogCelebration({
-    super.key,
-    required this.size,
-    required this.ink,
-    required this.accent,
-    this.delay = Duration.zero,
-  });
+  KuteDogPose _pose() {
+    if (_controller.isCompleted) {
+      return KuteDogConfirmation.restPose(widget.mood);
+    }
+    if (!_controller.isAnimating && _controller.value == 0) {
+      return KuteDogPose.neutral;
+    }
+    return KuteDogConfirmation.poseAt(widget.mood,
+        _controller.value * KuteDogConfirmation.totalMs(widget.mood));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final scene = Size(size * 2.2, size * 1.5);
-    return SizedBox(
-      width: scene.width,
-      height: scene.height,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          Positioned.fill(
-            child: _SceneLoop(
-              size: scene,
-              periodMs: _kBurstMs,
-              delay: delay,
-              painter: (ms, still, _) => _ConfettiPainter(
-                  ms: ms, still: still, ink: ink, accent: accent),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(bottom: size * 0.08),
-            child: KuteDogCheer(
-                size: size,
-                cycles: 3,
-                shadowColor: ink.withValues(alpha: 0.14)),
-          ),
-        ],
+    final palette = KuteDogPalette.of(context);
+    final size = Size.square(widget.size);
+    if (_reduce) {
+      return CustomPaint(
+        size: size,
+        painter: KuteDogPainter(
+            pose: KuteDogConfirmation.restPose(widget.mood), palette: palette),
+      );
+    }
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => CustomPaint(
+          size: size,
+          painter: KuteDogPainter(pose: _pose(), palette: palette),
+        ),
       ),
     );
   }
