@@ -12,7 +12,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -73,12 +72,16 @@ void main() {
     expect(find.text('market detail'), findsNothing);
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text('Prediction placed'), findsOneWidget);
-    expect(find.text(r'$10.00'), findsOneWidget);
+    // The cost on the side is the hero, the market the context line, and
+    // the payout a row.
+    expect(find.text(r'$10.00 on Yes'), findsOneWidget);
+    expect(find.text('Will it rain?'), findsOneWidget);
     expect(find.text(r'$20.00'), findsOneWidget);
     expect(find.text('View prediction'), findsOneWidget);
     expect(haptics, 1);
 
-    await tester.tap(find.byType(KuteCloseButton));
+    // Done closes the sheet onto the screen under it.
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('predictions'), findsOneWidget);
@@ -190,7 +193,7 @@ void main() {
       expect(FastBetWindow.instance.scopes, 1);
       expect(FastBetWindow.instance.isOpen, isTrue);
 
-      await tester.tap(find.byType(KuteCloseButton));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(find.text('market detail'), findsOneWidget,
           reason: 'back on the round, like the five-minute sheet');

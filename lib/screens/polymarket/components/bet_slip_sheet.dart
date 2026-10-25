@@ -63,7 +63,6 @@ import 'package:kute/providers/ledger/ledger_pm_buying_power_provider.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_bet_target.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show openInvestmentsOrders;
 import 'package:kute/services/polymarket/sell_settlement.dart'
@@ -2236,9 +2235,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           navigator: navigator,
           overlay: KuteConfirmation(
             message: message,
-            showCloseButton: true,
-            buttonText: viewLabel,
-            onDone: () {
+            onDone: navigator.pop,
+            secondaryButtonText: viewLabel,
+            onSecondary: () {
               navigator.pop();
               if (ledgerWalletId != null) {
                 LedgerPortfolioScreen.show(navigator.context,
@@ -4628,10 +4627,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     name != 'polymarket-market-detail-sheet';
               });
               final cost = limitIntent!.filledCost;
+              final costLabel =
+                  cost == null ? null : '\$${cost.toStringAsFixed(2)}';
               pushKuteSuccessOverlay(
                 navigator: nav,
                 overlay: KuteConfirmation(
-                  message: l10n.betBuyPartialLimit(
+                  message: l10n.betPredictionPlaced,
+                  amount: costLabel == null
+                      ? null
+                      : l10n.betAmountOnSide(
+                          costLabel, limitIntent.outcomeName),
+                  contextLine: limitIntent.marketQuestion,
+                  rows: {l10n.betShares: limitBought.toStringAsFixed(2)},
+                  // How much bought, and that the rest waits at the
+                  // person's price.
+                  detail: l10n.betBuyPartialLimit(
                       partial.bought, partial.total, partial.price),
                   onDone: nav.pop,
                   // The rest waits at the person's price: "View orders"
@@ -4643,23 +4653,22 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                         product: 'predictions',
                         orderKind: 'limit_buy_partial');
                   },
-                  receipt: TradeReceipt(
-                    leading: PolyReceiptArtwork(url: limitIntent.marketImage),
-                    title: limitIntent.marketQuestion,
-                    subtitle: limitIntent.outcomeName,
-                    rows: {
-                      l10n.betShares: limitBought.toStringAsFixed(2),
-                      if (cost != null)
-                        l10n.betReceiptCost: '\$${cost.toStringAsFixed(2)}',
-                    },
-                  ),
                 ),
               );
             });
             return;
           }
+          // A limit buy that bought nothing yet rests on the book: once the
+          // band's snap has been seen, the slip closes onto a pending
+          // result sheet saying what waits at which price. The controller
+          // keeps the success haptic for limit orders, so the sheet
+          // (pending, no haptic) adds none.
           _updateState(() => _placedSuccess = true);
-          Future.delayed(const Duration(milliseconds: 1200), () {
+          final restingIntent = limitIntent;
+          final l10n = context.l10n;
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await RubberBand.settle(context);
             if (!mounted) return;
             ref.read(pendingPolymarketBetProvider.notifier).clear();
             final nav = Navigator.of(context, rootNavigator: true);
@@ -4668,6 +4677,36 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               return name != 'polymarket-bet-slip' &&
                   name != 'polymarket-market-detail-sheet';
             });
+            if (restingIntent == null) return;
+            final price = restingIntent.limitPrice;
+            final shares = restingIntent.orderedShares ??
+                (price > 0 ? restingIntent.amount / price : 0.0);
+            final cost = '\$${restingIntent.amount.toStringAsFixed(2)}';
+            pushKuteSuccessOverlay(
+              navigator: nav,
+              overlay: KuteConfirmation(
+                tone: KuteConfirmationTone.pending,
+                message: l10n.investingOrderAccepted,
+                amount: restingIntent.outcomeName.isEmpty
+                    ? cost
+                    : l10n.betAmountOnSide(cost, restingIntent.outcomeName),
+                contextLine: restingIntent.marketQuestion,
+                rows: {
+                  l10n.betLimitPrice: formatPolyCents(price),
+                  if (shares > 0) l10n.betShares: shares.toStringAsFixed(2),
+                },
+                detail: l10n.betRestingBuyNote,
+                onDone: nav.pop,
+                // The order rests: "View orders" opens the Portfolio's P&L
+                // charts, where it is listed.
+                secondaryButtonText: l10n.investingViewOrders,
+                onSecondary: () {
+                  nav.pop();
+                  openInvestmentsOrders(nav.context,
+                      product: 'predictions', orderKind: 'limit_buy');
+                },
+              ),
+            );
           });
         }
       });
