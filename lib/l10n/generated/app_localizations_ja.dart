@@ -10582,4 +10582,67 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => '残高';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '過去1週間で$change';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '過去1か月で$change';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '過去3か月で$change';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '過去1年で$change';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '全期間で$change';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$dateから$change';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change、$start〜$end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => '過去1週間は変動なし';
+
+  @override
+  String get balanceNoChangePastMonth => '過去1か月は変動なし';
+
+  @override
+  String get balanceNoChangePast3Months => '過去3か月は変動なし';
+
+  @override
+  String get balanceNoChangePastYear => '過去1年は変動なし';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return '$dateから変動なし';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return '変動なし、$start〜$end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin => 'ビットコインを保有すると、残高の推移がここに表示されます';
+
+  @override
+  String get balanceChartEmptyDollars => 'ドルを保有すると、残高の推移がここに表示されます';
 }

@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Pour le déplacer, utilisez un portefeuille comme MetaMask avec la même phrase de récupération.",
   "cctpRefundContactSupport": "Pour le déplacer, contactez l'assistance.",
   "portfolioSectionPnlCharts": "Graphiques P&L",
-  "portfolioSectionBalances": "Soldes"
+  "portfolioSectionBalances": "Soldes",
+  "balanceChangePastWeek": "{change} sur la dernière semaine",
+  "balanceChangePastMonth": "{change} sur le dernier mois",
+  "balanceChangePast3Months": "{change} sur les 3 derniers mois",
+  "balanceChangePastYear": "{change} sur la dernière année",
+  "balanceChangeAllTime": "{change} au total",
+  "balanceChangeSince": "{change} depuis le {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Aucun changement sur la dernière semaine",
+  "balanceNoChangePastMonth": "Aucun changement sur le dernier mois",
+  "balanceNoChangePast3Months": "Aucun changement sur les 3 derniers mois",
+  "balanceNoChangePastYear": "Aucun changement sur la dernière année",
+  "balanceNoChangeSince": "Aucun changement depuis le {date}",
+  "balanceNoChangeBetween": "Aucun changement, {start} – {end}",
+  "balanceChartEmptyBitcoin": "L'évolution de votre solde s'affichera ici dès que vous détiendrez des bitcoins",
+  "balanceChartEmptyDollars": "L'évolution de votre solde s'affichera ici dès que vous détiendrez des dollars"
 }

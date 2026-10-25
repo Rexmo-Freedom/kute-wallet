@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Ca să îi muți, folosește un portofel precum MetaMask cu aceeași frază de recuperare.",
   "cctpRefundContactSupport": "Ca să îi muți, contactează suportul.",
   "portfolioSectionPnlCharts": "Grafice P&L",
-  "portfolioSectionBalances": "Solduri"
+  "portfolioSectionBalances": "Solduri",
+  "balanceChangePastWeek": "{change} în ultima săptămână",
+  "balanceChangePastMonth": "{change} în ultima lună",
+  "balanceChangePast3Months": "{change} în ultimele 3 luni",
+  "balanceChangePastYear": "{change} în ultimul an",
+  "balanceChangeAllTime": "{change} în total",
+  "balanceChangeSince": "{change} din {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Nicio modificare în ultima săptămână",
+  "balanceNoChangePastMonth": "Nicio modificare în ultima lună",
+  "balanceNoChangePast3Months": "Nicio modificare în ultimele 3 luni",
+  "balanceNoChangePastYear": "Nicio modificare în ultimul an",
+  "balanceNoChangeSince": "Nicio modificare din {date}",
+  "balanceNoChangeBetween": "Nicio modificare, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Evoluția soldului tău va apărea aici după ce vei avea bitcoin",
+  "balanceChartEmptyDollars": "Evoluția soldului tău va apărea aici după ce vei avea dolari"
 }

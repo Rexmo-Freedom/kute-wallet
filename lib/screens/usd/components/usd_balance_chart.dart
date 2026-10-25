@@ -5,16 +5,16 @@
 // It is the bitcoin Balance tab part for part: the same card, the same
 // [BalanceHistoryChart], the same scrub card. The ONLY difference is the
 // series: dollars held on the spending account instead of the bitcoin
-// balance. Like the bitcoin one it has no range row: it opens on the last
-// 30 days at most, from the first moment in them that held dollars, and
-// pinch out reaches the whole history, drawn as each bucket's closing
-// balance (see balance_history.dart).
+// balance. Like the bitcoin one it has its range row under the plot (1W
+// to ALL, 1M to start, its own choice remembered for the session) and
+// draws each bucket's closing balance (see balance_history.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/analytics/components/analytics_card.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
@@ -36,22 +36,17 @@ class UsdBalanceChart extends ConsumerWidget {
       height: 400.h,
       child: Padding(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-        // No headline above the plot (owner decision): the balance now
-        // is the hero card at the top of the screen, and a touched
-        // moment is written on the chart's own scrub card.
+        // The balance now is the hero card at the top of the screen; the
+        // chart's own header line writes the change over the range, or
+        // the moment under a scrubbing finger.
         child: BalanceHistoryChart(
           history: history,
           format: dollars.format,
-          scaleLabel: dollarScaleLabel,
+          emptyMessage: context.l10n.balanceChartEmptyDollars,
+          rangeKey: 'dollars',
           trackingChart: 'valuation',
         ),
       ),
     );
   }
 }
-
-/// A level of the dollar Balance chart's scale: "$0", "$5", "$1.5K",
-/// or with cents ("$0.50") when the levels are under a dollar apart.
-String dollarScaleLabel(double level, double step) => step >= 1
-    ? '\$${NumberFormat.compact(locale: 'en_US').format(level)}'
-    : '\$${level.toStringAsFixed(2)}';

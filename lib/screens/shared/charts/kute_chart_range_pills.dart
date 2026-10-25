@@ -3,8 +3,9 @@
 // The range row under every chart (the Predictions market chart's: LIVE
 // 1H 6H 1D 1W 1M ALL), shared so the Price chart on Home and the wallet
 // screens, the Dollars Earn chart, the Investing and Predictions
-// statistics and the venue charts all read the same (the Balance charts
-// of Bitcoin wallets and Dollars have no range row: whole history): the ranges share the width, the
+// statistics, the Balance charts of Bitcoin wallets and Dollars (1W to
+// ALL under the plot) and the venue charts all read the same: the ranges
+// share the width, the
 // selected one sits on the elevated surface in the primary colour, the
 // others are quiet. [KuteRangePill] is one pill of it, for a row that
 // scrolls (the Investing chart's candle sizes).

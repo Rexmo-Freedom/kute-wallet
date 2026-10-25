@@ -10971,4 +10971,69 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Atlikumi';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change pēdējā nedēļā';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change pēdējā mēnesī';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change pēdējos 3 mēnešos';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change pēdējā gadā';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change kopā';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change kopš $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Pēdējā nedēļā bez izmaiņām';
+
+  @override
+  String get balanceNoChangePastMonth => 'Pēdējā mēnesī bez izmaiņām';
+
+  @override
+  String get balanceNoChangePast3Months => 'Pēdējos 3 mēnešos bez izmaiņām';
+
+  @override
+  String get balanceNoChangePastYear => 'Pēdējā gadā bez izmaiņām';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Kopš $date bez izmaiņām';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Bez izmaiņām, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
 }

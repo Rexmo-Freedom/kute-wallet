@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Brug en wallet som MetaMask med den samme gendannelsesfrase for at flytte dem.",
   "cctpRefundContactSupport": "Kontakt support for at flytte dem.",
   "portfolioSectionPnlCharts": "P&L-grafer",
-  "portfolioSectionBalances": "Saldi"
+  "portfolioSectionBalances": "Saldi",
+  "balanceChangePastWeek": "{change} den seneste uge",
+  "balanceChangePastMonth": "{change} den seneste måned",
+  "balanceChangePast3Months": "{change} de seneste 3 måneder",
+  "balanceChangePastYear": "{change} det seneste år",
+  "balanceChangeAllTime": "{change} i alt",
+  "balanceChangeSince": "{change} siden {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Ingen ændring den seneste uge",
+  "balanceNoChangePastMonth": "Ingen ændring den seneste måned",
+  "balanceNoChangePast3Months": "Ingen ændring de seneste 3 måneder",
+  "balanceNoChangePastYear": "Ingen ændring det seneste år",
+  "balanceNoChangeSince": "Ingen ændring siden {date}",
+  "balanceNoChangeBetween": "Ingen ændring, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Din saldo over tid vises her, når du har bitcoin",
+  "balanceChartEmptyDollars": "Din saldo over tid vises her, når du har dollars"
 }

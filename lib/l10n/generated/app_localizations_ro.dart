@@ -11060,4 +11060,70 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Solduri';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change în ultima săptămână';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change în ultima lună';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change în ultimele 3 luni';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change în ultimul an';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change în total';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change din $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Nicio modificare în ultima săptămână';
+
+  @override
+  String get balanceNoChangePastMonth => 'Nicio modificare în ultima lună';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Nicio modificare în ultimele 3 luni';
+
+  @override
+  String get balanceNoChangePastYear => 'Nicio modificare în ultimul an';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Nicio modificare din $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Nicio modificare, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Evoluția soldului tău va apărea aici după ce vei avea bitcoin';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Evoluția soldului tău va apărea aici după ce vei avea dolari';
 }

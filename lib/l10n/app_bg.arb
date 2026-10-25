@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "За да го преместиш, използвай портфейл като MetaMask със същата фраза за възстановяване.",
   "cctpRefundContactSupport": "За да го преместиш, свържи се с поддръжката.",
   "portfolioSectionPnlCharts": "Графики P&L",
-  "portfolioSectionBalances": "Баланси"
+  "portfolioSectionBalances": "Баланси",
+  "balanceChangePastWeek": "{change} за последната седмица",
+  "balanceChangePastMonth": "{change} за последния месец",
+  "balanceChangePast3Months": "{change} за последните 3 месеца",
+  "balanceChangePastYear": "{change} за последната година",
+  "balanceChangeAllTime": "{change} за цялото време",
+  "balanceChangeSince": "{change} от {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Без промяна за последната седмица",
+  "balanceNoChangePastMonth": "Без промяна за последния месец",
+  "balanceNoChangePast3Months": "Без промяна за последните 3 месеца",
+  "balanceNoChangePastYear": "Без промяна за последната година",
+  "balanceNoChangeSince": "Без промяна от {date}",
+  "balanceNoChangeBetween": "Без промяна, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Салдото ви във времето ще се показва тук, щом имате биткойн",
+  "balanceChartEmptyDollars": "Салдото ви във времето ще се показва тук, щом имате долари"
 }

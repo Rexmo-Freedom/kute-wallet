@@ -11022,4 +11022,69 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Баланси';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change за последната седмица';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change за последния месец';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change за последните 3 месеца';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change за последната година';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change за цялото време';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change от $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Без промяна за последната седмица';
+
+  @override
+  String get balanceNoChangePastMonth => 'Без промяна за последния месец';
+
+  @override
+  String get balanceNoChangePast3Months => 'Без промяна за последните 3 месеца';
+
+  @override
+  String get balanceNoChangePastYear => 'Без промяна за последната година';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Без промяна от $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Без промяна, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Салдото ви във времето ще се показва тук, щом имате биткойн';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Салдото ви във времето ще се показва тук, щом имате долари';
 }

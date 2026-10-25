@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "移動するには、同じリカバリーフレーズで MetaMask などのウォレットを使ってください。",
   "cctpRefundContactSupport": "移動するには、サポートにお問い合わせください。",
   "portfolioSectionPnlCharts": "損益チャート",
-  "portfolioSectionBalances": "残高"
+  "portfolioSectionBalances": "残高",
+  "balanceChangePastWeek": "過去1週間で{change}",
+  "balanceChangePastMonth": "過去1か月で{change}",
+  "balanceChangePast3Months": "過去3か月で{change}",
+  "balanceChangePastYear": "過去1年で{change}",
+  "balanceChangeAllTime": "全期間で{change}",
+  "balanceChangeSince": "{date}から{change}",
+  "balanceChangeBetween": "{change}、{start}〜{end}",
+  "balanceNoChangePastWeek": "過去1週間は変動なし",
+  "balanceNoChangePastMonth": "過去1か月は変動なし",
+  "balanceNoChangePast3Months": "過去3か月は変動なし",
+  "balanceNoChangePastYear": "過去1年は変動なし",
+  "balanceNoChangeSince": "{date}から変動なし",
+  "balanceNoChangeBetween": "変動なし、{start}〜{end}",
+  "balanceChartEmptyBitcoin": "ビットコインを保有すると、残高の推移がここに表示されます",
+  "balanceChartEmptyDollars": "ドルを保有すると、残高の推移がここに表示されます"
 }

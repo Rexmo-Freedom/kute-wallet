@@ -11037,4 +11037,70 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Saldi';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change afgelopen week';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change afgelopen maand';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change afgelopen 3 maanden';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change afgelopen jaar';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change in totaal';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change sinds $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Geen verandering afgelopen week';
+
+  @override
+  String get balanceNoChangePastMonth => 'Geen verandering afgelopen maand';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Geen verandering afgelopen 3 maanden';
+
+  @override
+  String get balanceNoChangePastYear => 'Geen verandering afgelopen jaar';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Geen verandering sinds $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Geen verandering, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Je saldo door de tijd verschijnt hier zodra je bitcoin hebt';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Je saldo door de tijd verschijnt hier zodra je dollars hebt';
 }

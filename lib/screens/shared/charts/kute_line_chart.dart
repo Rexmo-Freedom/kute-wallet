@@ -54,7 +54,12 @@
 //     drawn, scaled and scrubbed, the bucket sized for the window on
 //     screen, so a pinch re-buckets and a blip inside a bucket never
 //     reaches the line or the scale; and an optional opening window
-//     ([KuteLineChart.defaultSpan]) narrower than the whole series.
+//     ([KuteLineChart.defaultSpan]) narrower than the whole series;
+//   * an optional header above the plot that also knows the point under
+//     the finger ([KuteLineChart.headerBuilder]), so a chart can write the
+//     scrubbed value there instead of on the floating card, and an
+//     optional dotted baseline at the first value on screen
+//     ([KuteLineChart.startBaseline]).
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -161,6 +166,27 @@ class KuteLineBuckets {
   }
 }
 
+/// What a [KuteLineChart.headerBuilder] builds for: the first and last
+/// points on screen, the point under the finger (null when nobody is
+/// scrubbing), the window, and whether it is still the opening view (no
+/// pinch or pan since the chart opened or was reset).
+@immutable
+class KuteLineView {
+  final int first;
+  final int last;
+  final int? touched;
+  final KuteIndexWindow window;
+  final bool isDefault;
+
+  const KuteLineView({
+    required this.first,
+    required this.last,
+    required this.touched,
+    required this.window,
+    required this.isDefault,
+  });
+}
+
 class KuteLineChart extends StatefulWidget {
   /// The y series, in x order. Points are spread edge-to-edge across the
   /// canvas width (index space), matching the analytics charts.
@@ -243,6 +269,15 @@ class KuteLineChart extends StatefulWidget {
   /// to its last visible index (the venue charts' change row).
   final Widget? Function(int start, int end)? summaryBuilder;
 
+  /// A row above the plot that also follows the finger (see
+  /// [KuteLineView]); takes the place of [summaryBuilder]. Rebuilt with
+  /// the chart on every scrub step, never through the host.
+  final Widget Function(KuteLineView view)? headerBuilder;
+
+  /// A faint dotted line across the plot at the first value on screen,
+  /// so the line reads as up or down from where the window starts.
+  final bool startBaseline;
+
   /// A new value puts the window back on the whole series (a range pill
   /// tapped again). A series of another length also does, unless
   /// [resetViewOnLengthChange] is off.
@@ -319,6 +354,8 @@ class KuteLineChart extends StatefulWidget {
     this.changePercent = true,
     this.zoomable = true,
     this.summaryBuilder,
+    this.headerBuilder,
+    this.startBaseline = false,
     this.viewResetKey,
     this.resetViewOnLengthChange = true,
     this.defaultSpan,
@@ -650,6 +687,7 @@ class _KuteLineChartState extends State<KuteLineChart>
       ..minSpan = widget.minSpan;
     final window = _nudged(_viewport.windowFor(_extent));
     final drawn = _drawn(window);
+    final (firstOnScreen, lastOnScreen) = _visibleRange(window);
     final ti = _touchIndex;
     final scrubbing =
         widget.interactive && ti != null && ti >= 0 && ti < values.length;
@@ -682,6 +720,8 @@ class _KuteLineChartState extends State<KuteLineChart>
                     strokeWidth: widget.strokeWidth,
                     stepped: widget.stepped,
                     showScale: widget.showScale,
+                    baseline:
+                        widget.startBaseline ? values[firstOnScreen] : null,
                     projectedFrom: widget.projectedFrom,
                     lockedMinY: widget.lockedMinY,
                     lockedMaxY: widget.lockedMaxY,
@@ -719,12 +759,18 @@ class _KuteLineChartState extends State<KuteLineChart>
       },
     );
 
-    final summary = widget.summaryBuilder == null
-        ? null
-        : (() {
-            final (first, last) = _visibleRange(window);
-            return widget.summaryBuilder!(first, last);
-          })();
+    final Widget? summary;
+    if (widget.headerBuilder != null) {
+      summary = widget.headerBuilder!(KuteLineView(
+        first: firstOnScreen,
+        last: lastOnScreen,
+        touched: scrubbing ? ti : null,
+        window: window,
+        isDefault: _viewport.isDefault,
+      ));
+    } else {
+      summary = widget.summaryBuilder?.call(firstOnScreen, lastOnScreen);
+    }
 
     final gestures = !widget.interactive
         ? chart
@@ -1035,6 +1081,9 @@ class _KuteLinePainter extends CustomPainter {
   /// See [KuteLineChart.minScaleShare].
   final double? minScaleShare;
 
+  /// The value the dotted baseline is drawn at; null draws none.
+  final double? baseline;
+
   /// See [KuteLineChart.scaleMinStep].
   final double? scaleMinStep;
 
@@ -1056,6 +1105,7 @@ class _KuteLinePainter extends CustomPainter {
     this.indices,
     this.minScaleShare,
     this.scaleMinStep,
+    this.baseline,
   });
 
   @override
@@ -1090,6 +1140,18 @@ class _KuteLinePainter extends CustomPainter {
           in kuteScaleLevels(d.minY, d.maxY, minStep: scaleMinStep)) {
         final y = toY(level);
         canvas.drawLine(Offset(0, y), Offset(w, y), hairline);
+      }
+    }
+
+    // The dotted baseline at the first value on screen, under the line.
+    // Mid-morph the window is the whole resampled series: none.
+    final base = morphSeries == null ? baseline : null;
+    if (base != null && base.isFinite) {
+      final y = toY(base);
+      final dot = Paint()
+        ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.22);
+      for (var x = 1.0; x < w; x += 5) {
+        canvas.drawCircle(Offset(x, y), 0.75, dot);
       }
     }
 
@@ -1233,6 +1295,7 @@ class _KuteLinePainter extends CustomPainter {
       old.lockedMaxY != lockedMaxY ||
       !listEquals(old.indices, indices) ||
       old.minScaleShare != minScaleShare ||
+      old.baseline != baseline ||
       old.scaleMinStep != scaleMinStep ||
       old.window != window;
 

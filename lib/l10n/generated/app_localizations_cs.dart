@@ -10993,4 +10993,69 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Zůstatky';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change za poslední týden';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change za poslední měsíc';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change za poslední 3 měsíce';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change za poslední rok';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change za celou dobu';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change od $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Za poslední týden beze změny';
+
+  @override
+  String get balanceNoChangePastMonth => 'Za poslední měsíc beze změny';
+
+  @override
+  String get balanceNoChangePast3Months => 'Za poslední 3 měsíce beze změny';
+
+  @override
+  String get balanceNoChangePastYear => 'Za poslední rok beze změny';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Od $date beze změny';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Beze změny, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Až budete mít bitcoin, uvidíte zde vývoj svého zůstatku';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Až budete mít dolary, uvidíte zde vývoj svého zůstatku';
 }

@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Norėdami juos perkelti, naudokite piniginę, pvz., MetaMask, su ta pačia atkūrimo fraze.",
   "cctpRefundContactSupport": "Norėdami juos perkelti, susisiekite su pagalba.",
   "portfolioSectionPnlCharts": "P&L grafikai",
-  "portfolioSectionBalances": "Likučiai"
+  "portfolioSectionBalances": "Likučiai",
+  "balanceChangePastWeek": "{change} per pastarąją savaitę",
+  "balanceChangePastMonth": "{change} per pastarąjį mėnesį",
+  "balanceChangePast3Months": "{change} per pastaruosius 3 mėnesius",
+  "balanceChangePastYear": "{change} per pastaruosius metus",
+  "balanceChangeAllTime": "{change} iš viso",
+  "balanceChangeSince": "{change} nuo {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Per pastarąją savaitę pokyčių nėra",
+  "balanceNoChangePastMonth": "Per pastarąjį mėnesį pokyčių nėra",
+  "balanceNoChangePast3Months": "Per pastaruosius 3 mėnesius pokyčių nėra",
+  "balanceNoChangePastYear": "Per pastaruosius metus pokyčių nėra",
+  "balanceNoChangeSince": "Nuo {date} pokyčių nėra",
+  "balanceNoChangeBetween": "Pokyčių nėra, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Kai turėsite bitkoinų, čia matysite savo likučio pokyčius",
+  "balanceChartEmptyDollars": "Kai turėsite dolerių, čia matysite savo likučio pokyčius"
 }

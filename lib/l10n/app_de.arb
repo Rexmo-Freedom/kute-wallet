@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Um es zu bewegen, nutze eine Wallet wie MetaMask mit derselben Wiederherstellungsphrase.",
   "cctpRefundContactSupport": "Um es zu bewegen, kontaktiere den Support.",
   "portfolioSectionPnlCharts": "GuV-Charts",
-  "portfolioSectionBalances": "Guthaben"
+  "portfolioSectionBalances": "Guthaben",
+  "balanceChangePastWeek": "{change} in der letzten Woche",
+  "balanceChangePastMonth": "{change} im letzten Monat",
+  "balanceChangePast3Months": "{change} in den letzten 3 Monaten",
+  "balanceChangePastYear": "{change} im letzten Jahr",
+  "balanceChangeAllTime": "{change} insgesamt",
+  "balanceChangeSince": "{change} seit {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Keine Veränderung in der letzten Woche",
+  "balanceNoChangePastMonth": "Keine Veränderung im letzten Monat",
+  "balanceNoChangePast3Months": "Keine Veränderung in den letzten 3 Monaten",
+  "balanceNoChangePastYear": "Keine Veränderung im letzten Jahr",
+  "balanceNoChangeSince": "Keine Veränderung seit {date}",
+  "balanceNoChangeBetween": "Keine Veränderung, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Sobald du Bitcoin hast, siehst du hier dein Guthaben im Zeitverlauf",
+  "balanceChartEmptyDollars": "Sobald du Dollar hast, siehst du hier dein Guthaben im Zeitverlauf"
 }

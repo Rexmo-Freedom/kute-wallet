@@ -11046,4 +11046,70 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get portfolioSectionBalances => 'Likučiai';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change per pastarąją savaitę';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change per pastarąjį mėnesį';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change per pastaruosius 3 mėnesius';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change per pastaruosius metus';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change iš viso';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change nuo $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Per pastarąją savaitę pokyčių nėra';
+
+  @override
+  String get balanceNoChangePastMonth => 'Per pastarąjį mėnesį pokyčių nėra';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Per pastaruosius 3 mėnesius pokyčių nėra';
+
+  @override
+  String get balanceNoChangePastYear => 'Per pastaruosius metus pokyčių nėra';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Nuo $date pokyčių nėra';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Pokyčių nėra, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Kai turėsite bitkoinų, čia matysite savo likučio pokyčius';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Kai turėsite dolerių, čia matysite savo likučio pokyčius';
 }

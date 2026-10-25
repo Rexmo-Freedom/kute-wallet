@@ -3069,5 +3069,20 @@
   "cctpRefundMoveWithWallet": "Για να τα μετακινήσεις, χρησιμοποίησε ένα πορτοφόλι όπως το MetaMask με την ίδια φράση ανάκτησης.",
   "cctpRefundContactSupport": "Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.",
   "portfolioSectionPnlCharts": "Γραφήματα P&L",
-  "portfolioSectionBalances": "Υπόλοιπα"
+  "portfolioSectionBalances": "Υπόλοιπα",
+  "balanceChangePastWeek": "{change} την τελευταία εβδομάδα",
+  "balanceChangePastMonth": "{change} τον τελευταίο μήνα",
+  "balanceChangePast3Months": "{change} τους τελευταίους 3 μήνες",
+  "balanceChangePastYear": "{change} τον τελευταίο χρόνο",
+  "balanceChangeAllTime": "{change} συνολικά",
+  "balanceChangeSince": "{change} από {date}",
+  "balanceChangeBetween": "{change}, {start} – {end}",
+  "balanceNoChangePastWeek": "Καμία αλλαγή την τελευταία εβδομάδα",
+  "balanceNoChangePastMonth": "Καμία αλλαγή τον τελευταίο μήνα",
+  "balanceNoChangePast3Months": "Καμία αλλαγή τους τελευταίους 3 μήνες",
+  "balanceNoChangePastYear": "Καμία αλλαγή τον τελευταίο χρόνο",
+  "balanceNoChangeSince": "Καμία αλλαγή από {date}",
+  "balanceNoChangeBetween": "Καμία αλλαγή, {start} – {end}",
+  "balanceChartEmptyBitcoin": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε bitcoin",
+  "balanceChartEmptyDollars": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια"
 }
