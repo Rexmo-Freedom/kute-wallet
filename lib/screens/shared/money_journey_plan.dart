@@ -280,7 +280,8 @@ class MoneyJourneyPlan {
       switch (s.kind) {
         case MoneyStepKind.leg || MoneyStepKind.buy:
           legLines.add(i);
-        case MoneyStepKind.convert ||
+        case MoneyStepKind.gather ||
+              MoneyStepKind.convert ||
               MoneyStepKind.approve ||
               MoneyStepKind.confirm ||
               MoneyStepKind.credit:

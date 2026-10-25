@@ -10935,6 +10935,39 @@ class AppLocalizationsFi extends AppLocalizations {
   String get moneyStepConverted => 'Muunnettu pUSD:ksi';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Odotetaan, että kaikki saapuu',
+      two: 'Odotetaan, että molemmat saapuvat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kaikki saapui',
+      two: 'Molemmat saapuivat',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Siirretään $amount1 kohteesta $source1 ja $amount2 kohteesta $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Siirretään $amount $count saldosta';
+  }
+
+  @override
   String get moneyStepApproving => 'Hyväksytään käyttö';
 
   @override

@@ -10949,6 +10949,39 @@ class AppLocalizationsHu extends AppLocalizations {
   String get moneyStepConverted => 'Átváltva pUSD-re';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Várakozás, amíg minden megérkezik',
+      two: 'Várakozás, amíg mindkettő megérkezik',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Minden megérkezett',
+      two: 'Mindkettő megérkezett',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return '$amount1 mozgatása innen: $source1, és $amount2 innen: $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return '$amount mozgatása $count egyenlegből';
+  }
+
+  @override
   String get moneyStepApproving => 'Költés jóváhagyása';
 
   @override

@@ -18404,6 +18404,31 @@ abstract class AppLocalizations {
   /// **'Converted to pUSD'**
   String get moneyStepConverted;
 
+  /// Money steps checkpoint at the venue (Predictions, Investing) while two or more funding legs converge on it: nothing at the venue (the pUSD conversion, the allowance, the order) runs until the venue's own balances show every leg's money. {count} is the number of legs (2 = both). Running.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =2{Waiting for both to arrive} other{Waiting for all of it to arrive}}'**
+  String moneyStepGathering(int count);
+
+  /// The same checkpoint, done: every leg's money is confirmed at the venue. {count} is the number of legs (2 = both).
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =2{Both arrived} other{All of it arrived}}'**
+  String moneyStepGathered(int count);
+
+  /// The money journey's status line while two funding legs run at the same time: {amount1} (formatted dollars) leaving the balance {source1} and {amount2} leaving {source2} (Bitcoin, Dollars, Predictions, Investing).
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount1} from {source1} and {amount2} from {source2}'**
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2);
+
+  /// The money journey's status line while three or more funding legs run at the same time: {amount} (formatted dollars, all of them together) leaving {count} balances.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving {amount} from {count} balances'**
+  String moneyStepMovingMany(String amount, int count);
+
   /// Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running.
   ///
   /// In en, this message translates to:

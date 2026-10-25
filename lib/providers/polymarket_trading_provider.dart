@@ -5193,6 +5193,10 @@ class PolymarketTradingNotifier
     required String trigger,
     void Function()? ensureCurrent,
   }) {
+    // A funded bet's legs still landing: nothing converts until the
+    // wallet's balances show all of them (FundedConversionHold); then one
+    // conversion takes the whole delivered amount.
+    if (FundedConversionHold.held) return Future.value(BigInt.zero);
     return _wrapGate.run(wallet, () async {
       final wrapped = await PolymarketOnboardingService()
           .wrapHeldUsdceToPusdInDepositWallet(
@@ -5300,6 +5304,8 @@ class PolymarketTradingNotifier
             _privateKey == null) {
           return;
         }
+        // Never while a funded bet's legs are still landing.
+        if (FundedConversionHold.held) return;
         final wrapped =
             await PolymarketOnboardingService().wrapUsdceToPusdInDepositWallet(
           eoaAddress: eoa,

@@ -10972,6 +10972,39 @@ class AppLocalizationsIt extends AppLocalizations {
   String get moneyStepConverted => 'Convertito in pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'In attesa che arrivi tutto',
+      two: 'In attesa che arrivino entrambi',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Arrivato tutto',
+      two: 'Arrivati entrambi',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Spostamento di $amount1 da $source1 e $amount2 da $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Spostamento di $amount da $count saldi';
+  }
+
+  @override
   String get moneyStepApproving => 'Approvazione della spesa';
 
   @override

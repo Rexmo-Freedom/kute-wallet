@@ -122,6 +122,10 @@ String moneyStepLine(
       return done
           ? l10n.moneyStepMovedFrom(money(s.usd), from)
           : l10n.moneyStepMovingFrom(money(s.usd), from);
+    case MoneyStepKind.gather:
+      // The legs converging on the venue: "both" for two.
+      final n = math.max(2, s.after.length);
+      return done ? l10n.moneyStepGathered(n) : l10n.moneyStepGathering(n);
     case MoneyStepKind.convert:
       return done ? l10n.moneyStepConverted : l10n.moneyStepConverting;
     case MoneyStepKind.approve:

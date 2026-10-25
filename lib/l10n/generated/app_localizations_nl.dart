@@ -10958,6 +10958,39 @@ class AppLocalizationsNl extends AppLocalizations {
   String get moneyStepConverted => 'Omgezet naar pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Wachten tot alles binnen is',
+      two: 'Wachten tot beide binnen zijn',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Alles binnen',
+      two: 'Beide binnen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return '$amount1 van $source1 en $amount2 van $source2 worden verplaatst';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return '$amount van $count saldi wordt verplaatst';
+  }
+
+  @override
   String get moneyStepApproving => 'Uitgave goedkeuren';
 
   @override

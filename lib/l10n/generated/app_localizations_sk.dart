@@ -10929,6 +10929,39 @@ class AppLocalizationsSk extends AppLocalizations {
   String get moneyStepConverted => 'Prevedené na pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Čakáme, kým dorazí všetko',
+      two: 'Čakáme, kým dorazí oboje',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Všetko dorazilo',
+      two: 'Oboje dorazilo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Presúvame $amount1 z $source1 a $amount2 z $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Presúvame $amount z $count zostatkov';
+  }
+
+  @override
   String get moneyStepApproving => 'Povoľujeme útratu';
 
   @override

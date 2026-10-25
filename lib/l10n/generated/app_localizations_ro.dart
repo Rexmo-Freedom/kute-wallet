@@ -10982,6 +10982,39 @@ class AppLocalizationsRo extends AppLocalizations {
   String get moneyStepConverted => 'Convertit în pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Așteptăm să ajungă tot',
+      two: 'Așteptăm să ajungă ambele',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'A ajuns tot',
+      two: 'Au ajuns ambele',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Mutăm $amount1 din $source1 și $amount2 din $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Mutăm $amount din $count solduri';
+  }
+
+  @override
   String get moneyStepApproving => 'Se aprobă cheltuirea';
 
   @override

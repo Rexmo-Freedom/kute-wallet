@@ -10967,6 +10967,39 @@ class AppLocalizationsLt extends AppLocalizations {
   String get moneyStepConverted => 'Konvertuota į pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Laukiama, kol viskas atkeliaus',
+      two: 'Laukiama, kol atkeliaus abu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Viskas atkeliavo',
+      two: 'Abu atkeliavo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Perkeliama $amount1 iš $source1 ir $amount2 iš $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Perkeliama $amount iš $count likučių';
+  }
+
+  @override
   String get moneyStepApproving => 'Tvirtinamas išlaidų leidimas';
 
   @override
