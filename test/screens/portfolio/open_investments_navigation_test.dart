@@ -42,6 +42,7 @@ import 'package:kute/screens/polymarket/components/open_orders_sheet.dart'
     show PolyOrderRow;
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection, portfolioSectionProvider;
+import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
@@ -379,14 +380,14 @@ void main() {
               hyperliquidTradingProvider
                   .overrideWith(() => _PendingTrading(result.future)),
             ]);
-        expect(find.byType(SkeletonCardList), findsOneWidget);
-        expect(find.byType(SkeletonBar), findsWidgets);
+        // The rows' own shimmer: skeleton rows, not cards.
+        expect(find.byType(SkeletonRowList), findsOneWidget);
         expect(find.byType(NoActivityState), findsNothing);
 
         result.complete(_withPosition);
         await tester.pumpAndSettle();
-        expect(find.byType(SkeletonCardList), findsNothing);
-        expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+        expect(find.byType(SkeletonRowList), findsNothing);
+        expect(find.byType(HlPositionRow), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
@@ -475,10 +476,10 @@ void main() {
         'settled results and bets on their way lead, ahead of larger '
         'positions', (tester) async {
       await _pumpPositions(tester, state: _withPosition, placing: [_placing]);
-      expect(find.byType(HlPortfolioPositionCard), findsOneWidget);
+      expect(find.byType(HlPositionRow), findsOneWidget);
       expect(find.text('Will it rain tomorrow?'), findsOneWidget);
       expect(_top(tester, find.text('Will it rain tomorrow?')),
-          lessThan(_top(tester, find.byType(HlPortfolioPositionCard))));
+          lessThan(_top(tester, find.byType(HlPositionRow))));
       expect(tester.takeException(), isNull);
     });
 
@@ -504,8 +505,8 @@ void main() {
                 .overrideWith((_) => const [won]),
           ],
           home: const Scaffold(body: PortfolioPositions()));
-      expect(find.text('Up · 4.67 shares at 56¢'), findsOneWidget);
-      expect(find.text('Settled'), findsOneWidget);
+      // The state replaces the facts on the row's one line.
+      expect(find.text('Up · Settled'), findsOneWidget);
       expect(find.textContaining('Ready to claim'), findsNothing);
       expect(find.textContaining('Claim'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -529,7 +530,7 @@ void main() {
           state: _withPosition,
           placing: [_placing],
           venues: const PortfolioVenues(trading: false, predictions: true));
-      expect(find.byType(HlPortfolioPositionCard), findsNothing);
+      expect(find.byType(HlPositionRow), findsNothing);
       expect(find.text('Will it rain tomorrow?'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

@@ -9,7 +9,7 @@
 //     spot holdings) alike, largest first by what it is worth — and under
 //     them the resting orders of both venues under their Orders heading,
 //     with one count and one Cancel all (portfolio_orders.dart). Each row
-//     is the card or order row it always was, with its drill-down and its
+//     is a position row or the order row it always was, with its drill-down and its
 //     actions. Nothing held and nothing resting: the Sal empty state ("No
 //     positions yet"). The Investments tab's Portfolio pill lists the
 //     positions in its Positions section ([portfolioPositionsSlivers]) and
@@ -38,13 +38,13 @@
 // Portfolio screen. A venue the shell draws no tab for
 // (portfolio_filters.dart) has no rows in either.
 //
-// Each position is the portfolio's card, in the language of its product's
-// list card: names on the left, the position's value on the right with
-// the profit or loss under it (AppColors.marketUp / marketDown), one quiet
-// caption (PolyPositionCard, HlPortfolioCard). Every card is its own
-// widget class (theme-reading widgets inside scrolling lists must be their
-// own classes) and watches only what it needs, so a price tick on one card
-// never repaints the rest of the list.
+// Each position is a plain list row (founder request October 2026,
+// components/position_rows.dart): the market's image or the coin's logo,
+// a one-line title over one line of facts, the value with the profit or
+// loss under it, hairlines between rows and a quiet "N positions" above
+// them. Every row is its own widget class and watches only what it needs,
+// so a price tick on one row never repaints the rest of the list. The
+// resting orders keep their cards (portfolio_orders.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,7 +64,6 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
         polymarketActivePositionsProvider,
         polymarketClaimablePositionsProvider;
 import 'package:kute/providers/polymarket_combos_provider.dart';
-import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/screens/activity/activity_history_screen.dart'
@@ -76,11 +75,7 @@ import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
 import 'package:kute/screens/hyperliquid/components/hl_portfolio_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
-import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
-import 'package:kute/screens/polymarket/components/combo_position_card.dart';
-import 'package:kute/screens/polymarket/components/live_token_scope.dart';
-import 'package:kute/screens/polymarket/components/position_card.dart';
-import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
@@ -231,7 +226,7 @@ class _PortfolioPage extends ConsumerWidget {
 // ────────────────────────────── positions ──────────────────────────────
 
 /// Positions as a page of their own: everything held now at both venues
-/// in one list, then the resting orders (see the file header). A venue still loading shows shimmer cards; nothing held
+/// in one list, then the resting orders (see the file header). A venue still loading shows shimmer rows; nothing held
 /// and nothing resting is the Portfolio empty state
 /// ([PortfolioEmptyState]).
 class PortfolioPositions extends ConsumerWidget {
@@ -256,8 +251,10 @@ class PortfolioPositions extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(
           16.w, 4.h, 16.w, 32.h + kuteDockScrollClearance(context)),
       children: [
-        ...book.held,
-        if (book.loading) const _LoadingCard(),
+        if (book.held.isNotEmpty)
+          PortfolioPositionsCount(count: book.held.length),
+        ...portfolioRowsWithHairlines(context, book.held),
+        if (book.loading) const _LoadingRows(),
         if (book.tradingFailed) _QuietLine(l10n.openInvestPositionsUnavailable),
         ...book.orderItems(context, ref),
       ],
@@ -308,7 +305,7 @@ class _PositionsBook {
         book.isEmpty &&
         ref.watch(polymarketTradingProvider).isLoading;
 
-    final leading = book?.leading(context, ref) ?? const <Widget>[];
+    final leading = book?.leading() ?? const <Widget>[];
     final open = [...trading, ...?book?.openCards()];
     final ranked = [for (var i = 0; i < open.length; i++) (i, open[i])]
       ..sort((a, b) {
@@ -342,10 +339,10 @@ List<Widget> _orderItems(
             trailing: trailing));
 
 /// What is held, as slivers (founder request, October 2026): the
-/// Positions pill's cards with the same taps and sheets, under a
+/// Positions pill's rows with the same taps and sheets, under a
 /// Positions heading in the Activity heading's style, left out with
 /// [heading] false (the Investments tab's Positions section, whose pill
-/// already says it). Still reading: shimmer cards. Nothing held once
+/// already says it). Still reading: shimmer rows. Nothing held once
 /// read: no section at all. The resting orders are not here: they are
 /// [portfolioOrdersSlivers] (under the Investments tab's P&L charts, and
 /// under these on the Portfolio screen).
@@ -363,8 +360,10 @@ List<Widget> portfolioPositionsSlivers(
           if (heading)
             _SectionHeader(context.l10n.ledgerPositionsTitle,
                 key: const ValueKey('portfolio-positions-heading')),
-          ...book.held,
-          if (book.loading) const _LoadingCard(),
+          if (book.held.isNotEmpty)
+            PortfolioPositionsCount(count: book.held.length),
+          ...portfolioRowsWithHairlines(context, book.held),
+          if (book.loading) const _LoadingRows(),
         ]),
       ),
     ),
@@ -415,7 +414,7 @@ class _PolyBook {
   static _PolyBook watch(WidgetRef ref) {
     final open = ref.watch(polymarketActivePositionsProvider);
     final claimable = ref.watch(polymarketClaimablePositionsProvider);
-    // Every position's event in one read as the screen opens (the cards
+    // Every position's event in one read as the screen opens (the rows
     // would otherwise each read their own); see poly_position_events.dart.
     ref.watch(polyPortfolioEventsPrefetchProvider);
     // Combos (parlays) live on the Positions Framework, not in the CLOB
@@ -443,106 +442,39 @@ class _PolyBook {
       claimableCombos.isEmpty;
 
   /// What leads Positions: settled results, then bets on their way.
-  List<Widget> leading(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    return [
-      for (final p in claimable)
-        _PolyPositionCard(key: ValueKey('poly-r-${p.tokenId}'), position: p),
-      for (final p in claimableCombos)
-        ComboPositionCard(
-            key: ValueKey('combo-r-${p.conditionId}'), position: p),
-      // A bet on its way to the book: the position card's frame in a
-      // pending state. The stake is the number; the state is a caption.
-      for (final p in placing)
-        PolyTitledCard(
-          key: ValueKey('placing-${p.placementId}'),
-          title: p.marketQuestion,
-          imageUrl: p.marketImage,
-          trailing: PortfolioCardValue(value: formatPolyAmount(ref, p.amount)),
-          line: p.outcomeName,
-          footer: [
-            p.status == PlacingBetStatus.failed
-                ? l10n.openInvestPlacementFailed
-                : p.stepLabel ?? l10n.openInvestUpdatingPosition,
-          ],
-        ),
-    ];
-  }
+  List<Widget> leading() => [
+        for (final p in claimable)
+          PolyPositionRow(key: ValueKey('poly-r-${p.tokenId}'), position: p),
+        for (final p in claimableCombos)
+          ComboPositionRow(
+              key: ValueKey('combo-r-${p.conditionId}'), position: p),
+        // A bet on its way to the book: the stake is the number, its step
+        // the facts.
+        for (final p in placing)
+          PlacingBetRow(key: ValueKey('placing-${p.placementId}'), bet: p),
+      ];
 
   /// The open positions and combos, each with what it is worth at its
-  /// last read price (the order Positions ranks them in; the cards
+  /// last read price (the order Positions ranks them in; the rows
   /// themselves follow the live price).
   List<(double, Widget)> openCards() => [
         for (final p in open)
           (
             p.size * p.currentPrice,
-            _PolyPositionCard(key: ValueKey('poly-${p.tokenId}'), position: p)
+            PolyPositionRow(key: ValueKey('poly-${p.tokenId}'), position: p)
           ),
         for (final p in openCombos)
           (
             p.estimatedValueUsd,
-            ComboPositionCard(
+            ComboPositionRow(
                 key: ValueKey('combo-${p.conditionId}'), position: p)
           ),
       ];
 }
 
-/// One Polymarket position as the portfolio's card (PolyPositionCard):
-/// a game's two teams or the market's image and title, the position in
-/// one line, its value with the profit or loss under it. The value
-/// follows the held outcome's live price. Tap keeps the existing
-/// destination (the open-position screen). A win is claimed
-/// automatically, so it carries no Claim button and reads "Settled".
-class _PolyPositionCard extends ConsumerWidget {
-  final PolymarketPosition position;
-  const _PolyPositionCard({super.key, required this.position});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = position;
-    final live = ref.watch(
-        livePriceProvider.select((s) => s.live ? s.prices[p.tokenId] : null));
-    final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
-    final value = p.size * price;
-    // A sale of this position the venue accepted and has not settled yet.
-    final selling = p.tokenId != null &&
-        ref.watch(polymarketTradingProvider.select((s) =>
-            s.valueOrNull?.pendingSaleTokens.contains(p.tokenId) ?? false));
-    final pnl = (price - p.avgPrice) * p.size;
-    final pnlPercent = p.avgPrice > 0 ? (price / p.avgPrice - 1) * 100 : 0.0;
-
-    return LiveTokenScope(
-        tokens: [if (!p.isResolved && p.tokenId != null) p.tokenId!],
-        keepAlive: true,
-        child: PolyPositionCard(
-          question: p.marketQuestion,
-          imageUrl: p.marketImage,
-          outcome: p.outcome,
-          shares: p.size,
-          avgPrice: p.avgPrice,
-          value: value,
-          pnl: pnl,
-          pnlPercent: pnlPercent,
-          eventSlug: p.eventSlug,
-          end: polyPositionEnd(p),
-          conditionId: p.marketId,
-          // A win is claimed automatically (claim_auto_fire.dart): it
-          // reads "Settled" like any closed position, with no Claim button.
-          resolved: p.isResolved,
-          status: selling ? context.l10n.betSellingEllipsis : null,
-          onTap: () {
-            HapticFeedback.selectionClick();
-            TrackingService.track('open_investments_position_tapped',
-                params: {'product': 'predictions'});
-            PositionDetailSheet.show(context, position: p);
-          },
-        ));
-  }
-}
-
 // ────────────────────────────── investing ──────────────────────────────
 
-/// The Investing cards: open perps, then spot holdings (USDC is cash, not
+/// The Investing rows: open perps, then spot holdings (USDC is cash, not
 /// a holding), each with what it is worth at the account's last read (a
 /// perp at what closing it gives back, a holding at the mid; one whose
 /// market is not known yet at zero), the order Positions ranks them in.
@@ -566,18 +498,18 @@ List<(double, Widget)> _tradingCards(
     for (final p in positions)
       (
         hlCloseValue(p),
-        HlPortfolioPositionCard(key: ValueKey('hl-${p.coin}'), position: p)
+        HlPositionRow(key: ValueKey('hl-${p.coin}'), position: p)
       ),
     for (final holding in spot)
       (
         spotValue(holding),
-        _SpotPositionCard(
-            key: ValueKey('hl-spot-${holding.coin}'), balance: holding)
+        HlSpotRow(key: ValueKey('hl-spot-${holding.coin}'), balance: holding)
       ),
   ];
 }
 
-/// One open Hyperliquid perp as the portfolio's card (HlPortfolioCard):
+/// One open Hyperliquid perp as a Ledger's portfolio card (HlPortfolioCard;
+/// the spending wallet's Portfolio lists [HlPositionRow]):
 /// logo, name over one short line ("Short 1x · Liq 106% away"), and on
 /// the right the user's money in it, what closing it now gives back (its
 /// margin plus the profit or loss, [hlCloseValue]), with the profit or
@@ -663,60 +595,13 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// A spot holding as the portfolio's card: logo, name over "TICKER ·
-/// Spot", its value at the live mid with the profit or loss against what
-/// the venue records as paid, and the size held (with that cost) as a
-/// caption. Tap opens the market.
-class _SpotPositionCard extends ConsumerWidget {
-  const _SpotPositionCard({super.key, required this.balance});
-  final HlSpotBalance balance;
+/// Positions still loading: the app's shimmer rows, the rows' shape.
+class _LoadingRows extends StatelessWidget {
+  const _LoadingRows();
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
-        const <HlMarket>[];
-    HlMarket? market;
-    for (final item in markets) {
-      if (item.coin == balance.coin) {
-        market = item;
-        break;
-      }
-    }
-    final value = market != null && market.midPx > 0
-        ? balance.total * market.midPx
-        : null;
-    // Cost and P&L from what the venue records as paid (entryNtl); a
-    // balance with no cost on record (a transfer in) shows neither.
-    final cost = balance.costBasis;
-    final pnl = cost != null && value != null ? value - cost : null;
-    return HlPortfolioCard(
-      coin: balance.coin,
-      wireCoin: market?.wireCoin,
-      iconUrl: market?.iconUrl,
-      category: market?.category,
-      name:
-          hlFriendlyName(balance.coin) ?? market?.unitAssetName ?? balance.coin,
-      caption: '${balance.coin} · ${l10n.investingSpot}',
-      trailing: PortfolioCardValue(
-        value: value == null ? '—' : formatPolyAmount(ref, value),
-        pnl: pnl == null
-            ? null
-            : PortfolioCardValue.pnlText(formatPolyAmount(ref, pnl.abs()), pnl,
-                percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
-        up: (pnl ?? 0) >= 0,
-      ),
-      footer: [
-        [
-          l10n.openInvestHeld(formatHlSize(balance.total)),
-          if (cost != null && pnl != null)
-            '${l10n.betReceiptCost} ${formatPolyAmount(ref, cost)}',
-        ].join(' · '),
-      ],
-      onTap: market == null
-          ? null
-          : () => HlMarketDetailSheet.show(context, market: market!),
-    );
-  }
+  Widget build(BuildContext context) =>
+      SkeletonRowList(count: 2, padding: EdgeInsets.symmetric(vertical: 8.h));
 }
 
 /// A venue still loading: the app's shimmer card stack.

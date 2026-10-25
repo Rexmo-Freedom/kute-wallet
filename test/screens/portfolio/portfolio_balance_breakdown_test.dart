@@ -38,6 +38,7 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show DepositSheet;
@@ -809,7 +810,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.descendant(of: positions, matching: find.text('Positions')),
           findsOneWidget);
-      final card = find.byType(HlPortfolioPositionCard);
+      final card = find.byType(HlPositionRow);
       expect(card, findsOneWidget);
       final activity = find.byKey(const ValueKey('portfolio-activity-heading'));
       await tester.scrollUntilVisible(activity, 200, scrollable: scrollable);
@@ -842,7 +843,7 @@ void main() {
           findsOneWidget);
       expect(find.byKey(const ValueKey('portfolio-positions-heading')),
           findsNothing);
-      expect(find.byType(HlPortfolioPositionCard), findsNothing);
+      expect(find.byType(HlPositionRow), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
