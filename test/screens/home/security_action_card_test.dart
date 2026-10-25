@@ -8,12 +8,16 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
+import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() => KuteConfirmation.debugFeedbackOverride = () async {});
+  tearDown(() => KuteConfirmation.debugFeedbackOverride = null);
 
   /// Labels the passkey reminder ran for, and what each run returns.
   late List<String> runs;
@@ -138,6 +142,18 @@ void main() {
     // The ceremony ran for this wallet's label; no words were revealed.
     expect(runs, ['Spending Wallet · 1']);
     expect(find.textContaining('route:backup_wallet'), findsNothing);
+    // Done is the shared result sheet the words backup ends on, not a
+    // toast: the title, the wallet, Done closes it.
+    expect(find.byType(KuteConfirmation), findsOneWidget);
+    expect(find.text('Wallet backed up'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(KuteConfirmation), matching: find.text('Spending')),
+        findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.pumpAndSettle();
+    expect(find.byType(KuteConfirmation), findsNothing);
   });
 
   testWidgets('a failed confirmation keeps the reminder and says so',

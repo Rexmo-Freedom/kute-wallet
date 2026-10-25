@@ -1,6 +1,7 @@
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -43,10 +44,16 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (result.succeeded) {
-      showMessageSnackBar(
-          context: context,
+      // The same result sheet the words backup ends on, over this screen.
+      final rootNav = Navigator.of(context, rootNavigator: true);
+      pushKuteSuccessOverlay(
+        navigator: rootNav,
+        overlay: KuteConfirmation(
           message: context.l10n.confirmationWalletBackedUp,
-          error: false);
+          contextLine: target.name,
+          onDone: rootNav.pop,
+        ),
+      );
     } else if (result.cancelled) {
       showMessageSnackBar(
           context: context,
