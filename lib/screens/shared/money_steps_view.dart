@@ -8,9 +8,16 @@
 // marks in their fixed brand colours, never theme tokens, so they read on
 // a green Yes or red No slip as on a plain sheet: ₿ on orange, the
 // Dollars (USDB) mark, the Investing and Predictions marks; no ring, no
-// disc behind), several sources of one leg sit overlapped in their
-// column, and a straight hairline CONNECTOR with a small chevron joins
-// each column to the next. A station waits at 40% until the money is
+// disc behind), and a straight hairline CONNECTOR with a small chevron
+// joins each column to the next. Legs from several balances run at once
+// (founder, 25 October 2026): their stations stack in their column, just
+// overlapped, and each leg is its own hairline from its own station,
+// filling at its own pace and joining the others for the last few
+// points into the destination (one chevron there, orange once all of
+// them landed); the status line says them together ("Moving $4.18 from
+// Bitcoin and $5.00 from Investing"), then the destination's first dot
+// waits for all of it ("Waiting for both to arrive") before anything
+// there (the conversion, the order) runs. A station waits at 40% until the money is
 // there (55% over the sheet's ink on a slip in a side colour, so it reads
 // as a paler mark of its own colour), then shows in full; a small check
 // sits on it once its part is
@@ -122,6 +129,10 @@ String moneyStepLine(
       return done
           ? l10n.moneyStepMovedFrom(money(s.usd), from)
           : l10n.moneyStepMovingFrom(money(s.usd), from);
+    case MoneyStepKind.gather:
+      // The legs converging on the venue: "both" for two.
+      final n = math.max(2, s.after.length);
+      return done ? l10n.moneyStepGathered(n) : l10n.moneyStepGathering(n);
     case MoneyStepKind.convert:
       return done ? l10n.moneyStepConverted : l10n.moneyStepConverting;
     case MoneyStepKind.approve:
@@ -386,10 +397,66 @@ class _Look {
   Offset restAbove(double x) => Offset(x, rowY - stationR - 2.5 - coinR);
 }
 
+/// One road's own line in a row with parallel legs ([_Geometry.branches]):
+/// along its source's row, then straight into its station, so legs from
+/// several balances converge on the destination.
+class _RoadPath {
+  _RoadPath(this.points) {
+    var sum = 0.0;
+    cum.add(0);
+    for (var i = 1; i < points.length; i++) {
+      sum += (points[i] - points[i - 1]).distance;
+      cum.add(sum);
+    }
+  }
+  final List<Offset> points;
+  final List<double> cum = [];
+  double get length => cum.last;
+  Offset get start => points.first;
+  Offset get end => points.last;
+
+  /// The point [f] (0..1) of the way along.
+  Offset at(double f) {
+    final d = _unit(f) * length;
+    for (var i = 1; i < points.length; i++) {
+      if (d <= cum[i] || i == points.length - 1) {
+        final seg = cum[i] - cum[i - 1];
+        final t = seg <= 0 ? 1.0 : _unit((d - cum[i - 1]) / seg);
+        return Offset.lerp(points[i - 1], points[i], t)!;
+      }
+    }
+    return end;
+  }
+
+  /// The way the line runs into its end (unit vector).
+  Offset get endDirection {
+    final v = points.last - points[points.length - 2];
+    final l = v.distance;
+    return l <= 0 ? const Offset(1, 0) : v / l;
+  }
+
+  /// The line from its start to [f] of the way.
+  Path upTo(double f) {
+    final d = _unit(f) * length;
+    final p = Path()..moveTo(start.dx, start.dy);
+    for (var i = 1; i < points.length; i++) {
+      if (d >= cum[i]) {
+        p.lineTo(points[i].dx, points[i].dy);
+        continue;
+      }
+      final q = at(f);
+      p.lineTo(q.dx, q.dy);
+      break;
+    }
+    return p;
+  }
+}
+
 /// Where everything sits in the row, for one size.
 class _Geometry {
   _Geometry(this.size, this.stations, this.columnX, this.gaps, this.gapRoad,
-      this.dotsY);
+      this.dotsY,
+      {this.paths = const [], this.branchRows = 1});
   final Size size;
 
   /// Each station's icon centre.
@@ -404,6 +471,45 @@ class _Geometry {
   final List<int?> gapRoad;
   final double dotsY;
 
+  /// Legs from several balances run at once: each station on its own row
+  /// and each road its own line ([paths], by road), converging on the
+  /// destination. Otherwise one row and one connector per column gap.
+  final List<_RoadPath?> paths;
+  final int branchRows;
+  bool get branches => paths.isNotEmpty;
+
+  /// The rows a plan needs: more than one when a column holds several
+  /// stations (legs from several balances).
+  static int rowsOf(MoneyJourneyPlan plan) {
+    var rows = 1;
+    for (final st in plan.stations) {
+      rows = math.max(rows, st.rows);
+    }
+    return rows;
+  }
+
+  /// From one row's centre line to the next: the stations of one column
+  /// just overlap (as an overlapped column's did side by side), so a
+  /// three-source row stays about as high as a sheet allows.
+  static double rowStep(_Look look) => 2 * look.stationR * 0.7;
+
+  /// The row's height for [plan] (the map above the status line), less
+  /// its bottom margin.
+  static double heightOf(MoneyJourneyPlan plan, _Look look, bool hasDots) {
+    final rows = plan.columns > 1 ? rowsOf(plan) : 1;
+    final dots = hasDots ? look.dotsGap + 2 * look.dotR : 0.0;
+    if (rows <= 1) return look.nameTop + look.nameH + dots;
+    final span = (rows - 1) * rowStep(look);
+    return math.max(look.nameTop + span + look.nameH,
+        look.nameTop + span / 2 + look.nameH + dots);
+  }
+
+  /// Where the coin rests above station [i].
+  Offset restAt(_Look look, int i) {
+    final c = stations[i];
+    return Offset(c.dx, c.dy - look.stationR - 2.5 - look.coinR);
+  }
+
   static _Geometry of(MoneyJourneyPlan plan, Size size, _Look look) {
     final w = size.width;
     final cols = math.max(1, plan.columns);
@@ -416,6 +522,9 @@ class _Geometry {
     final rows = List<int>.filled(cols, 1);
     for (final st in plan.stations) {
       rows[_col(st, cols)] = math.max(rows[_col(st, cols)], st.rows);
+    }
+    if (rowsOf(plan) > 1 && cols > 1) {
+      return _branched(plan, size, look, columnX, cols);
     }
     final stations = <Offset>[
       for (final st in plan.stations)
@@ -446,6 +555,73 @@ class _Geometry {
     return _Geometry(size, stations, columnX, gaps, gapRoad, dotsY);
   }
 
+  /// Legs from several balances at once: every source on its own row (the
+  /// column's rows centred on the row's middle), a station passed on the
+  /// way on the row of the leg that feeds it, the destination on the
+  /// middle; each road its own hairline along its source's row, turning
+  /// in the last gap straight into its station.
+  static _Geometry _branched(MoneyJourneyPlan plan, Size size, _Look look,
+      List<double> columnX, int cols) {
+    final r = look.stationR;
+    final rowsAll = rowsOf(plan);
+    final vstep = rowStep(look);
+    final mid = look.rowY + (rowsAll - 1) * vstep / 2;
+    final n = plan.stations.length;
+    final ys = List<double?>.filled(n, null);
+    final dest = plan.destination;
+    if (dest != null) ys[dest] = mid;
+    // Sources (nothing comes into them): their own row.
+    for (var i = 0; i < n; i++) {
+      if (ys[i] != null) continue;
+      final st = plan.stations[i];
+      if (plan.roads.any((road) => road.to == i)) continue;
+      ys[i] = look.rowY + (st.row + (rowsAll - st.rows) / 2) * vstep;
+    }
+    // Stations on the way, left to right: the row of the leg into them.
+    final order = [for (var i = 0; i < n; i++) i]..sort((a, b) =>
+        plan.stations[a].column.compareTo(plan.stations[b].column));
+    for (final i in order) {
+      if (ys[i] != null) continue;
+      final feed = plan.roads.where((road) => road.to == i).firstOrNull;
+      final y = feed == null ? null : ys[feed.from];
+      final st = plan.stations[i];
+      ys[i] = y ?? look.rowY + (st.row + (rowsAll - st.rows) / 2) * vstep;
+    }
+    final stations = <Offset>[
+      for (var i = 0; i < n; i++)
+        Offset(columnX[_col(plan.stations[i], cols)], ys[i] ?? mid),
+    ];
+    final paths = <_RoadPath?>[
+      for (final road in plan.roads)
+        () {
+          final a = stations[road.from];
+          final b = stations[road.to];
+          final c0 = _col(plan.stations[road.from], cols);
+          final c1 = _col(plan.stations[road.to], cols);
+          if (c1 <= c0) return null;
+          final start = Offset(a.dx + r + look.gap, a.dy);
+          if ((a.dy - b.dy).abs() < 0.5) {
+            return _RoadPath([start, Offset(b.dx - r - look.gap, b.dy)]);
+          }
+          // Along its row to just short of halfway through the last gap,
+          // then across to the station's row, joining the other legs for
+          // the last few points into it: one end, one chevron.
+          final end = Offset(b.dx - r - look.gap, b.dy);
+          final lastGap0 = columnX[c1 - 1] + r + look.gap;
+          final bend = Offset(
+              math.max(start.dx + 4, lastGap0 + (end.dx - lastGap0) * 0.4),
+              a.dy);
+          final join = Offset(math.max(bend.dx + 4, end.dx - 3 * look.gap), b.dy);
+          return _RoadPath([start, bend, join, end]);
+        }(),
+    ];
+    final destY = dest == null ? mid : stations[dest].dy;
+    final dotsY = destY - look.rowY + look.nameTop + look.nameH +
+        look.dotsGap + look.dotR;
+    return _Geometry(size, stations, columnX, const [], const [], dotsY,
+        paths: paths, branchRows: rowsAll);
+  }
+
   static int _col(JourneyStation st, int cols) => st.column.clamp(0, cols - 1);
 
   int colOf(MoneyJourneyPlan plan, int station) =>
@@ -462,8 +638,20 @@ class _Geometry {
     return (c0 + j, t - j);
   }
 
+  /// The point of road [road]'s line at [f] of its way.
+  Offset tipAt(MoneyJourneyPlan plan, JourneyRoad road, double f, _Look look) {
+    if (branches) return _branchTip(plan, road, f);
+    return Offset(tipX(plan, road, f), look.rowY);
+  }
+
+  Offset _branchTip(MoneyJourneyPlan plan, JourneyRoad road, double f) {
+    final path = paths[plan.roads.indexOf(road)];
+    return path == null ? stations[road.to] : path.at(f);
+  }
+
   /// The x of road [road]'s line at [f] of its way.
   double tipX(MoneyJourneyPlan plan, JourneyRoad road, double f) {
+    if (branches) return _branchTip(plan, road, f).dx;
     final at = gapAt(plan, road, f);
     if (at == null) return stations[road.to].dx;
     final (x0, x1) = gaps[at.$1];
@@ -475,6 +663,20 @@ class _Geometry {
   /// column it passes.
   Offset coinOnRoad(
       MoneyJourneyPlan plan, JourneyRoad road, double f, _Look look) {
+    if (branches) {
+      final from = restAt(look, road.from);
+      final path = paths[plan.roads.indexOf(road)];
+      if (path == null) {
+        return Offset.lerp(from, restAt(look, road.to), _unit(f))!;
+      }
+      final line = path.at(f).translate(0, -look.coinLift);
+      // Down from above its station onto the line; into the last station
+      // it stays on the line and settles once the leg landed.
+      final u = _unit(f);
+      if (u >= 0.15) return line;
+      final blend = Curves.easeInOut.transform(1 - _unit(u / 0.15));
+      return Offset.lerp(line, from, blend)!;
+    }
     final at = gapAt(plan, road, f);
     final from = look.restAbove(stations[road.from].dx);
     if (at == null) {
@@ -526,6 +728,7 @@ class _Scene {
   // Sal: where he stands (x on the map), when he was last painted, and
   // whether he was walking then.
   double? salX;
+  double? salY;
   double salPaintedAt = 0;
   bool salWalking = false;
 
@@ -869,6 +1072,9 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       } else {
         shown = lines.length - 1;
       }
+    } else if (_runningLegsLine(l10n) case final together?) {
+      // Legs from several balances running at once say so together.
+      status = together;
     } else if (focus != null) {
       final brief = lines[focus].brief;
       if (s.outcome != _Outcome.failure && brief != null) {
@@ -931,12 +1137,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
               final look = s.look;
               final hasDots =
                   plan.destination != null && _dots(plan).isNotEmpty;
-              final size = Size(
-                  constraints.maxWidth,
-                  look.nameTop +
-                      look.nameH +
-                      (hasDots ? look.dotsGap + 2 * look.dotR : 0) +
-                      2.r);
+              final size = Size(constraints.maxWidth,
+                  _Geometry.heightOf(plan, look, hasDots) + 2.r);
               final geo = s.geo = _Geometry.of(plan, size, look);
               // Its own layer: the stations' fades and the working one's
               // breath repaint the row, never the sheet around it.
@@ -959,8 +1161,16 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                       // column sits on top.
                       for (final i in [
                         for (var i = 0; i < plan.stations.length; i++) i
-                      ]..sort((a, b) =>
-                          geo.stations[b].dx.compareTo(geo.stations[a].dx)))
+                      ]..sort((a, b) {
+                          final x = geo.stations[b].dx
+                              .compareTo(geo.stations[a].dx);
+                          // A stacked column: the lower one on top, so
+                          // every station's corner check shows.
+                          return x != 0
+                              ? x
+                              : geo.stations[a].dy
+                                  .compareTo(geo.stations[b].dy);
+                        }))
                         _station(context, i, geo, l10n),
                       Positioned.fill(
                         child: IgnorePointer(
@@ -1027,6 +1237,37 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     );
   }
 
+  /// The status line while two or more legs run at once, in line order
+  /// ("Moving \$4.18 from Bitcoin and \$5.00 from Investing"; with three
+  /// or more, their total and how many balances), null otherwise. Each
+  /// leg's own line stays there for a screen reader.
+  String? _runningLegsLine(AppLocalizations l10n) {
+    final graph = widget.graph;
+    final money = widget.money;
+    if (graph == null || money == null) return null;
+    final s = _scene;
+    if (s.outcome != _Outcome.none) return null;
+    final running = <MoneyStep>[];
+    for (final road in s.plan.roads) {
+      if (road.line < 0) continue;
+      final line = s.plan.lines[road.line];
+      if (line.status != MoneyStepStatus.running || line.id == null) continue;
+      final step = graph.byId(line.id!);
+      if (step == null || step.kind != MoneyStepKind.leg) continue;
+      running.add(step);
+    }
+    if (running.length < 2) return null;
+    String from(MoneyStep st) =>
+        moneyPlaceName(l10n, st.from ?? MoneyPlace.dollars);
+    if (running.length == 2) {
+      return l10n.moneyStepMovingTwo(money(running[0].usd), from(running[0]),
+          money(running[1].usd), from(running[1]));
+    }
+    final total = running.fold<double>(0, (sum, st) => sum + st.usd);
+    return l10n.moneyStepMovingMany(
+        money((total * 100).round() / 100), running.length);
+  }
+
   String _nameOf(AppLocalizations l10n, JourneyStation st) =>
       st.label ??
       (st.place == null ? l10n.recipient : moneyPlaceName(l10n, st.place!));
@@ -1051,6 +1292,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           if (geo.colOf(plan, i) == col) i
       ]..sort((a, b) => plan.stations[a].row.compareTo(plan.stations[b].row));
       if (members.isEmpty) continue;
+      // Legs from several balances: under the column's lowest station.
+      final lowest = members
+          .map((i) => geo.stations[i].dy)
+          .reduce((a, b) => math.max(a, b));
       final x = geo.columnX[col];
       // Its room: from halfway to the column before (or the row's start)
       // to halfway to the next (or the row's end), so names never meet.
@@ -1085,14 +1330,18 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       var label = names.join(' · ');
       // An overlapped column's names together only when they fit
       // centred under it; else the first and how many more.
-      final centred = math.min(room, 2 * math.min(x - lo, hi - x));
+      // A stacked column's names may sit off centre, moved in from the
+      // row's edge: each station is on its own row there.
+      final centred = geo.branches
+          ? room
+          : math.min(room, 2 * math.min(x - lo, hi - x));
       if (names.length > 1 && widthOf(label) > centred) {
         label = '${names.first} +${names.length - 1}';
       }
       final width = math.min(widthOf(label).ceilToDouble() + 2, room);
       out.add(Positioned(
         left: (x - width / 2).clamp(lo, math.max(lo, hi - width)),
-        top: look.nameTop,
+        top: geo.branches ? lowest - look.rowY + look.nameTop : look.nameTop,
         width: width,
         child: ExcludeSemantics(
           child: Text(label,
@@ -1507,6 +1756,80 @@ class _MapPainter extends CustomPainter {
     final bg = Paint()..color = look.background;
     final idle = _idle(s);
 
+    // ── Legs from several balances: each its own line ──
+    // Every road fills at its own pace from its own station and its
+    // chevron turns orange as it lands, converging on the destination.
+    for (var i = 0; i < geo.paths.length; i++) {
+      final path = geo.paths[i];
+      if (path == null || path.length < 2 * look.chevron) continue;
+      final road = plan.roads[i];
+      final f = _roadLit(s, road, now);
+      final stopped =
+          road.segments.any((k) => plan.lines[k].status == MoneyStepStatus.failed);
+      final lit = stroke(stopped ? look.stopped : _kAccent);
+      canvas.drawPath(path.upTo(1), track);
+      if (f > 0) {
+        canvas.drawPath(path.upTo(f), lit);
+        if (idle && !stopped && _roadRuns(plan, road)) {
+          // The light runs along its first stretch (its own row).
+          final a = path.points[0];
+          final b = path.points[1];
+          final tip = path.at(f);
+          final xl = math.min(tip.dx, b.dx);
+          if ((a.dy - tip.dy).abs() < 0.5 || tip.dx >= b.dx) {
+            _glint(canvas, a.dx, xl, a.dy, now);
+          }
+        }
+      }
+      final n = road.segments.length;
+      for (var k = 0; k < road.waypoints.length; k++) {
+        final frac = (k + 1) / n;
+        final c = path.at(frac);
+        final line = plan.lines[road.waypoints[k].line];
+        final failed = line.status == MoneyStepStatus.failed;
+        final passed = !failed && f >= frac - 1e-6;
+        canvas.drawCircle(c, look.waypointR, bg);
+        canvas.drawCircle(
+            c,
+            look.waypointR,
+            stroke(failed
+                ? look.failed
+                : passed
+                    ? _kAccent
+                    : look.track));
+        if (passed) {
+          canvas.drawCircle(c, look.waypointR * 0.42, Paint()..color = _kAccent);
+        }
+      }
+    }
+
+    // One chevron where the legs into a station join, orange once every
+    // one of them landed.
+    final ends = <int, List<int>>{};
+    for (var i = 0; i < geo.paths.length; i++) {
+      if (geo.paths[i] == null) continue;
+      (ends[plan.roads[i].to] ??= []).add(i);
+    }
+    for (final into in ends.values) {
+      final path = geo.paths[into.first]!;
+      if (path.length < 2 * look.chevron) continue;
+      final landed = into.every((i) => _roadLit(s, plan.roads[i], now) >= 1);
+      final stopped = into.any((i) => plan.roads[i].segments
+          .any((k) => plan.lines[k].status == MoneyStepStatus.failed));
+      final ch = look.chevron;
+      final e = path.end;
+      final d = path.endDirection;
+      final nrm = Offset(-d.dy, d.dx);
+      canvas.drawPath(
+          Path()
+            ..moveTo(e.dx - d.dx * ch + nrm.dx * ch,
+                e.dy - d.dy * ch + nrm.dy * ch)
+            ..lineTo(e.dx, e.dy)
+            ..lineTo(e.dx - d.dx * ch - nrm.dx * ch,
+                e.dy - d.dy * ch - nrm.dy * ch),
+          landed && !stopped ? stroke(_kAccent) : track);
+    }
+
     // ── Connectors and their waypoints ──
     for (var g = 0; g < geo.gaps.length; g++) {
       final (x0, x1) = geo.gaps[g];
@@ -1654,7 +1977,7 @@ class MoneyJourneyPainter extends CustomPainter {
   /// coordinates.
   Offset? get travellerAt {
     final x = _scene.salX;
-    return x == null ? null : Offset(x, _scene.look.rowY);
+    return x == null ? null : Offset(x, _scene.salY ?? _scene.look.rowY);
   }
 
   /// Whether Sal was walking at the last paint.
@@ -1741,7 +2064,7 @@ class MoneyJourneyPainter extends CustomPainter {
       via = plan.roads[chain.last];
       station = via.to;
     }
-    var at = on ?? look.restAbove(geo.stations[station].dx);
+    var at = on ?? geo.restAt(look, station);
     place ??= plan.stations[station].place;
     var alpha = 1.0;
     var scale = 1.0;
@@ -1770,7 +2093,8 @@ class MoneyJourneyPainter extends CustomPainter {
       final t = _unit((now - start - 150) / _kSink);
       if (t >= 1) return null;
       final e = Curves.easeIn.transform(t);
-      at = Offset(at.dx, at.dy + (look.rowY - at.dy) * e);
+      final lineY = geo.stations[station].dy;
+      at = Offset(at.dx, at.dy + (lineY - at.dy) * e);
       alpha *= 1 - e;
       scale = 1 - 0.4 * e;
     }
@@ -1781,7 +2105,7 @@ class MoneyJourneyPainter extends CustomPainter {
   /// runs, never past ~78% of the leg (beside the next station, where he
   /// waits while it works); at the start of the first line before it
   /// leaves; beside the destination when nothing travels.
-  double _salTarget(double now) {
+  Offset _salTarget(double now) {
     final s = _scene;
     final plan = s.plan;
     final look = s.look;
@@ -1789,7 +2113,7 @@ class MoneyJourneyPainter extends CustomPainter {
     final half = look.salSize * 0.45;
     if (plan.chain.isEmpty) {
       final dest = geo.stations[plan.destination ?? 0];
-      return dest.dx - look.stationR - look.gap - half;
+      return Offset(dest.dx - look.stationR - look.gap - half, dest.dy);
     }
     var k = 0;
     for (var i = 0; i < plan.chain.length; i++) {
@@ -1798,10 +2122,22 @@ class MoneyJourneyPainter extends CustomPainter {
     final road = plan.roads[plan.chain[k]];
     final f = _roadLit(s, road, now);
     final behind = look.coinR + half + 4;
+    if (geo.branches) {
+      // Along the leg's own line: a little behind the coin, never past
+      // the hold (beside the destination while it works).
+      final path = geo.paths[plan.roads.indexOf(road)];
+      if (path == null || path.length <= 0) {
+        final st = geo.stations[road.to];
+        return Offset(st.dx - look.stationR - look.gap - half, st.dy);
+      }
+      final lo = half / path.length;
+      final want = math.min(f - behind / path.length, _kHold);
+      return path.at(math.max(lo, want));
+    }
     final start = geo.tipX(plan, road, 0) + half;
     final x = math.min(
         geo.tipX(plan, road, f) - behind, geo.tipX(plan, road, _kHold));
-    return math.max(start, x);
+    return Offset(math.max(start, x), look.rowY);
   }
 
   @override
@@ -1813,16 +2149,25 @@ class MoneyJourneyPainter extends CustomPainter {
     if (s.plan.stations.isEmpty) return;
 
     // ── Sal ──
-    final target = _salTarget(now);
+    final aim = _salTarget(now);
+    final target = aim.dx;
     final was = s.salX;
     var x = target;
+    var y = aim.dy;
     if (was != null && !still) {
       final dt = math.max(0.0, now - s.salPaintedAt);
-      x = was + (target - was) * (1 - math.exp(-dt / _kSalEase));
+      final k = 1 - math.exp(-dt / _kSalEase);
+      x = was + (target - was) * k;
       if ((target - x).abs() < 0.3) x = target;
+      final wasY = s.salY ?? aim.dy;
+      y = wasY + (aim.dy - wasY) * k;
+      if ((aim.dy - y).abs() < 0.3) y = aim.dy;
     }
-    final walking = !still && was != null && (x - was).abs() > 0.05;
+    final walking = !still &&
+        was != null &&
+        ((x - was).abs() > 0.05 || (y - (s.salY ?? y)).abs() > 0.05);
     s.salX = x;
+    s.salY = y;
     s.salPaintedAt = now;
     s.salWalking = walking;
     final u = look.salSize / 16;
@@ -1849,7 +2194,7 @@ class MoneyJourneyPainter extends CustomPainter {
       pose = KuteDogPose(blink: kuteBlink(now % 4200, 3000));
     }
     paintKuteDog(canvas,
-        origin: Offset(x - 8 * u, look.rowY - 0.75 - 15 * u),
+        origin: Offset(x - 8 * u, y - 0.75 - 15 * u),
         unit: u,
         pose: pose,
         palette: KuteDogPalette.mascot);

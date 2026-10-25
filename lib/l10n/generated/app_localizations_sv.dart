@@ -10955,6 +10955,39 @@ class AppLocalizationsSv extends AppLocalizations {
   String get moneyStepConverted => 'Konverterat till pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Väntar på att allt ska komma fram',
+      two: 'Väntar på att båda ska komma fram',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Allt har kommit fram',
+      two: 'Båda har kommit fram',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Flyttar $amount1 från $source1 och $amount2 från $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Flyttar $amount från $count saldon';
+  }
+
+  @override
   String get moneyStepApproving => 'Godkänner utgift';
 
   @override

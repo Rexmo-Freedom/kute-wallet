@@ -233,8 +233,12 @@ void main() {
       expect(via.status, MoneyStepStatus.running);
       expect(via.to, MoneyPlace.dollars);
       expect(via.ref, 'op-home');
-      expect(g.byId('buy')!.after,
+      // Two legs home to Dollars now: the purchase waits for both
+      // (Dollars holding all of it) through the one wait step.
+      expect(g.byId('gather')!.after,
           ['leg:investing:via_dollars', 'leg:predictions']);
+      expect(g.byId('gather')!.status, MoneyStepStatus.running);
+      expect(g.byId('buy')!.after, ['gather']);
       expect(g.byId('arrive')!.after, ['buy']);
     });
 

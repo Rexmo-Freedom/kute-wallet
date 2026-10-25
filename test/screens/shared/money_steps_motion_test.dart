@@ -236,8 +236,8 @@ void main() {
     });
 
     testWidgets(
-        'parallel legs: the sources overlap in one column, one coin for '
-        'the biggest leg', (tester) async {
+        'parallel legs: each source on its own row, converging on the '
+        'destination, one coin for the biggest leg', (tester) async {
       await tester.pumpWidget(_app(
           moneyStepLines(_en, _three(), _usd,
               placeLine: 'Placing \$15.00 on Yes'),
@@ -249,21 +249,30 @@ void main() {
         for (final id in ['bitcoin', 'dollars', 'investing'])
           _at(tester, _station(id)),
       ];
+      // One column of sources, stacked: the same x, each its own row, the
+      // destination on the middle one.
       for (final p in xs) {
-        expect(p.dy, poly.dy, reason: 'one row');
+        expect(p.dx, xs.first.dx);
         expect(p.dx, lessThan(poly.dx));
       }
-      // Overlapped: closer than an icon's width.
-      final icon = tester.getSize(_station('bitcoin')).width;
-      expect(xs[1].dx - xs[0].dx, lessThan(icon));
-      expect(xs[2].dx - xs[1].dx, lessThan(icon));
-      expect(find.text('Bitcoin +2'), findsOneWidget);
+      expect(xs[0].dy, lessThan(xs[1].dy));
+      expect(xs[1].dy, lessThan(xs[2].dy));
+      expect(poly.dy, closeTo(xs[1].dy, 0.01));
+      // Just overlapped, as the column's were side by side.
+      final icon = tester.getSize(_station('bitcoin')).height;
+      expect(xs[1].dy - xs[0].dy, lessThan(icon));
+      // Their names together under the column, moved in from the edge.
+      expect(find.text('Bitcoin · Dollars · Investing'), findsOneWidget);
       final plan = MoneyJourneyPlan.of(
           moneyStepLines(_en, _three(), _usd, placeLine: 'Place'),
           graph: _three(),
           to: MoneyPlace.predictions);
       expect(plan.roads.length, 3);
       expect(plan.roads.map((r) => r.to).toSet(), {plan.destination});
+      // Each leg fills its own line at its own pace: all three running.
+      for (final id in ['leg:bitcoin', 'leg:dollars', 'leg:investing']) {
+        expect(_motion(tester).litOf(id), greaterThan(0));
+      }
       // The coin takes the biggest leg, in its currency.
       expect(_motion(tester).travellerRoad, 'leg:bitcoin');
       expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);

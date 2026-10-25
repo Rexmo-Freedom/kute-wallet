@@ -10538,6 +10538,39 @@ class AppLocalizationsJa extends AppLocalizations {
   String get moneyStepConverted => 'pUSDに変換しました';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'すべての到着を待っています',
+      two: '両方の到着を待っています',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'すべて届きました',
+      two: '両方届きました',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return '$source1から$amount1、$source2から$amount2を移動中';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return '$countつの残高から$amountを移動中';
+  }
+
+  @override
   String get moneyStepApproving => '利用を承認中';
 
   @override

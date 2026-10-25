@@ -10946,6 +10946,39 @@ class AppLocalizationsEt extends AppLocalizations {
   String get moneyStepConverted => 'Teisendatud pUSD-ks';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ootame, kuni kõik saabub',
+      two: 'Ootame, kuni mõlemad saabuvad',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Kõik saabus',
+      two: 'Mõlemad saabusid',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Liigutame $amount1 kontolt $source1 ja $amount2 kontolt $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Liigutame $amount $count saldolt';
+  }
+
+  @override
   String get moneyStepApproving => 'Kinnitame kulutusõiguse';
 
   @override

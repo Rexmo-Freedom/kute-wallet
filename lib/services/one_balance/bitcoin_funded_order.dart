@@ -117,7 +117,8 @@ import 'package:kute/services/one_balance/venue_cash_source.dart'
         DirectRouteRefusals,
         VenueCashFor,
         VenueCashPullOutcome,
-        VenueCashPuller;
+        VenueCashPuller,
+        venueCashWaitFor;
 import 'package:kute/services/one_balance/venue_funder.dart'
     show RouteUnavailable, VenueCashDestination, VenueMoveResult;
 import 'package:kute/services/orchestra/arrival_target.dart'
@@ -530,16 +531,22 @@ typedef BitcoinPlacementWait = Future<bool> Function(
 /// What the runner tells the venue move about the legs running next to
 /// it. With a direct Bitcoin leg, Dollars send [bitcoinShareUsd] less and
 /// the order waits for [bitcoinArrivingUsd] more in the venue; with the
-/// chain both are zero (the Bitcoin's dollars are in Dollars by then).
+/// chain both are zero. The chain with the other venue's cash starts the
+/// move next to its Bitcoin leg ([viaBitcoinUsd], [viaBitcoinLanded]):
+/// the other venue's legs go at once, the move from Dollars once the
+/// Bitcoin's dollars landed.
 @immutable
 class FundingLegContext {
   const FundingLegContext({
     this.bitcoinShareUsd = 0,
     this.bitcoinArrivingUsd = 0,
     this.bitcoinSentAt,
-    this.bitcoinLandedAt,
+    DateTime? bitcoinLandedAt,
     this.onPulled,
-  });
+    this.viaBitcoinUsd = 0,
+    this.viaBitcoinLanded,
+    this.viaLandedAt,
+  }) : _bitcoinLandedAt = bitcoinLandedAt;
 
   /// Of the move into the venue (the slip's `fundUsd`), what the direct
   /// Bitcoin leg brings instead.
@@ -551,11 +558,24 @@ class FundingLegContext {
   /// When the Bitcoin leg's sats left, and (the chain) when its dollars
   /// landed: the funnel's stage timings.
   final DateTime? bitcoinSentAt;
-  final DateTime? bitcoinLandedAt;
+  final DateTime? _bitcoinLandedAt;
+  DateTime? get bitcoinLandedAt => _bitcoinLandedAt ?? viaLandedAt?.call();
 
   /// The other venue's legs, once they went: each source's step follows
   /// its own leg.
   final void Function(VenueCashPullOutcome pulled)? onPulled;
+
+  /// The chain's Bitcoin leg, still on its way to Dollars when the move
+  /// starts: what it lands there (its target). Zero: the move starts
+  /// after it landed, or there is no such leg.
+  final double viaBitcoinUsd;
+
+  /// True once the chain's Bitcoin dollars landed, false when the run
+  /// stopped first (nothing more moves from Dollars then).
+  final Future<bool>? viaBitcoinLanded;
+
+  /// When they landed, read at the move from Dollars.
+  final DateTime? Function()? viaLandedAt;
 }
 
 /// The venue move and the queued order: [controller] reads the Dollars
@@ -822,6 +842,12 @@ class BitcoinFundedOrderRunner {
                 LegDelivery.timedOut => const MoneyStepFailed('timeout'),
               };
             },
+          FundedStepId.gather => (s, update) => readinessPhaseStep(
+              'waiting', update,
+              phases: env.readiness?.call(venue),
+              credited: credited.future,
+              placement: placement,
+              failedCode: () => failedCode),
           FundedStepId.convert => (s, update) => readinessPhaseStep(
               'converting', update,
               optional: true,
@@ -1477,12 +1503,17 @@ Future<OtherVenuePlan> planOtherVenueCash(
   );
 }
 
-/// After the Bitcoin leg's dollars landed: the other venue's cash for the
-/// rest of [fundUsd] (the one-balance puller, under the order's same
-/// [grant]: legs straight into [venue] within what it binds, the others
-/// home to Dollars), then [queue] the venue move from Dollars for what the
-/// direct legs do not bring. When Dollars still do not cover it, nothing
-/// more moves and the order is not queued: the money stays in Investments.
+double _roundCents(double usd) => (usd * 100).roundToDouble() / 100;
+
+/// The other venue's cash for the rest of [fundUsd] (the one-balance
+/// puller, under the order's same [grant]: legs straight into [venue]
+/// within what it binds, the others home to Dollars), then [queue] the
+/// venue move from Dollars for what the direct legs do not bring. Next to
+/// the chain's Bitcoin leg ([FundingLegContext.viaBitcoinLanded]) the
+/// other venue's legs go at once and the move from Dollars waits for the
+/// Bitcoin's dollars; otherwise it runs once they landed. When Dollars
+/// still do not cover it, nothing more moves and the order is not queued:
+/// the money stays in Investments.
 Future<OrderFundingOutcome> fundRestThenMove({
   required VenueCashPuller puller,
   required OneBalanceVenue venue,
@@ -1508,7 +1539,16 @@ Future<OrderFundingOutcome> fundRestThenMove({
           .clamp(0.0, fundUsd)
           .toDouble()
       : fundUsd;
+  // The chain's Bitcoin dollars still on their way (started next to that
+  // leg): the other venue's legs go now, sized without them, and only the
+  // move from Dollars waits for them.
+  final viaUsd = legs.viaBitcoinUsd > 0 ? legs.viaBitcoinUsd : 0.0;
+  final viaLanded = legs.viaBitcoinLanded;
+  final early = viaUsd > 0 && viaLanded != null;
   if (!needsOtherVenue) {
+    if (early && !await viaLanded) {
+      return const OrderFundingRefused('bitcoin_not_landed');
+    }
     return queue(
         fundUsd: fund,
         readyUsd: readyUsd + btcArriving,
@@ -1517,11 +1557,14 @@ Future<OrderFundingOutcome> fundRestThenMove({
   VenueCashPullOutcome? pulled;
   try {
     pulled = await puller.pullShortfall(
-      neededUsd: fund,
+      neededUsd: early ? _roundCents(math.max(0.0, fund - viaUsd)) : fund,
       forAction: venueCashForOf(venue),
       destination: venueCashDestinationOf(venue),
       exclude: venue,
       approval: grant,
+      // Dollars rise with the Bitcoin's dollars meanwhile: never read as
+      // the legs home having landed. Waited on below, for the whole move.
+      waitFor: early ? Duration.zero : null,
     );
   } catch (e) {
     return OrderFundingRefused('venue_cash', error: e);
@@ -1529,6 +1572,34 @@ Future<OrderFundingOutcome> fundRestThenMove({
   try {
     legs.onPulled?.call(pulled);
   } catch (_) {}
+  if (early) {
+    if (!pulled.plan.covers) {
+      return const OrderFundingRefused('venue_cash_pending');
+    }
+    if (!await viaLanded) {
+      return const OrderFundingRefused('bitcoin_not_landed');
+    }
+    final direct = pulled.directArrivingUsd + pulled.alreadyDeliveredUsd;
+    // What Dollars send on: their own share, the Bitcoin's dollars and
+    // whatever came home, exactly what the chain sent once it landed.
+    final onward = direct > 0
+        ? _roundCents(math.max(0.0, pulled.dollarsNeededUsd) + viaUsd)
+        : fund;
+    final cover = await puller.waitForDollars(onward,
+        moveId: pulled.moveId,
+        destination: venueCashDestinationOf(venue),
+        forAction: venueCashForOf(venue),
+        waitFor: pulled.failedLegs.isEmpty
+            ? venueCashWaitFor(pulled.eta)
+            : Duration.zero);
+    if (!cover) return const OrderFundingRefused('venue_cash_pending');
+    return queue(
+      fundUsd: onward,
+      readyUsd: readyUsd + direct + btcArriving,
+      directArrivingUsd: pulled.directArrivingUsd + btcArriving,
+      moveId: pulled.moveId,
+    );
+  }
   if (!pulled.dollarsCover) {
     return const OrderFundingRefused('venue_cash_pending');
   }
@@ -1552,6 +1623,7 @@ abstract final class FundedStepId {
   static const String bitcoinToDollars = 'leg:bitcoin>dollars';
   static const String dollarsOnward = 'leg:dollars:onward';
   static String other(OneBalanceVenue venue) => 'leg:${venue.name}';
+  static const String gather = 'ready:gather';
   static const String convert = 'ready:convert';
   static const String approve = 'ready:approve';
   static const String confirm = 'ready:confirm';
@@ -1577,14 +1649,33 @@ MoneyStepGraph fundedOrderGraph({
   required double orderUsd,
 }) {
   final legIds = [for (final l in legs) l.id];
+  // The legs that end at the venue (no other leg goes on from them): two
+  // or more converge there, so the venue waits for all of them first.
+  final arriving = [
+    for (final l in legs)
+      if (!legs.any((o) => o.after.contains(l.id))) l.id
+  ];
+  final gather = arriving.length > 1
+      ? MoneyStep(
+          id: FundedStepId.gather,
+          kind: MoneyStepKind.gather,
+          after: arriving,
+          afterAny: true)
+      : null;
+  final readyAfter = gather == null ? legIds : [FundedStepId.gather];
   final ready = switch (venue) {
     OneBalanceVenue.predictions => [
         MoneyStep(
             id: FundedStepId.convert,
             kind: MoneyStepKind.convert,
-            after: legIds,
-            afterAny: true),
-        const MoneyStep(id: FundedStepId.approve, kind: MoneyStepKind.approve),
+            after: readyAfter,
+            afterAny: gather == null),
+        // The allowance needs no money, but nothing at the venue runs
+        // while legs are still landing.
+        MoneyStep(
+            id: FundedStepId.approve,
+            kind: MoneyStepKind.approve,
+            after: gather == null ? const [] : readyAfter),
         const MoneyStep(
             id: FundedStepId.confirm,
             kind: MoneyStepKind.confirm,
@@ -1594,12 +1685,13 @@ MoneyStepGraph fundedOrderGraph({
         MoneyStep(
             id: FundedStepId.credit,
             kind: MoneyStepKind.credit,
-            after: legIds,
-            afterAny: true),
+            after: readyAfter,
+            afterAny: gather == null),
       ],
   };
   return MoneyStepGraph([
     ...legs,
+    if (gather != null) gather,
     ...ready,
     MoneyStep(
         id: FundedStepId.place,
@@ -1788,6 +1880,14 @@ class _FundedChain {
 
   /// The other venue's legs, once they went (null: none went).
   final Completer<VenueCashPullOutcome?> _pulled = Completer();
+
+  /// The chain's Bitcoin dollars landed (true), or the run stopped first
+  /// (false): what a move started next to that leg waits on before it
+  /// sends anything from Dollars.
+  final Completer<bool> _viaLanded = Completer();
+
+  /// The fresh Dollars balance the chain's landing read.
+  double _viaFreshDollars = 0;
   final Completer<void> _credited = Completer();
   late final Future<bool> _placement;
   String? _failedText;
@@ -1828,6 +1928,7 @@ class _FundedChain {
     } catch (_) {}
     if (!_stopped.isCompleted) _stopped.complete();
     if (!_covered.isCompleted) _covered.complete(false);
+    if (!_viaLanded.isCompleted) _viaLanded.complete(false);
     if (!_ended.isCompleted) _ended.complete(end);
     return end;
   }
@@ -1951,7 +2052,9 @@ class _FundedChain {
   }
 
   /// The chain's legs: Bitcoin → Dollars, then the whole move from
-  /// Dollars (and the other venue's cash pulled once the dollars landed).
+  /// Dollars. The other venue's cash goes next to the Bitcoin leg (from
+  /// its accepted quote), never after its landing: nothing it carries
+  /// waits on the Bitcoin's dollars.
   List<MoneyStep> _viaLegs(OneBalanceVenue otherVenue, double other) => [
         MoneyStep(
             id: FundedStepId.bitcoinToDollars,
@@ -1973,7 +2076,9 @@ class _FundedChain {
               kind: MoneyStepKind.leg,
               from: moneyPlaceOf(otherVenue),
               usd: _cents(other),
-              after: const [FundedStepId.bitcoinToDollars]),
+              after: r.otherVenueUsed
+                  ? const []
+                  : const [FundedStepId.bitcoinToDollars]),
       ];
 
   static double _cents(double usd) => (usd * 100).roundToDouble() / 100;
@@ -2010,6 +2115,8 @@ class _FundedChain {
     if (step.id == FundedStepId.dollarsOnward) return _dollars;
     if (step.kind == MoneyStepKind.leg) return _otherLeg;
     switch (step.id) {
+      case FundedStepId.gather:
+        return (s, u) => _phase('waiting', u);
       case FundedStepId.convert:
         return (s, u) => _phase('converting', u, optional: true);
       case FundedStepId.approve:
@@ -2208,18 +2315,45 @@ class _FundedChain {
         : 'quote_failed';
   }
 
+  /// The chain's move started next to its Bitcoin leg, once that leg's
+  /// verified quote was accepted (as the direct leg's other legs are):
+  /// the other venue's legs go at once, straight into the venue under the
+  /// same approval, and the move from Dollars waits for the Bitcoin's
+  /// dollars ([fundRestThenMove]). Only with the other venue's cash; a
+  /// chain without it moves from Dollars once they landed, as before.
+  void _startViaMove() {
+    if (!r.otherVenueUsed) return;
+    _startVenueMove(
+        _ref
+            .read(orderFundingControllerProvider)
+            .withDollars(() => math.max(env.dollarsNow(), _viaFreshDollars)),
+        FundingLegContext(
+            bitcoinSentAt: _sentAt ?? _now(),
+            viaBitcoinUsd: r.plan.targetUsd,
+            viaBitcoinLanded: _viaLanded.future,
+            viaLandedAt: () => _landedAt,
+            onPulled: _onPulled));
+  }
+
   /// The chain's first leg: Bitcoin → Dollars, then (once the dollars
-  /// landed) the whole move into the venue.
+  /// landed) the move from Dollars into the venue. The other venue's cash
+  /// goes from the leg's accepted quote ([_startViaMove]).
   Future<MoneyStepOutcome> _viaBitcoin(MoneyStep step,
       void Function(MoneyStep Function(MoneyStep)) update) async {
     if (!_covered.isCompleted) _covered.complete(false);
     DateTime? sentAt;
     BitcoinLegTicket ticket;
+    final stepUp = BitcoinLegGrants.stepUp(r.grant, ownSpark: _ownSpark);
     try {
       ticket = await env.send(
         sparkAddress: _ownSpark,
         plan: r.plan,
-        stepUp: BitcoinLegGrants.stepUp(r.grant, ownSpark: _ownSpark),
+        stepUp: (settlement) async {
+          final ok = await stepUp(settlement);
+          // Every other leg starts now, next to the sats leaving.
+          if (ok) _startViaMove();
+          return ok;
+        },
         onSending: () {
           sentAt = _now();
           _sentAt = sentAt;
@@ -2240,7 +2374,8 @@ class _FundedChain {
       _stop(FundedOrderStage.failed, BitcoinFundedEnd.notSent,
           reason: 'not_sent',
           category: TrackingService.errorCategory(e),
-          moneyAt: FundedMoneyAt.bitcoin,
+          moneyAt:
+              _venueMoveStarted ? FundedMoneyAt.venue : FundedMoneyAt.bitcoin,
           message: runner._errorText(e));
       return MoneyStepFailed(TrackingService.errorCategory(e));
     }
@@ -2300,6 +2435,16 @@ class _FundedChain {
             id,
             (rec) =>
                 rec.copyWith(stage: FundedOrderStage.preparing, slow: false));
+        if (r.otherVenueUsed) {
+          // The move started next to this leg goes on from Dollars now
+          // (started here when no accepted quote started it).
+          if (freshDollarsUsd > _viaFreshDollars) {
+            _viaFreshDollars = freshDollarsUsd;
+          }
+          if (!_viaLanded.isCompleted) _viaLanded.complete(true);
+          _startViaMove();
+          return MoneyStepDone(ref: legId);
+        }
         // Delivery is authoritative for the first leg, but does not make
         // a smaller cached reading spendable. Do not start a larger onward
         // leg and leave it appearing to run while the wallet lacks it.

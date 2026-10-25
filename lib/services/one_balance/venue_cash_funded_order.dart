@@ -481,6 +481,9 @@ class _VenueCashChain {
     switch (step.id) {
       // Predictions: the conversion to pUSD and the spend allowance only
       // when the venue needs them, then its own balance confirmed.
+      // Every leg's money confirmed at the venue before anything there.
+      case FundedStepId.gather:
+        return (s, u) => _phase('waiting', u);
       case FundedStepId.convert:
         return (s, u) => _phase('converting', u, optional: true);
       case FundedStepId.approve:

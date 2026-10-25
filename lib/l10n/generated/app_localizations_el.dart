@@ -11036,6 +11036,39 @@ class AppLocalizationsEl extends AppLocalizations {
   String get moneyStepConverted => 'Μετατράπηκε σε pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Αναμονή να φτάσουν όλα',
+      two: 'Αναμονή να φτάσουν και τα δύο',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Έφτασαν όλα',
+      two: 'Έφτασαν και τα δύο',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Μεταφορά $amount1 από $source1 και $amount2 από $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Μεταφορά $amount από $count υπόλοιπα';
+  }
+
+  @override
   String get moneyStepApproving => 'Έγκριση δαπάνης';
 
   @override

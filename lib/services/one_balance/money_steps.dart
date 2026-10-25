@@ -9,9 +9,12 @@
 // sheet's sub-steps. The progress the person sees IS the state machine.
 //
 // A step starts the moment its dependencies allow it: every leg of an
-// order starts together; Predictions' readiness starts on the FIRST money
-// landing (`afterAny`) and does not wait for every leg; the order waits
-// on readiness covering it. A step that fails names itself; a retry
+// order starts together; with several legs converging on the venue a
+// `gather` step starts on the FIRST landing (`afterAny`) and ends only
+// once the venue's own balances show every leg's money (founder, 25
+// October 2026: nothing there runs before all of it arrived); the
+// venue's readiness (the conversion, the allowance, the credit) comes
+// after it, and the order waits on readiness covering it. A step that fails names itself; a retry
 // restarts only that step and what depends on it; a fallback replaces a
 // step with the steps that do its job another way (a direct Bitcoin leg
 // going via Dollars), and whatever depended on it depends on the last of
@@ -52,6 +55,11 @@ enum MoneyStepKind {
   /// Money moving from one place to another ("Moving $8.00 from Bitcoin").
   leg,
 
+  /// Every leg's money confirmed at the venue by its own balances, before
+  /// anything there consumes it ("Waiting for both to arrive"): only
+  /// when two or more legs converge on it.
+  gather,
+
   /// Predictions: USDC.e converted to pUSD ("Converting to pUSD").
   convert,
 
@@ -78,7 +86,11 @@ enum MoneyStepKind {
   /// A readiness sub-step, shown indented under the venue's "getting
   /// ready" stage line.
   bool get readiness =>
-      this == convert || this == approve || this == confirm || this == credit;
+      this == gather ||
+      this == convert ||
+      this == approve ||
+      this == confirm ||
+      this == credit;
 }
 
 /// A balance money moves from or to, named on screen by the balance's own

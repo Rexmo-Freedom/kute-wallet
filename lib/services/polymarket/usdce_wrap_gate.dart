@@ -9,6 +9,12 @@
 // have the second fail on chain. So a caller arriving while a conversion
 // runs for the same wallet gets that conversion's result instead of
 // signing a second one.
+//
+// While a funded bet's legs are still landing nothing converts at all
+// ([FundedConversionHold]): one conversion for the whole delivered amount,
+// once the wallet's balances show all of it.
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// What a Predictions order costs in micro-pUSD at [price] for [size]
 /// shares, rounded up.
@@ -31,6 +37,58 @@ bool polyShouldWrapBeforeBuy({
     usdce > BigInt.zero &&
     pusd < costMicros &&
     pusd + usdce >= costMicros;
+
+/// No conversion while a funded bet's money is still on its way (founder,
+/// 25 October 2026: "We can only execute the last one once it all reaches
+/// there, like the pUSD conversion and such. Don't start anything before
+/// we have all the actual balances there."). The funding legs run at once;
+/// the conversion, like the bet, waits until the deposit wallet's own
+/// balances (pUSD + USDC.e, read on chain) show every leg's money, then
+/// converts it in ONE batch. The bet's autofire owns the answer
+/// ([held]); without one nothing is held.
+abstract final class FundedConversionHold {
+  static bool _never() => false;
+
+  /// Whether conversions wait now. Never throws (a failing read holds
+  /// nothing).
+  static bool Function() _held = _never;
+  static bool get held {
+    try {
+      return _held();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The bet autofire's answer from now on; the returned callback removes
+  /// it (only while it is still the current one).
+  static void Function() install(bool Function() held) {
+    _held = held;
+    return () {
+      if (identical(_held, held)) _held = _never;
+    };
+  }
+
+  @visibleForTesting
+  static void reset() => _held = _never;
+}
+
+/// Whether a funded bet still holds conversions: its funding is running
+/// (`converting`) or queued for its money (`awaitingBalance`) and the
+/// deposit wallet's balances have not yet been read covering all of it
+/// ([landedConfirmed], set by the autofire from an on-chain read). A bet
+/// funded from nothing (venue cash only), placing, done or failed holds
+/// nothing, so a stopped run never leaves conversions held. Pure.
+bool fundedConversionHeld({
+  required bool funded,
+  required bool fundingRunning,
+  required bool awaitingBalance,
+  required bool landedConfirmed,
+}) {
+  if (!funded) return false;
+  if (fundingRunning) return true;
+  return awaitingBalance && !landedConfirmed;
+}
 
 class UsdceWrapGate {
   final Map<String, Future<BigInt>> _running = {};

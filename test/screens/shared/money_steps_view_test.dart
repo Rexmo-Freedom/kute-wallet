@@ -27,6 +27,7 @@ MoneyStepGraph _bet({
   MoneyStepStatus bitcoin = MoneyStepStatus.running,
   MoneyStepStatus dollars = MoneyStepStatus.running,
   MoneyStepStatus investing = MoneyStepStatus.running,
+  MoneyStepStatus gather = MoneyStepStatus.waiting,
   MoneyStepStatus convert = MoneyStepStatus.waiting,
   String? convertRef,
   MoneyStepStatus confirm = MoneyStepStatus.waiting,
@@ -60,6 +61,7 @@ MoneyStepGraph _bet({
           'leg:bitcoin' => bitcoin,
           'leg:dollars' => dollars,
           'leg:investing' => investing,
+          'ready:gather' => gather,
           'ready:convert' => convert,
           'ready:confirm' => confirm,
           'place' => place,
@@ -112,12 +114,14 @@ void main() {
       'Moving \$5.00 from Dollars',
       'Moving \$2.00 from Investing',
       'Getting your prediction ready',
+      // Three legs converge: the venue waits for all of them first.
+      'Waiting for all of it to arrive',
       // The conversion and the allowance show only once they happen.
       'Confirming balance',
       'Placing \$15.00 on Yes',
     ]);
     expect([for (final l in lines) l.sub],
-        [false, false, false, false, true, false]);
+        [false, false, false, false, true, true, false]);
   });
 
   test('lines complete on their own, in whatever order the legs land',
@@ -134,25 +138,37 @@ void main() {
       ('Moved \$5.00 from Dollars', MoneyStepStatus.done),
       ('Moving \$2.00 from Investing', MoneyStepStatus.running),
     ]);
-    // Then Investing, then the conversion runs: the stage runs with it.
-    final converting = at(_bet(
+    // Then Investing: the venue waits for the bitcoin too, nothing
+    // converts yet (founder, 25 October 2026).
+    final waiting = at(_bet(
         dollars: MoneyStepStatus.done,
         investing: MoneyStepStatus.done,
+        gather: MoneyStepStatus.running));
+    expect(waiting[2], ('Moved \$2.00 from Investing', MoneyStepStatus.done));
+    expect(waiting[3], ('Ready', MoneyStepStatus.running));
+    expect(waiting[4],
+        ('Waiting for all of it to arrive', MoneyStepStatus.running));
+    expect(waiting.any((l) => l.$1 == 'Converting to pUSD'), isFalse);
+    // Every leg landed and the venue saw all of it: the one conversion.
+    final converting = at(_bet(
+        bitcoin: MoneyStepStatus.done,
+        dollars: MoneyStepStatus.done,
+        investing: MoneyStepStatus.done,
+        gather: MoneyStepStatus.done,
         convert: MoneyStepStatus.running,
         convertRef: 'seen'));
-    expect(
-        converting[2], ('Moved \$2.00 from Investing', MoneyStepStatus.done));
-    expect(converting[3], ('Ready', MoneyStepStatus.running));
-    expect(converting[4], ('Converting to pUSD', MoneyStepStatus.running));
-    // The order goes while the bitcoin is still landing.
+    expect(converting[4], ('All of it arrived', MoneyStepStatus.done));
+    expect(converting[5], ('Converting to pUSD', MoneyStepStatus.running));
+    // Then the order.
     final placed = at(_bet(
+        bitcoin: MoneyStepStatus.done,
         dollars: MoneyStepStatus.done,
         investing: MoneyStepStatus.done,
+        gather: MoneyStepStatus.done,
         convert: MoneyStepStatus.done,
         confirm: MoneyStepStatus.done,
         place: MoneyStepStatus.done));
-    expect(
-        placed.first, ('Moving \$8.00 from Bitcoin', MoneyStepStatus.running));
+    expect(placed.first, ('Moved \$8.00 from Bitcoin', MoneyStepStatus.done));
     expect(placed.last, ('Place', MoneyStepStatus.done));
     expect(
         placed.contains(('Converted to pUSD', MoneyStepStatus.done)), isTrue);
@@ -489,7 +505,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
       expect(find.byKey(const ValueKey('money-steps-map')), findsOneWidget);
-      expect(_seen(tester), ['Moving \$8.00 from Bitcoin']);
+      // Three legs at once say so together.
+      expect(_seen(tester), ['Moving \$15.00 from 3 balances']);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
     });

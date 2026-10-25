@@ -10977,6 +10977,39 @@ class AppLocalizationsBg extends AppLocalizations {
   String get moneyStepConverted => 'Конвертирано в pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Изчакване всичко да пристигне',
+      two: 'Изчакване и двете да пристигнат',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Всичко пристигна',
+      two: 'И двете пристигнаха',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Преместване на $amount1 от $source1 и $amount2 от $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Преместване на $amount от $count салда';
+  }
+
+  @override
   String get moneyStepApproving => 'Одобряване на разхода';
 
   @override

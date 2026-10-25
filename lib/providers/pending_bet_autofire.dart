@@ -70,6 +70,8 @@ import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/services/polymarket/usdce_wrap_gate.dart'
+    show FundedConversionHold, fundedConversionHeld;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
@@ -354,6 +356,34 @@ class PendingBetAutoFire {
     double usd
   })? _confirmedCash;
 
+  /// The funded attempt whose money the deposit wallet's own balances
+  /// (pUSD + USDC.e, read on chain) showed all of: from then on its one
+  /// conversion and its order may run ([FundedConversionHold]).
+  ({String token, DateTime? queuedAt, String? runId})? _landedConfirmed;
+  void Function()? _uninstallHold;
+
+  bool _landedConfirmedFor(PendingBetIntent intent) {
+    final c = _landedConfirmed;
+    return c != null &&
+        c.token == intent.tokenId &&
+        c.queuedAt == intent.queuedAt &&
+        c.runId == intent.fundedRunId;
+  }
+
+  /// Whether the pending funded bet's money is still on its way: no
+  /// conversion runs meanwhile ([fundedConversionHeld]).
+  bool _conversionHeld() {
+    if (_disposed) return false;
+    final intent = ref.read(pendingPolymarketBetProvider);
+    if (intent == null) return false;
+    return fundedConversionHeld(
+      funded: intent.funded,
+      fundingRunning: intent.status == PendingBetStatus.converting,
+      awaitingBalance: intent.status == PendingBetStatus.awaitingBalance,
+      landedConfirmed: _landedConfirmedFor(intent),
+    );
+  }
+
   /// How often a landed bet's readiness is read while it waits.
   @visibleForTesting
   static Duration readyPollInterval = const Duration(seconds: 1);
@@ -362,6 +392,7 @@ class PendingBetAutoFire {
   StreamSubscription<void>? _depositSettled;
 
   PendingBetAutoFire(this.ref) {
+    _uninstallHold = FundedConversionHold.install(_conversionHeld);
     // Watch the trading provider for balance changes. Each time it
     // ticks (refresh, optimistic, push-driven), check whether the
     // pending bet can now be placed.
@@ -393,6 +424,7 @@ class PendingBetAutoFire {
 
   void dispose() {
     _disposed = true;
+    _uninstallHold?.call();
     _sub.close();
     _depositSettled?.cancel();
     _stopAwaitPolling();
@@ -793,14 +825,21 @@ class PendingBetAutoFire {
     final total = (reads.pusd + reads.usdce).toDouble() / 1e6;
     if (intent.funded && !delivered &&
         total + 1e-6 < autofireFireAt(intent)) {
-      final converting = reads.usdce >= _kUsdceDustMicros;
-      if (converting) trading.nudgeConversion();
-      _setReadiness(
-          converting
-              ? PredictionsReadiness.converting
-              : PredictionsReadiness.waitingFunds,
-          convertSeen: converting);
+      // Some legs' money is here, not all of it: nothing converts or is
+      // signed yet (founder, 25 October 2026), the bet waits for every
+      // leg. One conversion takes the whole delivered amount once the
+      // wallet's balances show it.
+      _setReadiness(PredictionsReadiness.waitingFunds);
       return false;
+    }
+    // The wallet's own balances show every leg's money (or every leg
+    // landed, short): the one conversion and the order may run now.
+    if (intent.funded && !_landedConfirmedFor(intent)) {
+      _landedConfirmed = (
+        token: intent.tokenId,
+        queuedAt: intent.queuedAt,
+        runId: intent.fundedRunId
+      );
     }
     var cost = requiredCostMicros ?? _costMicros(intent);
     // A proved short landing can resize a market order within its approval.

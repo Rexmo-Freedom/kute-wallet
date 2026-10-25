@@ -1560,6 +1560,38 @@ class VenueCashPuller {
         : TrackingService.errorCategory(r.isEmpty ? 'unknown' : r);
   }
 
+  /// Waits (at most [waitFor]) until Dollars hold [neededUsd]: the move
+  /// from Dollars of an action whose venue legs went without the wait
+  /// ([pullShortfall]'s `waitFor` zero, while other money was still on
+  /// its way to Dollars). [neededUsd] is then the action's own step on
+  /// the move's record ([moveId], into [destination] for [forAction]);
+  /// covered after a wait, the legs home are done and the pulls on their
+  /// way are no longer counted. Never moves anything.
+  Future<bool> waitForDollars(
+    double neededUsd, {
+    String? moveId,
+    VenueCashDestination? destination,
+    String? forAction,
+    Duration waitFor = Duration.zero,
+  }) async {
+    if (moveId != null && destination != null && forAction != null) {
+      MoveSteps.record(
+          moveId,
+          (g) => MoveSteps.onward(g, _cents(neededUsd),
+              destination: destination, forAction: forAction));
+    }
+    var cover = _readDollars() + 0.000001 >= neededUsd;
+    if (!cover && waitFor > Duration.zero) {
+      cover = await _waitForDollars(neededUsd, waitFor);
+      if (cover) {
+        MoveSteps.record(
+            moveId, (g) => MoveSteps.dollarsLanded(g, at: _clock()));
+      }
+    }
+    if (cover) _pending.clear();
+    return cover;
+  }
+
   Future<bool> _waitForDollars(double neededUsd, Duration waitFor) async {
     final start = _clock();
     var lastNudge = start;

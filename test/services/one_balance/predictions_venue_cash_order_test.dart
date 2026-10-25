@@ -167,6 +167,18 @@ class _Run {
   final phases = StreamController<String>.broadcast();
   final phasesSeen = <String>[];
 
+  /// The current phase first, then every new one, as the app's own
+  /// readiness stream does (venueReadinessPhases): a step that starts
+  /// late (the conversion after the wait for every leg) still sees it.
+  Stream<String> readiness() {
+    final current = phasesSeen.isEmpty ? null : phasesSeen.last;
+    final c = StreamController<String>();
+    if (current != null) c.add(current);
+    final sub = phases.stream.listen(c.add);
+    c.onCancel = sub.cancel;
+    return c.stream;
+  }
+
   FundedOrderRecord get record =>
       c.read(fundedOrdersProvider).firstWhere((r) => r.id == runId);
 
@@ -200,7 +212,7 @@ class _Run {
         freshDollars: () async => null,
         legStatus: _status,
         legPollEvery: const Duration(milliseconds: 1),
-        readiness: (_) => phases.stream,
+        readiness: (_) => readiness(),
         checkDollars: () {
           checks++;
           dollarsAtCheck = dollars;
@@ -228,6 +240,7 @@ class _Run {
           phases.add(p);
           await Future<void>.delayed(const Duration(milliseconds: 5));
         }
+        phasesSeen.add('ready');
         phases.add('ready');
         final n = c.read(pendingPolymarketBetProvider.notifier);
         n.updateStatus(PendingBetStatus.placing);
@@ -404,17 +417,33 @@ void main() {
     expect(g.byId('leg:investing')!.status, MoneyStepStatus.done);
     expect(g.byId('leg:investing')!.ref, 'ord_direct');
     expect(g.byId('leg:dollars')!.status, MoneyStepStatus.done);
-    for (final id in ['ready:convert', 'ready:approve', 'ready:confirm']) {
+    for (final id in [
+      'ready:gather',
+      'ready:convert',
+      'ready:approve',
+      'ready:confirm'
+    ]) {
       expect(g.byId(id)!.status, MoneyStepStatus.done, reason: id);
       // Placed only after readiness.
       expect(g.byId(id)!.endedAt!.isAfter(g.byId('place')!.endedAt!), isFalse,
           reason: id);
+    }
+    // Nothing at Predictions before both legs' money was there: the
+    // conversion and the allowance start only once the wait for both
+    // ended, which ends only after both legs landed.
+    final gathered = g.byId('ready:gather')!.endedAt!;
+    for (final id in ['leg:investing', 'leg:dollars']) {
+      expect(g.byId(id)!.endedAt!.isAfter(gathered), isFalse, reason: id);
+    }
+    for (final id in ['ready:convert', 'ready:approve']) {
+      expect(g.byId(id)!.startedAt!.isBefore(gathered), isFalse, reason: id);
     }
     expect(g.byId('place')!.status, MoneyStepStatus.done);
     expect(_lines(l10n, g), [
       'Moved \$${investingUsd.toStringAsFixed(2)} from Investing',
       'Moved \$5.00 from Dollars',
       'Getting your prediction ready',
+      'Both arrived',
       'Converted to pUSD',
       'Spend approved',
       'Balance confirmed',

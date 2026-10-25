@@ -10948,6 +10948,39 @@ class AppLocalizationsCs extends AppLocalizations {
   String get moneyStepConverted => 'Převedeno na pUSD';
 
   @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Čekáme, až dorazí vše',
+      two: 'Čekáme, až dorazí obojí',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Vše dorazilo',
+      two: 'Obojí dorazilo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Přesouváme $amount1 z $source1 a $amount2 z $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Přesouváme $amount z $count zůstatků';
+  }
+
+  @override
   String get moneyStepApproving => 'Povolujeme útratu';
 
   @override
