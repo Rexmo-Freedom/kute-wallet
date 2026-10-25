@@ -396,7 +396,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                           tokens: [if (!pos.isResolved) pos.tokenId!],
                           keepAlive: true,
                           // Where the held outcome's chance is now against
-                          // what was paid for it, under a pill naming the
+                          // what was paid for it, under a line naming the
                           // held side: a Yes / No or Up / Down market's
                           // green and red split, or a fill in the outcome's
                           // own line colour, with a "Bought · 32¢" tick at
@@ -434,7 +434,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Which side is held, in its colour.
-                                  _HeldPill(
+                                  _HeldSideLine(
                                       outcome: pos.outcome, color: spec.held),
                                   SizedBox(height: 14.h),
                                   if (showGauge)
@@ -806,22 +806,37 @@ class _PositionDetailsRowState extends State<_PositionDetailsRow> {
       );
 }
 
-/// "▲ You hold Up": the held side under the title, in its colour (the
-/// app's up / down colours for Yes / Up and No / Down, a team's own).
-class _HeldPill extends StatelessWidget {
+/// "You hold Up": which side is held, over the gauge, as a quiet label in
+/// the Investing position's own type (its "If you close now" label), the
+/// side named in its colour as the Investing tile names "Long" (the app's
+/// up / down colours for Yes / Up and No / Down, a team's own). No pill,
+/// no tint, no marker.
+class _HeldSideLine extends StatelessWidget {
   final String outcome;
   final Color color;
-  const _HeldPill({required this.outcome, required this.color});
+  const _HeldSideLine({required this.outcome, required this.color});
 
-  static const pillKey = ValueKey('poly-position-held');
+  static const lineKey = ValueKey('poly-position-held');
 
   @override
   Widget build(BuildContext context) {
-    return PositionSidePill(
-      key: pillKey,
-      text: '${context.l10n.chartYouHold} $outcome',
-      color: color,
-      up: polyOutcomeDirection(outcome),
+    final c = context.colors;
+    final style = TextStyle(
+      color: c.textTertiary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+    );
+    return Text.rich(
+      key: lineKey,
+      TextSpan(children: [
+        TextSpan(text: '${context.l10n.chartYouHold} '),
+        TextSpan(text: outcome, style: style.copyWith(color: color)),
+      ]),
+      style: style,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

@@ -200,4 +200,158 @@ void main() {
       expect(debugPolyEventResolved(e), isTrue);
     });
   });
+
+  group('placeholder seats (Brazil: "Person O" … "Person Z", "Other")', () {
+    // As Gamma sends them: switched off, never priced, a 0 bid and a 1 ask.
+    Map<String, Object?> seat(String title) => {
+          'id': title,
+          'question': 'Will $title win?',
+          'groupItemTitle': title,
+          'conditionId': 'cond-$title',
+          'active': false,
+          'closed': false,
+          'archived': false,
+          'acceptingOrders': true,
+          'enableOrderBook': true,
+          'outcomes': '["Yes","No"]',
+          'outcomePrices': null,
+          'bestBid': 0,
+          'bestAsk': 1,
+          'lastTradePrice': 0,
+          'clobTokenIds': '["y-$title","n-$title"]',
+          'volumeNum': 0,
+          'image': 'https://example.com/flag-br.png',
+        };
+    Map<String, Object?> priced(String title, double yes,
+            {bool closed = false}) =>
+        {
+          'id': title,
+          'question': 'Will $title win?',
+          'groupItemTitle': title,
+          'conditionId': 'cond-$title',
+          'active': true,
+          'closed': closed,
+          'acceptingOrders': !closed,
+          'outcomes': '["Yes","No"]',
+          'outcomePrices': '["$yes","${1 - yes}"]',
+          'bestBid': closed ? null : yes - 0.005,
+          'bestAsk': closed ? 0.001 : yes + 0.005,
+          'lastTradePrice': closed ? 0.001 : yes,
+          'clobTokenIds': '["y-$title","n-$title"]',
+          'volumeNum': 1e6,
+          'image': 'https://example.com/$title.png',
+        };
+
+    test('a seat is a placeholder; a priced or settled market is not', () {
+      expect(polyRawMarketPlaceholder(seat('Person O')), isTrue);
+      expect(polyRawMarketPlaceholder(seat('Other')), isTrue);
+      expect(polyRawMarketTradable(seat('Person O')), isFalse);
+      expect(polyRawMarketPlaceholder(priced('Lula', 0.21)), isFalse);
+      expect(
+          polyRawMarketPlaceholder(priced('Tarcisio', 0, closed: true)), isFalse);
+      // Archived goes too.
+      expect(
+          polyRawMarketPlaceholder({...priced('Old', 0.3), 'archived': true}),
+          isTrue);
+      // Switched on, but never priced and no prices at all.
+      expect(polyRawMarketPlaceholder({...seat('Fresh'), 'active': true}),
+          isTrue);
+      // A generic name never priced, prices "0"/"1": still a seat.
+      expect(
+          polyRawMarketPlaceholder({
+            ...seat('Person Q'),
+            'active': true,
+            'outcomePrices': '["0","1"]',
+          }),
+          isTrue);
+      // An "Other" that trades is a real outcome.
+      expect(
+          polyRawMarketPlaceholder({...priced('Other', 0.04)}), isFalse);
+      // A trimmed payload (no quote, no prices key) is not judged by
+      // what it leaves out.
+      expect(
+          polyRawMarketPlaceholder({
+            'id': 'x',
+            'groupItemTitle': 'Lula',
+            'active': true,
+          }),
+          isFalse);
+    });
+
+    test('an order book switched off cannot be traded', () {
+      expect(
+          polyRawMarketTradable({...priced('Lula', 0.2), 'enableOrderBook': false}),
+          isFalse);
+    });
+
+    test('the lists drop the seats and the settled, keep the two open', () {
+      final model = PolymarketModel();
+      final rows = model.parseEventsRaw([
+        {
+          'id': '45915',
+          'slug': 'brazil-presidential-election',
+          'title': 'Brazil Presidential Election',
+          'active': true,
+          'closed': false,
+          'markets': [
+            priced('Tarcisio de Freitas', 0, closed: true),
+            priced('Luiz Inácio Lula da Silva', 0.215),
+            priced('Flávio Bolsonaro', 0.7885),
+            for (final l in 'OPQRSTUVWXYZ'.split('')) seat('Person $l'),
+            seat('Other'),
+          ],
+        },
+      ]);
+      model.dispose();
+      final e = rows.single;
+      expect(e.outcomes.map((o) => o.name),
+          ['Luiz Inácio Lula da Silva', 'Flávio Bolsonaro']);
+      expect(e.outcomes.every((o) => o.imageUrl != null), isTrue);
+      expect(e.marketsClosed, isFalse);
+      expect(e.hiddenOutcomes.map((o) => o.name),
+          [for (final l in 'OPQRSTUVWXYZ'.split('')) 'Person $l', 'Other']);
+      // Only seats are kept aside, never the settled candidate.
+      expect(e.hiddenOutcomes.any((o) => o.name.startsWith('Tarcisio')),
+          isFalse);
+    });
+
+    test('an outcome held is never hidden', () {
+      final model = PolymarketModel();
+      final e = model.parseEventsRaw([
+        {
+          'id': '1',
+          'slug': 's',
+          'title': 'Brazil Presidential Election',
+          'active': true,
+          'closed': false,
+          'markets': [
+            priced('Lula', 0.2),
+            priced('Flávio', 0.79),
+            seat('Person O'),
+            seat('Person P'),
+          ],
+        },
+      ]).single;
+      model.dispose();
+      expect(identical(e.withHeldOutcomes(const {}), e), isTrue);
+      expect(identical(e.withHeldOutcomes({'y-Lula'}), e), isTrue);
+      final held = e.withHeldOutcomes({'n-Person P'});
+      expect(held.outcomes.map((o) => o.name),
+          ['Lula', 'Flávio', 'Person P']);
+      expect(held.hiddenOutcomes.map((o) => o.name), ['Person O']);
+      expect(held.slug, e.slug);
+      expect(held.title, e.title);
+    });
+
+    test('only seats left open: the event reads as over', () {
+      final markets = [
+        priced('Tarcisio', 0, closed: true),
+        seat('Person O'),
+      ];
+      expect(polyAllRawMarketsClosed(markets), isTrue);
+      // Resolved: the settled candidate shows, the seat does not.
+      expect(polyShownRawMarkets(markets).map((m) => (m as Map)['id']),
+          ['Tarcisio']);
+    });
+  });
 }

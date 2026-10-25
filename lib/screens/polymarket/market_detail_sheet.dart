@@ -7,7 +7,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketActivePositionsProvider, PolyPriceHistoryCache;
+    show
+        polymarketActivePositionsProvider,
+        PolymarketPosition,
+        PolyPriceHistoryCache;
 import 'package:kute/providers/polymarket_cost_basis_provider.dart'
     show polymarketPositionCostBasis;
 import 'package:kute/providers/polymarket_sports_provider.dart'
@@ -51,6 +54,7 @@ import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -337,10 +341,62 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   List<PolymarketTeam> _fetchedTeams = const [];
 
   /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone.
+  /// standard iPhone. With [_chartFill] added when the screen has room.
   static const double _chartHeight = 380;
 
-  PolymarketEvent get event => widget.event;
+  /// Height added to the chart so a short list (a Yes / No market, two or
+  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
+  /// Worked out once, the first time the sheet is laid out with its chart
+  /// at its own height, from the room left in the scroll area; never
+  /// changed again for that height, so nothing moves as prices and the
+  /// chart's history load.
+  double _chartFill = 0;
+
+  /// The scroll area's height [_chartFill] was worked out for.
+  double? _chartFillViewport;
+
+  /// The chart's own height (without [_chartFill]) as last built; null
+  /// when the sheet has no chart.
+  double? _chartBase;
+
+  /// Works out [_chartFill] from [constraints], the constraints of a sliver
+  /// laid out after everything else in the scroll area.
+  void _fitChartToScreen(SliverConstraints constraints) {
+    final base = _chartBase;
+    if (base == null || watchingStream) return;
+    final viewport = constraints.viewportMainAxisExtent;
+    if (_chartFillViewport == viewport) return;
+    _chartFillViewport = viewport;
+    final content = constraints.precedingScrollExtent - _chartFill;
+    final fill = polyChartFillExtra(
+        leftover: viewport - content, base: base, viewport: viewport);
+    if ((fill - _chartFill).abs() < 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _chartFill = fill);
+    });
+  }
+
+  /// The event as this sheet lists it: [MarketDetailSheet.event], with any
+  /// placeholder outcome the user holds listed again
+  /// ([PolymarketEvent.withHeldOutcomes]); an outcome held is never hidden.
+  PolymarketEvent get event {
+    final base = widget.event;
+    if (base.hiddenOutcomes.isEmpty) return base;
+    final held = ref.read(polymarketActivePositionsProvider);
+    if (!identical(base, _heldMemoBase) || !identical(held, _heldMemoHeld)) {
+      _heldMemoBase = base;
+      _heldMemoHeld = held;
+      _heldMemo = base.withHeldOutcomes({
+        for (final p in held)
+          if (p.tokenId != null && p.tokenId!.isNotEmpty) p.tokenId!,
+      });
+    }
+    return _heldMemo!;
+  }
+
+  PolymarketEvent? _heldMemoBase;
+  List<PolymarketPosition>? _heldMemoHeld;
+  PolymarketEvent? _heldMemo;
 
   List<String> _subscribedTokenIds = [];
 
@@ -487,6 +543,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // toggle slide) on it. Essential motion (chart price updates, loading
     // spinners, live LIVE chip) stays untouched.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // A holding in a placeholder outcome lists it again ([event]).
+    if (widget.event.hiddenOutcomes.isNotEmpty) {
+      ref.watch(polymarketActivePositionsProvider);
+    }
     // Backfill team crests for events that arrived without them (the search
     // path drops `teams`) so the vs-header logos work everywhere, not just on
     // browse-opened events. Gate on `gameId != null` (an actual match) so
@@ -549,6 +609,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
+                                  _chartBase = chartWidget == null
+                                      ? null
+                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -621,6 +684,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
+                    // Laid out last, it reads how much room the content
+                    // leaves, for the chart to take ([_fitChartToScreen]).
+                    SliverLayoutBuilder(builder: (context, constraints) {
+                      _fitChartToScreen(constraints);
+                      return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    }),
                   ],
                 ),
               ),
@@ -2101,7 +2170,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight,
+          height: _chartHeight + _chartFill,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2114,7 +2183,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight,
+        height: _chartHeight + _chartFill,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2144,7 +2213,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight,
+        height: _chartHeight + _chartFill,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2182,7 +2251,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight,
+          height: _chartHeight + _chartFill,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2212,7 +2281,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length),
+      height: polyChartHeightFor(lines.length) + _chartFill,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,

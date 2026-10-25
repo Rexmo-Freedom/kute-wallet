@@ -464,6 +464,25 @@ KuteYDomain polyChartEdgeRoom(
 double polyChartHeightFor(int lines, {double base = 220}) =>
     lines >= 3 ? (base * 1.18).roundToDouble() : base;
 
+/// The most of the market sheet's scroll area a chart grows to fill
+/// ([polyChartFillExtra]).
+const double kPolyChartMaxShare = 0.7;
+
+/// How much taller than its own [base] height the market sheet's chart
+/// grows so the screen has no empty room under a short list (a Yes / No
+/// market, an event of two or three outcomes): the [leftover] room the
+/// sheet's [viewport] (its scroll area's height) has under everything
+/// with the chart at [base], up to [kPolyChartMaxShare] of the viewport
+/// for the chart. Never less than nothing: a long list keeps [base].
+double polyChartFillExtra({
+  required double leftover,
+  required double base,
+  required double viewport,
+}) {
+  final room = math.max(0.0, viewport * kPolyChartMaxShare - base);
+  return leftover.clamp(0.0, room).toDouble();
+}
+
 /// A chance as the chart's own tags write it (the value at the end of a
 /// line, the crosshair's bubbles): one decimal at most, "93.5%", "62%".
 /// Under 1% and over 99% a second decimal is kept, so a long shot at

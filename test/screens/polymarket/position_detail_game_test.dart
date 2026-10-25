@@ -498,11 +498,17 @@ void main() {
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
       expect(find.text('chance'), findsOneWidget);
-      // Under the pill naming the held side, in the team's colour; over
-      // the tiles.
+      // Under the line naming the held side, the side in the team's
+      // colour; over the tiles. A quiet label as the Investing position
+      // writes its own, no pill: no tinted box, no marker.
       final pill = find.byKey(const ValueKey('poly-position-held'));
-      expect(find.descendant(of: pill, matching: find.text('You hold 49ers')),
-          findsOneWidget);
+      final held = tester.widget<Text>(pill);
+      expect(held.textSpan!.toPlainText(), 'You hold 49ers');
+      final side = (held.textSpan! as TextSpan).children!.last as TextSpan;
+      expect(side.text, '49ers');
+      expect(side.style!.color, kGameSideColors[0]);
+      expect(held.style!.color, AppColorsExtension.light().textTertiary);
+      expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionChanceGauge)).top));
       expect(
