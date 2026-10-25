@@ -3245,7 +3245,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// said in full by that sentence; only an unrecognised one adds a
   /// Details disclosure holding the raw engine message. Nothing is
   /// retried from here; the user re-reviews and taps Send again.
-  void _showSendFailed(Object error, {String? message}) {
+  ///
+  /// [amountSats] is the amount that did not go, shown as the sheet's
+  /// hero when the path knows it.
+  void _showSendFailed(Object error, {String? message, int? amountSats}) {
     if (!mounted) return;
     _sendFailedFeedback();
     final known = message == null ? _knownSendErrorCopy(error) : null;
@@ -3254,11 +3257,15 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         userErrorCopy(context, error, fallback: context.l10n.sendCouldNotSend);
     final raw = error.toString().trim();
     final nav = Navigator.of(context);
+    final btcFormat = ref.read(settingsProvider).btcFormat;
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: KuteConfirmation(
-        success: false,
+        tone: KuteConfirmationTone.failure,
         message: context.l10n.sendFailedTitle,
+        amount: amountSats != null && amountSats > 0
+            ? '${amountSats.toFormattedString(btcFormat)} $btcFormat'
+            : null,
         detail: copy,
         receipt: known != null || raw.isEmpty || raw == copy
             ? null
@@ -3651,8 +3658,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         showFullscreenTransactionSendModal(
           context: context,
           asset: 'BTC → ${asset.code}',
-          amount:
-              '${_formatSmartDecimals(estOut > 0 ? estOut : btcAmount)} ${asset.code}',
+          // What arrives is the quote's estimate until the order settles;
+          // without one, what left is the bitcoin, in bitcoin.
+          amount: estOut > 0
+              ? '≈ ${_formatSmartDecimals(estOut)} ${asset.code}'
+              : '${_formatSmartDecimals(btcAmount)} BTC',
           fiat: false,
           receiveAddress: toAddress,
           isSwap: true,
@@ -4765,6 +4775,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         try {
           successFiat = ref.read(conversionToFiatProvider(actualSentAmount));
         } catch (_) {}
+        // The fee row only when the fee is the one charged: a Lightning
+        // payment's figure is the routing cap, not what it cost.
+        final exactFeeSats = resolvedType == AnalyzedPaymentType.lightning ||
+                resolvedType == AnalyzedPaymentType.lnurl
+            ? null
+            : sentFeeSats;
         showFullscreenTransactionSendModal(
           context: context,
           asset: successAsset,
@@ -4772,6 +4788,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           fiat: false,
           fiatAmount: successFiat,
           receiveAddress: successReceiveAddress,
+          fees: [
+            if (exactFeeSats != null)
+              SendFeeDetail(
+                  label: context.l10n.fee,
+                  value: '${exactFeeSats.toFormattedString(btcFormat)} $btcFormat'),
+          ],
         );
 
         final network = sendNetwork;
@@ -4830,7 +4852,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ref.invalidate(prepareGenericPaymentProvider);
         ref.invalidate(prepareLightningPaymentProvider);
       }
-      if (mounted) _showSendFailed(e);
+      if (mounted) _showSendFailed(e, amountSats: actualSentAmount);
     } finally {
       if (mounted) setState(() => isProcessing = false);
     }
@@ -4982,6 +5004,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             '${result.recipientSats.toFormattedString(btcFormat)} $btcFormat',
         fiat: false,
         receiveAddress: request.address,
+        txid: result.txid,
+        fees: [
+          SendFeeDetail(
+              label: context.l10n.networkFee2,
+              value: '${result.feeSats.toFormattedString(btcFormat)} $btcFormat'),
+        ],
       );
       ref.read(sendTxProvider.notifier).resetToDefault();
     } catch (error) {
@@ -5015,7 +5043,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           await showStepUpReviewAgain(context,
               action: SensitiveAction.send, field: DriftField.other);
         } else {
-          _showSendFailed(error);
+          _showSendFailed(error, amountSats: amount);
         }
       }
     } finally {
