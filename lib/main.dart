@@ -15,6 +15,7 @@ import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:kute/firebase_options.dart';
+import 'package:kute/theme/app_theme.dart' show loadAppFonts;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -244,6 +245,9 @@ Future<void> _initializeApp() async {
         .catchError((_) {}),
     _timedBootStep('firebase', _initFirebase()),
     _timedBootStep('hive', _initHive()),
+    // Inter is in the engine before the first frame lays out any text (a
+    // local asset read, done well inside the legs above).
+    loadAppFonts(),
   ]);
   // The analytics opt-out was applied inside `_initHive` (hive_boot.dart)
   // the moment the settings box opened, before anything below fires.

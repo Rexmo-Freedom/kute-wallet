@@ -222,7 +222,10 @@ void main() {
     });
 
     testWidgets('over on an earlier day: "Final · <date>"', (tester) async {
-      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      // Noon on the previous calendar day: "now minus 24 hours" is still
+      // today in local time on the day the clocks go back.
+      final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day - 1, 12);
       await pump(
           tester,
           PolyGameTeamsHeader(
