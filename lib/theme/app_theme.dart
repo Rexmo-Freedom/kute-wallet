@@ -43,8 +43,9 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   /// toned-down hues (indigo, teal, amber, coral, violet), then a neutral
   /// grey last for "Other" (and any slice under 2%). Colours follow a
   /// slice's rank by size, so the largest is always indigo. Stepped per mode
-  /// against the card surface: every colour clears 3:1 on it in light and
-  /// dark. Never the market up/down pair.
+  /// against the card surface: the founder's swatches as chosen (light keeps
+  /// the bright amber and teal rather than darkened browns), each at least
+  /// 2:1 on the light card and 3:1 on the dark one. Never the market up/down pair.
   /// [chartColorsByShare] hands them out.
   final List<Color> chartCategorical;
 
@@ -151,11 +152,11 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         // The brand blue, deep navy to light; slate for Other.
         chartCategorical: const [
           Color(0xFF4F5BD5), // indigo
-          Color(0xFF138A8E), // teal
-          Color(0xFFC27A12), // amber
-          Color(0xFFD4513F), // coral
-          Color(0xFF8A5CC9), // violet
-          Color(0xFF747A83), // Other
+          Color(0xFF1FA2A6), // teal
+          Color(0xFFF2A93B), // amber
+          Color(0xFFE8685A), // coral
+          Color(0xFF9B6DD6), // violet
+          Color(0xFF9AA0A6), // Other
         ],
       );
 

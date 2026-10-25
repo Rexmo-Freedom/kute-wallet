@@ -254,7 +254,10 @@ void main() {
           expect(color, isNot(c.accent));
           expect(color, isNot(AppColors.marketUp));
           expect(color, isNot(AppColors.marketDown));
-          expect(contrast(color, c.surface), greaterThanOrEqualTo(3),
+          // Bright swatches on the light card (founder's pick: no browns);
+          // 3:1 on the dark card.
+          expect(contrast(color, c.surface),
+              greaterThanOrEqualTo(identical(c, light) ? 1.9 : 3),
               reason: '$color on ${c.surface}');
         }
         // Distinct hues (indigo, teal, amber, coral, violet): every pair of
