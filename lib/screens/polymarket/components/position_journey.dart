@@ -9,9 +9,10 @@
 //   * the journey line: a small chart of the held side's chance since the
 //     first buy of this holding (the market sheet's own price history of
 //     the held token, so a No reads as 1 − Yes), a dot and "You bought ·
-//     19¢" at its start, a faint dotted line at that price, the line green
-//     above it and red below it (the dial's own zones), the live end dot,
-//     the start date and "Now" under it. Hidden without history.
+//     19¢" at its start, a faint dotted line at that price (which shows
+//     above or below on its own), one line in the primary text colour, the
+//     live end dot, the start date and "Now" under it. Hidden without
+//     history.
 //
 // Nothing here is logged.
 
@@ -391,8 +392,8 @@ class PolyPositionJourneyLine extends StatelessWidget {
   return (lo: math.max(0, l), hi: math.min(1, h));
 }
 
-/// Paints the journey: the dotted line at the price paid, the line green
-/// above it and red below it, the start and end dots.
+/// Paints the journey: the dotted line at the price paid, the line in one
+/// colour, the start and end dots.
 class PolyJourneyPainter extends CustomPainter {
   PolyJourneyPainter({
     required this.points,
@@ -411,7 +412,7 @@ class PolyJourneyPainter extends CustomPainter {
   final double hi;
   final Color guide;
 
-  /// The line's colour without a price paid.
+  /// The line's (and the end dot's) colour.
   final Color neutral;
   final Color dot;
   final Color ring;
@@ -448,24 +449,9 @@ class PolyJourneyPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
-    if (e == null) {
-      line.color = neutral;
-    } else {
-      // Green above the price paid, red below it: a hard stop at its
-      // height.
-      final s = (y(e) / size.height).clamp(0.0, 1.0).toDouble();
-      line.shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: const [
-          AppColors.marketUp,
-          AppColors.marketUp,
-          AppColors.marketDown,
-          AppColors.marketDown,
-        ],
-        stops: [0, s, s, 1],
-      ).createShader(Offset.zero & size);
-    }
+    // One colour: the dotted line at the price paid already says above or
+    // below, and a line that changes colour as it crosses it flickers.
+    line.color = neutral;
     canvas.drawPath(path, line);
 
     // The buy: a small dot ringed in the screen's surface.
@@ -473,11 +459,9 @@ class PolyJourneyPainter extends CustomPainter {
     canvas.drawCircle(start, 4.5, Paint()..color = ring);
     canvas.drawCircle(start, 3.2, Paint()..color = dot);
 
-    // Now: the live end, in its zone's colour, with a soft halo.
+    // Now: the live end, with a soft halo.
     final end = at(points.last);
-    final endColor = e == null
-        ? neutral
-        : (points.last.p >= e ? AppColors.marketUp : AppColors.marketDown);
+    final endColor = neutral;
     canvas.drawCircle(
         end, 8, Paint()..color = endColor.withValues(alpha: 0.18));
     canvas.drawCircle(end, 4.5, Paint()..color = ring);

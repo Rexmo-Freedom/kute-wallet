@@ -700,6 +700,7 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
 
   static const double _overhang = 5;
   static const double _platePad = 2;
+  static const double _hubGap = 30;
   static const double _gap = 4;
 
   static TextStyle _tagStyle(Color color) => TextStyle(
@@ -771,7 +772,8 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
       final double outerRadius =
           (w / 2 - _overhang).clamp(math.min(60.0, w / 4), 190.0).toDouble();
       final stroke = (outerRadius * 0.05).clamp(6.0, 10.0).toDouble();
-      final hub = (outerRadius * 0.055).clamp(7.0, 11.0).toDouble();
+      // The hub: a 12 px disc.
+      const hub = 6.0;
       final g = polyChanceGaugeGeometry(
         width: w,
         outerRadius: outerRadius,
@@ -807,7 +809,8 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
       // and below); the figure's plate overlaps the caption's, so the
       // needle never shows between them.
       final below = g.size.height - g.center.dy;
-      final captionBottom = below + hub + 6;
+      // The caption's plate ends [_hubGap] above the hub's top.
+      final captionBottom = below + hub + _hubGap;
       final captionH = smallH + 2 * _platePad;
       final figureBottom = captionBottom + captionH - 3;
       final figureH = scaler.scale(figureSize) * 1.05 + 2 * _platePad;
@@ -868,7 +871,7 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                         needle: _needle,
                         hubRadius: hub,
                         color: c.textPrimary,
-                        dot: dark ? c.background : c.surface,
+                        dot: c.background,
                       ),
                     ),
                   ),
@@ -1103,7 +1106,11 @@ class PolySpeedometerNeedlePainter extends CustomPainter {
   final double hubRadius;
   final Color color;
 
-  /// The hub's inner dot: the screen's own surface.
+  /// The needle's half-width at the hub and at its rounded tip.
+  static const double needleBase = 2.2;
+  static const double needleTip = 0.9;
+
+  /// The hub's inner dot: the screen's background.
   final Color dot;
 
   @override
@@ -1112,26 +1119,27 @@ class PolySpeedometerNeedlePainter extends CustomPainter {
     final a = polyGaugeAngle(needle.value);
     final u = Offset(math.cos(a), math.sin(a));
     final n = Offset(-u.dy, u.dx);
-    // Tip just inside the ticks; a short tail behind the hub.
+    // A straight tapered line from the hub's centre to just inside the
+    // ticks, its tip rounded; no tail. Then the hub: a solid disc with a
+    // small inner dot, nothing else.
     final tipR = g.radius - g.stroke / 2 - 2;
-    final tail = hubRadius * 1.6;
-    final base = hubRadius * 0.42;
-    final tip = g.center + u * tipR;
-    final back = g.center - u * tail;
+    final c = g.center;
+    final tip = c + u * tipR;
     final path = Path()
-      ..moveTo(back.dx + n.dx * base * 0.8, back.dy + n.dy * base * 0.8)
-      ..lineTo(tip.dx + n.dx * 0.9, tip.dy + n.dy * 0.9)
-      ..lineTo(tip.dx - n.dx * 0.9, tip.dy - n.dy * 0.9)
-      ..lineTo(back.dx - n.dx * base * 0.8, back.dy - n.dy * base * 0.8)
+      ..moveTo(c.dx + n.dx * needleBase, c.dy + n.dy * needleBase)
+      ..lineTo(tip.dx + n.dx * needleTip, tip.dy + n.dy * needleTip)
+      ..arcToPoint(Offset(tip.dx - n.dx * needleTip, tip.dy - n.dy * needleTip),
+          radius: const Radius.circular(needleTip))
+      ..lineTo(c.dx - n.dx * needleBase, c.dy - n.dy * needleBase)
       ..close();
     final paint = Paint()
       ..color = color
       ..isAntiAlias = true;
     canvas.drawPath(path, paint);
-    canvas.drawCircle(g.center, hubRadius, paint);
+    canvas.drawCircle(c, hubRadius, paint);
     canvas.drawCircle(
-        g.center,
-        hubRadius * 0.38,
+        c,
+        hubRadius * 0.36,
         Paint()
           ..color = dot
           ..isAntiAlias = true);
