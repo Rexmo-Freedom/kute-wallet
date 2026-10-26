@@ -1385,23 +1385,18 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // getStatus lags actual delivery. The receive itself is the
       // authoritative completion signal for all of them; the status
       // poller still reconciles amounts later if it disagrees.
+      final links = PolymarketSparkTxsService.orchestraDeliveryLinks();
+      final linkedRows = <String>{
+        for (final l in links.values) ...[
+          if (l.orderId != null) l.orderId!,
+          if (l.operationId != null) l.operationId!,
+        ],
+      };
+      final now = DateTime.now();
       final synthetic = ref
           .read(swapOrdersProvider)
           .where((e) =>
-              (e.id.startsWith('acu-') ||
-                  e.id.startsWith('ord_') ||
-                  e.id.startsWith('q_')) &&
-              e.providerName == 'Orchestra' &&
-              !e.isCashAppPurchase &&
-              e.networkTo == 'SPARK' &&
-              // Only bitcoin deliveries: the candidates below are
-              // bitcoin receives, and a USDB row (often with no amount
-              // to check) would otherwise claim any of them.
-              e.coinTo.toUpperCase() == 'BTC' &&
-              e.isPending &&
-              // A one-time receive still waiting for its deposit has
-              // delivered nothing: an unrelated receive must not close it.
-              !(isOneTimeReceiveQuoteRow(e) && e.status == 'wait'))
+              orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
           .toList();
       final alreadyHidden =
           PolymarketSparkTxsService.orchestraDeliverySnapshot();
@@ -1451,8 +1446,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         // One receive settles one exchange.
         receives.remove(best);
         final actualBtc = (best.amountSats / 1e8).toStringAsFixed(8);
+        // A row Orchestra already reported done keeps its status and
+        // takes the delivered figure it never reported.
         final settled = ex.copyWith(
-          status: 'settled',
+          status: ex.isComplete ? ex.status : 'settled',
           withdrawalAmount: actualBtc,
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
@@ -2518,3 +2515,49 @@ class _RiverpodStandingDepositRows implements StandingDepositRows {
     _ref.read(walletTransactionCacheProvider.notifier).removeSwapOrder(id);
   }
 }
+
+/// Whether the delivery reconciler should settle [e] on the bitcoin receive
+/// that delivered it: an Orchestra order (or its quote or placeholder)
+/// delivering bitcoin to Spark that is still pending, or that Orchestra
+/// reported done without the bitcoin figure (a CCTP leg out of Investing
+/// before its order reports one) and no receive is linked to yet.
+///
+/// The second case is why "Withdraw · from Investments" and a "Received"
+/// Spark row stood side by side: Orchestra marks the order done as it
+/// sends, so the row was never pending when the reconciler looked, its
+/// figure stayed 0, and nothing could tie the receive to it. Only rows
+/// created within [kOwnDeliveryLinkWindow] of [now] qualify: older history
+/// is never rematched.
+@visibleForTesting
+bool orchestraRowAwaitsDelivery(SwapOrder e,
+    {required Set<String> linked, required DateTime now}) {
+  if (!(e.id.startsWith('acu-') ||
+          e.id.startsWith('ord_') ||
+          e.id.startsWith('q_')) ||
+      e.providerName != 'Orchestra' ||
+      e.isCashAppPurchase ||
+      e.networkTo != 'SPARK' ||
+      // Only bitcoin deliveries: the candidates are bitcoin receives, and a
+      // USDB row (often with no amount to check) would otherwise claim any
+      // of them.
+      e.coinTo.toUpperCase() != 'BTC' ||
+      // A one-time receive still waiting for its deposit has delivered
+      // nothing: an unrelated receive must not close it.
+      (isOneTimeReceiveQuoteRow(e) && e.status == 'wait')) {
+    return false;
+  }
+  if (e.isPending) return true;
+  if (!e.isComplete) return false;
+  if (linked.contains(e.id) ||
+      (e.operationId != null && linked.contains(e.operationId))) {
+    return false;
+  }
+  final raw = double.tryParse(e.withdrawalAmount) ?? 0;
+  if (raw.isFinite && raw > 0) return false;
+  return now.difference(DateTime.fromMillisecondsSinceEpoch(e.timestamp)) <=
+      kOwnDeliveryLinkWindow;
+}
+
+/// How long after it was created a done order with no bitcoin figure may
+/// still be settled on its receive.
+const Duration kOwnDeliveryLinkWindow = Duration(hours: 6);
