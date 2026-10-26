@@ -809,6 +809,18 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
 
 
                       SizedBox(height: 12.h),
+                      // First row: the market the position belongs to, its
+                      // event's sheet, with the chart (a candidate's position opens
+                      // the whole race). Once the event is read; never a
+                      // dead row.
+                      if (event != null)
+                        PositionLinkRow(
+                          key: PositionDetailSheet.seeMarketRowKey,
+                          label: context.l10n.salViewMarket,
+                          icon: Icons.show_chart_rounded,
+                          onTap: () => _seeMarket(event),
+                        ),
+
                       // How to protect it: the closest protective order
                       // Predictions has, a limit sell, set on the sell
                       // ticket's Advanced page. Only while it is open.
@@ -880,18 +892,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                             return _ClosingConditionsRow(
                                 description: event.description!);
                           },
-                        ),
-
-                      // The market the position belongs to: its event's
-                      // sheet, with the chart (a candidate's position opens
-                      // the whole race). Once the event is read; never a
-                      // dead row.
-                      if (event != null)
-                        PositionLinkRow(
-                          key: PositionDetailSheet.seeMarketRowKey,
-                          label: context.l10n.salViewMarket,
-                          icon: Icons.show_chart_rounded,
-                          onTap: () => _seeMarket(event),
                         ),
 
                       // (Balance row removed — BTC-native model: users think in BTC,
