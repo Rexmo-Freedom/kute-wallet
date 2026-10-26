@@ -10,16 +10,15 @@
 //  1. the delivery reconciler linked it to the row it settled
 //     (`PolymarketSparkTxsService.orchestraDeliveryLinks`): that row is on
 //     the list, by id, by the order its quote became, or by its settlement
-//     operation. Deterministic, and it survives a restart.
+//     operation. Deterministic, whenever it landed, and it survives a
+//     restart.
 //  2. otherwise, a row delivering bitcoin to the wallet's own Spark balance
 //     claims it by amount and time, one receive per row and one row per
-//     receive, the closest amount first, then the closest time. The wallet's
-//     own withdrawals (Investing, Predictions, Dollars to Bitcoin) and
-//     anything settling to its own address may land up to
-//     [kOwnDeliveryArrivalWindow] after the row started: a Circle CCTP leg
-//     out of Investing or an order Orchestra held for screening routinely
-//     lands well past the hour the old rule allowed, and its receive then
-//     stood beside the move for good.
+//     receive, the closest amount first, then the closest time, from
+//     [kOwnDeliveryEarlyMargin] before the row to [kOwnDeliveryArrivalWindow]
+//     after it (the reconciler's own window; deliveries are fast). An
+//     unlinked receive later than that keeps its own row: amount and time
+//     alone never hide money that may have come from outside.
 //
 // A row whose bitcoin amount is not known yet (a CCTP leg before its
 // order reports one) claims nothing by amount: only the reconciler's link
@@ -40,10 +39,10 @@ import 'package:kute/services/polymarket_spark_txs_service.dart'
 import 'package:kute/services/security/address_guard.dart'
     show sparkIdentityPubkeyHex;
 
-/// How long after one of the wallet's own deliveries to Bitcoin started
-/// its bitcoin may still land and be folded into it: the same day the
-/// dollar side gives a venue withdrawal (`kVenueWithdrawalArrivalWindow`).
-const Duration kOwnDeliveryArrivalWindow = Duration(hours: 24);
+/// How long after one of the wallet's own deliveries to Bitcoin started an
+/// unlinked receive may still be matched to it by amount: the delivery
+/// reconciler's window. A linked receive folds in whenever it landed.
+const Duration kOwnDeliveryArrivalWindow = Duration(minutes: 90);
 
 /// A row stamped a little after its money moved (written when the flow
 /// returned) may see its receive land just before it.

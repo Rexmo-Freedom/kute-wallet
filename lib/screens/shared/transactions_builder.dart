@@ -1434,10 +1434,10 @@ List<BaseTransaction> assembleActivityRows(
 ///     reconciler linked to that row, else one receive per row delivering
 ///     BTC to the wallet's own Spark balance by amount (±10% for the
 ///     wallet's own withdrawals, whose figure is an estimate until
-///     polled, ±2% otherwise) and time (up to a day after an own
-///     withdrawal or a row settling to an own address started: a CCTP
-///     leg lands long after the hour the old rule allowed; 30 min for a
-///     bet-flow tag alone). Fallback: a Spark-protocol receive within
+///     polled, ±2% otherwise) and time (10 min before to 90 min after an
+///     own withdrawal or a row settling to an own address, the
+///     reconciler's window; 30 min for a bet-flow tag alone; a linked
+///     receive whenever it landed). Fallback: a Spark-protocol receive within
 ///     ±10 min of a Predictions withdraw row that has no receive yet.
 ///     Anything looser stays visible — money appearing in the wallet
 ///     must never vanish unless we're confident it's an internal leg.

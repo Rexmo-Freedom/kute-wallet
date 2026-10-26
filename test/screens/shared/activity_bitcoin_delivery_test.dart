@@ -4,12 +4,17 @@
 //
 // The founder's report this pins: "Duplicated entries on double receives
 // (one spark one withdrawal on transaction list) in deposit from
-// investing". A move out of Investing to Bitcoin rides Circle CCTP and
-// routinely lands well past the hour the receive matcher allowed after the
-// row started; a Predictions leg was held to the two percent and half an
-// hour of an unowned conversion; a row whose bitcoin figure was still 0
-// claimed nothing even after the delivery reconciler had matched its
-// receive; and the reconciler's match was never read by Activity at all.
+// investing". Deliveries are fast; what failed was the link: a CCTP leg
+// out of Investing is reported done with no bitcoin figure (0), so no
+// amount could match its receive, and the reconciler, which only looked at
+// pending rows, never tied the receive to it; the reconciler's matches
+// were never read by Activity at all; a Predictions leg was held to the
+// two percent of an unowned conversion against the quote's estimate; and
+// either Spark spelling of the own address was not recognised.
+//
+// Tight on the other side: without the reconciler's link, a receive is
+// matched by amount only from 10 minutes before the row to 90 minutes
+// after it; a linked one folds in whenever it landed.
 
 import 'dart:io';
 
@@ -18,6 +23,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/models/swap_order_model.dart';
+import 'package:kute/providers/background_sync_provider.dart'
+    show orchestraRowAwaitsDelivery;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart';
@@ -196,13 +203,13 @@ void main() {
   });
 
   group('one move from Investing to Bitcoin', () {
-    // The CCTP leg: Orchestra's order, its delivery landing 75 minutes
-    // after the move started (past the old hour).
+    // The CCTP leg: Orchestra's order, its delivery landing two minutes
+    // after the move started.
     final hl = _swap('ord_hl',
         withdrawalAmount: '0.00019900',
         status: 'success',
         operationId: 'op-hl');
-    final arrived = _received('rx_hl', 19900, const Duration(minutes: 75));
+    final arrived = _received('rx_hl', 19900, const Duration(minutes: 2));
     final move = _move([_leg(OneBalanceVenue.investing, 'op-hl')]);
 
     test('is the move\'s one row on Bitcoin, its receive inside it', () {
@@ -223,15 +230,31 @@ void main() {
           ['msm_1']);
     });
 
-    test('a delivery landing within the hour still folds in', () {
-      final early = _received('rx_hl', 19800, const Duration(minutes: 6));
-      expect(_ids(_surface([hl, early], moves: [move])), ['msm_1']);
+    test('a delivery landing within the reconciler\'s window folds in', () {
+      final late = _received('rx_hl', 19800, const Duration(minutes: 85));
+      expect(_ids(_surface([hl, late], moves: [move])), ['msm_1']);
+    });
+
+    test('the same amount three hours later is not hidden without a link', () {
+      final later = _received('rx_later', 19900, const Duration(hours: 3));
+      expect(_ids(_surface([hl, later], moves: [move])), ['rx_later', 'msm_1']);
+      expect(_ids(_surface([hl, later])), ['rx_later', 'ord_hl']);
+    });
+
+    test('a linked receive folds in whenever it landed', () {
+      final later = _received('rx_later', 19900, const Duration(hours: 3));
+      final links = {
+        'rx_later': const OrchestraDeliveryLink(
+            orderId: 'ord_hl', operationId: 'op-hl'),
+      };
+      expect(
+          _ids(_surface([hl, later], moves: [move], links: links)), ['msm_1']);
     });
 
     test('an estimate up to ten percent off still claims its receive', () {
       final estimate =
           _swap('ord_hl', withdrawalAmount: '0.00021000', operationId: 'op-hl');
-      final landed = _received('rx_hl', 19300, const Duration(minutes: 90));
+      final landed = _received('rx_hl', 19300, const Duration(minutes: 20));
       expect(_ids(_surface([estimate, landed], moves: [move])), ['msm_1']);
     });
   });
@@ -279,15 +302,15 @@ void main() {
         status: 'success',
         operationId: 'op-hl');
     // The Predictions leg's figure is the quote's estimate; it lands 3%
-    // under it, 45 minutes later.
+    // under it, eight minutes later.
     final pm = _swap('ord_pm',
         coinFrom: 'USDC.e',
         networkFrom: 'POLYGON',
         withdrawalAmount: '0.00010000',
         operationId: 'op-pm',
         after: const Duration(seconds: 5));
-    final rxHl = _received('rx_hl', 19900, const Duration(minutes: 80));
-    final rxPm = _received('rx_pm', 9700, const Duration(minutes: 45));
+    final rxHl = _received('rx_hl', 19900, const Duration(minutes: 3));
+    final rxPm = _received('rx_pm', 9700, const Duration(minutes: 8));
     final move = _move([
       _leg(OneBalanceVenue.investing, 'op-hl'),
       _leg(OneBalanceVenue.predictions, 'op-pm', usd: 10),
@@ -365,7 +388,8 @@ void main() {
       // The row moved from its quote id to the order id meanwhile, and its
       // bitcoin figure is still unknown: the stored link alone folds it.
       final hl = _swap('ord_hl', withdrawalAmount: '0', operationId: 'op-hl');
-      final arrived = _received('rx_hl', 19900, const Duration(minutes: 30));
+      // Landed past the amount window: the link alone holds it.
+      final arrived = _received('rx_hl', 19900, const Duration(hours: 2));
       final move = _move([_leg(OneBalanceVenue.investing, 'op-hl')]);
       expect(
           _ids(_surface([hl, arrived], moves: [move], links: null)), ['msm_1']);
@@ -526,6 +550,44 @@ void main() {
       OrchestraOrderIds.record('q_fund', 'ord_fund');
       expect(_ids(_surface([home, fund], moves: [move], onlyUsdb: true)),
           ['msm_1']);
+    });
+  });
+
+  group('the reconciler looks at the rows that need it', () {
+    final now = _t0.add(const Duration(minutes: 5));
+    bool awaits(SwapOrderTransaction r, {Set<String> linked = const {}}) =>
+        orchestraRowAwaitsDelivery(r.details, linked: linked, now: now);
+
+    test('a pending order delivering bitcoin to Spark', () {
+      expect(awaits(_swap('ord_hl', withdrawalAmount: '0.0002')), isTrue);
+    });
+
+    test('a done order Orchestra reported with no bitcoin figure', () {
+      // Done as it sends: the old filter (pending only) skipped it, its 0
+      // stayed, and its receive stood beside the move.
+      final done = _swap('ord_hl',
+          withdrawalAmount: '0', status: 'success', operationId: 'op-hl');
+      expect(awaits(done), isTrue);
+      expect(awaits(done, linked: {'op-hl'}), isFalse,
+          reason: 'a receive is already linked to it');
+      expect(
+          orchestraRowAwaitsDelivery(done.details,
+              linked: const {}, now: _t0.add(const Duration(hours: 7))),
+          isFalse,
+          reason: 'older history is never rematched');
+    });
+
+    test('never a done order with its figure, a CCTP placeholder or dollars',
+        () {
+      expect(
+          awaits(
+              _swap('ord_hl', withdrawalAmount: '0.0002', status: 'success')),
+          isFalse);
+      expect(awaits(_swap('cctp-op-hl', withdrawalAmount: '0')), isFalse);
+      expect(
+          awaits(_swap('ord_usd',
+              coinTo: kOrchestraUsdAssetCode, withdrawalAmount: '0')),
+          isFalse);
     });
   });
 }
