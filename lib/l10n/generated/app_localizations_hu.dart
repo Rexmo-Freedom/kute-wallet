@@ -804,9 +804,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get confirmClaim => 'Átvétel megerősítése';
 
   @override
-  String get confirmRefund => 'Visszatérítés megerősítése';
-
-  @override
   String get connectSign => 'Csatlakozás és aláírás';
 
   @override
@@ -850,10 +847,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Adj meg egy $assetCode címet';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Add meg a Bitcoin-címet és a díjrátát a visszatérítéshez.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -917,9 +910,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlMarketInvestCta => 'Befektetés';
 
   @override
-  String get feeRateSatsVbyte => 'Díjszint (sats/vByte)';
-
-  @override
   String get financials => 'Pénzügyek';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Érvénytelen cím vagy összeg';
-
-  @override
-  String get invalidRate => 'Érvénytelen díjszint';
 
   @override
   String get liquidity => 'LIKVIDITÁS';
@@ -1114,9 +1101,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Bitcoin fogadása';
-
-  @override
-  String get refundDeposit => 'Befizetés visszatérítése';
 
   @override
   String get refunding => 'Visszatérítés';
@@ -3424,7 +3408,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Az egyenlegedhez adás hálózati díja a szokásosnál magasabb. Automatikusan hozzáadódik, amint a díj csökken.';
+      'A hozzáadás díja most szokatlanul magas. Automatikusan hozzáadódik, amint a díj csökken, vagy most is átveheted.';
 
   @override
   String get depositReasonFailed => 'Még nem sikerült hozzáadni. Próbáld újra.';
@@ -3439,9 +3423,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Várj alacsonyabb díjra';
-
-  @override
-  String get depositSendItBack => 'Visszaküldés';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3489,9 +3470,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Néhány percig tarthat, amíg megjelenik az egyenlegedben.';
-
-  @override
-  String get activityRefundStarted => 'Visszatérítés elindítva';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3562,10 +3540,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Nem sikerült hozzáadni ezt a bitcoint a tárcádhoz. Próbáld újra.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Nem sikerült elindítani a visszatérítést. Próbáld újra.';
 
   @override
   String get receiveRequestFailed =>
@@ -4145,10 +4119,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Add meg satsban, legfeljebb mennyibe kerülhet ez az átvétel. Ez díjlimit, nem megerősítési sebesség. Ha a szükséges díj magasabb, az átvétel leáll.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Visszatérítés beküldve. Megerősítésre vár.';
-
-  @override
   String get depositActionWalletChanged =>
       'A tárca megváltozott. A folytatáshoz nyisd meg újra a befizetést.';
 
@@ -4182,10 +4152,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Ez a befizetés már nem függőben lévő. Az állapota frissül.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'A visszatérítés alá lett írva, de a továbbítása nem lett megerősítve. Később ellenőrizd újra az állapotát.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5443,9 +5409,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Helyreállítási kifejezés megjelenítése';
-
-  @override
-  String get stepUpReasonRefund => 'Visszatérítés megerősítése';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

@@ -805,9 +805,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmClaim => 'Confirm Claim';
 
   @override
-  String get confirmRefund => 'Confirm Refund';
-
-  @override
   String get connectSign => 'Connect & Sign';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Enter a $assetCode address';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Enter the Bitcoin address and fee rate to refund.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -918,9 +911,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hlMarketInvestCta => 'Invest';
 
   @override
-  String get feeRateSatsVbyte => 'Fee Rate (sats/vByte)';
-
-  @override
   String get financials => 'Financials';
 
   @override
@@ -962,9 +952,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Invalid address or amount';
-
-  @override
-  String get invalidRate => 'Invalid rate';
 
   @override
   String get liquidity => 'LIQUIDITY';
@@ -1115,9 +1102,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Receive Bitcoin';
-
-  @override
-  String get refundDeposit => 'Refund Deposit';
 
   @override
   String get refunding => 'Refunding';
@@ -3408,7 +3392,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'The network fee to add this to your balance is higher than usual. It\'s added automatically once the fee drops.';
+      'The fee to add this right now is unusually high. It\'s added automatically when it drops, or you can claim it now.';
 
   @override
   String get depositReasonFailed => 'It couldn\'t be added yet. Try again.';
@@ -3423,9 +3407,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Wait for a lower fee';
-
-  @override
-  String get depositSendItBack => 'Send it back';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3473,9 +3454,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'It can take a few minutes to show in your balance.';
-
-  @override
-  String get activityRefundStarted => 'Refund started';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3546,10 +3524,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Couldn\'t add this bitcoin to your wallet. Try again.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Couldn\'t start the refund. Try again.';
 
   @override
   String get receiveRequestFailed =>
@@ -4126,10 +4100,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Set the most you allow this claim to cost, in sats. This is a fee limit, not a confirmation speed. If the required fee is higher, the claim will stop.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Refund submitted. Waiting for confirmation.';
-
-  @override
   String get depositActionWalletChanged =>
       'The wallet changed. Reopen the deposit to continue.';
 
@@ -4164,10 +4134,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'This deposit is no longer pending. Refreshing its status.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'The refund was signed, but its broadcast was not confirmed. Check its status again later.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5417,9 +5383,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Show your recovery phrase';
-
-  @override
-  String get stepUpReasonRefund => 'Confirm your refund';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

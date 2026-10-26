@@ -804,9 +804,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get confirmClaim => 'Kinnita kättesaamine';
 
   @override
-  String get confirmRefund => 'Kinnita tagasimakse';
-
-  @override
   String get connectSign => 'Ühenda ja allkirjasta';
 
   @override
@@ -850,10 +847,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Sisesta $assetCode aadress';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Sisesta tagasimakse jaoks Bitcoini aadress ja tasumäär.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Sisesta PIN Jade\'i seadmes...';
@@ -916,9 +909,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlMarketInvestCta => 'Investeeri';
 
   @override
-  String get feeRateSatsVbyte => 'Tasumäär (sats/vByte)';
-
-  @override
   String get financials => 'Finantsandmed';
 
   @override
@@ -960,9 +950,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Vigane aadress või summa';
-
-  @override
-  String get invalidRate => 'Vigane määr';
 
   @override
   String get liquidity => 'LIKVIIDSUS';
@@ -1113,9 +1100,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Võta Bitcoini vastu';
-
-  @override
-  String get refundDeposit => 'Tagasta sissemakse';
 
   @override
   String get refunding => 'Tagastamine';
@@ -3411,7 +3395,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Saldosse lisamise võrgutasu on tavalisest kõrgem. See lisatakse automaatselt, kui tasu langeb.';
+      'Lisamise tasu on praegu ebatavaliselt kõrge. See lisatakse automaatselt, kui tasu langeb, või võid selle kohe kätte võtta.';
 
   @override
   String get depositReasonFailed => 'Veel ei saanud lisada. Proovi uuesti.';
@@ -3426,9 +3410,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Oota madalamat tasu';
-
-  @override
-  String get depositSendItBack => 'Saada tagasi';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3476,9 +3457,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Saldosse ilmumine võib võtta paar minutit.';
-
-  @override
-  String get activityRefundStarted => 'Tagasimakse alustatud';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3548,10 +3526,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Seda bitcoini ei õnnestunud rahakotti lisada. Proovi uuesti.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Tagasimakset ei õnnestunud alustada. Proovi uuesti.';
 
   @override
   String get receiveRequestFailed =>
@@ -4126,10 +4100,6 @@ class AppLocalizationsEt extends AppLocalizations {
       'Määra, kui palju see kättesaamine võib maksimaalselt maksta, sats\'ides. See on tasu piirmäär, mitte kinnitamise kiirus. Kui nõutav tasu on suurem, kättesaamine peatub.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Tagasimakse esitatud. Ootame kinnitust.';
-
-  @override
   String get depositActionWalletChanged =>
       'Rahakott muutus. Jätkamiseks ava sissemakse uuesti.';
 
@@ -4162,10 +4132,6 @@ class AppLocalizationsEt extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'See sissemakse pole enam ootel. Selle oleku värskendamine.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Tagasimakse allkirjastati, kuid selle edastamist ei kinnitatud. Kontrolli olekut hiljem uuesti.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5415,9 +5381,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Näita oma taastefraasi';
-
-  @override
-  String get stepUpReasonRefund => 'Kinnita tagasimakse';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

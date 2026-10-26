@@ -803,9 +803,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get confirmClaim => 'Conferma riscossione';
 
   @override
-  String get confirmRefund => 'Conferma rimborso';
-
-  @override
   String get connectSign => 'Collega e firma';
 
   @override
@@ -849,10 +846,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Inserisci un indirizzo $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Inserisci l\'indirizzo Bitcoin e la tariffa di commissione per il rimborso.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -916,9 +909,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get hlMarketInvestCta => 'Investi';
 
   @override
-  String get feeRateSatsVbyte => 'Tariffa commissione (sats/vByte)';
-
-  @override
   String get financials => 'Dati finanziari';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Indirizzo o importo non valido';
-
-  @override
-  String get invalidRate => 'Tasso non valido';
 
   @override
   String get liquidity => 'LIQUIDITÀ';
@@ -1117,9 +1104,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Ricevi Bitcoin';
-
-  @override
-  String get refundDeposit => 'Rimborsa deposito';
 
   @override
   String get refunding => 'Rimborso in corso';
@@ -3431,7 +3415,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'La commissione di rete per aggiungerlo al saldo è più alta del solito. Viene aggiunto automaticamente quando la commissione scende.';
+      'La commissione per aggiungerlo adesso è insolitamente alta. Viene aggiunto automaticamente quando scende, oppure puoi riscuoterlo ora.';
 
   @override
   String get depositReasonFailed =>
@@ -3447,9 +3431,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Aspetta una commissione più bassa';
-
-  @override
-  String get depositSendItBack => 'Rimandalo indietro';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3497,9 +3478,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Potrebbero servire alcuni minuti prima che compaiano nel saldo.';
-
-  @override
-  String get activityRefundStarted => 'Rimborso avviato';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3569,10 +3547,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Impossibile aggiungere questi bitcoin al tuo wallet. Riprova.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Impossibile avviare il rimborso. Riprova.';
 
   @override
   String get receiveRequestFailed =>
@@ -4150,10 +4124,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'Imposta il costo massimo che accetti per questa riscossione, in sats. È un limite di commissione, non una velocità di conferma. Se la commissione richiesta è più alta, la riscossione si interrompe.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Rimborso inviato. In attesa di conferma.';
-
-  @override
   String get depositActionWalletChanged =>
       'Il wallet è cambiato. Riapri il deposito per continuare.';
 
@@ -4188,10 +4158,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Questo deposito non è più in attesa. Aggiornamento dello stato.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Il rimborso è stato firmato, ma la sua trasmissione non è confermata. Ricontrolla lo stato più tardi.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5447,9 +5413,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Mostra la frase di recupero';
-
-  @override
-  String get stepUpReasonRefund => 'Conferma il rimborso';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

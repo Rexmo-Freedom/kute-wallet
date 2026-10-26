@@ -806,9 +806,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get confirmClaim => 'Confirmă revendicarea';
 
   @override
-  String get confirmRefund => 'Confirmă rambursarea';
-
-  @override
   String get connectSign => 'Conectează și semnează';
 
   @override
@@ -852,10 +849,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Introdu o adresă $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Introdu adresa Bitcoin și rata comisionului pentru rambursare.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -919,9 +912,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlMarketInvestCta => 'Investește';
 
   @override
-  String get feeRateSatsVbyte => 'Rată comision (sats/vByte)';
-
-  @override
   String get financials => 'Date financiare';
 
   @override
@@ -963,9 +953,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Adresă sau sumă invalidă';
-
-  @override
-  String get invalidRate => 'Rată invalidă';
 
   @override
   String get liquidity => 'LICHIDITATE';
@@ -1119,9 +1106,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Primește Bitcoin';
-
-  @override
-  String get refundDeposit => 'Rambursează depunerea';
 
   @override
   String get refunding => 'Se rambursează';
@@ -3434,7 +3418,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Comisionul de rețea pentru adăugarea în sold este mai mare decât de obicei. Se adaugă automat imediat ce comisionul scade.';
+      'Comisionul pentru adăugare este acum neobișnuit de mare. Se adaugă automat imediat ce scade, sau îl poți revendica acum.';
 
   @override
   String get depositReasonFailed =>
@@ -3450,9 +3434,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Așteaptă un comision mai mic';
-
-  @override
-  String get depositSendItBack => 'Trimite-o înapoi';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3500,9 +3481,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Poate dura câteva minute până apare în sold.';
-
-  @override
-  String get activityRefundStarted => 'Rambursare începută';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3572,10 +3550,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Acest bitcoin nu a putut fi adăugat în portofel. Încearcă din nou.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Rambursarea nu a putut fi pornită. Încearcă din nou.';
 
   @override
   String get receiveRequestFailed =>
@@ -4156,10 +4130,6 @@ class AppLocalizationsRo extends AppLocalizations {
       'Setează cât poate costa cel mult această revendicare, în sats. Este o limită de comision, nu o viteză de confirmare. Dacă comisionul necesar e mai mare, revendicarea se oprește.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Rambursare trimisă. Se așteaptă confirmarea.';
-
-  @override
   String get depositActionWalletChanged =>
       'Portofelul s-a schimbat. Redeschide depunerea pentru a continua.';
 
@@ -4194,10 +4164,6 @@ class AppLocalizationsRo extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Această depunere nu mai este în așteptare. Se actualizează starea.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Rambursarea a fost semnată, dar transmiterea ei nu a fost confirmată. Verifică din nou starea mai târziu.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5460,9 +5426,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Arată fraza de recuperare';
-
-  @override
-  String get stepUpReasonRefund => 'Confirmă rambursarea';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

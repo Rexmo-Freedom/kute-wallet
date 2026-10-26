@@ -805,9 +805,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get confirmClaim => 'Vahvista lunastus';
 
   @override
-  String get confirmRefund => 'Vahvista palautus';
-
-  @override
   String get connectSign => 'Yhdistä ja allekirjoita';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Anna $assetCode-osoite';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Anna palautusta varten Bitcoin-osoite ja maksutaso.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Anna PIN Jade-laitteella...';
@@ -917,9 +910,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlMarketInvestCta => 'Sijoita';
 
   @override
-  String get feeRateSatsVbyte => 'Maksutaso (sats/vByte)';
-
-  @override
   String get financials => 'Talousluvut';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Virheellinen osoite tai summa';
-
-  @override
-  String get invalidRate => 'Virheellinen taso';
 
   @override
   String get liquidity => 'LIKVIDITEETTI';
@@ -1115,9 +1102,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Vastaanota Bitcoinia';
-
-  @override
-  String get refundDeposit => 'Palauta talletus';
 
   @override
   String get refunding => 'Palautetaan';
@@ -3415,7 +3399,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Verkkomaksu saldoon lisäämisestä on tavallista korkeampi. Talletus lisätään automaattisesti, kun maksu laskee.';
+      'Talletuksen lisäämisen maksu on juuri nyt epätavallisen korkea. Se lisätään automaattisesti, kun maksu laskee, tai voit lunastaa sen nyt.';
 
   @override
   String get depositReasonFailed =>
@@ -3431,9 +3415,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Odota matalampaa maksua';
-
-  @override
-  String get depositSendItBack => 'Palauta lähettäjälle';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3481,9 +3462,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Voi kestää muutaman minuutin ennen kuin se näkyy saldossasi.';
-
-  @override
-  String get activityRefundStarted => 'Palautus aloitettu';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3554,10 +3532,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Bitcoineja ei voitu lisätä lompakkoosi. Yritä uudelleen.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Palautusta ei voitu aloittaa. Yritä uudelleen.';
 
   @override
   String get receiveRequestFailed =>
@@ -4133,10 +4107,6 @@ class AppLocalizationsFi extends AppLocalizations {
       'Aseta, paljonko tämä lunastus saa enintään maksaa satseina. Tämä on maksuraja, ei vahvistusnopeus. Jos vaadittu maksu on suurempi, lunastus pysähtyy.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Palautus lähetetty. Odotetaan vahvistusta.';
-
-  @override
   String get depositActionWalletChanged =>
       'Lompakko vaihtui. Avaa talletus uudelleen jatkaaksesi.';
 
@@ -4171,10 +4141,6 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Tämä talletus ei enää odota. Sen tilaa päivitetään.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Palautus allekirjoitettiin, mutta sen lähetystä ei vahvistettu. Tarkista sen tila myöhemmin uudelleen.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5430,9 +5396,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Näytä palautuslauseke';
-
-  @override
-  String get stepUpReasonRefund => 'Vahvista palautus';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

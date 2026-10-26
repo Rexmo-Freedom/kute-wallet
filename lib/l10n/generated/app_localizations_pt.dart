@@ -807,9 +807,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get confirmClaim => 'Confirmar Resgate';
 
   @override
-  String get confirmRefund => 'Confirmar Reembolso';
-
-  @override
   String get connectSign => 'Ligar e Assinar';
 
   @override
@@ -853,10 +850,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Introduza um endereço $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Introduza o endereço Bitcoin e a taxa para efetuar o reembolso.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -920,9 +913,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get hlMarketInvestCta => 'Investir';
 
   @override
-  String get feeRateSatsVbyte => 'Taxa (sats/vByte)';
-
-  @override
   String get financials => 'Finanças';
 
   @override
@@ -964,9 +954,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Endereço ou montante inválido';
-
-  @override
-  String get invalidRate => 'Cotação inválida';
 
   @override
   String get liquidity => 'LIQUIDEZ';
@@ -1119,9 +1106,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Receber Bitcoin';
-
-  @override
-  String get refundDeposit => 'Reembolsar depósito';
 
   @override
   String get refunding => 'A reembolsar';
@@ -3437,7 +3421,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'A taxa de rede para o adicionar ao seu saldo está mais alta do que o habitual. É adicionado automaticamente quando a taxa baixar.';
+      'A taxa para o adicionar agora está invulgarmente alta. É adicionado automaticamente quando a taxa baixar, ou pode resgatá-lo agora.';
 
   @override
   String get depositReasonFailed =>
@@ -3453,9 +3437,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Esperar por uma taxa mais baixa';
-
-  @override
-  String get depositSendItBack => 'Devolver';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3504,9 +3485,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Pode demorar alguns minutos a aparecer no seu saldo.';
-
-  @override
-  String get activityRefundStarted => 'Reembolso iniciado';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3576,10 +3554,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Não foi possível adicionar este bitcoin à sua carteira. Tente novamente.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Não foi possível iniciar o reembolso. Tente novamente.';
 
   @override
   String get receiveRequestFailed =>
@@ -4158,10 +4132,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Defina o custo máximo deste resgate, em sats. É um limite de taxa, não uma velocidade de confirmação. Se a taxa necessária for superior, o resgate será interrompido.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Reembolso enviado. A aguardar confirmação.';
-
-  @override
   String get depositActionWalletChanged =>
       'A carteira mudou. Abra o depósito novamente para continuar.';
 
@@ -4195,10 +4165,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Este depósito já não está pendente. A atualizar o estado.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'O reembolso foi assinado, mas a transmissão não foi confirmada. Verifique o estado mais tarde.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5456,9 +5422,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Mostrar a sua frase de recuperação';
-
-  @override
-  String get stepUpReasonRefund => 'Confirmar o seu reembolso';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

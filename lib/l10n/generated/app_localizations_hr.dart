@@ -805,9 +805,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get confirmClaim => 'Potvrdi preuzimanje';
 
   @override
-  String get confirmRefund => 'Potvrdi povrat';
-
-  @override
   String get connectSign => 'Poveži i potpiši';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Unesi $assetCode adresu';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Unesi Bitcoin adresu i stopu naknade za povrat.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Unesi PIN na Jade uređaju...';
@@ -917,9 +910,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get hlMarketInvestCta => 'Uloži';
 
   @override
-  String get feeRateSatsVbyte => 'Stopa naknade (sats/vByte)';
-
-  @override
   String get financials => 'Financije';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Nevažeća adresa ili iznos';
-
-  @override
-  String get invalidRate => 'Nevažeća stopa';
 
   @override
   String get liquidity => 'LIKVIDNOST';
@@ -1117,9 +1104,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Primi Bitcoin';
-
-  @override
-  String get refundDeposit => 'Vrati uplatu';
 
   @override
   String get refunding => 'Povrat u tijeku';
@@ -3424,7 +3408,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Mrežna naknada za dodavanje u saldo viša je nego inače. Dodat će se automatski čim naknada padne.';
+      'Naknada za dodavanje trenutačno je neuobičajeno visoka. Dodat će se automatski čim padne, ili ga možeš preuzeti sada.';
 
   @override
   String get depositReasonFailed =>
@@ -3440,9 +3424,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Pričekaj nižu naknadu';
-
-  @override
-  String get depositSendItBack => 'Vrati je';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3490,9 +3471,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Može proći nekoliko minuta dok se ne prikaže u saldu.';
-
-  @override
-  String get activityRefundStarted => 'Povrat pokrenut';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3562,10 +3540,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Nije moguće dodati ovaj bitcoin u novčanik. Pokušaj ponovno.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Nije moguće pokrenuti povrat. Pokušaj ponovno.';
 
   @override
   String get receiveRequestFailed =>
@@ -4146,9 +4120,6 @@ class AppLocalizationsHr extends AppLocalizations {
       'Postavi najviše koliko ovo preuzimanje smije koštati, u sats. Ovo je limit naknade, a ne brzina potvrde. Ako je potrebna naknada viša, preuzimanje će se zaustaviti.';
 
   @override
-  String get depositRefundSubmitted => 'Povrat poslan. Čeka se potvrda.';
-
-  @override
   String get depositActionWalletChanged =>
       'Novčanik se promijenio. Ponovno otvori uplatu za nastavak.';
 
@@ -4181,10 +4152,6 @@ class AppLocalizationsHr extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Ova uplata više nije na čekanju. Osvježavanje statusa.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Povrat je potpisan, ali njegovo slanje nije potvrđeno. Kasnije ponovno provjeri status.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5439,9 +5406,6 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Prikaži frazu za oporavak';
-
-  @override
-  String get stepUpReasonRefund => 'Potvrdi povrat';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

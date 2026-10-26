@@ -804,9 +804,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get confirmClaim => 'Потвърди вземането';
 
   @override
-  String get confirmRefund => 'Потвърди възстановяването';
-
-  @override
   String get connectSign => 'Свържи и подпиши';
 
   @override
@@ -850,10 +847,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Въведи $assetCode адрес';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Въведи Bitcoin адреса и нивото на таксата за възстановяването.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -917,9 +910,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlMarketInvestCta => 'Инвестирай';
 
   @override
-  String get feeRateSatsVbyte => 'Ниво на таксата (sats/vByte)';
-
-  @override
   String get financials => 'Финанси';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Невалиден адрес или сума';
-
-  @override
-  String get invalidRate => 'Невалидно ниво';
 
   @override
   String get liquidity => 'ЛИКВИДНОСТ';
@@ -1115,9 +1102,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Получи Bitcoin';
-
-  @override
-  String get refundDeposit => 'Възстанови депозита';
 
   @override
   String get refunding => 'Възстановяване';
@@ -3428,7 +3412,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Мрежовата такса за добавяне към баланса ти е по-висока от обичайното. Добавя се автоматично, щом таксата спадне.';
+      'Таксата за добавянето му в момента е необичайно висока. Добавя се автоматично, щом спадне, или можеш да го вземеш сега.';
 
   @override
   String get depositReasonFailed => 'Още не можа да се добави. Опитай отново.';
@@ -3443,9 +3427,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Изчакай по-ниска такса';
-
-  @override
-  String get depositSendItBack => 'Върни го';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3493,9 +3474,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Може да отнеме няколко минути, докато се покаже в баланса ти.';
-
-  @override
-  String get activityRefundStarted => 'Възстановяването започна';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3564,10 +3542,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Bitcoin не можа да се добави в портфейла ти. Опитай отново.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Възстановяването не можа да започне. Опитай отново.';
 
   @override
   String get receiveRequestFailed =>
@@ -4145,10 +4119,6 @@ class AppLocalizationsBg extends AppLocalizations {
       'Задай колко най-много може да струва това вземане, в sats. Това е лимит на таксата, а не скорост на потвърждение. Ако нужната такса е по-висока, вземането ще спре.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Възстановяването е изпратено. Изчаква потвърждение.';
-
-  @override
   String get depositActionWalletChanged =>
       'Портфейлът се смени. Отвори депозита отново, за да продължиш.';
 
@@ -4181,10 +4151,6 @@ class AppLocalizationsBg extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Този депозит вече не изчаква. Опресняваме статуса му.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Възстановяването е подписано, но излъчването му не е потвърдено. Провери статуса му отново по-късно.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5441,9 +5407,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Покажи фразата за възстановяване';
-
-  @override
-  String get stepUpReasonRefund => 'Потвърди възстановяването';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

@@ -805,9 +805,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get confirmClaim => 'Claim bevestigen';
 
   @override
-  String get confirmRefund => 'Terugbetaling bevestigen';
-
-  @override
   String get connectSign => 'Verbinden en ondertekenen';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Voer een $assetCode-adres in';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Voer het Bitcoin-adres en het kostentarief voor de terugbetaling in.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Voer je PIN in op de Jade...';
@@ -917,9 +910,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get hlMarketInvestCta => 'Beleggen';
 
   @override
-  String get feeRateSatsVbyte => 'Kostentarief (sats/vByte)';
-
-  @override
   String get financials => 'Financiën';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Ongeldig adres of bedrag';
-
-  @override
-  String get invalidRate => 'Ongeldig tarief';
 
   @override
   String get liquidity => 'LIQUIDITEIT';
@@ -1116,9 +1103,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Bitcoin ontvangen';
-
-  @override
-  String get refundDeposit => 'Storting terugbetalen';
 
   @override
   String get refunding => 'Terugbetalen';
@@ -3431,7 +3415,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'De netwerkkosten om hem aan je saldo toe te voegen zijn hoger dan normaal. Hij wordt automatisch toegevoegd zodra de kosten dalen.';
+      'De kosten om hem nu toe te voegen zijn ongewoon hoog. Hij wordt automatisch toegevoegd zodra ze dalen, of je claimt hem nu.';
 
   @override
   String get depositReasonFailed =>
@@ -3447,9 +3431,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Wachten op lagere kosten';
-
-  @override
-  String get depositSendItBack => 'Terugsturen';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3497,9 +3478,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Het kan een paar minuten duren voordat het in je saldo staat.';
-
-  @override
-  String get activityRefundStarted => 'Terugbetaling gestart';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3569,10 +3547,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Kan deze bitcoin niet aan je wallet toevoegen. Probeer het opnieuw.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Kan de terugbetaling niet starten. Probeer het opnieuw.';
 
   @override
   String get receiveRequestFailed =>
@@ -4151,10 +4125,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Stel in hoeveel deze claim maximaal mag kosten, in sats. Dit is een kostenlimiet, geen bevestigingssnelheid. Zijn de vereiste kosten hoger, dan stopt de claim.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Terugbetaling ingediend. Wacht op bevestiging.';
-
-  @override
   String get depositActionWalletChanged =>
       'De wallet is gewijzigd. Open de storting opnieuw om door te gaan.';
 
@@ -4188,10 +4158,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Deze storting is niet meer in behandeling. De status wordt vernieuwd.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'De terugbetaling is ondertekend, maar het uitzenden is niet bevestigd. Controleer de status later opnieuw.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5451,9 +5417,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Toon je herstelzin';
-
-  @override
-  String get stepUpReasonRefund => 'Bevestig je terugbetaling';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

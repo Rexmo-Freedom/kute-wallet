@@ -803,9 +803,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get confirmClaim => 'Bekräfta hämtning';
 
   @override
-  String get confirmRefund => 'Bekräfta återbetalning';
-
-  @override
   String get connectSign => 'Anslut & signera';
 
   @override
@@ -849,10 +846,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Ange en $assetCode-adress';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Ange Bitcoin-adressen och avgiftssatsen för återbetalning.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Ange din PIN på Jade-enheten...';
@@ -915,9 +908,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get hlMarketInvestCta => 'Investera';
 
   @override
-  String get feeRateSatsVbyte => 'Avgiftssats (sats/vByte)';
-
-  @override
   String get financials => 'Ekonomi';
 
   @override
@@ -959,9 +949,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Ogiltig adress eller belopp';
-
-  @override
-  String get invalidRate => 'Ogiltig kurs';
 
   @override
   String get liquidity => 'LIKVIDITET';
@@ -1112,9 +1099,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Ta emot Bitcoin';
-
-  @override
-  String get refundDeposit => 'Återbetala insättning';
 
   @override
   String get refunding => 'Återbetalar';
@@ -3416,7 +3400,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Nätverksavgiften för att lägga till den i ditt saldo är högre än vanligt. Den läggs till automatiskt när avgiften sjunker.';
+      'Avgiften för att lägga till den just nu är ovanligt hög. Den läggs till automatiskt när avgiften sjunker, eller så kan du hämta den nu.';
 
   @override
   String get depositReasonFailed =>
@@ -3432,9 +3416,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Vänta på en lägre avgift';
-
-  @override
-  String get depositSendItBack => 'Skicka tillbaka';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3482,9 +3463,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Det kan ta några minuter innan det syns i ditt saldo.';
-
-  @override
-  String get activityRefundStarted => 'Återbetalning startad';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3554,10 +3532,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Kunde inte lägga till dessa bitcoin i din plånbok. Försök igen.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Kunde inte starta återbetalningen. Försök igen.';
 
   @override
   String get receiveRequestFailed =>
@@ -4135,10 +4109,6 @@ class AppLocalizationsSv extends AppLocalizations {
       'Ange det mesta du tillåter att hämtningen kostar, i sats. Det här är en avgiftsgräns, inte en bekräftelsehastighet. Om den nödvändiga avgiften är högre stoppas hämtningen.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Återbetalning skickad. Väntar på bekräftelse.';
-
-  @override
   String get depositActionWalletChanged =>
       'Plånboken ändrades. Öppna insättningen igen för att fortsätta.';
 
@@ -4173,10 +4143,6 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Insättningen väntar inte längre. Uppdaterar dess status.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Återbetalningen signerades, men sändningen bekräftades inte. Kontrollera status igen senare.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5431,9 +5397,6 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Visa din återställningsfras';
-
-  @override
-  String get stepUpReasonRefund => 'Bekräfta din återbetalning';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

@@ -803,9 +803,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get confirmClaim => 'Potvrdit vyzvednutí';
 
   @override
-  String get confirmRefund => 'Potvrdit vrácení';
-
-  @override
   String get connectSign => 'Připojit a podepsat';
 
   @override
@@ -849,10 +846,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Zadej adresu $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Zadej Bitcoin adresu a sazbu poplatku pro vrácení.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Zadej PIN na zařízení Jade...';
@@ -915,9 +908,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get hlMarketInvestCta => 'Investovat';
 
   @override
-  String get feeRateSatsVbyte => 'Sazba poplatku (sats/vByte)';
-
-  @override
   String get financials => 'Finance';
 
   @override
@@ -959,9 +949,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Neplatná adresa nebo částka';
-
-  @override
-  String get invalidRate => 'Neplatný kurz';
 
   @override
   String get liquidity => 'LIKVIDITA';
@@ -1112,9 +1099,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Přijmout Bitcoin';
-
-  @override
-  String get refundDeposit => 'Vrátit vklad';
 
   @override
   String get refunding => 'Vrací se';
@@ -3414,7 +3398,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Síťový poplatek za přidání do zůstatku je vyšší než obvykle. Přidá se automaticky, jakmile poplatek klesne.';
+      'Poplatek za přidání je teď neobvykle vysoký. Přidá se automaticky, jakmile klesne, nebo si ho můžeš vyzvednout hned.';
 
   @override
   String get depositReasonFailed =>
@@ -3430,9 +3414,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Počkat na nižší poplatek';
-
-  @override
-  String get depositSendItBack => 'Poslat zpět';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3480,9 +3461,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Zobrazení v zůstatku může trvat několik minut.';
-
-  @override
-  String get activityRefundStarted => 'Vrácení zahájeno';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3552,10 +3530,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Tento bitcoin se nepodařilo přidat do peněženky. Zkus to znovu.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Vrácení se nepodařilo zahájit. Zkus to znovu.';
 
   @override
   String get receiveRequestFailed =>
@@ -4135,10 +4109,6 @@ class AppLocalizationsCs extends AppLocalizations {
       'Nastav, kolik nejvýš smí toto vyzvednutí stát, v sats. Je to limit poplatku, ne rychlost potvrzení. Pokud bude potřebný poplatek vyšší, vyzvednutí se zastaví.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Vrácení odesláno. Čeká se na potvrzení.';
-
-  @override
   String get depositActionWalletChanged =>
       'Peněženka se změnila. Pro pokračování znovu otevři vklad.';
 
@@ -4171,10 +4141,6 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Tento vklad už nečeká. Obnovuje se jeho stav.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Vrácení bylo podepsáno, ale jeho odeslání nebylo potvrzeno. Zkontroluj stav později.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5427,9 +5393,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Zobrazit obnovovací frázi';
-
-  @override
-  String get stepUpReasonRefund => 'Potvrď vrácení';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

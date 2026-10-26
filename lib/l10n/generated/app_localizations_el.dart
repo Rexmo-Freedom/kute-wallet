@@ -805,9 +805,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get confirmClaim => 'Επιβεβαίωση είσπραξης';
 
   @override
-  String get confirmRefund => 'Επιβεβαίωση επιστροφής χρημάτων';
-
-  @override
   String get connectSign => 'Σύνδεση & υπογραφή';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Βάλε μια διεύθυνση $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Βάλε τη διεύθυνση Bitcoin και τον ρυθμό χρέωσης για την επιστροφή χρημάτων.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -918,9 +911,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlMarketInvestCta => 'Επένδυση';
 
   @override
-  String get feeRateSatsVbyte => 'Ρυθμός χρέωσης (sats/vByte)';
-
-  @override
   String get financials => 'Οικονομικά';
 
   @override
@@ -963,9 +953,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Μη έγκυρη διεύθυνση ή ποσό';
-
-  @override
-  String get invalidRate => 'Μη έγκυρος ρυθμός';
 
   @override
   String get liquidity => 'ΡΕΥΣΤΟΤΗΤΑ';
@@ -1119,9 +1106,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Λήψη Bitcoin';
-
-  @override
-  String get refundDeposit => 'Επιστροφή κατάθεσης';
 
   @override
   String get refunding => 'Επιστροφή σε εξέλιξη';
@@ -3451,7 +3435,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Η χρέωση δικτύου για να προστεθεί στο υπόλοιπό σου είναι υψηλότερη από το συνηθισμένο. Προστίθεται αυτόματα μόλις πέσει η χρέωση.';
+      'Η χρέωση για να προστεθεί αυτή τη στιγμή είναι ασυνήθιστα υψηλή. Προστίθεται αυτόματα μόλις πέσει, ή μπορείς να την εισπράξεις τώρα.';
 
   @override
   String get depositReasonFailed =>
@@ -3467,9 +3451,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Αναμονή για χαμηλότερη χρέωση';
-
-  @override
-  String get depositSendItBack => 'Επίστρεψέ την';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3518,9 +3499,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Μπορεί να χρειαστούν λίγα λεπτά για να εμφανιστούν στο υπόλοιπό σου.';
-
-  @override
-  String get activityRefundStarted => 'Η επιστροφή χρημάτων ξεκίνησε';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3591,10 +3569,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Δεν ήταν δυνατή η προσθήκη αυτών των bitcoin στο πορτοφόλι σου. Δοκίμασε ξανά.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Δεν ήταν δυνατή η έναρξη της επιστροφής χρημάτων. Δοκίμασε ξανά.';
 
   @override
   String get receiveRequestFailed =>
@@ -4175,10 +4149,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Όρισε το μέγιστο κόστος που επιτρέπεις για αυτή την είσπραξη, σε sats. Είναι όριο χρέωσης, όχι ταχύτητα επιβεβαίωσης. Αν η απαιτούμενη χρέωση είναι υψηλότερη, η είσπραξη θα σταματήσει.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Η επιστροφή χρημάτων υποβλήθηκε. Αναμονή επιβεβαίωσης.';
-
-  @override
   String get depositActionWalletChanged =>
       'Το πορτοφόλι άλλαξε. Άνοιξε ξανά την κατάθεση για να συνεχίσεις.';
 
@@ -4213,10 +4183,6 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Αυτή η κατάθεση δεν εκκρεμεί πια. Ανανέωση της κατάστασής της.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Η επιστροφή χρημάτων υπογράφηκε, αλλά η μετάδοσή της δεν επιβεβαιώθηκε. Έλεγξε ξανά την κατάστασή της αργότερα.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5476,9 +5442,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Εμφάνισε τη φράση ανάκτησής σου';
-
-  @override
-  String get stepUpReasonRefund => 'Επιβεβαίωσε την επιστροφή χρημάτων';
 
   @override
   String stepUpReasonSwitchWallet(String name) {
