@@ -1,4 +1,4 @@
-// "View market" on the open-position screen: the last of its rows, under
+// "View market" on the open-position screen: the first of its rows, above
 // Closing Conditions, opening the sheet of the event the position belongs
 // to (a candidate's position opens the whole race), or back to that sheet
 // when the position was opened over it.
@@ -186,8 +186,8 @@ void main() {
   });
   tearDown(OpenOnce.reset);
 
-  testWidgets('"View market" is the last row, under Closing Conditions, '
-      'with the chart glyph', (tester) async {
+  testWidgets('"View market" is the first row, above Protect it and '
+      'Closing Conditions, with the chart glyph', (tester) async {
     await http.runWithClient(() async {
       await _pump(tester, const PositionDetailSheet(position: _position),
           event: _election);
@@ -202,7 +202,12 @@ void main() {
       final rules = find.byType(PolyRulesRow);
       expect(rules, findsOneWidget);
       expect(tester.getTopLeft(_row).dy,
-          greaterThan(tester.getTopLeft(rules).dy));
+          lessThan(tester.getTopLeft(rules).dy));
+      final protect = find.byKey(const ValueKey('poly-position-protect'));
+      if (protect.evaluate().isNotEmpty) {
+        expect(tester.getTopLeft(_row).dy,
+            lessThan(tester.getTopLeft(protect).dy));
+      }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => MockClient((_) async => http.Response('{}', 404)));
