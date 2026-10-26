@@ -45,6 +45,13 @@ import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
         PendingBitcoinPurchaseStore,
         PendingPurchaseStage;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
+import 'package:kute/services/funding/settlement_codec.dart'
+    show SettlementCodec;
+import 'package:kute/services/funding/settlement_store.dart'
+    show SettlementStore;
+import 'package:hive_ce/hive.dart';
 import 'package:kute/services/one_balance/venue_funder.dart'
     show VenueCashDestination;
 
@@ -220,7 +227,47 @@ double multiSourceMoveBitcoin(MultiSourceMoveTransaction tx) {
 bool isMultiSourceMoveLeg(SwapOrderTransaction row, MultiSourceMove move) {
   final ids = move.linkedIds;
   final op = row.details.operationId;
-  return ids.contains(row.id) || (op != null && ids.contains(op));
+  if (ids.contains(row.id) || (op != null && ids.contains(op))) return true;
+  for (final id in ids) {
+    if (_quoteBecame(row, id)) return true;
+  }
+  return false;
+}
+
+/// Whether [row] is the row a step recorded under its quote id ([id],
+/// `q_…`) became: the order the quote turned into (this session knows it,
+/// [OrchestraOrderIds]), or a row whose settlement operation was quoted
+/// under it (the record keeps that across restarts). A funder that
+/// returned no operation id had the move's own step recorded under the
+/// quote, and the row moved to the order id at once: the step lost its
+/// row, which then stood beside the move and kept the move Pending.
+bool _quoteBecame(SwapOrderTransaction row, String? id) {
+  if (id == null || !id.startsWith('q_') || row.id == id) return false;
+  if (OrchestraOrderIds.orderOf(id) == row.id) return true;
+  final op = row.details.operationId;
+  return op != null && settlementQuoteIdOf(op) == id;
+}
+
+/// The quote id settlement operation [operationId] was last quoted under,
+/// from the settlement store (null when unknown). Read-only, cached once
+/// known. Test seam.
+String? Function(String operationId) settlementQuoteIdOf = _storedQuoteIdOf;
+
+final Map<String, String> _quoteIdByOperation = {};
+
+String? _storedQuoteIdOf(String operationId) {
+  final known = _quoteIdByOperation[operationId];
+  if (known != null) return known;
+  try {
+    if (!Hive.isBoxOpen(SettlementStore.boxName)) return null;
+    final raw = Hive.box<String>(SettlementStore.boxName).get(operationId);
+    if (raw == null) return null;
+    final quote = SettlementCodec.decodeJson(raw).quote?.quoteId;
+    if (quote == null || quote.isEmpty) return null;
+    return _quoteIdByOperation[operationId] = quote;
+  } catch (_) {
+    return null; // unreadable metadata links nothing
+  }
 }
 
 /// The Activity row standing for [leg] among [rows] (the row its
@@ -288,7 +335,9 @@ bool _rowOf(SwapOrderTransaction row, String? operationId, String? quoteId) =>
         (row.details.operationId == operationId ||
             row.id == operationId ||
             row.id == 'cctp-$operationId')) ||
-    (quoteId != null && row.id == quoteId);
+    (quoteId != null && row.id == quoteId) ||
+    _quoteBecame(row, operationId) ||
+    _quoteBecame(row, quoteId);
 
 /// Whether [move]'s money is where it was going: every leg that went has
 /// its row and that row has settled; a move to Bitcoin that brought money

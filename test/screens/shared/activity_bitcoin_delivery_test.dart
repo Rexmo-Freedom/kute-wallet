@@ -19,8 +19,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
-import 'package:kute/screens/shared/multi_source_move_activity.dart'
-    show MultiSourceMoveTransaction, multiSourceMoveBitcoin;
+import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/one_balance/multi_source_move.dart';
@@ -482,6 +481,46 @@ void main() {
       final rows = _surface(all, moves: [move]);
       expect(_ids(rows), ['msm_1']);
       expect((rows.single as MultiSourceMoveTransaction).complete, isTrue);
+    });
+  });
+
+  group('a move\'s own step recorded under its quote id', () {
+    // Dollars into Predictions for a bet: the funder returned no operation
+    // id, so the move kept the quote id while the row moved to the order.
+    final fund = _swap('ord_fund',
+        coinFrom: kOrchestraUsdAssetCode,
+        networkFrom: 'SPARK',
+        coinTo: 'USDC.e',
+        networkTo: 'POLYGON',
+        withdrawalAmount: '19.80',
+        status: 'success',
+        operationId: 'op-fund',
+        withdrawalAddress: '0xsafe');
+    final move = _move([
+      _leg(OneBalanceVenue.investing, 'op-hl', direct: false),
+    ], destination: VenueCashDestination.predictions,
+        forAction: VenueCashFor.predictions, finalOp: 'q_fund');
+    final home = _swap('ord_hl_usd',
+        coinTo: kOrchestraUsdAssetCode,
+        withdrawalAmount: '19.90',
+        status: 'success',
+        operationId: 'op-hl');
+
+    final stored = settlementQuoteIdOf;
+    tearDown(() => settlementQuoteIdOf = stored);
+
+    test('finds its row through the settlement record, after a restart', () {
+      settlementQuoteIdOf = (op) => op == 'op-fund' ? 'q_fund' : null;
+      final rows = _surface([home, fund], moves: [move], onlyUsdb: true);
+      expect(_ids(rows), ['msm_1']);
+      expect((rows.single as MultiSourceMoveTransaction).isConfirmed, isTrue);
+    });
+
+    test('or through the order this session saw the quote become', () {
+      settlementQuoteIdOf = (_) => null;
+      OrchestraOrderIds.record('q_fund', 'ord_fund');
+      expect(_ids(_surface([home, fund], moves: [move], onlyUsdb: true)),
+          ['msm_1']);
     });
   });
 }

@@ -383,6 +383,10 @@ class PredictionsVenueFunder
         registration: settled.registration,
         sentUsd: sentUsd,
         arrivingUsdEstimate: estOut,
+        // The row is rewritten under the order id at once: a move's own
+        // step recorded under the quote id lost it (it stood beside the
+        // move in Activity and kept the move Pending).
+        operationId: settled.operation.operationId,
       );
     } catch (e) {
       final staleRowId = pendingQuoteRowId;
