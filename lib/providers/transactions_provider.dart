@@ -36,6 +36,9 @@ import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
+import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
+    show ownBitcoinDeliveryReceives;
+import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/services/haptic_gates.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -704,6 +707,20 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // counted by swap_completed): reported as purpose 'conversion_leg' so
     // they do not bump affiliate activity or first-receive milestones.
     final deliveryLegs = PolymarketSparkTxsService.orchestraDeliverySnapshot();
+    // And the receives Activity folds into the wallet's own withdrawals
+    // to Bitcoin (the same matcher, own_bitcoin_deliveries.dart): money
+    // coming home from Investments or Dollars is not a transfer in, even
+    // before the reconciler has tagged it.
+    // Read only once a new receive needs it.
+    Map<String, String>? ownDeliveries;
+    Map<String, String> ownDeliveriesNow() =>
+        ownDeliveries ??= ownBitcoinDeliveryReceives(
+          snapshot.swapOrderTransactions,
+          snapshot.sparkTransactions,
+          ownAddresses: const {},
+          classify: swapActivityFor,
+          links: PolymarketSparkTxsService.orchestraDeliveryLinks(),
+        );
     for (final tx in snapshot.sparkTransactions) {
       // Cached shells (no live `details`) are skipped here — we
       // only fire `transaction_received` for events surfaced by the
@@ -734,6 +751,7 @@ class TransactionNotifier extends StateNotifier<Transaction> {
         amountUsd: usdOf(amountSats),
         walletKind: walletKind,
         purpose: deliveryLegs.contains(tx.id) ||
+                ownDeliveriesNow().containsKey(tx.id) ||
                 PolymarketSparkTxsService.isTagged(tx.id)
             ? 'conversion_leg'
             : 'transfer',
