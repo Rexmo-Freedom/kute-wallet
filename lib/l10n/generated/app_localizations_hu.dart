@@ -3398,6 +3398,65 @@ class AppLocalizationsHu extends AppLocalizations {
   String get activityTapToAddToWallet => 'Koppints a tárcához adáshoz';
 
   @override
+  String get activityDepositWaiting => 'Várakozó befizetés';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Koppints, hogy hozzáadd az egyenlegedhez';
+
+  @override
+  String get activityAddingToBalance => 'Hozzáadás az egyenlegedhez…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Megerősítés · $current / 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Alacsonyabb díjra vár';
+
+  @override
+  String get depositStatusFailed => 'Még nem sikerült hozzáadni';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      '3 megerősítés után automatikusan hozzáadódik.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Az egyenlegedhez adás hálózati díja a szokásosnál magasabb. Automatikusan hozzáadódik, amint a díj csökken.';
+
+  @override
+  String get depositReasonFailed => 'Még nem sikerült hozzáadni. Próbáld újra.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Átvétel most · $fee díj';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Azonnali átvétel díja';
+
+  @override
+  String get depositWaitForLowerFee => 'Várj alacsonyabb díjra';
+
+  @override
+  String get depositSendItBack => 'Visszaküldés';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount arra vár, hogy hozzáadódjon az egyenlegedhez';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Erősítsd meg a legfeljebb $fee díjat';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Nem sikerült hozzáadni a bitcoinodat';
+
+  @override
   String get activityAddToWallet => 'Hozzáadás a tárcához';
 
   @override

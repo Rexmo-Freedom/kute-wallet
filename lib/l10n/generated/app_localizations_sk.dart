@@ -3394,6 +3394,65 @@ class AppLocalizationsSk extends AppLocalizations {
   String get activityTapToAddToWallet => 'Ťukni a pridaj do peňaženky';
 
   @override
+  String get activityDepositWaiting => 'Vklad čaká';
+
+  @override
+  String get activityTapToAddToBalance => 'Ťukni a pridaj ho do zostatku';
+
+  @override
+  String get activityAddingToBalance => 'Pridáva sa do zostatku…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Potvrdzuje sa · $current z 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Čaká na nižší poplatok';
+
+  @override
+  String get depositStatusFailed => 'Zatiaľ sa nepodarilo pridať';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Pridá sa automaticky po 3 potvrdeniach.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Sieťový poplatok za pridanie do zostatku je vyšší ako zvyčajne. Pridá sa automaticky, keď poplatok klesne.';
+
+  @override
+  String get depositReasonFailed =>
+      'Zatiaľ sa nepodarilo pridať. Skús to znova.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Vyzdvihnúť hneď · poplatok $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Poplatok za okamžité vyzdvihnutie';
+
+  @override
+  String get depositWaitForLowerFee => 'Počkať na nižší poplatok';
+
+  @override
+  String get depositSendItBack => 'Poslať späť';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount čaká na pridanie do zostatku';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Potvrď poplatok do $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Bitcoin sa nepodarilo pridať';
+
+  @override
   String get activityAddToWallet => 'Pridať do peňaženky';
 
   @override

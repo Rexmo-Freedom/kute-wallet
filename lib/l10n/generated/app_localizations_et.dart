@@ -3386,6 +3386,64 @@ class AppLocalizationsEt extends AppLocalizations {
   String get activityTapToAddToWallet => 'Puuduta rahakotti lisamiseks';
 
   @override
+  String get activityDepositWaiting => 'Sissemakse ootel';
+
+  @override
+  String get activityTapToAddToBalance => 'Puuduta, et lisada see oma saldosse';
+
+  @override
+  String get activityAddingToBalance => 'Lisatakse saldosse…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Kinnitamisel · $current/3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Ootab madalamat tasu';
+
+  @override
+  String get depositStatusFailed => 'Veel ei saanud lisada';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Lisatakse automaatselt pärast 3 kinnitust.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Saldosse lisamise võrgutasu on tavalisest kõrgem. See lisatakse automaatselt, kui tasu langeb.';
+
+  @override
+  String get depositReasonFailed => 'Veel ei saanud lisada. Proovi uuesti.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Võta kohe kätte · tasu $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Kohe kättesaamise tasu';
+
+  @override
+  String get depositWaitForLowerFee => 'Oota madalamat tasu';
+
+  @override
+  String get depositSendItBack => 'Saada tagasi';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount ootab saldosse lisamist';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Kinnita tasu kuni $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Sinu bitcoini ei saanud lisada';
+
+  @override
   String get activityAddToWallet => 'Lisa rahakotti';
 
   @override

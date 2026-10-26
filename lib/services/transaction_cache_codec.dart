@@ -274,6 +274,7 @@ class TransactionCacheCodec {
         'isMature': d.isMature,
         'refundTxId': d.refundTxId,
         'hasClaimError': d.hasClaimError,
+        if (d.requiredFeeSats != null) 'requiredFeeSats': d.requiredFeeSats,
       };
 
   static SparkUnclaimedDeposit? _sparkUnclaimedFromJson(
@@ -289,6 +290,7 @@ class TransactionCacheCodec {
         isMature: j['isMature'] as bool? ?? false,
         refundTxId: j['refundTxId'] as String?,
         hasClaimError: j['hasClaimError'] as bool? ?? false,
+        requiredFeeSats: (j['requiredFeeSats'] as num?)?.toInt(),
       );
     } catch (_) {
       return null;

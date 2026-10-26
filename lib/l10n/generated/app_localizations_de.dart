@@ -3420,6 +3420,67 @@ class AppLocalizationsDe extends AppLocalizations {
   String get activityTapToAddToWallet => 'Tippe, um es zum Wallet hinzuzufügen';
 
   @override
+  String get activityDepositWaiting => 'Einzahlung wartet';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Tippe, um sie deinem Guthaben hinzuzufügen';
+
+  @override
+  String get activityAddingToBalance => 'Wird deinem Guthaben hinzugefügt…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Wird bestätigt · $current von 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Wartet auf eine niedrigere Gebühr';
+
+  @override
+  String get depositStatusFailed => 'Noch nicht hinzugefügt';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Wird nach 3 Bestätigungen automatisch hinzugefügt.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Die Netzwerkgebühr, um sie deinem Guthaben hinzuzufügen, ist höher als üblich. Sie wird automatisch hinzugefügt, sobald die Gebühr sinkt.';
+
+  @override
+  String get depositReasonFailed =>
+      'Sie konnte noch nicht hinzugefügt werden. Versuche es erneut.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Jetzt abholen · $fee Gebühr';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Gebühr für sofortiges Abholen';
+
+  @override
+  String get depositWaitForLowerFee => 'Auf niedrigere Gebühr warten';
+
+  @override
+  String get depositSendItBack => 'Zurücksenden';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount wartet darauf, deinem Guthaben hinzugefügt zu werden';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Gebühr von bis zu $fee bestätigen';
+  }
+
+  @override
+  String get depositClaimFailedTitle =>
+      'Deine Bitcoin konnten nicht hinzugefügt werden';
+
+  @override
   String get activityAddToWallet => 'Zum Wallet hinzufügen';
 
   @override

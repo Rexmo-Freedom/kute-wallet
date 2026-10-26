@@ -3399,6 +3399,65 @@ class AppLocalizationsHr extends AppLocalizations {
   String get activityTapToAddToWallet => 'Dodirni za dodavanje u novčanik';
 
   @override
+  String get activityDepositWaiting => 'Uplata na čekanju';
+
+  @override
+  String get activityTapToAddToBalance => 'Dodirni da je dodaš u saldo';
+
+  @override
+  String get activityAddingToBalance => 'Dodaje se u saldo…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Potvrđuje se · $current od 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Čeka nižu naknadu';
+
+  @override
+  String get depositStatusFailed => 'Još nije dodano';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Dodaje se automatski nakon 3 potvrde.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Mrežna naknada za dodavanje u saldo viša je nego inače. Dodat će se automatski čim naknada padne.';
+
+  @override
+  String get depositReasonFailed =>
+      'Još se nije moglo dodati. Pokušaj ponovno.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Preuzmi sada · naknada $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Naknada za preuzimanje sada';
+
+  @override
+  String get depositWaitForLowerFee => 'Pričekaj nižu naknadu';
+
+  @override
+  String get depositSendItBack => 'Vrati je';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount čeka da bude dodano u saldo';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Potvrdi naknadu do $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Tvoj bitcoin nije moguće dodati';
+
+  @override
   String get activityAddToWallet => 'Dodaj u novčanik';
 
   @override

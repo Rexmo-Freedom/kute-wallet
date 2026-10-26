@@ -3400,6 +3400,65 @@ class AppLocalizationsPl extends AppLocalizations {
   String get activityTapToAddToWallet => 'Stuknij, aby dodać do portfela';
 
   @override
+  String get activityDepositWaiting => 'Wpłata czeka';
+
+  @override
+  String get activityTapToAddToBalance => 'Stuknij, aby dodać ją do salda';
+
+  @override
+  String get activityAddingToBalance => 'Dodawanie do salda…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Potwierdzanie · $current z 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Czeka na niższą opłatę';
+
+  @override
+  String get depositStatusFailed => 'Jeszcze nie dodano';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Dodawana automatycznie po 3 potwierdzeniach.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Opłata sieciowa za dodanie do salda jest wyższa niż zwykle. Zostanie dodana automatycznie, gdy opłata spadnie.';
+
+  @override
+  String get depositReasonFailed =>
+      'Jeszcze nie udało się dodać. Spróbuj ponownie.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Odbierz teraz · opłata $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Opłata za odbiór teraz';
+
+  @override
+  String get depositWaitForLowerFee => 'Poczekaj na niższą opłatę';
+
+  @override
+  String get depositSendItBack => 'Odeślij';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount czeka na dodanie do salda';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Potwierdź opłatę do $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Nie udało się dodać twojego bitcoina';
+
+  @override
   String get activityAddToWallet => 'Dodaj do portfela';
 
   @override

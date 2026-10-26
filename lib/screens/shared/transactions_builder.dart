@@ -106,6 +106,8 @@ import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/deposit_quick_claim.dart';
+import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
 import 'package:kute/services/orchestra/onetime_receive.dart'
@@ -342,18 +344,23 @@ class _TransactionListState extends ConsumerState<TransactionList> {
       bitcoinReceiveMarks: ref.watch(bitcoinReceiveMarksProvider),
     );
 
+    // A deposit waiting on the person (fee above the cap, a failed claim)
+    // leads the list under Today, whenever it arrived: it is the one row
+    // that needs a tap.
+    final ordered = waitingDepositsFirst(allSorted);
     final recentTransactions = widget.showAll
-        ? allSorted
-        : allSorted.take(kActivityPreviewRows).toList();
+        ? ordered
+        : ordered.take(kActivityPreviewRows).toList();
 
     // The on-chain rows the person can tap right now: warm their explorer
     // payloads while they are still reading the list.
     _prefetchOnChainDetails(recentTransactions);
 
     final Map<DateTime, List<BaseTransaction>> groupedTransactions = {};
+    final now = DateTime.now();
     for (var tx in recentTransactions) {
-      final dateKey =
-          DateTime(tx.timestamp.year, tx.timestamp.month, tx.timestamp.day);
+      final at = isWaitingDeposit(tx) ? now : tx.timestamp;
+      final dateKey = DateTime(at.year, at.month, at.day);
       groupedTransactions.putIfAbsent(dateKey, () => []).add(tx);
     }
 
@@ -388,6 +395,63 @@ class _TransactionListState extends ConsumerState<TransactionList> {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// A deposit waiting on the person: the fee is above the automatic
+/// ceiling, or its claim failed.
+bool isWaitingDeposit(BaseTransaction tx) =>
+    tx is SparkUnclaimedDeposit && tx.needsAction;
+
+/// [rows] with waiting deposits first (shown under Today whenever they
+/// arrived: the one row that needs a tap), the rest in their order.
+List<BaseTransaction> waitingDepositsFirst(List<BaseTransaction> rows) {
+  if (!rows.any(isWaitingDeposit)) return rows;
+  return [
+    ...rows.where(isWaitingDeposit),
+    ...rows.where((tx) => !isWaitingDeposit(tx)),
+  ];
+}
+
+/// One quiet line above Home's Activity while a deposit waits for a lower
+/// fee: the amount and a chevron in the sheet note's grey, no tinted box.
+/// Tapping opens the deposit's sheet (Claim now, Wait, Send it back).
+/// Nothing renders otherwise.
+class DepositWaitingLine extends ConsumerWidget {
+  const DepositWaitingLine({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeId =
+        ref.watch(settingsProvider.select((s) => s.activeWalletId));
+    final waiting = ref.watch(walletTransactionCacheProvider.select((cache) {
+      final rows = cache[activeId]?.sparkUnclaimedDeposits ?? const [];
+      for (final row in rows) {
+        if (row.stage == SparkDepositStage.waitingForFee) return row;
+      }
+      return null;
+    }));
+    if (waiting == null) return const SizedBox.shrink();
+    final c = context.colors;
+    final amount = ref.watch(conversionProvider(waiting.amount.toInt()));
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () => openTransactionDetails(context, ref, waiting),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(28.w, 10.h, 22.w, 4.h),
+          child: Row(
+            children: [
+              Expanded(
+                  child: DepositSheetNote(
+                      context.l10n.depositHomeWaiting(amount))),
+              Icon(Icons.chevron_right_rounded,
+                  color: c.textTertiary, size: 18.sp),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2234,8 +2298,10 @@ void _showOutlogicTxDetails(
 /// waiting for confirmations open the read-only pending sheet.
 void _openUnclaimedDeposit(
     BuildContext context, WidgetRef ref, SparkUnclaimedDeposit tx) {
-  final refundTxId = tx.refundTxId;
-  if ((refundTxId != null && refundTxId.isNotEmpty) || tx.isMature) {
+  // Waiting on the person (fee above the cap, a failed claim) or being
+  // refunded: the claim sheet. Confirming or about to be added
+  // automatically: the pending sheet.
+  if (tx.needsAction || tx.stage == SparkDepositStage.refunding) {
     _showUnclaimedDepositDetails(context, ref, tx);
   } else {
     _showPendingUnclaimedSheet(context, ref, tx);
@@ -2254,7 +2320,7 @@ Widget _buildUnclaimedItem(
   // opens a bottom sheet with deposit details + a "View on
   // mempool.space" link so the user can drill into chain detail
   // without leaving the app immediately.
-  final needsAction = tx.isMature && tx.hasClaimError;
+  final needsAction = tx.needsAction;
 
   if (isRefunding || needsAction) {
     // Calm words: the bitcoin is here and waits for one tap, so the row
@@ -2267,10 +2333,10 @@ Widget _buildUnclaimedItem(
               child: _AssetTxIcon(assetCode: 'BTC', isSend: false)),
       title: _RowTitle(isRefunding
           ? context.l10n.refunding
-          : context.l10n.activityBitcoinWaiting),
+          : context.l10n.activityDepositWaiting),
       subtitle: isRefunding
           ? context.l10n.activityProcessingEllipsis
-          : context.l10n.activityTapToAddToWallet,
+          : context.l10n.activityTapToAddToBalance,
       status: isRefunding
           ? _RowStatus(
               text: context.l10n.pending, color: context.colors.warning)
@@ -2290,7 +2356,9 @@ Widget _buildUnclaimedItem(
     onTap: () => _openUnclaimedDeposit(context, ref, tx),
     leading: iconWidget,
     title: _RowTitle(context.l10n.received),
-    subtitle: DateFormat('HH:mm').format(tx.timestamp),
+    subtitle: tx.stage == SparkDepositStage.adding
+        ? context.l10n.activityAddingToBalance
+        : DateFormat('HH:mm').format(tx.timestamp),
     status:
         _RowStatus(text: context.l10n.pending, color: context.colors.warning),
     amount: ref.watch(conversionProvider(tx.amount.toInt())),
@@ -2333,7 +2401,11 @@ void _showPendingUnclaimedSheet(
               ),
               _sheetDetailRow(c, context.l10n.date, dateStr),
               _sheetDetailRow(
-                  c, context.l10n.status, context.l10n.activityArriving,
+                  c,
+                  context.l10n.status,
+                  tx.stage == SparkDepositStage.adding
+                      ? context.l10n.activityAddingToBalance
+                      : context.l10n.activityArriving,
                   valueColor: c.accent),
               // Rail and tx ID are nerd data — collapsed.
               _NerdDataSection(children: [
@@ -2343,6 +2415,14 @@ void _showPendingUnclaimedSheet(
                   _sheetDetailRow(c, context.l10n.txId, txid,
                       copiable: true, isAddress: true, ctx: ctx),
               ]),
+              if (tx.stage == SparkDepositStage.confirming) ...[
+                SizedBox(height: 16.h),
+                DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
+                DepositEarlyClaim(
+                    txid: txid,
+                    vout: tx.vout,
+                    amountSats: tx.amount.toInt()),
+              ],
               SizedBox(height: 20.h),
               if (txid.isNotEmpty)
                 SizedBox(
@@ -2524,8 +2604,11 @@ Widget _buildSparkPendingDepositItem(
     leading: iconWidget,
     title: _RowTitle(context.l10n.receiving),
     // "Arriving · 1 of 3 confirmations": the count is the whole story of
-    // this transient row, so it replaces the time.
-    subtitle: context.l10n.activityConfirmationsOfThree('${tx.confirmations}'),
+    // this transient row, so it replaces the time. From 3 the SDK is about
+    // to add it; the row bridges until the SDK lists the deposit.
+    subtitle: tx.confirmations < 3
+        ? context.l10n.activityConfirmationsOfThree('${tx.confirmations}')
+        : context.l10n.activityAddingToBalance,
     status: _RowStatus(
         text: context.l10n.activityArriving, color: context.colors.warning),
     amount: ref.watch(conversionProvider(amountSats)),
@@ -2568,8 +2651,10 @@ void _showSparkPendingDepositDetails(
               _sheetDetailRow(
                   c,
                   context.l10n.status,
-                  context.l10n
-                      .activityConfirmationsOfThree('${tx.confirmations}')),
+                  tx.confirmations < 3
+                      ? context.l10n
+                          .depositStatusConfirming('${tx.confirmations}')
+                      : context.l10n.activityAddingToBalance),
               // The real incoming transaction from mempool.space, as on the
               // bitcoin sheet: the output worth exactly the incoming amount
               // is the wallet's own.
@@ -2583,24 +2668,13 @@ void _showSparkPendingDepositDetails(
                     copiable: true, isAddress: true, ctx: context),
               ]),
               SizedBox(height: 16.h),
-              // Quiet grey note, same as the info lines elsewhere in the app
-              // (no tinted banner).
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: c.textTertiary, size: 14.sp),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      context.l10n.activityReadyAfterConfirmations(
-                          '${tx.confirmations}'),
-                      style: TextStyle(
-                          color: c.textTertiary, fontSize: 13.sp, height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
+              // The normal path, said plainly: added automatically after 3
+              // confirmations. Claim now is the optional, costlier one, and
+              // shows only when the provider quotes an early claim.
+              if (tx.confirmations < 3) ...[
+                DepositSheetNote(context.l10n.depositAutoAfterConfirmations),
+                DepositEarlyClaim(txid: txid, amountSats: amountSats),
+              ],
               SizedBox(height: 20.h),
               SizedBox(
                 width: double.infinity,
@@ -5023,45 +5097,33 @@ void _showSparkTxDetails(
 void _showUnclaimedDepositDetails(
     BuildContext context, WidgetRef ref, SparkUnclaimedDeposit tx) {
   TrackingService.transactionDetailViewed('spark_unclaimed_deposit');
-  final refundTxId = tx.refundTxId;
-  final isRefunding = refundTxId != null && refundTxId.isNotEmpty;
-  final settings = ref.read(settingsProvider);
-  final denomination = settings.btcFormat;
-  final unit = denomination == 'sats' ? 'sats' : 'BTC';
-  final amountStr = tx.amount.toInt().toFormattedString(denomination);
-  final fiatStr = ref.read(conversionToFiatProvider(tx.amount.toInt()));
-
+  if (tx.needsAction) {
+    TrackingService.depositClaimWaitingShown(
+      amountSats: tx.amount.toInt(),
+      reason: tx.stage == SparkDepositStage.waitingForFee
+          ? 'fee_exceeded'
+          : 'failed',
+      requiredFeeSats: tx.requiredFeeSats,
+    );
+  }
   showAppBottomSheet(
     context: context,
-    builder: (ctx) => _UnclaimedDepositSheet(
-      tx: tx,
-      isRefunding: isRefunding,
-      amountStr: amountStr,
-      unit: unit,
-      fiatStr: fiatStr,
-      denomination: denomination,
-    ),
+    builder: (ctx) => _UnclaimedDepositSheet(tx: tx),
   );
 }
 
 enum _DepositAction { claim, refund }
 
+/// The pending-deposit sheet for a deposit waiting on the person: the
+/// automatic claim refused its fee (above the cap) or failed. Says why in
+/// plain words, shows what claiming now costs, and offers Claim now (one
+/// approval), Wait for a lower fee, and Send it back. The automatic claim
+/// keeps running underneath: a fee-refused deposit is added on its own once
+/// the fee fits the cap.
 class _UnclaimedDepositSheet extends ConsumerStatefulWidget {
   final SparkUnclaimedDeposit tx;
-  final bool isRefunding;
-  final String amountStr;
-  final String unit;
-  final String fiatStr;
-  final String denomination;
 
-  const _UnclaimedDepositSheet({
-    required this.tx,
-    required this.isRefunding,
-    required this.amountStr,
-    required this.unit,
-    required this.fiatStr,
-    required this.denomination,
-  });
+  const _UnclaimedDepositSheet({required this.tx});
 
   @override
   ConsumerState<_UnclaimedDepositSheet> createState() =>
@@ -5077,15 +5139,32 @@ class _UnclaimedDepositSheetState
   /// one (the last network quote plus headroom) is used.
   int? _customMaxFeeSats;
 
-  /// The last fee the SDK quoted for this claim, from the stored claim
-  /// error, a fresh read or a rejected attempt.
+  /// The last fee the SDK quoted for this claim: a fresh quote, the stored
+  /// claim error, or a rejected attempt. Shown as the fee to claim now.
   int? _quoteSats;
+
+  bool get _isRefunding => widget.tx.stage == SparkDepositStage.refunding;
 
   @override
   void initState() {
     super.initState();
     _depositWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-    _noteQuote(widget.tx.depositInfo?.claimError);
+    _quoteSats = widget.tx.requiredFeeSats;
+    if (!_isRefunding) _refreshQuote();
+  }
+
+  /// Asks the provider what claiming at maturity costs now, so the fee on
+  /// the button is today's, not the one stored when the automatic claim
+  /// was refused. A failed quote keeps the stored one.
+  Future<void> _refreshQuote() async {
+    final walletId = _depositWalletId;
+    if (walletId == null) return;
+    try {
+      final quote = await ref.read(sparkDepositActionsProvider).quote(
+          walletId: walletId, txid: widget.tx.txid, vout: widget.tx.vout);
+      if (!mounted || quote.matureFeeSats <= 0) return;
+      setState(() => _quoteSats = quote.matureFeeSats);
+    } catch (_) {}
   }
 
   void _noteQuote(breez.DepositClaimError? error) {
@@ -5110,6 +5189,14 @@ class _UnclaimedDepositSheetState
   int get _depositSats =>
       widget.tx.depositInfo?.amountSats.toInt() ?? widget.tx.amount.toInt();
 
+  String get _stageName => switch (widget.tx.stage) {
+        SparkDepositStage.waitingForFee => 'waiting_for_fee',
+        SparkDepositStage.failed => 'failed',
+        SparkDepositStage.confirming => 'confirming',
+        SparkDepositStage.adding => 'adding',
+        SparkDepositStage.refunding => 'refunding',
+      };
+
   /// Advanced: a ceiling of the person's own, through the same picker the
   /// claim used to demand up front.
   Future<void> _pickFeeLimit() async {
@@ -5125,27 +5212,6 @@ class _UnclaimedDepositSheetState
       return;
     }
     setState(() => _customMaxFeeSats = picked);
-  }
-
-  String _actionMessage(SparkDepositActionException e, {bool refund = false}) {
-    final l10n = context.l10n;
-    return switch (e.reason) {
-      SparkDepositActionReason.walletChanged => l10n.depositActionWalletChanged,
-      SparkDepositActionReason.busy => l10n.depositActionBusy,
-      SparkDepositActionReason.walletUnavailable =>
-        l10n.depositActionWalletUnavailable,
-      SparkDepositActionReason.invalidDeposit =>
-        l10n.depositActionInvalidDeposit,
-      SparkDepositActionReason.immature => l10n.depositActionImmature,
-      SparkDepositActionReason.refundInProgress =>
-        l10n.depositActionRefundInProgress,
-      SparkDepositActionReason.invalidFee =>
-        refund ? l10n.invalidRate : l10n.depositActionInvalidFee,
-      SparkDepositActionReason.invalidAddress => l10n.pleaseEnterAnAddress,
-      SparkDepositActionReason.feeExceeded => l10n.depositAddFeeAboveLimit(
-          ref.read(
-              conversionProvider((e.requiredFeeSats ?? BigInt.zero).toInt()))),
-    };
   }
 
   /// Claims with [maxFeeSats]. When the quote has moved above the
@@ -5202,6 +5268,7 @@ class _UnclaimedDepositSheetState
     final actions = ref.read(sparkDepositActionsProvider);
     setState(() => _inFlight = _DepositAction.claim);
     var attempted = false;
+    var feeSats = _quoteSats ?? 0;
     try {
       // A wallet that is not ready stops here. A failed list read falls back
       // to the row data; a deposit the SDK no longer lists skips the fee.
@@ -5226,11 +5293,11 @@ class _UnclaimedDepositSheetState
         final deposit = live ?? widget.tx.depositInfo;
         final depositSats =
             deposit?.amountSats.toInt() ?? widget.tx.amount.toInt();
-        // The freshest quote wins; the recommended ceiling follows it.
-        _noteQuote(deposit?.claimError);
+        // A refusal newer than the fresh quote wins.
+        if (_quoteSats == null) _noteQuote(deposit?.claimError);
         var maxFeeSats = _feeLimitSats(depositSats);
         if (maxFeeSats == null) {
-          // No quote yet and nothing set under Advanced: the picker is
+          // No quote at all and nothing set under Advanced: the picker is
           // the only way to a ceiling, as before.
           maxFeeSats = await showAppBottomSheet<int>(
             context: context,
@@ -5243,6 +5310,21 @@ class _UnclaimedDepositSheetState
             return;
           }
         }
+        feeSats = _quoteSats ?? maxFeeSats;
+        // One approval, bound to this deposit and the most it may cost.
+        final approved = await approveDepositClaim(context, ref,
+            walletId: walletId,
+            txid: widget.tx.txid,
+            vout: widget.tx.vout,
+            maxFeeSats: maxFeeSats);
+        if (!approved || !mounted) {
+          return;
+        }
+        TrackingService.depositQuickClaimStarted(
+            amountSats: depositSats,
+            feeSats: feeSats,
+            maxFeeSats: maxFeeSats,
+            stage: _stageName);
         attempted = true;
         result = await _claimWithRetry(
           actions,
@@ -5251,6 +5333,11 @@ class _UnclaimedDepositSheetState
           depositSats: depositSats,
           deposit: deposit,
         );
+        TrackingService.depositQuickClaimSucceeded(
+            amountSats: depositSats,
+            feeSats: feeSats,
+            stage: _stageName,
+            outcome: result.outcome.name);
       }
       // An unknown status keeps the row listed in the SDK until its transfer
       // settles, so only the other outcomes drop it locally.
@@ -5285,23 +5372,11 @@ class _UnclaimedDepositSheetState
         case SparkDepositClaimOutcome.submitted:
           // The success moment: the sheet closes and the shared
           // confirmation takes over, honest about a transfer still landing.
-          final message = context.l10n.activityBitcoinAdded;
-          final detail = result.paymentStatus == breez.PaymentStatus.completed
-              ? null
-              : context.l10n.activityBitcoinAddedPending;
-          final unit = ref.read(settingsProvider).btcFormat;
           context.pop();
-          pushKuteSuccessOverlay(
-            navigator: rootNav,
-            overlay: KuteConfirmation(
-              message: message,
-              amount: claimedSats > 0
-                  ? '${claimedSats.toFormattedString(unit)} $unit'
-                  : null,
-              detail: detail,
-              onDone: () => rootNav.pop(),
-            ),
-          );
+          showDepositClaimSuccess(rootNav, context, ref,
+              amountSats: claimedSats,
+              settled:
+                  result.paymentStatus == breez.PaymentStatus.completed);
           return;
         case SparkDepositClaimOutcome.alreadyReceived:
           showMessageSnackBarInfo(
@@ -5315,21 +5390,44 @@ class _UnclaimedDepositSheetState
               message: context.l10n.depositClaimStatusUnknown);
       }
       context.pop();
-    } on SparkDepositActionException catch (e) {
-      TrackingService.sparkDepositClaimFailed(reason: e.reason.name);
-      if (mounted) {
-        showMessageSnackBar(
-            context: context, message: _actionMessage(e), error: true);
-      }
     } catch (e) {
-      TrackingService.sparkDepositClaimFailed(reason: 'sdk_error');
-      if (mounted) {
+      final action = e is SparkDepositActionException ? e : null;
+      TrackingService.sparkDepositClaimFailed(
+          reason: action?.reason.name ?? 'sdk_error');
+      if (attempted) {
+        TrackingService.depositQuickClaimFailed(
+            amountSats: _depositSats,
+            feeSats: feeSats,
+            stage: _stageName,
+            errorCategory: action?.reason.name ?? 'sdk_error');
+      }
+      final required = action?.requiredFeeSats;
+      if (action?.reason == SparkDepositActionReason.feeExceeded &&
+          required != null &&
+          mounted) {
+        // The quote moved past the one retry: the button shows the new fee.
+        setState(() => _quoteSats = required.toInt());
+      }
+      if (action?.reason == SparkDepositActionReason.busy) {
+        // Another claim (the automatic one) holds this deposit right now:
+        // nothing failed, the bitcoin is on its way in.
+        if (mounted) {
+          showMessageSnackBarInfo(
+              context: context, message: context.l10n.depositActionBusy);
+        }
+      } else if (mounted) {
         // Unknown SDK errors never reach the user verbatim.
-        showMessageSnackBar(
-            context: context,
-            message: userErrorCopy(context, e,
-                fallback: context.l10n.depositAddFailed),
-            error: true);
+        showDepositClaimFailure(
+          rootNav,
+          context,
+          detail: action != null
+              ? depositActionMessage(context, ref, action)
+              : userErrorCopy(context, e,
+                  fallback: context.l10n.depositAddFailed),
+          onRetry: () {
+            if (mounted) _handleClaim();
+          },
+        );
       }
     } finally {
       if (attempted) {
@@ -5346,6 +5444,7 @@ class _UnclaimedDepositSheetState
     if (_inFlight != null || walletId == null) {
       return;
     }
+    TrackingService.depositRefundStarted(amountSats: _depositSats);
     final container = ProviderScope.containerOf(context, listen: false);
     final rootNav = Navigator.of(context, rootNavigator: true);
     final actions = ref.read(sparkDepositActionsProvider);
@@ -5440,7 +5539,7 @@ class _UnclaimedDepositSheetState
       if (mounted) {
         showMessageSnackBar(
             context: context,
-            message: _actionMessage(e, refund: true),
+            message: depositActionMessage(context, ref, e, refund: true),
             error: true);
       }
     } catch (e) {
@@ -5480,15 +5579,40 @@ class _UnclaimedDepositSheetState
 
   @override
   Widget build(BuildContext context) {
+    // One guard for every claim of this outpoint: while the automatic claim
+    // (or another sheet) runs one, this sheet says so and holds its actions.
+    final busy = ref.watch(sparkDepositActionsProvider).busyOutpoints;
+    final key = sparkOutpointKey(widget.tx.txid, widget.tx.vout);
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: busy,
+      builder: (context, outpoints, _) => _buildSheet(
+          context, _inFlight == null && outpoints.contains(key)),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context, bool claimElsewhere) {
     final c = context.colors;
+    final stage = widget.tx.stage;
     final depositSats = _depositSats;
     final custom = _customMaxFeeSats;
+    final quote = _quoteSats;
     final limit = _feeLimitSats(depositSats);
     // "Up to ₿350" once the network has quoted the claim; until then the
     // fee is quoted when the person adds the bitcoin.
-    final feeLabel = limit == null
+    final limitLabel = limit == null
         ? context.l10n.activityFeeQuotedWhenAdded
         : context.l10n.activityUpToAmount(ref.watch(conversionProvider(limit)));
+    final waitingForFee = stage == SparkDepositStage.waitingForFee;
+    final locked = _inFlight != null || claimElsewhere;
+    final (statusText, statusColor) = switch (stage) {
+      _ when claimElsewhere => (context.l10n.activityAddingToBalance, c.accent),
+      SparkDepositStage.refunding => (context.l10n.refunding, AppColors.info),
+      SparkDepositStage.waitingForFee => (
+          context.l10n.depositStatusWaitingFee,
+          c.accent
+        ),
+      _ => (context.l10n.depositStatusFailed, c.accent),
+    };
     return AppBottomSheetContainer(
       maxHeight: 0.85,
       child: SheetScrollView(
@@ -5501,8 +5625,10 @@ class _UnclaimedDepositSheetState
                 row: _buildUnclaimedItem(widget.tx, context, ref),
                 advisorSurface: 'deposit_tx_detail',
               ),
-              if (!widget.isRefunding) ...[
-                _sheetDetailRow(c, context.l10n.activityNetworkFee, feeLabel),
+              _sheetDetailRow(c, context.l10n.status, statusText,
+                  valueColor: statusColor),
+              if (!_isRefunding) ...[
+                if (quote != null) DepositFeeRow(feeSats: quote),
                 // The ceiling is an Advanced control: the recommended one
                 // applies unless the person sets their own here.
                 _NerdDataSection(
@@ -5511,7 +5637,7 @@ class _UnclaimedDepositSheetState
                     SheetDetailRow(
                       label: context.l10n.activityFeeLimit,
                       value: custom == null
-                          ? feeLabel
+                          ? limitLabel
                           : context.l10n.activityUpToAmount(
                               ref.watch(conversionProvider(custom))),
                       trailingIcon: Icons.edit_outlined,
@@ -5520,42 +5646,47 @@ class _UnclaimedDepositSheetState
                   ],
                 ),
               ],
-              // Type, status and outpoint are nerd data — collapsed.
+              // Type and outpoint are nerd data — collapsed.
               _NerdDataSection(children: [
                 _sheetDetailRow(
                     c, context.l10n.type, context.l10n.activityOnChainDeposit),
-                _sheetDetailRow(
-                    c,
-                    context.l10n.status,
-                    widget.isRefunding
-                        ? context.l10n.refunding
-                        : context.l10n.activityUnclaimed,
-                    valueColor: widget.isRefunding
-                        ? AppColors.info
-                        : context.colors.accent),
                 _sheetDetailRow(c, context.l10n.txId, widget.tx.txid,
                     copiable: true, isAddress: true, ctx: context),
                 _sheetDetailRow(
                     c, context.l10n.vout, widget.tx.vout.toString()),
               ]),
               SizedBox(height: 16.h),
-              // One primary action; the refund is a quiet text link.
-              if (!widget.isRefunding) ...[
-                if (widget.tx.isMature) ...[
-                  AppButton(
-                    text: context.l10n.activityAddToWallet,
-                    onPressed: _inFlight != null ? null : _handleClaim,
-                    isLoading: _inFlight == _DepositAction.claim,
-                    textColor: Colors.white,
-                    compact: true,
+              if (!_isRefunding) ...[
+                // Why it waits, in plain words, and what happens on its own.
+                DepositSheetNote(waitingForFee
+                    ? context.l10n.depositReasonFeeHigh
+                    : context.l10n.depositReasonFailed),
+                SizedBox(height: 16.h),
+                // One primary action; waiting and the refund are quiet.
+                AppButton(
+                  text: quote == null
+                      ? context.l10n.activityAddToWallet
+                      : context.l10n.depositClaimNowFee(
+                          ref.watch(conversionProvider(quote))),
+                  onPressed: locked ? null : _handleClaim,
+                  isLoading:
+                      _inFlight == _DepositAction.claim || claimElsewhere,
+                  // The variant's own contrast: white text on the dark
+                  // fill in light mode, dark text on the light one in dark.
+                  compact: true,
+                ),
+                SizedBox(height: 6.h),
+                if (waitingForFee)
+                  AppBottomSheetTextButton(
+                    text: context.l10n.depositWaitForLowerFee,
+                    onPressed: _inFlight != null ? null : () => context.pop(),
                   ),
-                  SizedBox(height: 6.h),
-                ],
+                // Never while a claim runs: the refund would race it.
                 AppBottomSheetTextButton(
                   text: _inFlight == _DepositAction.refund
                       ? context.l10n.activityProcessingEllipsis
-                      : context.l10n.refund,
-                  onPressed: _inFlight != null ? null : _handleRefund,
+                      : context.l10n.depositSendItBack,
+                  onPressed: locked ? null : _handleRefund,
                 ),
                 SizedBox(height: 4.h),
               ],

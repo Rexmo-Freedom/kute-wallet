@@ -3414,6 +3414,65 @@ class AppLocalizationsEs extends AppLocalizations {
   String get activityTapToAddToWallet => 'Toca para añadir a la cartera';
 
   @override
+  String get activityDepositWaiting => 'Depósito en espera';
+
+  @override
+  String get activityTapToAddToBalance => 'Toca para añadirlo a tu saldo';
+
+  @override
+  String get activityAddingToBalance => 'Añadiéndose a tu saldo…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Confirmando · $current de 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Esperando una comisión más baja';
+
+  @override
+  String get depositStatusFailed => 'Aún no se pudo añadir';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Se añade automáticamente tras 3 confirmaciones.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'La comisión de red para añadirlo a tu saldo es más alta de lo habitual. Se añade automáticamente cuando baje la comisión.';
+
+  @override
+  String get depositReasonFailed =>
+      'Aún no se pudo añadir. Inténtalo de nuevo.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Reclamar ahora · comisión de $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Comisión por reclamar ahora';
+
+  @override
+  String get depositWaitForLowerFee => 'Esperar una comisión más baja';
+
+  @override
+  String get depositSendItBack => 'Devolverlo';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount está esperando a añadirse a tu saldo';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Confirma una comisión de hasta $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'No se pudo añadir tu bitcoin';
+
+  @override
   String get activityAddToWallet => 'Añadir a la cartera';
 
   @override

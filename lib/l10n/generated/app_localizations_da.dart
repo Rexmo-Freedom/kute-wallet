@@ -3392,6 +3392,65 @@ class AppLocalizationsDa extends AppLocalizations {
   String get activityTapToAddToWallet => 'Tryk for at tilføje til tegnebog';
 
   @override
+  String get activityDepositWaiting => 'Indbetaling venter';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Tryk for at tilføje den til din saldo';
+
+  @override
+  String get activityAddingToBalance => 'Tilføjes til din saldo…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Bekræftes · $current af 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Venter på et lavere gebyr';
+
+  @override
+  String get depositStatusFailed => 'Kunne ikke tilføjes endnu';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Tilføjes automatisk efter 3 bekræftelser.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Netværksgebyret for at tilføje den til din saldo er højere end normalt. Den tilføjes automatisk, når gebyret falder.';
+
+  @override
+  String get depositReasonFailed => 'Den kunne ikke tilføjes endnu. Prøv igen.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Indløs nu · $fee i gebyr';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Gebyr for at indløse nu';
+
+  @override
+  String get depositWaitForLowerFee => 'Vent på et lavere gebyr';
+
+  @override
+  String get depositSendItBack => 'Send den tilbage';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount venter på at blive tilføjet til din saldo';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Bekræft et gebyr på op til $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Din bitcoin kunne ikke tilføjes';
+
+  @override
   String get activityAddToWallet => 'Tilføj til tegnebog';
 
   @override

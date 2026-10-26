@@ -2459,11 +2459,13 @@ class TrackingService {
     double? amountUsd,
     int? feeSats,
     String? trigger, // manual | auto
+    String? path, // auto_percent | auto_stale_early_claim
   }) {
     track('spark_deposit_claimed', params: {
       'outcome': outcome,
       if (status != null) 'status': status,
       if (trigger != null) 'trigger': trigger,
+      if (path != null) 'path': path,
       'network': 'bitcoin',
       ...moneyParams(
         amountUsd: amountUsd,
@@ -2474,6 +2476,73 @@ class TrackingService {
         feeBasis: 'network_fee',
       ),
     });
+  }
+
+  /// The pending-deposit sheet opened on a deposit waiting on the person:
+  /// [reason] is fee_exceeded or failed, [requiredFeeSats] the provider's
+  /// quote when it refused the automatic claim. Exact sats, no ids.
+  static void depositClaimWaitingShown({
+    required int amountSats,
+    required String reason,
+    int? requiredFeeSats,
+  }) {
+    track('deposit_claim_waiting_shown', params: {
+      'amount_sats': amountSats,
+      'reason': reason,
+      if (requiredFeeSats != null) 'required_fee_sats': requiredFeeSats,
+    });
+  }
+
+  /// Claim now was approved and is about to run. [stage] is waiting_for_fee,
+  /// failed or confirming (an early claim); [feeSats] the quote shown on the
+  /// button, [maxFeeSats] the ceiling sent to the SDK.
+  static void depositQuickClaimStarted({
+    required int amountSats,
+    required int feeSats,
+    required int maxFeeSats,
+    required String stage,
+  }) {
+    track('deposit_quick_claim_started', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'max_fee_sats': maxFeeSats,
+      'stage': stage,
+    });
+  }
+
+  static void depositQuickClaimSucceeded({
+    required int amountSats,
+    required int feeSats,
+    required String stage,
+    required String outcome,
+  }) {
+    track('deposit_quick_claim_succeeded', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'stage': stage,
+      'outcome': outcome,
+    });
+  }
+
+  /// [errorCategory] is a fixed reason (a SparkDepositActionReason name or
+  /// sdk_error), never SDK text.
+  static void depositQuickClaimFailed({
+    required int amountSats,
+    required int feeSats,
+    required String stage,
+    required String errorCategory,
+  }) {
+    track('deposit_quick_claim_failed', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'stage': stage,
+      'error_category': _safeReason(errorCategory) ?? '',
+    });
+  }
+
+  /// Send it back was tapped on a pending deposit (before the address).
+  static void depositRefundStarted({required int amountSats}) {
+    track('deposit_refund_started', params: {'amount_sats': amountSats});
   }
 
   static void sparkDepositClaimFailed({required String reason}) {

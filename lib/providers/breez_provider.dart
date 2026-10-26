@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/services/spark_deposit_actions.dart';
+import 'package:kute/services/spark_deposit_auto_claim.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart' show pickSpendingWallet;
 import 'package:kute/models/breez/error_handling.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
@@ -706,6 +707,12 @@ final sparkDepositActionsProvider = Provider<SparkDepositActions>((ref) {
     },
   );
 });
+
+/// Claims the deposits the SDK will never claim again on its own (see
+/// [SparkDepositAutoClaimer]). One per process: it remembers attempts.
+final sparkDepositAutoClaimerProvider = Provider<SparkDepositAutoClaimer>(
+    (ref) => SparkDepositAutoClaimer(
+        actions: ref.watch(sparkDepositActionsProvider)));
 
 final sparkBitcoinBalanceProvider = FutureProvider<BigInt>((ref) async {
   final sdkWrapper = await ref.watch(breezSDKProvider.future);
