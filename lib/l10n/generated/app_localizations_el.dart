@@ -3425,6 +3425,67 @@ class AppLocalizationsEl extends AppLocalizations {
   String get activityTapToAddToWallet => 'Πάτησε για προσθήκη στο πορτοφόλι';
 
   @override
+  String get activityDepositWaiting => 'Κατάθεση σε αναμονή';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Πάτησε για να την προσθέσεις στο υπόλοιπό σου';
+
+  @override
+  String get activityAddingToBalance => 'Προστίθεται στο υπόλοιπό σου…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Επιβεβαιώνεται · $current από 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Αναμονή για χαμηλότερη χρέωση';
+
+  @override
+  String get depositStatusFailed => 'Δεν προστέθηκε ακόμη';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Προστίθεται αυτόματα μετά από 3 επιβεβαιώσεις.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Η χρέωση δικτύου για να προστεθεί στο υπόλοιπό σου είναι υψηλότερη από το συνηθισμένο. Προστίθεται αυτόματα μόλις πέσει η χρέωση.';
+
+  @override
+  String get depositReasonFailed =>
+      'Δεν μπόρεσε να προστεθεί ακόμη. Δοκίμασε ξανά.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Είσπραξη τώρα · χρέωση $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Χρέωση για είσπραξη τώρα';
+
+  @override
+  String get depositWaitForLowerFee => 'Αναμονή για χαμηλότερη χρέωση';
+
+  @override
+  String get depositSendItBack => 'Επίστρεψέ την';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount περιμένει να προστεθεί στο υπόλοιπό σου';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Επιβεβαίωσε χρέωση έως $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle =>
+      'Δεν ήταν δυνατή η προσθήκη του bitcoin σου';
+
+  @override
   String get activityAddToWallet => 'Προσθήκη στο πορτοφόλι';
 
   @override

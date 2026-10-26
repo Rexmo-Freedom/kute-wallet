@@ -3390,6 +3390,66 @@ class AppLocalizationsSv extends AppLocalizations {
   String get activityTapToAddToWallet => 'Tryck för att lägga till i plånboken';
 
   @override
+  String get activityDepositWaiting => 'Insättning väntar';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Tryck för att lägga till den i ditt saldo';
+
+  @override
+  String get activityAddingToBalance => 'Läggs till i ditt saldo…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Bekräftas · $current av 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Väntar på en lägre avgift';
+
+  @override
+  String get depositStatusFailed => 'Kunde inte läggas till än';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Läggs till automatiskt efter 3 bekräftelser.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Nätverksavgiften för att lägga till den i ditt saldo är högre än vanligt. Den läggs till automatiskt när avgiften sjunker.';
+
+  @override
+  String get depositReasonFailed =>
+      'Den kunde inte läggas till än. Försök igen.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Hämta nu · $fee i avgift';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Avgift för att hämta nu';
+
+  @override
+  String get depositWaitForLowerFee => 'Vänta på en lägre avgift';
+
+  @override
+  String get depositSendItBack => 'Skicka tillbaka';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount väntar på att läggas till i ditt saldo';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Bekräfta en avgift på upp till $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Din bitcoin kunde inte läggas till';
+
+  @override
   String get activityAddToWallet => 'Lägg till i plånboken';
 
   @override

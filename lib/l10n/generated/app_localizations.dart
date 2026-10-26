@@ -6141,6 +6141,102 @@ abstract class AppLocalizations {
   /// **'Tap to add to wallet'**
   String get activityTapToAddToWallet;
 
+  /// No description provided for @activityDepositWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deposit waiting'**
+  String get activityDepositWaiting;
+
+  /// No description provided for @activityTapToAddToBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to add it to your balance'**
+  String get activityTapToAddToBalance;
+
+  /// No description provided for @activityAddingToBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding to your balance…'**
+  String get activityAddingToBalance;
+
+  /// No description provided for @depositStatusConfirming.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming · {current} of 3'**
+  String depositStatusConfirming(String current);
+
+  /// No description provided for @depositStatusWaitingFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for a lower fee'**
+  String get depositStatusWaitingFee;
+
+  /// No description provided for @depositStatusFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t add it yet'**
+  String get depositStatusFailed;
+
+  /// No description provided for @depositAutoAfterConfirmations.
+  ///
+  /// In en, this message translates to:
+  /// **'Added automatically after 3 confirmations.'**
+  String get depositAutoAfterConfirmations;
+
+  /// No description provided for @depositReasonFeeHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'The network fee to add this to your balance is higher than usual. It\'s added automatically once the fee drops.'**
+  String get depositReasonFeeHigh;
+
+  /// No description provided for @depositReasonFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'It couldn\'t be added yet. Try again.'**
+  String get depositReasonFailed;
+
+  /// No description provided for @depositClaimNowFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim now · {fee} fee'**
+  String depositClaimNowFee(String fee);
+
+  /// No description provided for @depositFeeToClaimNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Fee to claim now'**
+  String get depositFeeToClaimNow;
+
+  /// No description provided for @depositWaitForLowerFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait for a lower fee'**
+  String get depositWaitForLowerFee;
+
+  /// No description provided for @depositSendItBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it back'**
+  String get depositSendItBack;
+
+  /// No description provided for @depositHomeWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} is waiting to be added to your balance'**
+  String depositHomeWaiting(String amount);
+
+  /// No description provided for @stepUpReasonClaimDeposit.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm a fee of up to {fee}'**
+  String stepUpReasonClaimDeposit(String fee);
+
+  /// No description provided for @depositClaimFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t add your bitcoin'**
+  String get depositClaimFailedTitle;
+
   /// No description provided for @activityAddToWallet.
   ///
   /// In en, this message translates to:

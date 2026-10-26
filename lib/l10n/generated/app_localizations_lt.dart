@@ -3399,6 +3399,66 @@ class AppLocalizationsLt extends AppLocalizations {
       'Bakstelėkite, kad pridėtumėte į piniginę';
 
   @override
+  String get activityDepositWaiting => 'Įnašas laukia';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Bakstelėkite, kad pridėtumėte jį prie likučio';
+
+  @override
+  String get activityAddingToBalance => 'Pridedama prie likučio…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Tvirtinama · $current iš 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Laukiama mažesnio mokesčio';
+
+  @override
+  String get depositStatusFailed => 'Dar nepavyko pridėti';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Pridedama automatiškai po 3 patvirtinimų.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Tinklo mokestis už pridėjimą prie likučio didesnis nei įprastai. Jis bus pridėtas automatiškai, kai mokestis sumažės.';
+
+  @override
+  String get depositReasonFailed =>
+      'Dar nepavyko pridėti. Bandykite dar kartą.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Atsiimti dabar · $fee mokestis';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Mokestis už atsiėmimą dabar';
+
+  @override
+  String get depositWaitForLowerFee => 'Palaukti mažesnio mokesčio';
+
+  @override
+  String get depositSendItBack => 'Grąžinti';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount laukia, kol bus pridėta prie likučio';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Patvirtinkite iki $fee mokestį';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Nepavyko pridėti jūsų bitcoin';
+
+  @override
   String get activityAddToWallet => 'Pridėti į piniginę';
 
   @override

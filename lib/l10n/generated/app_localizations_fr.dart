@@ -3418,6 +3418,66 @@ class AppLocalizationsFr extends AppLocalizations {
   String get activityTapToAddToWallet => 'Appuyez pour ajouter au portefeuille';
 
   @override
+  String get activityDepositWaiting => 'Dépôt en attente';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Appuyez pour l\'ajouter à votre solde';
+
+  @override
+  String get activityAddingToBalance => 'Ajout à votre solde…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Confirmation · $current sur 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'En attente de frais plus bas';
+
+  @override
+  String get depositStatusFailed => 'Pas encore ajouté';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Ajouté automatiquement après 3 confirmations.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Les frais de réseau pour l\'ajouter à votre solde sont plus élevés que d\'habitude. Il est ajouté automatiquement dès que les frais baissent.';
+
+  @override
+  String get depositReasonFailed =>
+      'Il n\'a pas encore pu être ajouté. Réessayez.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Récupérer maintenant · $fee de frais';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Frais pour récupérer maintenant';
+
+  @override
+  String get depositWaitForLowerFee => 'Attendre des frais plus bas';
+
+  @override
+  String get depositSendItBack => 'Le renvoyer';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount attend d\'être ajouté à votre solde';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Confirmer des frais jusqu\'à $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Impossible d\'ajouter vos bitcoins';
+
+  @override
   String get activityAddToWallet => 'Ajouter au portefeuille';
 
   @override

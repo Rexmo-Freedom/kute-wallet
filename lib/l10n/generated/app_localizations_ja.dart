@@ -3299,6 +3299,63 @@ class AppLocalizationsJa extends AppLocalizations {
   String get activityTapToAddToWallet => 'タップしてウォレットに追加';
 
   @override
+  String get activityDepositWaiting => '入金を保留中';
+
+  @override
+  String get activityTapToAddToBalance => 'タップして残高に追加';
+
+  @override
+  String get activityAddingToBalance => '残高に追加しています…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return '承認中 · $current/3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => '手数料が下がるのを待っています';
+
+  @override
+  String get depositStatusFailed => 'まだ追加できていません';
+
+  @override
+  String get depositAutoAfterConfirmations => '3回の承認後に自動で追加されます。';
+
+  @override
+  String get depositReasonFeeHigh =>
+      '残高に追加するためのネットワーク手数料が通常より高くなっています。手数料が下がると自動で追加されます。';
+
+  @override
+  String get depositReasonFailed => 'まだ追加できませんでした。もう一度お試しください。';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return '今すぐ受け取る · 手数料 $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => '今すぐ受け取る手数料';
+
+  @override
+  String get depositWaitForLowerFee => '手数料が下がるのを待つ';
+
+  @override
+  String get depositSendItBack => '送り返す';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount が残高への追加を待っています';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return '最大 $fee の手数料を確定';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'ビットコインを追加できませんでした';
+
+  @override
   String get activityAddToWallet => 'ウォレットに追加';
 
   @override

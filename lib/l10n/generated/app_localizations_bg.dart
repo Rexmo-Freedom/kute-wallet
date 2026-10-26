@@ -3402,6 +3402,65 @@ class AppLocalizationsBg extends AppLocalizations {
   String get activityTapToAddToWallet => 'Докосни, за да добавиш в портфейла';
 
   @override
+  String get activityDepositWaiting => 'Депозит изчаква';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Докосни, за да го добавиш към баланса си';
+
+  @override
+  String get activityAddingToBalance => 'Добавя се към баланса ти…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Потвърждава се · $current от 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Изчаква по-ниска такса';
+
+  @override
+  String get depositStatusFailed => 'Още не можа да се добави';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Добавя се автоматично след 3 потвърждения.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Мрежовата такса за добавяне към баланса ти е по-висока от обичайното. Добавя се автоматично, щом таксата спадне.';
+
+  @override
+  String get depositReasonFailed => 'Още не можа да се добави. Опитай отново.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Вземи сега · такса $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Такса за вземане сега';
+
+  @override
+  String get depositWaitForLowerFee => 'Изчакай по-ниска такса';
+
+  @override
+  String get depositSendItBack => 'Върни го';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount чака да бъде добавен към баланса ти';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Потвърди такса до $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Не можахме да добавим биткойна ти';
+
+  @override
   String get activityAddToWallet => 'Добави в портфейла';
 
   @override

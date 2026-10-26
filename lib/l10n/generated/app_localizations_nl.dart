@@ -3405,6 +3405,66 @@ class AppLocalizationsNl extends AppLocalizations {
   String get activityTapToAddToWallet => 'Tik om aan wallet toe te voegen';
 
   @override
+  String get activityDepositWaiting => 'Storting wacht';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Tik om hem aan je saldo toe te voegen';
+
+  @override
+  String get activityAddingToBalance => 'Wordt aan je saldo toegevoegd…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Bevestigen · $current van 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Wacht op lagere kosten';
+
+  @override
+  String get depositStatusFailed => 'Nog niet toegevoegd';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Wordt automatisch toegevoegd na 3 bevestigingen.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'De netwerkkosten om hem aan je saldo toe te voegen zijn hoger dan normaal. Hij wordt automatisch toegevoegd zodra de kosten dalen.';
+
+  @override
+  String get depositReasonFailed =>
+      'Hij kon nog niet worden toegevoegd. Probeer het opnieuw.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Nu claimen · $fee kosten';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Kosten om nu te claimen';
+
+  @override
+  String get depositWaitForLowerFee => 'Wachten op lagere kosten';
+
+  @override
+  String get depositSendItBack => 'Terugsturen';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount wacht om aan je saldo te worden toegevoegd';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Bevestig kosten tot $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Je bitcoin kon niet worden toegevoegd';
+
+  @override
   String get activityAddToWallet => 'Aan wallet toevoegen';
 
   @override

@@ -3381,6 +3381,65 @@ class AppLocalizationsLv extends AppLocalizations {
   String get activityTapToAddToWallet => 'Pieskaries, lai pievienotu maciņam';
 
   @override
+  String get activityDepositWaiting => 'Iemaksa gaida';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Pieskaries, lai pievienotu to atlikumam';
+
+  @override
+  String get activityAddingToBalance => 'Tiek pievienota atlikumam…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Tiek apstiprināta · $current no 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Gaida zemāku maksu';
+
+  @override
+  String get depositStatusFailed => 'Vēl neizdevās pievienot';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Tiek pievienota automātiski pēc 3 apstiprinājumiem.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Tīkla maksa par pievienošanu atlikumam ir augstāka nekā parasti. Tā tiks pievienota automātiski, kad maksa samazināsies.';
+
+  @override
+  String get depositReasonFailed => 'Vēl neizdevās pievienot. Mēģini vēlreiz.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Saņemt tagad · maksa $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Maksa par saņemšanu tagad';
+
+  @override
+  String get depositWaitForLowerFee => 'Gaidīt zemāku maksu';
+
+  @override
+  String get depositSendItBack => 'Sūtīt atpakaļ';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount gaida pievienošanu atlikumam';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Apstiprini maksu līdz $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Neizdevās pievienot tavu bitcoin';
+
+  @override
   String get activityAddToWallet => 'Pievienot maciņam';
 
   @override

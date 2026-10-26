@@ -3409,6 +3409,65 @@ class AppLocalizationsRo extends AppLocalizations {
   String get activityTapToAddToWallet => 'Atinge pentru a adăuga în portofel';
 
   @override
+  String get activityDepositWaiting => 'Depunere în așteptare';
+
+  @override
+  String get activityTapToAddToBalance => 'Atinge pentru a o adăuga în sold';
+
+  @override
+  String get activityAddingToBalance => 'Se adaugă în sold…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Se confirmă · $current din 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Așteaptă un comision mai mic';
+
+  @override
+  String get depositStatusFailed => 'Nu a putut fi adăugată încă';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Se adaugă automat după 3 confirmări.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Comisionul de rețea pentru adăugarea în sold este mai mare decât de obicei. Se adaugă automat imediat ce comisionul scade.';
+
+  @override
+  String get depositReasonFailed =>
+      'Nu a putut fi adăugată încă. Încearcă din nou.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Revendică acum · comision $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Comision pentru revendicare acum';
+
+  @override
+  String get depositWaitForLowerFee => 'Așteaptă un comision mai mic';
+
+  @override
+  String get depositSendItBack => 'Trimite-o înapoi';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount așteaptă să fie adăugat în sold';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Confirmă un comision de până la $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Nu am putut adăuga bitcoinul tău';
+
+  @override
   String get activityAddToWallet => 'Adaugă în portofel';
 
   @override

@@ -3390,6 +3390,65 @@ class AppLocalizationsFi extends AppLocalizations {
   String get activityTapToAddToWallet => 'Lisää lompakkoon napauttamalla';
 
   @override
+  String get activityDepositWaiting => 'Talletus odottaa';
+
+  @override
+  String get activityTapToAddToBalance => 'Lisää saldoosi napauttamalla';
+
+  @override
+  String get activityAddingToBalance => 'Lisätään saldoosi…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Vahvistetaan · $current/3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Odottaa matalampaa maksua';
+
+  @override
+  String get depositStatusFailed => 'Ei voitu vielä lisätä';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Lisätään automaattisesti 3 vahvistuksen jälkeen.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Verkkomaksu saldoon lisäämisestä on tavallista korkeampi. Talletus lisätään automaattisesti, kun maksu laskee.';
+
+  @override
+  String get depositReasonFailed =>
+      'Talletusta ei voitu vielä lisätä. Yritä uudelleen.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Lunasta nyt · maksu $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Maksu heti lunastamisesta';
+
+  @override
+  String get depositWaitForLowerFee => 'Odota matalampaa maksua';
+
+  @override
+  String get depositSendItBack => 'Palauta lähettäjälle';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount odottaa lisäämistä saldoosi';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Vahvista enintään $fee maksu';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Bitcoinia ei voitu lisätä';
+
+  @override
   String get activityAddToWallet => 'Lisää lompakkoon';
 
   @override
