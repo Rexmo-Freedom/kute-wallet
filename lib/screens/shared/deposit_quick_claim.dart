@@ -322,7 +322,6 @@ class _DepositEarlyClaimState extends ConsumerState<DepositEarlyClaim> {
             text: context.l10n.depositClaimNowFee(feeText),
             onPressed: _busy ? null : _claim,
             isLoading: _busy,
-            textColor: Colors.white,
             compact: true,
           ),
         ],

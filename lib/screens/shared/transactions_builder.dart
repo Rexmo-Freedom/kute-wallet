@@ -5685,7 +5685,8 @@ class _UnclaimedDepositSheetState
                   onPressed: locked ? null : _handleClaim,
                   isLoading:
                       _inFlight == _DepositAction.claim || claimElsewhere,
-                  textColor: Colors.white,
+                  // The variant's own contrast: white text on the dark
+                  // fill in light mode, dark text on the light one in dark.
                   compact: true,
                 ),
                 SizedBox(height: 6.h),
