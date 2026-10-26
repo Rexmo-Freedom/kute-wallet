@@ -844,6 +844,9 @@ class _ActivitySection extends ConsumerWidget {
           // in and out by kind, so only the hot Spark wallet gets it.
           // The activity child is pre-resolved here because its
           // skeleton/empty states hang off Home-local providers.
+          // A deposit waiting for a lower fee: one quiet line (the
+          // spending wallet only; nothing renders otherwise).
+          if (!isSavings) const DepositWaitingLine(),
           RepaintBoundary(
             child: HomeAnalyticsWidget(
               surface: 'home',
