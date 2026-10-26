@@ -711,10 +711,7 @@ class PushPipeline implements SyncPipeline {
           now: DateTime.now(),
           settledOutpoints:
               sparkDepositPaymentOutpoints(current.sparkTransactions),
-          mempoolTxids: {
-            for (final pending in current.sparkPendingDeposits)
-              pending.mempoolTx.txid.toLowerCase(),
-          },
+          mempoolTxids: sparkConfirmingTxids(current.sparkPendingDeposits),
         );
         // Every SDK sync re-reads the list. Unchanged rows skip the feed
         // rebuild and the synchronous full-history write.
@@ -726,6 +723,19 @@ class PushPipeline implements SyncPipeline {
             (latest) => latest.copyWith(sparkUnclaimedDeposits: next),
           );
           notifier.persistNowForWallet(spendingId);
+        }
+      }
+      // Each snapshot (connect, sync): claim what the SDK never will again.
+      if (update.kind == SparkDepositUpdateKind.snapshot) {
+        final rows = container
+                .read(walletTransactionCacheProvider)[spendingId]
+                ?.sparkUnclaimedDeposits ??
+            const <SparkUnclaimedDeposit>[];
+        if (rows.isNotEmpty) {
+          unawaited(container
+              .read(sparkDepositAutoClaimerProvider)
+              .review(spendingId, rows)
+              .catchError((_) {}));
         }
       }
       // Refresh on every settled batch, including when other deposits remain.

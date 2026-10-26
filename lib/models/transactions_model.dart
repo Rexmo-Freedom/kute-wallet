@@ -288,6 +288,7 @@ class SparkUnclaimedDeposit extends BaseTransaction {
   final bool? _cachedIsMature;
   final String? _cachedRefundTxId;
   final bool? _cachedHasClaimError;
+  final int? _cachedRequiredFeeSats;
 
   SparkUnclaimedDeposit({
     required super.id, // Usually `${txid}:${vout}`
@@ -299,6 +300,7 @@ class SparkUnclaimedDeposit extends BaseTransaction {
         _cachedIsMature = null,
         _cachedRefundTxId = null,
         _cachedHasClaimError = null,
+        _cachedRequiredFeeSats = null,
         super(isConfirmed: false);
 
   /// Hive-hydrated constructor — primitives only, no SDK payload.
@@ -311,6 +313,7 @@ class SparkUnclaimedDeposit extends BaseTransaction {
     required bool isMature,
     String? refundTxId,
     bool hasClaimError = false,
+    int? requiredFeeSats,
   })  : depositInfo = null,
         _cachedTxid = txid,
         _cachedVout = vout,
@@ -318,6 +321,7 @@ class SparkUnclaimedDeposit extends BaseTransaction {
         _cachedIsMature = isMature,
         _cachedRefundTxId = refundTxId,
         _cachedHasClaimError = hasClaimError,
+        _cachedRequiredFeeSats = requiredFeeSats,
         super(isConfirmed: false);
 
   @override
@@ -342,6 +346,62 @@ class SparkUnclaimedDeposit extends BaseTransaction {
   /// retry — they should null-check `depositInfo`.
   bool get hasClaimError =>
       depositInfo?.claimError != null || (_cachedHasClaimError ?? false);
+
+  /// The claim fee the Spark service asked for when it refused the
+  /// automatic claim for costing more than the app's cap; null for any
+  /// other state. Carried across cold start so the row reads right before
+  /// the SDK answers.
+  int? get requiredFeeSats {
+    final info = depositInfo;
+    if (info == null) return _cachedRequiredFeeSats;
+    final error = info.claimError;
+    return error is breez.DepositClaimError_MaxDepositClaimFeeExceeded
+        ? error.requiredFeeSats.toInt()
+        : null;
+  }
+
+  /// An early claim the provider accepted but never settled. The SDK
+  /// skips such a deposit on every later pass, so once it is mature only
+  /// an explicit claim adds it.
+  bool get hasStaleEarlyClaim =>
+      isMature &&
+      depositInfo?.instantClaimStatus is breez.InstantClaimStatus_Submitted;
+
+  /// Where this deposit stands, in the person's terms.
+  SparkDepositStage get stage {
+    final refund = refundTxId;
+    if (refund != null && refund.isNotEmpty) return SparkDepositStage.refunding;
+    if (!isMature) return SparkDepositStage.confirming;
+    if (requiredFeeSats != null) return SparkDepositStage.waitingForFee;
+    if (hasClaimError || hasStaleEarlyClaim) return SparkDepositStage.failed;
+    return SparkDepositStage.adding;
+  }
+
+  /// Waiting on the person: the automatic claim refused the fee, failed,
+  /// or will never run again (a stale early claim).
+  bool get needsAction =>
+      stage == SparkDepositStage.waitingForFee ||
+      stage == SparkDepositStage.failed;
+}
+
+/// Stages of an on-chain deposit into the spending wallet.
+enum SparkDepositStage {
+  /// Fewer than 3 confirmations: the SDK adds it automatically at 3
+  /// (sooner when an early claim fits the cap).
+  confirming,
+
+  /// Mature, no error yet: the SDK's next sync claims it.
+  adding,
+
+  /// Mature, but the Spark claim fee is above the automatic cap. It is
+  /// added automatically once the fee drops, or now with Claim now.
+  waitingForFee,
+
+  /// Mature, the claim failed (or an accepted early claim never settled).
+  failed,
+
+  /// A refund was signed for it.
+  refunding,
 }
 
 class SparkPendingDeposit extends BaseTransaction {
@@ -781,13 +841,31 @@ class Transaction {
   /// Mempool `n/3` rows still waiting for their claim. Once the SDK has
   /// credited the deposit, its completed Breez row is the receive and the
   /// `n/3` row would wrongly say the bitcoin is not ready yet.
+  ///
+  /// From 3 confirmations the row only bridges the gap until the SDK lists
+  /// the deposit: once it shows as unclaimed (its own row takes over) or as
+  /// a deposit payment that has not failed, the bridge row goes.
   List<SparkPendingDeposit> get _displayPendingDeposits {
     if (sparkPendingDeposits.isEmpty) return sparkPendingDeposits;
     final credited = _creditedDepositTxids;
-    if (credited.isEmpty) return sparkPendingDeposits;
-    return sparkPendingDeposits
-        .where((d) => !credited.contains(d.mempoolTx.txid.toLowerCase()))
-        .toList();
+    final hasMature = sparkPendingDeposits.any((d) => d.confirmations >= 3);
+    if (credited.isEmpty && !hasMature) return sparkPendingDeposits;
+    final known = hasMature
+        ? {
+            for (final d in sparkUnclaimedDeposits) d.txid.toLowerCase(),
+            for (final t in sparkTransactions)
+              if (t.details?.status != breez.PaymentStatus.failed &&
+                  t.details?.details is breez.PaymentDetails_Deposit)
+                (t.details!.details as breez.PaymentDetails_Deposit)
+                    .txId
+                    .toLowerCase(),
+          }
+        : const <String>{};
+    return sparkPendingDeposits.where((d) {
+      final txid = d.mempoolTx.txid.toLowerCase();
+      if (credited.contains(txid)) return false;
+      return d.confirmations < 3 || !known.contains(txid);
+    }).toList();
   }
 
   /// Txids of incoming on-chain deposits currently represented by a

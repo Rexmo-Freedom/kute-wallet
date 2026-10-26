@@ -24,6 +24,8 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity, ActivityType;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/breez_provider.dart'
+    show sparkDepositAutoClaimerProvider;
 import 'package:kute/providers/home_view_scope_provider.dart';
 import 'package:kute/providers/kute_state_provider.dart';
 import 'package:kute/providers/milestone_provider.dart';
@@ -1132,9 +1134,9 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // mempool row and the unclaimed row overlap during the 1–2 conf window.
     // We want the `n/3` row to be the SINGLE representation through that whole
     // window — so the unclaimed twin is hidden below, not the mempool row.
-    final pendingMempoolTxids = rawData.sparkPendingDeposits
-        .map((pd) => pd.mempoolTx.txid.toLowerCase())
-        .toSet();
+    // From 3 confirmations the mempool row only bridges the gap until the
+    // SDK lists the deposit, so the SDK's own row wins there.
+    final pendingMempoolTxids = sparkConfirmingTxids(rawData.sparkPendingDeposits);
 
     // 4. Spark Unclaimed Deposits — hide any that still have a live mempool
     // `n/3` twin (the progress row covers them until 3 confs); the unclaimed
@@ -1168,6 +1170,13 @@ class TransactionNotifier extends StateNotifier<Transaction> {
         ]),
         mempoolTxids: pendingMempoolTxids,
       );
+      // A live snapshot: claim what the SDK will never claim again itself.
+      if (sparkUnclaimedDeposits.isNotEmpty) {
+        unawaited(ref
+            .read(sparkDepositAutoClaimerProvider)
+            .review(walletId, sparkUnclaimedDeposits)
+            .catchError((_) {}));
+      }
     }
 
     // 4b. Spark Pending Deposits (websocket/mempool-tracked, 0–2 confs).
@@ -1179,7 +1188,18 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // display time (`Transaction._pendingDepositTxids`), and it drops out
     // automatically at 3 confs (the source filters `>= 3`), at which point
     // the unclaimed/confirmed row takes over.
-    final sparkPendingDeposits = rawData.sparkPendingDeposits.toList();
+    //
+    // Past 3 confirmations the row is kept only to bridge the gap until the
+    // SDK lists the outpoint (as unclaimed or as a deposit payment), which
+    // `Transaction` checks at display time. That check needs a live SDK
+    // read of both lists, so without one the bridge rows are dropped
+    // rather than shown against cache shells that cannot prove a credit.
+    final sdkListsLive = !rawData.sparkPaymentsFetchFailed &&
+        !rawData.unclaimedDepositsFetchFailed &&
+        !identical(sparkTransactions, cachedSpark);
+    final sparkPendingDeposits = rawData.sparkPendingDeposits
+        .where((d) => d.confirmations < 3 || sdkListsLive)
+        .toList();
 
     // 5. Mempool Transactions (External Address)
     final mempoolTransactions = rawData.mempoolTxs;

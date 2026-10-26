@@ -50,6 +50,34 @@ class SparkDepositClaimResult {
   final PaymentStatus? paymentStatus;
 }
 
+/// What claiming one deposit costs right now, from the SDK's quote.
+class SparkDepositQuote {
+  const SparkDepositQuote({
+    required this.confirmations,
+    required this.matureFeeSats,
+    this.matureIsEstimate = false,
+    this.earlyFeeSats,
+    this.earlyConfirmations,
+  });
+
+  /// Confirmations the deposit has now.
+  final int confirmations;
+
+  /// The fee of the normal claim at maturity (3 confirmations).
+  final int matureFeeSats;
+
+  /// True when the provider would not quote yet and the SDK estimated the
+  /// mature fee from on-chain fees.
+  final bool matureIsEstimate;
+
+  /// The fee of an early claim ahead of maturity, when the provider offers
+  /// one; null when it does not (the deposit then waits for 3).
+  final int? earlyFeeSats;
+
+  /// Confirmations the early claim credits at.
+  final int? earlyConfirmations;
+}
+
 /// Explicit commands: completed/failed attempts are never cached as provider
 /// values. Claim and refund share a per-wallet outpoint lock across all screens.
 class SparkDepositActions {
@@ -200,6 +228,50 @@ class SparkDepositActions {
     return _findDeposit(sdk, txid, vout);
   }
 
+  /// The SDK's pending deposit for [txid] (any output), or null when it
+  /// lists none. A mempool row knows the transaction but not the output.
+  Future<DepositInfo?> depositForTxid({
+    required String walletId,
+    required String txid,
+  }) async {
+    if (walletId.isEmpty || currentWalletId() != walletId) {
+      throw _walletChanged;
+    }
+    final sdk = await _loadSdk(walletId);
+    final pending = await sdk.listUnclaimedDeposits(
+      request: const ListUnclaimedDepositsRequest(),
+    );
+    final wanted = txid.toLowerCase();
+    return pending.deposits
+        .where((item) => item.txid.toLowerCase() == wanted)
+        .firstOrNull;
+  }
+
+  /// Both ways of claiming the deposit priced now: early (when offered) and
+  /// at maturity. Asks the provider afresh, so call it when the person is
+  /// deciding, never on a timer.
+  Future<SparkDepositQuote> quote({
+    required String walletId,
+    required String txid,
+    required int vout,
+  }) async {
+    if (walletId.isEmpty || currentWalletId() != walletId) {
+      throw _walletChanged;
+    }
+    final sdk = await _loadSdk(walletId);
+    final response = await sdk.fetchClaimDepositQuote(
+      request: FetchClaimDepositQuoteRequest(txid: txid, vout: vout),
+    );
+    final early = response.instant;
+    return SparkDepositQuote(
+      confirmations: response.confirmations,
+      matureFeeSats: response.mature.feeSats.toInt(),
+      matureIsEstimate: response.mature.isEstimate,
+      earlyFeeSats: early?.feeSats.toInt(),
+      earlyConfirmations: early?.confirmationsRequired,
+    );
+  }
+
   /// Outcome for an outpoint that a fresh read no longer lists.
   Future<SparkDepositClaimResult> missingDepositOutcome({
     required String walletId,
@@ -219,6 +291,7 @@ class SparkDepositActions {
     required int vout,
     required BigInt maxFeeSats,
     required BigInt depositAmountSats,
+    bool early = false,
   }) async {
     if (maxFeeSats <= BigInt.zero || maxFeeSats >= depositAmountSats) {
       throw const SparkDepositActionException(
@@ -232,7 +305,9 @@ class SparkDepositActions {
         final deposit = await _findDeposit(sdk, txid, vout);
         if (currentWalletId() != walletId) throw _walletChanged;
         if (deposit == null) return _missingDepositOutcome(sdk, txid, vout);
-        if (!deposit.isMature) {
+        // [early] asks the SDK for an early claim ahead of maturity, held
+        // to the same ceiling; without it an immature deposit waits.
+        if (!deposit.isMature && !early) {
           throw const SparkDepositActionException(
               SparkDepositActionReason.immature);
         }

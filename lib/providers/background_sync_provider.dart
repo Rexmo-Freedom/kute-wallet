@@ -6,6 +6,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/balance_model.dart';
+import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart'
@@ -545,9 +546,12 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
 
             // Compute confirmation count. mempool.space marks
             // `confirmed == false` while in mempool; once mined,
-            // `blockHeight` is set. Anything at 3+ confs is owned
-            // by the SDK history list — drop it here to avoid
-            // double-counting.
+            // `blockHeight` is set. From 3 confs the SDK owns the
+            // deposit, but it only lists it after its next deposit
+            // sync: the row stays (as "Adding to your balance") until
+            // the SDK lists the outpoint, which the feed checks at
+            // display time. Past a day the SDK has long had its say,
+            // so older deposits are left to the SDK lists alone.
             final int confirmations;
             if (!tx.confirmed || tx.blockHeight == null) {
               confirmations = 0;
@@ -555,7 +559,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               final c = tipHeight - tx.blockHeight! + 1;
               confirmations = c < 0 ? 0 : c;
             }
-            if (confirmations >= 3) continue;
+            if (confirmations > kSparkDepositBridgeMaxConfirmations) continue;
 
             final timestamp = tx.blockTime != null
                 ? DateTime.fromMillisecondsSinceEpoch(tx.blockTime! * 1000)
