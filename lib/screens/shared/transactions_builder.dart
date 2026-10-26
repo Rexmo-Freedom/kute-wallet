@@ -18,6 +18,7 @@ import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
 import 'package:kute/services/one_balance/multi_source_move.dart';
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
+import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
         VenueCashDestination,
@@ -1122,9 +1123,8 @@ bool _isOwnVenueWithdrawalToDollars(
     return false;
   }
   if (!d.isComplete && !d.isPending) return false;
-  final settle = d.withdrawalAddress.trim().toLowerCase();
   return d.operationId != null ||
-      (settle.isNotEmpty && ownAddresses.contains(settle));
+      settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
 }
 
 /// Whether the dollar receive [tx] can be the late arrival of the venue
@@ -1250,6 +1250,10 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// [bitcoinReceiveMarks] are the dollar receive addresses opened from the
 /// Bitcoin receive's "other coins" line: their deposits are listed on the
 /// bitcoin ledger too ([shownFromBitcoinReceive]).
+///
+/// [deliveryLinks] are the delivery reconciler's receive → row links
+/// (default: the stored ones): a linked receive folds into its row
+/// (own_bitcoin_deliveries.dart).
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
@@ -1261,6 +1265,7 @@ List<BaseTransaction> assembleActivityRows(
   String? walletId,
   MultiSourceMoveDissolved? dissolved,
   List<BitcoinReceiveMark> bitcoinReceiveMarks = const [],
+  Map<String, OrchestraDeliveryLink>? deliveryLinks,
 }) {
   // Home activity is bitcoin-anchored (user decision): pool deposits
   // and withdrawals stay (they move wallet funds), but pool-internal
@@ -1388,6 +1393,7 @@ List<BaseTransaction> assembleActivityRows(
     ownAddresses: ownAddresses,
     keepVenueMoves: keepVenueMoves,
     classify: classify,
+    links: deliveryLinks,
   );
   // An action that took money from more than one place is one row too:
   // its legs fold into it (multi_source_move_activity.dart).
@@ -1423,11 +1429,16 @@ List<BaseTransaction> assembleActivityRows(
 ///     extractable does a tightened amount/time heuristic run (±2% AND
 ///     ±10 min AND direction agreement — the old ±5%/±5 min version
 ///     ate unrelated sends).
-///   * Spark RECEIVES — hidden only on a tight settle-side match: an
-///     exchange delivering BTC whose withdrawal amount matches ±2%
-///     within ±30 min AND (settles to one of the user's own addresses
-///     OR is bet-flow tagged). Fallback: a Spark-protocol receive
-///     within ±10 min of a Predictions deposit/withdraw exchange row.
+///   * Spark RECEIVES — hidden only as the delivery of a listed row
+///     ([ownBitcoinDeliveryReceives]): the receive the delivery
+///     reconciler linked to that row, else one receive per row delivering
+///     BTC to the wallet's own Spark balance by amount (±10% for the
+///     wallet's own withdrawals, whose figure is an estimate until
+///     polled, ±2% otherwise) and time (up to a day after an own
+///     withdrawal or a row settling to an own address started: a CCTP
+///     leg lands long after the hour the old rule allowed; 30 min for a
+///     bet-flow tag alone). Fallback: a Spark-protocol receive within
+///     ±10 min of a Predictions withdraw row that has no receive yet.
 ///     Anything looser stays visible — money appearing in the wallet
 ///     must never vanish unless we're confident it's an internal leg.
 ///
@@ -1445,10 +1456,13 @@ List<BaseTransaction> _collapsePolymarketFlows(
   required Set<String> ownAddresses,
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
+  Map<String, OrchestraDeliveryLink>? links,
 }) {
   // Snapshot the Hive tag boxes once per pass, not per row.
   final betFlowOrderIds = PolymarketSparkTxsService.orchestraOrderSnapshot();
   final betFlowSparkIds = PolymarketSparkTxsService.snapshot();
+  final deliveryLinks =
+      links ?? PolymarketSparkTxsService.orchestraDeliveryLinks();
 
   final exchanges = <SwapOrderTransaction>[];
   final polymarketRows = <PolymarketTransaction>[];
@@ -1564,56 +1578,26 @@ List<BaseTransaction> _collapsePolymarketFlows(
     return false;
   }
 
+  // The wallet's own deliveries to Bitcoin: each claims its one receive
+  // (own_bitcoin_deliveries.dart), the reconciler's links first.
+  final ownDeliveries = ownBitcoinDeliveryReceives(
+    exchanges,
+    transactions.whereType<SparkTransaction>(),
+    ownAddresses: ownAddresses,
+    classify: classify,
+    betFlowOrderIds: betFlowOrderIds,
+    links: deliveryLinks,
+  );
+  final deliveredRows = ownDeliveries.values.toSet();
+
   bool hideSparkReceive(SparkTransaction tx) {
     // NOTE: the bet-flow tag box is deliberately IGNORED for receives
     // — an earlier auto-match bug left stale tags on unrelated inbound
     // payments (see the claim-window matcher history), so a tag alone
     // must never hide incoming money.
+    if (ownDeliveries.containsKey(tx.id)) return true;
     final amountSats = tx.amountSats.abs();
     final txMs = tx.timestamp.millisecondsSinceEpoch;
-    // Tight settle-side match: an exchange delivering BTC back to us.
-    for (final ex in exchanges) {
-      final d = ex.details;
-      if (d.coinTo.toUpperCase() != 'BTC') {
-        continue;
-      }
-      final fieldSats = _exchangeBtcFieldToSats(d.withdrawalAmount);
-      if (fieldSats <= 0) {
-        continue;
-      }
-      // A dollar or Investing withdrawal is our own money coming back to
-      // our own Spark address by construction (the flow resolves the
-      // recipient to the wallet's address before anything moves), so
-      // the row is the one that tells the story and the receipt is its
-      // settle leg. Its stored amount is the quote's estimate until the
-      // poll writes the delivered figure, so it gets a wider match than
-      // the two percent an exact settled amount is held to.
-      final kind = classify(d);
-      final ownWithdrawal = d.isOrchestra &&
-          (kind == SwapActivityKind.dollarWithdrawal ||
-              kind == SwapActivityKind.investingWithdrawal);
-      final tolSats =
-          max(1, (fieldSats * (ownWithdrawal ? 0.10 : 0.02)).round());
-      if ((amountSats - fieldSats).abs() > tolSats) {
-        continue;
-      }
-      final windowMs = (ownWithdrawal ? 60 : 30) * 60 * 1000;
-      if ((txMs - ex.timestamp.millisecondsSinceEpoch).abs() > windowMs) {
-        continue;
-      }
-      // Amount + time alone can coincide; require ownership evidence:
-      // the exchange settles to one of OUR addresses, it was created
-      // by the bet/claim flow (tagged order id), or it is one of our
-      // own withdrawals above.
-      final settleAddr = d.withdrawalAddress.trim().toLowerCase();
-      final settlesToSelf =
-          settleAddr.isNotEmpty && ownAddresses.contains(settleAddr);
-      if (settlesToSelf ||
-          ownWithdrawal ||
-          betFlowOrderIds.contains(ex.id)) {
-        return true;
-      }
-    }
     // Fallback for exchanges with missing/foreign-format settle
     // addresses (ownership can't be proven): a Spark-protocol receive
     // may only be hidden when it matches a Predictions WITHDRAW leg on
@@ -1628,6 +1612,8 @@ List<BaseTransaction> _collapsePolymarketFlows(
     // from outside even when the timing lines up.
     if (tx.sparkType == SparkTransactionType.spark) {
       for (final ex in exchanges) {
+        // A row whose own receive is already known is not this one's.
+        if (deliveredRows.contains(ex.id)) continue;
         final d = ex.details;
         if (!isPolymarketLeg(d)) {
           continue;
