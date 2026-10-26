@@ -1718,12 +1718,6 @@ abstract class AppLocalizations {
   /// **'Confirm Claim'**
   String get confirmClaim;
 
-  /// No description provided for @confirmRefund.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm Refund'**
-  String get confirmRefund;
-
   /// No description provided for @connectSign.
   ///
   /// In en, this message translates to:
@@ -1807,12 +1801,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter a {assetCode} address'**
   String enterAAssetCodeAddress(String assetCode);
-
-  /// No description provided for @enterTheBitcoinAddressAndFeeRateToRefund.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter the Bitcoin address and fee rate to refund.'**
-  String get enterTheBitcoinAddressAndFeeRateToRefund;
 
   /// No description provided for @enterYourPinOnTheJadeDevice.
   ///
@@ -1928,12 +1916,6 @@ abstract class AppLocalizations {
   /// **'Invest'**
   String get hlMarketInvestCta;
 
-  /// No description provided for @feeRateSatsVbyte.
-  ///
-  /// In en, this message translates to:
-  /// **'Fee Rate (sats/vByte)'**
-  String get feeRateSatsVbyte;
-
   /// No description provided for @financials.
   ///
   /// In en, this message translates to:
@@ -2017,12 +1999,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid address or amount'**
   String get invalidAddressOrAmount;
-
-  /// No description provided for @invalidRate.
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid rate'**
-  String get invalidRate;
 
   /// No description provided for @liquidity.
   ///
@@ -2281,12 +2257,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Receive Bitcoin'**
   String get receiveBitcoin;
-
-  /// No description provided for @refundDeposit.
-  ///
-  /// In en, this message translates to:
-  /// **'Refund Deposit'**
-  String get refundDeposit;
 
   /// No description provided for @refunding.
   ///
@@ -6186,7 +6156,7 @@ abstract class AppLocalizations {
   /// No description provided for @depositReasonFeeHigh.
   ///
   /// In en, this message translates to:
-  /// **'The network fee to add this to your balance is higher than usual. It\'s added automatically once the fee drops.'**
+  /// **'The fee to add this right now is unusually high. It\'s added automatically when it drops, or you can claim it now.'**
   String get depositReasonFeeHigh;
 
   /// No description provided for @depositReasonFailed.
@@ -6212,12 +6182,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wait for a lower fee'**
   String get depositWaitForLowerFee;
-
-  /// No description provided for @depositSendItBack.
-  ///
-  /// In en, this message translates to:
-  /// **'Send it back'**
-  String get depositSendItBack;
 
   /// No description provided for @depositHomeWaiting.
   ///
@@ -6290,12 +6254,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'It can take a few minutes to show in your balance.'**
   String get activityBitcoinAddedPending;
-
-  /// No description provided for @activityRefundStarted.
-  ///
-  /// In en, this message translates to:
-  /// **'Refund started'**
-  String get activityRefundStarted;
 
   /// No description provided for @depositAddFeeAboveLimit.
   ///
@@ -6422,12 +6380,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t add this bitcoin to your wallet. Try again.'**
   String get depositAddFailed;
-
-  /// No description provided for @depositRefundStartFailed.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'t start the refund. Try again.'**
-  String get depositRefundStartFailed;
 
   /// No description provided for @receiveRequestFailed.
   ///
@@ -7377,12 +7329,6 @@ abstract class AppLocalizations {
   /// **'Set the most you allow this claim to cost, in sats. This is a fee limit, not a confirmation speed. If the required fee is higher, the claim will stop.'**
   String get maximumClaimFeeExplanation;
 
-  /// No description provided for @depositRefundSubmitted.
-  ///
-  /// In en, this message translates to:
-  /// **'Refund submitted. Waiting for confirmation.'**
-  String get depositRefundSubmitted;
-
   /// No description provided for @depositActionWalletChanged.
   ///
   /// In en, this message translates to:
@@ -7436,12 +7382,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This deposit is no longer pending. Refreshing its status.'**
   String get depositNoLongerPending;
-
-  /// No description provided for @depositRefundBroadcastUnconfirmed.
-  ///
-  /// In en, this message translates to:
-  /// **'The refund was signed, but its broadcast was not confirmed. Check its status again later.'**
-  String get depositRefundBroadcastUnconfirmed;
 
   /// No description provided for @claimFeeLastQuote.
   ///
@@ -9494,12 +9434,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show your recovery phrase'**
   String get stepUpReasonRevealSeed;
-
-  /// No description provided for @stepUpReasonRefund.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm your refund'**
-  String get stepUpReasonRefund;
 
   /// No description provided for @stepUpReasonSwitchWallet.
   ///

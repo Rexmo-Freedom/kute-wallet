@@ -88,8 +88,7 @@ Future<bool> approveDepositClaim(
 
 /// Localized copy for an expected deposit action failure.
 String depositActionMessage(
-    BuildContext context, WidgetRef ref, SparkDepositActionException e,
-    {bool refund = false}) {
+    BuildContext context, WidgetRef ref, SparkDepositActionException e) {
   final l10n = context.l10n;
   return switch (e.reason) {
     SparkDepositActionReason.walletChanged => l10n.depositActionWalletChanged,
@@ -100,8 +99,7 @@ String depositActionMessage(
     SparkDepositActionReason.immature => l10n.depositActionImmature,
     SparkDepositActionReason.refundInProgress =>
       l10n.depositActionRefundInProgress,
-    SparkDepositActionReason.invalidFee =>
-      refund ? l10n.invalidRate : l10n.depositActionInvalidFee,
+    SparkDepositActionReason.invalidFee => l10n.depositActionInvalidFee,
     SparkDepositActionReason.invalidAddress => l10n.pleaseEnterAnAddress,
     SparkDepositActionReason.feeExceeded => l10n.depositAddFeeAboveLimit(ref
         .read(conversionProvider((e.requiredFeeSats ?? BigInt.zero).toInt()))),

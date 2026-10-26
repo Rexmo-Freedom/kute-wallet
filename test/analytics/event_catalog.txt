@@ -137,7 +137,6 @@ deposit_claim_waiting_shown
 deposit_quick_claim_failed
 deposit_quick_claim_started
 deposit_quick_claim_succeeded
-deposit_refund_started
 device_bound_explainer_viewed
 direct_hypercore_route
 drawing_created
@@ -636,8 +635,6 @@ spark_deposit_claim_failed
 spark_deposit_claim_fee_confirmed
 spark_deposit_claimed
 spark_deposit_fee_limit_opened
-spark_deposit_refund_failed
-spark_deposit_refunded
 spark_sdk_connect
 spark_sdk_teardown
 spark_sync_latency

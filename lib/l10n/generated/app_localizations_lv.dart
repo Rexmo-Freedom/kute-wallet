@@ -804,9 +804,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get confirmClaim => 'Apstiprināt saņemšanu';
 
   @override
-  String get confirmRefund => 'Apstiprināt atmaksu';
-
-  @override
   String get connectSign => 'Savienot un parakstīt';
 
   @override
@@ -850,10 +847,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Ievadi $assetCode adresi';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Ievadi Bitcoin adresi un maksas likmi atmaksai.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Ievadi PIN Jade ierīcē...';
@@ -916,9 +909,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlMarketInvestCta => 'Investēt';
 
   @override
-  String get feeRateSatsVbyte => 'Maksas likme (sats/vByte)';
-
-  @override
   String get financials => 'Finanses';
 
   @override
@@ -960,9 +950,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Nederīga adrese vai summa';
-
-  @override
-  String get invalidRate => 'Nederīga likme';
 
   @override
   String get liquidity => 'LIKVIDITĀTE';
@@ -1112,9 +1099,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Saņemt Bitcoin';
-
-  @override
-  String get refundDeposit => 'Atmaksāt iemaksu';
 
   @override
   String get refunding => 'Atmaksā';
@@ -3407,7 +3391,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Tīkla maksa par pievienošanu atlikumam ir augstāka nekā parasti. Tā tiks pievienota automātiski, kad maksa samazināsies.';
+      'Pievienošanas maksa šobrīd ir neparasti augsta. Tā tiks pievienota automātiski, kad maksa samazināsies, vai vari to saņemt tagad.';
 
   @override
   String get depositReasonFailed => 'Vēl neizdevās pievienot. Mēģini vēlreiz.';
@@ -3422,9 +3406,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Gaidīt zemāku maksu';
-
-  @override
-  String get depositSendItBack => 'Sūtīt atpakaļ';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3472,9 +3453,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Var paiet dažas minūtes, līdz tas parādās atlikumā.';
-
-  @override
-  String get activityRefundStarted => 'Atmaksa sākta';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3544,10 +3522,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Neizdevās pievienot šo bitcoin tavam maciņam. Mēģini vēlreiz.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Neizdevās sākt atmaksu. Mēģini vēlreiz.';
 
   @override
   String get receiveRequestFailed =>
@@ -4125,10 +4099,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Iestati, cik daudz sats šī saņemšana drīkst maksāt. Tas ir maksas limits, nevis apstiprināšanas ātrums. Ja vajadzīgā maksa ir augstāka, saņemšana tiks apturēta.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Atmaksa iesniegta. Gaida apstiprinājumu.';
-
-  @override
   String get depositActionWalletChanged =>
       'Maciņš mainījās. Atver iemaksu vēlreiz, lai turpinātu.';
 
@@ -4161,10 +4131,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Šī iemaksa vairs negaida. Atsvaidzina tās statusu.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Atmaksa tika parakstīta, bet tās pārraide netika apstiprināta. Vēlāk pārbaudi tās statusu vēlreiz.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5416,9 +5382,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Parādīt atkopšanas frāzi';
-
-  @override
-  String get stepUpReasonRefund => 'Apstiprini atmaksu';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

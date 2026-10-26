@@ -805,9 +805,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get confirmClaim => 'Patvirtinti atsiėmimą';
 
   @override
-  String get confirmRefund => 'Patvirtinti grąžinimą';
-
-  @override
   String get connectSign => 'Prijungti ir pasirašyti';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Įveskite $assetCode adresą';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Įveskite Bitcoin adresą ir mokesčio normą grąžinimui.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Įveskite PIN Jade įrenginyje...';
@@ -917,9 +910,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlMarketInvestCta => 'Investuoti';
 
   @override
-  String get feeRateSatsVbyte => 'Mokesčio norma (sats/vByte)';
-
-  @override
   String get financials => 'Finansai';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Neteisingas adresas arba suma';
-
-  @override
-  String get invalidRate => 'Neteisingas kursas';
 
   @override
   String get liquidity => 'LIKVIDUMAS';
@@ -1118,9 +1105,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Gauti Bitcoin';
-
-  @override
-  String get refundDeposit => 'Grąžinti įnašą';
 
   @override
   String get refunding => 'Grąžinama';
@@ -3425,7 +3409,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Tinklo mokestis už pridėjimą prie likučio didesnis nei įprastai. Jis bus pridėtas automatiškai, kai mokestis sumažės.';
+      'Pridėjimo mokestis šiuo metu neįprastai didelis. Jis bus pridėtas automatiškai, kai mokestis sumažės, arba galite jį atsiimti dabar.';
 
   @override
   String get depositReasonFailed =>
@@ -3441,9 +3425,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Palaukti mažesnio mokesčio';
-
-  @override
-  String get depositSendItBack => 'Grąžinti';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3491,9 +3472,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Gali praeiti kelios minutės, kol jis atsiras likutyje.';
-
-  @override
-  String get activityRefundStarted => 'Grąžinimas pradėtas';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3564,10 +3542,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Nepavyko pridėti šio bitcoin į piniginę. Bandykite dar kartą.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Nepavyko pradėti grąžinimo. Bandykite dar kartą.';
 
   @override
   String get receiveRequestFailed =>
@@ -4149,10 +4123,6 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nustatykite, kiek daugiausia gali kainuoti šis atsiėmimas, sats. Tai mokesčio limitas, ne patvirtinimo greitis. Jei reikalingas mokestis didesnis, atsiėmimas bus sustabdytas.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Grąžinimas pateiktas. Laukiama patvirtinimo.';
-
-  @override
   String get depositActionWalletChanged =>
       'Piniginė pasikeitė. Atidarykite įnašą iš naujo, kad tęstumėte.';
 
@@ -4185,10 +4155,6 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Šis įnašas nebelaukiamas. Atnaujinama jo būsena.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Grąžinimas pasirašytas, bet jo transliavimas nepatvirtintas. Vėliau dar kartą patikrinkite jo būseną.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5455,9 +5421,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Rodyti atkūrimo frazę';
-
-  @override
-  String get stepUpReasonRefund => 'Patvirtinkite grąžinimą';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

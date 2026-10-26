@@ -805,9 +805,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get confirmClaim => 'Potwierdź odbiór';
 
   @override
-  String get confirmRefund => 'Potwierdź zwrot';
-
-  @override
   String get connectSign => 'Połącz i podpisz';
 
   @override
@@ -851,10 +848,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Wpisz adres $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Wpisz adres Bitcoin i stawkę opłaty dla zwrotu.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Wpisz PIN na urządzeniu Jade...';
@@ -917,9 +910,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get hlMarketInvestCta => 'Inwestuj';
 
   @override
-  String get feeRateSatsVbyte => 'Stawka opłaty (sats/vByte)';
-
-  @override
   String get financials => 'Finanse';
 
   @override
@@ -961,9 +951,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Nieprawidłowy adres lub kwota';
-
-  @override
-  String get invalidRate => 'Nieprawidłowa stawka';
 
   @override
   String get liquidity => 'PŁYNNOŚĆ';
@@ -1115,9 +1102,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Odbierz Bitcoin';
-
-  @override
-  String get refundDeposit => 'Zwróć wpłatę';
 
   @override
   String get refunding => 'Zwracanie';
@@ -3425,7 +3409,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Opłata sieciowa za dodanie do salda jest wyższa niż zwykle. Zostanie dodana automatycznie, gdy opłata spadnie.';
+      'Opłata za dodanie jest teraz wyjątkowo wysoka. Zostanie dodana automatycznie, gdy opłata spadnie, albo możesz odebrać ją teraz.';
 
   @override
   String get depositReasonFailed =>
@@ -3441,9 +3425,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Poczekaj na niższą opłatę';
-
-  @override
-  String get depositSendItBack => 'Odeślij';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3491,9 +3472,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Pojawienie się w saldzie może potrwać kilka minut.';
-
-  @override
-  String get activityRefundStarted => 'Zwrot rozpoczęty';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3563,10 +3541,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Nie udało się dodać tego bitcoina do portfela. Spróbuj ponownie.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Nie udało się rozpocząć zwrotu. Spróbuj ponownie.';
 
   @override
   String get receiveRequestFailed =>
@@ -4147,10 +4121,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ustaw, ile maksymalnie może kosztować ten odbiór, w sats. To limit opłaty, a nie szybkość potwierdzenia. Jeśli wymagana opłata będzie wyższa, odbiór zostanie zatrzymany.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Zwrot wysłany. Oczekiwanie na potwierdzenie.';
-
-  @override
   String get depositActionWalletChanged =>
       'Portfel się zmienił. Otwórz wpłatę ponownie, aby kontynuować.';
 
@@ -4182,10 +4152,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Ta wpłata już nie oczekuje. Odświeżanie statusu.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Zwrot został podpisany, ale jego rozgłoszenie nie zostało potwierdzone. Sprawdź status później.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5444,9 +5410,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Pokaż frazę odzyskiwania';
-
-  @override
-  String get stepUpReasonRefund => 'Potwierdź zwrot';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

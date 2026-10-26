@@ -133,6 +133,25 @@ void main() {
           _row(_info('a', refundTxId: 'r')).stage, SparkDepositStage.refunding);
     });
 
+    // Waiting only above the automatic ceiling, max(2,475 sats, 0.25 % of
+    // the deposit); at or below it the app claims it and the row says
+    // it is being added.
+    test('waits only for a quote above the automatic ceiling', () {
+      SparkDepositStage stageFor(int sats, int fee) =>
+          _row(_info('a', sats: sats, error: _feeExceeded('a', fee))).stage;
+      expect(sparkAutoClaimCeilingSats(11900000), 29750);
+      expect(stageFor(11900000, 29750), SparkDepositStage.adding);
+      expect(stageFor(11900000, 29751), SparkDepositStage.waitingForFee);
+      // A small deposit keeps the flat floor.
+      expect(sparkAutoClaimCeilingSats(100000), kSparkAutoClaimMaxFeeSats);
+      expect(stageFor(100000, 2475), SparkDepositStage.adding);
+      expect(stageFor(100000, 2476), SparkDepositStage.waitingForFee);
+      expect(
+          _row(_info('a', sats: 100000, error: _feeExceeded('a', 2475)))
+              .needsAction,
+          isFalse);
+    });
+
     test('the required fee survives the cache round trip', () {
       final row = _row(_info('a', error: _feeExceeded('a', 40000)));
       expect(row.requiredFeeSats, 40000);

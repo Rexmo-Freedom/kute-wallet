@@ -802,9 +802,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get confirmClaim => '受け取りを確認';
 
   @override
-  String get confirmRefund => '返金を確認';
-
-  @override
   String get connectSign => '接続して署名';
 
   @override
@@ -848,10 +845,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return '$assetCodeアドレスを入力';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      '返金先のビットコインアドレスと手数料率を入力してください。';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'JadeデバイスでPINを入力してください...';
@@ -913,9 +906,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlMarketInvestCta => '投資する';
 
   @override
-  String get feeRateSatsVbyte => '手数料率（sats/vByte）';
-
-  @override
   String get financials => '財務';
 
   @override
@@ -957,9 +947,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'アドレスまたは金額が無効です';
-
-  @override
-  String get invalidRate => '無効なレート';
 
   @override
   String get liquidity => '流動性';
@@ -1105,9 +1092,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'ビットコインを受け取る';
-
-  @override
-  String get refundDeposit => '入金を返金';
 
   @override
   String get refunding => '返金中';
@@ -3323,7 +3307,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      '残高に追加するためのネットワーク手数料が通常より高くなっています。手数料が下がると自動で追加されます。';
+      '今追加するための手数料が通常よりかなり高くなっています。手数料が下がると自動で追加されます。今すぐ受け取ることもできます。';
 
   @override
   String get depositReasonFailed => 'まだ追加できませんでした。もう一度お試しください。';
@@ -3338,9 +3322,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => '手数料が下がるのを待つ';
-
-  @override
-  String get depositSendItBack => '送り返す';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3387,9 +3368,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get activityBitcoinAddedPending => '残高に反映されるまで数分かかる場合があります。';
-
-  @override
-  String get activityRefundStarted => '返金を開始しました';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3457,9 +3435,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get depositAddFailed => 'このビットコインをウォレットに追加できませんでした。もう一度お試しください。';
-
-  @override
-  String get depositRefundStartFailed => '返金を開始できませんでした。もう一度お試しください。';
 
   @override
   String get receiveRequestFailed => '支払いリクエストを作成できませんでした。もう一度お試しください。';
@@ -4024,9 +3999,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'この受け取りにかかる費用の上限をsatsで設定します。これは手数料の上限であり、承認速度ではありません。必要な手数料が上限を超える場合、受け取りは停止します。';
 
   @override
-  String get depositRefundSubmitted => '返金を送信しました。承認を待っています。';
-
-  @override
   String get depositActionWalletChanged => 'ウォレットが変更されました。続けるには入金をもう一度開いてください。';
 
   @override
@@ -4053,10 +4025,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get depositNoLongerPending => 'この入金はもう保留中ではありません。ステータスを更新しています。';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      '返金には署名しましたが、ブロードキャストが確認できませんでした。後でもう一度ステータスを確認してください。';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5231,9 +5199,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'リカバリーフレーズを表示';
-
-  @override
-  String get stepUpReasonRefund => '返金を確定';
 
   @override
   String stepUpReasonSwitchWallet(String name) {

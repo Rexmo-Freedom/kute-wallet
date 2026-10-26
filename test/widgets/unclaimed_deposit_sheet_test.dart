@@ -13,9 +13,9 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/pin_gate_sheet.dart';
 import 'package:kute/screens/shared/spark_transaction_details.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/spark_deposit_actions.dart';
@@ -253,6 +253,16 @@ void main() {
     await settle(tester);
   }
 
+  // No Send it back on any deposit sheet (founder, 2026-10-26): nothing
+  // offers to return the deposit, whatever its state.
+  void expectNoSendBack() {
+    expect(find.text('Send it back'), findsNothing);
+    expect(
+        find.textContaining(
+            RegExp(r'send it back|refund', caseSensitive: false)),
+        findsNothing);
+  }
+
   // Toasts close on a timer.
   Future<void> clearToasts(WidgetTester tester) =>
       tester.pump(const Duration(seconds: 5));
@@ -267,7 +277,7 @@ void main() {
     expect(find.text(l10n.depositAutoAfterConfirmations), findsOneWidget);
     expect(find.textContaining('Claim now'), findsNothing);
     expect(find.text(l10n.activityAddToWallet), findsNothing);
-    expect(find.text(l10n.depositSendItBack), findsNothing);
+    expectNoSendBack();
   });
 
   // The default stays the automatic claim: a mature deposit with no error
@@ -278,7 +288,33 @@ void main() {
     expect(find.text(l10n.activityAddingToBalance), findsWidgets);
     expect(find.text(l10n.activityAddToWallet), findsNothing);
     expect(find.textContaining('Claim now'), findsNothing);
-    expect(find.text(l10n.depositSendItBack), findsNothing);
+    expectNoSendBack();
+  });
+
+  // A quote at or below the automatic ceiling (max(2,475 sats, 0.25 % of
+  // the deposit)) never waits: the app claims it, and the sheet says it is
+  // being added with nothing to do.
+  testWidgets('a fee within the automatic ceiling is being added, no wait',
+      (tester) async {
+    // 0.25 % of 0.119 BTC is exactly 29,750 sats.
+    final deposit = info(sats: 11900000, claimError: feeAboveCeiling(29750));
+    expect(rowFor(deposit).stage, SparkDepositStage.adding);
+    await open(tester, rowFor(deposit));
+    expect(find.text(l10n.activityAddingToBalance), findsWidgets);
+    expect(find.text(l10n.depositStatusWaitingFee), findsNothing);
+    expect(find.text(l10n.depositReasonFeeHigh), findsNothing);
+    expect(find.text(l10n.depositWaitForLowerFee), findsNothing);
+    expect(find.textContaining('Claim now'), findsNothing);
+    expectNoSendBack();
+  });
+
+  testWidgets('a small deposit at the flat floor is being added, no wait',
+      (tester) async {
+    final deposit = info(sats: 100000, claimError: feeAboveCeiling(2475));
+    await open(tester, rowFor(deposit));
+    expect(find.text(l10n.activityAddingToBalance), findsWidgets);
+    expect(find.text(l10n.depositStatusWaitingFee), findsNothing);
+    expect(find.textContaining('Claim now'), findsNothing);
   });
 
   testWidgets('refunding deposits open the action sheet without actions',
@@ -286,7 +322,7 @@ void main() {
     await open(tester, rowFor(info(mature: false, refundTxId: 'refund')));
     expect(find.text(l10n.refunding), findsWidgets);
     expect(find.text(l10n.activityAddToWallet), findsNothing);
-    expect(find.text(l10n.depositSendItBack), findsNothing);
+    expect(find.text('Send it back'), findsNothing);
   });
 
   testWidgets('a failed claim opens the claim sheet with the plain reason',
@@ -295,8 +331,8 @@ void main() {
     expect(find.text(l10n.depositStatusFailed), findsOneWidget);
     expect(find.text(l10n.depositReasonFailed), findsOneWidget);
     expect(find.text(l10n.activityAddToWallet), findsOneWidget);
-    expect(find.text(l10n.depositSendItBack), findsOneWidget);
     expect(find.text(l10n.depositWaitForLowerFee), findsNothing);
+    expectNoSendBack();
   });
 
   testWidgets('a fee above the automatic ceiling waits, with Claim now',
@@ -305,11 +341,15 @@ void main() {
     await open(tester, rowFor(deposit));
     expect(find.text(l10n.depositStatusWaitingFee), findsOneWidget);
     expect(find.text(l10n.depositReasonFeeHigh), findsOneWidget);
+    // The reason says the fee is unusually high and both ways forward.
+    expect(l10n.depositReasonFeeHigh,
+        "The fee to add this right now is unusually high. It's added "
+        'automatically when it drops, or you can claim it now.');
     expect(find.text(l10n.depositFeeToClaimNow), findsOneWidget);
     final fee = container.read(conversionProvider(40000));
     expect(find.text(l10n.depositClaimNowFee(fee)), findsOneWidget);
     expect(find.text(l10n.depositWaitForLowerFee), findsOneWidget);
-    expect(find.text(l10n.depositSendItBack), findsOneWidget);
+    expectNoSendBack();
     // Waiting closes the sheet and attempts nothing.
     await tapText(tester, l10n.depositWaitForLowerFee);
     expect(find.text(l10n.depositStatusWaitingFee), findsNothing);
@@ -438,8 +478,8 @@ void main() {
   });
 
   // One guard for every claim of the outpoint: while the automatic claim
-  // runs, the sheet says it is being added and holds Claim now and the
-  // refund, so the person cannot start a second claim or race a refund.
+  // runs, the sheet says it is being added and holds Claim now, so the
+  // person cannot start a second claim.
   testWidgets('a claim running elsewhere holds the sheet\'s actions',
       (tester) async {
     final deposit = info(sats: 11900000, claimError: feeAboveCeiling());
@@ -449,42 +489,15 @@ void main() {
     };
     await settle(tester);
     expect(find.text(l10n.activityAddingToBalance), findsWidgets);
-    final sendBack = find.text(l10n.depositSendItBack);
-    await tester.ensureVisible(sendBack);
-    await tester.tap(sendBack);
-    await settle(tester);
-    expect(find.byType(RefundAddressModalSheet), findsNothing);
+    expectNoSendBack();
+    final claimNow = tester.widget<AppButton>(find.byWidgetPredicate(
+        (w) => w is AppButton && w.text.startsWith('Claim now')));
+    expect(claimNow.onPressed, isNull);
     expect(actions.calls, isEmpty);
     actions.busyOutpoints.value = const {};
     await settle(tester);
     expect(find.text(l10n.depositStatusWaitingFee), findsOneWidget);
-  });
-
-  testWidgets('closing the refund address sheet attempts nothing',
-      (tester) async {
-    await open(tester, rowFor(info(claimError: failed)));
-    await tapText(tester, l10n.depositSendItBack);
-    expect(find.byType(RefundAddressModalSheet), findsOneWidget);
-    Navigator.of(tester.element(find.byType(RefundAddressModalSheet))).pop();
-    await settle(tester);
-    expect(actions.calls, isEmpty);
-    expect(sync.refreshes, 0);
-    expect(find.text(l10n.depositSendItBack), findsOneWidget);
-  });
-
-  testWidgets('declining step-up auth attempts no refund', (tester) async {
-    await open(tester, rowFor(info(claimError: failed)));
-    await tapText(tester, l10n.depositSendItBack);
-    await tester.enterText(find.byType(TextFormField).first, 'bc1qtest');
-    await tester.enterText(find.byType(TextFormField).last, '3');
-    await tester.pump();
-    await tapText(tester, l10n.confirmRefund);
-    expect(find.byType(PinGateSheet), findsOneWidget);
-    await tapText(tester, l10n.cancel);
-    expect(find.byType(PinGateSheet), findsNothing);
-    expect(actions.calls, isEmpty);
-    expect(sync.refreshes, 0);
-    expect(find.text(l10n.depositSendItBack), findsOneWidget);
+    expectNoSendBack();
   });
 
   testWidgets('the Activity row of a waiting deposit opens its sheet',
@@ -553,6 +566,7 @@ void main() {
     expect(find.text(l10n.depositAutoAfterConfirmations), findsOneWidget);
     final fee = container.read(conversionProvider(30000));
     expect(find.text(l10n.depositClaimNowFee(fee)), findsOneWidget);
+    expectNoSendBack();
     await tapText(tester, l10n.depositClaimNowFee(fee));
     expect(approvals.single.amountMax, BigInt.from(33000));
     expect(actions.calls, ['claim 33000 early']);

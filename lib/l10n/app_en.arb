@@ -275,7 +275,6 @@
   "claimDeposit": "Claim Deposit",
   "clear": "Clear",
   "confirmClaim": "Confirm Claim",
-  "confirmRefund": "Confirm Refund",
   "connectSign": "Connect & Sign",
   "continueLabel": "Continue",
   "createdAt": "Created At",
@@ -297,7 +296,6 @@
       }
     }
   },
-  "enterTheBitcoinAddressAndFeeRateToRefund": "Enter the Bitcoin address and fee rate to refund.",
   "enterYourPinOnTheJadeDevice": "Enter your PIN on the Jade device...",
   "errorLoadingUtxos": "Could not load coins",
   "errorLoadingData": "Error loading data",
@@ -317,7 +315,6 @@
   "fasterIsMoreExpensiveSlowerIsCheaperButTakesLonger": "Faster is more expensive, slower is cheaper but takes longer.",
   "feeRate2": "Fee Rate",
   "hlMarketInvestCta": "Invest",
-  "feeRateSatsVbyte": "Fee Rate (sats/vByte)",
   "financials": "Financials",
   "createAccount": "Create account",
   "startTaglineLead": "Change starts with ",
@@ -338,7 +335,6 @@
   "inputsOutputs": "Inputs / Outputs",
   "insufficientBalanceForFees": "Insufficient balance for fees",
   "invalidAddressOrAmount": "Invalid address or amount",
-  "invalidRate": "Invalid rate",
   "liquidity": "LIQUIDITY",
   "lastUpdated": "Last Updated",
   "lastAttemptWalletWillBeErased": "Last attempt. Wallet will be erased.",
@@ -406,7 +402,6 @@
   "preimage": "Preimage",
   "private": "Private",
   "receiveBitcoin": "Receive Bitcoin",
-  "refundDeposit": "Refund Deposit",
   "refunding": "Refunding",
   "refundingDeposit": "Refunding Deposit",
   "rename": "Rename",
@@ -1814,7 +1809,7 @@
   "depositStatusWaitingFee": "Waiting for a lower fee",
   "depositStatusFailed": "Couldn't add it yet",
   "depositAutoAfterConfirmations": "Added automatically after 3 confirmations.",
-  "depositReasonFeeHigh": "The network fee to add this to your balance is higher than usual. It's added automatically once the fee drops.",
+  "depositReasonFeeHigh": "The fee to add this right now is unusually high. It's added automatically when it drops, or you can claim it now.",
   "depositReasonFailed": "It couldn't be added yet. Try again.",
   "depositClaimNowFee": "Claim now · {fee} fee",
   "@depositClaimNowFee": {
@@ -1826,7 +1821,6 @@
   },
   "depositFeeToClaimNow": "Fee to claim now",
   "depositWaitForLowerFee": "Wait for a lower fee",
-  "depositSendItBack": "Send it back",
   "depositHomeWaiting": "{amount} is waiting to be added to your balance",
   "@depositHomeWaiting": {
     "placeholders": {
@@ -1874,7 +1868,6 @@
   "activityFeeQuotedWhenAdded": "Quoted when you add it",
   "activityBitcoinAdded": "Bitcoin added to your wallet",
   "activityBitcoinAddedPending": "It can take a few minutes to show in your balance.",
-  "activityRefundStarted": "Refund started",
   "depositAddFeeAboveLimit": "Adding this bitcoin needs a network fee of {amount}, above your limit. Raise the limit under Advanced and try again.",
   "@depositAddFeeAboveLimit": {
     "placeholders": {
@@ -1903,7 +1896,6 @@
   "searchCryptoMarkets": "Crypto markets",
   "activitySender": "Sender",
   "depositAddFailed": "Couldn't add this bitcoin to your wallet. Try again.",
-  "depositRefundStartFailed": "Couldn't start the refund. Try again.",
   "receiveRequestFailed": "Couldn't create the payment request. Try again.",
   "receiveDepositAddressFailed": "Couldn't create a deposit address. Try again.",
   "receiveOtherCoinsSpendingOnly": "Other coins can only arrive in your spending wallet. Switch to it and try again.",
@@ -2334,7 +2326,6 @@
   "settingsCustomElectrumNode": "Custom Bitcoin server",
   "maximumClaimFee": "Maximum claim fee",
   "maximumClaimFeeExplanation": "Set the most you allow this claim to cost, in sats. This is a fee limit, not a confirmation speed. If the required fee is higher, the claim will stop.",
-  "depositRefundSubmitted": "Refund submitted. Waiting for confirmation.",
   "depositActionWalletChanged": "The wallet changed. Reopen the deposit to continue.",
   "depositActionBusy": "This deposit already has an action in progress.",
   "depositActionWalletUnavailable": "The wallet is not ready. Unlock the app, wait a moment and try again.",
@@ -2344,7 +2335,6 @@
   "depositActionInvalidFee": "The maximum claim fee must be above zero and less than the deposit.",
   "depositAlreadyReceived": "This deposit was already received. Updating your balance.",
   "depositNoLongerPending": "This deposit is no longer pending. Refreshing its status.",
-  "depositRefundBroadcastUnconfirmed": "The refund was signed, but its broadcast was not confirmed. Check its status again later.",
   "claimFeeLastQuote": "Suggested from the last quote of {sats} sats, plus some headroom.",
   "@claimFeeLastQuote": {
     "placeholders": {
@@ -2938,7 +2928,6 @@
     }
   },
   "stepUpReasonRevealSeed": "Show your recovery phrase",
-  "stepUpReasonRefund": "Confirm your refund",
   "stepUpReasonSwitchWallet": "Switch to {name}",
   "@stepUpReasonSwitchWallet": {
     "placeholders": {

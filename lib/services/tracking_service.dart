@@ -2540,11 +2540,6 @@ class TrackingService {
     });
   }
 
-  /// Send it back was tapped on a pending deposit (before the address).
-  static void depositRefundStarted({required int amountSats}) {
-    track('deposit_refund_started', params: {'amount_sats': amountSats});
-  }
-
   static void sparkDepositClaimFailed({required String reason}) {
     track('spark_deposit_claim_failed', params: {
       'reason': _safeReason(reason) ?? '',
@@ -2553,14 +2548,6 @@ class TrackingService {
 
   static void sparkDepositClaimFeeConfirmed() =>
       track('spark_deposit_claim_fee_confirmed');
-
-  static void sparkDepositRefunded() => track('spark_deposit_refunded');
-
-  static void sparkDepositRefundFailed({required String reason}) {
-    track('spark_deposit_refund_failed', params: {
-      'reason': _safeReason(reason) ?? '',
-    });
-  }
 
   // -- Swaps / Exchange --
 

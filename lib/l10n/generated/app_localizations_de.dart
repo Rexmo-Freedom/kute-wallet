@@ -806,9 +806,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get confirmClaim => 'Abholung bestätigen';
 
   @override
-  String get confirmRefund => 'Rückerstattung bestätigen';
-
-  @override
   String get connectSign => 'Verbinden & signieren';
 
   @override
@@ -852,10 +849,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Gib eine $assetCode-Adresse ein';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Gib die Bitcoin-Adresse und den Gebührensatz für die Rückerstattung ein.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Gib deine PIN auf dem Jade ein...';
@@ -918,9 +911,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hlMarketInvestCta => 'Investieren';
 
   @override
-  String get feeRateSatsVbyte => 'Gebührensatz (sats/vByte)';
-
-  @override
   String get financials => 'Finanzen';
 
   @override
@@ -964,9 +954,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get invalidAddressOrAmount =>
       'Ungültige Adresse oder ungültiger Betrag';
-
-  @override
-  String get invalidRate => 'Ungültiger Kurs';
 
   @override
   String get liquidity => 'LIQUIDITÄT';
@@ -1119,9 +1106,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get receiveBitcoin => 'Bitcoin empfangen';
-
-  @override
-  String get refundDeposit => 'Einzahlung erstatten';
 
   @override
   String get refunding => 'Wird erstattet';
@@ -3446,7 +3430,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get depositReasonFeeHigh =>
-      'Die Netzwerkgebühr, um sie deinem Guthaben hinzuzufügen, ist höher als üblich. Sie wird automatisch hinzugefügt, sobald die Gebühr sinkt.';
+      'Die Gebühr, um sie jetzt hinzuzufügen, ist ungewöhnlich hoch. Sie wird automatisch hinzugefügt, sobald die Gebühr sinkt, oder du holst sie jetzt ab.';
 
   @override
   String get depositReasonFailed =>
@@ -3462,9 +3446,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get depositWaitForLowerFee => 'Auf niedrigere Gebühr warten';
-
-  @override
-  String get depositSendItBack => 'Zurücksenden';
 
   @override
   String depositHomeWaiting(String amount) {
@@ -3513,9 +3494,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Es kann ein paar Minuten dauern, bis es in deinem Guthaben erscheint.';
-
-  @override
-  String get activityRefundStarted => 'Rückerstattung gestartet';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3586,10 +3564,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get depositAddFailed =>
       'Diese Bitcoin konnten nicht zu deinem Wallet hinzugefügt werden. Versuche es erneut.';
-
-  @override
-  String get depositRefundStartFailed =>
-      'Die Rückerstattung konnte nicht gestartet werden. Versuche es erneut.';
 
   @override
   String get receiveRequestFailed =>
@@ -4169,10 +4143,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Lege fest, wie viel diese Abholung höchstens kosten darf, in sats. Das ist ein Gebührenlimit, keine Bestätigungsgeschwindigkeit. Ist die nötige Gebühr höher, wird die Abholung gestoppt.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Rückerstattung übermittelt. Warte auf Bestätigung.';
-
-  @override
   String get depositActionWalletChanged =>
       'Das Wallet hat sich geändert. Öffne die Einzahlung erneut, um fortzufahren.';
 
@@ -4207,10 +4177,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get depositNoLongerPending =>
       'Diese Einzahlung ist nicht mehr ausstehend. Ihr Status wird aktualisiert.';
-
-  @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Die Rückerstattung wurde signiert, aber ihr Versand wurde nicht bestätigt. Prüfe den Status später erneut.';
 
   @override
   String claimFeeLastQuote(String sats) {
@@ -5474,9 +5440,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get stepUpReasonRevealSeed => 'Wiederherstellungsphrase anzeigen';
-
-  @override
-  String get stepUpReasonRefund => 'Rückerstattung bestätigen';
 
   @override
   String stepUpReasonSwitchWallet(String name) {
