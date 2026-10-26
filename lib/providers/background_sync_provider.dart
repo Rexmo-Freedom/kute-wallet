@@ -1420,8 +1420,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       }
       for (final ex in synthetic) {
         if (receives.isEmpty) break;
-        final estSats =
-            ((double.tryParse(ex.withdrawalAmount) ?? 0) * 1e8).round();
+        // The row's figure is a BTC decimal once polled, or Flashnet's
+        // sats as the quote wrote it: read either the way the Activity
+        // matcher does, never sats as bitcoin (which matched nothing).
+        final rawOut = double.tryParse(ex.withdrawalAmount) ?? 0;
+        final estSats = rawOut >= 1 && rawOut == rawOut.roundToDouble()
+            ? rawOut.round()
+            : (rawOut * 1e8).round();
         SparkTransaction? best;
         int? bestDeltaMs;
         for (final rx in receives) {
@@ -1447,7 +1452,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: actualBtc,
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id);
+        // The link names the row, so Activity folds this receive into it
+        // (or into the move it is a leg of) on every read from now on.
+        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
+            orderId: ex.id, operationId: ex.operationId);
         // Surface the settled row without waiting for the next full
         // gather pass — same propagation the sweep's inserts use.
         ref
@@ -1507,7 +1515,8 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: best.amount.toStringAsFixed(2),
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id);
+        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
+            orderId: ex.id, operationId: ex.operationId);
         ref
             .read(walletTransactionCacheProvider.notifier)
             .mergeSwapOrder(settled);
