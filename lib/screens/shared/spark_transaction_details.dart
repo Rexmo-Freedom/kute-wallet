@@ -1,5 +1,6 @@
 import 'package:kute/screens/shared/money_fee_summary.dart';
-import 'dart:math' show max, min;
+import 'package:kute/services/spark_deposit_actions.dart'
+    show suggestedClaimFeeSats;
 
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/scanned_address.dart';
@@ -26,6 +27,9 @@ import 'package:intl/intl.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+export 'package:kute/services/spark_deposit_actions.dart'
+    show suggestedClaimFeeSats;
 
 final selectedSparkTransactionProvider =
     StateProvider<BaseTransaction?>((ref) => null);
@@ -750,17 +754,6 @@ class _RefundAddressModalSheetState extends State<RefundAddressModalSheet> {
   }
 }
 
-/// A claim quote can rise before the claim runs. Suggest the last quote plus
-/// max(10%, 100 sats), kept below the deposit; null when no cap below the
-/// deposit covers the quote.
-int? suggestedClaimFeeSats(
-    {required int lastQuoteSats, required int depositAmountSats}) {
-  if (lastQuoteSats >= depositAmountSats - 1) {
-    return null;
-  }
-  final headroom = max((lastQuoteSats + 9) ~/ 10, 100);
-  return min(lastQuoteSats + headroom, depositAmountSats - 1);
-}
 
 /// The Spark claim fee is a quoted total fee, not a mining-speed selection.
 /// Return a maximum in sats and enforce the same cap with MaxFee.fixed.

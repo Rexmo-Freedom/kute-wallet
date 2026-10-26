@@ -1,6 +1,7 @@
 // lib/models/transactions_model.dart
 
 import 'package:kute/helpers/prediction_results.dart' show PredictionResult;
+import 'package:kute/models/breez/claim_policy.dart';
 import 'package:kute/models/datetime_range_model.dart';
 import 'package:kute/models/outlogic_model.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -372,7 +373,15 @@ class SparkUnclaimedDeposit extends BaseTransaction {
     final refund = refundTxId;
     if (refund != null && refund.isNotEmpty) return SparkDepositStage.refunding;
     if (!isMature) return SparkDepositStage.confirming;
-    if (requiredFeeSats != null) return SparkDepositStage.waitingForFee;
+    final required = requiredFeeSats;
+    if (required != null) {
+      // Within the app's automatic ceiling the app claims it on the next
+      // snapshot (SparkDepositAutoClaimer); only above it does it wait.
+      return sparkAutoClaimCovers(
+              requiredFeeSats: required, depositSats: amount.toInt())
+          ? SparkDepositStage.adding
+          : SparkDepositStage.waitingForFee;
+    }
     if (hasClaimError || hasStaleEarlyClaim) return SparkDepositStage.failed;
     return SparkDepositStage.adding;
   }
@@ -390,11 +399,13 @@ enum SparkDepositStage {
   /// (sooner when an early claim fits the cap).
   confirming,
 
-  /// Mature, no error yet: the SDK's next sync claims it.
+  /// Mature, no error yet, or refused for a fee within the app's automatic
+  /// ceiling: the SDK's next sync or the app's automatic claim adds it.
   adding,
 
-  /// Mature, but the Spark claim fee is above the automatic cap. It is
-  /// added automatically once the fee drops, or now with Claim now.
+  /// Mature, but the Spark claim fee is above the app's automatic ceiling
+  /// (`sparkAutoClaimCeilingSats`). It is added automatically once the fee
+  /// drops, or now with Claim now.
   waitingForFee,
 
   /// Mature, the claim failed (or an accepted early claim never settled).

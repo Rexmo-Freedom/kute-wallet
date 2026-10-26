@@ -39,6 +39,9 @@ enum SensitiveAction {
   walletSwitch,
   biometricsToggle,
   changePin,
+
+  /// Claim now: paying a higher fee to add an on-chain deposit at once.
+  depositClaim,
 }
 
 /// How a grant was obtained. `name` is the `method` event value.

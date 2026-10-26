@@ -133,6 +133,11 @@ convert_tapped
 crypto_window_changed
 custom_electrum_node_saved
 deep_link_opened
+deposit_claim_waiting_shown
+deposit_quick_claim_failed
+deposit_quick_claim_started
+deposit_quick_claim_succeeded
+deposit_refund_started
 device_bound_explainer_viewed
 direct_hypercore_route
 drawing_created
