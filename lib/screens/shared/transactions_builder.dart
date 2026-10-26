@@ -1461,7 +1461,8 @@ List<BaseTransaction> _collapsePolymarketFlows(
   // Snapshot the Hive tag boxes once per pass, not per row.
   final betFlowOrderIds = PolymarketSparkTxsService.orchestraOrderSnapshot();
   final betFlowSparkIds = PolymarketSparkTxsService.snapshot();
-  final deliveryLinks = links ?? PolymarketSparkTxsService.orchestraDeliveryLinks();
+  final deliveryLinks =
+      links ?? PolymarketSparkTxsService.orchestraDeliveryLinks();
 
   final exchanges = <SwapOrderTransaction>[];
   final polymarketRows = <PolymarketTransaction>[];
@@ -1587,6 +1588,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
     betFlowOrderIds: betFlowOrderIds,
     links: deliveryLinks,
   );
+  final deliveredRows = ownDeliveries.values.toSet();
 
   bool hideSparkReceive(SparkTransaction tx) {
     // NOTE: the bet-flow tag box is deliberately IGNORED for receives
@@ -1594,7 +1596,6 @@ List<BaseTransaction> _collapsePolymarketFlows(
     // payments (see the claim-window matcher history), so a tag alone
     // must never hide incoming money.
     if (ownDeliveries.containsKey(tx.id)) return true;
-    final delivered = ownDeliveries.values.toSet();
     final amountSats = tx.amountSats.abs();
     final txMs = tx.timestamp.millisecondsSinceEpoch;
     // Fallback for exchanges with missing/foreign-format settle
@@ -1612,7 +1613,7 @@ List<BaseTransaction> _collapsePolymarketFlows(
     if (tx.sparkType == SparkTransactionType.spark) {
       for (final ex in exchanges) {
         // A row whose own receive is already known is not this one's.
-        if (delivered.contains(ex.id)) continue;
+        if (deliveredRows.contains(ex.id)) continue;
         final d = ex.details;
         if (!isPolymarketLeg(d)) {
           continue;

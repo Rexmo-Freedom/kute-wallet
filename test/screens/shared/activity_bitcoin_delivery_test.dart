@@ -41,7 +41,8 @@ final _t0 = DateTime.utc(2026, 10, 26, 12);
 // The same Spark key under both spellings (address_guard_test.dart).
 const _sparkG =
     'spark1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9uc489gg2';
-const _spG = 'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
+const _spG =
+    'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
 
 SwapOrderTransaction _swap(
   String id, {
@@ -108,8 +109,7 @@ UsdbTokenTransaction _dollars(String id, double usd, Duration after,
         status: breez.PaymentStatus.completed,
         amount: BigInt.from((usd * 1e6).round()),
         fees: BigInt.zero,
-        timestamp:
-            BigInt.from(_t0.add(after).millisecondsSinceEpoch ~/ 1000),
+        timestamp: BigInt.from(_t0.add(after).millisecondsSinceEpoch ~/ 1000),
         method: breez.PaymentMethod.token,
         details: breez.PaymentDetails.token(
           metadata: breez.TokenMetadata(
@@ -229,15 +229,16 @@ void main() {
     });
 
     test('an estimate up to ten percent off still claims its receive', () {
-      final estimate = _swap('ord_hl',
-          withdrawalAmount: '0.00021000', operationId: 'op-hl');
+      final estimate =
+          _swap('ord_hl', withdrawalAmount: '0.00021000', operationId: 'op-hl');
       final landed = _received('rx_hl', 19300, const Duration(minutes: 90));
       expect(_ids(_surface([estimate, landed], moves: [move])), ['msm_1']);
     });
   });
 
   group('a leg whose bitcoin figure is not known yet', () {
-    final pending = _swap('ord_hl', withdrawalAmount: '0', operationId: 'op-hl');
+    final pending =
+        _swap('ord_hl', withdrawalAmount: '0', operationId: 'op-hl');
     final arrived = _received('rx_hl', 19900, const Duration(minutes: 40));
     final move = _move([_leg(OneBalanceVenue.investing, 'op-hl')]);
 
@@ -249,8 +250,8 @@ void main() {
     test('the reconciler\'s link folds it in, by the row\'s operation', () {
       // Linked while the row still had its quote id.
       final links = {
-        'rx_hl': const OrchestraDeliveryLink(
-            orderId: 'q_hl', operationId: 'op-hl'),
+        'rx_hl':
+            const OrchestraDeliveryLink(orderId: 'q_hl', operationId: 'op-hl'),
       };
       expect(_ids(_surface([pending, arrived], moves: [move], links: links)),
           ['msm_1']);
@@ -325,8 +326,8 @@ void main() {
       final started = _move(const []);
       expect(_ids(_surface([hl, arrived], moves: [started])), ['ord_hl']);
       // The leg is recorded: one row for the move, the receive still in.
-      final recorded = started.copyWith(
-          legs: [_leg(OneBalanceVenue.investing, 'op-hl')]);
+      final recorded =
+          started.copyWith(legs: [_leg(OneBalanceVenue.investing, 'op-hl')]);
       expect(_ids(_surface([hl, arrived], moves: [recorded])), ['msm_1']);
     });
   });
@@ -366,8 +367,8 @@ void main() {
       final hl = _swap('ord_hl', withdrawalAmount: '0', operationId: 'op-hl');
       final arrived = _received('rx_hl', 19900, const Duration(minutes: 30));
       final move = _move([_leg(OneBalanceVenue.investing, 'op-hl')]);
-      expect(_ids(_surface([hl, arrived], moves: [move], links: null)),
-          ['msm_1']);
+      expect(
+          _ids(_surface([hl, arrived], moves: [move], links: null)), ['msm_1']);
     });
   });
 
@@ -393,8 +394,10 @@ void main() {
     });
 
     test('the same amount before the move started', () {
-      final before = _received('rx_before', 19900, const Duration(minutes: -30));
-      expect(_ids(_surface([hl, before], moves: [move])), ['msm_1', 'rx_before']);
+      final before =
+          _received('rx_before', 19900, const Duration(minutes: -30));
+      expect(
+          _ids(_surface([hl, before], moves: [move])), ['msm_1', 'rx_before']);
     });
 
     test('a genuine receive with no move or withdrawal beside it', () {
@@ -498,8 +501,10 @@ void main() {
         withdrawalAddress: '0xsafe');
     final move = _move([
       _leg(OneBalanceVenue.investing, 'op-hl', direct: false),
-    ], destination: VenueCashDestination.predictions,
-        forAction: VenueCashFor.predictions, finalOp: 'q_fund');
+    ],
+        destination: VenueCashDestination.predictions,
+        forAction: VenueCashFor.predictions,
+        finalOp: 'q_fund');
     final home = _swap('ord_hl_usd',
         coinTo: kOrchestraUsdAssetCode,
         withdrawalAmount: '19.90',

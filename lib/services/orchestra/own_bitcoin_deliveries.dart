@@ -154,8 +154,8 @@ Map<String, String> ownBitcoinDeliveryReceives(
     // A withdrawal's stored figure is the quote's estimate until the poll
     // writes the delivered one: a wider match than an exact settled
     // amount is held to.
-    final tolSats = math.max(
-        1, (fieldSats * (ownWithdrawal ? 0.10 : 0.02)).round());
+    final tolSats =
+        math.max(1, (fieldSats * (ownWithdrawal ? 0.10 : 0.02)).round());
     final window = ownWithdrawal || toSelf
         ? kOwnDeliveryArrivalWindow
         : const Duration(minutes: 30);
