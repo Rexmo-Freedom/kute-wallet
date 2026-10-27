@@ -6,19 +6,20 @@
 // Revolut's "Total wealth"), and since 27 October 2026 the positions
 // themselves under their venue (the Positions pill is gone). Top down:
 //
-//   * one row: a small bare RING on the left (the engine's KuteDonutChart,
+//   * "● Available to invest" on top, a header like the venues' and the
+//     same size ("Buying power" until the founder's 27 October 2026
+//     review; the l10n key and widget keys keep the old name), with the
+//     spare cash (Dollars + Hyperliquid cash + Polymarket cash) and a
+//     chevron at the row's end that opens, in place, where that cash sits,
+//     largest first. A Rebalance note under a place opens the split by
+//     itself;
+//   * under it a small bare RING on the left (the engine's KuteDonutChart,
 //     nothing in its hole: the hero above the pills carries the total),
 //     its slices in each category's FIXED colour of the muted chart
 //     palette (Available to invest indigo, Investing teal, Predictions
 //     amber: AppColorsExtension.chartCategorical), the same as the dots,
-//     so there is no legend; then "● Available to invest" ("Buying power"
-//     until the founder's 27 October 2026 review; the l10n key and widget
-//     keys keep the old name) with the spare cash (Dollars + Hyperliquid
-//     cash + Polymarket cash) and a chevron at the row's end that opens,
-//     in place, where that cash sits, largest first. A Rebalance note
-//     under a place opens the split by itself. Move money, a pill like
-//     the selected section pill, sits under the amount on the right; its
-//     [steps] under the row while a move runs;
+//     so there is no legend; Move money, a pill like the selected section
+//     pill, on the right; its [steps] under the row while a move runs;
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
@@ -245,8 +246,8 @@ class BalancesVenueList {
   static const BalancesVenueList empty = BalancesVenueList();
 }
 
-/// Buying power with Total investments and Move money ([action], its
-/// [steps]) beside the ring, then each
+/// Available to invest, then the ring with Move money ([action], its
+/// [steps]) beside it, then each
 /// venue with its positions (see the file header). [money] writes an
 /// amount (masked when balances are hidden); [wrap] lets the breakdown
 /// wrap each account's place row (its Rebalance band, the Dollars
@@ -368,34 +369,17 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 8.h),
-        // The ring on the left, small and bare (the hero above the pills
-        // carries the total); Buying power and Move money beside it.
-        Row(
-          children: [
-            _Ring(
-              categories: categories.keys.toList(),
-              shares: shares,
-              semantics: [
-                '${l10n.total} ${totalFigure.text}',
-                if (shares.isNotEmpty)
-                  for (final k in categories.keys)
-                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
-              ].join(', '),
-            ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: _BuyingPower(
-                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-                label: l10n.portfolioBuyingPower,
-                figure: buyingPower,
-                open: split,
-                onToggle: places.any((e) => e.footer.isNotEmpty)
-                    ? null
-                    : () => setState(() => _split = !_split),
-                action: widget.action,
-              ),
-            ),
-          ],
+        // Available to invest on top, a header like Predictions and
+        // Investing below (founder, 27 October 2026); where its cash sits
+        // opens under it.
+        _BuyingPower(
+          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+          label: l10n.portfolioBuyingPower,
+          figure: buyingPower,
+          open: split,
+          onToggle: places.any((e) => e.footer.isNotEmpty)
+              ? null
+              : () => setState(() => _split = !_split),
         ),
         // Where the cash sits, opened in place.
         AnimatedSize(
@@ -426,6 +410,25 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                   ),
                 )
               : const SizedBox(width: double.infinity),
+        ),
+        // Under it the small bare ring (the hero above the pills carries
+        // the total) and Move money on the right.
+        SizedBox(height: 12.h),
+        Row(
+          children: [
+            _Ring(
+              categories: categories.keys.toList(),
+              shares: shares,
+              semantics: [
+                '${l10n.total} ${totalFigure.text}',
+                if (shares.isNotEmpty)
+                  for (final k in categories.keys)
+                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+              ].join(', '),
+            ),
+            const Spacer(),
+            if (widget.action case final action?) action,
+          ],
         ),
         if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
@@ -504,6 +507,15 @@ class _VenueCard extends StatelessWidget {
 
 /// The dot before a category's name.
 const double _kDot = 8;
+
+/// A section's title: Available to invest, Predictions, Investing, all the
+/// same size (founder, 27 October 2026), a step larger than the rows.
+TextStyle _sectionTitle(BuildContext context) =>
+    AppTextStyles.settingsTitle(context).copyWith(
+        fontSize: 18.sp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        height: 1.25);
 
 /// A venue's text starts after its dot and this gap; its rows and the
 /// places under Buying power line up with it.
@@ -633,10 +645,9 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// Buying power beside the ring: "● Buying power ⌄" with its amount at
-/// the row's end (the venue headers' size), a tap on the row opening where
-/// the cash sits ([onToggle]; null: held open by a note), and Move money
-/// ([action], a pill) under it on the right.
+/// Available to invest, a header like the venues': "● Available to
+/// invest" with its amount and chevron at the row's end, a tap on the row
+/// opening where the cash sits ([onToggle]; null: held open by a note).
 class _BuyingPower extends StatelessWidget {
   const _BuyingPower({
     required this.color,
@@ -644,7 +655,6 @@ class _BuyingPower extends StatelessWidget {
     required this.figure,
     required this.open,
     required this.onToggle,
-    this.action,
   });
 
   final Color color;
@@ -652,13 +662,11 @@ class _BuyingPower extends StatelessWidget {
   final BalancesFigure figure;
   final bool open;
   final VoidCallback? onToggle;
-  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final titleStyle = AppTextStyles.settingsTitle(context)
-        .copyWith(letterSpacing: -0.2, height: 1.25);
+    final titleStyle = _sectionTitle(context);
     return Column(
       key: const ValueKey('portfolio-balance-category-buyingPower'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -676,7 +684,7 @@ class _BuyingPower extends StatelessWidget {
             child: Row(
               children: [
                 _Dot(color: color),
-                SizedBox(width: 8.w),
+                SizedBox(width: _kDotGap.w),
                 Expanded(
                   child: Text(label,
                       maxLines: 1,
@@ -716,12 +724,6 @@ class _BuyingPower extends StatelessWidget {
             ),
           ),
         ),
-        // Move money on the right, under the amount (founder, 27 October
-        // 2026).
-        if (action case final link?) ...[
-          SizedBox(height: 6.h),
-          Align(alignment: AlignmentDirectional.centerEnd, child: link),
-        ],
       ],
     );
   }
@@ -763,13 +765,7 @@ class _VenueHeader extends StatelessWidget {
       height: 1.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    // A step larger than Buying power and the rows (founder, 27 October
-    // 2026).
-    final titleStyle = AppTextStyles.settingsTitle(context).copyWith(
-        fontSize: 18.sp,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.3,
-        height: 1.25);
+    final titleStyle = _sectionTitle(context);
     final name = category.name;
     return Semantics(
       container: true,

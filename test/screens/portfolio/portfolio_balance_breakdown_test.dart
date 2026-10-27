@@ -1586,9 +1586,9 @@ void main() {
     });
 
     testWidgets(
-        "the founder's wallet: a bare ring beside Available to invest and "
-        'its amount, Move money on the right, no repeated total, then each '
-        'venue',
+        "the founder's wallet: Available to invest on top like the venues, "
+        'the bare ring under it with Move money on the right, no repeated '
+        'total, then each venue',
         (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
@@ -1619,8 +1619,9 @@ void main() {
       expect(slices(tester)[0].value, moreOrLessEquals(17.64 / 35.03));
       expect(find.textContaining('%'), findsNothing);
 
-      // Available to invest to its right ("Buying power" until 27 October
-      // 2026): the label and its amount on one row, the
+      // Available to invest ("Buying power" until 27 October 2026) above
+      // the ring, a header like the venues': the label and its amount on
+      // one row, the
       // amount at the venue headers' size (not a big figure), ending on
       // their column.
       expect(find.text('Available to invest'), findsOneWidget);
@@ -1658,7 +1659,13 @@ void main() {
               epsilon: 0.5));
       expect(tester.getRect(bpAmount).left, greaterThan(ring.right));
       final label = tester.getRect(find.text('Available to invest'));
-      expect(label.left, greaterThan(ring.right));
+      expect(label.bottom, lessThanOrEqualTo(ring.top));
+      // Its title the venues' size, and its text starting where theirs do.
+      final venueTitle = find.text('Predictions');
+      expect(tester.widget<Text>(find.text('Available to invest')).style!.fontSize,
+          tester.widget<Text>(venueTitle).style!.fontSize);
+      expect(label.left,
+          moreOrLessEquals(tester.getRect(venueTitle).left, epsilon: 0.5));
       expect(tester.getRect(bpAmount).center.dy,
           moreOrLessEquals(label.center.dy, epsilon: 3));
       // The tagline and Total investments are gone.
@@ -1757,7 +1764,8 @@ void main() {
     });
 
     testWidgets(
-        'the chevron opens where Buying power sits, largest first, in place',
+        'the chevron opens where Available to invest sits, largest first, '
+        'in place, under its header',
         (tester) async {
       final c = await _pump(tester, home: overviewBreakdown);
       c.read(_balance.notifier).state = founder;
@@ -1777,8 +1785,13 @@ void main() {
               _tile(tester, 'category-buyingPower').bottom - 0.01));
       expect(pm.top, greaterThanOrEqualTo(hl.bottom - 0.01));
       expect(usd.top, greaterThanOrEqualTo(pm.bottom - 0.01));
-      // Under the top row (Move money included), above the venues.
-      expect(hl.top, greaterThan(tester.getRect(_rebalance).bottom));
+      // Under its header, above the ring and Move money and the venues.
+      expect(usd.bottom, lessThan(tester.getRect(_rebalance).top));
+      expect(
+          usd.bottom,
+          lessThan(tester
+              .getRect(find.byKey(const ValueKey('portfolio-balance-ring')))
+              .top));
       expect(
           _tile(tester, 'category-predictions').top, greaterThan(usd.bottom));
       // Folded again.
