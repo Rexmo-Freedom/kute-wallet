@@ -214,4 +214,79 @@ void main() {
     expect(find.text('+2 more'), findsOneWidget);
     expect(find.textContaining('outcomes'), findsNothing);
   });
+
+  testWidgets(
+      'a flat block: no card surface, border or shadow; the ink spans it, '
+      'its many outcomes and "+N more" kept', (tester) async {
+    var taps = 0;
+    await _pump(
+      tester,
+      MarketCard(
+        title: 'Who will Trump meet in October?',
+        outcomes: [
+          for (final (n, p) in [
+            ('Xi Jinping', 0.83),
+            ('Vladimir Putin', 0.22),
+            ('Kim Jong Un', 0.08),
+            ('Narendra Modi', 0.07),
+          ])
+            PolymarketOutcome(
+                name: n,
+                price: p,
+                conditionId: n,
+                tokenId: '$n-yes',
+                noTokenId: '$n-no'),
+        ],
+        volume: 3100000,
+        category: 'politics',
+        onTap: () => taps++,
+      ),
+    );
+    final block = find.byType(MarketCard);
+    final card = AppDecorations.card(tester.element(block));
+    for (final box in tester.widgetList<DecoratedBox>(
+        find.descendant(of: block, matching: find.byType(DecoratedBox)))) {
+      final d = box.decoration;
+      if (d is! BoxDecoration) continue;
+      expect(d.boxShadow ?? const <BoxShadow>[], isEmpty);
+      expect(d.border, isNull);
+      expect(d == card, isFalse);
+    }
+    // The same content: the title, the two leading outcomes, the rest
+    // counted, the volume.
+    expect(find.text('Who will Trump meet in October?'), findsOneWidget);
+    expect(find.text('Xi Jinping'), findsOneWidget);
+    expect(find.text('Vladimir Putin'), findsOneWidget);
+    expect(find.text('+2 more'), findsOneWidget);
+    expect(find.textContaining('vol'), findsOneWidget);
+    // The press feedback spans the whole block, and a tap opens it.
+    final ink = find.descendant(of: block, matching: find.byType(InkWell));
+    expect(tester.getSize(ink.first), tester.getSize(block));
+    await tester.tap(find.text('Vladimir Putin'));
+    expect(taps, 1);
+  });
+
+  testWidgets('the divider after a market is the app\'s hairline, inset to '
+      'the title', (tester) async {
+    await _pump(
+      tester,
+      const MarketCard(
+        title: 'Will it rain?',
+        outcomes: [
+          PolymarketOutcome(name: 'Yes', price: 0.4),
+          PolymarketOutcome(name: 'No', price: 0.6),
+        ],
+        volume: 1000,
+        category: 'weather',
+      ),
+    );
+    final context = tester.element(find.byType(MarketCard));
+    final divider = polyMarketRowDivider(context) as Divider;
+    expect(divider.thickness, 0.5);
+    expect(divider.height, 1);
+    expect(divider.color, context.colors.borderSubtle);
+    final titleLeft = tester.getTopLeft(find.text('Will it rain?')).dx -
+        tester.getTopLeft(find.byType(MarketCard)).dx;
+    expect(divider.indent, moreOrLessEquals(titleLeft, epsilon: 0.5));
+  });
 }

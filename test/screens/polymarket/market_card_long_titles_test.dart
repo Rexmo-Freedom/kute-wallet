@@ -134,8 +134,8 @@ void main() {
           PolymarketOutcome(name: 'No', price: 0.5),
         ],
         // Measured in the card's own face, it takes this much to run
-        // out of room at 375 pt.
-        volume: 123456789012345,
+        // out of room at 375 pt (a flat row: the card's whole width).
+        volume: 1.2345678901234567e17,
         category: 'sports',
         startDate: DateTime(2031, 9, 28),
         siblingMarketCount: 1110,
