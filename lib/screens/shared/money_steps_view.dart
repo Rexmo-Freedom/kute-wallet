@@ -9,8 +9,8 @@
 // the balances the money passes through are plain round STATIONS left to
 // right (their own marks in their fixed brand colours, never theme
 // tokens, so they read on a green Yes or red No slip as on a plain sheet:
-// ₿ on orange, the Dollars (USDB) mark, the Investing and Predictions
-// marks; no disc behind), joined by CONNECTORS: neutral 1.5 px
+// the app's Bitcoin mark, the Dollars (USDB) mark, the Investing
+// (Hyperliquid) and Predictions (Polymarket) marks; no disc behind), joined by CONNECTORS: neutral 1.5 px
 // hairlines, never an arrowhead, never a diagonal. One source: one
 // straight horizontal line from its station to the next. Legs from
 // several balances run at once (founder, 25 October 2026): their
@@ -37,14 +37,18 @@
 // asks for attention; done, the ring goes and the check comes. Those
 // sub-steps are a row of small dots under its name: a ring while
 // waiting, a softly breathing dot while running, filled once done.
-// ONE coin, in the currency of where the money is, rides the running
+// ONE coin, wearing the mark of the balance the money is in (the same
+// mark as that station: never a bare "$"), rides the running
 // connector a little above it, rests above each station on the way and
 // cross-fades into that station's currency; it never parks at a merge
 // point (on a leg into one it stops before the corner and fades out
 // once the leg landed), and at a destination with sub-steps it sinks in
 // as the ring takes over (else once everything is done). Sal, small,
 // walks the line behind the coin and waits there while it works, never
-// at the merge point. Under the row: one status line in the step's own
+// at the merge point: once the money is all there he walks on along the
+// line (round the corner, along the shared line) and waits beside the
+// destination, left of its ring, while it works. Under the row: one
+// status line in the step's own
 // words ("Moving $4.18 from Bitcoin", "Confirming balance", "Placed!",
 // or the surface's line saying where the money is after a stop),
 // "Taking longer than usual" quietly under it. No progress bar (founder,
@@ -80,7 +84,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
+import 'package:kute/providers/asset_icon_provider.dart'
+    show kBitcoinMarkAsset, kUsdMarkAsset;
 import 'package:kute/screens/shared/side_tint_palette.dart' show isSideTinted;
 import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
@@ -352,6 +357,7 @@ class _Look {
     required this.gap,
     required this.corner,
     required this.rowGap,
+    required this.ringGap,
     required this.salSize,
     required this.rowY,
     required this.nameTop,
@@ -393,6 +399,10 @@ class _Look {
 
   /// Between two stations stacked in one column.
   final double rowGap;
+
+  /// From a station's edge to the middle of its ring (the destination's,
+  /// while it works).
+  final double ringGap;
   final double salSize;
 
   /// The stations' centre line, from the map's top (room above it for the
@@ -862,7 +872,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   void initState() {
     super.initState();
-    _loadUsdMark();
+    unawaited(_loadMarks());
     _sync(first: true);
   }
 
@@ -1131,6 +1141,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       gap: 12.r,
       corner: 8.r,
       rowGap: 8.r,
+      ringGap: 4.r,
       salSize: 20.r,
       rowY: 30.r,
       nameTop: 30.r + stationR + 4.r,
@@ -1492,17 +1503,15 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           child: Center(child: mark),
         );
     final icon = switch (st.place) {
-      MoneyPlace.bitcoin => disc(
-          KuteDogPalette.mascot.fur,
-          Icon(Icons.currency_bitcoin_rounded,
-              size: r * 1.35, color: Colors.white)),
+      MoneyPlace.bitcoin =>
+        SvgPicture.asset(kBitcoinMarkAsset, width: d, height: d),
       MoneyPlace.dollars =>
         SvgPicture.asset(kUsdMarkAsset, width: d, height: d),
       MoneyPlace.investing => ClipOval(
-          child: SvgPicture.asset('lib/assets/hyperliquid-logo.svg',
+          child: SvgPicture.asset(_kInvestingMarkAsset,
               width: d, height: d, fit: BoxFit.cover)),
       MoneyPlace.predictions =>
-        SvgPicture.asset('lib/assets/polymarket-logo.svg', width: d, height: d),
+        SvgPicture.asset(_kPredictionsMarkAsset, width: d, height: d),
       null => disc(
           _kOutsideGrey,
           Icon(Icons.arrow_outward_rounded,
@@ -1877,21 +1886,45 @@ double _unit(double v) => v.isNaN ? 0 : v.clamp(0.0, 1.0);
 /// The Dollars mark's own green ([kUsdMarkAsset]'s disc).
 const Color _kDollarsGreen = Color(0xFF00875A);
 
-/// The Dollars mark ([kUsdMarkAsset]) as a picture, for the coin in
-/// Dollars: loaded once for the app's life. Until it is, the coin is its
-/// colours and a "\$".
-PictureInfo? _usdMark;
-bool _usdMarkLoading = false;
+/// The Investing and Predictions stations' marks.
+const String _kInvestingMarkAsset = 'lib/assets/hyperliquid-logo.svg';
+const String _kPredictionsMarkAsset = 'lib/assets/polymarket-logo.svg';
 
-void _loadUsdMark() {
-  if (_usdMark != null || _usdMarkLoading) return;
-  _usdMarkLoading = true;
-  unawaited(vg
-      .loadPicture(const SvgAssetLoader(kUsdMarkAsset), null)
-      .then<void>((p) => _usdMark = p, onError: (Object _) {
-    _usdMarkLoading = false;
-  }));
-}
+/// The mark a balance's station and its coin wear, as an SVG asset (null
+/// for the outside world, drawn as an arrow on grey).
+String? _markAssetOf(MoneyPlace? place) => switch (place) {
+      MoneyPlace.bitcoin => kBitcoinMarkAsset,
+      MoneyPlace.dollars => kUsdMarkAsset,
+      MoneyPlace.investing => _kInvestingMarkAsset,
+      MoneyPlace.predictions => _kPredictionsMarkAsset,
+      null => null,
+    };
+
+/// The balances' marks as pictures, for the coin: loaded once for the
+/// app's life. Until one is, its coin is a plain disc in its colour
+/// (never a bare "\$").
+final Map<String, PictureInfo> _marks = {};
+Future<void>? _marksLoading;
+
+Future<void> _loadMarks() => _marksLoading ??= Future.wait([
+      for (final asset in const [
+        kBitcoinMarkAsset,
+        kUsdMarkAsset,
+        _kInvestingMarkAsset,
+        _kPredictionsMarkAsset,
+      ])
+        vg
+            .loadPicture(SvgAssetLoader(asset), null)
+            .then<void>((p) => _marks[asset] = p, onError: (Object _) {}),
+    ]).then<void>((_) {
+      // Any that failed load again next time a view opens.
+      if (_marks.length < 4) _marksLoading = null;
+    });
+
+/// Loads the coin's marks now (a test that renders frames waits for
+/// them).
+@visibleForTesting
+Future<void> precacheMoneyJourneyMarks() => _loadMarks();
 
 /// An outside destination's (a recipient's) quiet grey.
 const Color _kOutsideGrey = Color(0xFF8E8E93);
@@ -2034,7 +2067,7 @@ class _MapPainter extends CustomPainter {
     if (ring > 0) {
       canvas.drawCircle(
           geo.stations[dest],
-          look.stationR + 4,
+          look.stationR + look.ringGap,
           stroke(color.withValues(alpha: color.a * ring))
             ..strokeWidth = 1.5);
     }
@@ -2193,6 +2226,13 @@ class MoneyJourneyPainter extends CustomPainter {
     return road == null ? _segLit(s, s.fx[id], _now) : _roadLit(s, road, _now);
   }
 
+  /// The mark the coin wears now (an SVG asset; null for the outside
+  /// world), the same as its balance's station.
+  String? get coinMarkAsset {
+    final c = _coin(_now);
+    return c == null ? null : _markAssetOf(c.place);
+  }
+
   /// How strongly the destination's ring shows now, 0..1 (on while its
   /// own sub-steps run, once the money is all there).
   double get destinationRing => _ringAlpha(_scene, _now);
@@ -2317,6 +2357,60 @@ class MoneyJourneyPainter extends CustomPainter {
   /// runs, never past ~78% of the leg (beside the next station, where he
   /// waits while it works); at the start of the first line before it
   /// leaves; beside the destination when nothing travels.
+  /// Where Sal walks on to once road [road]'s money is there: along the
+  /// rest of its line (round its corner, along the shared line) to
+  /// beside the station it goes to, at about 80 px a second; null while
+  /// it is not there yet. Under Reduce Motion, and for a road that
+  /// landed before the view, he is beside it at once.
+  Offset? _salWalk(JourneyRoad road, double now, double half, double behind) {
+    final s = _scene;
+    final plan = s.plan;
+    final look = s.look;
+    final geo = _geo;
+    final into = plan.roads.indexOf(road);
+    final trunk = geo.trunks[road.to];
+    final double? at;
+    if (trunk != null) {
+      at = _allLandedAt(s, road.to)?.$1;
+    } else {
+      at = _roadLit(s, road, now) >= 1 ? _roadArrivedAt(s, road) : null;
+    }
+    if (at == null) return null;
+    final st = geo.stations[road.to];
+    final beside = Offset(st.dx - look.stationR - look.gap - half, st.dy);
+    // The way on: from where he waited to beside the station.
+    final way = <Offset>[];
+    final path = geo.branches ? geo.paths[into] : null;
+    if (path != null && path.length > 0) {
+      final from = math.max(half / path.length,
+          math.min(path.coinStop - behind / path.length, _kHold));
+      final d0 = from * path.length;
+      way.add(path.at(from));
+      for (var i = 1; i < path.points.length; i++) {
+        if (path.cum[i] > d0) way.add(path.points[i]);
+      }
+      if (trunk != null) way.addAll(trunk.points.skip(1));
+    } else {
+      way.add(Offset(
+          math.max(geo.tipX(plan, road, 0) + half,
+              math.min(geo.tipX(plan, road, 1) - behind,
+                  geo.tipX(plan, road, _kHold))),
+          look.rowY));
+    }
+    // Never past beside: the line's end on the station's row is
+    // dropped for it.
+    while (way.length > 1 &&
+        (way.last.dy - beside.dy).abs() < 0.5 &&
+        way.last.dx >= beside.dx) {
+      way.removeLast();
+    }
+    way.add(beside);
+    final walk = _RoadPath(way);
+    if (s.still || !at.isFinite || walk.length <= 0) return beside;
+    final dur = (walk.length / 0.08).clamp(500.0, 2200.0);
+    return walk.at(Curves.easeInOut.transform(_unit((now - at) / dur)));
+  }
+
   Offset _salTarget(double now) {
     final s = _scene;
     final plan = s.plan;
@@ -2334,6 +2428,11 @@ class MoneyJourneyPainter extends CustomPainter {
     final road = plan.roads[plan.chain[k]];
     final f = _roadLit(s, road, now);
     final behind = look.coinR + half + 4;
+    // Once the money is there (into a merge point: once every leg landed
+    // and the shared line fills) he walks on along the line and waits
+    // beside the station, left of its ring, while it works.
+    final on = _salWalk(road, now, half, behind);
+    if (on != null) return on;
     if (geo.branches) {
       // Along the leg's own row: a little behind the coin, never past
       // the hold, and never round a corner or onto a merge point (he
@@ -2440,24 +2539,33 @@ class MoneyJourneyPainter extends CustomPainter {
         Paint()
           ..color = Colors.black.withValues(alpha: 0.16 * a)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
-    // In Dollars it is the Dollars mark itself, scaled down.
-    final mark = c.place == MoneyPlace.dollars ? _usdMark : null;
+    // It wears the mark of the balance the money is in, as its station
+    // does: the Bitcoin, Dollars, Hyperliquid or Polymarket mark, scaled
+    // down into its circle.
+    final asset = _markAssetOf(c.place);
+    final mark = asset == null ? null : _marks[asset];
+    final box = Rect.fromCircle(center: at, radius: r);
     if (mark != null && mark.size.width > 0 && mark.size.height > 0) {
-      final box = Rect.fromCircle(center: at, radius: r);
       if (a < 1) {
         canvas.saveLayer(
             box.inflate(1), Paint()..color = Colors.white.withValues(alpha: a));
       } else {
         canvas.save();
       }
+      final k = math.max(
+          box.width / mark.size.width, box.height / mark.size.height);
       canvas
-        ..translate(box.left, box.top)
-        ..scale(box.width / mark.size.width, box.height / mark.size.height)
+        ..clipPath(Path()..addOval(box))
+        ..translate(at.dx - mark.size.width * k / 2,
+            at.dy - mark.size.height * k / 2)
+        ..scale(k, k)
         ..drawPicture(mark.picture)
         ..restore();
       return;
     }
     canvas.drawCircle(at, r, Paint()..color = fill.withValues(alpha: a));
+    // A mark still loading: its colour alone, never a "\$".
+    if (asset != null) return;
     canvas.drawCircle(
         at,
         r - 1.3 * c.scale,
@@ -2465,27 +2573,18 @@ class MoneyJourneyPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.8
           ..color = Colors.white.withValues(alpha: 0.35 * a));
-    final ink = c.place == MoneyPlace.investing
-        ? const Color(0xFF0E2422)
-        : Colors.white;
-    final glyph = switch (c.place) {
-      MoneyPlace.bitcoin => Icons.currency_bitcoin_rounded,
-      null => Icons.arrow_outward_rounded,
-      _ => null,
-    };
+    const glyph = Icons.arrow_outward_rounded;
     final tp = TextPainter(
       text: TextSpan(
-        text: glyph == null ? '\$' : String.fromCharCode(glyph.codePoint),
+        text: String.fromCharCode(glyph.codePoint),
         style: TextStyle(
           inherit: false,
-          fontFamily: glyph?.fontFamily ?? look.font.fontFamily,
-          fontFamilyFallback:
-              glyph == null ? look.font.fontFamilyFallback : null,
-          package: glyph?.fontPackage,
-          fontSize: r * (glyph == null ? 1.25 : 1.4),
+          fontFamily: glyph.fontFamily,
+          package: glyph.fontPackage,
+          fontSize: r * 1.4,
           fontWeight: FontWeight.w800,
           height: 1,
-          color: ink.withValues(alpha: a),
+          color: Colors.white.withValues(alpha: a),
         ),
       ),
       textDirection: TextDirection.ltr,

@@ -208,6 +208,8 @@ void main() {
     // point, Sal behind it.
     final coin = _motion(tester).coin!;
     expect(coin.place, MoneyPlace.investing);
+    // It wears the Investing station's own mark, never a bare "\$".
+    expect(_motion(tester).coinMarkAsset, 'lib/assets/hyperliquid-logo.svg');
     final mapAt =
         tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
     expect((mapAt + coin.at).dx, lessThan(merge.dx - 10));
@@ -240,6 +242,28 @@ void main() {
     // says Predictions works.
     expect(_motion(tester).coin, isNull);
     expect(_motion(tester).destinationRing, greaterThan(0));
+    // Sal walks on along the line and waits beside Predictions, on the
+    // shared line, left of its ring.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 100));
+    // Measured now: the view is centred, and its status line changed.
+    final pm2 = _station(tester, 'predictions');
+    final mapAt2 =
+        tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
+    final sal = mapAt2 + _motion(tester).travellerAt!;
+    final merge2 = mapAt2 + _motion(tester).mergePointOf('predictions')!;
+    final r = tester
+            .getSize(find.byKey(const ValueKey('money-steps-station-predictions')))
+            .width /
+        2;
+    // The ring: 4 (scaled with the station's 14) past its edge, 1.5 wide.
+    final ringLeft = pm2.dx - r - 4 * r / 14 - 0.75;
+    expect(sal.dy, closeTo(pm2.dy, 0.5));
+    expect(sal.dx, greaterThan(merge2.dx));
+    // His right edge (0.45 of his 20 px size, scaled alike) short of
+    // the ring.
+    expect(sal.dx + 9 * r / 14, lessThan(ringLeft));
+    expect(_motion(tester).walking, isFalse);
     expect(find.text('Converting to pUSD'), findsNothing);
     final lines =
         _lines(_bet(bitcoin: _done, investing: _done, gather: _run));
@@ -290,6 +314,7 @@ void main() {
       final icons = FontLoader('MaterialIcons')
         ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
       await icons.load();
+      await precacheMoneyJourneyMarks();
     });
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;

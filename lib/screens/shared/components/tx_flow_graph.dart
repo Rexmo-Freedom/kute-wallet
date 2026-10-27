@@ -46,6 +46,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/asset_icon_provider.dart'
+    show kBitcoinMarkAsset;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -599,21 +601,19 @@ class _FlowDisc extends StatelessWidget {
       return SvgPicture.asset('lib/assets/polymarket-logo.svg',
           width: size, height: size);
     }
+    // Bitcoin wears the app's own Bitcoin mark, as everywhere else.
+    if (mark == SimpleFlowMark.bitcoin) {
+      return SvgPicture.asset(kBitcoinMarkAsset, width: size, height: size);
+    }
     final glyph = switch (mark) {
       SimpleFlowMark.lightning =>
         Icon(Icons.bolt_rounded, size: 15, color: Colors.white),
-      SimpleFlowMark.dollars => Text('\$',
+      _ => Text('\$',
           style: TextStyle(
               color: Colors.white,
               fontSize: 12.sp,
               height: 1,
               fontWeight: FontWeight.w800)),
-      _ => Text('₿',
-          style: TextStyle(
-              color: Colors.white,
-              fontSize: 12.sp,
-              height: 1,
-              fontWeight: FontWeight.w700)),
     };
     return Container(
       width: size,
