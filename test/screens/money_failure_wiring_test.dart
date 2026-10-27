@@ -132,7 +132,9 @@ void main() {
           contains(
               'moneyFailureFeedbackAfterBand(() => mounted && _processing)'));
       final send = _body(src, 'Future<void> _send()');
-      expect(_count(send, '_sendFailedFeedback();'), 2);
+      // Not enough or under the minimum, the route held while an earlier
+      // send is still being checked (F11), and the send's own failure.
+      expect(_count(send, '_sendFailedFeedback();'), 3);
       expect(_body(src, 'Future<bool> _pullVenueCash('),
           contains('_sendFailedFeedback();'));
     });
