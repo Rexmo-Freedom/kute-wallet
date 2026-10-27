@@ -1,7 +1,9 @@
 // What All searches: transactions, Predictions and Investing at once, and
 // nothing else. No balances, no Send/Receive shortcuts, no Settings rows,
-// even for a query like "bitcoin" that used to surface all three. Each
-// group shows four with a "See all"; the pills narrow to one group.
+// even for a query like "bitcoin" that used to surface all three. The
+// groups always read Predictions, Investing, Transactions; each shows
+// three with a "See all" that switches to its pill; the pills narrow to
+// one group.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,7 +105,8 @@ final _local = UnifiedSearchResults(
   ownedPositions: const [],
 );
 
-Future<ProviderContainer> _open(WidgetTester tester, String query) async {
+Future<ProviderContainer> _open(WidgetTester tester, String query,
+    {bool investing = true}) async {
   tester.view.physicalSize = const Size(430, 4000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -131,7 +134,8 @@ Future<ProviderContainer> _open(WidgetTester tester, String query) async {
                     _poly('Bitcoin above $t?'),
                 ])),
       globalHyperliquidResultsProvider
-          .overrideWith((ref) => ref.watch(searchQueryProvider).isEmpty
+          .overrideWith((ref) => ref.watch(searchQueryProvider).isEmpty ||
+                  !investing
               ? const AsyncValue.data([])
               : AsyncValue.data([
                   for (final c in ['BTC', 'WBTC', 'UBTC', 'XBTC', 'TBTC'])
@@ -194,11 +198,8 @@ List<String> _headers(WidgetTester tester) {
   return keys;
 }
 
-int _txRows(WidgetTester tester) => find
-    .byWidgetPredicate(
-        (w) => w is Text && (w.data ?? '') == 'Spending' && w.maxLines == 1)
-    .evaluate()
-    .length;
+/// Transaction rows on screen (every fixture row is a receive).
+int _txRows(WidgetTester tester) => find.text('Received').evaluate().length;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -209,11 +210,10 @@ void main() {
     OpenOnce.reset();
   });
 
-  testWidgets('"bitcoin" under All: only Investing, Predictions, Transactions',
+  testWidgets('"bitcoin" under All: only Predictions, Investing, Transactions',
       (tester) async {
     await _open(tester, 'bitcoin');
-    // A market-named query puts the markets first.
-    expect(_headers(tester), ['investing', 'predictions', 'transactions']);
+    expect(_headers(tester), ['predictions', 'investing', 'transactions']);
     for (final gone in [
       'Balances',
       'Spending balance',
@@ -224,16 +224,46 @@ void main() {
     ]) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
-    // Every group is capped at four with its own "See all".
+    // Every group is capped at three with its own "See all".
     expect(find.text('See all'), findsNWidgets(3));
-    expect(_txRows(tester), 4);
+    expect(_txRows(tester), 3);
+    // One wallet: its tag would only repeat on every row.
+    expect(find.text('Spending'), findsNothing);
     await _close(tester);
   });
 
-  testWidgets('a query that names no market leads with Transactions',
+  testWidgets('a query that names no market keeps the same order',
       (tester) async {
     await _open(tester, 'payment');
-    expect(_headers(tester), ['transactions', 'investing', 'predictions']);
+    expect(_headers(tester), ['predictions', 'investing', 'transactions']);
+    await _close(tester);
+  });
+
+  testWidgets('a group with no results is left out, the order kept',
+      (tester) async {
+    await _open(tester, 'bitcoin', investing: false);
+    expect(_headers(tester), ['predictions', 'transactions']);
+    // Drawn top to bottom in that order.
+    expect(tester.getTopLeft(find.byKey(const ValueKey('header-predictions'))).dy,
+        lessThan(tester
+            .getTopLeft(find.byKey(const ValueKey('header-transactions')))
+            .dy));
+    await _close(tester);
+  });
+
+  testWidgets('the Predictions group\'s See all switches to Predictions',
+      (tester) async {
+    final container = await _open(tester, 'bitcoin');
+    await tester.tap(find.text('See all').first);
+    await _settle(tester);
+    expect(container.read(selectedSearchCategoryProvider),
+        SearchCategory.predictions);
+    expect(_headers(tester), isEmpty);
+    expect(_txRows(tester), 0);
+    // All five markets, whole.
+    for (final t in ['A', 'B', 'C', 'D', 'E']) {
+      expect(find.text('Bitcoin above $t?'), findsOneWidget, reason: t);
+    }
     await _close(tester);
   });
 

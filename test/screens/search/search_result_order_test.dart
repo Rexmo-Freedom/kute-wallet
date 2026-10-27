@@ -70,11 +70,4 @@ void main() {
       'Brazil vs. Argentina',
     ]);
   });
-
-  test('a query naming a market is known on the device', () {
-    expect(hlQueryNamesMarket('btc', const []), isTrue);
-    expect(hlQueryNamesMarket('tesla', const []), isTrue);
-    expect(hlQueryNamesMarket('bitc', const []), isTrue);
-    expect(hlQueryNamesMarket('coffee receipt', const []), isFalse);
-  });
 }
