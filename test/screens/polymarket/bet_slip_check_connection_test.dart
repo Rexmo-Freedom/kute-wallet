@@ -73,8 +73,8 @@ const _outcomes = [
 
 const _regionSentence =
     'This feature is restricted in the region your internet connection '
-    'appears to be in. If that isn\'t where you are, check your network or '
-    'VPN settings and try again.';
+    'appears to be in. If this isn\'t where you are, check your VPN '
+    'settings.';
 
 void main() {
   late bool blocked;

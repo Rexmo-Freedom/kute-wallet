@@ -972,7 +972,7 @@
       }
     }
   },
-  "tradingUnavailableRegion": "Trading is restricted in the region your internet connection appears to be in. If that isn't where you are, check your network or VPN settings and try again.",
+  "tradingUnavailableRegion": "Trading is restricted in the region your internet connection appears to be in. If this isn't where you are, check your VPN settings.",
   "ohlcOpen": "Open: ",
   "ohlcHigh": "High: ",
   "ohlcLow": "Low: ",
@@ -2620,7 +2620,7 @@
   "ledgerErrorCheckActivity": "Something went wrong after your Ledger approved. Check your activity before trying again.",
   "ledgerErrorAppAuthDeclined": "Confirm it is you to continue.",
   "ledgerErrorActionBlocked": "This action is not available for Ledger accounts yet.",
-  "ledgerErrorGeoBlocked": "Investing is restricted in the region your internet connection appears to be in. If that isn't where you are, check your network or VPN settings and try again.",
+  "ledgerErrorGeoBlocked": "Investing is restricted in the region your internet connection appears to be in. If this isn't where you are, check your VPN settings.",
   "ledgerErrorTradingDisabled": "Investing is temporarily unavailable. Try again later.",
   "ledgerErrorAccountUnsupported": "This predictions account is not supported in Kute yet.",
   "ledgerErrorDetailsChanged": "The details changed. Review again before approving.",
@@ -3912,7 +3912,7 @@
   "buyUnavailableTitle": "Buy unavailable",
   "buyUnavailableBody": "No purchase providers are available at the moment.",
   "capabilityComingSoon": "Coming soon.",
-  "capabilityRegionRestricted": "This feature is restricted in the region your internet connection appears to be in. If that isn't where you are, check your network or VPN settings and try again.",
+  "capabilityRegionRestricted": "This feature is restricted in the region your internet connection appears to be in. If this isn't where you are, check your VPN settings.",
   "capabilityUpdateRequired": "Update Kute to the latest version to use this feature.",
   "capabilityDeviceRestricted": "This feature is not available on this device.",
   "capabilityAccountRestricted": "This feature is not available for your account yet.",
@@ -3928,7 +3928,7 @@
       }
     }
   },
-  "providerRegionRestricted": "{provider} is restricted in the region your internet connection appears to be in. If that isn't where you are, check your network or VPN settings and try again.",
+  "providerRegionRestricted": "{provider} is restricted in the region your internet connection appears to be in. If this isn't where you are, check your VPN settings.",
   "@providerRegionRestricted": {
     "description": "provider is a venue brand name such as Polymarket or Hyperliquid.",
     "placeholders": {
@@ -3951,6 +3951,19 @@
   "gatePredictionsUnavailable": "Predictions unavailable",
   "gateInvestingUnavailable": "Investing unavailable",
   "capabilityRegionTitle": "Not available in your region",
+  "capabilityRegionTitleNamed": "Not available in {regions}",
+  "@capabilityRegionTitleNamed": {
+    "description": "Title of a region block whose regions the backend policy names, e.g. Not available in the European Union, the UK and Switzerland. {regions} is the backend's own phrase for this language.",
+    "placeholders": {
+      "regions": {
+        "type": "String"
+      }
+    }
+  },
+  "capabilityRegionCheckVpn": "If this isn't where you are, check your VPN settings.",
+  "@capabilityRegionCheckVpn": {
+    "description": "The only VPN sentence the app may show under a named region block (founder decision, October 2026). It never tells anyone to use a VPN."
+  },
   "checkConnection": "Check connection",
   "@checkConnection": {
     "description": "The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change."

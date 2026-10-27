@@ -10,10 +10,13 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 /// backend that publishes a new one meanwhile). [reasons] names a blocked
 /// capability's reason (`country_blocked` for a region refusal); the
 /// default is `disabled`. [blocked] is read on every fetch, so a test may
-/// change it between fetches.
+/// change it between fetches. [decorations] adds fields to a blocked
+/// capability's decision (`blockedBy`, `regions`), as a backend with the
+/// region cascade sends them.
 RuntimeCapabilitiesService runtimePolicyFixture(
         {Set<String> blocked = const {},
         Map<String, String> reasons = const {},
+        Map<String, Map<String, Object?>> decorations = const {},
         Set<String> also = const {},
         int revision = 1,
         int Function()? revisionOf,
@@ -56,7 +59,8 @@ RuntimeCapabilitiesService runtimePolicyFixture(
                     'reason': blocked.contains(id)
                         ? (reasons[id] ?? 'disabled')
                         : '',
-                    'comingSoon': false
+                    'comingSoon': false,
+                    if (blocked.contains(id)) ...?decorations[id],
                   },
               },
               'fees': {

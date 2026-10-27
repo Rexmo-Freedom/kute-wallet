@@ -1094,8 +1094,8 @@ void main() {
   group('a route the policy withholds says so, as Predictions does', () {
     const regionCopy =
         "This feature is restricted in the region your internet connection "
-        "appears to be in. If that isn't where you are, check your network "
-        'or VPN settings and try again.';
+        "appears to be in. If this isn't where you are, check your VPN "
+        'settings.';
     const moveFailure =
         'The move could not be completed. Check its status before trying '
         'again.';

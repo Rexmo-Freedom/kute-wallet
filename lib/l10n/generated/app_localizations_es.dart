@@ -2147,7 +2147,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Operar está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu red o VPN e inténtalo de nuevo.';
+      'Operar está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu VPN.';
 
   @override
   String get ohlcOpen => 'Apertura: ';
@@ -4728,7 +4728,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Invertir está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu red o VPN e inténtalo de nuevo.';
+      'Invertir está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu VPN.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7117,7 +7117,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Esta función está restringida en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu red o VPN e inténtalo de nuevo.';
+      'Esta función está restringida en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu VPN.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7154,7 +7154,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu red o VPN e inténtalo de nuevo.';
+    return '$provider está restringido en la región en la que parece estar tu conexión a internet. Si no es donde estás, revisa la configuración de tu VPN.';
   }
 
   @override
@@ -7178,6 +7178,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'No disponible en tu región';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'No disponible en $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Si no es donde estás, revisa la configuración de tu VPN.';
 
   @override
   String get checkConnection => 'Comprobar conexión';

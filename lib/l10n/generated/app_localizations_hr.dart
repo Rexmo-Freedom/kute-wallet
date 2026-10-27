@@ -2140,7 +2140,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Ova usluga je ograničena u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri mrežu ili VPN postavke i pokušaj ponovno.';
+      'Ova usluga je ograničena u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri VPN postavke.';
 
   @override
   String get ohlcOpen => 'Otvaranje: ';
@@ -4711,7 +4711,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Ulaganje je ograničeno u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri mrežu ili VPN postavke i pokušaj ponovno.';
+      'Ulaganje je ograničeno u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri VPN postavke.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7099,7 +7099,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Ova značajka je ograničena u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri mrežu ili VPN postavke i pokušaj ponovno.';
+      'Ova značajka je ograničena u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri VPN postavke.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7136,7 +7136,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider je ograničen u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri mrežu ili VPN postavke i pokušaj ponovno.';
+    return '$provider je ograničen u regiji u kojoj se čini da je tvoja internetska veza. Ako nisi ondje, provjeri VPN postavke.';
   }
 
   @override
@@ -7159,6 +7159,15 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Nije dostupno u tvojoj regiji';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nije dostupno u $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Ako nisi ondje, provjeri VPN postavke.';
 
   @override
   String get checkConnection => 'Provjeri vezu';

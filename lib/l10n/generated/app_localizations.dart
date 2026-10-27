@@ -4037,7 +4037,7 @@ abstract class AppLocalizations {
   /// No description provided for @tradingUnavailableRegion.
   ///
   /// In en, this message translates to:
-  /// **'Trading is restricted in the region your internet connection appears to be in. If that isn\'t where you are, check your network or VPN settings and try again.'**
+  /// **'Trading is restricted in the region your internet connection appears to be in. If this isn\'t where you are, check your VPN settings.'**
   String get tradingUnavailableRegion;
 
   /// No description provided for @ohlcOpen.
@@ -8316,7 +8316,7 @@ abstract class AppLocalizations {
   /// No description provided for @ledgerErrorGeoBlocked.
   ///
   /// In en, this message translates to:
-  /// **'Investing is restricted in the region your internet connection appears to be in. If that isn\'t where you are, check your network or VPN settings and try again.'**
+  /// **'Investing is restricted in the region your internet connection appears to be in. If this isn\'t where you are, check your VPN settings.'**
   String get ledgerErrorGeoBlocked;
 
   /// No description provided for @ledgerErrorTradingDisabled.
@@ -12321,7 +12321,7 @@ abstract class AppLocalizations {
   /// No description provided for @capabilityRegionRestricted.
   ///
   /// In en, this message translates to:
-  /// **'This feature is restricted in the region your internet connection appears to be in. If that isn\'t where you are, check your network or VPN settings and try again.'**
+  /// **'This feature is restricted in the region your internet connection appears to be in. If this isn\'t where you are, check your VPN settings.'**
   String get capabilityRegionRestricted;
 
   /// No description provided for @capabilityUpdateRequired.
@@ -12375,7 +12375,7 @@ abstract class AppLocalizations {
   /// provider is a venue brand name such as Polymarket or Hyperliquid.
   ///
   /// In en, this message translates to:
-  /// **'{provider} is restricted in the region your internet connection appears to be in. If that isn\'t where you are, check your network or VPN settings and try again.'**
+  /// **'{provider} is restricted in the region your internet connection appears to be in. If this isn\'t where you are, check your VPN settings.'**
   String providerRegionRestricted(String provider);
 
   /// provider is a venue brand name such as Polymarket or Hyperliquid.
@@ -12413,6 +12413,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not available in your region'**
   String get capabilityRegionTitle;
+
+  /// Title of a region block whose regions the backend policy names, e.g. Not available in the European Union, the UK and Switzerland. {regions} is the backend's own phrase for this language.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available in {regions}'**
+  String capabilityRegionTitleNamed(String regions);
+
+  /// The only VPN sentence the app may show under a named region block (founder decision, October 2026). It never tells anyone to use a VPN.
+  ///
+  /// In en, this message translates to:
+  /// **'If this isn\'t where you are, check your VPN settings.'**
+  String get capabilityRegionCheckVpn;
 
   /// The button on a region restriction (slip, ticket, Builder, unavailable sheet): asks the venues and Kute's policy again, as after a network or VPN change.
   ///

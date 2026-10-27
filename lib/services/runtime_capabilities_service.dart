@@ -15,12 +15,95 @@ import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+/// The regions a region block covers, as the backend's policy names them
+/// (founder decision, October 2026: region blocks are configured only in
+/// the backend; the app names what it was told). [label] is the English
+/// phrase ("the European Union, the UK and Switzerland"), [labels] the
+/// same phrase per app language. [groups] and [countries] are the policy's
+/// own ids, kept for completeness and never shown or sent to analytics.
+/// A backend older than this field sends none: the decision reads as an
+/// unnamed region block.
+class CapabilityRegions {
+  const CapabilityRegions({
+    this.label = '',
+    this.labels = const {},
+    this.groups = const [],
+    this.countries = const [],
+  });
+
+  final String label;
+  final Map<String, String> labels;
+  final List<String> groups;
+  final List<String> countries;
+
+  /// Null for anything that is not a regions object.
+  static CapabilityRegions? fromJson(Object? json) {
+    if (json is! Map) return null;
+    String text(Object? v) => v is String ? v.trim() : '';
+    List<String> ids(Object? v) => v is List
+        ? [
+            for (final e in v)
+              if (e is String && e.trim().isNotEmpty) e.trim()
+          ]
+        : const [];
+    final labels = <String, String>{};
+    final raw = json['labels'];
+    if (raw is Map) {
+      raw.forEach((key, value) {
+        if (key is String && text(value).isNotEmpty) {
+          labels[key.trim().toLowerCase()] = text(value);
+        }
+      });
+    }
+    return CapabilityRegions(
+      label: text(json['label']),
+      labels: Map.unmodifiable(labels),
+      groups: List.unmodifiable(ids(json['groups'])),
+      countries: List.unmodifiable(ids(json['countries'])),
+    );
+  }
+
+  /// The phrase for [localeName] (`pt`, `pt_BR`, `en-US`): the exact
+  /// locale, then its language, then [label]. Empty when the backend
+  /// named none.
+  String labelFor(String localeName) {
+    final exact = localeName.trim().toLowerCase().replaceAll('-', '_');
+    final language = exact.split('_').first;
+    for (final key in [exact, language]) {
+      final value = labels[key];
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return label;
+  }
+
+  bool get named => label.isNotEmpty || labels.isNotEmpty;
+}
+
 class CapabilityDecision {
   const CapabilityDecision(
       {required this.allowed,
       this.reason = '',
       this.comingSoon = false,
-      this.serverMessage = ''});
+      this.serverMessage = '',
+      this.blockedBy = '',
+      this.regions});
+
+  /// One decision as `/config/capabilities`, `/config/policy` and the 403
+  /// `feature_unavailable` body carry it. Optional fields a backend older
+  /// than them leaves out read as absent.
+  factory CapabilityDecision.fromJson(Map<String, dynamic> json,
+      {bool? allowed}) {
+    String text(Object? v) => v is String ? v : '';
+    return CapabilityDecision(
+      allowed: allowed ?? json['allowed'] == true,
+      reason: text(json['reason']),
+      comingSoon: json['comingSoon'] == true,
+      serverMessage: text(json['message']),
+      blockedBy: text(json['blockedBy']).trim(),
+      regions: CapabilityRegions.fromJson(json['regions']),
+    );
+  }
+
   final bool allowed;
   final String reason;
   final bool comingSoon;
@@ -29,8 +112,25 @@ class CapabilityDecision {
   /// one. Shown verbatim next to the disabled control.
   final String serverMessage;
 
+  /// The capability whose block this one inherits (the backend's
+  /// `requires` cascade: a region block on `orchestra.swap` shuts the
+  /// Investing deposit too), or empty when the block is this
+  /// capability's own. A fixed id, never user data.
+  final String blockedBy;
+
+  /// The regions a region block covers, when the backend names them.
+  final CapabilityRegions? regions;
+
+  /// A region block whose regions the backend named.
+  bool get regionNamed => regionRestricted && (regions?.named ?? false);
+
+  /// A region block: this capability's own (`country_blocked`,
+  /// `country_not_allowed`), or one inherited ([blockedBy]) from a
+  /// capability blocked for named regions.
   bool get regionRestricted =>
-      reason == 'country_blocked' || reason == 'country_not_allowed';
+      reason == 'country_blocked' ||
+      reason == 'country_not_allowed' ||
+      (blockedBy.isNotEmpty && (regions?.named ?? false));
 
   bool get updateRequired =>
       reason == 'app_update_required' ||
@@ -55,15 +155,38 @@ class CapabilityDecision {
   /// [messageIn].
   String get message => messageIn(appL10n());
 
-  /// The operator's own words when the policy carries some; otherwise
+  /// "Not available in the European Union, the UK and Switzerland": the
+  /// title of a region block whose regions the backend named, in [l10n]'s
+  /// language (the backend's phrase for it, else its English one). Null
+  /// for anything else; the generic region title stands then.
+  String? regionTitleIn(AppLocalizations l10n) {
+    if (!regionNamed) return null;
+    final label = regions!.labelFor(l10n.localeName);
+    if (label.isEmpty) return null;
+    return l10n.capabilityRegionTitleNamed(label);
+  }
+
+  /// The body under a sheet's title: for a named region block the one VPN
+  /// sentence the founder allows ("If this isn't where you are, check
+  /// your VPN settings."), never advice to use one; else [messageIn].
+  String bodyIn(AppLocalizations l10n) =>
+      regionTitleIn(l10n) != null ? l10n.capabilityRegionCheckVpn : messageIn(l10n);
+
+  /// The whole explanation where there is no title to put it under (an
+  /// inline note beside a disabled control, a picker row, an error line):
+  /// a named region block reads as its title over the VPN sentence; else
+  /// the operator's own words when the policy carries some, otherwise
   /// Kute's wording for the reason code, in [l10n]'s language.
   String messageIn(AppLocalizations l10n) {
+    if (regionTitleIn(l10n) case final title?) {
+      return '$title\n${l10n.capabilityRegionCheckVpn}';
+    }
     if (serverMessage.trim().isNotEmpty) return serverMessage.trim();
     if (comingSoon) return l10n.capabilityComingSoon;
     if (regionRestricted) {
       // Names the mechanism, not a verdict on the person: the block is
       // decided from where the connection appears to be, which is the
-      // one thing a mislocated traveller or VPN user can check.
+      // one thing a mislocated traveller can check.
       return l10n.capabilityRegionRestricted;
     }
     if (updateRequired) return l10n.capabilityUpdateRequired;
@@ -113,10 +236,11 @@ bool isPolicyRefusal(Object? error) =>
 
 /// The backend's own policy refusal of a request, as the app's: a 403
 /// whose body is `{"error": "feature_unavailable", "capability": …,
-/// "reason": …, "message"?: …}` (the backend's operation guard and the
-/// relayer's). Null for any other answer. The operator's message, when
-/// the policy carries one, is kept so the screen shows the same words the
-/// app's own check would.
+/// "reason": …, "message"?: …, "blockedBy"?: …, "regions"?: {…}}` (the
+/// backend's operation guard and the relayer's). Null for any other
+/// answer. The operator's message, the capability a cascaded block
+/// inherits and the regions a region block names are kept, so the screen
+/// shows the same words the app's own check would.
 CapabilityUnavailableException? capabilityDenialFromResponse(
     int? status, String body) {
   if (status != 403) return null;
@@ -128,14 +252,8 @@ CapabilityUnavailableException? capabilityDenialFromResponse(
     }
     final capability = parsed['capability'];
     if (capability is! String || capability.isEmpty) return null;
-    final reason = parsed['reason'];
-    final message = parsed['message'];
     return CapabilityUnavailableException(
-        capability,
-        CapabilityDecision(
-            allowed: false,
-            reason: reason is String ? reason : '',
-            serverMessage: message is String ? message : ''));
+        capability, CapabilityDecision.fromJson(parsed, allowed: false));
   } catch (_) {
     return null;
   }
@@ -154,14 +272,7 @@ class RuntimeCapabilities {
           if (decision['allowed'] is! bool) {
             throw const FormatException('Invalid capability');
           }
-          return MapEntry(
-              key,
-              CapabilityDecision(
-                allowed: decision['allowed'] == true,
-                reason: decision['reason'] as String? ?? '',
-                comingSoon: decision['comingSoon'] == true,
-                serverMessage: decision['message'] as String? ?? '',
-              ));
+          return MapEntry(key, CapabilityDecision.fromJson(decision));
         }),
         fees = Map<String, dynamic>.unmodifiable(
             json['fees'] as Map<String, dynamic>? ?? {}),

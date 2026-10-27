@@ -2153,7 +2153,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Der Handel ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe dein Netzwerk oder deine VPN-Einstellungen und versuche es erneut.';
+      'Der Handel ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe deine VPN-Einstellungen.';
 
   @override
   String get ohlcOpen => 'Eröffnung: ';
@@ -4743,7 +4743,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investieren ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe dein Netzwerk oder deine VPN-Einstellungen und versuche es erneut.';
+      'Investieren ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe deine VPN-Einstellungen.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7135,7 +7135,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Diese Funktion ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe dein Netzwerk oder deine VPN-Einstellungen und versuche es erneut.';
+      'Diese Funktion ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe deine VPN-Einstellungen.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7172,7 +7172,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe dein Netzwerk oder deine VPN-Einstellungen und versuche es erneut.';
+    return '$provider ist in der Region eingeschränkt, in der sich deine Internetverbindung zu befinden scheint. Wenn du nicht dort bist, prüfe deine VPN-Einstellungen.';
   }
 
   @override
@@ -7196,6 +7196,15 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'In deiner Region nicht verfügbar';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nicht verfügbar in $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Wenn du nicht dort bist, prüfe deine VPN-Einstellungen.';
 
   @override
   String get checkConnection => 'Verbindung prüfen';

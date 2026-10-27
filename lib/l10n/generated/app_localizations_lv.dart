@@ -2127,7 +2127,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Tirdzniecība ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Tirdzniecība ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get ohlcOpen => 'Atv.: ';
@@ -4690,7 +4690,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investēšana ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Investēšana ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7066,7 +7066,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Šī funkcija ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Šī funkcija ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7102,7 +7102,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider ir ierobežots reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+    return '$provider ir ierobežots reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
   }
 
   @override
@@ -7125,6 +7125,15 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Nav pieejams tavā reģionā';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nav pieejams: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get checkConnection => 'Pārbaudīt savienojumu';

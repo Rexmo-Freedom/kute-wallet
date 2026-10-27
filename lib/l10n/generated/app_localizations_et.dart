@@ -2133,7 +2133,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Tehingud on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli võrgu või VPN-i seadeid ja proovi uuesti.';
+      'Tehingud on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli VPN-i seadeid.';
 
   @override
   String get ohlcOpen => 'Avamine: ';
@@ -4690,7 +4690,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investeerimine on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli võrgu või VPN-i seadeid ja proovi uuesti.';
+      'Investeerimine on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli VPN-i seadeid.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7067,7 +7067,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'See funktsioon on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli võrgu või VPN-i seadeid ja proovi uuesti.';
+      'See funktsioon on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli VPN-i seadeid.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7104,7 +7104,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli võrgu või VPN-i seadeid ja proovi uuesti.';
+    return '$provider on piiratud piirkonnas, kus sinu internetiühendus näib asuvat. Kui sa seal ei asu, kontrolli VPN-i seadeid.';
   }
 
   @override
@@ -7128,6 +7128,15 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Sinu piirkonnas pole saadaval';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Pole saadaval: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Kui sa seal ei asu, kontrolli VPN-i seadeid.';
 
   @override
   String get checkConnection => 'Kontrolli ühendust';

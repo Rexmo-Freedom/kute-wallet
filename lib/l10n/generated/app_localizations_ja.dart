@@ -2083,7 +2083,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'お使いのインターネット接続の地域では取引が制限されています。実際の所在地と異なる場合は、ネットワークまたはVPNの設定を確認してもう一度お試しください。';
+      'お使いのインターネット接続の地域では取引が制限されています。実際の所在地と異なる場合は、VPNの設定を確認してください。';
 
   @override
   String get ohlcOpen => '始値：';
@@ -4549,7 +4549,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'お使いのインターネット接続の地域では投資が制限されています。実際の所在地と異なる場合は、ネットワークまたはVPNの設定を確認してもう一度お試しください。';
+      'お使いのインターネット接続の地域では投資が制限されています。実際の所在地と異なる場合は、VPNの設定を確認してください。';
 
   @override
   String get ledgerErrorTradingDisabled => '投資は一時的に利用できません。後でもう一度お試しください。';
@@ -6803,7 +6803,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'お使いのインターネット接続の地域では、この機能は制限されています。実際の所在地と異なる場合は、ネットワークまたはVPNの設定を確認してもう一度お試しください。';
+      'お使いのインターネット接続の地域では、この機能は制限されています。実際の所在地と異なる場合は、VPNの設定を確認してください。';
 
   @override
   String get capabilityUpdateRequired =>
@@ -6835,7 +6835,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return 'お使いのインターネット接続の地域では、$providerは制限されています。実際の所在地と異なる場合は、ネットワークまたはVPNの設定を確認してもう一度お試しください。';
+    return 'お使いのインターネット接続の地域では、$providerは制限されています。実際の所在地と異なる場合は、VPNの設定を確認してください。';
   }
 
   @override
@@ -6857,6 +6857,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'お住まいの地域では利用できません';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return '$regionsではご利用いただけません';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn => '実際の所在地と異なる場合は、VPNの設定を確認してください。';
 
   @override
   String get checkConnection => '接続を確認';

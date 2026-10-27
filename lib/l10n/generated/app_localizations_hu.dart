@@ -2142,7 +2142,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'A kereskedés korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a hálózati vagy VPN-beállításaidat, és próbáld újra.';
+      'A kereskedés korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.';
 
   @override
   String get ohlcOpen => 'Nyitó: ';
@@ -4714,7 +4714,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'A Befektetés korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a hálózati vagy VPN-beállításaidat, és próbáld újra.';
+      'A Befektetés korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7101,7 +7101,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Ez a funkció korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a hálózati vagy VPN-beállításaidat, és próbáld újra.';
+      'Ez a funkció korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7138,7 +7138,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return 'A(z) $provider korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a hálózati vagy VPN-beállításaidat, és próbáld újra.';
+    return 'A(z) $provider korlátozott abban a régióban, ahol az internetkapcsolatod látszólag van. Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.';
   }
 
   @override
@@ -7162,6 +7162,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'A régiódban nem érhető el';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nem érhető el: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Ha nem ott vagy, ellenőrizd a VPN-beállításaidat.';
 
   @override
   String get checkConnection => 'Kapcsolat ellenőrzése';

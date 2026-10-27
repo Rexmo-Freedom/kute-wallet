@@ -2156,7 +2156,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Οι συναλλαγές περιορίζονται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις δικτύου ή VPN και δοκίμασε ξανά.';
+      'Οι συναλλαγές περιορίζονται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.';
 
   @override
   String get ohlcOpen => 'Άνοιγμα: ';
@@ -4747,7 +4747,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Οι Επενδύσεις περιορίζονται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις δικτύου ή VPN και δοκίμασε ξανά.';
+      'Οι Επενδύσεις περιορίζονται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7137,7 +7137,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Αυτή η λειτουργία περιορίζεται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις δικτύου ή VPN και δοκίμασε ξανά.';
+      'Αυτή η λειτουργία περιορίζεται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7174,7 +7174,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return 'Το $provider περιορίζεται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις δικτύου ή VPN και δοκίμασε ξανά.';
+    return 'Το $provider περιορίζεται στην περιοχή όπου φαίνεται να βρίσκεται η σύνδεσή σου στο internet. Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.';
   }
 
   @override
@@ -7198,6 +7198,15 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Μη διαθέσιμο στην περιοχή σου';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Μη διαθέσιμο: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Αν δεν είσαι εκεί, έλεγξε τις ρυθμίσεις VPN.';
 
   @override
   String get checkConnection => 'Έλεγχος σύνδεσης';

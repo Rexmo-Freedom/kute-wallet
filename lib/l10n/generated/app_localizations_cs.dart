@@ -2132,7 +2132,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Obchodování je omezeno v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj síť nebo nastavení VPN a zkus to znovu.';
+      'Obchodování je omezeno v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj nastavení VPN.';
 
   @override
   String get ohlcOpen => 'Otevření: ';
@@ -4699,7 +4699,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investování je omezeno v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj síť nebo nastavení VPN a zkus to znovu.';
+      'Investování je omezeno v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj nastavení VPN.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7080,7 +7080,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Tato funkce je omezena v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj síť nebo nastavení VPN a zkus to znovu.';
+      'Tato funkce je omezena v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj nastavení VPN.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7117,7 +7117,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider je omezen v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj síť nebo nastavení VPN a zkus to znovu.';
+    return '$provider je omezen v regionu, ve kterém se zdá být tvé internetové připojení. Pokud tam nejsi, zkontroluj nastavení VPN.';
   }
 
   @override
@@ -7140,6 +7140,15 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Ve tvém regionu nedostupné';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Není dostupné v $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Pokud tam nejsi, zkontroluj nastavení VPN.';
 
   @override
   String get checkConnection => 'Zkontrolovat připojení';

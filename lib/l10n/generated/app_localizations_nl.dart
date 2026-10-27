@@ -2145,7 +2145,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Handelen is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je netwerk- of VPN-instellingen en probeer het opnieuw.';
+      'Handelen is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je VPN-instellingen.';
 
   @override
   String get ohlcOpen => 'Open: ';
@@ -4723,7 +4723,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Beleggen is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je netwerk- of VPN-instellingen en probeer het opnieuw.';
+      'Beleggen is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je VPN-instellingen.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7107,7 +7107,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Deze functie is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je netwerk- of VPN-instellingen en probeer het opnieuw.';
+      'Deze functie is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je VPN-instellingen.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7144,7 +7144,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je netwerk- of VPN-instellingen en probeer het opnieuw.';
+    return '$provider is beperkt in de regio waar je internetverbinding lijkt te zijn. Ben je daar niet? Controleer je VPN-instellingen.';
   }
 
   @override
@@ -7168,6 +7168,15 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Niet beschikbaar in je regio';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Niet beschikbaar in $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Ben je daar niet? Controleer je VPN-instellingen.';
 
   @override
   String get checkConnection => 'Verbinding controleren';

@@ -2141,7 +2141,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Prekyba ribojama regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite tinklo ar VPN nustatymus ir bandykite dar kartą.';
+      'Prekyba ribojama regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite VPN nustatymus.';
 
   @override
   String get ohlcOpen => 'Atidarymas: ';
@@ -4717,7 +4717,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investavimas ribojamas regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite tinklo ar VPN nustatymus ir bandykite dar kartą.';
+      'Investavimas ribojamas regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite VPN nustatymus.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -7116,7 +7116,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Ši funkcija ribojama regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite tinklo ar VPN nustatymus ir bandykite dar kartą.';
+      'Ši funkcija ribojama regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite VPN nustatymus.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7152,7 +7152,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider ribojamas regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite tinklo ar VPN nustatymus ir bandykite dar kartą.';
+    return '$provider ribojamas regione, kuriame, atrodo, yra jūsų interneto ryšys. Jei esate ne ten, patikrinkite VPN nustatymus.';
   }
 
   @override
@@ -7174,6 +7174,15 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Jūsų regione negalima';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nepasiekiama: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Jei esate ne ten, patikrinkite VPN nustatymus.';
 
   @override
   String get checkConnection => 'Patikrinti ryšį';
