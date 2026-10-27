@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Envoyer {amount}",
   "multiMoveTitle": "Transférer {amount} vers {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrés · {remaining} restants",
+  "activityPartlyDone": "Partiellement effectué",
+  "multiMoveStillIn": "{amount} est toujours dans {place}",
   "multiMovePurchaseWaiting": "Vos {amount} sont dans {balance}. Touchez pour acheter du Bitcoin",
   "multiMoveSendWaiting": "Vos {amount} sont dans {balance}. L’envoi n’a pas abouti",
   "usdReceiveDepositNow": "Déposer maintenant",

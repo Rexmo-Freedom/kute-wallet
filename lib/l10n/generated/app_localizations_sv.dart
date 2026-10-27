@@ -10790,6 +10790,14 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Delvis klart';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount finns kvar i $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Dina $amount finns i $balance. Tryck för att köpa Bitcoin';
   }

@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "{amount} versturen",
   "multiMoveTitle": "{amount} naar {destination} verplaatsen",
   "multiMoveDeliveredRemaining": "{delivered} aangekomen · {remaining} resterend",
+  "activityPartlyDone": "Gedeeltelijk voltooid",
+  "multiMoveStillIn": "{amount} staat nog in {place}",
   "multiMovePurchaseWaiting": "Je {amount} staat in {balance}. Tik om Bitcoin te kopen",
   "multiMoveSendWaiting": "Je {amount} staat in {balance}. Het versturen is niet gelukt",
   "usdReceiveDepositNow": "Nu storten",

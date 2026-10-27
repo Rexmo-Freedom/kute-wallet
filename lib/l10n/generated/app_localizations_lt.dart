@@ -10836,6 +10836,14 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Iš dalies atlikta';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount vis dar sąskaitoje $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Jūsų $amount yra $balance. Bakstelėkite, kad pirktumėte Bitcoin';
   }

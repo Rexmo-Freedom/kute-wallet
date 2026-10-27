@@ -10811,6 +10811,14 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Частично изпълнено';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount все още е в $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Вашите $amount са в $balance. Докоснете, за да купите Bitcoin';
   }

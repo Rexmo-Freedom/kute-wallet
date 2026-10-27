@@ -18223,6 +18223,18 @@ abstract class AppLocalizations {
   /// **'{delivered} delivered · {remaining} remaining'**
   String multiMoveDeliveredRemaining(String delivered, String remaining);
 
+  /// Activity row and detail status of one action that moved money from more than one place when part of it went and the rest never left where it was (proven unsent): not an error, nothing is lost, Retry moves the rest.
+  ///
+  /// In en, this message translates to:
+  /// **'Partly done'**
+  String get activityPartlyDone;
+
+  /// Activity row and detail line of a partly done move: the part that never left its account, said plainly ('$16.53 is still in Investing'). {amount} is a formatted dollar amount, {place} the account's display name (Investing, Predictions).
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} is still in {place}'**
+  String multiMoveStillIn(String amount, String place);
+
   /// Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.
   ///
   /// In en, this message translates to:

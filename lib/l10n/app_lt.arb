@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Siųsti {amount}",
   "multiMoveTitle": "Perkelti {amount} į {destination}",
   "multiMoveDeliveredRemaining": "{delivered} pristatyta · {remaining} liko",
+  "activityPartlyDone": "Iš dalies atlikta",
+  "multiMoveStillIn": "{amount} vis dar sąskaitoje {place}",
   "multiMovePurchaseWaiting": "Jūsų {amount} yra {balance}. Bakstelėkite, kad pirktumėte Bitcoin",
   "multiMoveSendWaiting": "Jūsų {amount} yra {balance}. Siuntimas neįvyko",
   "usdReceiveDepositNow": "Įnešti dabar",

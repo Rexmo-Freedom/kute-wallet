@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Pošlji {amount}",
   "multiMoveTitle": "Premakni {amount} v {destination}",
   "multiMoveDeliveredRemaining": "{delivered} dostavljeno · {remaining} preostane",
+  "activityPartlyDone": "Delno opravljeno",
+  "multiMoveStillIn": "{amount} je še vedno na računu {place}",
   "multiMovePurchaseWaiting": "Vaših {amount} je v {balance}. Tapnite za nakup Bitcoina",
   "multiMoveSendWaiting": "Vaših {amount} je v {balance}. Pošiljanje ni bilo izvedeno",
   "usdReceiveDepositNow": "Položi zdaj",

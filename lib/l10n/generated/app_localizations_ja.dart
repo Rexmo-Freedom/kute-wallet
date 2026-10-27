@@ -10374,6 +10374,14 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => '一部完了';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amountは$placeに残っています';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return '$amountは$balanceにあります。タップしてビットコインを購入';
   }

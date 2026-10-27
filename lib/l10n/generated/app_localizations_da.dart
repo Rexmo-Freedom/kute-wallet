@@ -10793,6 +10793,14 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Delvist gennemført';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount er stadig i $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Dine $amount er i $balance. Tryk for at købe Bitcoin';
   }

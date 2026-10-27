@@ -10817,6 +10817,14 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Részben kész';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount még itt van: $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return '$amount a(z) $balance egyenlegeden van. Koppints a Bitcoin vásárlásához';
   }

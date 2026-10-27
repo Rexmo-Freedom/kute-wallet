@@ -2918,7 +2918,9 @@ Widget _buildSwapOrderItem(
     {VoidCallback? onTap,
     String? amount,
     bool amountIsBtc = false,
-    String? fiatAmount}) {
+    String? fiatAmount,
+    _RowStatus? statusOverride,
+    String? whereOverride}) {
   final details = tx.details;
   // Delivered to the wallet's own Spark balance, which does not show it
   // yet: still on its way as far as the person can see.
@@ -3207,9 +3209,9 @@ Widget _buildSwapOrderItem(
     onTap: onTap ?? () => _showSwapOrderDetails(context, ref, tx),
     leading: iconWidget,
     title: _RowTitle(title),
-    subtitle: _withTime(where, tx.timestamp),
-    status:
-        showBadge ? _RowStatus(text: statusLabel, color: statusColor) : null,
+    subtitle: _withTime(whereOverride ?? where, tx.timestamp),
+    status: statusOverride ??
+        (showBadge ? _RowStatus(text: statusLabel, color: statusColor) : null),
     flow: flow,
     // Lead with what the user RECEIVED — that's the relevant
     // outcome of a swap. The previous "2.04 USDC → 0.00 002 510
@@ -5995,6 +5997,10 @@ Widget _multiSourceMoveIcon(MultiSourceMove move) =>
 /// or the legs still on their way. Null once every leg has settled.
 _RowStatus? _multiSourceMoveStatus(
     BuildContext context, MultiSourceMoveTransaction tx) {
+  if (tx.partlyDone) {
+    return _RowStatus(
+        text: context.l10n.activityPartlyDone, color: context.colors.warning);
+  }
   if (tx.partial || tx.stepFailed) {
     return _RowStatus(
         text: context.l10n.activityNeedsAttention,
@@ -6005,6 +6011,18 @@ _RowStatus? _multiSourceMoveStatus(
         text: context.l10n.pending, color: context.colors.warning);
   }
   return null;
+}
+
+/// Where the part of a partly done move that never left is, plainly: "$16.53
+/// is still in Investing" (one per venue); null when nothing is.
+String? multiSourceMoveStillInText(AppLocalizations l10n, MultiSourceMove move) {
+  final still = multiSourceMoveStillAtVenue(move);
+  if (still.isEmpty) return null;
+  return [
+    for (final MapEntry(key: venue, value: usd) in still.entries)
+      l10n.multiMoveStillIn(
+          '\$${usd.toStringAsFixed(2)}', venueCashVenueName(l10n, venue)),
+  ].join(' · ');
 }
 
 /// [multiSourceMoveFinish] over what it decides from, watched so whatever
@@ -6102,10 +6120,16 @@ Widget _buildMultiSourceMoveItem(
     // (a ₿ figure for one venue under the dollars of both).
     final noBitcoinYet = move.destination == VenueCashDestination.bitcoin &&
         (multiSourceMoveBitcoin(tx) <= 0 || !multiSourceMoveBitcoinKnown(tx));
+    // Part went, the rest never left: say so, plainly, not "Needs
+    // attention" alone.
+    final partly = tx.partlyDone;
     return _buildSwapOrderItem(standard, context, ref,
         onTap: open,
         amount: noBitcoinYet ? formatPolyAmount(ref, move.spentUsd) : null,
-        fiatAmount: noBitcoinYet ? '' : null);
+        fiatAmount: noBitcoinYet ? '' : null,
+        statusOverride: partly ? _multiSourceMoveStatus(context, tx) : null,
+        whereOverride:
+            partly ? multiSourceMoveStillInText(l10n, move) : null);
   }
   final sent = move.forAction == VenueCashFor.send &&
       move.finalOperationId != null;
@@ -6120,9 +6144,11 @@ Widget _buildMultiSourceMoveItem(
     // One balance: the money came from Investments, whichever venue
     // paid each leg (the legs are in the detail).
     subtitle: _withTime(
-        move.destination == VenueCashDestination.dollars
-            ? ''
-            : l10n.activityRowFrom(l10n.assetDollars),
+        tx.partlyDone
+            ? multiSourceMoveStillInText(l10n, move) ?? ''
+            : move.destination == VenueCashDestination.dollars
+                ? ''
+                : l10n.activityRowFrom(l10n.assetDollars),
         tx.timestamp),
     status: _multiSourceMoveStatus(context, tx),
     flow: sent ? ActivityFlow.moneyOut : ActivityFlow.neutral,
@@ -6339,7 +6365,9 @@ class _MultiSourceMoveDetailSheetState
     }
     // From the steps: Needs attention once one stopped, Completed only
     // once every one is done, Pending while any waits or runs.
-    final status = tx.partial || tx.stepFailed || waitingUsd != null
+    final status = tx.partlyDone && waitingUsd == null
+        ? (text: l10n.activityPartlyDone, color: c.warning)
+        : tx.partial || tx.stepFailed || waitingUsd != null
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
         : tx.complete
             ? (text: l10n.completed, color: AppColors.success)
@@ -6514,10 +6542,18 @@ class _MultiSourceMoveDetailSheetState
                 // the action's own, so the detail says it.
                 if (move.partial)
                   Text(
-                    multiSourceMoveProgress(l10n, move) ?? '',
+                    // Partly done: where the rest is, and that Retry
+                    // moves it. Otherwise what was delivered and what is
+                    // left.
+                    tx.partlyDone
+                        ? multiSourceMoveStillInText(l10n, move) ?? ''
+                        : multiSourceMoveProgress(l10n, move) ?? '',
                     textAlign: TextAlign.center,
-                    style:
-                        TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
+                    style: TextStyle(
+                        fontSize: 14.sp,
+                        color: tx.partlyDone
+                            ? c.textSecondary
+                            : AppColors.marketDown),
                   ),
                 SizedBox(height: 12.h),
                 SizedBox(
