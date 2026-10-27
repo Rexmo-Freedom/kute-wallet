@@ -16,6 +16,22 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+/// The list thumbnail and the gap after it: where a card's title starts.
+const double kPolyMarketRowImage = 40;
+const double kPolyMarketRowGap = 10;
+
+/// The hairline after a Predictions market in a list, the app's row-list
+/// divider (Portfolio's position rows), starting where the title does.
+Widget polyMarketRowDivider(BuildContext context) {
+  final c = context.colors;
+  return Divider(
+    color: context.isDark ? c.border : c.borderSubtle,
+    height: 1,
+    thickness: 0.5,
+    indent: kPolyMarketRowImage.w + kPolyMarketRowGap.w,
+  );
+}
+
 /// One Predictions list card, in three shapes that share their frame and
 /// footer: names on the left, the number that matters on the right, one
 /// quiet caption line under them.
@@ -29,7 +45,9 @@ import 'package:intl/intl.dart' hide TextDirection;
 ///
 /// Which shape, and every number on it, comes from the event the feed
 /// already gave (market_card_shape.dart). The whole card is one tap
-/// target that opens the detail sheet.
+/// target that opens the detail sheet. It sits flat on the page, no
+/// surface or shadow; the lists separate cards with [polyMarketRowDivider]
+/// (October 2026).
 class MarketCard extends ConsumerWidget {
   final String title;
   final String? imageUrl;
@@ -287,34 +305,30 @@ class MarketCard extends ConsumerWidget {
 
     final game = polyCardGame(title, outcomes, live: livePrices);
     final shape = polyCardShape(game, outcomes);
-    final radius = BorderRadius.circular(AppRadius.lg);
-
-    return Container(
-      decoration: AppDecorations.card(context),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: radius,
-        child: InkWell(
-          onTap: onTap,
-          onTapDown: onTapDown == null ? null : (_) => onTapDown!(),
-          borderRadius: radius,
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                switch (shape) {
-                  PolyCardShape.game => _buildGame(c, game!, resolvedTeams),
-                  PolyCardShape.yesNo =>
-                    _buildYesNo(context, c, _displayImageUrl(resolvedTeams)),
-                  PolyCardShape.outcomes =>
-                    _buildOutcomes(c, _displayImageUrl(resolvedTeams)),
-                },
-                SizedBox(height: 14.h),
-                _buildFooter(context, ref, c, shape, game),
-              ],
-            ),
+    // A flat block on the page (no card surface, no shadow): the list
+    // draws the hairline after it ([polyMarketRowDivider]). The ink spans
+    // the whole block.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onTapDown: onTapDown == null ? null : (_) => onTapDown!(),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              switch (shape) {
+                PolyCardShape.game => _buildGame(c, game!, resolvedTeams),
+                PolyCardShape.yesNo =>
+                  _buildYesNo(context, c, _displayImageUrl(resolvedTeams)),
+                PolyCardShape.outcomes =>
+                  _buildOutcomes(c, _displayImageUrl(resolvedTeams)),
+              },
+              SizedBox(height: 12.h),
+              _buildFooter(context, ref, c, shape, game),
+            ],
           ),
         ),
       ),
@@ -450,10 +464,10 @@ class MarketCard extends ConsumerWidget {
           title: title,
           imageUrl: image,
           category: category,
-          size: 40.w,
+          size: kPolyMarketRowImage.w,
           radius: 10.r,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: kPolyMarketRowGap.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

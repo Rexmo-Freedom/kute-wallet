@@ -8,6 +8,8 @@ import 'package:kute/providers/polymarket_sports_provider.dart'
     show sportsLiveProvider, sportsUpdateFor;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
+    show hlMarketRowDivider;
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/category_pill_strip.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -22,6 +24,12 @@ class InvestmentBrowseSection<T> {
   final String label;
   final List<T> markets;
 }
+
+/// The hairline between two market rows of [product]'s list.
+Widget _rowDivider(BuildContext context, String product) =>
+    product == 'investing'
+        ? hlMarketRowDivider(context)
+        : polyMarketRowDivider(context);
 
 /// The Home feeds' section header: bold label plus chevron, the whole row
 /// tappable when [onTap] is set.
@@ -98,6 +106,7 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => _CategoryPage<T>(
           title: section.label,
+          product: product,
           markets: section.markets,
           cardBuilder: cardBuilder,
           onOpenMarket: onOpenMarket,
@@ -123,11 +132,19 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
             label: section.label,
             onTap: () => _openCategory(context, section),
           ),
-          for (final market in section.markets.take(6))
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-              child: cardBuilder(market, () => onOpenMarket(market)),
+          // Flat rows with a hairline between them, as on Investments.
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, market) in section.markets.take(6).indexed) ...[
+                  if (i > 0) _rowDivider(context, product),
+                  cardBuilder(market, () => onOpenMarket(market)),
+                ],
+              ],
             ),
+          ),
         ],
       ],
     );
@@ -212,12 +229,14 @@ class PredictionBrowseCard extends ConsumerWidget {
 class _CategoryPage<T> extends StatelessWidget {
   const _CategoryPage({
     required this.title,
+    required this.product,
     required this.markets,
     required this.cardBuilder,
     required this.onOpenMarket,
   });
 
   final String title;
+  final String product;
   final List<T> markets;
   final Widget Function(T market, VoidCallback onTap) cardBuilder;
   final void Function(T market) onOpenMarket;
@@ -254,7 +273,7 @@ class _CategoryPage<T> extends StatelessWidget {
             child: ListView.separated(
               padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
               itemCount: markets.length,
-              separatorBuilder: (_, __) => SizedBox(height: 12.h),
+              separatorBuilder: (context, _) => _rowDivider(context, product),
               itemBuilder: (_, index) {
                 final market = markets[index];
                 return cardBuilder(market, () => onOpenMarket(market));

@@ -515,7 +515,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                       ),
 
                     // The category's list. While the universe first loads
-                    // (nothing cached yet) show card skeletons shaped like
+                    // (nothing cached yet) show row skeletons shaped like
                     // HlMarketCard where the list will land.
                     if (!canBrowse)
                       const SliverToBoxAdapter(
@@ -523,43 +523,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             capability: 'hyperliquid.browse'),
                       )
                     else if (marketsLoading && availableTabs.isEmpty)
-                      SliverToBoxAdapter(
-                        child: KuteSkeleton(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: Column(
-                              children: [
-                                for (var i = 0; i < 5; i++) ...[
-                                  if (i > 0) SizedBox(height: 12.h),
-                                  SkeletonCard(
-                                    radius: AppRadius.lg,
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 16.w, vertical: 16.h),
-                                    child: Row(
-                                      children: [
-                                        SkeletonCircle(36.w),
-                                        SizedBox(width: 12.w),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              SkeletonBar(90.w, 16.h),
-                                              SizedBox(height: 6.h),
-                                              SkeletonBar(60.w, 11.h),
-                                            ],
-                                          ),
-                                        ),
-                                        SkeletonBar(72.w, 16.h),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
+                      const SliverToBoxAdapter(child: _HlRowSkeletons())
                     else if (availableTabs.isEmpty)
                       const SliverFillRemaining(
                         hasScrollBody: false,
@@ -573,25 +537,21 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                       SliverSelectionFade(
                         selection: (tab, sub),
                         slivers: [
-                          // The list's own heading, as on Predictions.
-                          SliverToBoxAdapter(
-                            child: _HlSectionHeader(
-                                label: tab.localizedLabel(context.l10n)),
-                          ),
+                          // No heading: the selected pill already names
+                          // the list (October 2026). The rows sit flat on
+                          // the page with a hairline between them.
                           if (awaitingBuilderMarkets)
-                            SliverToBoxAdapter(
-                              child: SkeletonCardList(count: 5, height: 120.h),
-                            )
+                            const SliverToBoxAdapter(child: _HlRowSkeletons())
                           else
                             // The whole list is in memory; the same self-
                             // subscribing [HlMarketCard]s build lazily as they
                             // scroll in, so every price on screen is live.
                             SliverPadding(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
                               sliver: SliverList.separated(
                                 itemCount: markets.length,
-                                separatorBuilder: (_, __) =>
-                                    SizedBox(height: 12.h),
+                                separatorBuilder: (context, _) =>
+                                    hlMarketRowDivider(context),
                                 itemBuilder: (_, index) {
                                   final market = markets[index];
                                   return RepaintBoundary(
@@ -729,29 +689,15 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// The list's heading, matching the Predictions screen's exactly: a bold
-/// label, text only.
-class _HlSectionHeader extends StatelessWidget {
-  final String label;
-
-  const _HlSectionHeader({required this.label});
+/// Rows in the shape of [HlMarketCard] while the markets load: the logo,
+/// the name over its caption, the price.
+class _HlRowSkeletons extends StatelessWidget {
+  const _HlRowSkeletons();
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 18.h, 16.w, 10.h),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: c.textPrimary,
-          fontSize: 22.sp,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SkeletonRowList(
+        count: 5,
+        rowPadding: EdgeInsets.symmetric(
+            horizontal: 16.w, vertical: kHlMarketRowPadV.h),
+      );
 }
