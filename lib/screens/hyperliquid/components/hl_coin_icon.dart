@@ -18,6 +18,11 @@
 // them to SvgPicture.memory. A small module-level cache (bytes on success,
 // a failed-URL set on a miss) means each logo is fetched at most once per
 // session and recycled cards / list scrolls don't re-hit the network.
+// Behind it sits a disk cache (IconCaches.hyperliquid): the repaired
+// logos AND the definitive misses of earlier launches, so a cold start
+// fetches nothing it already knows. [HlIconPrefetch] warms the logos
+// drawn last time into memory at launch and fetches a list's first
+// screenfuls ahead, so rows resolve on their first frame.
 //
 // Many of the venue's logos are a RASTER wrapped in an SVG: a white rect
 // filled with a <pattern> whose <image> is a base64 PNG. flutter_svg does
@@ -26,14 +31,17 @@
 // as an ordinary image; an SVG flutter_svg cannot parse at all is a miss
 // and the next candidate is tried.
 
+import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/svg_class_styles.dart';
+import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlMarketDirectory;
@@ -337,35 +345,194 @@ double? svgAspectRatio(Uint8List bytes) {
   return null;
 }
 
+/// What a cached logo draws: the bytes were already repaired and proven
+/// to parse when they were saved, so only the shape is read again.
+HlIconArt hlIconArtFromCache(Uint8List bytes, {required bool raster}) =>
+    HlIconArt(
+        bytes: bytes,
+        raster: raster,
+        aspect: raster ? hlPngAspectRatio(bytes) : svgAspectRatio(bytes));
+
+/// The outcome of one download: a logo, a definitive miss (written to
+/// disk), or a failed request (remembered for this session only).
+enum _HlFetch { hit, miss, failed }
+
+Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
+  try {
+    IconLoadStats.network++;
+    final resp = await SharedHttpClient.get(Uri.parse(url),
+        kind: HttpCallKind.backgroundRead,
+        timeout: const Duration(seconds: 8));
+    final ct = (resp.headers['content-type'] ?? '').toLowerCase();
+    // A missing logo answers 200 with the web app's HTML shell, not a
+    // 404: only a real SVG of a sane size counts. A 5xx, a rate limit or
+    // a request timeout is the host's trouble, not the logo's, so it is
+    // not believed as a miss.
+    final status = resp.statusCode;
+    if (status >= 500 || status == 429 || status == 408) {
+      return (_HlFetch.failed, null);
+    }
+    if (status == 200 && _looksLikeSvg(ct, resp.bodyBytes)) {
+      final art = hlIconArtFromSvg(resp.bodyBytes);
+      if (art != null && (art.raster || await _svgParses(art.bytes))) {
+        return (_HlFetch.hit, art);
+      }
+    }
+    return (_HlFetch.miss, null);
+  } catch (_) {
+    return (_HlFetch.failed, null);
+  }
+}
+
 Future<HlIconArt?> _loadHlSvg(String url) {
   final cached = _hlSvgCache[url];
-  if (cached != null) return Future.value(cached);
+  if (cached != null) {
+    _touchHlDisk(url);
+    return Future.value(cached);
+  }
   if (_hlSvgFailed.contains(url)) return Future.value(null);
   return _hlSvgInflight.putIfAbsent(url, () async {
     try {
-      final resp = await SharedHttpClient.get(Uri.parse(url),
-          kind: HttpCallKind.backgroundRead,
-          timeout: const Duration(seconds: 8));
-      final ct = (resp.headers['content-type'] ?? '').toLowerCase();
-      // A missing logo answers 200 with the web app's HTML shell, not a
-      // 404: only a real SVG of a sane size counts. A miss is remembered
-      // for the session and the next candidate is tried.
-      if (resp.statusCode == 200 && _looksLikeSvg(ct, resp.bodyBytes)) {
-        final art = hlIconArtFromSvg(resp.bodyBytes);
-        if (art != null && (art.raster || await _svgParses(art.bytes))) {
-          _hlSvgCache[url] = art;
-          return art;
+      // Disk first: a logo (or a miss) seen on an earlier launch costs no
+      // request at all.
+      final disk = await IconCaches.resolve(IconCaches.hyperliquid);
+      final entry = disk?.lookup(url);
+      if (disk != null && entry != null) {
+        if (entry.isMiss) {
+          _hlSvgFailed.add(url);
+          return null;
+        }
+        final bytes = await disk.read(url);
+        if (bytes != null) {
+          final art = hlIconArtFromCache(bytes,
+              raster: entry.kind == IconCacheKind.raster);
+          // The parse also compiles the picture into flutter_svg's cache,
+          // keyed by these very bytes, so the icon paints at once.
+          if (art.raster || await _svgParses(art.bytes)) {
+            IconLoadStats.disk++;
+            _hlSvgCache[url] = art;
+            disk.touch(url);
+            if (!entry.fresh) unawaited(_refreshHlSvg(url, disk));
+            return art;
+          }
         }
       }
-      _hlSvgFailed.add(url);
-      return null;
-    } catch (_) {
-      _hlSvgFailed.add(url);
-      return null;
+      final (outcome, art) = await _fetchHlSvg(url);
+      switch (outcome) {
+        case _HlFetch.hit:
+          _hlSvgCache[url] = art!;
+          unawaited(disk?.putHit(url, art.bytes, raster: art.raster));
+          return art;
+        case _HlFetch.miss:
+          disk?.putMiss(url);
+          _hlSvgFailed.add(url);
+          return null;
+        case _HlFetch.failed:
+          // Remembered for this session, never on disk: a bad network
+          // must not hide a logo on the next launch.
+          _hlSvgFailed.add(url);
+          return null;
+      }
     } finally {
       _hlSvgInflight.remove(url);
     }
   });
+}
+
+/// A logo past its fresh period was drawn from disk; this fetches it again
+/// in the background and keeps the new one. A miss or a failure keeps the
+/// old logo (a vanished logo is likelier a hiccup than a rebrand).
+Future<void> _refreshHlSvg(String url, IconDiskCache disk) async {
+  final (outcome, art) = await _fetchHlSvg(url);
+  if (outcome != _HlFetch.hit) return;
+  _hlSvgCache[url] = art!;
+  await disk.putHit(url, art.bytes, raster: art.raster);
+}
+
+void _touchHlDisk(String url) {
+  final pending = IconCaches.hyperliquid;
+  if (pending == null) return;
+  pending.then((d) => d?.touch(url), onError: (_) {});
+}
+
+/// Warms and prefetches Hyperliquid logos so lists draw them on their
+/// first frame.
+abstract final class HlIconPrefetch {
+  /// Logos loaded at once, the same as the host's connection pool.
+  static const int concurrency = 6;
+
+  /// Markets of a list whose logos are fetched ahead (a few screenfuls).
+  static const int screenful = 40;
+
+  /// Logos read from disk into memory at launch.
+  static const int warmLimit = 160;
+
+  /// Markets already requested this session, by candidate list.
+  static final Set<String> _requested = {};
+
+  /// Loads the definitive misses and the most recently drawn logos of
+  /// earlier launches from disk into memory, so a list that opens next
+  /// resolves its icons synchronously (no fallback frame). Call once at
+  /// launch, after the caches were opened.
+  static Future<void> warmFromDisk({int limit = warmLimit}) async {
+    final disk = await IconCaches.resolve(IconCaches.hyperliquid);
+    if (disk == null) return;
+    final sw = Stopwatch()..start();
+    // Misses first: they are what lets an icon skip straight past the
+    // candidates that have no logo to the one that does.
+    _hlSvgFailed.addAll(disk.freshMisses());
+    final urls = disk.recentHits(limit);
+    await runBounded(urls, concurrency, _loadHlSvg);
+    if (kDebugMode) {
+      debugPrint('HlIconPrefetch: warmed ${urls.length} logos from disk in '
+          '${sw.elapsedMilliseconds} ms');
+    }
+  }
+
+  /// Fetches (disk, else network) the logos of [markets] in the
+  /// background, [concurrency] at a time, in order. Markets already
+  /// requested this session are skipped, so calling this on every list
+  /// change is cheap.
+  static Future<void> prefetch(Iterable<HlMarket> markets) async {
+    if (!IconCaches.prefetchEnabled) return;
+    final lists = <List<String>>[];
+    for (final m in markets) {
+      final urls = hlIconUrlsFor(m.coin, m.wireCoin, m.iconUrl, m.category);
+      if (urls.isEmpty || !_requested.add(urls.join('|'))) continue;
+      lists.add(urls);
+    }
+    if (lists.isEmpty) return;
+    final sw = Stopwatch()..start();
+    final before = IconLoadStats.network;
+    await runBounded(lists, concurrency, _loadFirstSvg);
+    if (kDebugMode) {
+      debugPrint('HlIconPrefetch: ${lists.length} markets in '
+          '${sw.elapsedMilliseconds} ms '
+          '(${IconLoadStats.network - before} downloads)');
+    }
+  }
+
+  @visibleForTesting
+  static void debugReset() {
+    _requested.clear();
+    _hlSvgCache.clear();
+    _hlSvgFailed.clear();
+    _hlSvgInflight.clear();
+  }
+}
+
+/// The candidate URLs [HlCoinIcon] tries for a market, in order: the
+/// explicit [iconUrl] first, then [hlCoinIconCandidates] with its sibling
+/// markets, without repeats.
+List<String> hlIconUrlsFor(
+    String coin, String? wireCoin, String? iconUrl, String? category) {
+  final override = iconUrl?.trim();
+  final candidates = hlCoinIconCandidates(coin, wireCoin, category,
+      siblingWires: hlIconSiblingWires(coin, wireCoin, category));
+  return [
+    if (override != null && override.isNotEmpty) override,
+    ...candidates.where((u) => u != override),
+  ];
 }
 
 /// Try each candidate URL in order; first that yields a real logo wins.
@@ -490,21 +657,13 @@ class _HlCoinIconState extends State<HlCoinIcon> {
   }
 
   void _resolve() {
-    final override = widget.iconUrl?.trim();
     // The explicit [iconUrl] is a PREFERRED candidate, not the only one — a
     // stale/bad override falls through to the CDN candidates (and then the
     // glyph/letter), so a row is never blank. Deduped so we never fetch the
     // same URL twice.
-    final wire = widget.wireCoin;
     _dexEpoch = HlMarketDirectory.dexEpoch;
-    final candidates = hlCoinIconCandidates(
-        widget.coin, wire, widget.category,
-        siblingWires: hlIconSiblingWires(
-            widget.coin, wire, widget.category));
-    _urls = [
-      if (override != null && override.isNotEmpty) override,
-      ...candidates.where((u) => u != override),
-    ];
+    _urls = hlIconUrlsFor(
+        widget.coin, widget.wireCoin, widget.iconUrl, widget.category);
     _art = null;
     if (_urls.isEmpty) return;
     // Serve synchronously from cache when the winning candidate is already
@@ -520,6 +679,7 @@ class _HlCoinIconState extends State<HlCoinIcon> {
       final cached = _hlSvgCache[u];
       if (cached != null) {
         _art = cached;
+        _touchHlDisk(u);
         return;
       }
       // First not-yet-resolved candidate has priority — let the async load
