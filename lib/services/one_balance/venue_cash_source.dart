@@ -909,6 +909,22 @@ class VenueCashPuller {
   final Future<void> Function(Duration) _sleep;
   final void Function()? _nudge;
   final String? Function()? _walletId;
+
+  /// Whether [move] belongs to the wallet the venues are read for now: a
+  /// Retry never pulls another wallet's venue cash (a move made on one
+  /// wallet, retried after switching to another). A move recorded before
+  /// moves carried their wallet is the current one's.
+  bool _ownsMove(MultiSourceMove move) {
+    final owner = move.walletId;
+    if (owner == null || _walletId == null) return true;
+    String? current;
+    try {
+      current = _walletId();
+    } catch (_) {
+      return false;
+    }
+    return current == owner;
+  }
   final double? Function(OneBalanceVenue venue)? _cachedAvailableUsd;
 
   /// Successful sends only, with the source read used before the leg.
@@ -1046,7 +1062,7 @@ class VenueCashPuller {
   /// than Dollars asks first. Null when there is nothing to retry.
   Future<VenueCashPlan?> planRetry(String moveId) async {
     final move = MultiSourceMoveStore.get(moveId);
-    if (move == null || !move.partial) return null;
+    if (move == null || !move.partial || !_ownsMove(move)) return null;
     if (move.isParallelPurchase) return _parallelRetryPlan(move);
     return plan(
       neededUsd: move.remainingUsd,
@@ -1169,7 +1185,7 @@ class VenueCashPuller {
       AuthGrant? approval,
       VenueCashPlan? plan}) async {
     final move = MultiSourceMoveStore.get(moveId);
-    if (move == null || !move.partial) return null;
+    if (move == null || !move.partial || !_ownsMove(move)) return null;
     if (move.destination != VenueCashDestination.dollars && approval == null) {
       throw const VenueLegApprovalRequired();
     }

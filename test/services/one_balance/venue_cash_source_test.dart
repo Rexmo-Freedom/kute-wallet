@@ -1186,6 +1186,32 @@ void main() {
           isNull);
     });
 
+    test('a Retry after switching wallets never pulls the other wallet',
+        () async {
+      final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});
+      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
+        ..directError = const RouteUnavailable('paused');
+      final first = await puller([p, i]).pullShortfall(
+          neededUsd: 50,
+          forAction: VenueCashFor.buyBitcoin,
+          destination: VenueCashDestination.bitcoin,
+          approval: _approval(to: VenueCashDestination.bitcoin));
+      expect(MultiSourceMoveStore.get(first.moveId!)!.partial, isTrue);
+      final other = VenueCashPuller(
+        sources: [p, i],
+        readDollars: () => dollars,
+        minimumUsd: (_) async => 1,
+        clock: () => now,
+        sleep: (d) async => now = now.add(d),
+        walletId: () => 'w2',
+      );
+      expect(await other.planRetry(first.moveId!), isNull);
+      expect(
+          await other.retryMove(first.moveId!,
+              approval: _approval(to: VenueCashDestination.bitcoin)),
+          isNull);
+    });
+
     test('Retry pulls only the failed remainder, never the leg that went',
         () async {
       final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});
