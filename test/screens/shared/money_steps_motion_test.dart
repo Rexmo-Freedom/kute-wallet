@@ -1,8 +1,11 @@
-// The money journey in motion, the calm look (founder, 20 October 2026):
-// one coin glides along the running connector as it fills, rests above
-// each station it reaches and cross-fades into that station's currency,
-// and sinks into the destination once everything is done; Sal walks the
-// line behind it; a leg's sub-legs are waypoints on its connector, the
+// The money journey in motion, the calm look (founder, 20 October 2026;
+// connectors as "B2 · rounded elbows", 27 October): one coin glides along
+// the running connector as it fills, rests above each station it reaches
+// and cross-fades into that station's currency, and sinks into the
+// destination once everything is done; Sal walks the line behind it,
+// fetches it once it parks and carries it on to wait beside the
+// destination while that works (his moods: money_journey_moods_test),
+// then drops it in on confirm; a leg's sub-legs are waypoints on its connector, the
 // destination's sub-steps dots under its name; one status line says the
 // step at work. A stop just stops, a finished record replays once,
 // silent, and each live moment is felt once, never for lines that were
@@ -11,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/screens/shared/money_steps_view.dart';
@@ -258,9 +262,31 @@ void main() {
       expect(xs[0].dy, lessThan(xs[1].dy));
       expect(xs[1].dy, lessThan(xs[2].dy));
       expect(poly.dy, closeTo(xs[1].dy, 0.01));
-      // Just overlapped, as the column's were side by side.
+      // Each on its own row, a small gap between them (no longer
+      // overlapped).
       final icon = tester.getSize(_station('bitcoin')).height;
-      expect(xs[1].dy - xs[0].dy, lessThan(icon));
+      expect(xs[1].dy - xs[0].dy, greaterThan(icon));
+      expect(xs[2].dy - xs[1].dy, greaterThan(icon));
+      // One merge point on the destination's centre line, between the
+      // column and the destination; nothing filled past it yet.
+      final merge = tester.getTopLeft(
+              find.byKey(const ValueKey('money-steps-map'))) +
+          _motion(tester).mergePointOf('predictions')!;
+      expect(merge.dy, closeTo(poly.dy, 0.01));
+      expect(merge.dx, greaterThan(xs.first.dx));
+      expect(merge.dx, lessThan(poly.dx));
+      expect(_motion(tester).mergeLitOf('predictions'), 0);
+      // Each source's amount under the start of its leg.
+      for (final (id, amount) in [
+        ('bitcoin', '\$8.00'),
+        ('dollars', '\$5.00'),
+        ('investing', '\$2.00'),
+      ]) {
+        final label = find.byKey(ValueKey('money-steps-leg-amount-$id'));
+        expect(label, findsOneWidget);
+        expect(find.descendant(of: label, matching: find.text(amount)),
+            findsOneWidget);
+      }
       // Their names together under the column, moved in from the edge.
       expect(find.text('Bitcoin · Dollars · Investing'), findsOneWidget);
       final plan = MoneyJourneyPlan.of(
@@ -382,14 +408,31 @@ void main() {
     expect(lit, greaterThan(0));
     expect(lit, lessThan(1), reason: 'it waits for the leg to land');
     expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);
-    // Sal walks behind the coin, then waits.
+    // In Bitcoin it wears the app's Bitcoin mark, as the station does.
+    expect(_motion(tester).coinMarkAsset, 'lib/assets/bitcoin-icon.svg');
+    expect(
+        find.descendant(
+            of: _station('bitcoin'),
+            matching: find.byWidgetPredicate((w) =>
+                w is SvgPicture &&
+                (w.bytesLoader as SvgAssetLoader).assetName ==
+                    'lib/assets/bitcoin-icon.svg')),
+        findsOneWidget);
+    expect(find.byIcon(Icons.currency_bitcoin_rounded), findsNothing);
+    // Sal walks behind the coin; once it parks he walks up and fetches
+    // it, and waits with it in his mouth.
     expect(_motion(tester).walking, isTrue);
+    expect(_motion(tester).travellerAt!.dx,
+        lessThan(_motion(tester).coin!.at.dx),
+        reason: 'behind the coin');
     await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(milliseconds: 100));
     expect(_motion(tester).walking, isFalse);
     final sal = _motion(tester).travellerAt!;
-    expect(sal.dx, lessThan(_motion(tester).coin!.at.dx),
-        reason: 'behind the coin');
+    expect(_motion(tester).carrying, isTrue);
+    expect(_motion(tester).mood, SalMood.fetch);
+    expect(_motion(tester).coin!.at.dx, closeTo(sal.dx, 0.5),
+        reason: 'in his mouth');
     expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
     expect(_status(tester), 'Moving \$8.00 from Bitcoin');
     expect(findMoneyStep('Getting your prediction ready'), findsOneWidget);
@@ -410,10 +453,28 @@ void main() {
     final landing = _motion(tester).coin!;
     expect(landing.place, MoneyPlace.bitcoin);
     expect(landing.alpha, lessThan(1));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_motion(tester).coin!.place, MoneyPlace.predictions);
-    expect(_motion(tester).coin!.alpha, 1);
-    await tester.pump(const Duration(seconds: 1));
+    // Sal carries it on (no hop: not a confirm yet) while Predictions'
+    // ring says it works.
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(_motion(tester).carrying, isTrue);
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
+    expect(_motion(tester).destinationRing, 1);
+    // Sal walks on and waits beside Predictions while it works.
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 100));
+    final beside = _motion(tester).travellerAt!;
+    final mapAt =
+        tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
+    final poly = _at(tester, _station('predictions'));
+    final r = tester.getSize(_station('predictions')).width / 2;
+    final k = r / 14; // the screen's scale
+    expect((mapAt + beside).dy, closeTo(poly.dy, 0.5));
+    expect((mapAt + beside).dx + 9 * k, lessThan(poly.dx - r - 4 * k - 0.75),
+        reason: 'left of the ring');
+    expect((mapAt + beside).dx, greaterThan(poly.dx - r - 40 * k));
+    expect(_motion(tester).walking, isFalse);
     expect(count('lightImpact'), 1);
     expect(count('selectionClick'), 1);
     expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
@@ -422,15 +483,17 @@ void main() {
         findsOneWidget);
     expect(_status(tester), 'Confirming balance');
 
-    // Everything lands at once: one success beat, no light tap on top.
+    // Everything lands at once: one success beat, no light tap on top;
+    // Sal hops and drops the coin in.
     await tester.pumpWidget(_bet3(_done, _done, _done));
     await tester.pump(const Duration(milliseconds: 140));
+    expect(_motion(tester).hopping, isTrue);
     expect(patterns('success'), 1);
     expect(count('lightImpact'), 1);
     expect(_status(tester), 'Placed!');
-    expect(_motion(tester).coin, isNotNull, reason: 'sinking in');
     await tester.pump(const Duration(seconds: 1));
     expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).destinationRing, 0, reason: 'done: the check');
     expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
         findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
@@ -497,7 +560,11 @@ void main() {
     expect(bridge, isEmpty);
     expect(_motion(tester).replaying, isFalse);
     expect(_motion(tester).travellerStation, 'predictions');
+    // Predictions' ring says it works; Sal waits beside it, the coin in
+    // his mouth in its currency.
+    expect(_motion(tester).carrying, isTrue);
     expect(_motion(tester).coin!.place, MoneyPlace.predictions);
+    expect(_motion(tester).destinationRing, 1);
   });
 
   testWidgets(
@@ -516,8 +583,10 @@ void main() {
     expect(count('selectionClick'), 1);
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).travellerStation, 'predictions');
-    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
-    expect(_motion(tester).coin!.alpha, 1, reason: 'no cross-fade');
+    expect(_motion(tester).carrying, isTrue,
+        reason: 'at once in his mouth, sitting still');
+    expect(_motion(tester).mood, SalMood.fetch);
+    expect(_motion(tester).destinationRing, 1, reason: 'no fade');
 
     await tester.pumpWidget(_bet3(_done, _done, _done, still: true));
     await tester.pump();
