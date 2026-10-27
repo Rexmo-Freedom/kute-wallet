@@ -136,8 +136,10 @@ import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
+import 'package:kute/providers/one_balance_provider.dart'
+    show oneBalanceProvider;
 import 'package:kute/services/one_balance/one_balance_state.dart'
-    show OneBalanceVenue;
+    show InFlightKind, OneBalanceVenue;
 import 'package:kute/services/one_balance/bet_funding_plan.dart';
 import 'package:kute/services/one_balance/venue_cash_source.dart'
     show
@@ -3336,10 +3338,17 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     final required = _predictionsRequired(terms);
     final spendable = _predictionsReady(balance);
     final prefund = _draft.prefund;
-    final ready = prefund == null
-        ? spendable
-        : prefund.readyAtConfirmUsd(
-            spendableUsd: spendable, balanceUsd: balance);
+    // Money already on its way to Predictions counts as there: this slip's
+    // own pre-funding, and any earlier move still on the rail (a bet that
+    // timed out while its money was still coming), so nothing is moved
+    // twice for the same need. The larger of the two: the rows of this
+    // slip's own moves are among those on the rail.
+    final ready = max(
+        prefund == null
+            ? spendable
+            : prefund.readyAtConfirmUsd(
+                spendableUsd: spendable, balanceUsd: balance),
+        spendable + _predictionsArrivingUsd());
     // Pre-funded money still on its way: the queued bet waits for it too.
     final incoming = ready - spendable;
     // Nothing moves for a market that no longer takes orders (audit
@@ -4200,6 +4209,21 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// What this stake is short of in Predictions cash:
   /// [_predictionsRequired] less [cash]. The button and the tap read the
   /// same figure.
+  /// Dollars on the rail to Predictions right now (moves the venue has
+  /// not credited yet, for any bet or none).
+  double _predictionsArrivingUsd() {
+    var sum = 0.0;
+    for (final m in ref.read(oneBalanceProvider).inFlight) {
+      if (m.kind == InFlightKind.toVenue &&
+          m.venue == OneBalanceVenue.predictions &&
+          m.usd.isFinite &&
+          m.usd > 0) {
+        sum += m.usd;
+      }
+    }
+    return sum;
+  }
+
   double _predictionsShortfall(double cash, PolymarketFeeTerms terms,
       {double? stakeUsd}) {
     final stake = stakeUsd ?? _amount;
