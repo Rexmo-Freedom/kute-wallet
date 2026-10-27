@@ -26,6 +26,8 @@ import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
@@ -846,7 +848,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(top: 8.h),
-              child: SkeletonCardList(count: 3, height: 160.h),
+              // The grouped card the list lands in, with skeleton rows.
+              child: PremiumGroupContainer(
+                child: SkeletonRowList(
+                  count: 4,
+                  padding: EdgeInsets.zero,
+                  rowPadding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                ),
+              ),
             ),
           ),
         ];
@@ -868,24 +878,18 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
+      // Plain Yes/No markets share one grouped card like Home's
+      // Activity; an event with many outcomes or a game keeps its own
+      // card and breaks the group (founder, October 2026).
       body = [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-          sliver: SliverList.separated(
-            itemCount: events.length,
-            separatorBuilder: (_, __) => SizedBox(height: 10.h),
-            itemBuilder: (_, i) {
-              final market = events[i];
-              return _PolyFeedCard(
-                market: market,
-                isSportsCategory: market.category == 'sports',
-                matchSiblings: market.gameId != null
-                    ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
-                    : const <PolymarketEvent>[],
-              );
-            },
-          ),
-        ),
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ..._groupedSlivers(events, (market) => (
+              isSportsCategory: market.category == 'sports',
+              siblings: market.gameId != null
+                  ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                  : const <PolymarketEvent>[],
+            )),
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
       ];
     }
     return [
@@ -940,19 +944,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         for (final e in collapseByGameId(events))
           if (e.hasLivestream) e
       ];
-      return [
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          sliver: SliverList.separated(
-            itemCount: streams.length,
-            separatorBuilder: (_, __) => SizedBox(height: 10.h),
-            itemBuilder: (_, i) => _PolyFeedCard(
-              market: streams[i],
-              isSportsCategory: true,
-            ),
-          ),
-        ),
-      ];
+      return _groupedSlivers(streams, (_) => _kLiveRow);
     }
     for (final group in _liveGroups(events)) {
       if (only != null && group.sub.key != only) continue;
@@ -961,20 +953,36 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           child: _SectionHeader(label: polySubLabel(context.l10n, group.sub)),
         ));
       }
-      slivers.add(SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        sliver: SliverList.separated(
-          itemCount: group.games.length,
-          separatorBuilder: (_, __) => SizedBox(height: 10.h),
-          itemBuilder: (_, i) => _PolyFeedCard(
-            market: group.games[i],
-            isSportsCategory: true,
-          ),
-        ),
-      ));
+      slivers.addAll(_groupedSlivers(group.games, (_) => _kLiveRow));
     }
     return slivers;
   }
+
+  /// [events] as list slivers: runs of plain Yes/No markets in one
+  /// grouped card, every other market its own card ([marketGroupSlivers]).
+  /// [rowOf] says how a market's row reads its sport and its match's
+  /// other markets.
+  List<Widget> _groupedSlivers(
+    List<PolymarketEvent> events,
+    ({bool isSportsCategory, List<PolymarketEvent> siblings}) Function(
+            PolymarketEvent market)
+        rowOf,
+  ) =>
+      marketGroupSlivers<PolymarketEvent>(
+        context,
+        items: events,
+        groups: (e) => polyCardGroups(e.title, e.outcomes),
+        dividerIndent: polyGroupRowIndent(),
+        build: (market, inGroup) {
+          final row = rowOf(market);
+          return _PolyFeedCard(
+            market: market,
+            isSportsCategory: row.isSportsCategory,
+            matchSiblings: row.siblings,
+            inGroup: inGroup,
+          );
+        },
+      );
 
   Future<void> _onRefresh() {
     PolymarketScreen.refreshBrowse(ref);
@@ -994,6 +1002,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 /// card's slices of the live-price and sports
 /// providers via narrow selects — so a WS tick repaints just the cards
 /// it touches instead of the whole screen.
+/// A game in play's row: a sports row, no other markets of its match.
+const ({bool isSportsCategory, List<PolymarketEvent> siblings}) _kLiveRow =
+    (isSportsCategory: true, siblings: <PolymarketEvent>[]);
+
 class _PolyFeedCard extends ConsumerWidget {
   final PolymarketEvent market;
   final bool isSportsCategory;
@@ -1003,10 +1015,14 @@ class _PolyFeedCard extends ConsumerWidget {
   /// "+N more markets" affordance opening the grouped match view.
   final List<PolymarketEvent> matchSiblings;
 
+  /// A row of a grouped list card ([MarketCard.inGroup]).
+  final bool inGroup;
+
   const _PolyFeedCard({
     required this.market,
     required this.isSportsCategory,
     this.matchSiblings = const <PolymarketEvent>[],
+    this.inGroup = false,
   });
 
   @override
@@ -1060,6 +1076,7 @@ class _PolyFeedCard extends ConsumerWidget {
       tokens: outcomeTokenIds,
       child: RepaintBoundary(
         child: MarketCard(
+          inGroup: inGroup,
           title: roundAsset == null
               ? market.title
               : '$roundAsset · '

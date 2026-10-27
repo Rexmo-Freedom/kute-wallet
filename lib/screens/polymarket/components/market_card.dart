@@ -16,6 +16,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+/// The list thumbnail and the gap after it.
+const double kPolyCardImage = 40;
+const double kPolyCardImageGap = 10;
+
+/// Where a grouped row's title starts, for the group's hairline: the
+/// row's 16 inset, the thumbnail and the gap after it.
+double polyGroupRowIndent() => 16.w + kPolyCardImage.w + kPolyCardImageGap.w;
+
+/// Whether [title]'s market is a plain Yes/No one: the shape the lists
+/// group into one card (an event with many outcomes, or a game, keeps a
+/// card of its own).
+bool polyCardGroups(String title, List<PolymarketOutcome> outcomes) =>
+    polyCardShape(polyCardGame(title, outcomes), outcomes) ==
+    PolyCardShape.yesNo;
+
 /// One Predictions list card, in three shapes that share their frame and
 /// footer: names on the left, the number that matters on the right, one
 /// quiet caption line under them.
@@ -100,6 +115,12 @@ class MarketCard extends ConsumerWidget {
   /// round's time ("10:15 PM – 10:30 PM") instead of its end date.
   final ({DateTime start, DateTime end})? round;
 
+  /// A row of a grouped list card (Home Activity's group, see
+  /// market_groups.dart): no card of its own, the row padding of the
+  /// group's rows. The list draws the card and the hairlines; only plain
+  /// Yes/No markets are grouped.
+  final bool inGroup;
+
   const MarketCard({
     super.key,
     required this.title,
@@ -127,6 +148,7 @@ class MarketCard extends ConsumerWidget {
     this.onMoreMarkets,
     this.dayMove,
     this.round,
+    this.inGroup = false,
   });
 
   /// What the card's live figures belong to: a list that hands this card
@@ -287,10 +309,11 @@ class MarketCard extends ConsumerWidget {
 
     final game = polyCardGame(title, outcomes, live: livePrices);
     final shape = polyCardShape(game, outcomes);
-    final radius = BorderRadius.circular(AppRadius.lg);
+    // In a group the list draws the card; the row keeps its ink.
+    final radius = inGroup ? null : BorderRadius.circular(AppRadius.lg);
 
     return Container(
-      decoration: AppDecorations.card(context),
+      decoration: inGroup ? null : AppDecorations.card(context),
       child: Material(
         color: Colors.transparent,
         borderRadius: radius,
@@ -299,7 +322,9 @@ class MarketCard extends ConsumerWidget {
           onTapDown: onTapDown == null ? null : (_) => onTapDown!(),
           borderRadius: radius,
           child: Padding(
-            padding: EdgeInsets.all(16.w),
+            padding: inGroup
+                ? EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h)
+                : EdgeInsets.all(16.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -450,10 +475,10 @@ class MarketCard extends ConsumerWidget {
           title: title,
           imageUrl: image,
           category: category,
-          size: 40.w,
+          size: kPolyCardImage.w,
           radius: 10.r,
         ),
-        SizedBox(width: 10.w),
+        SizedBox(width: kPolyCardImageGap.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

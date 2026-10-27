@@ -237,8 +237,10 @@ class _LedgerInvestingDiscoveryState
                     label: tab.localizedLabel(context.l10n),
                     markets: hlBrowseListForTab(tab, markets)),
             ],
-            cardBuilder: (market, onTap) =>
-                HlMarketCard(market: market, onTap: onTap),
+            cardBuilder: (market, onTap, inGroup) =>
+                HlMarketCard(market: market, onTap: onTap, inGroup: inGroup),
+            groups: (_) => true,
+            groupRowIndent: hlGroupRowIndent,
             onOpenMarket: (market) {
               if (!mounted || widget.walletId != walletId) return;
               final current = ref.read(ledgerIdentityProvider(walletId));

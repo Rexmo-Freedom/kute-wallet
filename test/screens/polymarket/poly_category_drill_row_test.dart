@@ -16,6 +16,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -128,8 +129,8 @@ void main() {
   });
 
   testWidgets(
-      'the lists carry no titles: none repeating the selected pill, no '
-      '"Crypto markets" over the 5-minute card',
+      'the lists carry no titles; plain markets share grouped cards that '
+      'an event with many outcomes breaks',
       (tester) async {
     await pumpInvestments(tester,
         browsePredictions: true,
@@ -153,8 +154,46 @@ void main() {
       expect(find.descendant(of: _pill(pill), matching: find.text(pill)),
           findsOneWidget);
 
+      // Plain markets share Home Activity's grouped card; the event with
+      // many outcomes keeps its own card and breaks the group:
+      // group (Fed, BTC) → card (Trump) → group (Rain).
       final cards = _inBrowser(find.byType(MarketCard));
-      expect(cards, findsNWidgets(3));
+      expect(cards, findsNWidgets(4));
+      final groups = _inBrowser(find.byType(DecoratedSliver));
+      expect(groups, findsNWidgets(2));
+      final context = tester.element(cards.first);
+      for (final g in tester.widgetList<DecoratedSliver>(groups)) {
+        expect(g.decoration, PremiumGroupContainer.decorationOf(context));
+      }
+      Finder inGroup(int g, Finder f) =>
+          find.descendant(of: groups.at(g), matching: f);
+      expect(inGroup(0, find.byType(MarketCard)), findsNWidgets(2));
+      expect(inGroup(1, find.byType(MarketCard)), findsOneWidget);
+      expect(inGroup(0, find.byType(Divider)), findsOneWidget);
+      expect(inGroup(1, find.byType(Divider)), findsNothing);
+      expect(tester.widget<Divider>(inGroup(0, find.byType(Divider))).indent,
+          polyGroupRowIndent());
+      final trump = find.ancestor(
+          of: find.text('Who will Trump meet?'),
+          matching: find.byType(MarketCard));
+      expect(tester.widget<MarketCard>(trump).inGroup, isFalse);
+      expect(find.descendant(of: groups, matching: trump), findsNothing);
+      for (final title in [
+        'Fed cuts in December?',
+        'Bitcoin above 150k?',
+        'Rain in London tomorrow?'
+      ]) {
+        final card = find.ancestor(
+            of: find.text(title), matching: find.byType(MarketCard));
+        expect(tester.widget<MarketCard>(card).inGroup, isTrue);
+      }
+      // In order: the first group, the card, the second group.
+      Rect at(String title) => tester.getRect(
+          find.ancestor(of: find.text(title), matching: find.byType(MarketCard)));
+      expect(at('Bitcoin above 150k?').bottom,
+          lessThan(tester.getRect(trump).top));
+      expect(tester.getRect(trump).bottom,
+          lessThan(at('Rain in London tomorrow?').top));
       // No title over the 5-minute card either, big or small.
       expect(_inBrowser(find.text(l10n.predictionsCryptoMarkets)),
           findsNothing);
@@ -165,28 +204,47 @@ void main() {
   });
 }
 
-/// Three open Yes/No markets in every list.
+/// Two plain Yes/No markets, an event with many outcomes, another plain
+/// one: in every list.
 class _ThreeMarkets extends PolyFeedNotifier {
   @override
-  PolyFeedState build(PolyFeedQuery arg) => PolyFeedState(done: true, events: [
-        for (final (id, title) in [
-          ('fed', 'Fed cuts in December?'),
-          ('btc', 'Bitcoin above 150k?'),
-          ('rain', 'Rain in London tomorrow?'),
-        ])
-          PolymarketEvent(
-            id: id,
-            slug: id,
-            title: title,
-            volume: 1e6,
-            liquidity: 1e5,
-            category: 'finance',
-            conditionId: id,
-            outcomes: const [
-              PolymarketOutcome(name: 'Yes', price: 0.4),
-              PolymarketOutcome(name: 'No', price: 0.6),
-            ],
-          ),
-      ]);
+  PolyFeedState build(PolyFeedQuery arg) {
+    PolymarketEvent yesNo(String id, String title) => PolymarketEvent(
+          id: id,
+          slug: id,
+          title: title,
+          volume: 1e6,
+          liquidity: 1e5,
+          category: 'finance',
+          conditionId: id,
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.4),
+            PolymarketOutcome(name: 'No', price: 0.6),
+          ],
+        );
+    return PolyFeedState(done: true, events: [
+      yesNo('fed', 'Fed cuts in December?'),
+      yesNo('btc', 'Bitcoin above 150k?'),
+      PolymarketEvent(
+        id: 'trump',
+        slug: 'trump',
+        title: 'Who will Trump meet?',
+        volume: 1e6,
+        liquidity: 1e5,
+        category: 'politics',
+        conditionId: 'trump',
+        negRisk: true,
+        outcomes: [
+          for (final (n, p) in [('Xi', 0.8), ('Putin', 0.2), ('Kim', 0.1)])
+            PolymarketOutcome(
+                name: n,
+                price: p,
+                conditionId: n,
+                tokenId: '$n-yes',
+                noTokenId: '$n-no'),
+        ],
+      ),
+      yesNo('rain', 'Rain in London tomorrow?'),
+    ]);
+  }
 }
-

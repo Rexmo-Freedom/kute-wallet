@@ -447,4 +447,53 @@ void main() {
     await tester.tap(find.text('Bitcoin'));
     expect(taps, 1);
   });
+
+  testWidgets(
+      'in a group the row has no card of its own and keeps its ink; alone '
+      'it is the card', (tester) async {
+    await _pump(tester, _market());
+    final alone = find.byType(HlMarketCard);
+    final card = AppDecorations.card(tester.element(alone));
+    bool hasCard() => tester
+        .widgetList<Container>(
+            find.descendant(of: alone, matching: find.byType(Container)))
+        .any((c) => c.decoration == card);
+    expect(hasCard(), isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        hyperliquidLivePricesProvider.overrideWith(() => _LivePrices(const {})),
+        hyperliquidSparklineStoreProvider.overrideWithValue(
+            HlSparklineStore(fetch: (_) async => const <double>[])),
+      ],
+      child: ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          theme: ThemeData(extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Column(children: [
+              HlMarketCard(market: _market(), onTap: () {}, inGroup: true),
+            ]),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(hasCard(), isFalse);
+    for (final c in tester.widgetList<Container>(
+        find.descendant(of: alone, matching: find.byType(Container)))) {
+      final d = c.decoration;
+      if (d is BoxDecoration) expect(d.boxShadow, isNull);
+    }
+    final ink = find.descendant(of: alone, matching: find.byType(InkWell));
+    expect(tester.getSize(ink), tester.getSize(alone));
+    expect(tester.getSize(alone).height, greaterThanOrEqualTo(44));
+    // The name starts where the group's hairline does.
+    expect(tester.getTopLeft(find.text('Bitcoin')).dx,
+        moreOrLessEquals(hlGroupRowIndent(), epsilon: 0.5));
+  });
 }
+
