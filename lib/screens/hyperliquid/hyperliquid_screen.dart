@@ -16,6 +16,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidHeldPositionsProvider;
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/hyperliquid_config_provider.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
@@ -28,6 +30,8 @@ import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
+    show HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyAutoScrollRow, PolyDrillRow, kuteBackPill;
@@ -93,6 +97,26 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
 
   /// The watchlist the cached lists were built from.
   List<String> _watchlist = const [];
+
+  /// The list whose logos were last fetched ahead.
+  List<HlMarket>? _prefetchedFor;
+
+  /// Fetches the logos of the open positions, the starred markets and the
+  /// first screenfuls of [markets] in the background (disk first), so
+  /// their rows draw the logo on the first frame instead of the fallback.
+  /// Once per list instance ([_listFor] memoizes them per universe).
+  void _prefetchIcons(List<HlMarket> markets, List<HlMarket> universe) {
+    if (identical(markets, _prefetchedFor) || universe.isEmpty) return;
+    _prefetchedFor = markets;
+    final held = {
+      for (final p in ref.read(hyperliquidHeldPositionsProvider)) p.coin
+    };
+    unawaited(HlIconPrefetch.prefetch([
+      if (held.isNotEmpty) ...universe.where((m) => held.contains(m.wireCoin)),
+      ...hlWatchlistMarkets(ref.read(hlWatchlistProvider), universe),
+      ...markets.take(HlIconPrefetch.screenful),
+    ]));
+  }
 
   void _syncCaches(List<HlMarket> universe) {
     final watchlist = ref.read(hlWatchlistProvider);
@@ -415,6 +439,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     // into, while it has a row of them.
     final drilled = _drilledInto == tab && subs.length > 1;
     final markets = _listFor(tab, sub, universe);
+    _prefetchIcons(markets, universe);
 
     // The browser's own scroll view. Embedded in Investments it is the
     // body of that page's nested scroll: it takes the page's primary

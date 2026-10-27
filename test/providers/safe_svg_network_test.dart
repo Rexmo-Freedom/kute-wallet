@@ -5,6 +5,7 @@
 // proven to parse first and a failure is remembered for the session.
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -12,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/providers/asset_icon_provider.dart';
+import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 
 const _hslGradient = '<svg xmlns="http://www.w3.org/2000/svg" width="48" '
     'height="48"><defs><linearGradient id="g"><stop offset="0" '
@@ -92,5 +94,49 @@ void main() {
     expect(find.byType(SvgPicture), findsOneWidget);
     expect(find.byKey(const ValueKey('fallback')), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a mark seen on an earlier launch draws from disk, offline',
+      (tester) async {
+    final dir = Directory.systemTemp.createTempSync('safe_svg_cache_test');
+    addTearDown(() {
+      IconCaches.debugSet();
+      dir.deleteSync(recursive: true);
+    });
+    const good = 'https://icons.test/good.svg';
+    const missing = 'https://icons.test/missing.svg';
+    // First launch: the catalog prefetch downloads both.
+    await tester.runAsync(() async {
+      final disk = await IconDiskCache.open(dir);
+      IconCaches.debugSet(artwork: disk, prefetch: true);
+      await SafeSvgNetwork.prefetch([good, missing]);
+      await disk.flush();
+    });
+    expect(requests, [good, missing]);
+
+    // Second launch, offline: memory is empty, the disk answers.
+    SafeSvgNetwork.resetCacheForTest();
+    requests.clear();
+    SafeSvgNetwork.debugClient = MockClient((req) async {
+      requests.add(req.url.toString());
+      throw const SocketException('offline');
+    });
+    await tester.runAsync(() async {
+      IconCaches.debugSet(artwork: await IconDiskCache.open(dir));
+      await SafeSvgNetwork.warmFromDisk();
+    });
+    await tester.pumpWidget(const MaterialApp(
+        home: Column(children: [
+      SafeSvgNetwork(url: good, width: 48, height: 48, fallback: fallback),
+      SafeSvgNetwork(
+          url: missing,
+          width: 48,
+          height: 48,
+          fallback: SizedBox(key: ValueKey('missing'), width: 48)),
+    ])));
+    // The first frame: the mark, and the known miss's fallback.
+    expect(find.byType(SvgPicture), findsOneWidget);
+    expect(find.byKey(const ValueKey('missing')), findsOneWidget);
+    expect(requests, isEmpty);
   });
 }

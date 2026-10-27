@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -10,6 +11,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/helpers/svg_class_styles.dart';
+import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -205,13 +208,45 @@ class SafeSvgNetwork extends StatefulWidget {
   final double height;
   final Widget fallback;
 
-  /// Tests answer the icon fetch here; production uses a fresh client.
+  /// Tests answer the icon fetch here; production uses the pooled client.
   @visibleForTesting
   static http.Client? debugClient;
 
   /// Forgets every fetched and failed body, so tests start clean.
   @visibleForTesting
-  static void resetCacheForTest() => _SafeSvgNetworkState._cache.clear();
+  static void resetCacheForTest() {
+    _SafeSvgNetworkState._cache.clear();
+    _SafeSvgNetworkState._inflight.clear();
+    _requested.clear();
+  }
+
+  static final Set<String> _requested = {};
+
+  /// Marks loaded at once by [prefetch] and [warmFromDisk].
+  static const int prefetchConcurrency = 6;
+
+  /// Loads [urls] (disk, else network) into memory in the background, so
+  /// the grid that shows them draws each on its first frame. URLs already
+  /// requested this session are skipped.
+  static Future<void> prefetch(Iterable<String> urls) async {
+    if (!IconCaches.prefetchEnabled) return;
+    await runBounded(
+      [for (final u in urls) if (_isSvgUrl(u) && _requested.add(u)) u],
+        prefetchConcurrency,
+        _SafeSvgNetworkState._bodyFor);
+  }
+
+  /// Loads the most recently drawn marks of earlier launches from disk
+  /// into memory. Call once at launch, after the caches were opened.
+  static Future<void> warmFromDisk({int limit = 80}) async {
+    final disk = await IconCaches.resolve(IconCaches.artwork);
+    if (disk == null) return;
+    for (final miss in disk.freshMisses()) {
+      _SafeSvgNetworkState._cache.putIfAbsent(miss, () => '');
+    }
+    await runBounded(disk.recentHits(limit), prefetchConcurrency,
+        _SafeSvgNetworkState._bodyFor);
+  }
 
   const SafeSvgNetwork({
     super.key,
@@ -266,6 +301,7 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
   void _start() {
     final cached = _cache[widget.url];
     if (cached != null) {
+      if (cached.isNotEmpty) _touch(widget.url);
       // Synchronous hit — no loading frame, no network.
       _loading = false;
       if (cached.isEmpty) {
@@ -278,19 +314,32 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
     _fetchSvg();
   }
 
-  static Future<String> _fetchBody(String url) async {
+  /// Downloads [url] and returns the repaired SVG, or '' when there is
+  /// nothing to draw. [definitive] is false when the request itself
+  /// failed (timeout, transport, 5xx, rate limit): that is remembered for
+  /// this session only, never on disk.
+  static Future<({String body, bool definitive})> _fetchBody(
+      String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https') {
-      return '';
+      return (body: '', definitive: true);
     }
     try {
-      final client = SafeSvgNetwork.debugClient;
-      final response = await (client != null ? client.get(uri) : http.get(uri))
-          .timeout(const Duration(seconds: 10));
+      IconLoadStats.network++;
+      // The pooled keep-alive client: a grid of a dozen marks from one
+      // artwork host shares its connection instead of a TLS handshake each.
+      final response = await SharedHttpClient.get(uri,
+          kind: HttpCallKind.backgroundRead,
+          timeout: const Duration(seconds: 10),
+          client: SafeSvgNetwork.debugClient);
+      final status = response.statusCode;
+      if (status >= 500 || status == 429 || status == 408) {
+        return (body: '', definitive: false);
+      }
       // Decode the bytes ourselves: `response.body` falls back to
       // latin1 when the content-type carries no charset (image/svg+xml
       // never does), which mangles any non-ASCII glyph in the markup.
-      final body = response.statusCode == 200
+      final body = status == 200
           ? utf8.decode(response.bodyBytes, allowMalformed: true)
           : '';
       if (body.trimLeft().startsWith('<') && body.contains('<svg')) {
@@ -304,24 +353,28 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
         // throws (an `hsl(285de…)` fill, a `transform="none"`) from the
         // picture's isolate, past errorBuilder. An empty body is cached
         // as a known failure, so the fallback shows without a refetch.
-        return await _svgParses(repaired) ? repaired : '';
+        return (
+          body: await _svgParses(repaired) ? repaired : '',
+          definitive: true
+        );
       }
       if (kDebugMode) {
         debugPrint('SafeSvgNetwork: $url -> HTTP ${response.statusCode} '
             '${response.headers['content-type'] ?? ''}');
       }
-      return '';
+      return (body: '', definitive: true);
     } catch (e) {
       if (kDebugMode) debugPrint('SafeSvgNetwork: $url -> $e');
-      return '';
+      return (body: '', definitive: false);
     }
   }
 
-  /// True when flutter_svg can parse [svg].
+  /// True when flutter_svg can parse [svg]. Parsed through the same
+  /// loader [SvgPicture.string] uses, so the compiled picture lands in
+  /// flutter_svg's cache under the key the widget looks up.
   static Future<bool> _svgParses(String svg) async {
     try {
-      final info = await vg.loadPicture(
-          SvgBytesLoader(Uint8List.fromList(utf8.encode(svg))), null);
+      final info = await vg.loadPicture(SvgStringLoader(svg), null);
       info.picture.dispose();
       return true;
     } catch (_) {
@@ -329,15 +382,56 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
     }
   }
 
+  /// The body for [url]: memory, then disk, then the network. A failure
+  /// resolves to ''. Shared by the widgets and the prefetch.
+  static Future<String> _bodyFor(String url) {
+    final cached = _cache[url];
+    if (cached != null) return Future.value(cached);
+    return _inflight.putIfAbsent(url, () async {
+      try {
+        final disk = await IconCaches.resolve(IconCaches.artwork);
+        final entry = disk?.lookup(url);
+        if (disk != null && entry != null) {
+          if (entry.isMiss) return _cache[url] = '';
+          final bytes = await disk.read(url);
+          if (bytes != null) {
+            final svg = utf8.decode(bytes, allowMalformed: true);
+            if (await _svgParses(svg)) {
+              IconLoadStats.disk++;
+              disk.touch(url);
+              if (!entry.fresh) unawaited(_refresh(url, disk));
+              return _cache[url] = svg;
+            }
+          }
+        }
+        final fetched = await _fetchBody(url);
+        if (fetched.definitive) {
+          if (fetched.body.isEmpty) {
+            disk?.putMiss(url);
+          } else {
+            unawaited(disk?.putHit(
+                url, Uint8List.fromList(utf8.encode(fetched.body))));
+          }
+        }
+        return _cache[url] = fetched.body;
+      } finally {
+        _inflight.remove(url);
+      }
+    });
+  }
+
+  /// A mark past its fresh period was drawn from disk: fetch it again
+  /// in the background and keep the new one when there is one.
+  static Future<void> _refresh(String url, IconDiskCache disk) async {
+    final fetched = await _fetchBody(url);
+    if (fetched.body.isEmpty) return;
+    _cache[url] = fetched.body;
+    await disk.putHit(url, Uint8List.fromList(utf8.encode(fetched.body)));
+  }
+
   Future<void> _fetchSvg() async {
     final url = widget.url;
-    final future = _inflight.putIfAbsent(url, () async {
-      final body = await _fetchBody(url);
-      _cache[url] = body;
-      _inflight.remove(url);
-      return body;
-    });
-    final body = await future;
+    final body = await _bodyFor(url);
     // The widget may have moved on to another URL while this one was
     // in flight; that fetch owns the state now.
     if (!mounted || widget.url != url) return;
@@ -349,6 +443,12 @@ class _SafeSvgNetworkState extends State<SafeSvgNetwork> {
         _svgData = body;
       }
     });
+  }
+
+  static void _touch(String url) {
+    final pending = IconCaches.artwork;
+    if (pending == null) return;
+    pending.then((d) => d?.touch(url), onError: (_) {});
   }
 
   @override

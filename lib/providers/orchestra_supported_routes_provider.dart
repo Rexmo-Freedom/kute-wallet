@@ -30,6 +30,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/helpers/orchestra_router.dart'
     show setOrchestraDecimalsCatalog;
 import 'package:kute/models/orchestra_routes_model.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show SafeSvgNetwork;
 import 'package:kute/services/api/orchestra_api.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show OrchestraRouteCatalog, setLiveOrchestraRouteCatalog;
@@ -166,12 +167,28 @@ class OrchestraSupportedRoutesNotifier
   }
 }
 
+/// Marks of the catalog fetched ahead at most (chains first, then coins
+/// in catalog order); the rest load when a grid shows them.
+const int kCatalogIconPrefetchLimit = 80;
+
 /// App-wide supported-routes catalog. Never loading/error — the state
 /// is always a usable catalog (live > cached > static). Watch it in
 /// offering surfaces so grids re-filter when the live set lands.
 final orchestraSupportedRoutesProvider = StateNotifierProvider<
     OrchestraSupportedRoutesNotifier, OrchestraRoutesCatalog>((ref) {
   final notifier = OrchestraSupportedRoutesNotifier();
+  // The chain and coin marks of the Send/Receive grids, fetched ahead
+  // (disk first) whenever the catalog changes, so the grids draw them on
+  // their first frame. Already-fetched marks are skipped.
+  notifier.addListener((catalog) {
+    final urls = <String>{
+      for (final a in catalog.assets)
+        if (a.chainIconUrl != null) a.chainIconUrl!,
+      for (final a in catalog.assets)
+        if (a.assetIconUrl != null) a.assetIconUrl!,
+    };
+    unawaited(SafeSvgNetwork.prefetch(urls.take(kCatalogIconPrefetchLimit)));
+  }, fireImmediately: false);
   // Fire-and-forget: the static catalog serves until Hive/network land.
   // ignore: unawaited_futures
   notifier.init();
