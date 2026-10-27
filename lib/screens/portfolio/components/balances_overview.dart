@@ -6,21 +6,19 @@
 // Revolut's "Total wealth"), and since 27 October 2026 the positions
 // themselves under their venue (the Positions pill is gone). Top down:
 //
-//   * "● Available to invest" on top, a header like the venues' and the
-//     same size ("Buying power" until the founder's 27 October 2026
-//     review; the l10n key and widget keys keep the old name), with the
-//     spare cash (Dollars + Hyperliquid cash + Polymarket cash) and a
-//     chevron at the row's end that opens, in place, where that cash sits,
-//     largest first. A Rebalance note under a place opens the split by
-//     itself;
-//   * under it a small bare RING on the left (the engine's KuteDonutChart,
+//   * one row: a small bare RING on the left (the engine's KuteDonutChart,
 //     nothing in its hole: the hero above the pills carries the total),
 //     its slices in each category's FIXED colour of the muted chart
 //     palette (Available to invest indigo, Investing teal, Predictions
 //     amber: AppColorsExtension.chartCategorical), the same as the dots,
-//     so there is no legend; Move money, a large pill like the selected
-//     section pill, centred in the room to the ring's right; its [steps]
-//     under the row while a move runs;
+//     so there is no legend; next to it "● Available to invest" (the
+//     venues' title size; "Buying power" until the founder's 27 October
+//     2026 review, the l10n key and widget keys keep the old name) with
+//     the spare cash (Dollars + Hyperliquid cash + Polymarket cash) and a
+//     chevron under the label, a tap opening where that cash sits, largest
+//     first, under the row (a Rebalance note under a place opens it by
+//     itself); Move money, a large pill like the selected section pill,
+//     at the row's end; its [steps] under the row while a move runs;
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
@@ -246,8 +244,8 @@ class BalancesVenueList {
   static const BalancesVenueList empty = BalancesVenueList();
 }
 
-/// Available to invest, then the ring with Move money ([action], its
-/// [steps]) beside it, then each
+/// The ring, Available to invest beside it and Move money ([action], its
+/// [steps]) at the row's end, then each
 /// venue with its positions (see the file header). [money] writes an
 /// amount (masked when balances are hidden); [wrap] lets the breakdown
 /// wrap each account's place row (its Rebalance band, the Dollars
@@ -374,17 +372,39 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 8.h),
-        // Available to invest on top, a header like Predictions and
-        // Investing below (founder, 27 October 2026); where its cash sits
-        // opens under it.
-        _BuyingPower(
-          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-          label: l10n.portfolioBuyingPower,
-          figure: buyingPower,
-          open: split,
-          onToggle: places.any((e) => e.footer.isNotEmpty)
-              ? null
-              : () => setState(() => _split = !_split),
+        // One row (founder, 27 October 2026): the small bare ring (the
+        // hero above the pills carries the total), "Available to invest"
+        // next to it with its amount under the label, and Move money on
+        // the right, where the amount used to be.
+        Row(
+          children: [
+            _Ring(
+              categories: categories.keys.toList(),
+              shares: shares,
+              semantics: [
+                '${l10n.total} ${totalFigure.text}',
+                if (shares.isNotEmpty)
+                  for (final k in categories.keys)
+                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+              ].join(', '),
+            ),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: _BuyingPower(
+                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+                label: l10n.portfolioBuyingPower,
+                figure: buyingPower,
+                open: split,
+                onToggle: places.any((e) => e.footer.isNotEmpty)
+                    ? null
+                    : () => setState(() => _split = !_split),
+              ),
+            ),
+            if (widget.action case final action?) ...[
+              SizedBox(width: 12.w),
+              action,
+            ],
+          ],
         ),
         // Where the cash sits, opened in place.
         AnimatedSize(
@@ -415,27 +435,6 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                   ),
                 )
               : const SizedBox(width: double.infinity),
-        ),
-        // Under it the small bare ring (the hero above the pills carries
-        // the total) and Move money centred in the room to its right
-        // (founder, 27 October 2026).
-        SizedBox(height: 12.h),
-        Row(
-          children: [
-            _Ring(
-              categories: categories.keys.toList(),
-              shares: shares,
-              semantics: [
-                '${l10n.total} ${totalFigure.text}',
-                if (shares.isNotEmpty)
-                  for (final k in categories.keys)
-                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
-              ].join(', '),
-            ),
-            Expanded(
-              child: Center(child: widget.action ?? const SizedBox.shrink()),
-            ),
-          ],
         ),
         if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
@@ -652,9 +651,9 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// Available to invest, a header like the venues': "● Available to
-/// invest" with its amount and chevron at the row's end, a tap on the row
-/// opening where the cash sits ([onToggle]; null: held open by a note).
+/// Available to invest beside the ring: "● Available to invest" (the
+/// venues' title size) with its amount and chevron under the label; a tap
+/// opens where the cash sits ([onToggle]; null: held open by a note).
 class _BuyingPower extends StatelessWidget {
   const _BuyingPower({
     required this.color,
@@ -673,65 +672,75 @@ class _BuyingPower extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final titleStyle = _sectionTitle(context);
-    return Column(
+    return Semantics(
       key: const ValueKey('portfolio-balance-category-buyingPower'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          button: onToggle != null,
-          expanded: open,
-          label: '$label, ${figure.text}',
-          excludeSemantics: true,
-          child: GestureDetector(
-            key: const ValueKey('portfolio-balance-split-toggle'),
-            behavior: HitTestBehavior.opaque,
-            onTap: onToggle,
-            child: Row(
+      button: onToggle != null,
+      expanded: open,
+      label: '$label, ${figure.text}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        key: const ValueKey('portfolio-balance-split-toggle'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
               children: [
                 _Dot(color: color),
                 SizedBox(width: _kDotGap.w),
-                Expanded(
+                Flexible(
                   child: Text(label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: titleStyle),
+                      style: _sectionTitle(context)),
                 ),
-                SizedBox(width: 12.w),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 160.w),
-                  child: _EndFigure(
-                    key: const ValueKey(
-                        'portfolio-balance-category-buyingPower-amount'),
-                    figure: figure,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      height: 1.25,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-                // The chevron after the amount (founder, 27 October 2026).
-                if (onToggle != null) ...[
-                  SizedBox(width: 2.w),
-                  AnimatedRotation(
-                    turns: open ? 0.5 : 0,
-                    duration: kuteReduceMotion(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    child: Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 18.w, color: c.textTertiary),
-                  ),
-                ],
               ],
             ),
-          ),
+            SizedBox(height: 2.h),
+            Padding(
+              padding: EdgeInsetsDirectional.only(start: (_kDot + _kDotGap).w),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _Live(
+                        key: const ValueKey(
+                            'portfolio-balance-category-buyingPower-amount'),
+                        figure: figure,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          height: 1.25,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // The chevron after the amount (founder, 27 October 2026).
+                  if (onToggle != null) ...[
+                    SizedBox(width: 2.w),
+                    AnimatedRotation(
+                      turns: open ? 0.5 : 0,
+                      duration: kuteReduceMotion(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                      child: Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 18.w, color: c.textTertiary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
