@@ -44,7 +44,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, KutePillSize;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -621,6 +622,8 @@ class _PortfolioBalanceBreakdownState
       child: KutePill(
         key: const ValueKey('portfolio-move-money'),
         label: l10n.moveTransfer,
+        // A step bigger than the section pills (founder, 27 October 2026).
+        size: KutePillSize.large,
         selected: true,
         link: true,
         onTap: () {

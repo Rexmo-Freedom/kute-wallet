@@ -48,7 +48,8 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, KutePillSize;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -1587,9 +1588,8 @@ void main() {
 
     testWidgets(
         "the founder's wallet: Available to invest on top like the venues, "
-        'the bare ring under it with Move money on the right, no repeated '
-        'total, then each venue',
-        (tester) async {
+        'the bare ring under it with Move money centred to its right, no '
+        'repeated total, then each venue', (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
       c.read(_balance.notifier).state = founder;
@@ -1644,7 +1644,8 @@ void main() {
       // The chevron after the amount ends the row on the overview's right
       // edge (founder, 27 October 2026); the amount sits just before it.
       final chevron = find.descendant(
-          of: find.byKey(const ValueKey('portfolio-balance-category-buyingPower')),
+          of: find
+              .byKey(const ValueKey('portfolio-balance-category-buyingPower')),
           matching: find.byIcon(Icons.keyboard_arrow_down_rounded));
       expect(chevron, findsOneWidget);
       expect(tester.getRect(bpAmount).right,
@@ -1662,7 +1663,8 @@ void main() {
       expect(label.bottom, lessThanOrEqualTo(ring.top));
       // Its title the venues' size, and its text starting where theirs do.
       final venueTitle = find.text('Predictions');
-      expect(tester.widget<Text>(find.text('Available to invest')).style!.fontSize,
+      expect(
+          tester.widget<Text>(find.text('Available to invest')).style!.fontSize,
           tester.widget<Text>(venueTitle).style!.fontSize);
       expect(label.left,
           moreOrLessEquals(tester.getRect(venueTitle).left, epsilon: 0.5));
@@ -1680,26 +1682,25 @@ void main() {
           find.byKey(const ValueKey('portfolio-balance-split')), findsNothing);
       expect(find.text('Hyperliquid'), findsNothing);
 
-      // Move money: a pill like the section pills, under the amount on the
-      // right (founder, 27 October 2026), no full-width button, no Add
-      // money.
+      // Move money: a pill like the section pills (founder, 27 October
+      // 2026), no full-width button, no Add money.
       expect(find.text('Move money'), findsOneWidget);
       expect(find.descendant(of: _rebalance, matching: find.byType(KutePill)),
           findsNothing);
       expect(tester.widget(_rebalance), isA<KutePill>());
       expect(find.byType(AppButton), findsNothing);
       expect(find.text('Add money'), findsNothing);
+      // Centred in the room to the ring's right, level with the ring, and a
+      // step bigger than the section pills.
       final move = tester.getRect(_rebalance);
+      final overview = tester
+          .getRect(find.byKey(const ValueKey('portfolio-balance-overview')));
       expect(move.top, greaterThanOrEqualTo(label.bottom));
-      expect(move.left, greaterThan(label.left));
-      expect(
-          move.right,
-          moreOrLessEquals(
-              tester
-                  .getRect(
-                      find.byKey(const ValueKey('portfolio-balance-overview')))
-                  .right,
-              epsilon: 0.5));
+      expect(move.left, greaterThan(ring.right));
+      expect(move.center.dx,
+          moreOrLessEquals((ring.right + overview.right) / 2, epsilon: 1));
+      expect(move.center.dy, moreOrLessEquals(ring.center.dy, epsilon: 1));
+      expect(tester.widget<KutePill>(_rebalance).size, KutePillSize.large);
       // No hairline between the top and the venues, or between the venues.
       expect(
           find.descendant(
@@ -1765,8 +1766,7 @@ void main() {
 
     testWidgets(
         'the chevron opens where Available to invest sits, largest first, '
-        'in place, under its header',
-        (tester) async {
+        'in place, under its header', (tester) async {
       final c = await _pump(tester, home: overviewBreakdown);
       c.read(_balance.notifier).state = founder;
       await tester.pumpAndSettle();
@@ -1885,8 +1885,8 @@ void main() {
       // inset inside it while their press ink reaches the card's edge, the
       // inset hairline between rows and none between the venues.
       final header = _tile(tester, 'category-predictions');
-      final card = find
-          .byKey(const ValueKey('portfolio-balance-predictions-positions'));
+      final card =
+          find.byKey(const ValueKey('portfolio-balance-predictions-positions'));
       expect(tester.getRect(predictionRows.first).top,
           greaterThanOrEqualTo(header.bottom));
       expect(tester.getRect(card).left,

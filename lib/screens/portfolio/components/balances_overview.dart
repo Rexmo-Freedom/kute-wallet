@@ -18,8 +18,9 @@
 //     its slices in each category's FIXED colour of the muted chart
 //     palette (Available to invest indigo, Investing teal, Predictions
 //     amber: AppColorsExtension.chartCategorical), the same as the dots,
-//     so there is no legend; Move money, a pill like the selected section
-//     pill, on the right; its [steps] under the row while a move runs;
+//     so there is no legend; Move money, a large pill like the selected
+//     section pill, centred in the room to the ring's right; its [steps]
+//     under the row while a move runs;
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
@@ -45,8 +46,7 @@ import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioRowInset, kPortfolioRowGap, kPortfolioRowImage;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
-import 'package:kute/screens/shared/market_groups.dart'
-    show marketGroupDivider;
+import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
@@ -314,8 +314,13 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
       final open = e.positionCount > 0 || list.rows.isNotEmpty;
       final held = e.reservedCashUsd >= kBalancesCentUsd ||
-          (!open && e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd);
-      return !open && !list.loading && !held && !figure(categories[category]!).stale;
+          (!open &&
+              e.positions?.usd != null &&
+              e.atWorkUsd >= kBalancesCentUsd);
+      return !open &&
+          !list.loading &&
+          !held &&
+          !figure(categories[category]!).stale;
     }
 
     Widget venue(BalancesCategory category, BalancesEntry e) {
@@ -412,7 +417,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
               : const SizedBox(width: double.infinity),
         ),
         // Under it the small bare ring (the hero above the pills carries
-        // the total) and Move money on the right.
+        // the total) and Move money centred in the room to its right
+        // (founder, 27 October 2026).
         SizedBox(height: 12.h),
         Row(
           children: [
@@ -426,8 +432,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                     '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
               ].join(', '),
             ),
-            const Spacer(),
-            if (widget.action case final action?) action,
+            Expanded(
+              child: Center(child: widget.action ?? const SizedBox.shrink()),
+            ),
           ],
         ),
         if (widget.steps case final steps?) steps,
