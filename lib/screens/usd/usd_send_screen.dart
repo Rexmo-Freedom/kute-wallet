@@ -64,6 +64,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import 'package:hive_ce/hive.dart' show Hive;
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/orchestra_router.dart'
@@ -111,6 +112,8 @@ import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/services/api/orchestra_api.dart' show OrchestraService;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
+import 'package:kute/services/funding/settlement_store.dart'
+    show SettlementStore;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementFundingProof, SettlementStopReason, SettlementStopped;
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
@@ -1850,6 +1853,25 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
           MultiSourceMoveStore.get(_moveId!)?.remainingUsd ?? 0);
     }
     _retryPull = false;
+    // An earlier send on this route may have left and is not resolved yet
+    // (F11): nothing new goes out, and no venue cash is pulled for it. The
+    // runner refuses it too; this only keeps the pull from running first.
+    // Read only once the settlement store is open (the reconciler opens
+    // it at start): opening it here would hold the tap up for nothing.
+    try {
+      if (Hive.isBoxOpen(SettlementStore.boxName) &&
+          await (await HotSettlement.runner()).blockedByUnresolved(
+              HotSettlement.spendingWalletId(ref.read),
+              usdSendRouteKey(destination))) {
+        if (!mounted) return;
+        setState(() => _error = context.l10n.settlementBlockedPending);
+        _sendFailedFeedback();
+        return;
+      }
+    } catch (_) {
+      // Unread: the runner's own check still stands before any quote.
+    }
+    if (!mounted) return;
     if (!_drain && amountBaseUnits > _availableBaseUnits) {
       final ready =
           await _pullVenueCash(usdForDisplay, amountBaseUnits, destination);
