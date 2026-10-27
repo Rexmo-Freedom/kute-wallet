@@ -321,9 +321,15 @@ class _TransactionListState extends ConsumerState<TransactionList> {
     // What this surface shows, one row per user intent. The surface
     // filters run FIRST and the leg collapse second, so a leg is only ever
     // hidden behind a row that is still on screen (see [assembleActivityRows]).
-    // The spending account's multi-source moves (one row each). Another
-    // wallet's list (the override) never carries them.
-    final moves = override == null
+    // The spending account's multi-source moves (one row each), on every
+    // list of that account: Home, and the Bitcoin tab and its "See all",
+    // which name the spending wallet through the override. They carried
+    // none, so a move home from both venues at once read as one
+    // "Withdraw · from Investments" row per leg there. Another wallet's
+    // list (a Ledger, a watch-only) never carries them.
+    final spendingId = ref.watch(
+        settingsProvider.select((s) => pickSpendingWallet(s)?.id));
+    final moves = activityCarriesMoves(override, spendingId: spendingId)
         ? ref.watch(multiSourceMovesProvider)
         : const <MultiSourceMove>[];
     // A delivery to Spark the balance does not show yet keeps its row
@@ -452,6 +458,14 @@ class DepositWaitingLine extends ConsumerWidget {
     );
   }
 }
+
+/// Whether an Activity list folds the spending account's multi-source
+/// moves into one row each: the active wallet's list ([override] null) and
+/// any list naming the spending wallet (the Bitcoin tab and its "See all").
+/// Another wallet's list never does.
+@visibleForTesting
+bool activityCarriesMoves(String? override, {required String? spendingId}) =>
+    override == null || (spendingId != null && override == spendingId);
 
 /// The day a group of activity rows belongs to, in the app's language:
 /// "Today", "Yesterday", "October 2" ("Hoje", "Ontem", "2 de outubro"),
@@ -3130,6 +3144,17 @@ Widget _buildSwapOrderItem(
   final bool showBadge =
       !tx.isComplete || awaitingCredit || details.canRefund;
 
+  // A withdrawal to Bitcoin whose bitcoin the order has not reported yet
+  // (a CCTP leg out of Investing is written with 0) reads in the dollars
+  // that left, never "₿0".
+  final bool bitcoinUnknown = !isCashAppPurchase &&
+      !isExternal &&
+      !isDollarSend &&
+      details.coinTo.toUpperCase() == 'BTC' &&
+      !OwnSparkArrivals.failedStatuses.contains(details.status) &&
+      _swapBitcoinOut(details) <= 0 &&
+      _swapUsdIn(details) > 0;
+
   // Title: what happened, verb first, one line. Context line: where the
   // money went, then the time. The provider, the networks and the full
   // pair are Nerd data on the detail sheet.
@@ -3193,19 +3218,19 @@ Widget _buildSwapOrderItem(
     // the rest (amount column = balance change in your favour).
     // Outflow shifts to the secondary line as "from X coin".
     amount: amount ??
-        ((isExternal && !isExternalSend) || isDollarSend
+        ((isExternal && !isExternalSend) || isDollarSend || bitcoinUnknown
             ? formatSwapAmount(details.depositAmount, details.coinFrom)
             : formatSwapAmount(details.withdrawalAmount, details.coinTo)),
     amountIsBtc: amount != null
         ? amountIsBtc
-        : ((isExternal && !isExternalSend) || isDollarSend
+        : ((isExternal && !isExternalSend) || isDollarSend || bitcoinUnknown
                 ? details.coinFrom
                 : details.coinTo) ==
             'BTC',
     // A purchase names the fiat paid ("from $55.00"); the Lightning
     // sats that moved behind it are not what the user handed over.
     // A stuck deposit converted into nothing, so no "→ $0.00" line.
-    fiatAmount: fiatAmount ?? (details.isStuckStandingDeposit
+    fiatAmount: fiatAmount ?? (details.isStuckStandingDeposit || bitcoinUnknown
         ? ''
         // A dollar send's delivered amount is the quote's estimate until
         // the first status check writes the real one, and that estimate
@@ -3220,6 +3245,23 @@ Widget _buildSwapOrderItem(
             ? '\$$purchaseFiat'
             : formatSwapAmount(details.depositAmount, details.coinFrom))),
   );
+}
+
+/// The bitcoin [d] delivers, in BTC (0 while its order has not said).
+double _swapBitcoinOut(SwapOrder d) => d.isOrchestra
+    ? orchestraRowAmount(d.withdrawalAmount, 'BTC')
+    : double.tryParse(d.withdrawalAmount) ?? 0;
+
+/// The dollars that left for [d], when it was paid in a dollar coin.
+double _swapUsdIn(SwapOrder d) {
+  final c = d.coinFrom.toUpperCase();
+  if (c != 'USDC' && c != 'USDC.E' && c != 'USDT' && c != 'PUSD' &&
+      c != kOrchestraUsdAssetCode) {
+    return 0;
+  }
+  return d.isOrchestra
+      ? orchestraRowAmount(d.depositAmount, d.coinFrom)
+      : double.tryParse(d.depositAmount) ?? 0;
 }
 
 /// One leg of a conversion on its detail sheet: "Lightning", "Dollar",
@@ -6055,10 +6097,11 @@ Widget _buildMultiSourceMoveItem(
   }
   final standard = multiSourceMoveStandardRow(tx);
   if (standard != null) {
-    // A move to Bitcoin whose bitcoin no order has reported yet reads in
-    // dollars until one does, never as "₿0".
+    // A move to Bitcoin reads in dollars until every leg's bitcoin is
+    // known: never "₿0", and never the sum of the legs that reported
+    // (a ₿ figure for one venue under the dollars of both).
     final noBitcoinYet = move.destination == VenueCashDestination.bitcoin &&
-        multiSourceMoveBitcoin(tx) <= 0;
+        (multiSourceMoveBitcoin(tx) <= 0 || !multiSourceMoveBitcoinKnown(tx));
     return _buildSwapOrderItem(standard, context, ref,
         onTap: open,
         amount: noBitcoinYet ? formatPolyAmount(ref, move.spentUsd) : null,

@@ -120,7 +120,10 @@ SwapActivityKind classifySwapActivity(SwapOrder order,
   }
   if (version.startsWith('hypercore_to_spark') ||
       version.startsWith('hypercore_to_polygon') ||
-      version.startsWith('hypercore_to_ledger_btc')) {
+      version.startsWith('hypercore_to_ledger_btc') ||
+      // Circle CCTP out of Investing (to Dollars, Bitcoin or Predictions):
+      // without its settlement record it read as a receive from outside.
+      version.startsWith('hypercore_cctp_to_')) {
     return SwapActivityKind.investingWithdrawal;
   }
   // Older receive records have no operation: incoming external crypto lands

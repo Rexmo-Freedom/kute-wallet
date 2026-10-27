@@ -223,6 +223,37 @@ double multiSourceMoveBitcoin(MultiSourceMoveTransaction tx) {
   return btc;
 }
 
+/// Whether every row of [tx] that delivers bitcoin knows how much: each leg
+/// that went straight to Bitcoin has its row and that row its figure, and
+/// so do the Dollars purchase and the move's own step once they went. A
+/// failed row delivers nothing and needs no figure. Until then the row
+/// reads in dollars: a sum of the legs that know theirs ("₿10,539" for
+/// $25.02) or a leg's "₿0" would both say less arrived than will.
+bool multiSourceMoveBitcoinKnown(MultiSourceMoveTransaction tx) {
+  final move = tx.move;
+  bool known(SwapOrderTransaction? row) {
+    if (row == null) return false;
+    final d = row.details;
+    if (d.coinTo.toUpperCase() != 'BTC') return true;
+    if (OwnSparkArrivals.failedStatuses.contains(d.status)) return true;
+    return orchestraRowAmount(d.withdrawalAmount, 'BTC') > 0;
+  }
+
+  for (final leg in move.okLegs) {
+    if (!leg.direct) continue;
+    if (!known(multiSourceMoveLegRow(leg, tx.legRows))) return false;
+  }
+  if (move.initialDollarsOperationId != null &&
+      !known(multiSourceMoveInitialDollarsRow(move, tx.legRows))) {
+    return false;
+  }
+  if (move.finalOperationId != null &&
+      !known(multiSourceMoveFinalRow(move, tx.legRows))) {
+    return false;
+  }
+  return true;
+}
+
 /// Whether [row] is one of [move]'s legs (or its own step).
 bool isMultiSourceMoveLeg(SwapOrderTransaction row, MultiSourceMove move) {
   final ids = move.linkedIds;
