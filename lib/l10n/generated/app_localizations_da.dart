@@ -11212,7 +11212,7 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Købekraft';
+  String get portfolioBuyingPower => 'Tilgængeligt til investering';
 
   @override
   String get portfolioNoOpenPositions => 'Ingen åbne positioner';

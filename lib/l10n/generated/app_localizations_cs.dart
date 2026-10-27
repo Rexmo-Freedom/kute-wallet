@@ -11203,7 +11203,7 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Kupní síla';
+  String get portfolioBuyingPower => 'K dispozici k investování';
 
   @override
   String get portfolioNoOpenPositions => 'Žádné otevřené pozice';

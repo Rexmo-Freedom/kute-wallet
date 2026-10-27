@@ -3387,7 +3387,7 @@
   "balanceChartEmptyDollars": "O seu saldo ao longo do tempo aparece aqui quando tiver dólares",
   "pnlChartEmpty": "Os seus ganhos e perdas aparecem aqui quando negociar ou fizer previsões",
   "portfolioPositionsCount": "{count, plural, =1{1 posição} other{{count} posições}}",
-  "portfolioBuyingPower": "Poder de compra",
+  "portfolioBuyingPower": "Disponível para investir",
   "portfolioNoOpenPositions": "Sem posições abertas",
   "portfolioRowShares": "{shares} unidades · méd. {price}",
   "portfolioRowEntry": "entrada {price}"

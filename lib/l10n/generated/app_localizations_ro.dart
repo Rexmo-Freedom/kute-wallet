@@ -11270,7 +11270,7 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Putere de cumpărare';
+  String get portfolioBuyingPower => 'Disponibil pentru investiții';
 
   @override
   String get portfolioNoOpenPositions => 'Nicio poziție deschisă';

@@ -6,27 +6,26 @@
 // Revolut's "Total wealth"), and since 27 October 2026 the positions
 // themselves under their venue (the Positions pill is gone). Top down:
 //
-//   * BUYING POWER on the left — a small "● Buying power" label, the
-//     spare cash as the big figure (Dollars + Hyperliquid cash +
-//     Polymarket cash), and "Ready for any trade or prediction" with a
-//     small chevron that opens, in place, where that cash sits, largest
-//     first: Hyperliquid, Polymarket, Dollars (all three, $0.00 when
-//     known). A Rebalance note under a place opens the split by itself.
-//     Under the hint (and the split, when open) "Total investments" and what Predictions and
-//     Investing have at work (label quiet, amount primary, a step under
-//     the venues' amounts), then the breakdown's [action]: Move money as a
-//     pill like the section pills' selected one (founder, 27 October 2026:
-//     no Invested row further down, no full-width button); its [steps]
-//     under the row while a move runs.
-//     On the right a small RING (the engine's KuteDonutChart, 96) with
-//     "Total" and the total in its hole; its slices wear each category's
-//     FIXED colour of the muted chart palette (Buying power indigo,
-//     Investing teal, Predictions amber: AppColorsExtension.chartCategorical),
-//     the same as the dots, so there is no legend and no percentages;
-//   * a hairline, then one block per venue: "● Predictions  N" with its
-//     value and its P&L
-//     (in the result colour) on the right, the venue's positions under it,
-//     slightly indented, as the Option-B position rows
+//   * one row: a small bare RING on the left (the engine's KuteDonutChart,
+//     nothing in its hole: the hero above the pills carries the total),
+//     its slices in each category's FIXED colour of the muted chart
+//     palette (Available to invest indigo, Investing teal, Predictions
+//     amber: AppColorsExtension.chartCategorical), the same as the dots,
+//     so there is no legend; then "● Available to invest" ("Buying power"
+//     until the founder's 27 October 2026 review; the l10n key and widget
+//     keys keep the old name) with the spare cash (Dollars + Hyperliquid
+//     cash + Polymarket cash) and a chevron at the row's end that opens,
+//     in place, where that cash sits, largest first. A Rebalance note
+//     under a place opens the split by itself. Move money, a pill like
+//     the selected section pill, sits under the amount on the right; its
+//     [steps] under the row while a move runs;
+//   * then one block per venue, no hairlines between them (founder,
+//     27 October 2026): "● Predictions  N" (a step larger than the rows)
+//     with its value and its P&L (in the result colour) on the right, the
+//     venue's positions under it in ONE grouped card, the Investing and
+//     Predictions lists' own (PremiumGroupContainer's surface, radius and
+//     soft shadow, Home's inset hairline between rows), as the Option-B
+//     position rows
 //     (components/position_rows.dart: picture, short title, "event ·
 //     side", chance bar with its entry tick, value and %), a tap opening
 //     each one's sheet; then "● Investing  N" the same way. A venue with
@@ -43,7 +42,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show kPortfolioRowGap, kPortfolioRowImage;
+    show PortfolioRowInset, kPortfolioRowGap, kPortfolioRowImage;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/market_groups.dart'
+    show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
@@ -304,12 +306,6 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       return null;
     }
 
-    final hairline = Divider(
-      color: context.isDark ? c.border : c.borderSubtle,
-      height: 1,
-      thickness: 0.5,
-    );
-
     // A venue with nothing to show: no positions, none loading, nothing
     // held in open orders and a known figure.
     bool venueEmpty(BalancesCategory category, BalancesEntry? e) {
@@ -352,19 +348,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           if (list.rows.isNotEmpty || list.loading)
             Padding(
               key: ValueKey('portfolio-balance-${category.name}-positions'),
-              padding: EdgeInsetsDirectional.only(start: (_kDot + _kDotGap).w),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ..._rowsWithHairlines(context, list.rows),
-                  if (list.loading)
-                    SkeletonRowList(
-                        count: 2,
-                        padding: EdgeInsets.symmetric(vertical: 8.h),
-                        rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
-                ],
-              ),
+              padding: EdgeInsets.only(top: 8.h),
+              child: _VenueCard(rows: list.rows, loading: list.loading),
             ),
         ],
       );
@@ -449,7 +434,6 @@ class _BalancesOverviewState extends State<BalancesOverview> {
         if ((predictions != null || investing != null) &&
             venueEmpty(BalancesCategory.predictions, predictions) &&
             venueEmpty(BalancesCategory.investing, investing)) ...[
-          hairline,
           Padding(
             key: const ValueKey('portfolio-balance-no-positions'),
             padding: EdgeInsets.symmetric(vertical: 24.h),
@@ -457,13 +441,10 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 title: l10n.portfolioNoOpenPositions, cycles: 3, compact: true),
           ),
         ] else if (predictions != null || investing != null) ...[
-          hairline,
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
-          if (predictions != null && investing != null) ...[
-            SizedBox(height: 4.h),
-            hairline,
-          ],
+          // Room for the card's soft shadow, which falls below it.
+          if (predictions != null && investing != null) SizedBox(height: 10.h),
           if (investing != null) venue(BalancesCategory.investing, investing),
         ],
       ],
@@ -474,21 +455,51 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       widget.wrap?.call(part, row) ?? row;
 }
 
-/// [rows] with the position list's hairlines between them.
-List<Widget> _rowsWithHairlines(BuildContext context, List<Widget> rows) {
-  final c = context.colors;
-  return [
-    for (var i = 0; i < rows.length; i++) ...[
-      if (i > 0)
-        Divider(
-          color: context.isDark ? c.border : c.borderSubtle,
-          height: 1,
-          thickness: 0.5,
-          indent: (kPortfolioRowImage + kPortfolioRowGap).w,
+/// The row padding inside a venue's card, the grouped lists' own.
+const double _kCardInset = 16;
+
+/// A venue's positions in one grouped card, as the Investing and
+/// Predictions lists draw theirs (market_groups.dart): the group's
+/// surface, radius and soft shadow, Home's inset hairline between rows
+/// (starting where a row's text does), the rows' press ink clipped to the
+/// corners; shimmer rows while the venue is read with nothing listed.
+class _VenueCard extends StatelessWidget {
+  const _VenueCard({required this.rows, required this.loading});
+
+  final List<Widget> rows;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = _kCardInset.w;
+    return DecoratedBox(
+      decoration: PremiumGroupContainer.decorationOf(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(PremiumGroupContainer.radius),
+        child: PortfolioRowInset(
+          horizontal: inset,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0)
+                  marketGroupDivider(context,
+                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
+                rows[i],
+              ],
+              if (loading)
+                SkeletonRowList(
+                    count: 2,
+                    padding:
+                        EdgeInsets.symmetric(horizontal: inset, vertical: 8.h),
+                    rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
+            ],
+          ),
         ),
-      rows[i],
-    ],
-  ];
+      ),
+    );
+  }
 }
 
 /// The dot before a category's name.
@@ -625,7 +636,7 @@ class _Ring extends StatelessWidget {
 /// Buying power beside the ring: "● Buying power ⌄" with its amount at
 /// the row's end (the venue headers' size), a tap on the row opening where
 /// the cash sits ([onToggle]; null: held open by a note), and Move money
-/// ([action], a quiet link) under it.
+/// ([action], a pill) under it on the right.
 class _BuyingPower extends StatelessWidget {
   const _BuyingPower({
     required this.color,
@@ -705,13 +716,11 @@ class _BuyingPower extends StatelessWidget {
             ),
           ),
         ),
+        // Move money on the right, under the amount (founder, 27 October
+        // 2026).
         if (action case final link?) ...[
-          SizedBox(height: 4.h),
-          Padding(
-            padding: EdgeInsetsDirectional.only(start: (_kDot + 8).w),
-            child:
-                Align(alignment: AlignmentDirectional.centerStart, child: link),
-          ),
+          SizedBox(height: 6.h),
+          Align(alignment: AlignmentDirectional.centerEnd, child: link),
         ],
       ],
     );
@@ -754,8 +763,13 @@ class _VenueHeader extends StatelessWidget {
       height: 1.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final titleStyle = AppTextStyles.settingsTitle(context)
-        .copyWith(letterSpacing: -0.2, height: 1.25);
+    // A step larger than Buying power and the rows (founder, 27 October
+    // 2026).
+    final titleStyle = AppTextStyles.settingsTitle(context).copyWith(
+        fontSize: 18.sp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        height: 1.25);
     final name = category.name;
     return Semantics(
       container: true,

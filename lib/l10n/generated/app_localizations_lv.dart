@@ -11180,7 +11180,7 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Pirktspēja';
+  String get portfolioBuyingPower => 'Pieejams ieguldīšanai';
 
   @override
   String get portfolioNoOpenPositions => 'Nav atvērtu pozīciju';

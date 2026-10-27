@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "Din saldo over tid vises her, når du har dollars",
   "pnlChartEmpty": "Din gevinst og dit tab vises her, når du handler eller forudsiger",
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
-  "portfolioBuyingPower": "Købekraft",
+  "portfolioBuyingPower": "Tilgængeligt til investering",
   "portfolioNoOpenPositions": "Ingen åbne positioner",
   "portfolioRowShares": "{shares} andele · gns. {price}",
   "portfolioRowEntry": "indgang {price}"

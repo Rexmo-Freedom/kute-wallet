@@ -11237,7 +11237,7 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Vásárlóerő';
+  String get portfolioBuyingPower => 'Befektethető';
 
   @override
   String get portfolioNoOpenPositions => 'Nincs nyitott pozíció';

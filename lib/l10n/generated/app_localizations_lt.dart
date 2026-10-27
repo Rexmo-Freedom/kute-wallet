@@ -11259,7 +11259,7 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Perkamoji galia';
+  String get portfolioBuyingPower => 'Galima investuoti';
 
   @override
   String get portfolioNoOpenPositions => 'Atvirų pozicijų nėra';

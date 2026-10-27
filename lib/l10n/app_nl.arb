@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "Je saldo door de tijd verschijnt hier zodra je dollars hebt",
   "pnlChartEmpty": "Je winst en verlies verschijnt hier zodra je handelt of voorspelt",
   "portfolioPositionsCount": "{count, plural, =1{1 positie} other{{count} posities}}",
-  "portfolioBuyingPower": "Koopkracht",
+  "portfolioBuyingPower": "Beschikbaar om te beleggen",
   "portfolioNoOpenPositions": "Geen open posities",
   "portfolioRowShares": "{shares} aandelen · gem. {price}",
   "portfolioRowEntry": "instap {price}"

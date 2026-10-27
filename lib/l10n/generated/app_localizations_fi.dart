@@ -11224,7 +11224,7 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Ostovoima';
+  String get portfolioBuyingPower => 'Sijoitettavissa';
 
   @override
   String get portfolioNoOpenPositions => 'Ei avoimia positioita';

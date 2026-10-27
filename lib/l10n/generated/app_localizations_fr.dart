@@ -11301,7 +11301,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Pouvoir d\'achat';
+  String get portfolioBuyingPower => 'Disponible à investir';
 
   @override
   String get portfolioNoOpenPositions => 'Aucune position ouverte';

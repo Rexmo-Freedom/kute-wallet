@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "ドルを保有すると、残高の推移がここに表示されます",
   "pnlChartEmpty": "取引や予測をすると、損益がここに表示されます",
   "portfolioPositionsCount": "{count, plural, =1{1件のポジション} other{{count}件のポジション}}",
-  "portfolioBuyingPower": "購買力",
+  "portfolioBuyingPower": "投資可能額",
   "portfolioNoOpenPositions": "保有中のポジションはありません",
   "portfolioRowShares": "{shares}シェア · 平均{price}",
   "portfolioRowEntry": "エントリー {price}"

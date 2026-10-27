@@ -76,6 +76,27 @@ import 'package:kute/theme/app_theme.dart';
 const double kPortfolioRowImage = 40;
 const double kPortfolioRowGap = 12;
 
+/// The side inset of every [PortfolioPositionRow] below it: 0 where the
+/// rows sit on the page, the grouped card's row padding where a card draws
+/// them (Balances, like the Investing and Predictions lists). The inset is
+/// inside each row's ink, so a press still reaches the card's edges.
+class PortfolioRowInset extends InheritedWidget {
+  const PortfolioRowInset(
+      {super.key, required this.horizontal, required super.child});
+
+  /// Logical pixels, already scaled.
+  final double horizontal;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PortfolioRowInset>()
+          ?.horizontal ??
+      0;
+
+  @override
+  bool updateShouldNotify(PortfolioRowInset oldWidget) =>
+      horizontal != oldWidget.horizontal;
+}
+
 /// How a P&L reads: a gain, a loss, or nothing worth a colour.
 enum PortfolioPnlTone { up, down, flat }
 
@@ -515,7 +536,8 @@ class PortfolioPositionRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 14.h),
+          padding: EdgeInsets.symmetric(
+              horizontal: PortfolioRowInset.of(context), vertical: 14.h),
           child: LayoutBuilder(builder: (context, box) {
             // 80% of the text column a typical value leaves.
             final barWidth = 0.8 *

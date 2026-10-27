@@ -11218,7 +11218,7 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Kúpna sila';
+  String get portfolioBuyingPower => 'K dispozícii na investovanie';
 
   @override
   String get portfolioNoOpenPositions => 'Žiadne otvorené pozície';

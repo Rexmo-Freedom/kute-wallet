@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "Kretanje vašeg salda prikazat će se ovdje kad budete imali dolare",
   "pnlChartEmpty": "Vaš dobit i gubitak prikazat će se ovdje kad počnete trgovati ili predviđati",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicije} other{{count} pozicija}}",
-  "portfolioBuyingPower": "Kupovna moć",
+  "portfolioBuyingPower": "Dostupno za ulaganje",
   "portfolioNoOpenPositions": "Nema otvorenih pozicija",
   "portfolioRowShares": "{shares} udjela · prosj. {price}",
   "portfolioRowEntry": "ulaz {price}"

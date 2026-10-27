@@ -238,18 +238,17 @@ void main() {
         find.byType(InvestmentsPortfolio, skipOffstage: false), findsNothing);
 
     // The one-balance hero, once, above the pills: no title, the total
-    // with no arrow after it (it opens nothing), and nothing under it at
-    // rest: Invested is Balances' row, never shown twice.
+    // with no arrow after it (it opens nothing), and "Available · Invested"
+    // under it at rest (back on 27 October 2026).
     final header =
         tester.widget<PoolBalanceHeader>(find.byType(PoolBalanceHeader));
     expect(header.totalLabel, isNull);
     expect(find.text(l10n.investmentsTotal), findsNothing);
     expect(header.amountText, r'$25.00');
-    expect(header.availableText, isNull);
-    expect(find.text('${l10n.available} '), findsNothing);
-    expect(header.investedText, isNull);
-    expect(find.text('${l10n.betInvested} '), findsNothing);
-    expect(find.text(l10n.betInvested), findsNothing);
+    expect(header.availableFirst, isTrue);
+    expect(header.availableText, isNotNull);
+    expect(header.investedText, isNotNull);
+    expect(find.text('${l10n.available} '), findsOneWidget);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
         findsNothing);
     expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
@@ -949,7 +948,7 @@ void main() {
       final total = tester.widget<Text>(_compactTotal);
       expect(total.data, r'$25.00');
       expect(total.style!.fontSize, lessThan(20));
-      expect(find.textContaining(l10n.available), findsNothing);
+      expect(find.text('${l10n.available} '), findsNothing);
       expect(_chevron, findsOneWidget);
       expect(tester.getTopRight(_chevron).dx,
           greaterThan(tester.getTopRight(find.byType(KutePillTabs).first).dx));

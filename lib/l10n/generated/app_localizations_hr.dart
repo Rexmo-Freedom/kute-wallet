@@ -11240,7 +11240,7 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Kupovna moć';
+  String get portfolioBuyingPower => 'Dostupno za ulaganje';
 
   @override
   String get portfolioNoOpenPositions => 'Nema otvorenih pozicija';

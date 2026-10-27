@@ -77,10 +77,11 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
 ///     2026): the total stands alone, Dollars plus the open positions of
 ///     every venue, the portfolio glyph (an arrow with a pie badge, built
 ///     like the hub's + gear) right after it
-///     ([PortfolioArrowGlyph]). No "Invested $Y" under it (founder
-///     decision 27 October 2026: Invested is the Portfolio's Balances
-///     row, never shown twice; Available was dropped earlier). While
-///     anything is on a rail the in-flight lines sit under it, in order:
+///     ([PortfolioArrowGlyph]); under it "Available $X · Invested $Y"
+///     (Available: Dollars plus the venues' unreserved cash; Invested:
+///     positions, reserved order cash and pending fills; back on
+///     27 October 2026, founder). While anything is on a rail that line
+///     gives way to the in-flight lines, in order:
 ///     the order money
 ///     on a rail is for ("Placing $5 on Yes · Lakers"), incoming from
 ///     outside, unavailable until balancing completes (venue cash the
@@ -293,9 +294,9 @@ class InvestmentBalanceHeader extends ConsumerWidget {
 }
 
 /// The one-balance hero: the total with the portfolio glyph after
-/// it, the in-flight lines under it while anything is on a rail (no
-/// Invested line: Balances carries it). Stateful only to ping the arrow's
-/// quick play on each press.
+/// it and "Available $X · Invested $Y" under it, or the in-flight lines in
+/// that line's place. Stateful only to ping the arrow's quick play on each
+/// press.
 class _OneBalanceHero extends ConsumerStatefulWidget {
   const _OneBalanceHero({this.onTap});
 
@@ -321,7 +322,12 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     String amount(double value) =>
         visible ? formatPolyFiatForced(ref, value) : '••••••';
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
+    final display = InvestmentBalanceHeader._oneBalanceDisplay(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
+    // With nothing on a rail the total is Available plus Invested, so the
+    // split is read off the same display snapshot as the total (cached
+    // together while a venue reconnects) and always adds up to it.
+    final available = display.total - display.invested;
     final tap = widget.onTap;
     // The tap affordance: an arrow to the right with the Portfolio's pie
     // as its badge, right after the big total (it opens the Portfolio;
@@ -346,10 +352,14 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
       investedLabel: context.l10n.betInvested,
       amountTrailing: arrow,
       amountTrailingWidth: arrow == null ? 0 : arrowGap + arrowSize,
-      // Nothing under the total at rest (founder decision 27 October
-      // 2026: Invested is Balances' row, never twice; Available went
-      // earlier); the in-flight lines while anything is on a rail.
-      investedText: null,
+      // "Available $X · Invested $Y" under the total at rest (founder,
+      // 27 October 2026: back after a day without it); the in-flight
+      // lines in its place while anything is on a rail.
+      availableFirst: true,
+      availableText: lines.isEmpty
+          ? amount(available.isFinite && available > 0 ? available : 0)
+          : null,
+      investedText: lines.isEmpty ? amount(display.invested) : null,
       showActionRow: false,
       investedChild: lines.isEmpty
           ? null

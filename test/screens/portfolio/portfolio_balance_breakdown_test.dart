@@ -1586,8 +1586,9 @@ void main() {
     });
 
     testWidgets(
-        "the founder's wallet: a bare ring beside Buying power and its "
-        'amount, a Move money link, no repeated total, then each venue',
+        "the founder's wallet: a bare ring beside Available to invest and "
+        'its amount, Move money on the right, no repeated total, then each '
+        'venue',
         (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
@@ -1618,10 +1619,12 @@ void main() {
       expect(slices(tester)[0].value, moreOrLessEquals(17.64 / 35.03));
       expect(find.textContaining('%'), findsNothing);
 
-      // Buying power to its right: the label and its amount on one row, the
+      // Available to invest to its right ("Buying power" until 27 October
+      // 2026): the label and its amount on one row, the
       // amount at the venue headers' size (not a big figure), ending on
       // their column.
-      expect(find.text('Buying power'), findsOneWidget);
+      expect(find.text('Available to invest'), findsOneWidget);
+      expect(find.text('Buying power'), findsNothing);
       expect(category(tester, 'buyingPower'), r'$17.64');
       final bpAmount = find.byKey(
           const ValueKey('portfolio-balance-category-buyingPower-amount'));
@@ -1654,7 +1657,7 @@ void main() {
                   .right,
               epsilon: 0.5));
       expect(tester.getRect(bpAmount).left, greaterThan(ring.right));
-      final label = tester.getRect(find.text('Buying power'));
+      final label = tester.getRect(find.text('Available to invest'));
       expect(label.left, greaterThan(ring.right));
       expect(tester.getRect(bpAmount).center.dy,
           moreOrLessEquals(label.center.dy, epsilon: 3));
@@ -1670,8 +1673,9 @@ void main() {
           find.byKey(const ValueKey('portfolio-balance-split')), findsNothing);
       expect(find.text('Hyperliquid'), findsNothing);
 
-      // Move money: a pill like the section pills, under Buying power, no
-      // full-width button, no Add money.
+      // Move money: a pill like the section pills, under the amount on the
+      // right (founder, 27 October 2026), no full-width button, no Add
+      // money.
       expect(find.text('Move money'), findsOneWidget);
       expect(find.descendant(of: _rebalance, matching: find.byType(KutePill)),
           findsNothing);
@@ -1680,7 +1684,21 @@ void main() {
       expect(find.text('Add money'), findsNothing);
       final move = tester.getRect(_rebalance);
       expect(move.top, greaterThanOrEqualTo(label.bottom));
-      expect(move.left, greaterThan(ring.right));
+      expect(move.left, greaterThan(label.left));
+      expect(
+          move.right,
+          moreOrLessEquals(
+              tester
+                  .getRect(
+                      find.byKey(const ValueKey('portfolio-balance-overview')))
+                  .right,
+              epsilon: 0.5));
+      // No hairline between the top and the venues, or between the venues.
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-overview')),
+              matching: find.byType(Divider)),
+          findsNothing);
 
       // Predictions: its count and value; Investing, nothing open, says so
       // in place of a figure and lists nothing.
@@ -1708,13 +1726,9 @@ void main() {
       expect(find.text('2 open'), findsNothing);
       expect(find.text('Ready to use'), findsNothing);
       expect(find.text('In positions'), findsNothing);
-      // The only chevron to the right is Move money's own.
-      expect(
-          find.descendant(
-              of: _rebalance,
-              matching: find.byIcon(Icons.chevron_right_rounded)),
-          findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      // Move money is a plain pill (no chevron since it stopped being a
+      // text link), and nothing else points right.
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
       expect(tester.takeException(), isNull);
@@ -1853,12 +1867,42 @@ void main() {
               .style
               .color,
           AppColors.marketUp);
-      // The rows sit under their header, indented past its dot.
+      // The rows sit under their header in ONE grouped card, the Investing
+      // and Predictions lists' own: as wide as the header, the rows' content
+      // inset inside it while their press ink reaches the card's edge, the
+      // inset hairline between rows and none between the venues.
       final header = _tile(tester, 'category-predictions');
+      final card = find
+          .byKey(const ValueKey('portfolio-balance-predictions-positions'));
       expect(tester.getRect(predictionRows.first).top,
           greaterThanOrEqualTo(header.bottom));
+      expect(tester.getRect(card).left,
+          moreOrLessEquals(header.left, epsilon: 0.5));
+      expect(tester.getRect(card).right,
+          moreOrLessEquals(header.right, epsilon: 0.5));
+      final ink = find
+          .descendant(of: predictionRows.first, matching: find.byType(InkWell))
+          .first;
+      expect(tester.getRect(ink).left,
+          moreOrLessEquals(tester.getRect(card).left, epsilon: 0.5));
+      final content = find
+          .descendant(
+              of: find
+                  .descendant(
+                      of: predictionRows.first,
+                      matching: find.byType(PortfolioPositionRow))
+                  .first,
+              matching: find.byType(Row))
+          .first;
+      expect(tester.getRect(content).left,
+          greaterThan(tester.getRect(card).left + 8));
+      expect(find.descendant(of: card, matching: find.byType(Divider)),
+          findsOneWidget);
       expect(
-          tester.getRect(predictionRows.first).left, greaterThan(header.left));
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-overview')),
+              matching: find.byType(Divider)),
+          findsOneWidget);
       expect(tester.getRect(investingRows).top,
           greaterThan(tester.getRect(predictionRows.last).bottom));
       expect(tester.getRect(investingRows).top,

@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "Až budete mít dolary, uvidíte zde vývoj svého zůstatku",
   "pnlChartEmpty": "Až začnete obchodovat nebo predikovat, uvidíte zde svůj zisk a ztrátu",
   "portfolioPositionsCount": "{count, plural, =1{1 pozice} few{{count} pozice} other{{count} pozic}}",
-  "portfolioBuyingPower": "Kupní síla",
+  "portfolioBuyingPower": "K dispozici k investování",
   "portfolioNoOpenPositions": "Žádné otevřené pozice",
   "portfolioRowShares": "{shares} podílů · prům. {price}",
   "portfolioRowEntry": "vstup {price}"

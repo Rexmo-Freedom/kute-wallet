@@ -1,6 +1,7 @@
 // Render harness for the Investments → Portfolio redesign (October 2026):
-// the Balances section (Buying power big with the small ring, Move money,
-// Invested with Predictions and Investing and their position rows; also
+// the Balances section (Available to invest with the small ring, Move
+// money on the right, Predictions and Investing with their position rows in
+// grouped cards; also
 // with nothing open at Investing, and its split opened), at
 // 390 x 844 in the app's real themes and Inter, light and dark. Writes
 // PNGs.

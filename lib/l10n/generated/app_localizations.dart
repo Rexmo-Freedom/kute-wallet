@@ -18795,10 +18795,10 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 position} other{{count} positions}}'**
   String portfolioPositionsCount(int count);
 
-  /// Investments, Portfolio, Balances: legend label and row title for all spare cash added up (Dollars plus the cash at Hyperliquid and Polymarket): money ready to spend, not in positions. Like Robinhood's "Buying power".
+  /// Investments, Portfolio, Balances: row title for all spare cash added up (Dollars plus the cash at Hyperliquid and Polymarket): money ready for a new trade or prediction, not in positions. Was "Buying power" until October 2026.
   ///
   /// In en, this message translates to:
-  /// **'Buying power'**
+  /// **'Available to invest'**
   String get portfolioBuyingPower;
 
   /// Investments, Portfolio, Balances: small secondary line under "Investing" when no Investing position is open.

@@ -11244,7 +11244,7 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Kupna moč';
+  String get portfolioBuyingPower => 'Na voljo za vlaganje';
 
   @override
   String get portfolioNoOpenPositions => 'Ni odprtih pozicij';

@@ -3114,7 +3114,7 @@
   "balanceChartEmptyDollars": "Το υπόλοιπό σας στον χρόνο θα εμφανίζεται εδώ μόλις έχετε δολάρια",
   "pnlChartEmpty": "Τα κέρδη και οι ζημίες σας θα εμφανίζονται εδώ μόλις κάνετε συναλλαγές ή προβλέψεις",
   "portfolioPositionsCount": "{count, plural, =1{1 θέση} other{{count} θέσεις}}",
-  "portfolioBuyingPower": "Αγοραστική δύναμη",
+  "portfolioBuyingPower": "Διαθέσιμο για επένδυση",
   "portfolioNoOpenPositions": "Καμία ανοιχτή θέση",
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
   "portfolioRowEntry": "είσοδος {price}"

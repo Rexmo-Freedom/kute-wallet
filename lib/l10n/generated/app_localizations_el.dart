@@ -11292,7 +11292,7 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Αγοραστική δύναμη';
+  String get portfolioBuyingPower => 'Διαθέσιμο για επένδυση';
 
   @override
   String get portfolioNoOpenPositions => 'Καμία ανοιχτή θέση';

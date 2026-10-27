@@ -11231,7 +11231,7 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
-  String get portfolioBuyingPower => 'Покупателна сила';
+  String get portfolioBuyingPower => 'Налично за инвестиране';
 
   @override
   String get portfolioNoOpenPositions => 'Няма отворени позиции';
