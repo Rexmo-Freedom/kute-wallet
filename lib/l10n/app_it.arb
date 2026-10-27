@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Impossibile stimare la commissione. Riprova.",
   "sendCouldNotPrepare": "Impossibile preparare questo pagamento. Controlla importo e indirizzo, poi riprova.",
   "scanCouldNotRead": "Impossibile leggere il codice. Riprova.",
+  "scanSecretRefused": "Questo codice sembra una frase di recupero o una chiave privata, non un indirizzo. Tienilo privato.",
   "walletImportCouldNotImport": "Impossibile importare questo wallet. Riprova.",
   "receiveWithdrawalCouldNotClaim": "Impossibile riscuotere questo prelievo. Riprova.",
   "hwCouldNotReadSignedFile": "Impossibile leggere il file. Scegli il file della transazione firmata e riprova.",

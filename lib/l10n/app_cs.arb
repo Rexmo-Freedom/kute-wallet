@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Poplatek se nepodařilo odhadnout. Zkus to znovu.",
   "sendCouldNotPrepare": "Tuto platbu se nepodařilo připravit. Zkontroluj částku a adresu a zkus to znovu.",
   "scanCouldNotRead": "Tento kód se nepodařilo přečíst. Zkus to znovu.",
+  "scanSecretRefused": "Tento kód vypadá jako fráze pro obnovení nebo soukromý klíč, ne jako adresa. Uchovejte ho v soukromí.",
   "walletImportCouldNotImport": "Tuto peněženku se nepodařilo importovat. Zkus to znovu.",
   "receiveWithdrawalCouldNotClaim": "Tento výběr se nepodařilo vyzvednout. Zkus to znovu.",
   "hwCouldNotReadSignedFile": "Tento soubor se nepodařilo přečíst. Vyber soubor s podepsanou transakcí a zkus to znovu.",

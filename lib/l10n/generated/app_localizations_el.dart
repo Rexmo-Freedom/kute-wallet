@@ -1532,6 +1532,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Δεν ήταν δυνατή η ανάγνωση του κωδικού. Δοκίμασε ξανά.';
 
   @override
+  String get scanSecretRefused =>
+      'Αυτός ο κωδικός μοιάζει με φράση ανάκτησης ή ιδιωτικό κλειδί, όχι με διεύθυνση. Κράτησέ τον ιδιωτικό.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Δεν ήταν δυνατή η εισαγωγή του πορτοφολιού. Δοκίμασε ξανά.';
 

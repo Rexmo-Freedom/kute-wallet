@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Kunne ikke estimere gebyret. Prøv igen.",
   "sendCouldNotPrepare": "Kunne ikke forberede denne betaling. Tjek beløb og adresse, og prøv igen.",
   "scanCouldNotRead": "Kunne ikke læse koden. Prøv igen.",
+  "scanSecretRefused": "Denne kode ligner en gendannelsessætning eller en privat nøgle, ikke en adresse. Hold den privat.",
   "walletImportCouldNotImport": "Kunne ikke importere denne tegnebog. Prøv igen.",
   "receiveWithdrawalCouldNotClaim": "Kunne ikke indløse denne udbetaling. Prøv igen.",
   "hwCouldNotReadSignedFile": "Kunne ikke læse filen. Vælg den signerede transaktionsfil, og prøv igen.",

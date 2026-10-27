@@ -1521,6 +1521,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Seda koodi ei õnnestunud lugeda. Proovi uuesti.';
 
   @override
+  String get scanSecretRefused =>
+      'See kood näib olevat taastefraas või privaatvõti, mitte aadress. Hoia see privaatsena.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Seda rahakotti ei õnnestunud importida. Proovi uuesti.';
 

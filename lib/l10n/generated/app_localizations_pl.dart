@@ -1525,6 +1525,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się odczytać kodu. Spróbuj ponownie.';
 
   @override
+  String get scanSecretRefused =>
+      'Ten kod wygląda na frazę odzyskiwania lub klucz prywatny, a nie adres. Zachowaj go w tajemnicy.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Nie udało się zaimportować portfela. Spróbuj ponownie.';
 

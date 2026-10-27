@@ -1524,6 +1524,10 @@ class AppLocalizationsSl extends AppLocalizations {
       'Kode ni bilo mogoče prebrati. Poskusite znova.';
 
   @override
+  String get scanSecretRefused =>
+      'Ta koda je videti kot obnovitvena fraza ali zasebni ključ, ne kot naslov. Ohranite jo zasebno.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Te denarnice ni bilo mogoče uvoziti. Poskusite znova.';
 

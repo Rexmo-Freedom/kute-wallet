@@ -1520,6 +1520,10 @@ class AppLocalizationsCs extends AppLocalizations {
       'Tento kód se nepodařilo přečíst. Zkus to znovu.';
 
   @override
+  String get scanSecretRefused =>
+      'Tento kód vypadá jako fráze pro obnovení nebo soukromý klíč, ne jako adresa. Uchovejte ho v soukromí.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Tuto peněženku se nepodařilo importovat. Zkus to znovu.';
 

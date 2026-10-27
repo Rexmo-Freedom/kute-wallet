@@ -1522,6 +1522,10 @@ class AppLocalizationsDa extends AppLocalizations {
   String get scanCouldNotRead => 'Kunne ikke læse koden. Prøv igen.';
 
   @override
+  String get scanSecretRefused =>
+      'Denne kode ligner en gendannelsessætning eller en privat nøgle, ikke en adresse. Hold den privat.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Kunne ikke importere denne tegnebog. Prøv igen.';
 

@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Nem sikerült megbecsülni a díjat. Próbáld újra.",
   "sendCouldNotPrepare": "Nem sikerült előkészíteni ezt a fizetést. Ellenőrizd az összeget és a címet, majd próbáld újra.",
   "scanCouldNotRead": "Nem sikerült beolvasni a kódot. Próbáld újra.",
+  "scanSecretRefused": "Ez a kód helyreállítási kifejezésnek vagy privát kulcsnak tűnik, nem címnek. Tartsd titokban.",
   "walletImportCouldNotImport": "Nem sikerült importálni ezt a tárcát. Próbáld újra.",
   "receiveWithdrawalCouldNotClaim": "Nem sikerült igényelni ezt a kivételt. Próbáld újra.",
   "hwCouldNotReadSignedFile": "Nem sikerült beolvasni a fájlt. Válaszd ki az aláírt tranzakciós fájlt, és próbáld újra.",

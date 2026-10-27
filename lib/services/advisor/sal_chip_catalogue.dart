@@ -321,7 +321,7 @@ class SalChipCatalogue {
     // the rest of the watchlist.
     final watched = [...input.signals.watchlist]..sort((a, b) =>
         (b.dayChangePct?.abs() ?? 0).compareTo(a.dayChangePct?.abs() ?? 0));
-    void add(String template, SalMarketRef m, String text) {
+    void add(String? template, SalMarketRef m, String text) {
       if (chips.length >= 2 || !used.add(m.wireCoin)) return;
       final context = grounded(m);
       if (context.toRequestMarket == null) return;
@@ -330,15 +330,16 @@ class SalChipCatalogue {
 
     for (final m in watched) {
       if ((m.dayChangePct?.abs() ?? 0) >= kSalMoveThreshold) {
-        add('search.watchlist_news', m,
-            l10n.salChipSearchWatchlistNews(m.label));
+        // No template: a watchlist chip's id would tell the backend the
+        // market is on the person's watchlist (the text is neutral).
+        add(null, m, l10n.salChipSearchWatchlistNews(m.label));
       }
     }
     for (final m in input.signals.movers) {
       add('search.top_movers', m, l10n.salChipHlMovingToday(m.label));
     }
     for (final m in watched) {
-      add('search.watchlist_news', m, l10n.salChipSearchWatchlistNews(m.label));
+      add(null, m, l10n.salChipSearchWatchlistNews(m.label));
     }
     return [...chips, ..._general(l10n)].take(kSalMaxChips).toList();
   }

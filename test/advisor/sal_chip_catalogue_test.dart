@@ -213,10 +213,12 @@ void main() {
             ],
           ),
           now: _now);
+      // The watchlist chip carries no template: its id would tell the
+      // backend the market is on the watchlist.
       expect([
         for (final c in chips) c.template
       ], [
-        'search.watchlist_news',
+        null,
         'search.top_movers',
         'wallet.receive',
         'wallet.send'

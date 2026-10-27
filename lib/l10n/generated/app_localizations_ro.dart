@@ -1527,6 +1527,10 @@ class AppLocalizationsRo extends AppLocalizations {
   String get scanCouldNotRead => 'Codul nu a putut fi citit. Încearcă din nou.';
 
   @override
+  String get scanSecretRefused =>
+      'Acest cod pare o frază de recuperare sau o cheie privată, nu o adresă. Păstrează-l privat.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Portofelul nu a putut fi importat. Încearcă din nou.';
 

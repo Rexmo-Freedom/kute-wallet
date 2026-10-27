@@ -1527,6 +1527,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Nepavyko nuskaityti kodo. Bandykite dar kartą.';
 
   @override
+  String get scanSecretRefused =>
+      'Šis kodas panašus į atkūrimo frazę arba privatųjį raktą, o ne į adresą. Laikykite jį privačiai.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Nepavyko importuoti šios piniginės. Bandykite dar kartą.';
 

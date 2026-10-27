@@ -1498,6 +1498,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scanCouldNotRead => 'コードを読み取れませんでした。もう一度お試しください。';
 
   @override
+  String get scanSecretRefused =>
+      'このコードはアドレスではなく、リカバリーフレーズまたは秘密鍵のようです。他人に見せないでください。';
+
+  @override
   String get walletImportCouldNotImport => 'このウォレットをインポートできませんでした。もう一度お試しください。';
 
   @override

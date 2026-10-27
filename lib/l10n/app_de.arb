@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Die Gebühr konnte nicht geschätzt werden. Versuche es erneut.",
   "sendCouldNotPrepare": "Diese Zahlung konnte nicht vorbereitet werden. Prüfe Betrag und Adresse und versuche es dann erneut.",
   "scanCouldNotRead": "Der Code konnte nicht gelesen werden. Versuche es erneut.",
+  "scanSecretRefused": "Dieser Code sieht aus wie eine Wiederherstellungsphrase oder ein privater Schlüssel, nicht wie eine Adresse. Halte ihn geheim.",
   "walletImportCouldNotImport": "Dieses Wallet konnte nicht importiert werden. Versuche es erneut.",
   "receiveWithdrawalCouldNotClaim": "Diese Auszahlung konnte nicht abgeholt werden. Versuche es erneut.",
   "hwCouldNotReadSignedFile": "Die Datei konnte nicht gelesen werden. Wähle die signierte Transaktionsdatei und versuche es erneut.",

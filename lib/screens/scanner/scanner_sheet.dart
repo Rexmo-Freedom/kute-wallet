@@ -24,6 +24,7 @@
 
 import 'dart:async';
 
+import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCircleButton;
@@ -1005,6 +1006,24 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // Guard: if this looks like a Lightning invoice/LNURL, handle natively.
     if (_lightningRegex.hasMatch(input)) {
       await _handleLightning(input);
+      return;
+    }
+
+    // A recovery phrase or a private key is never an address: nothing of
+    // it goes into Send, where a network pick and a quote would send it
+    // out of the device.
+    var secret = false;
+    try {
+      secret = await AdvisorInputGuard.holdsSecret(input);
+    } catch (_) {}
+    if (secret) {
+      TrackingService.qrScanned('secret_refused');
+      if (!mounted) return;
+      showMessageSnackBar(
+        context: context,
+        message: context.l10n.scanSecretRefused,
+        error: true,
+      );
       return;
     }
 

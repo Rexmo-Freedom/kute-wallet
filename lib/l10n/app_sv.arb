@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Kunde inte uppskatta avgiften. Försök igen.",
   "sendCouldNotPrepare": "Kunde inte förbereda betalningen. Kontrollera belopp och adress och försök sedan igen.",
   "scanCouldNotRead": "Kunde inte läsa koden. Försök igen.",
+  "scanSecretRefused": "Den här koden ser ut som en återställningsfras eller privat nyckel, inte en adress. Håll den privat.",
   "walletImportCouldNotImport": "Kunde inte importera plånboken. Försök igen.",
   "receiveWithdrawalCouldNotClaim": "Kunde inte hämta uttaget. Försök igen.",
   "hwCouldNotReadSignedFile": "Kunde inte läsa filen. Välj den signerade transaktionsfilen och försök igen.",

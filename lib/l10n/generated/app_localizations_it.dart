@@ -1526,6 +1526,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get scanCouldNotRead => 'Impossibile leggere il codice. Riprova.';
 
   @override
+  String get scanSecretRefused =>
+      'Questo codice sembra una frase di recupero o una chiave privata, non un indirizzo. Tienilo privato.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Impossibile importare questo wallet. Riprova.';
 

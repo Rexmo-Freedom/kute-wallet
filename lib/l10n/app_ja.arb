@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "手数料を見積もれませんでした。もう一度お試しください。",
   "sendCouldNotPrepare": "この支払いを準備できませんでした。金額とアドレスを確認して、もう一度お試しください。",
   "scanCouldNotRead": "コードを読み取れませんでした。もう一度お試しください。",
+  "scanSecretRefused": "このコードはアドレスではなく、リカバリーフレーズまたは秘密鍵のようです。他人に見せないでください。",
   "walletImportCouldNotImport": "このウォレットをインポートできませんでした。もう一度お試しください。",
   "receiveWithdrawalCouldNotClaim": "この出金を受け取れませんでした。もう一度お試しください。",
   "hwCouldNotReadSignedFile": "ファイルを読み取れませんでした。署名済みトランザクションのファイルを選択して、もう一度お試しください。",

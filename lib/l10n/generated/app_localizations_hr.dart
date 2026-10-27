@@ -1525,6 +1525,10 @@ class AppLocalizationsHr extends AppLocalizations {
       'Nije moguće pročitati taj kod. Pokušaj ponovno.';
 
   @override
+  String get scanSecretRefused =>
+      'Ovaj kod izgleda kao fraza za oporavak ili privatni ključ, a ne adresa. Čuvaj ga privatnim.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Nije moguće uvesti ovaj novčanik. Pokušaj ponovno.';
 

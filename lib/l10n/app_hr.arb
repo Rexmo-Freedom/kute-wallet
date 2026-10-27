@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Nije moguće procijeniti naknadu. Pokušaj ponovno.",
   "sendCouldNotPrepare": "Nije moguće pripremiti ovo plaćanje. Provjeri iznos i adresu pa pokušaj ponovno.",
   "scanCouldNotRead": "Nije moguće pročitati taj kod. Pokušaj ponovno.",
+  "scanSecretRefused": "Ovaj kod izgleda kao fraza za oporavak ili privatni ključ, a ne adresa. Čuvaj ga privatnim.",
   "walletImportCouldNotImport": "Nije moguće uvesti ovaj novčanik. Pokušaj ponovno.",
   "receiveWithdrawalCouldNotClaim": "Nije moguće preuzeti ovu isplatu. Pokušaj ponovno.",
   "hwCouldNotReadSignedFile": "Nije moguće pročitati tu datoteku. Odaberi datoteku potpisane transakcije i pokušaj ponovno.",

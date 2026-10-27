@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Nepavyko įvertinti mokesčio. Bandykite dar kartą.",
   "sendCouldNotPrepare": "Nepavyko paruošti mokėjimo. Patikrinkite sumą ir adresą, tada bandykite dar kartą.",
   "scanCouldNotRead": "Nepavyko nuskaityti kodo. Bandykite dar kartą.",
+  "scanSecretRefused": "Šis kodas panašus į atkūrimo frazę arba privatųjį raktą, o ne į adresą. Laikykite jį privačiai.",
   "walletImportCouldNotImport": "Nepavyko importuoti šios piniginės. Bandykite dar kartą.",
   "receiveWithdrawalCouldNotClaim": "Nepavyko atsiimti šio išėmimo. Bandykite dar kartą.",
   "hwCouldNotReadSignedFile": "Nepavyko nuskaityti failo. Pasirinkite pasirašytos operacijos failą ir bandykite dar kartą.",

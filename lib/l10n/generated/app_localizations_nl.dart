@@ -1530,6 +1530,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Kan die code niet lezen. Probeer het opnieuw.';
 
   @override
+  String get scanSecretRefused =>
+      'Deze code lijkt op een herstelzin of privésleutel, niet op een adres. Houd hem privé.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Kan deze wallet niet importeren. Probeer het opnieuw.';
 

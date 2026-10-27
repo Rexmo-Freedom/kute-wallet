@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Maksua ei voitu arvioida. Yritä uudelleen.",
   "sendCouldNotPrepare": "Maksua ei voitu valmistella. Tarkista summa ja osoite ja yritä uudelleen.",
   "scanCouldNotRead": "Koodia ei voitu lukea. Yritä uudelleen.",
+  "scanSecretRefused": "Tämä koodi näyttää palautuslauseelta tai yksityiseltä avaimelta, ei osoitteelta. Pidä se yksityisenä.",
   "walletImportCouldNotImport": "Lompakkoa ei voitu tuoda. Yritä uudelleen.",
   "receiveWithdrawalCouldNotClaim": "Nostoa ei voitu lunastaa. Yritä uudelleen.",
   "hwCouldNotReadSignedFile": "Tiedostoa ei voitu lukea. Valitse allekirjoitettu tapahtumatiedosto ja yritä uudelleen.",

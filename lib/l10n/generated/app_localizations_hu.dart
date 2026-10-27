@@ -1524,6 +1524,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Nem sikerült beolvasni a kódot. Próbáld újra.';
 
   @override
+  String get scanSecretRefused =>
+      'Ez a kód helyreállítási kifejezésnek vagy privát kulcsnak tűnik, nem címnek. Tartsd titokban.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Nem sikerült importálni ezt a tárcát. Próbáld újra.';
 

@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Provizije ni bilo mogoče oceniti. Poskusite znova.",
   "sendCouldNotPrepare": "Tega plačila ni bilo mogoče pripraviti. Preverite znesek in naslov ter poskusite znova.",
   "scanCouldNotRead": "Kode ni bilo mogoče prebrati. Poskusite znova.",
+  "scanSecretRefused": "Ta koda je videti kot obnovitvena fraza ali zasebni ključ, ne kot naslov. Ohranite jo zasebno.",
   "walletImportCouldNotImport": "Te denarnice ni bilo mogoče uvoziti. Poskusite znova.",
   "receiveWithdrawalCouldNotClaim": "Tega dviga ni bilo mogoče prevzeti. Poskusite znova.",
   "hwCouldNotReadSignedFile": "Datoteke ni bilo mogoče prebrati. Izberite datoteko s podpisano transakcijo in poskusite znova.",

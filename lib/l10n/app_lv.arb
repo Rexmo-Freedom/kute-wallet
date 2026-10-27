@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Neizdevās aprēķināt maksu. Mēģini vēlreiz.",
   "sendCouldNotPrepare": "Neizdevās sagatavot šo maksājumu. Pārbaudi summu un adresi un mēģini vēlreiz.",
   "scanCouldNotRead": "Neizdevās nolasīt šo kodu. Mēģini vēlreiz.",
+  "scanSecretRefused": "Šis kods izskatās pēc atkopšanas frāzes vai privātās atslēgas, nevis adreses. Glabājiet to privāti.",
   "walletImportCouldNotImport": "Neizdevās importēt šo maciņu. Mēģini vēlreiz.",
   "receiveWithdrawalCouldNotClaim": "Neizdevās saņemt šo izmaksu. Mēģini vēlreiz.",
   "hwCouldNotReadSignedFile": "Neizdevās nolasīt šo failu. Izvēlies parakstītā darījuma failu un mēģini vēlreiz.",

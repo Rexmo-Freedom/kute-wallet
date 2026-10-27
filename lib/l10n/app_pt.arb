@@ -513,6 +513,7 @@
   "sendCouldNotEstimateFee": "Não foi possível estimar a taxa. Tente novamente.",
   "sendCouldNotPrepare": "Não foi possível preparar este pagamento. Verifique o valor e o endereço e tente novamente.",
   "scanCouldNotRead": "Não foi possível ler esse código. Tente novamente.",
+  "scanSecretRefused": "Este código parece uma frase de recuperação ou uma chave privada, não um endereço. Mantém-no privado.",
   "walletImportCouldNotImport": "Não foi possível importar esta carteira. Tente novamente.",
   "receiveWithdrawalCouldNotClaim": "Não foi possível resgatar este levantamento. Tente novamente.",
   "hwCouldNotReadSignedFile": "Não foi possível ler esse ficheiro. Escolha o ficheiro da transação assinada e tente novamente.",

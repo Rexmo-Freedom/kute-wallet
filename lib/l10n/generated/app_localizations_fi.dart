@@ -1525,6 +1525,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get scanCouldNotRead => 'Koodia ei voitu lukea. Yritä uudelleen.';
 
   @override
+  String get scanSecretRefused =>
+      'Tämä koodi näyttää palautuslauseelta tai yksityiseltä avaimelta, ei osoitteelta. Pidä se yksityisenä.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Lompakkoa ei voitu tuoda. Yritä uudelleen.';
 

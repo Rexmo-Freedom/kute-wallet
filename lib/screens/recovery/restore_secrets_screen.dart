@@ -709,6 +709,31 @@ class _PhraseSheet extends StatefulWidget {
 class _PhraseSheetState extends State<_PhraseSheet> {
   final _controller = TextEditingController();
 
+  /// The field's text a change ago, to tell a keyboard paste (many words
+  /// at once) from typing.
+  String _lastText = '';
+
+  /// The Paste button is filling the field (it clears its own copy).
+  bool _pasteFill = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  /// A phrase pasted from the keyboard (six or more words in one change)
+  /// does not stay on the clipboard (the Paste button clears its own).
+  void _onTextChanged() {
+    final text = _controller.text;
+    int words(String s) =>
+        s.trim().isEmpty ? 0 : s.trim().split(RegExp(r'\s+')).length;
+    if (!_pasteFill && words(text) - words(_lastText) >= 6) {
+      unawaited(SeedClipboard.clearAfterKeyboardPaste());
+    }
+    _lastText = text;
+  }
+
   /// Holds a pasted phrase until it is cleared from the clipboard (only
   /// while the clipboard still holds it).
   final _pasteClipboard = SeedClipboard();
@@ -735,7 +760,9 @@ class _PhraseSheetState extends State<_PhraseSheet> {
     unawaited(_pasteClipboard.clearIfUnchanged());
     TrackingService.track('recovery_phrase_pasted',
         params: {'source': 'restore_secrets', 'result': 'ok'});
+    _pasteFill = true;
     _controller.text = input.words.join(' ');
+    _pasteFill = false;
     FocusScope.of(context).unfocus();
   }
 

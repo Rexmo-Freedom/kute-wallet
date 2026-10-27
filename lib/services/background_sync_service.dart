@@ -419,8 +419,12 @@ class BackgroundSyncService {
       // BDK / Electrum failures stay quiet in the UI — the detail screen
       // keeps showing whatever the cache had on entry, and the user can
       // re-trigger via pull-to-refresh. The log line is the only trace.
-      debugPrint('[onchain-sync] failed source=$source '
-          'wallet=${_shortId(walletId)} after ${scanSw.elapsedMilliseconds}ms: $e');
+      // Debug builds only: the raw error can carry the Electrum server's
+      // URL (credentials included when a custom node has them).
+      if (kDebugMode) {
+        debugPrint('[onchain-sync] failed source=$source '
+            'wallet=${_shortId(walletId)} after ${scanSw.elapsedMilliseconds}ms: $e');
+      }
     }
   }
 

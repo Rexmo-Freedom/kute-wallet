@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Nie udało się oszacować opłaty. Spróbuj ponownie.",
   "sendCouldNotPrepare": "Nie udało się przygotować płatności. Sprawdź kwotę i adres, a potem spróbuj ponownie.",
   "scanCouldNotRead": "Nie udało się odczytać kodu. Spróbuj ponownie.",
+  "scanSecretRefused": "Ten kod wygląda na frazę odzyskiwania lub klucz prywatny, a nie adres. Zachowaj go w tajemnicy.",
   "walletImportCouldNotImport": "Nie udało się zaimportować portfela. Spróbuj ponownie.",
   "receiveWithdrawalCouldNotClaim": "Nie udało się odebrać wypłaty. Spróbuj ponownie.",
   "hwCouldNotReadSignedFile": "Nie udało się odczytać pliku. Wybierz plik podpisanej transakcji i spróbuj ponownie.",

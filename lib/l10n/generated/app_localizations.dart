@@ -2990,6 +2990,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t read that code. Try again.'**
   String get scanCouldNotRead;
 
+  /// Scanner: the code scanned is a recovery phrase or a private key, never an address; nothing is put into Send.
+  ///
+  /// In en, this message translates to:
+  /// **'This code looks like a recovery phrase or private key, not an address. Keep it private.'**
+  String get scanSecretRefused;
+
   /// No description provided for @walletImportCouldNotImport.
   ///
   /// In en, this message translates to:

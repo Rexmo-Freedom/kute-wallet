@@ -1524,6 +1524,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get scanCouldNotRead => 'Кодът не можа да се прочете. Опитай отново.';
 
   @override
+  String get scanSecretRefused =>
+      'Този код прилича на фраза за възстановяване или частен ключ, а не на адрес. Пазете го в тайна.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Портфейлът не можа да се импортира. Опитай отново.';
 

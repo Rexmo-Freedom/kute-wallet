@@ -1517,6 +1517,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get scanCouldNotRead => 'Neizdevās nolasīt šo kodu. Mēģini vēlreiz.';
 
   @override
+  String get scanSecretRefused =>
+      'Šis kods izskatās pēc atkopšanas frāzes vai privātās atslēgas, nevis adreses. Glabājiet to privāti.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Neizdevās importēt šo maciņu. Mēģini vēlreiz.';
 

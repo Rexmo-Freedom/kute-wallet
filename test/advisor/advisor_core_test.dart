@@ -190,6 +190,28 @@ void main() {
     }
   });
 
+  test(
+      'a scanned or pasted recovery phrase or private key is a secret, an '
+      'address is not', () async {
+    for (final value in [
+      'legal winner thank year wave sausage worth useful legal winner thank yellow',
+      'zprvAWgYBBk7JR8Gjrh4UJQ2uJdG1r3WNRRfURiABBE3RvMXYSrRJL62XuezvGdPvG6GFBZduosCc1YP5wixPox7zhZLfiUm8aunE96BBa4Kei5',
+      'L1aW4aubDFB7yfras2S1mN3bqg9nwySY8nkoLmJebSLD5BWv3ENZ',
+      '5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4',
+    ]) {
+      expect(await AdvisorInputGuard.holdsSecret(value), isTrue, reason: value);
+    }
+    for (final value in [
+      '0x1234567890123456789012345678901234567890',
+      'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+      'So11111111111111111111111111111111111111112',
+      'TJYeasTPa6gpEEfYcRbGKbqyczKmYTEHEB',
+    ]) {
+      expect(await AdvisorInputGuard.holdsSecret(value), isFalse,
+          reason: value);
+    }
+  });
+
   test('unrecognised and private market identifiers are not sent', () {
     expect(
         const AdvisorContext(

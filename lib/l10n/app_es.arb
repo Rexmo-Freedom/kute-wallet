@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "No se ha podido estimar la comisión. Inténtalo de nuevo.",
   "sendCouldNotPrepare": "No se ha podido preparar este pago. Revisa el importe y la dirección e inténtalo de nuevo.",
   "scanCouldNotRead": "No se ha podido leer ese código. Inténtalo de nuevo.",
+  "scanSecretRefused": "Este código parece una frase de recuperación o una clave privada, no una dirección. Mantenlo en privado.",
   "walletImportCouldNotImport": "No se ha podido importar esta cartera. Inténtalo de nuevo.",
   "receiveWithdrawalCouldNotClaim": "No se ha podido reclamar esta retirada. Inténtalo de nuevo.",
   "hwCouldNotReadSignedFile": "No se ha podido leer ese archivo. Elige el archivo de la transacción firmada e inténtalo de nuevo.",

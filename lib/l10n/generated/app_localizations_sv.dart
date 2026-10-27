@@ -1521,6 +1521,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get scanCouldNotRead => 'Kunde inte läsa koden. Försök igen.';
 
   @override
+  String get scanSecretRefused =>
+      'Den här koden ser ut som en återställningsfras eller privat nyckel, inte en adress. Håll den privat.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Kunde inte importera plånboken. Försök igen.';
 

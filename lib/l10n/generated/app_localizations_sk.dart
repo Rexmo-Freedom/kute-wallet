@@ -1520,6 +1520,10 @@ class AppLocalizationsSk extends AppLocalizations {
   String get scanCouldNotRead => 'Kód sa nepodarilo prečítať. Skús to znova.';
 
   @override
+  String get scanSecretRefused =>
+      'Tento kód vyzerá ako fráza na obnovenie alebo súkromný kľúč, nie ako adresa. Uchovajte ho v súkromí.';
+
+  @override
   String get walletImportCouldNotImport =>
       'Túto peňaženku sa nepodarilo importovať. Skús to znova.';
 

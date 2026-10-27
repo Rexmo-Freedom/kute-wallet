@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Tasu ei õnnestunud hinnata. Proovi uuesti.",
   "sendCouldNotPrepare": "Seda makset ei õnnestunud ette valmistada. Kontrolli summat ja aadressi ning proovi uuesti.",
   "scanCouldNotRead": "Seda koodi ei õnnestunud lugeda. Proovi uuesti.",
+  "scanSecretRefused": "See kood näib olevat taastefraas või privaatvõti, mitte aadress. Hoia see privaatsena.",
   "walletImportCouldNotImport": "Seda rahakotti ei õnnestunud importida. Proovi uuesti.",
   "receiveWithdrawalCouldNotClaim": "Seda väljamakset ei õnnestunud kätte saada. Proovi uuesti.",
   "hwCouldNotReadSignedFile": "Seda faili ei õnnestunud lugeda. Vali allkirjastatud tehingu fail ja proovi uuesti.",

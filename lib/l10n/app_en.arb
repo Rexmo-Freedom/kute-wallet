@@ -616,6 +616,8 @@
   "sendCouldNotEstimateFee": "Couldn't estimate the fee. Try again.",
   "sendCouldNotPrepare": "Couldn't prepare this payment. Check the amount and address, then try again.",
   "scanCouldNotRead": "Couldn't read that code. Try again.",
+  "scanSecretRefused": "This code looks like a recovery phrase or private key, not an address. Keep it private.",
+  "@scanSecretRefused": {"description": "Scanner: the code scanned is a recovery phrase or a private key, never an address; nothing is put into Send."},
   "walletImportCouldNotImport": "Couldn't import this wallet. Try again.",
   "receiveWithdrawalCouldNotClaim": "Couldn't claim this withdrawal. Try again.",
   "hwCouldNotReadSignedFile": "Couldn't read that file. Pick the signed transaction file and try again.",

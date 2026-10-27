@@ -742,7 +742,9 @@ class TrackingService {
   // Private keys and tx hashes in hex. Public market ids use the same
   // shape (Polymarket condition ids), so the keys that carry one are exempt
   // from this single rule and from nothing else.
-  static final RegExp _hex64 = RegExp(r'\b(?:0x)?[0-9a-fA-F]{64}\b');
+  // A 64-hex key or tx hash, or a 128-hex BIP39 seed.
+  static final RegExp _hex64 =
+      RegExp(r'\b(?:0x)?[0-9a-fA-F]{64}(?:[0-9a-fA-F]{64})?\b');
   static const Set<String> _publicHexKeys = {
     'market_id',
     'condition_id',
@@ -3645,9 +3647,11 @@ class TrackingService {
 
   static void errorDisplayed(
       {required String screen, required String message}) {
+    // Free text: the strict error-text rules (seed words in runs of three,
+    // keys, addresses, amounts), not only the property backstop.
     track('error_displayed', params: {
       'screen': screen,
-      'message': message.length > 100 ? message.substring(0, 100) : message,
+      'message': _safeReason(message) ?? '',
     });
   }
 

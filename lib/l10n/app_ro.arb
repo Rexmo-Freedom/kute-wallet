@@ -475,6 +475,7 @@
   "sendCouldNotEstimateFee": "Nu s-a putut estima comisionul. Încearcă din nou.",
   "sendCouldNotPrepare": "Plata nu s-a putut pregăti. Verifică suma și adresa, apoi încearcă din nou.",
   "scanCouldNotRead": "Codul nu a putut fi citit. Încearcă din nou.",
+  "scanSecretRefused": "Acest cod pare o frază de recuperare sau o cheie privată, nu o adresă. Păstrează-l privat.",
   "walletImportCouldNotImport": "Portofelul nu a putut fi importat. Încearcă din nou.",
   "receiveWithdrawalCouldNotClaim": "Retragerea nu a putut fi revendicată. Încearcă din nou.",
   "hwCouldNotReadSignedFile": "Fișierul nu a putut fi citit. Alege fișierul tranzacției semnate și încearcă din nou.",

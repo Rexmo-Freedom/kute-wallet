@@ -183,6 +183,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     // Never the words or how many there were.
     TrackingService.track('recovery_phrase_pasted',
         params: {'source': 'keyboard'});
+    // A whole phrase came off the clipboard: it does not stay there.
+    if (input.words.length == input.wordCount) {
+      unawaited(SeedClipboard.clearAfterKeyboardPaste());
+    }
     _distributingPaste = true;
     _totalWords = input.wordCount;
     if (input.words.length == input.wordCount) {

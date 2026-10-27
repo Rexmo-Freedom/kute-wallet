@@ -89,6 +89,29 @@ class AdvisorInputGuard {
     return count >= seedCountLimit && count >= seedShareLimit * tokens.length;
   }
 
+  static final _secretPatterns = <RegExp>[
+    RegExp(r'\b[xyztuv]prv[a-z0-9]{30,}', caseSensitive: false),
+    RegExp(r'^[5KL9c][1-9A-HJ-NP-Za-km-z]{50,51}$'),
+    // A bare 64-hex private key or 128-hex BIP39 seed (no 0x: never an
+    // address).
+    RegExp(r'^[a-fA-F0-9]{64}(?:[a-fA-F0-9]{64})?$'),
+  ];
+
+  /// Whether [value] is a recovery phrase or a private key (a scanned code,
+  /// a pasted destination): narrower than [isSafe], which also refuses
+  /// addresses and amounts. Never treated as somewhere to send.
+  static Future<bool> holdsSecret(String value) async {
+    final v = value.trim();
+    if (_secretPatterns.any((p) => p.hasMatch(v))) return true;
+    final words = await (_wordList ??= rootBundle
+        .loadString('lib/assets/bip39_english.txt')
+        .then((text) => {
+              for (final w in text.split(RegExp(r'\s+')))
+                if (w.isNotEmpty) w,
+            }));
+    return looksLikeSeedPhrase(v, words);
+  }
+
   /// Whether [value] may leave the device (Sal, market search): nothing
   /// that reads like an address, key, phrase or personal amount. Fails
   /// closed on any doubt; never the place to anonymise free text.
