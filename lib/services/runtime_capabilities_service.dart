@@ -69,9 +69,14 @@ class CapabilityRegions {
   String labelFor(String localeName) {
     final exact = localeName.trim().toLowerCase().replaceAll('-', '_');
     final language = exact.split('_').first;
+    // The backend keeps keys as written, lowercased ("es-es"); the app's
+    // locale names use "_" ("es_ES"). Compare both normalised.
+    String norm(String key) => key.trim().toLowerCase().replaceAll('-', '_');
     for (final key in [exact, language]) {
-      final value = labels[key];
-      if (value != null && value.isNotEmpty) return value;
+      for (final entry in labels.entries) {
+        if (norm(entry.key) == key && entry.value.isNotEmpty)
+          return entry.value;
+      }
     }
     return label;
   }
@@ -169,8 +174,9 @@ class CapabilityDecision {
   /// The body under a sheet's title: for a named region block the one VPN
   /// sentence the founder allows ("If this isn't where you are, check
   /// your VPN settings."), never advice to use one; else [messageIn].
-  String bodyIn(AppLocalizations l10n) =>
-      regionTitleIn(l10n) != null ? l10n.capabilityRegionCheckVpn : messageIn(l10n);
+  String bodyIn(AppLocalizations l10n) => regionTitleIn(l10n) != null
+      ? l10n.capabilityRegionCheckVpn
+      : messageIn(l10n);
 
   /// The whole explanation where there is no title to put it under (an
   /// inline note beside a disabled control, a picker row, an error line):

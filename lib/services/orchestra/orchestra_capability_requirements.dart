@@ -15,10 +15,11 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 ///
 /// Bitcoin to bitcoin ([orchestraBitcoinOnlyRoute]: bitcoin, Lightning or
 /// Spark on both legs, no dollars) is plain bitcoin, which no region ever
-/// blocks: the backend's guard ignores country rules on `orchestra.swap`
-/// for it, so a COUNTRY refusal of the master (`country_*`, read from
-/// [policy], the app's own by default) asks nothing of it. Only the
-/// master switched off for everyone still stops it.
+/// blocks, and Dollars into Bitcoin ([orchestraDollarsToBitcoinRoute]) is
+/// an exit: the backend's guard ignores country rules on `orchestra.swap`
+/// for both, so a COUNTRY refusal of the master (`country_*`, read from
+/// [policy], the app's own by default) asks nothing of them. Only the
+/// master switched off for everyone still stops them.
 List<String> orchestraCapabilityRequirements({
   required String sourceChain,
   required String sourceAsset,
@@ -38,13 +39,20 @@ List<String> orchestraCapabilityRequirements({
   ];
   if (caps.isNotEmpty) return caps;
   if (orchestraBitcoinOnlyRoute(
-      sourceChain: sourceChain,
-      sourceAsset: sourceAsset,
-      destinationChain: destinationChain,
-      destinationAsset: destinationAsset)) {
+          sourceChain: sourceChain,
+          sourceAsset: sourceAsset,
+          destinationChain: destinationChain,
+          destinationAsset: destinationAsset) ||
+      orchestraDollarsToBitcoinRoute(
+          sourceChain: sourceChain,
+          sourceAsset: sourceAsset,
+          destinationChain: destinationChain,
+          destinationAsset: destinationAsset)) {
     final swap = (policy ?? RuntimeCapabilitiesService.instance)
         .decision('orchestra.swap');
-    if (!swap.allowed && !swap.comingSoon && swap.reason.startsWith('country_')) {
+    if (!swap.allowed &&
+        !swap.comingSoon &&
+        swap.reason.startsWith('country_')) {
       return const [];
     }
   }
@@ -72,6 +80,23 @@ bool orchestraBitcoinOnlyRoute({
       sourceAsset.trim().toUpperCase() == 'BTC' &&
       destinationAsset.trim().toUpperCase() == 'BTC';
 }
+
+/// Whether a route converts the dollar balance (`spark:USDB`) into the
+/// person's own bitcoin on a bitcoin rail: an exit the backend exempts
+/// from country rules on `orchestra.swap`. Bitcoin into Dollars is not.
+bool orchestraDollarsToBitcoinRoute({
+  required String sourceChain,
+  required String sourceAsset,
+  required String destinationChain,
+  required String destinationAsset,
+}) =>
+    sourceChain.trim().toLowerCase() == 'spark' &&
+    sourceAsset.trim().toUpperCase() == 'USDB' &&
+    orchestraBitcoinOnlyRoute(
+        sourceChain: 'spark',
+        sourceAsset: 'BTC',
+        destinationChain: destinationChain,
+        destinationAsset: destinationAsset);
 
 /// The class gate a non-venue route needs on top of `orchestra.swap`, or
 /// null for a route the master switch alone governs (bitcoin to bitcoin,
@@ -324,7 +349,9 @@ CapabilityRegionBlock? capabilityRegionBlock(
     RuntimeCapabilitiesService policy, Iterable<String> capabilities) {
   for (final id in capabilities) {
     final decision = policy.decision(id);
-    if (!decision.allowed && !decision.comingSoon && decision.regionRestricted) {
+    if (!decision.allowed &&
+        !decision.comingSoon &&
+        decision.regionRestricted) {
       return (capability: id, decision: decision);
     }
   }

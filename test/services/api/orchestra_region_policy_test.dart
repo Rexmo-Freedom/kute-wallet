@@ -70,7 +70,8 @@ void main() {
           ('lightning', 'spark'),
           ('bitcoin', 'spark'),
         ]) {
-          expect(orchestraBitcoinOnlyRoute(
+          expect(
+              orchestraBitcoinOnlyRoute(
                   sourceChain: from,
                   sourceAsset: 'BTC',
                   destinationChain: to,
@@ -79,8 +80,16 @@ void main() {
           expect(_needs(from, 'BTC', to, 'BTC', policy), isEmpty,
               reason: '$reason $from→$to');
         }
-        // Dollars and other coins still answer to the swap gates.
+        // Dollars into Bitcoin is an exit: exempt too.
+        for (final to in ['spark', 'lightning', 'bitcoin']) {
+          expect(_needs('spark', 'USDB', to, 'BTC', policy), isEmpty,
+              reason: '$reason USDB→$to');
+        }
+        // Bitcoin into Dollars and other coins still answer to the swap
+        // gates.
         expect(_needs('spark', 'BTC', 'spark', 'USDB', policy),
+            ['orchestra.swap']);
+        expect(_needs('spark', 'USDB', 'base', 'USDC', policy),
             ['orchestra.swap']);
         expect(_needs('ethereum', 'USDT', 'spark', 'BTC', policy),
             ['orchestra.swap', 'orchestra.swap.stablecoins']);
@@ -94,6 +103,8 @@ void main() {
       final policy = await _policy('disabled');
       expect(_needs('spark', 'BTC', 'lightning', 'BTC', policy),
           ['orchestra.swap']);
+      expect(
+          _needs('spark', 'USDB', 'spark', 'BTC', policy), ['orchestra.swap']);
     });
 
     test('allowed: BTC to BTC answers to the master as before', () async {
@@ -138,7 +149,8 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer test-session');
     });
 
-    test('a quote into Dollars is refused before any request, with the '
+    test(
+        'a quote into Dollars is refused before any request, with the '
         'region decision', () async {
       await _policy('country_blocked');
       final result = await quote('spark', 'USDB');
@@ -158,13 +170,12 @@ void main() {
               fromChain: 'spark',
               fromAsset: 'BTC',
               toChain: 'lightning',
-              toAsset: 'BTC'),
-          client: MockClient((request) async {
-            sent.add(request);
-            return http.Response('{}', 404);
-          }));
-      final limits = sent.firstWhere(
-          (r) => r.url.host == 'backend.test' && r.url.path.endsWith('/limits'));
+              toAsset: 'BTC'), client: MockClient((request) async {
+        sent.add(request);
+        return http.Response('{}', 404);
+      }));
+      final limits = sent.firstWhere((r) =>
+          r.url.host == 'backend.test' && r.url.path.endsWith('/limits'));
       expect(limits.headers['X-Kute-Platform'], 'ios');
       expect(limits.headers['X-Kute-App-Version'], '2.0.4');
     });

@@ -131,7 +131,8 @@ void main() {
       policy.dispose();
     });
 
-    test('a 403 feature_unavailable keeps blockedBy and regions; an older '
+    test(
+        'a 403 feature_unavailable keeps blockedBy and regions; an older '
         'body without them still parses', () {
       final denial = capabilityDenialFromResponse(
           403,
@@ -159,7 +160,8 @@ void main() {
       expect(old.decision.messageIn(_en), 'Operator words.');
     });
 
-    test('a cascaded block whose own reason is not a region code still '
+    test(
+        'a cascaded block whose own reason is not a region code still '
         'reads as the named region block', () {
       final d = CapabilityDecision.fromJson({
         'allowed': false,
@@ -182,7 +184,8 @@ void main() {
   });
 
   group('copy', () {
-    test('named: the title names the regions, the body is the one VPN '
+    test(
+        'named: the title names the regions, the body is the one VPN '
         'sentence; inline copy carries both', () {
       final d = CapabilityDecision.fromJson({
         'allowed': false,
@@ -195,7 +198,8 @@ void main() {
       expect(d.messageIn(_en), '$_named\n$_vpn');
     });
 
-    test('the region phrase follows the app language, then its language, '
+    test(
+        'the region phrase follows the app language, then its language, '
         'then the English label', () {
       final d = CapabilityDecision.fromJson(
           {'allowed': false, 'reason': 'country_blocked', 'regions': _regions});
@@ -207,6 +211,13 @@ void main() {
           contains('the European Union, the UK and Switzerland'));
       expect(CapabilityRegions.fromJson(_regions)!.labelFor('pt_BR'),
           'na União Europeia, no Reino Unido e na Suíça');
+      // The backend stores regional keys lowercased with "-".
+      final regional = CapabilityRegions.fromJson({
+        ..._regions,
+        'labels': {'es-es': 'la Unión Europea', 'es': 'la UE'},
+      })!;
+      expect(regional.labelFor('es_ES'), 'la Unión Europea');
+      expect(regional.labelFor('es_MX'), 'la UE');
     });
 
     test('unnamed falls back to the operator message, then the default', () {
@@ -223,7 +234,8 @@ void main() {
           _en.capabilityRegionRestricted);
     });
 
-    test('every locale: the VPN sentence is the only VPN mention in the '
+    test(
+        'every locale: the VPN sentence is the only VPN mention in the '
         'region copy and never tells anyone to use a VPN', () {
       final banned = RegExp(
           r'\b(use|turn on|switch on|enable|connect to|try) (a |an |your )?VPN',
@@ -250,7 +262,8 @@ void main() {
         expect(l10n.capabilityRegionTitleNamed('REGIONS'), contains('REGIONS'));
       }
       expect(_en.capabilityRegionCheckVpn, _vpn);
-      expect(_en.capabilityRegionTitleNamed('the EU'), 'Not available in the EU');
+      expect(
+          _en.capabilityRegionTitleNamed('the EU'), 'Not available in the EU');
     });
   });
 
@@ -262,12 +275,13 @@ void main() {
       expect(await policy.refresh(), isTrue);
     });
 
-    test('Investing: trade and deposit refuse with the named copy; close, '
+    test(
+        'Investing: trade and deposit refuse with the named copy; close, '
         'cancel-free exits and withdraw pass', () async {
       await expectLater(
           policy.ensureAllAllowed(['hyperliquid.trade']),
-          throwsA(isA<CapabilityUnavailableException>().having(
-              (e) => e.decision.regionTitleIn(_en), 'title', _named)));
+          throwsA(isA<CapabilityUnavailableException>()
+              .having((e) => e.decision.regionTitleIn(_en), 'title', _named)));
       await expectLater(policy.ensureAllAllowed(['hyperliquid.deposit']),
           throwsA(isA<CapabilityUnavailableException>()));
       await policy.ensureAllowed('hyperliquid.close');
@@ -278,7 +292,8 @@ void main() {
           throwsA(isA<CapabilityUnavailableException>()));
     });
 
-    test('Move money: exits out of a venue (Buy bitcoin from Investing '
+    test(
+        'Move money: exits out of a venue (Buy bitcoin from Investing '
         'included) stay open; into a venue or Dollars is refused with the '
         'named copy and its cascade', () {
       MoneyMovementRestriction? restriction(
@@ -307,7 +322,8 @@ void main() {
       expect(intoDollars.blockedBy, isEmpty);
     });
 
-    test('a later leg refused with the 403 stops as a restriction (no '
+    test(
+        'a later leg refused with the 403 stops as a restriction (no '
         'Retry), with the named copy', () {
       final denial = capabilityDenialFromResponse(
           403,
@@ -324,7 +340,8 @@ void main() {
       expect(restriction.message, '$_named\n$_vpn');
     });
 
-    test('pickers keep the rows a region refuses; their tap reads the '
+    test(
+        'pickers keep the rows a region refuses; their tap reads the '
         'block. Rows refused for any other reason still go', () {
       final rows = [_row('ethereum', 'USDT'), _row('solana', 'SOL')];
       final kept = orchestraOptionsOfferedUnderPolicy(rows, policy);
@@ -336,8 +353,8 @@ void main() {
       final block = orchestraOptionRegionBlock(rows.first, policy)!;
       expect(block.capability, 'orchestra.swap');
       expect(block.decision.regionTitleIn(_en), _named);
-      final receive = orchestraOptionRegionBlock(rows.first, policy,
-          depositAddress: true)!;
+      final receive =
+          orchestraOptionRegionBlock(rows.first, policy, depositAddress: true)!;
       expect(receive.capability, 'orchestra.onetime_addresses');
 
       final off = runtimePolicyFixture(blocked: {'orchestra.swap'});
