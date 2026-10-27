@@ -61,8 +61,8 @@ const double kBalancesCentUsd = 0.005;
 
 /// The ring's size: small, at the end of the Buying power row (the
 /// Breakdown card's ring is 184 on a row of its own).
-const double kBalancesRingDiameter = 96;
-const double kBalancesRingThickness = 7;
+const double kBalancesRingDiameter = 58;
+const double kBalancesRingThickness = 6;
 
 /// A figure as the breakdown resolved it: its text (masked when balances
 /// are hidden, a dash when never read), whether it is still refreshing,
@@ -309,19 +309,6 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       thickness: 0.5,
     );
 
-    // Total investments: what both venues have at work, the hero's old
-    // "Invested" line.
-    final atWork = [
-      for (final e in categories.entries)
-        if (e.key != BalancesCategory.buyingPower) e.value,
-    ];
-    final invested = figure((
-      usd: atWork.every((f) => f.usd != null)
-          ? atWork.fold<double>(0, (s, f) => s + _clean(f.usd))
-          : null,
-      stale: atWork.any((f) => f.stale),
-    ));
-
     Widget venue(BalancesCategory category, BalancesEntry e) {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
       final open = e.positionCount > 0 || list.rows.isNotEmpty;
@@ -384,32 +371,32 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 8.h),
+        // The ring on the left, small and bare (the hero above the pills
+        // carries the total); Buying power and Move money beside it.
         Row(
           children: [
-            Expanded(
-              child: _BuyingPower(
-                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-                label: l10n.portfolioBuyingPower,
-                hint: l10n.portfolioBuyingPowerHint,
-                figure: buyingPower,
-                open: split,
-                onToggle: places.any((e) => e.footer.isNotEmpty)
-                    ? null
-                    : () => setState(() => _split = !_split),
-              ),
-            ),
-            SizedBox(width: 16.w),
             _Ring(
               categories: categories.keys.toList(),
               shares: shares,
-              total: totalFigure,
-              label: l10n.total,
               semantics: [
                 '${l10n.total} ${totalFigure.text}',
                 if (shares.isNotEmpty)
                   for (final k in categories.keys)
                     '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
               ].join(', '),
+            ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: _BuyingPower(
+                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+                label: l10n.portfolioBuyingPower,
+                figure: buyingPower,
+                open: split,
+                onToggle: places.any((e) => e.footer.isNotEmpty)
+                    ? null
+                    : () => setState(() => _split = !_split),
+                action: widget.action,
+              ),
             ),
           ],
         ),
@@ -443,21 +430,6 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 )
               : const SizedBox(width: double.infinity),
         ),
-        if (predictions != null || investing != null)
-          Padding(
-            padding: EdgeInsets.only(top: 8.h),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: _TotalInvestments(
-                  label: l10n.portfolioTotalInvestments, figure: invested),
-            ),
-          ),
-        if (widget.action case final pill?)
-          Padding(
-            padding: EdgeInsets.only(top: 14.h),
-            child:
-                Align(alignment: AlignmentDirectional.centerStart, child: pill),
-          ),
         if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
         if (predictions != null || investing != null) ...[
@@ -501,9 +473,6 @@ const double _kDot = 8;
 /// A venue's text starts after its dot and this gap; its rows and the
 /// places under Buying power line up with it.
 const double _kDotGap = 12;
-
-/// The big figure: Buying power, the money that can be used now.
-const double _kBigFigure = 34;
 
 /// A live figure: a new value rolls the digits that changed; while it
 /// refreshes (or is not known yet) it is dimmed with the skeleton's sweep.
@@ -584,22 +553,19 @@ class BalancesPnlText extends StatelessWidget {
   }
 }
 
-/// The ring: one slice per non-empty category in its colour, "Total" and
-/// the total in the hole. Only the track while a figure is unknown. Not a
+/// The ring: one slice per non-empty category in its colour, nothing in
+/// the hole (the hero above the pills shows the total; screen readers
+/// still hear it). Only the track while a figure is unknown. Not a
 /// control.
 class _Ring extends StatelessWidget {
   const _Ring({
     required this.categories,
     required this.shares,
-    required this.total,
-    required this.label,
     required this.semantics,
   });
 
   final List<BalancesCategory> categories;
   final Map<BalancesCategory, double> shares;
-  final BalancesFigure total;
-  final String label;
   final String semantics;
 
   @override
@@ -626,200 +592,109 @@ class _Ring extends StatelessWidget {
                   semanticsLabel: '',
                 ),
           ],
-          center: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label,
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                  )),
-              SizedBox(height: 1.h),
-              // The hole is narrow: a long total scales down, never spills.
-              FittedBox(
-                key: const ValueKey('portfolio-balance-total'),
-                fit: BoxFit.scaleDown,
-                child: _Live(
-                  figure: total,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
-                    height: 1.2,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 }
 
-/// Buying power: the small dotted label, the big figure, and the hint with
-/// its chevron, which opens where the cash sits ([onToggle]; null: held
-/// open by a note).
+/// Buying power beside the ring: "● Buying power ⌄" with its amount at
+/// the row's end (the venue headers' size), a tap on the row opening where
+/// the cash sits ([onToggle]; null: held open by a note), and Move money
+/// ([action], a quiet link) under it.
 class _BuyingPower extends StatelessWidget {
   const _BuyingPower({
     required this.color,
     required this.label,
-    required this.hint,
     required this.figure,
     required this.open,
     required this.onToggle,
+    this.action,
   });
 
   final Color color;
   final String label;
-  final String hint;
   final BalancesFigure figure;
   final bool open;
   final VoidCallback? onToggle;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final quiet = TextStyle(
-      color: c.textSecondary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.3,
-    );
+    final titleStyle = AppTextStyles.settingsTitle(context)
+        .copyWith(letterSpacing: -0.2, height: 1.25);
     return Column(
       key: const ValueKey('portfolio-balance-category-buyingPower'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            _Dot(color: color),
-            SizedBox(width: 8.w),
-            Flexible(
-              child: Text(label,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: quiet),
-            ),
-          ],
-        ),
-        SizedBox(height: 6.h),
-        Semantics(
-          label: label,
-          child: FittedBox(
-            key:
-                const ValueKey('portfolio-balance-category-buyingPower-amount'),
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: _Live(
-              figure: figure,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: _kBigFigure.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.0,
-                height: 1.1,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: 6.h),
         Semantics(
           button: onToggle != null,
           expanded: open,
+          label: '$label, ${figure.text}',
+          excludeSemantics: true,
           child: GestureDetector(
             key: const ValueKey('portfolio-balance-split-toggle'),
             behavior: HitTestBehavior.opaque,
             onTap: onToggle,
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                  child: Text(hint,
-                      key: const ValueKey(
-                          'portfolio-balance-category-buyingPower-line'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: quiet),
-                ),
-                if (onToggle != null) ...[
-                  SizedBox(width: 2.w),
-                  AnimatedRotation(
-                    turns: open ? 0.5 : 0,
-                    duration: kuteReduceMotion(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    child: Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 18.w, color: c.textTertiary),
+                _Dot(color: color),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle),
+                      ),
+                      if (onToggle != null) ...[
+                        SizedBox(width: 2.w),
+                        AnimatedRotation(
+                          turns: open ? 0.5 : 0,
+                          duration: kuteReduceMotion(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 200),
+                          child: Icon(Icons.keyboard_arrow_down_rounded,
+                              size: 18.w, color: c.textTertiary),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+                SizedBox(width: 12.w),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 160.w),
+                  child: _EndFigure(
+                    key: const ValueKey(
+                        'portfolio-balance-category-buyingPower-amount'),
+                    figure: figure,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      height: 1.25,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// "Total investments" and what both venues have at work: the label
-/// quiet, the amount primary, a step under the venues' amounts.
-class _TotalInvestments extends StatelessWidget {
-  const _TotalInvestments({required this.label, required this.figure});
-
-  final String label;
-  final BalancesFigure figure;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final quiet = TextStyle(
-      color: c.textSecondary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.3,
-    );
-    return Semantics(
-      container: true,
-      label: '$label, ${figure.text}',
-      excludeSemantics: true,
-      child: Row(
-        key: const ValueKey('portfolio-balance-invested'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Flexible(
-            child: Text(label,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: quiet),
-          ),
-          SizedBox(width: 8.w),
-          Flexible(
-            child: FittedBox(
-              key: const ValueKey('portfolio-balance-invested-amount'),
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: _Live(
-                figure: figure,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
-                  height: 1.3,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
+        if (action case final link?) ...[
+          SizedBox(height: 4.h),
+          Padding(
+            padding: EdgeInsetsDirectional.only(start: (_kDot + 8).w),
+            child:
+                Align(alignment: AlignmentDirectional.centerStart, child: link),
           ),
         ],
-      ),
+      ],
     );
   }
 }

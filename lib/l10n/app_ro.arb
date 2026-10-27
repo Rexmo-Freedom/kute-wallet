@@ -3115,8 +3115,6 @@
   "pnlChartEmpty": "Profitul și pierderea ta vor apărea aici după ce tranzacționezi sau faci predicții",
   "portfolioPositionsCount": "{count, plural, =1{1 poziție} few{{count} poziții} other{{count} de poziții}}",
   "portfolioBuyingPower": "Putere de cumpărare",
-  "portfolioBuyingPowerHint": "Gata pentru orice tranzacție sau predicție",
-  "portfolioTotalInvestments": "Total investiții",
   "portfolioNoOpenPositions": "Nicio poziție deschisă",
   "portfolioRowShares": "{shares} unități · medie {price}",
   "portfolioRowEntry": "intrare {price}"

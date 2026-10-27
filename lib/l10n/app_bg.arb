@@ -3115,8 +3115,6 @@
   "pnlChartEmpty": "Печалбата и загубата ви ще се показват тук, щом търгувате или прогнозирате",
   "portfolioPositionsCount": "{count, plural, =1{1 позиция} other{{count} позиции}}",
   "portfolioBuyingPower": "Покупателна сила",
-  "portfolioBuyingPowerHint": "Готови за всяка сделка или прогноза",
-  "portfolioTotalInvestments": "Общо инвестиции",
   "portfolioNoOpenPositions": "Няма отворени позиции",
   "portfolioRowShares": "{shares} дяла · ср. {price}",
   "portfolioRowEntry": "вход {price}"

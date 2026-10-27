@@ -11252,13 +11252,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get portfolioBuyingPower => 'Siła nabywcza';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Gotowe na każdą transakcję lub prognozę';
-
-  @override
-  String get portfolioTotalInvestments => 'Inwestycje łącznie';
-
-  @override
   String get portfolioNoOpenPositions => 'Brak otwartych pozycji';
 
   @override

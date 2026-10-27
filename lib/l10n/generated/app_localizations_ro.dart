@@ -11273,13 +11273,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioBuyingPower => 'Putere de cumpărare';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Gata pentru orice tranzacție sau predicție';
-
-  @override
-  String get portfolioTotalInvestments => 'Total investiții';
-
-  @override
   String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
 
   @override

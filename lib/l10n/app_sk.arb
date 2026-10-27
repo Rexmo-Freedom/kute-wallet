@@ -3115,8 +3115,6 @@
   "pnlChartEmpty": "Keď začnete obchodovať alebo predikovať, uvidíte tu svoj zisk a stratu",
   "portfolioPositionsCount": "{count, plural, =1{1 pozícia} few{{count} pozície} other{{count} pozícií}}",
   "portfolioBuyingPower": "Kúpna sila",
-  "portfolioBuyingPowerHint": "Pripravené na akýkoľvek obchod alebo predikciu",
-  "portfolioTotalInvestments": "Investície spolu",
   "portfolioNoOpenPositions": "Žiadne otvorené pozície",
   "portfolioRowShares": "{shares} ks · priem. {price}",
   "portfolioRowEntry": "vstup {price}"

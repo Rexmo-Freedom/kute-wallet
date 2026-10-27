@@ -11201,13 +11201,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioBuyingPower => 'Ostujõud';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Valmis igaks tehinguks või ennustuseks';
-
-  @override
-  String get portfolioTotalInvestments => 'Investeeringud kokku';
-
-  @override
   String get portfolioNoOpenPositions => 'Avatud positsioone pole';
 
   @override

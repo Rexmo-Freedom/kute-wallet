@@ -3388,8 +3388,6 @@
   "pnlChartEmpty": "Os seus ganhos e perdas aparecem aqui quando negociar ou fizer previsões",
   "portfolioPositionsCount": "{count, plural, =1{1 posição} other{{count} posições}}",
   "portfolioBuyingPower": "Poder de compra",
-  "portfolioBuyingPowerHint": "Pronto para qualquer negociação ou previsão",
-  "portfolioTotalInvestments": "Total de investimentos",
   "portfolioNoOpenPositions": "Sem posições abertas",
   "portfolioRowShares": "{shares} unidades · méd. {price}",
   "portfolioRowEntry": "entrada {price}"

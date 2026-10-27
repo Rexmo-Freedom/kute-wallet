@@ -11251,13 +11251,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get portfolioBuyingPower => 'Koopkracht';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Klaar voor elke trade of voorspelling';
-
-  @override
-  String get portfolioTotalInvestments => 'Totale investeringen';
-
-  @override
   String get portfolioNoOpenPositions => 'Geen open posities';
 
   @override

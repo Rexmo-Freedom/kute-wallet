@@ -11183,13 +11183,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioBuyingPower => 'Pirktspēja';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Gatavs jebkuram darījumam vai prognozei';
-
-  @override
-  String get portfolioTotalInvestments => 'Ieguldījumi kopā';
-
-  @override
   String get portfolioNoOpenPositions => 'Nav atvērtu pozīciju';
 
   @override

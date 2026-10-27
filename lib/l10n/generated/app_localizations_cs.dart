@@ -11206,13 +11206,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioBuyingPower => 'Kupní síla';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Připraveno na jakýkoli obchod nebo predikci';
-
-  @override
-  String get portfolioTotalInvestments => 'Investice celkem';
-
-  @override
   String get portfolioNoOpenPositions => 'Žádné otevřené pozice';
 
   @override

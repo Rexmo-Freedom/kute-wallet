@@ -3115,8 +3115,6 @@
   "pnlChartEmpty": "Vaš dobit i gubitak prikazat će se ovdje kad počnete trgovati ili predviđati",
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicije} other{{count} pozicija}}",
   "portfolioBuyingPower": "Kupovna moć",
-  "portfolioBuyingPowerHint": "Spremno za bilo koju trgovinu ili predviđanje",
-  "portfolioTotalInvestments": "Ukupno ulaganja",
   "portfolioNoOpenPositions": "Nema otvorenih pozicija",
   "portfolioRowShares": "{shares} udjela · prosj. {price}",
   "portfolioRowEntry": "ulaz {price}"

@@ -18801,18 +18801,6 @@ abstract class AppLocalizations {
   /// **'Buying power'**
   String get portfolioBuyingPower;
 
-  /// Investments, Portfolio, Balances: small secondary line under "Buying power": the spare cash can fund any Investing trade or prediction.
-  ///
-  /// In en, this message translates to:
-  /// **'Ready for any trade or prediction'**
-  String get portfolioBuyingPowerHint;
-
-  /// Investments, Portfolio, Balances: small secondary line under Buying power, before the amount: what the open Predictions and Investing positions are worth together (with cash open orders reserve).
-  ///
-  /// In en, this message translates to:
-  /// **'Total investments'**
-  String get portfolioTotalInvestments;
-
   /// Investments, Portfolio, Balances: small secondary line under "Investing" when no Investing position is open.
   ///
   /// In en, this message translates to:
