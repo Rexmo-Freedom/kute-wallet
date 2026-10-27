@@ -250,8 +250,9 @@ void main() {
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
 
     testWidgets(
-        'no title: the total alone over "Invested", no Available, no '
-        'deposit door', (tester) async {
+        'no title: the total alone, no "Invested" under it (Balances '
+        'carries it, never twice), no Available, no deposit door',
+        (tester) async {
       await pumpOne(tester, known);
       expect(header(tester).amountText, r'$100.00');
       expect(header(tester).totalLabel, isNull);
@@ -262,8 +263,9 @@ void main() {
       expect(chevron, findsNothing);
       expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
       expect(header(tester).availableText, isNull);
-      expect(header(tester).investedLabel, 'Invested');
-      expect(header(tester).investedText, r'$57.50');
+      expect(header(tester).investedText, isNull);
+      expect(find.textContaining('Invested'), findsNothing);
+      expect(find.text(r'$57.50'), findsNothing);
       expect(header(tester).stale, isFalse);
       expect(header(tester).loading, isFalse);
       expect(header(tester).investedChild, isNull);
@@ -370,7 +372,7 @@ void main() {
               venueCash: const {OneBalanceVenue.investing: 0.06}));
       expect(header(tester).amountText, r'$6.26');
       expect(header(tester).availableText, isNull);
-      expect(header(tester).investedText, r'$0.00');
+      expect(header(tester).investedText, isNull);
       expect(header(tester).investedChild, isNull);
       expect(find.textContaining('unavailable'), findsNothing);
     });
@@ -423,7 +425,8 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('Incoming'), findsNothing);
       expect(find.byType(PendingDepositLine), findsOneWidget);
-      // The idle sweep home is plumbing: no line, and the split stays.
+      // The idle sweep home is plumbing: no line (and no Invested line:
+      // Balances carries it).
       await pumpOne(
           tester,
           known.copyWith(inFlight: const [
@@ -434,7 +437,8 @@ void main() {
           ]));
       expect(find.textContaining('coming back'), findsNothing);
       expect(find.byType(PendingDepositLine), findsNothing);
-      expect(header(tester).investedText, isNotNull);
+      expect(header(tester).investedText, isNull);
+      expect(header(tester).investedChild, isNull);
       // Money moving to a venue for no order: no line either.
       await pumpOne(
           tester,
@@ -518,8 +522,8 @@ void main() {
     });
 
     testWidgets(
-        'the whole block is one tap, the total and Invested alike, with the '
-        'portfolio glyph right after the total', (tester) async {
+        'the whole block is one tap, with the portfolio glyph right after '
+        'the total', (tester) async {
       var taps = 0;
       await pumpOne(tester, known, onTap: () => taps++);
       expect(chevron, findsOneWidget);
@@ -534,12 +538,9 @@ void main() {
       await tester.tap(total);
       await tester.pumpAndSettle();
       expect(taps, 1);
-      await tester.tap(find.text('Invested '));
-      await tester.pumpAndSettle();
-      expect(taps, 2);
       await tester.tap(chevron);
       await tester.pumpAndSettle();
-      expect(taps, 3);
+      expect(taps, 2);
     });
 
     testWidgets(
@@ -723,8 +724,9 @@ void main() {
       });
     }
 
-    testWidgets('main Investments retains total and invested through refresh',
-        (tester) async {
+    testWidgets(
+        'main Investments retains its total through refresh, with no '
+        'Invested line', (tester) async {
       final state = StateProvider((_) => const OneBalanceState(
           dollarsUsd: 42,
           investedUsd: 58,
@@ -742,7 +744,7 @@ void main() {
             usdBalanceUnknownProvider.overrideWithValue(false),
           ]);
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).investedText, r'$58.00');
+      expect(header(tester).investedText, isNull);
       final container = ProviderScope.containerOf(
           tester.element(find.byType(InvestmentBalanceHeader)));
       container.read(state.notifier).state = const OneBalanceState(
@@ -754,14 +756,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).investedText, r'$58.00');
+      expect(header(tester).investedText, isNull);
       expect(header(tester).stale, isTrue);
       // A completed, genuinely empty read must replace the saved figure.
       container.read(state.notifier).state =
           const OneBalanceState(investingKnown: true, predictionsKnown: true);
       await tester.pumpAndSettle();
       expect(header(tester).amountText, r'$0.00');
-      expect(header(tester).investedText, r'$0.00');
+      expect(header(tester).investedText, isNull);
       expect(header(tester).stale, isFalse);
     });
 

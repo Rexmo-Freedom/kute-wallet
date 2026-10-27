@@ -18807,17 +18807,17 @@ abstract class AppLocalizations {
   /// **'Ready for any trade or prediction'**
   String get portfolioBuyingPowerHint;
 
+  /// Investments, Portfolio, Balances: small secondary line under Buying power, before the amount: what the open Predictions and Investing positions are worth together (with cash open orders reserve).
+  ///
+  /// In en, this message translates to:
+  /// **'Total investments'**
+  String get portfolioTotalInvestments;
+
   /// Investments, Portfolio, Balances: small secondary line under "Investing" when no Investing position is open.
   ///
   /// In en, this message translates to:
   /// **'No open positions'**
   String get portfolioNoOpenPositions;
-
-  /// Investments, Portfolio, Balances: small secondary line under "Predictions" or "Investing": how many positions are open there. {count} is the number.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 open} other{{count} open}}'**
-  String portfolioOpenCount(int count);
 
   /// Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).
   ///

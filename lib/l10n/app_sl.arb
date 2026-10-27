@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} two{{count} poziciji} few{{count} pozicije} other{{count} pozicij}}",
   "portfolioBuyingPower": "Kupna moč",
   "portfolioBuyingPowerHint": "Pripravljeno za vsako trgovanje ali napoved",
+  "portfolioTotalInvestments": "Naložbe skupaj",
   "portfolioNoOpenPositions": "Ni odprtih pozicij",
-  "portfolioOpenCount": "{count, plural, =1{1 odprta} =2{2 odprti} few{{count} odprte} other{{count} odprtih}}",
   "portfolioRowShares": "Deleži: {shares} · povpr. {price}",
   "portfolioRowEntry": "vstop {price}"
 }

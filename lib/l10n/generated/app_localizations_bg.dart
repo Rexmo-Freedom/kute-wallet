@@ -11237,18 +11237,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'Готови за всяка сделка или прогноза';
 
   @override
-  String get portfolioNoOpenPositions => 'Няма отворени позиции';
+  String get portfolioTotalInvestments => 'Общо инвестиции';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count отворени',
-      one: '1 отворена',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Няма отворени позиции';
 
   @override
   String portfolioRowShares(String shares, String price) {

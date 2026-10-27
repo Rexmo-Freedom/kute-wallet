@@ -44,6 +44,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -399,20 +400,20 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     required this.trading,
     required this.predictions,
     this.overview = false,
-    this.onPositions,
+    this.venues = const {},
   });
 
   final bool trading;
   final bool predictions;
 
-  /// The Balances tab's layout: the ring and its legend over Buying power
-  /// (where the cash sits under it), Predictions and Investing
+  /// The Balances section's layout: Buying power with the ring, Move
+  /// money, then Invested with each venue's positions
   /// ([BalancesOverview]) instead of the row of tiles.
   final bool overview;
 
-  /// The overview's Predictions or Investing row tapped: the Positions
-  /// section.
-  final VoidCallback? onPositions;
+  /// The overview's positions under Predictions and Investing (built by
+  /// the caller, portfolioVenueLists in open_investments_screen.dart).
+  final Map<BalancesCategory, BalancesVenueList> venues;
 
   @override
   ConsumerState<PortfolioBalanceBreakdown> createState() =>
@@ -610,6 +611,25 @@ class _PortfolioBalanceBreakdownState
       ),
     );
 
+    // Balances' Move money: a pill like the section pills' selected one,
+    // under Buying power, less prominent than the full-width button (founder,
+    // 27 October 2026). Same tap: the movement sheet; nothing while a
+    // Rebalance from before is still being sent.
+    final pill = RubberBandBusy(
+      busy: rebalance.running,
+      expected: kRebalanceSendExpected,
+      child: KutePill(
+        key: const ValueKey('portfolio-move-money'),
+        label: l10n.moveTransfer,
+        selected: true,
+        link: true,
+        onTap: () {
+          if (rebalance.running) return;
+          unawaited(showMoneyMovementSheet(context));
+        },
+      ),
+    );
+
     Widget band(OneBalanceVenue venue, Widget tile) => _VenueBand(
           key: ValueKey('portfolio-band-${venue.name}'),
           phase: phases[venue] ?? RebalanceBandPhase.rest,
@@ -666,14 +686,17 @@ class _PortfolioBalanceBreakdownState
     final predictionsSplit =
         breakdownPredictionsSplit(balance, reserved: reserved);
 
-    // The Balances tab: the same figures, notes and bands around the
-    // total and its rows.
-    Widget overviewView() {
+    // The Balances section: the same figures, notes and bands around
+    // Buying power, the ring and the venues' positions; Move money and its
+    // steps under Buying power ([action]).
+    Widget overviewView(Widget action, Widget steps) {
       BalancesFigure figureOf(_Figure f) =>
           BalancesFigure(f.text, stale: f.stale, usd: f.usd);
       return BalancesOverview(
         money: amount,
-        onPositions: widget.onPositions,
+        action: action,
+        steps: steps,
+        venues: widget.venues,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
@@ -732,99 +755,107 @@ class _PortfolioBalanceBreakdownState
       );
     }
 
+    // The steps grow in under the button, never popping in.
+    final stepsView = StepsReveal(
+      child: stepLines.isNotEmpty
+          ? Align(
+              key: const ValueKey('portfolio-rebalance-steps'),
+              alignment: Alignment.centerLeft,
+              // Each venue's band already plays its landing.
+              child: MoneyStepsView(
+                  lines: stepLines,
+                  graph: steps,
+                  money: amount,
+                  haptics: false),
+            )
+          : null,
+    );
+    if (widget.overview) {
+      return Column(
+        key: const ValueKey('portfolio-balance-breakdown'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          overviewView(pill, stepsView),
+          SizedBox(height: 12.h),
+        ],
+      );
+    }
     return Column(
       key: const ValueKey('portfolio-balance-breakdown'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.overview)
-          overviewView()
-        else
-          PortfolioTileRow(
-            key: const ValueKey('portfolio-balance-row'),
-            children: [
-              _ArrivalCatch(
-                key: const ValueKey('portfolio-band-dollars'),
-                arrivals: _arrivals,
-                child: _BalanceTile(
-                  key: const ValueKey('portfolio-balance-dollars'),
-                  id: 'dollars',
-                  asset: kUsdMarkAsset,
-                  name: l10n.portfolioBalanceDollars,
-                  // Not confirmed by the SDK yet (its answer has no dollar
-                  // entry while the ledger holds dollars): the ledger's
-                  // figure, dimmed and sweeping, never a confident number.
-                  available: venueFigure('dollars', dollars,
-                      refresh: false,
-                      known: balance.dollarsKnown &&
-                          !ref.watch(usdBalanceUnknownProvider)),
-                ),
+        PortfolioTileRow(
+          key: const ValueKey('portfolio-balance-row'),
+          children: [
+            _ArrivalCatch(
+              key: const ValueKey('portfolio-band-dollars'),
+              arrivals: _arrivals,
+              child: _BalanceTile(
+                key: const ValueKey('portfolio-balance-dollars'),
+                id: 'dollars',
+                asset: kUsdMarkAsset,
+                name: l10n.portfolioBalanceDollars,
+                // Not confirmed by the SDK yet (its answer has no dollar
+                // entry while the ledger holds dollars): the ledger's
+                // figure, dimmed and sweeping, never a confident number.
+                available: venueFigure('dollars', dollars,
+                    refresh: false,
+                    known: balance.dollarsKnown &&
+                        !ref.watch(usdBalanceUnknownProvider)),
               ),
-              if (widget.trading)
-                band(
-                    OneBalanceVenue.investing,
-                    _BalanceTile(
-                      key: const ValueKey('portfolio-balance-investing'),
-                      id: 'investing',
-                      asset: venueMarkAsset(InvestmentsProduct.trading),
-                      name: l10n.trading,
-                      available: venueFigure('investing_cash', investing,
-                          known: balance.investingKnown,
-                          fallback: cachedHl?.available),
-                      positions: venueFigure(
-                          'investing_positions',
-                          breakdownVenuePositions(
-                              balance, OneBalanceVenue.investing),
-                          known: balance.investingKnown,
-                          fallback: cachedHl?.portfolio),
-                      footer: [
-                        if (note(OneBalanceVenue.investing) case final line?)
-                          line,
-                      ],
-                    )),
-              if (widget.predictions)
-                band(
-                    OneBalanceVenue.predictions,
-                    _BalanceTile(
-                      key: const ValueKey('portfolio-balance-predictions'),
-                      id: 'predictions',
-                      asset: venueMarkAsset(InvestmentsProduct.predictions),
-                      name: l10n.predictions,
-                      available: venueFigure(
-                          'predictions_cash', predictionsCash,
-                          known: balance.predictionsKnown),
-                      positions: venueFigure(
-                          'predictions_positions',
-                          breakdownVenuePositions(
-                              balance, OneBalanceVenue.predictions),
-                          known: balance.predictionsKnown),
-                      reserved: reserved >= kSweepDustUsd
-                          ? l10n.investingInOpenOrders(amount(reserved))
-                          : null,
-                      footer: [
-                        if (note(OneBalanceVenue.predictions) case final line?)
-                          line,
-                      ],
-                    )),
-            ],
-          ),
+            ),
+            if (widget.trading)
+              band(
+                  OneBalanceVenue.investing,
+                  _BalanceTile(
+                    key: const ValueKey('portfolio-balance-investing'),
+                    id: 'investing',
+                    asset: venueMarkAsset(InvestmentsProduct.trading),
+                    name: l10n.trading,
+                    available: venueFigure('investing_cash', investing,
+                        known: balance.investingKnown,
+                        fallback: cachedHl?.available),
+                    positions: venueFigure(
+                        'investing_positions',
+                        breakdownVenuePositions(
+                            balance, OneBalanceVenue.investing),
+                        known: balance.investingKnown,
+                        fallback: cachedHl?.portfolio),
+                    footer: [
+                      if (note(OneBalanceVenue.investing) case final line?)
+                        line,
+                    ],
+                  )),
+            if (widget.predictions)
+              band(
+                  OneBalanceVenue.predictions,
+                  _BalanceTile(
+                    key: const ValueKey('portfolio-balance-predictions'),
+                    id: 'predictions',
+                    asset: venueMarkAsset(InvestmentsProduct.predictions),
+                    name: l10n.predictions,
+                    available: venueFigure('predictions_cash', predictionsCash,
+                        known: balance.predictionsKnown),
+                    positions: venueFigure(
+                        'predictions_positions',
+                        breakdownVenuePositions(
+                            balance, OneBalanceVenue.predictions),
+                        known: balance.predictionsKnown),
+                    reserved: reserved >= kSweepDustUsd
+                        ? l10n.investingInOpenOrders(amount(reserved))
+                        : null,
+                    footer: [
+                      if (note(OneBalanceVenue.predictions) case final line?)
+                        line,
+                    ],
+                  )),
+          ],
+        ),
         SizedBox(height: 12.h),
         button,
-        // The steps grow in under the button, never popping in.
-        StepsReveal(
-          child: stepLines.isNotEmpty
-              ? Align(
-                  key: const ValueKey('portfolio-rebalance-steps'),
-                  alignment: Alignment.centerLeft,
-                  // Each venue's band already plays its landing.
-                  child: MoneyStepsView(
-                      lines: stepLines,
-                      graph: steps,
-                      money: amount,
-                      haptics: false),
-                )
-              : null,
-        ),
+        stepsView,
         SizedBox(height: 12.h),
       ],
     );

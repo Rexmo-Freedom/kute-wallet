@@ -11266,19 +11266,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Paruošta bet kokiam sandoriui ar prognozei';
 
   @override
-  String get portfolioNoOpenPositions => 'Atvirų pozicijų nėra';
+  String get portfolioTotalInvestments => 'Iš viso investicijų';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count atvirų',
-      few: '$count atviros',
-      one: '1 atvira',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Atvirų pozicijų nėra';
 
   @override
   String portfolioRowShares(String shares, String price) {

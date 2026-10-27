@@ -11268,18 +11268,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Pronto para qualquer negociação ou previsão';
 
   @override
-  String get portfolioNoOpenPositions => 'Sem posições abertas';
+  String get portfolioTotalInvestments => 'Total de investimentos';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count abertas',
-      one: '1 aberta',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Sem posições abertas';
 
   @override
   String portfolioRowShares(String shares, String price) {

@@ -11244,18 +11244,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Bármilyen kereskedésre vagy előrejelzésre kész';
 
   @override
-  String get portfolioNoOpenPositions => 'Nincs nyitott pozíció';
+  String get portfolioTotalInvestments => 'Összes befektetés';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count nyitott',
-      one: '1 nyitott',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Nincs nyitott pozíció';
 
   @override
   String portfolioRowShares(String shares, String price) {

@@ -11298,18 +11298,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'Έτοιμα για κάθε συναλλαγή ή πρόβλεψη';
 
   @override
-  String get portfolioNoOpenPositions => 'Καμία ανοιχτή θέση';
+  String get portfolioTotalInvestments => 'Σύνολο επενδύσεων';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count ανοιχτές',
-      one: '1 ανοιχτή',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Καμία ανοιχτή θέση';
 
   @override
   String portfolioRowShares(String shares, String price) {

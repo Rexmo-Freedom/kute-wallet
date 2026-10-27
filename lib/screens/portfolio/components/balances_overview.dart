@@ -1,50 +1,52 @@
 // lib/screens/portfolio/components/balances_overview.dart
 //
-// Investments → Portfolio → Balances. What the money is DOING first, where
-// it sits only as detail (founder, October 2026, after a competitor review:
-// Robinhood's "Buying power", Revolut's "Total wealth"; the account-by-
-// account layout before it read "it means nothing, I don't know which is
-// which"). Top down:
+// Investments → Portfolio → Balances, the Portfolio's first section. What
+// the money is DOING first, where it sits only as detail (founder,
+// October 2026, after a competitor review: Robinhood's "Buying power",
+// Revolut's "Total wealth"), and since 27 October 2026 the positions
+// themselves under their venue (the Positions pill is gone). Top down:
 //
-//   * a moderate RING on the left (the engine's KuteDonutChart) with
-//     "Total" and the total in its hole, and a three-line LEGEND to its
-//     right: a dot, the label and its share of the total, for
-//       Buying power — every spare dollar: Dollars + Hyperliquid cash +
-//                      Polymarket cash,
-//       Predictions  — what the open Polymarket positions are worth (and
-//                      the cash open BUY orders reserve: money at work
-//                      there, named under the row),
-//       Investing    — what the open Hyperliquid positions are worth.
-//     Each category wears a FIXED colour of the muted chart palette
-//     (Buying power indigo, Investing teal, Predictions amber:
-//     AppColorsExtension.chartCategorical), never a rank colour, so the
-//     legend, the slices and the rows' dots always agree. A category at
-//     0% stays in the legend, dimmed, with no slice; thin gaps between
-//     slices (the ring's own);
-//   * one hairline ROW per category, its dot first:
-//       Buying power — "Ready for any trade or prediction", the spare cash
-//                      on the right; under it quiet indented sub-rows,
-//                      where it sits, largest first: Hyperliquid,
-//                      Polymarket, Dollars (all three, $0.00 when known);
-//       Predictions  — "N open", the value and a chevron: a tap opens the
-//                      Positions section (it has no venue filter);
-//       Investing    — "N open" or "No open positions" (or what open
-//                      orders hold, when that is all there is), the value
-//                      and a chevron, the same tap.
-//     A Rebalance note sits under its venue's sub-row; an open order's
-//     reserve under Predictions. Every amount ends on one column.
+//   * BUYING POWER on the left — a small "● Buying power" label, the
+//     spare cash as the big figure (Dollars + Hyperliquid cash +
+//     Polymarket cash), and "Ready for any trade or prediction" with a
+//     small chevron that opens, in place, where that cash sits, largest
+//     first: Hyperliquid, Polymarket, Dollars (all three, $0.00 when
+//     known). A Rebalance note under a place opens the split by itself.
+//     Under the hint (and the split, when open) "Total investments" and what Predictions and
+//     Investing have at work (label quiet, amount primary, a step under
+//     the venues' amounts), then the breakdown's [action]: Move money as a
+//     pill like the section pills' selected one (founder, 27 October 2026:
+//     no Invested row further down, no full-width button); its [steps]
+//     under the row while a move runs.
+//     On the right a small RING (the engine's KuteDonutChart, 96) with
+//     "Total" and the total in its hole; its slices wear each category's
+//     FIXED colour of the muted chart palette (Buying power indigo,
+//     Investing teal, Predictions amber: AppColorsExtension.chartCategorical),
+//     the same as the dots, so there is no legend and no percentages;
+//   * a hairline, then one block per venue: "● Predictions  N" with its
+//     value and its P&L
+//     (in the result colour) on the right, the venue's positions under it,
+//     slightly indented, as the Option-B position rows
+//     (components/position_rows.dart: picture, short title, "event ·
+//     side", chance bar with its entry tick, value and %), a tap opening
+//     each one's sheet; then "● Investing  N" the same way. A venue with
+//     nothing open reads "No open positions" in its header row and lists
+//     nothing; what open orders hold there is named under its header.
 //
 // Unknown figures keep the breakdown's rules: a figure never read reads a
 // dash, dimmed and sweeping ([StaleShimmer]); a cached one is dimmed with
 // the same sweep while it refreshes; never a confident $0.00. While any
-// part of the total is unknown the ring shows its track only and the
-// legend no shares: a share cannot be drawn without a guess.
+// part of the total is unknown the ring shows its track only.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show kPortfolioRowGap, kPortfolioRowImage;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show RollingFigure, kuteReduceMotion;
+import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -57,10 +59,10 @@ enum BalancesCategory { buyingPower, predictions, investing }
 /// Under this a figure is nothing ("$0.00"): no slice.
 const double kBalancesCentUsd = 0.005;
 
-/// The ring's size: moderate, beside its legend (the Breakdown card's
-/// ring is 184 on a row of its own).
-const double kBalancesRingDiameter = 140;
-const double kBalancesRingThickness = 12;
+/// The ring's size: small, at the end of the Buying power row (the
+/// Breakdown card's ring is 184 on a row of its own).
+const double kBalancesRingDiameter = 96;
+const double kBalancesRingThickness = 7;
 
 /// A figure as the breakdown resolved it: its text (masked when balances
 /// are hidden, a dash when never read), whether it is still refreshing,
@@ -107,7 +109,8 @@ class BalancesEntry {
   /// with [positions], and of its total; known whenever [positions] is.
   final double reservedUsd;
 
-  /// Quiet captions under its sub-row: a Rebalance note.
+  /// Quiet captions under its sub-row (where Buying power sits): a
+  /// Rebalance note. Any note opens the split.
   final List<String> footer;
 
   /// The key part of its widgets ("dollars", "investing").
@@ -223,29 +226,60 @@ List<BalancesEntry> balancesBuyingPowerPlaces(List<BalancesEntry> entries) =>
         return bySize != 0 ? bySize : a.part.index - b.part.index;
       });
 
-/// The ring and its legend over one row per category (see the file
-/// header). [money] writes an amount (masked when balances are hidden);
-/// [wrap] lets the breakdown wrap each account's sub-row (its Rebalance
-/// band, the Dollars arrival); [onPositions] is a tap on Predictions or
-/// Investing (null: not tappable).
-class BalancesOverview extends StatelessWidget {
+/// What Balances lists under a venue's header: its position [rows], in
+/// order (the breakdown's caller builds them, open_investments_screen.dart),
+/// the venue's P&L beside its value ([pnl]), and shimmer rows while the
+/// venue is still read with nothing listed ([loading]).
+@immutable
+class BalancesVenueList {
+  const BalancesVenueList(
+      {this.rows = const [], this.pnl, this.loading = false});
+
+  final List<Widget> rows;
+  final Widget? pnl;
+  final bool loading;
+
+  static const BalancesVenueList empty = BalancesVenueList();
+}
+
+/// Buying power with Total investments and Move money ([action], its
+/// [steps]) beside the ring, then each
+/// venue with its positions (see the file header). [money] writes an
+/// amount (masked when balances are hidden); [wrap] lets the breakdown
+/// wrap each account's place row (its Rebalance band, the Dollars
+/// arrival); [venues] are the rows under Predictions and Investing.
+class BalancesOverview extends StatefulWidget {
   const BalancesOverview({
     super.key,
     required this.entries,
     required this.money,
     this.wrap,
-    this.onPositions,
+    this.action,
+    this.steps,
+    this.venues = const {},
   });
 
   final List<BalancesEntry> entries;
   final String Function(double usd) money;
   final Widget Function(BalancesPart part, Widget row)? wrap;
-  final VoidCallback? onPositions;
+  final Widget? action;
+  final Widget? steps;
+  final Map<BalancesCategory, BalancesVenueList> venues;
+
+  @override
+  State<BalancesOverview> createState() => _BalancesOverviewState();
+}
+
+class _BalancesOverviewState extends State<BalancesOverview> {
+  /// Where Buying power sits, opened with its chevron.
+  bool _split = false;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
+    final entries = widget.entries;
+    final money = widget.money;
     final categories = balancesCategories(entries);
     final shares = balancesShares(categories);
     final total = balancesTotal(categories);
@@ -275,36 +309,74 @@ class BalancesOverview extends StatelessWidget {
       thickness: 0.5,
     );
 
-    // A venue's secondary line: how many are open; what open orders hold
-    // when that is all there is; or nothing open.
-    String openLine(BalancesEntry e) {
-      if (e.positionCount > 0) return l10n.portfolioOpenCount(e.positionCount);
-      if (e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd) {
-        return l10n.investingInOpenOrders(money(e.atWorkUsd));
-      }
-      return l10n.portfolioNoOpenPositions;
-    }
+    // Total investments: what both venues have at work, the hero's old
+    // "Invested" line.
+    final atWork = [
+      for (final e in categories.entries)
+        if (e.key != BalancesCategory.buyingPower) e.value,
+    ];
+    final invested = figure((
+      usd: atWork.every((f) => f.usd != null)
+          ? atWork.fold<double>(0, (s, f) => s + _clean(f.usd))
+          : null,
+      stale: atWork.any((f) => f.stale),
+    ));
 
-    Widget venueRow(BalancesCategory category, BalancesEntry e) {
-      final reserve = e.positionCount > 0 &&
-              e.reservedCashUsd >= kBalancesCentUsd
+    Widget venue(BalancesCategory category, BalancesEntry e) {
+      final list = widget.venues[category] ?? BalancesVenueList.empty;
+      final open = e.positionCount > 0 || list.rows.isNotEmpty;
+      final f = figure(categories[category]!);
+      // Nothing open: what open orders hold when that is all there is,
+      // else "No open positions" in the header's place for a figure.
+      final reserve = e.reservedCashUsd >= kBalancesCentUsd
           ? l10n.investingInOpenOrders(money(e.reservedCashUsd))
-          : null;
-      return _CategoryRow(
-        key: ValueKey('portfolio-balance-category-${category.name}'),
-        category: category,
-        color: balancesCategoryColor(c, category),
-        title: label(category),
-        line: openLine(e),
-        caption: reserve,
-        figure: figure(categories[category]!),
-        onTap: onPositions,
+          : !open && e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd
+              ? l10n.investingInOpenOrders(money(e.atWorkUsd))
+              : null;
+      final empty = !open && !list.loading && reserve == null && !f.stale;
+      return Column(
+        key: ValueKey('portfolio-balance-venue-${category.name}'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _VenueHeader(
+            key: ValueKey('portfolio-balance-category-${category.name}'),
+            category: category,
+            color: balancesCategoryColor(c, category),
+            title: label(category),
+            count: e.positionCount > 0 ? e.positionCount : null,
+            figure: f,
+            pnl: open ? list.pnl : null,
+            empty: empty ? l10n.portfolioNoOpenPositions : null,
+            caption: reserve,
+          ),
+          if (list.rows.isNotEmpty || list.loading)
+            Padding(
+              key: ValueKey('portfolio-balance-${category.name}-positions'),
+              padding: EdgeInsetsDirectional.only(start: (_kDot + _kDotGap).w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ..._rowsWithHairlines(context, list.rows),
+                  if (list.loading)
+                    SkeletonRowList(
+                        count: 2,
+                        padding: EdgeInsets.symmetric(vertical: 8.h),
+                        rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
+                ],
+              ),
+            ),
+        ],
       );
     }
 
     final places = balancesBuyingPowerPlaces(entries);
+    // A Rebalance note is never folded away.
+    final split = _split || places.any((e) => e.footer.isNotEmpty);
     final predictions = entryOf(BalancesPart.predictions);
     final investing = entryOf(BalancesPart.investing);
+    final buyingPower = figure(categories[BalancesCategory.buyingPower]!);
 
     return Column(
       key: const ValueKey('portfolio-balance-overview'),
@@ -314,6 +386,19 @@ class BalancesOverview extends StatelessWidget {
         SizedBox(height: 8.h),
         Row(
           children: [
+            Expanded(
+              child: _BuyingPower(
+                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+                label: l10n.portfolioBuyingPower,
+                hint: l10n.portfolioBuyingPowerHint,
+                figure: buyingPower,
+                open: split,
+                onToggle: places.any((e) => e.footer.isNotEmpty)
+                    ? null
+                    : () => setState(() => _split = !_split),
+              ),
+            ),
+            SizedBox(width: 16.w),
             _Ring(
               categories: categories.keys.toList(),
               shares: shares,
@@ -326,85 +411,104 @@ class BalancesOverview extends StatelessWidget {
                     '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
               ].join(', '),
             ),
-            SizedBox(width: 20.w),
-            Expanded(
-              child: ExcludeSemantics(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (i, k) in categories.keys.indexed) ...[
-                      if (i > 0) SizedBox(height: 12.h),
-                      _LegendLine(
-                        key: ValueKey('portfolio-balance-legend-${k.name}'),
-                        color: balancesCategoryColor(c, k),
-                        label: label(k),
-                        // No share while the total is unknown.
-                        share: shares.isEmpty
-                            ? null
-                            : balancesPercent(shares[k] ?? 0),
-                        dimmed: shares.isNotEmpty && (shares[k] ?? 0) <= 0,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
-        SizedBox(height: 20.h),
-        hairline,
-        _CategoryRow(
-          key: const ValueKey('portfolio-balance-category-buyingPower'),
-          category: BalancesCategory.buyingPower,
-          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-          title: l10n.portfolioBuyingPower,
-          line: l10n.portfolioBuyingPowerHint,
-          figure: figure(categories[BalancesCategory.buyingPower]!),
+        // Where the cash sits, opened in place.
+        AnimatedSize(
+          duration: kuteReduceMotion(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: split
+              ? Padding(
+                  key: const ValueKey('portfolio-balance-split'),
+                  padding: EdgeInsets.only(top: 8.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final e in places)
+                        _wrap(
+                            e.part,
+                            _PlaceRow(
+                              key: ValueKey('portfolio-balance-${e.id}'),
+                              entry: e,
+                              cash: e.cash.usd == null
+                                  ? const BalancesFigure('—', stale: true)
+                                  : e.cash,
+                            )),
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
-        for (final e in places)
-          _wrap(
-              e.part,
-              _PlaceRow(
-                key: ValueKey('portfolio-balance-${e.id}'),
-                entry: e,
-                cash: e.cash.usd == null
-                    ? const BalancesFigure('—', stale: true)
-                    : e.cash,
-              )),
-        SizedBox(height: 10.h),
-        if (predictions != null) ...[
+        if (predictions != null || investing != null)
+          Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _TotalInvestments(
+                  label: l10n.portfolioTotalInvestments, figure: invested),
+            ),
+          ),
+        if (widget.action case final pill?)
+          Padding(
+            padding: EdgeInsets.only(top: 14.h),
+            child:
+                Align(alignment: AlignmentDirectional.centerStart, child: pill),
+          ),
+        if (widget.steps case final steps?) steps,
+        SizedBox(height: 16.h),
+        if (predictions != null || investing != null) ...[
           hairline,
-          venueRow(BalancesCategory.predictions, predictions),
+          if (predictions != null)
+            venue(BalancesCategory.predictions, predictions),
+          if (predictions != null && investing != null) ...[
+            SizedBox(height: 4.h),
+            hairline,
+          ],
+          if (investing != null) venue(BalancesCategory.investing, investing),
         ],
-        if (investing != null) ...[
-          hairline,
-          venueRow(BalancesCategory.investing, investing),
-        ],
-        hairline,
       ],
     );
   }
 
-  Widget _wrap(BalancesPart part, Widget row) => wrap?.call(part, row) ?? row;
+  Widget _wrap(BalancesPart part, Widget row) =>
+      widget.wrap?.call(part, row) ?? row;
 }
 
-/// The legend's and the rows' dot.
+/// [rows] with the position list's hairlines between them.
+List<Widget> _rowsWithHairlines(BuildContext context, List<Widget> rows) {
+  final c = context.colors;
+  return [
+    for (var i = 0; i < rows.length; i++) ...[
+      if (i > 0)
+        Divider(
+          color: context.isDark ? c.border : c.borderSubtle,
+          height: 1,
+          thickness: 0.5,
+          indent: (kPortfolioRowImage + kPortfolioRowGap).w,
+        ),
+      rows[i],
+    ],
+  ];
+}
+
+/// The dot before a category's name.
 const double _kDot = 8;
 
-/// A row's text starts after its dot and this gap; the sub-rows line up
-/// with it.
+/// A venue's text starts after its dot and this gap; its rows and the
+/// places under Buying power line up with it.
 const double _kDotGap = 12;
 
-/// The chevron's room at a row's end: rows without one keep it empty, so
-/// every amount ends on one column.
-const double _kChevron = 20;
-const double _kChevronGap = 4;
+/// The big figure: Buying power, the money that can be used now.
+const double _kBigFigure = 34;
 
 /// A live figure: a new value rolls the digits that changed; while it
 /// refreshes (or is not known yet) it is dimmed with the skeleton's sweep.
 class _Live extends StatelessWidget {
-  const _Live({required this.figure, required this.style});
+  const _Live({super.key, required this.figure, required this.style});
 
   final BalancesFigure figure;
   final TextStyle style;
@@ -428,36 +532,61 @@ class _EndFigure extends StatelessWidget {
   final TextStyle style;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 150.w),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerEnd,
-          child: _Live(figure: figure, style: style),
-        ),
+  Widget build(BuildContext context) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerEnd,
+        child: _Live(figure: figure, style: style),
       );
 }
 
 class _Dot extends StatelessWidget {
-  const _Dot({required this.color, this.dimmed = false});
+  const _Dot({required this.color});
 
   final Color color;
-  final bool dimmed;
 
   @override
   Widget build(BuildContext context) => Container(
         width: _kDot.w,
         height: _kDot.w,
-        decoration: BoxDecoration(
-          color: dimmed ? context.colors.textDisabled : color,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
+}
+
+/// A P&L beside a venue's value: "+$1.10" or "−$0.40" in the result
+/// colour; nothing when it is under a cent. [money] writes the amount.
+class BalancesPnlText extends StatelessWidget {
+  const BalancesPnlText({super.key, required this.usd, required this.money});
+
+  final double usd;
+  final String Function(double usd) money;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!usd.isFinite || usd.abs() < kBalancesCentUsd) {
+      return const SizedBox.shrink();
+    }
+    final up = usd > 0;
+    return Padding(
+      padding: EdgeInsetsDirectional.only(start: 6.w),
+      child: RollingFigure(
+        key: const ValueKey('portfolio-balance-venue-pnl'),
+        text: '${up ? '+' : '−'}${money(usd.abs())}',
+        style: TextStyle(
+          color: up ? AppColors.marketUp : AppColors.marketDown,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+          height: 1.25,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
 }
 
 /// The ring: one slice per non-empty category in its colour, "Total" and
 /// the total in the hole. Only the track while a figure is unknown. Not a
-/// control: the rows below carry the detail and the taps.
+/// control.
 class _Ring extends StatelessWidget {
   const _Ring({
     required this.categories,
@@ -504,11 +633,11 @@ class _Ring extends StatelessWidget {
                   maxLines: 1,
                   style: TextStyle(
                     color: c.textSecondary,
-                    fontSize: 12.sp,
+                    fontSize: 11.sp,
                     fontWeight: FontWeight.w500,
                     height: 1.2,
                   )),
-              SizedBox(height: 2.h),
+              SizedBox(height: 1.h),
               // The hole is narrow: a long total scales down, never spills.
               FittedBox(
                 key: const ValueKey('portfolio-balance-total'),
@@ -517,9 +646,9 @@ class _Ring extends StatelessWidget {
                   figure: total,
                   style: TextStyle(
                     color: c.textPrimary,
-                    fontSize: 18.sp,
+                    fontSize: 13.sp,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
+                    letterSpacing: -0.3,
                     height: 1.2,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -533,75 +662,192 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// One legend line: the dot, the label, the share at the end; dimmed at
-/// 0%.
-class _LegendLine extends StatelessWidget {
-  const _LegendLine({
-    super.key,
+/// Buying power: the small dotted label, the big figure, and the hint with
+/// its chevron, which opens where the cash sits ([onToggle]; null: held
+/// open by a note).
+class _BuyingPower extends StatelessWidget {
+  const _BuyingPower({
     required this.color,
     required this.label,
-    required this.share,
-    required this.dimmed,
+    required this.hint,
+    required this.figure,
+    required this.open,
+    required this.onToggle,
   });
 
   final Color color;
   final String label;
-
-  /// Null while the total is unknown.
-  final String? share;
-  final bool dimmed;
+  final String hint;
+  final BalancesFigure figure;
+  final bool open;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final style = TextStyle(
-      color: dimmed ? c.textTertiary : c.textPrimary,
-      fontSize: 14.sp,
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
-      height: 1.25,
+      height: 1.3,
     );
-    return Row(
+    return Column(
+      key: const ValueKey('portfolio-balance-category-buyingPower'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _Dot(color: color, dimmed: dimmed),
-        SizedBox(width: 8.w),
-        Expanded(
-          child: Text(label,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+        Row(
+          children: [
+            _Dot(color: color),
+            SizedBox(width: 8.w),
+            Flexible(
+              child: Text(label,
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: quiet),
+            ),
+          ],
         ),
-        SizedBox(width: 8.w),
-        Text(share ?? '—',
-            key: const ValueKey('portfolio-balance-legend-share'),
-            style: style.copyWith(
-                color:
-                    dimmed || share == null ? c.textTertiary : c.textSecondary,
-                fontFeatures: const [FontFeature.tabularFigures()])),
+        SizedBox(height: 6.h),
+        Semantics(
+          label: label,
+          child: FittedBox(
+            key:
+                const ValueKey('portfolio-balance-category-buyingPower-amount'),
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: _Live(
+              figure: figure,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: _kBigFigure.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.0,
+                height: 1.1,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 6.h),
+        Semantics(
+          button: onToggle != null,
+          expanded: open,
+          child: GestureDetector(
+            key: const ValueKey('portfolio-balance-split-toggle'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onToggle,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(hint,
+                      key: const ValueKey(
+                          'portfolio-balance-category-buyingPower-line'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: quiet),
+                ),
+                if (onToggle != null) ...[
+                  SizedBox(width: 2.w),
+                  AnimatedRotation(
+                    turns: open ? 0.5 : 0,
+                    duration: kuteReduceMotion(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    child: Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 18.w, color: c.textTertiary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
-/// A category row: its dot, its title over a quiet line (and a caption),
-/// its figure on the right; a chevron and a tap when [onTap] is given.
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({
+/// "Total investments" and what both venues have at work: the label
+/// quiet, the amount primary, a step under the venues' amounts.
+class _TotalInvestments extends StatelessWidget {
+  const _TotalInvestments({required this.label, required this.figure});
+
+  final String label;
+  final BalancesFigure figure;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.3,
+    );
+    return Semantics(
+      container: true,
+      label: '$label, ${figure.text}',
+      excludeSemantics: true,
+      child: Row(
+        key: const ValueKey('portfolio-balance-invested'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Flexible(
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: quiet),
+          ),
+          SizedBox(width: 8.w),
+          Flexible(
+            child: FittedBox(
+              key: const ValueKey('portfolio-balance-invested-amount'),
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: _Live(
+                figure: figure,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                  height: 1.3,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A venue's header: its dot, name and count, its value and P&L at the
+/// end ("No open positions" in their place when nothing is held), what
+/// open orders hold under it ([caption]).
+class _VenueHeader extends StatelessWidget {
+  const _VenueHeader({
     super.key,
     required this.category,
     required this.color,
     required this.title,
-    required this.line,
+    required this.count,
     required this.figure,
-    this.caption,
-    this.onTap,
+    required this.pnl,
+    required this.empty,
+    required this.caption,
   });
 
   final BalancesCategory category;
   final Color color;
   final String title;
-  final String line;
-  final String? caption;
+  final int? count;
   final BalancesFigure figure;
-  final VoidCallback? onTap;
+  final Widget? pnl;
+  final String? empty;
+  final String? caption;
 
   @override
   Widget build(BuildContext context) {
@@ -614,72 +860,104 @@ class _CategoryRow extends StatelessWidget {
       height: 1.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final row = Padding(
-      padding: EdgeInsets.symmetric(vertical: 14.h),
-      child: Row(
-        children: [
-          _Dot(color: color),
-          SizedBox(width: _kDotGap.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.settingsTitle(context)
-                        .copyWith(letterSpacing: -0.2, height: 1.25)),
-                SizedBox(height: 2.h),
-                Text(line,
-                    key: ValueKey('portfolio-balance-category-${category.name}-line'),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: quiet),
-                if (caption case final text?) ...[
-                  SizedBox(height: 2.h),
-                  Text(text,
-                      key: ValueKey(
-                          'portfolio-balance-category-${category.name}-caption'),
-                      style: quiet.copyWith(color: c.textTertiary)),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          _EndFigure(
-            key: ValueKey('portfolio-balance-category-${category.name}-amount'),
-            figure: figure,
-            style: TextStyle(
-              color: c.textPrimary,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
-              height: 1.25,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-          SizedBox(width: _kChevronGap.w),
-          if (onTap != null)
-            Icon(Icons.chevron_right_rounded,
-                size: _kChevron.w, color: c.textTertiary)
-          else
-            SizedBox(width: _kChevron.w),
-        ],
-      ),
-    );
+    final titleStyle = AppTextStyles.settingsTitle(context)
+        .copyWith(letterSpacing: -0.2, height: 1.25);
+    final name = category.name;
     return Semantics(
       container: true,
-      button: onTap != null,
-      label: [title, figure.text, line, if (caption != null) caption!]
-          .join(', '),
+      label: [
+        title,
+        if (count != null) '$count',
+        empty ?? figure.text,
+        if (caption != null) caption!,
+      ].join(', '),
       excludeSemantics: true,
-      child: onTap == null
-          ? row
-          : Material(
-              color: Colors.transparent,
-              child: InkWell(onTap: onTap, child: row),
+      child: Padding(
+        padding: EdgeInsets.only(top: 14.h, bottom: 4.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                _Dot(color: color),
+                SizedBox(width: _kDotGap.w),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle),
+                      ),
+                      if (count case final n?) ...[
+                        SizedBox(width: 8.w),
+                        Text('$n',
+                            key: ValueKey(
+                                'portfolio-balance-category-$name-count'),
+                            style: titleStyle.copyWith(
+                                color: c.textTertiary,
+                                fontWeight: FontWeight.w500,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ])),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                if (empty case final text?)
+                  Text(text,
+                      key: ValueKey('portfolio-balance-category-$name-line'),
+                      maxLines: 1,
+                      style: quiet)
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 210.w),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          _Live(
+                            key: ValueKey(
+                                'portfolio-balance-category-$name-amount'),
+                            figure: figure,
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                              height: 1.25,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                          if (pnl case final p?) p,
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
+            if (caption case final text?) ...[
+              SizedBox(height: 2.h),
+              Padding(
+                padding:
+                    EdgeInsetsDirectional.only(start: (_kDot + _kDotGap).w),
+                child: Text(text,
+                    key: ValueKey('portfolio-balance-category-$name-caption'),
+                    style: quiet.copyWith(color: c.textTertiary)),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -709,10 +987,7 @@ class _PlaceRow extends StatelessWidget {
       excludeSemantics: true,
       child: Padding(
         padding: EdgeInsetsDirectional.only(
-            start: (_kDot + _kDotGap).w,
-            end: (_kChevron + _kChevronGap).w,
-            top: 4.h,
-            bottom: 4.h),
+            start: (_kDot + _kDotGap).w, top: 4.h, bottom: 4.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -726,10 +1001,13 @@ class _PlaceRow extends StatelessWidget {
                       style: style),
                 ),
                 SizedBox(width: 12.w),
-                _EndFigure(
-                  key: ValueKey('portfolio-balance-${entry.id}-amount'),
-                  figure: cash,
-                  style: style,
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 150.w),
+                  child: _EndFigure(
+                    key: ValueKey('portfolio-balance-${entry.id}-amount'),
+                    figure: cash,
+                    style: style,
+                  ),
                 ),
               ],
             ),

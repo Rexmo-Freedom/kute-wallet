@@ -10792,17 +10792,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'どの取引や予想にもすぐ使えます';
 
   @override
-  String get portfolioNoOpenPositions => '保有中のポジションはありません';
+  String get portfolioTotalInvestments => '投資合計';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count件 保有中',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => '保有中のポジションはありません';
 
   @override
   String portfolioRowShares(String shares, String price) {

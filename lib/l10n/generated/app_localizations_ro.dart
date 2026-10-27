@@ -11277,19 +11277,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Gata pentru orice tranzacție sau predicție';
 
   @override
-  String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
+  String get portfolioTotalInvestments => 'Total investiții';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count deschise',
-      few: '$count deschise',
-      one: '1 deschisă',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
 
   @override
   String portfolioRowShares(String shares, String price) {

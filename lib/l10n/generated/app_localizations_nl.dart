@@ -11255,18 +11255,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Klaar voor elke trade of voorspelling';
 
   @override
-  String get portfolioNoOpenPositions => 'Geen open posities';
+  String get portfolioTotalInvestments => 'Totale investeringen';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count open',
-      one: '1 open',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Geen open posities';
 
   @override
   String portfolioRowShares(String shares, String price) {

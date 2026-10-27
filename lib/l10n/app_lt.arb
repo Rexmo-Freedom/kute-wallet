@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, one{{count} pozicija} few{{count} pozicijos} many{{count} pozicijos} other{{count} pozicijų}}",
   "portfolioBuyingPower": "Perkamoji galia",
   "portfolioBuyingPowerHint": "Paruošta bet kokiam sandoriui ar prognozei",
+  "portfolioTotalInvestments": "Iš viso investicijų",
   "portfolioNoOpenPositions": "Atvirų pozicijų nėra",
-  "portfolioOpenCount": "{count, plural, =1{1 atvira} few{{count} atviros} other{{count} atvirų}}",
   "portfolioRowShares": "{shares} vnt. · vid. {price}",
   "portfolioRowEntry": "įėjimas {price}"
 }

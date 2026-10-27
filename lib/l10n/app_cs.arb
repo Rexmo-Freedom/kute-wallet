@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, =1{1 pozice} few{{count} pozice} other{{count} pozic}}",
   "portfolioBuyingPower": "Kupní síla",
   "portfolioBuyingPowerHint": "Připraveno na jakýkoli obchod nebo predikci",
+  "portfolioTotalInvestments": "Investice celkem",
   "portfolioNoOpenPositions": "Žádné otevřené pozice",
-  "portfolioOpenCount": "{count, plural, =1{1 otevřená} few{{count} otevřené} other{{count} otevřených}}",
   "portfolioRowShares": "{shares} podílů · prům. {price}",
   "portfolioRowEntry": "vstup {price}"
 }

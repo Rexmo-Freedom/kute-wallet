@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, =1{1 pozycja} few{{count} pozycje} many{{count} pozycji} other{{count} pozycji}}",
   "portfolioBuyingPower": "Siła nabywcza",
   "portfolioBuyingPowerHint": "Gotowe na każdą transakcję lub prognozę",
+  "portfolioTotalInvestments": "Inwestycje łącznie",
   "portfolioNoOpenPositions": "Brak otwartych pozycji",
-  "portfolioOpenCount": "{count, plural, =1{1 otwarta} few{{count} otwarte} many{{count} otwartych} other{{count} otwartej}}",
   "portfolioRowShares": "Udziały: {shares} · śr. {price}",
   "portfolioRowEntry": "wejście {price}"
 }

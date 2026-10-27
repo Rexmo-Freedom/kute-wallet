@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
   "portfolioBuyingPower": "Ostujõud",
   "portfolioBuyingPowerHint": "Valmis igaks tehinguks või ennustuseks",
+  "portfolioTotalInvestments": "Investeeringud kokku",
   "portfolioNoOpenPositions": "Avatud positsioone pole",
-  "portfolioOpenCount": "{count, plural, =1{1 avatud} other{{count} avatud}}",
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
   "portfolioRowEntry": "sisenemine {price}"
 }

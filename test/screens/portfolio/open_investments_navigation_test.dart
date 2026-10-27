@@ -437,8 +437,7 @@ void main() {
       final snow = find.byWidgetPredicate(
           (w) =>
               (w is Text && w.data == 'Will it snow in May?') ||
-              (w is Semantics &&
-                  w.properties.label == 'Will it snow in May?'),
+              (w is Semantics && w.properties.label == 'Will it snow in May?'),
           description: 'the title "Will it snow in May?"');
       final eth = find.byKey(const ValueKey('hl-ETH'));
       expect(btc, findsOneWidget);
@@ -543,8 +542,8 @@ void main() {
     });
 
     testWidgets(
-        'a placed order\'s "View positions" opens the Positions pill, pushing '
-        'nothing', (tester) async {
+        'a placed order\'s "View positions" opens the Portfolio on Balances, '
+        'where the positions are, pushing nothing', (tester) async {
       await _pump(tester,
           overrides: [
             activeShellTabProvider.overrideWith((_) => ActiveNavTab.usd),
@@ -560,8 +559,8 @@ void main() {
       await tester.tap(find.text('View positions'));
       await tester.pumpAndSettle();
       expect(container.read(investmentsTabProvider), InvestmentsTab.positions);
-      expect(container.read(portfolioSectionProvider),
-          PortfolioSection.positions);
+      expect(
+          container.read(portfolioSectionProvider), PortfolioSection.balances);
       expect(find.byType(OpenInvestmentsScreen), findsNothing);
       expect(tester.takeException(), isNull);
     });

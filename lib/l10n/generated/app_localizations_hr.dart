@@ -11247,19 +11247,10 @@ class AppLocalizationsHr extends AppLocalizations {
       'Spremno za bilo koju trgovinu ili predviđanje';
 
   @override
-  String get portfolioNoOpenPositions => 'Nema otvorenih pozicija';
+  String get portfolioTotalInvestments => 'Ukupno ulaganja';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count otvorenih',
-      few: '$count otvorene',
-      one: '1 otvorena',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Nema otvorenih pozicija';
 
   @override
   String portfolioRowShares(String shares, String price) {

@@ -11218,18 +11218,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Redo för alla affärer och förutsägelser';
 
   @override
-  String get portfolioNoOpenPositions => 'Inga öppna positioner';
+  String get portfolioTotalInvestments => 'Totala investeringar';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count öppna',
-      one: '1 öppen',
-    );
-    return '$_temp0';
-  }
+  String get portfolioNoOpenPositions => 'Inga öppna positioner';
 
   @override
   String portfolioRowShares(String shares, String price) {

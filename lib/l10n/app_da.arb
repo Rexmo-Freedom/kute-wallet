@@ -3116,8 +3116,8 @@
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
   "portfolioBuyingPower": "Købekraft",
   "portfolioBuyingPowerHint": "Klar til enhver handel eller forudsigelse",
+  "portfolioTotalInvestments": "Investeringer i alt",
   "portfolioNoOpenPositions": "Ingen åbne positioner",
-  "portfolioOpenCount": "{count, plural, =1{1 åben} other{{count} åbne}}",
   "portfolioRowShares": "{shares} andele · gns. {price}",
   "portfolioRowEntry": "indgang {price}"
 }
