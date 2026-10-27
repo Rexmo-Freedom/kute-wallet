@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Kúpna sila",
   "portfolioBuyingPowerHint": "Pripravené na akýkoľvek obchod alebo predikciu",
   "portfolioNoOpenPositions": "Žiadne otvorené pozície",
-  "portfolioOpenCount": "{count, plural, =1{1 otvorená} few{{count} otvorené} other{{count} otvorených}}",
   "portfolioRowShares": "{shares} ks · priem. {price}",
   "portfolioRowEntry": "vstup {price}"
 }

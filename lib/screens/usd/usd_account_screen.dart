@@ -9,8 +9,8 @@
 //
 //   * the shared hero, [InvestmentBalanceHeader] in its one-balance mode:
 //     the total (dollars plus the venues' open positions) standing alone,
-//     no title over it, over "Invested $Y", and, while anything is on a
-//     rail, the in-flight lines in that line's place ("$5.00 moving to
+//     no title over it (Invested is in Balances, never twice), and,
+//     while anything is on a rail, the in-flight lines under it ("$5.00 moving to
 //     Predictions", "$12.40 coming back from Investing", "Incoming
 //     $20.00", "$0.60 unavailable until balancing completes"), so money
 //     in flight is never hidden. THE BALANCE IS NOT A DOOR (owner
@@ -82,10 +82,11 @@
 // placed bet or Sal can open a pill from anywhere: `/hyperliquid` and
 // `/polymarket` redirect here with `?tab=investing|predictions`
 // ([investmentsTabLocation]); a placed order's "View positions" opens
-// the Portfolio on Positions ([openInvestmentsPositions]). The
+// the Portfolio on Balances, where the positions are listed under their
+// venue ([openInvestmentsPositions]). The
 // Portfolio's section is shared the same way ([portfolioSectionProvider]).
 // The old links keep working: `?tab=positions|portfolio|open` opens the
-// Portfolio on Positions, `?tab=orders|statistics|charts` on P&L charts
+// Portfolio on Balances, `?tab=orders|statistics|charts` on P&L charts
 // (where the orders are), `?tab=activity` on Activity, `?tab=balances` on
 // Balances ([PortfolioSection.forLink]).
 //
@@ -202,9 +203,10 @@ void openInvestmentsPortfolio(BuildContext context, PortfolioSection section) {
 }
 
 /// Opens what is held (a placed order's "View positions", a trade
-/// notification): the Portfolio on Positions.
+/// notification): the Portfolio on Balances, where the positions are
+/// listed under their venue (the Positions section is gone).
 void openInvestmentsPositions(BuildContext context) =>
-    openInvestmentsPortfolio(context, PortfolioSection.positions);
+    openInvestmentsPortfolio(context, PortfolioSection.balances);
 
 /// A resting order's confirmation "View orders" (founder request, October
 /// 2026: Investing's "Order placed", a Predictions limit sell, a partly

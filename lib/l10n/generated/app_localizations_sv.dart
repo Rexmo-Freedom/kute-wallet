@@ -11200,17 +11200,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Inga öppna positioner';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count öppna',
-      one: '1 öppen',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares andelar · snitt $price';
   }

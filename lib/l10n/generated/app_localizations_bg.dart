@@ -11219,17 +11219,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Няма отворени позиции';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count отворени',
-      one: '1 отворена',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares дяла · ср. $price';
   }

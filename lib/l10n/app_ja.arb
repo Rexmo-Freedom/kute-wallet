@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "購買力",
   "portfolioBuyingPowerHint": "どの取引や予想にもすぐ使えます",
   "portfolioNoOpenPositions": "保有中のポジションはありません",
-  "portfolioOpenCount": "{count, plural, other{{count}件 保有中}}",
   "portfolioRowShares": "{shares}シェア · 平均{price}",
   "portfolioRowEntry": "エントリー {price}"
 }

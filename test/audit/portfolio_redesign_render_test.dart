@@ -1,7 +1,7 @@
 // Render harness for the Investments → Portfolio redesign (October 2026):
-// the Balances section (the ring and its legend, Buying power and where it
-// sits, Predictions, Investing; also on the founder's own figures) and the
-// Positions list rows, at
+// the Balances section (Buying power big with the small ring, Move money,
+// Invested with Predictions and Investing and their position rows; also
+// with nothing open at Investing, and its split opened), at
 // 390 x 844 in the app's real themes and Inter, light and dark. Writes
 // PNGs.
 //
@@ -57,7 +57,6 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
-import 'package:kute/screens/shared/charts/kute_category_donut_card.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -81,18 +80,32 @@ class _Sweeper extends VenueSweeperNotifier {
   Future<void> trigger(String reason, {OneBalanceVenue? venue}) async {}
 }
 
+/// Buying power \$17.64 (no dollars, \$17.21 at Hyperliquid, \$0.43 at
+/// Polymarket); four predictions worth \$19.03 (one settled); two Investing
+/// positions worth \$1,704.85.
 const _state = OneBalanceState(
-  dollarsUsd: 42.5,
-  investedUsd: 1762.62,
+  investedUsd: 1723.88,
   investedByVenue: {
-    OneBalanceVenue.investing: 1740.46,
-    OneBalanceVenue.predictions: 22.16,
+    OneBalanceVenue.investing: 1704.85,
+    OneBalanceVenue.predictions: 19.03,
   },
   investingKnown: true,
   predictionsKnown: true,
   venueCash: {
-    OneBalanceVenue.investing: 6.54,
-    OneBalanceVenue.predictions: 2.77,
+    OneBalanceVenue.investing: 17.21,
+    OneBalanceVenue.predictions: 0.43,
+  },
+);
+
+/// The same, nothing open at Investing.
+const _emptyInvestingState = OneBalanceState(
+  investedUsd: 19.03,
+  investedByVenue: {OneBalanceVenue.predictions: 19.03},
+  investingKnown: true,
+  predictionsKnown: true,
+  venueCash: {
+    OneBalanceVenue.investing: 17.21,
+    OneBalanceVenue.predictions: 0.43,
   },
 );
 
@@ -308,44 +321,11 @@ List<Override> get _held => [
       livePriceProvider.overrideWith(_Prices.new),
     ];
 
-/// The founder's wallet (build 84, October 2026): no dollars, \$17.21 of
-/// Hyperliquid cash and nothing open there, \$0.43 of Polymarket cash and
-/// two predictions worth \$17.39.
-const _founderState = OneBalanceState(
-  investedUsd: 17.39,
-  investedByVenue: {OneBalanceVenue.predictions: 17.39},
-  investingKnown: true,
-  predictionsKnown: true,
-  venueCash: {
-    OneBalanceVenue.investing: 17.21,
-    OneBalanceVenue.predictions: 0.43,
-  },
-);
-
-List<Override> get _founderHeld => [
+/// Nothing open at Investing; the four predictions as above.
+List<Override> get _emptyInvestingHeld => [
+      ..._held,
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           const HyperliquidTradingState(isInitialized: true))),
-      hyperliquidDisplayTradingProvider
-          .overrideWith((ref) => ref.watch(hyperliquidTradingProvider)),
-      hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-      hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
-      polymarketActivePositionsProvider.overrideWith((_) => const [
-            PolymarketPosition(
-                marketId: 'flavio',
-                marketQuestion: 'Will Flávio Bolsonaro win the 2026 Brazilian '
-                    'presidential election?',
-                outcome: 'No',
-                size: 7.6,
-                avgPrice: 0.93,
-                currentPrice: 0.95,
-                pnl: 0,
-                pnlPercent: 0,
-                isResolved: false,
-                tokenId: 'flavio-no'),
-            _lula,
-          ]),
-      polymarketClaimablePositionsProvider.overrideWith((_) => const []),
-      livePriceProvider.overrideWith(_Prices.new),
     ];
 
 Future<ui.Image> _shoot(WidgetTester tester, bool dark,
@@ -412,33 +392,28 @@ Future<void> _png(WidgetTester tester, ui.Image image, String name) =>
       File('$_out/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
     });
 
-/// Home → Breakdown's donut with the founder's five categories.
-Widget _breakdown(BuildContext context) => SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-      child: KuteCategoryDonutCard(
-        values: const {
-          'spark': 58,
-          'investments': 23,
-          'onchain': 10,
-          'predictions': 8,
-          'lightning': 1,
-        },
-        labelOf: (key) => const {
-          'spark': 'Spark',
-          'investments': 'Investments',
-          'onchain': 'On-chain',
-          'predictions': 'Predictions',
-          'lightning': 'Lightning',
-        }[key]!,
-        formatValue: (_, v) => '\$${v.toStringAsFixed(2)}',
-        analyticsParams: const {'venue': 'bitcoin'},
-      ),
-    );
-
 Widget _section(PortfolioSection section) => ProviderScope(
       overrides: [portfolioSectionProvider.overrideWith((_) => section)],
       child: InvestmentsPortfolio(onSection: (_) {}),
     );
+
+/// Balances scrolled to its end ([scroll]) or with the split opened
+/// ([split]).
+Future<void> _prepare(WidgetTester tester,
+    {bool scroll = false, bool split = false}) async {
+  if (split) {
+    await tester
+        .tap(find.byKey(const ValueKey('portfolio-balance-split-toggle')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+  if (scroll) {
+    await tester.drag(
+        find.byType(CustomScrollView).first, const Offset(0, -2000));
+    await tester.pump(const Duration(seconds: 1));
+  }
+}
 
 void main() {
   if (_out.isEmpty) {
@@ -474,21 +449,25 @@ void main() {
     }
   });
 
-  for (final (name, section, founder) in [
-    ('balances', PortfolioSection.balances, false),
-    ('balances_founder', PortfolioSection.balances, true),
-    ('positions', PortfolioSection.positions, false),
-    ('breakdown_donut', null, false),
+  for (final (name, empty, split, scroll) in [
+    ('balances', false, false, false),
+    ('balances_split', false, true, false),
+    ('balances_empty_investing', true, false, false),
   ]) {
     testWidgets('$name, light and dark', (tester) async {
       tester.view.devicePixelRatio = _dpr;
       tester.view.physicalSize = _size * _dpr;
       addTearDown(tester.view.reset);
       for (final dark in [false, true]) {
-        final img = await _shoot(tester, dark,
-            state: founder ? _founderState : _state,
-            held: founder ? _founderHeld : null,
-            body: section == null ? _breakdown : (_) => _section(section));
+        await _shoot(tester, dark,
+            state: empty ? _emptyInvestingState : _state,
+            held: empty ? _emptyInvestingHeld : null,
+            body: (_) => _section(PortfolioSection.balances));
+        await _prepare(tester, scroll: scroll, split: split);
+        final boundary =
+            tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
+        final img =
+            (await tester.runAsync(() => boundary.toImage(pixelRatio: _dpr)))!;
         await _png(tester, img, '${name}_${dark ? 'dark' : 'light'}');
       }
       expect(tester.takeException(), isNull);

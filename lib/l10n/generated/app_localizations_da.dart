@@ -11201,17 +11201,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Ingen åbne positioner';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count åbne',
-      one: '1 åben',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares andele · gns. $price';
   }

@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Покупателна сила",
   "portfolioBuyingPowerHint": "Готови за всяка сделка или прогноза",
   "portfolioNoOpenPositions": "Няма отворени позиции",
-  "portfolioOpenCount": "{count, plural, =1{1 отворена} other{{count} отворени}}",
   "portfolioRowShares": "{shares} дяла · ср. {price}",
   "portfolioRowEntry": "вход {price}"
 }

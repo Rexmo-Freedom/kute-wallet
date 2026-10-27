@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Koopkracht",
   "portfolioBuyingPowerHint": "Klaar voor elke trade of voorspelling",
   "portfolioNoOpenPositions": "Geen open posities",
-  "portfolioOpenCount": "{count, plural, =1{1 open} other{{count} open}}",
   "portfolioRowShares": "{shares} aandelen · gem. {price}",
   "portfolioRowEntry": "instap {price}"
 }

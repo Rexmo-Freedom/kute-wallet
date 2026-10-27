@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Pirktspēja",
   "portfolioBuyingPowerHint": "Gatavs jebkuram darījumam vai prognozei",
   "portfolioNoOpenPositions": "Nav atvērtu pozīciju",
-  "portfolioOpenCount": "{count, plural, =1{1 atvērta} other{{count} atvērtas}}",
   "portfolioRowShares": "{shares} daļas · vid. {price}",
   "portfolioRowEntry": "ieeja {price}"
 }

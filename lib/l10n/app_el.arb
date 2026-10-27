@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Αγοραστική δύναμη",
   "portfolioBuyingPowerHint": "Έτοιμα για κάθε συναλλαγή ή πρόβλεψη",
   "portfolioNoOpenPositions": "Καμία ανοιχτή θέση",
-  "portfolioOpenCount": "{count, plural, =1{1 ανοιχτή} other{{count} ανοιχτές}}",
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
   "portfolioRowEntry": "είσοδος {price}"
 }

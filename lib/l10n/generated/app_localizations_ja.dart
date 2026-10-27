@@ -10775,16 +10775,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioNoOpenPositions => '保有中のポジションはありません';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count件 保有中',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$sharesシェア · 平均$price';
   }

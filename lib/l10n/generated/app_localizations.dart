@@ -18777,12 +18777,6 @@ abstract class AppLocalizations {
   /// **'No open positions'**
   String get portfolioNoOpenPositions;
 
-  /// Investments, Portfolio, Balances: small secondary line under "Predictions" or "Investing": how many positions are open there. {count} is the number.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 open} other{{count} open}}'**
-  String portfolioOpenCount(int count);
-
   /// Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).
   ///
   /// In en, this message translates to:

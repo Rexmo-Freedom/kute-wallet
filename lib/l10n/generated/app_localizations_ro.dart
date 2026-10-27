@@ -11260,18 +11260,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count deschise',
-      few: '$count deschise',
-      one: '1 deschisă',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares unități · medie $price';
   }

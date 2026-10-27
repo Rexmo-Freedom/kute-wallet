@@ -11214,17 +11214,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Ei avoimia positioita';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count avointa',
-      one: '1 avoin',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares osuutta · keskim. $price';
   }

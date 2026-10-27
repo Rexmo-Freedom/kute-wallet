@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Vásárlóerő",
   "portfolioBuyingPowerHint": "Bármilyen kereskedésre vagy előrejelzésre kész",
   "portfolioNoOpenPositions": "Nincs nyitott pozíció",
-  "portfolioOpenCount": "{count, plural, =1{1 nyitott} other{{count} nyitott}}",
   "portfolioRowShares": "{shares} egység · átl. {price}",
   "portfolioRowEntry": "belépés {price}"
 }

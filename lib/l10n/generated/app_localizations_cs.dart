@@ -11192,18 +11192,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Žádné otevřené pozice';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count otevřených',
-      few: '$count otevřené',
-      one: '1 otevřená',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares podílů · prům. $price';
   }

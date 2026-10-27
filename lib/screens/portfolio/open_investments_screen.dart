@@ -12,10 +12,11 @@
 //     is a position row or the order row it always was, with its drill-down and its
 //     actions. Nothing held and nothing resting: the Sal empty state ("No
 //     positions yet"). The Investments tab's Portfolio pill lists the
-//     positions in its Positions section ([portfolioPositionsSlivers]) and
-//     the orders under its P&L charts ([portfolioOrdersSlivers],
-//     investments_portfolio.dart); [PortfolioPositions] is the same rows
-//     as a page of their own.
+//     positions under their venue in its Balances section
+//     ([portfolioVenueLists], since 27 October 2026: no Positions section
+//     any more) and the orders under its P&L charts
+//     ([portfolioOrdersSlivers], investments_portfolio.dart);
+//     [PortfolioPositions] is the same rows as a page of their own.
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
 //     Home's Predictions card and a venue browser's dock standing on its
 //     own (the Investments balance no longer opens it: its Charts,
@@ -75,6 +76,11 @@ import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart';
 import 'package:kute/screens/hyperliquid/components/hl_portfolio_card.dart';
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
+import 'package:kute/providers/polymarket_live_prices_provider.dart'
+    show livePriceProvider;
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show BalancesCategory, BalancesPnlText, BalancesVenueList;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPortfolioEventsPrefetchProvider;
@@ -390,6 +396,126 @@ List<Widget> portfolioOrdersSlivers(
       ),
     ),
   ];
+}
+
+/// What the Investments tab's Balances section lists under each venue
+/// (founder decision 27 October 2026: the Positions pill is gone, its rows
+/// live under their venue): under Predictions the bets on their way, the
+/// open positions and combos largest first, then the settled ones in their
+/// own row style; under Investing the perps and spot holdings largest
+/// first. Each with the venue's P&L beside its value and shimmer rows
+/// while it is still read with nothing listed. The rows, taps and sheets
+/// are the Positions list's own.
+Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
+    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
+  List<Widget> ranked(List<(double, Widget)> cards) {
+    final indexed = [for (var i = 0; i < cards.length; i++) (i, cards[i])]
+      ..sort((a, b) {
+        final byValue = b.$2.$1.compareTo(a.$2.$1);
+        return byValue != 0 ? byValue : a.$1.compareTo(b.$1);
+      });
+    return [for (final (_, (_, card)) in indexed) card];
+  }
+
+  return {
+    if (venues.predictions)
+      BalancesCategory.predictions: () {
+        final book = _PolyBook.watch(ref);
+        final loading =
+            book.isEmpty && ref.watch(polymarketTradingProvider).isLoading;
+        return BalancesVenueList(
+          rows: [
+            for (final p in book.placing)
+              PlacingBetRow(key: ValueKey('placing-${p.placementId}'), bet: p),
+            ...ranked(book.openCards()),
+            for (final p in book.claimable)
+              PolyPositionRow(
+                  key: ValueKey('poly-r-${p.tokenId}'), position: p),
+            for (final p in book.claimableCombos)
+              ComboPositionRow(
+                  key: ValueKey('combo-r-${p.conditionId}'), position: p),
+          ],
+          pnl: book.open.isEmpty
+              ? null
+              : _PredictionsPnl(
+                  key: const ValueKey('portfolio-predictions-pnl'),
+                  positions: book.open),
+          loading: loading,
+        );
+      }(),
+    if (venues.trading)
+      BalancesCategory.investing: () {
+        final hlAsync = ref.watch(hyperliquidDisplayTradingProvider);
+        final cards = _tradingCards(ref, hlAsync.valueOrNull);
+        final state = hlAsync.valueOrNull;
+        return BalancesVenueList(
+          rows: ranked(cards),
+          pnl: cards.isEmpty || state == null
+              ? null
+              : _InvestingPnl(
+                  key: const ValueKey('portfolio-investing-pnl'), state: state),
+          loading: cards.isEmpty && hlAsync.isLoading,
+        );
+      }(),
+  };
+}
+
+/// The open predictions' P&L at the live price, as their rows read it.
+class _PredictionsPnl extends ConsumerWidget {
+  const _PredictionsPnl({super.key, required this.positions});
+
+  final List<PolymarketPosition> positions;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
+      return const SizedBox.shrink();
+    }
+    final pnl = ref.watch(livePriceProvider.select((s) {
+      var sum = 0.0;
+      for (final p in positions) {
+        final live = s.live ? s.prices[p.tokenId] : null;
+        final price = p.isResolved ? p.currentPrice : live ?? p.currentPrice;
+        sum += (price - p.avgPrice) * p.size;
+      }
+      return sum;
+    }));
+    return BalancesPnlText(usd: pnl, money: (v) => formatPolyAmount(ref, v));
+  }
+}
+
+/// The open Investing positions' P&L at the live mid (the perps), and the
+/// holdings' against what the venue records as paid, as their rows read
+/// it.
+class _InvestingPnl extends ConsumerWidget {
+  const _InvestingPnl({super.key, required this.state});
+
+  final HyperliquidTradingState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(settingsProvider.select((s) => s.balanceVisible))) {
+      return const SizedBox.shrink();
+    }
+    var pnl = 0.0;
+    for (final p in state.positions) {
+      pnl +=
+          hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
+    }
+    final spot = state.spotBalances
+        .where((b) => b.coin != 'USDC' && b.total > 0 && b.costBasis != null)
+        .toList();
+    if (spot.isNotEmpty) {
+      final markets = ref.watch(hyperliquidSpotMarketsProvider).valueOrNull ??
+          const <HlMarket>[];
+      for (final b in spot) {
+        final mid =
+            markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
+        if (mid > 0) pnl += b.total * mid - b.costBasis!;
+      }
+    }
+    return BalancesPnlText(usd: pnl, money: (v) => formatPolyAmount(ref, v));
+  }
 }
 
 // ───────────────────────────── predictions ─────────────────────────────

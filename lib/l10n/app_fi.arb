@@ -3111,7 +3111,6 @@
   "portfolioBuyingPower": "Ostovoima",
   "portfolioBuyingPowerHint": "Valmiina mihin tahansa kauppaan tai ennusteeseen",
   "portfolioNoOpenPositions": "Ei avoimia positioita",
-  "portfolioOpenCount": "{count, plural, =1{1 avoin} other{{count} avointa}}",
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
   "portfolioRowEntry": "avaus {price}"
 }

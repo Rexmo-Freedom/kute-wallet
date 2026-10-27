@@ -11169,17 +11169,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioNoOpenPositions => 'Nav atvērtu pozīciju';
 
   @override
-  String portfolioOpenCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count atvērtas',
-      one: '1 atvērta',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String portfolioRowShares(String shares, String price) {
     return '$shares daļas · vid. $price';
   }
