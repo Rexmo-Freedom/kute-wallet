@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Hvis {side} vinder",
   "polyPosSetSellAt": "Sæt et salg ved {percent} %",
   "polyPosSinceBoughtAt": "siden du købte til {price}",
+  "polyPosDragHint": "Træk i nålen for at se, hvad det ville være værd",
   "polyPosYourAvg": "Dit gns. {price}",
   "chartNoData": "Ingen grafdata",
   "ledgerBetPrepared": "Forbrug slået til. Gennemse din forudsigelse for at fortsætte.",

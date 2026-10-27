@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Ak {side} vyhrá",
   "polyPosSetSellAt": "Nastaviť predaj na {percent} %",
   "polyPosSinceBoughtAt": "od nákupu za {price}",
+  "polyPosDragHint": "Potiahni ručičku a uvidíš, akú by to malo hodnotu",
   "polyPosYourAvg": "Tvoj priemer {price}",
   "chartNoData": "Žiadne údaje pre graf",
   "ledgerBetPrepared": "Míňanie povolené. Pokračuj kontrolou predpovede.",

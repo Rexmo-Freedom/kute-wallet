@@ -199,6 +199,7 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     PolyPositionSpeedometer.debugSelectionTick = () {};
     KuteHaptics.debugForeground = () => true;
+    PolyDialDragMemory.debugReset();
   });
 
   tearDown(() {
@@ -239,7 +240,8 @@ void main() {
             matching: find.text('If No wins')),
         findsOneWidget);
     expect(_rolling(r'$13.20'), findsOneWidget);
-    // No history: no journey line.
+    // No journey read (the provider answers null only without a token):
+    // no journey line.
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -365,6 +367,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('never dragged: "Drag the needle to see what it\'d be worth" '
+      'under the result and the needle hinted; the first drag fades it for '
+      'good, the event the same', (tester) async {
+    await _pump(tester, _no);
+    final hint = find.byKey(PositionDetailSheet.dialHintKey);
+    expect(hint, findsOneWidget);
+    expect(find.text("Drag the needle to see what it'd be worth"),
+        findsOneWidget);
+    expect(
+        tester
+            .widget<PolyPositionSpeedometer>(
+                find.byType(PolyPositionSpeedometer))
+            .hintDrag,
+        isTrue);
+    // Under the "since you bought" line, over the tiles.
+    expect(tester.getRect(hint).top,
+        greaterThan(tester.getRect(find.text('since you bought at 19¢')).bottom));
+    expect(tester.getRect(hint).bottom,
+        lessThan(tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .top));
+    final tilesTop = tester
+        .getRect(find.byKey(const ValueKey('poly-position-value')))
+        .top;
+    double opacity() => tester
+        .widget<AnimatedOpacity>(find.ancestor(
+            of: hint, matching: find.byType(AnimatedOpacity)))
+        .opacity;
+    expect(opacity(), 1);
+
+    final d = _dial(tester);
+    final g = await tester.startGesture(d.hub + const Offset(0, -10));
+    await tester.pump();
+    await g.moveTo(d.at(0.8));
+    await tester.pump(const Duration(milliseconds: 16));
+    // Fading out; nothing under it moves.
+    expect(opacity(), 0);
+    expect(PolyDialDragMemory.dragged, isTrue);
+    expect(
+        tester
+            .widget<PolyPositionSpeedometer>(
+                find.byType(PolyPositionSpeedometer))
+            .hintDrag,
+        isFalse);
+    await g.up();
+    await tester.pump(const Duration(seconds: 4));
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('poly-position-value')))
+            .top,
+        tilesTop);
+    // The drag's own event, as before; nothing for the hint.
+    expect(events.map((e) => e.$1), ['prediction_position_whatif_used']);
+
+    // Opened again: no hint, no room for it.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pump(tester, _no);
+    expect(find.byKey(PositionDetailSheet.dialHintKey), findsNothing);
+    expect(
+        tester
+            .widget<PolyPositionSpeedometer>(
+                find.byType(PolyPositionSpeedometer))
+            .hintDrag,
+        isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('"Set a sell at 85%" opens the limit sell at 85¢ and logs the '
       'what-if with the sell tapped', (tester) async {
     tester.view.physicalSize = const Size(390, 1200);
@@ -436,6 +505,7 @@ void main() {
               timestamp: since.add(Duration(days: i)),
               price: 0.19 + 0.05 * i),
       ],
+      fromBuy: true,
     ));
     expect(find.byType(PolyPositionJourneyLine), findsOneWidget);
     expect(find.text('Your avg 19¢'), findsOneWidget);
@@ -457,6 +527,22 @@ void main() {
         greaterThan(tester
             .getRect(find.byKey(const ValueKey('poly-position-value')))
             .bottom));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('just bought, no history since: the chart still shows, from '
+      'the price paid to the live chance', (tester) async {
+    await _pump(tester, _no, journey: (
+      since: DateTime.now().subtract(const Duration(minutes: 1)),
+      points: const [],
+      fromBuy: true,
+    ));
+    expect(find.byType(PolyPositionJourneyLine), findsOneWidget);
+    expect(find.text('Your avg 19¢'), findsOneWidget);
+    final painter = tester
+        .widget<CustomPaint>(find.byKey(PolyPositionJourneyLine.paintKey))
+        .painter! as PolyJourneyPainter;
+    expect(painter.points.map((p) => p.p), [0.19, 0.66]);
     expect(tester.takeException(), isNull);
   });
 

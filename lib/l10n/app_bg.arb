@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Ако {side} спечели",
   "polyPosSetSellAt": "Задай продажба при {percent}%",
   "polyPosSinceBoughtAt": "откакто купи при {price}",
+  "polyPosDragHint": "Плъзни стрелката, за да видиш колко би струвало",
   "polyPosYourAvg": "Твоята ср. {price}",
   "chartNoData": "Няма данни за графиката",
   "ledgerBetPrepared": "Харченето е разрешено. Прегледай прогнозата си, за да продължиш.",

@@ -70,15 +70,19 @@ const Color _kPolyRed = AppColors.marketDown;
 // down colour, any other outcome in the primary text colour); while the
 // bet is open, the speedometer as the screen's hero (the held side's
 // chance on a calm 180° dial, the price paid a dot on its track, an
-// elastic needle, drag to explore: position_speedometer.dart), the result
-// since the buy under it ("▲ $9.40 · +247%", "since you bought at 19¢"),
+// elastic needle with a grab knob at its tip, drag to explore:
+// position_speedometer.dart), the result since the buy under it ("▲ $9.40 ·
+// +247%", "since you bought at 19¢") and, until the dial's first drag on
+// this device, a quiet "Drag the needle to see what it'd be worth" (the
+// needle leans once to show it moves),
 // and once settled the chance bar (position_chance_bar.dart). Then two
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. While open, the chart under the tiles (the held side's
-// chance since the buy in the result's colour, a dashed line at the
-// average price: position_journey.dart); the end as a pill; and plain
+// is worth now. While open, the chart under the tiles, always (the held
+// side's chance since the buy in the result's colour, a dashed line at the
+// average price; from the price paid to now while the history has nothing
+// since the buy: position_journey.dart); the end as a pill; and plain
 // rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
@@ -105,6 +109,10 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
 
   /// The "View market" row's key.
   static const seeMarketRowKey = ValueKey('poly-position-see-market');
+
+  /// "Drag the needle to see what it'd be worth", under the result until
+  /// the dial's first drag.
+  static const dialHintKey = ValueKey('poly-position-dial-hint');
 
   static void show(
     BuildContext context, {
@@ -195,6 +203,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   /// out, the sell was tapped, another drag began, the screen closed).
   Map<String, Object>? _pendingWhatIf;
 
+  /// The dial has never been dragged on this device: the drag hint (the
+  /// needle's lean, the line under the result) shows. [_dialHintRoom]: it
+  /// showed when the screen opened, so its line keeps its room until the
+  /// screen closes (it fades on the first drag; nothing moves under it).
+  late bool _dialHint = !PolyDialDragMemory.dragged;
+  late final bool _dialHintRoom = _dialHint;
+
   @override
   void dispose() {
     _logWhatIf(sellTapped: false);
@@ -207,6 +222,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
   static double _pct(double v) => (v * 1000).round() / 10;
 
   void _onExploreStart() {
+    if (_dialHint) {
+      PolyDialDragMemory.noteDragged();
+      setState(() => _dialHint = false);
+    }
     _logWhatIf(sellTapped: false);
     _sellAtTimer?.cancel();
     _sellAt.value = null;
@@ -541,6 +560,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       chance: currentPrice,
                                       entry: bought,
                                       side: pos.outcome,
+                                      hintDrag: _dialHint,
                                       onExploreStart: _onExploreStart,
                                       onExplore: (h) => _whatIf.value = h,
                                       onExploreEnd: (h) => _onExploreEnd(h,
@@ -566,6 +586,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                       ),
                                       onSell: (at) => _sellAtWhatIf(pos, at),
                                     ),
+                                    if (_dialHintRoom)
+                                      _DialHintLine(visible: _dialHint),
                                   ],
                                 );
                               }
@@ -712,8 +734,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       ),
 
                       // The journey since the buy: the held side's chance
-                      // from the first buy to now. Open only; nothing
-                      // without history.
+                      // from the first buy to now. Open only, and always
+                      // there once read (position_journey.dart: from the
+                      // price paid to now while the history is thin).
                       if (showGauge)
                         Consumer(builder: (context, journeyRef, _) {
                           final journey = journeyRef
@@ -1137,6 +1160,46 @@ class _ResultOrSellSlot extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// "Drag the needle to see what it'd be worth": under the result, in the
+/// quiet type of its "since you bought" line, a size smaller; until the
+/// dial's first drag, then faded out for good.
+class _DialHintLine extends StatelessWidget {
+  const _DialHintLine({required this.visible});
+
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Padding(
+      padding: EdgeInsets.only(top: 2.h),
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            context.l10n.polyPosDragHint,
+            key: PositionDetailSheet.dialHintKey,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: c.textTertiary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+              height: 1.3,
+            ),
+          ),
+        ),
       ),
     );
   }

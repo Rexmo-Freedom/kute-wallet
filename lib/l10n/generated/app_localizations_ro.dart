@@ -6078,6 +6078,9 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Trage acul ca să vezi cât ar valora';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Media ta $price';
   }

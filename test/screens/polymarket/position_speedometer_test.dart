@@ -25,10 +25,15 @@ List<double> _run(PolyNeedleMotion m, double seconds) {
 }
 
 class _Host extends StatefulWidget {
-  const _Host({required this.chance, this.entry = 0.19, this.sweep = true});
+  const _Host(
+      {required this.chance,
+      this.entry = 0.19,
+      this.sweep = true,
+      this.hint = false});
   final double chance;
   final double? entry;
   final bool sweep;
+  final bool hint;
   @override
   State<_Host> createState() => _HostState();
 }
@@ -47,6 +52,7 @@ class _HostState extends State<_Host> {
             entry: widget.entry,
             side: 'No',
             sweepOnOpen: widget.sweep,
+            hintDrag: widget.hint,
             onExploreStart: () => starts++,
             onExplore: explored.add,
             onExploreEnd: ended.add,
@@ -60,6 +66,7 @@ Future<_HostState> _pump(WidgetTester tester,
     double? entry = 0.19,
     bool sweep = true,
     bool reduceMotion = false,
+    bool hint = false,
     bool dark = false}) async {
   tester.view.physicalSize = const Size(390, 900);
   tester.view.devicePixelRatio = 1;
@@ -80,7 +87,8 @@ Future<_HostState> _pump(WidgetTester tester,
         data: MediaQueryData(
             size: const Size(390, 900), disableAnimations: reduceMotion),
         child: Scaffold(
-            body: _Host(chance: chance, entry: entry, sweep: sweep)),
+            body: _Host(
+                chance: chance, entry: entry, sweep: sweep, hint: hint)),
       ),
     ),
   ));
@@ -229,7 +237,7 @@ void main() {
     });
 
     testWidgets('the needle never crosses the digits: at 20, 50, 66 and 85% '
-        'its tip stays below the chance', (tester) async {
+        'its tip, knob and ring, stays below the chance', (tester) async {
       for (final c in [0.20, 0.50, 0.66, 0.85]) {
         await _pump(tester, chance: c, sweep: false);
         final box =
@@ -241,8 +249,34 @@ void main() {
         final tip = box.topLeft + needle.tip;
         final figure =
             tester.getRect(find.byKey(PolyPositionSpeedometer.figureKey));
-        expect(tip.dy, greaterThan(figure.bottom), reason: '$c');
+        expect(tip.dy - kPolySpeedometerKnobRing, greaterThan(figure.bottom),
+            reason: '$c');
       }
+    });
+
+    testWidgets('a grab knob at the needle\'s tip: larger than the hub, in '
+        'the needle\'s colour, inside a faint ring', (tester) async {
+      await _pump(tester, sweep: false, dark: true);
+      final needle = tester
+          .widget<CustomPaint>(
+              find.byKey(PolyPositionSpeedometer.needlePaintKey))
+          .painter! as PolySpeedometerNeedlePainter;
+      expect(needle.color, AppColorsExtension.dark().textPrimary);
+      expect(needle.ringColor, AppColorsExtension.dark().background);
+      expect(kPolySpeedometerKnob, greaterThan(kPolySpeedometerHub));
+      expect(kPolySpeedometerKnobRing, greaterThan(kPolySpeedometerKnob * 1.5));
+      // The knob sits at the tip, on the needle's line.
+      final g = needle.geometry;
+      expect((needle.tip - g.center).distance, closeTo(g.needle, 1e-6));
+      // And grabs it: a touch on the knob takes the needle at once.
+      final box = tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
+      final host = tester.state<_HostState>(find.byType(_Host));
+      final touch = await tester.startGesture(
+          box.topLeft + needle.tip + const Offset(kPolySpeedometerKnob, 0));
+      await tester.pump();
+      expect(host.starts, 1);
+      await touch.up();
+      await tester.pump(const Duration(seconds: 1));
     });
 
     testWidgets('no price paid: no dot', (tester) async {
@@ -350,6 +384,75 @@ void main() {
       await _setChance(tester, 0.58);
       expect(taps, isEmpty);
       await tester.pump(const Duration(seconds: 1));
+    });
+  });
+
+  group('the drag hint', () {
+    testWidgets('never dragged: once the opening sweep has settled, the '
+        'needle leans a few degrees and springs back, silently, once',
+        (tester) async {
+      await _pump(tester, chance: 0.30, hint: true);
+      final s = _state(tester);
+      // The sweep, then the wait.
+      await tester.pump();
+      for (var i = 0; i < 200 && s.debugSweeping; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(s.debugSweeping, isFalse);
+      expect(s.debugNudged, isFalse);
+      var far = 0.0;
+      for (var i = 0; i < 120; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        far = math.max(far, s.debugNeedle - 0.30);
+      }
+      expect(s.debugNudged, isTrue);
+      // Toward the roomier side (up from 30%), a few degrees.
+      expect(far, greaterThan(kPolyNeedleNudge * 0.6));
+      expect(far, lessThan(kPolyNeedleNudge * 1.3));
+      // Back on the live chance, still, and never again.
+      expect(s.debugNudging, isFalse);
+      expect(s.debugNeedle, closeTo(0.30, 0.003));
+      expect(taps, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
+      expect(s.debugNeedle, closeTo(0.30, 1e-6));
+    });
+
+    testWidgets('above 50% it leans down', (tester) async {
+      await _pump(tester, chance: 0.80, sweep: false, hint: true);
+      final s = _state(tester);
+      var low = 1.0;
+      for (var i = 0; i < 120; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        low = math.min(low, s.debugNeedle);
+      }
+      expect(s.debugNudged, isTrue);
+      expect(low, lessThan(0.80 - kPolyNeedleNudge * 0.6));
+      expect(s.debugNeedle, closeTo(0.80, 0.003));
+    });
+
+    testWidgets('already dragged (no hint) or Reduce Motion: no lean',
+        (tester) async {
+      await _pump(tester, chance: 0.30, sweep: false);
+      await tester.pump(const Duration(seconds: 2));
+      expect(_state(tester).debugNudged, isFalse);
+      await _pump(tester, chance: 0.30, hint: true, reduceMotion: true);
+      await tester.pump(const Duration(seconds: 2));
+      expect(_state(tester).debugNudged, isFalse);
+      expect(_state(tester).debugNeedle, closeTo(0.30, 1e-9));
+    });
+
+    testWidgets('a drag before the lean cancels it', (tester) async {
+      final host = await _pump(tester, chance: 0.30, sweep: false, hint: true);
+      final box = tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
+      final g = await tester.startGesture(box.bottomCenter - const Offset(0, 16));
+      await tester.pump();
+      expect(host.starts, 1);
+      await g.up();
+      for (var i = 0; i < 150; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(_state(tester).debugNudging, isFalse);
+      expect(_state(tester).debugNeedle, closeTo(0.30, 0.003));
     });
   });
 

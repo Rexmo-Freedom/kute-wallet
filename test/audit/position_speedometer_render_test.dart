@@ -11,7 +11,10 @@
 //     --dart-define=SPEEDOMETER_RENDER_OUT=/tmp/kute_speedometer
 //
 // The cases: a No bought at 19¢ now at 66%, and a Lula Yes bought at 34¢
-// now at 33.9%.
+// now at 33.9%; and, 390 wide, the founder's Flávio Yes bought at 36¢ now
+// at 47.7% ($10.01 paid, worth $13.14) right after the buy (no history
+// since: the chart from the price paid to now), with the drag hint, and
+// after a first drag (the hint gone).
 
 import 'dart:convert';
 import 'dart:io';
@@ -89,8 +92,13 @@ class _NoCostBasis extends StateNotifier<Map<String, double>>
 }
 
 Future<void> _show(WidgetTester tester, PolymarketPosition position,
-    {required bool dark, PolyPositionJourney? journey, int settle = 10}) async {
-  tester.view.physicalSize = _phone * 2;
+    {required bool dark,
+    PolyPositionJourney? journey,
+    int settle = 30,
+    Size phone = _phone}) async {
+  // Never dragged on this device: the drag hint shows.
+  PolyDialDragMemory.debugReset();
+  tester.view.physicalSize = phone * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -165,7 +173,7 @@ PolyPositionJourney _journey(double from, double to, int days, int seed) {
         timestamp: since.add(Duration(hours: i)),
         price: p.clamp(0.01, 0.99).toDouble()));
   }
-  return (since: since, points: pts);
+  return (since: since, points: pts, fromBuy: true);
 }
 
 void main() {
@@ -279,6 +287,75 @@ void main() {
       await tester.pump(const Duration(seconds: 8));
     });
   }
+
+  // The founder's position, 390 wide: just bought, the hint, the chart
+  // from the price paid; then after a first drag.
+  const founderPhone = Size(390, 844);
+  final flavio = PolymarketPosition(
+    marketId: '0x7c894d1d57329c7b05695a016bf45dbf14f78f4795af9f05c65495eb2bb14ab6',
+    marketQuestion: 'Flávio Bolsonaro charged or arrested by October 31?',
+    outcome: 'Yes',
+    size: 27.5523,
+    avgPrice: 10.01 / 27.5523,
+    currentPrice: 0.477,
+    pnl: 3.13,
+    pnlPercent: 31.3,
+    isResolved: false,
+    tokenId: 'flavio-yes',
+    eventSlug: 'flavio-bolsonaro-charged-or-arrested-by-october-31',
+    endDateStr: DateTime.utc(2026, 11, 1).toIso8601String(),
+  );
+  final justBought = (
+    since: DateTime.now().subtract(const Duration(minutes: 3)),
+    points: const <PolymarketPricePoint>[],
+    fromBuy: true,
+  );
+  for (final dark in [false, true]) {
+    final id = 'flavio_just_bought_hint_${dark ? 'dark' : 'light'}';
+    testWidgets(id, (tester) async {
+      await _show(tester, flavio,
+          dark: dark, journey: justBought, phone: founderPhone);
+      await _shot(tester, id);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 8));
+    });
+    final dragged = 'flavio_after_drag_${dark ? 'dark' : 'light'}';
+    testWidgets(dragged, (tester) async {
+      await _show(tester, flavio,
+          dark: dark, journey: justBought, phone: founderPhone);
+      final dial = find.byKey(PolyPositionSpeedometer.dialKey);
+      final box = tester.getRect(dial);
+      final hub = Offset(box.center.dx, box.bottom - 14);
+      final g = await tester.startGesture(hub);
+      await tester.pump();
+      final r = box.width / 2 - 30;
+      for (var i = 1; i <= 10; i++) {
+        await g.moveTo(hub + Offset(r * 0.6 * i / 10, -r * 0.8 * i / 10));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await g.up();
+      // The sell offer runs out; the needle is home.
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await _shot(tester, dragged);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 8));
+    });
+  }
+  testWidgets('flavio_unknown_buy_light', (tester) async {
+    final now = DateTime.now();
+    final week = _journey(0.03, 0.477, 7, 11);
+    await _show(tester, flavio,
+        dark: false,
+        journey: (since: week.since, points: week.points, fromBuy: false),
+        phone: founderPhone);
+    // Settled, the lean over.
+    await _shot(tester, 'flavio_unknown_buy_light');
+    expect(now, isNotNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 8));
+  });
 
   // The needle at 20%, 50% and 85%: never across the chance's digits.
   for (final live in [0.20, 0.50, 0.85]) {

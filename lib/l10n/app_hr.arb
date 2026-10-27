@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Ako {side} pobijedi",
   "polyPosSetSellAt": "Postavi prodaju na {percent}%",
   "polyPosSinceBoughtAt": "od kupnje po {price}",
+  "polyPosDragHint": "Povuci kazaljku da vidiš koliko bi vrijedilo",
   "polyPosYourAvg": "Tvoj prosjek {price}",
   "chartNoData": "Nema podataka za grafikon",
   "ledgerBetPrepared": "Trošenje omogućeno. Za nastavak pregledaj predviđanje.",

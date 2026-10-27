@@ -6073,6 +6073,9 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Arrasta o ponteiro para veres quanto valeria';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'A sua média $price';
   }

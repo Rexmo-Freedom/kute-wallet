@@ -6046,6 +6046,9 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Vedä neulaa ja näet, mitä se olisi arvoinen';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Keskihintasi $price';
   }

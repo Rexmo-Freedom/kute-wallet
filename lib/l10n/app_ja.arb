@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "{side}が勝てば",
   "polyPosSetSellAt": "{percent}%で売却を設定",
   "polyPosSinceBoughtAt": "{price}で購入してから",
+  "polyPosDragHint": "針をドラッグすると、その時の価値がわかります",
   "polyPosYourAvg": "平均取得 {price}",
   "chartNoData": "チャートデータがありません",
   "ledgerBetPrepared": "支出が有効になりました。続けるには予測を確認してください。",

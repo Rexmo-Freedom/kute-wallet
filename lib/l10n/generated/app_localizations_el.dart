@@ -6096,6 +6096,9 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Σύρε τη βελόνα για να δεις πόσο θα άξιζε';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Μ.Ο. σου $price';
   }

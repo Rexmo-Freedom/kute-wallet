@@ -6031,6 +6031,9 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Lohista nõela, et näha, palju see väärt oleks';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Sinu keskm. $price';
   }

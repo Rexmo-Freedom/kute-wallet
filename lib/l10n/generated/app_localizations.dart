@@ -10594,6 +10594,12 @@ abstract class AppLocalizations {
   /// **'since you bought at {price}'**
   String polyPosSinceBoughtAt(String price);
 
+  /// Predictions open-position screen: quiet hint under the result line, shown until the user first drags the dial's needle (the needle sets a hypothetical chance and the tiles show what the position would be worth then). Short; 'it' is the position.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag the needle to see what it\'d be worth'**
+  String get polyPosDragHint;
+
   /// Predictions open-position screen: small label at the left of the chart's dashed line at the user's average price, e.g. 'Your avg 19¢'. {price} is in cents; abbreviate 'average' as is natural.
   ///
   /// In en, this message translates to:

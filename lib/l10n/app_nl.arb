@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Als {side} wint",
   "polyPosSetSellAt": "Verkoop instellen op {percent}%",
   "polyPosSinceBoughtAt": "sinds je kocht voor {price}",
+  "polyPosDragHint": "Sleep de naald om te zien wat het waard zou zijn",
   "polyPosYourAvg": "Jouw gem. {price}",
   "chartNoData": "Geen grafiekgegevens",
   "ledgerBetPrepared": "Uitgeven ingeschakeld. Controleer je voorspelling om door te gaan.",

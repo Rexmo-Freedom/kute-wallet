@@ -1749,6 +1749,7 @@
   "polyPosIfWins": "Se vince {side}",
   "polyPosSetSellAt": "Imposta una vendita al {percent}%",
   "polyPosSinceBoughtAt": "da quando hai comprato a {price}",
+  "polyPosDragHint": "Trascina la lancetta per vedere quanto varrebbe",
   "polyPosYourAvg": "Tua media {price}",
   "chartNoData": "Nessun dato per il grafico",
   "ledgerBetPrepared": "Spesa abilitata. Controlla la previsione per continuare.",

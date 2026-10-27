@@ -6065,6 +6065,10 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Trascina la lancetta per vedere quanto varrebbe';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tua media $price';
   }

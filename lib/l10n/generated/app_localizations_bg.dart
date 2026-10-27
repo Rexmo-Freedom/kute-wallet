@@ -6057,6 +6057,10 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Плъзни стрелката, за да видиш колко би струвало';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Твоята ср. $price';
   }

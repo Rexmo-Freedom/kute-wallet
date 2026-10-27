@@ -6050,6 +6050,10 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Potiahni ručičku a uvidíš, akú by to malo hodnotu';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tvoj priemer $price';
   }

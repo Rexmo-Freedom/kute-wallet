@@ -6069,6 +6069,10 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Sleep de naald om te zien wat het waard zou zijn';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Jouw gem. $price';
   }

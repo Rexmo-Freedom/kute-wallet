@@ -6052,6 +6052,10 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Træk i nålen for at se, hvad det ville være værd';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Dit gns. $price';
   }

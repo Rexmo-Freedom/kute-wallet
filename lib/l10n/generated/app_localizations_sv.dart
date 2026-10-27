@@ -6044,6 +6044,10 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Dra i nålen för att se vad det skulle vara värt';
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Ditt snitt $price';
   }
