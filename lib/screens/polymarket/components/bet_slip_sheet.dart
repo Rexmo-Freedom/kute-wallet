@@ -1304,6 +1304,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       fundUsd: fundUsd,
       entrySource: widget.source,
       marketKind: _prefundKind?.name,
+      // An unconfirmed move is held as on its way by the pre-funding
+      // (bet_prefund.dart), never funded again at Confirm.
+      keepUnconfirmed: true,
     );
   }
 
@@ -3517,6 +3520,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           fundUsd: plan.fundUsd,
           entrySource: widget.source,
           marketKind: _prefundKind?.name,
+          // A move the rail cannot confirm either way keeps the bet queued
+          // and watched (below), as the Investing ticket does, so a second
+          // Confirm can never fund the same bet twice.
+          keepUnconfirmed: true,
           onStage: (_) {
             if (mounted) _updateState(() {});
           },
@@ -3568,6 +3575,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           status: PendingBetStatus.awaitingBalance,
           fundReadyUsd: arriving > 0 ? balance : null,
           fundArrivingUsd: arriving > 0 ? arriving : null,
+          queuedAt: DateTime.now(),
+        ));
+        runner.followFunded(fundedId);
+      case OrderFundingUnconfirmed():
+        // The rail could not say whether the Dollars left: they may be on
+        // their way. The bet stays queued at the credit and the autofire
+        // keeps reading Predictions: it places the bet if the money lands
+        // and lets it go when the wait runs out. While it waits no new
+        // funded bet starts, so nothing is funded twice; any money that
+        // lands stays in Predictions.
+        PolymarketPlacementTimeline.mark('funding_unconfirmed');
+        _moveId = null;
+        final current = ref.read(pendingPolymarketBetProvider) ?? pending;
+        pendingNotifier.setIntent(current.copyWith(
+          status: PendingBetStatus.awaitingBalance,
+          fundUsd: plan.fundUsd,
+          fundReadyUsd: balance + incoming,
+          fundArrivingUsd: plan.arrivingUsd,
           queuedAt: DateTime.now(),
         ));
         runner.followFunded(fundedId);

@@ -532,7 +532,8 @@ class BetPrefund {
       if (await _window(requireRead: true) != null) {
         return;
       }
-      await _move(arm, plan.fundUsd, s, ready);
+      await _move(arm, plan.fundUsd, s, ready,
+          arrivingEstimateUsd: plan.arrivingUsd);
       return;
     }
     if (_declined) return;
@@ -573,7 +574,8 @@ class BetPrefund {
       'fund_usd': plan.fundUsd,
       'market_kind': s.kind!.name,
     });
-    await _move(next, plan.fundUsd, s, ready);
+    await _move(next, plan.fundUsd, s, ready,
+        arrivingEstimateUsd: plan.arrivingUsd);
   }
 
   /// The price now is still one the held approval can buy at: past its
@@ -602,9 +604,13 @@ class BetPrefund {
   }
 
   /// Moves [usd] under [arm]'s approval. A refusal or Dollars falling
-  /// short stops the slip's pre-funding (Confirm funds as before).
+  /// short stops the slip's pre-funding (Confirm funds as before). A move
+  /// the rail could not confirm either way is held as on its way, at
+  /// [arrivingEstimateUsd] (the plan's estimate): Confirm counts it and
+  /// never moves the same money again, and the bet waits for it to land.
   Future<OrderFundingOutcome> _move(
-      _Arm arm, double usd, PrefundSnapshot s, double readyUsd) async {
+      _Arm arm, double usd, PrefundSnapshot s, double readyUsd,
+      {required double arrivingEstimateUsd}) async {
     final readyBefore = s.balanceUsd + inFlightArrivingUsd;
     final outcome = await _fund(usd, arm.grant,
         requiredUsd: s.requiredUsd, readyUsd: readyUsd);
@@ -627,6 +633,20 @@ class BetPrefund {
         if (_closed) _releaseUnplaced();
       case OrderFundingNotNeeded():
         break;
+      case OrderFundingUnconfirmed():
+        // Maybe sent: counted as on its way (no Activity reference is
+        // known), so nothing funds it a second time.
+        _moves.add(PrefundMove(
+          ref: '',
+          sentUsd: usd,
+          arrivingUsd:
+              arrivingEstimateUsd.isFinite && arrivingEstimateUsd > 0
+                  ? arrivingEstimateUsd
+                  : usd,
+          readyBeforeUsd: readyBefore,
+        ));
+        arm.fundedUsd += usd;
+        if (_closed) _releaseUnplaced();
       case OrderFundingRefused() || OrderFundingNeedsDollars():
         _stopped = true;
         if (identical(_arm, arm)) _disarm();
@@ -696,8 +716,13 @@ class BetPrefund {
       arm = _armWith(approval, s, moves ? plan.fundUsd : 0);
     }
     if (moves) {
-      final outcome = await _move(arm, plan.fundUsd, s, ready);
-      if (outcome is OrderFundingRefused || outcome is OrderFundingNeedsDollars) {
+      final outcome = await _move(arm, plan.fundUsd, s, ready,
+          arrivingEstimateUsd: plan.arrivingUsd);
+      // An unconfirmed move is held in flight (see [_move]): the bet
+      // queues behind it like any move on its way.
+      if ((outcome is OrderFundingRefused &&
+              outcome is! OrderFundingUnconfirmed) ||
+          outcome is OrderFundingNeedsDollars) {
         return PrefundFundingFailed(outcome);
       }
     }
@@ -709,7 +734,7 @@ class BetPrefund {
       // The funding cap the approval binds, exactly: the autofire puts
       // it on the order it signs.
       fundUsd: arm.fundingCapUsd,
-      fundQuoteRef: last?.ref,
+      fundQuoteRef: last == null || last.ref.isEmpty ? null : last.ref,
       fundReadyUsd: last?.readyBeforeUsd,
       fundArrivingUsd: last?.arrivingUsd,
       queuedAt: now,
