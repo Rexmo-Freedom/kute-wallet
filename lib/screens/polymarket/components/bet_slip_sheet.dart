@@ -112,6 +112,7 @@ import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/funding/venue_shortfall.dart';
 import 'package:kute/providers/pending_bet_autofire.dart'
     show
+        autofireOrderPrice,
         autofireRoundClosed,
         autofireSlippagePct,
         kPendingBetAutofireId,
@@ -4947,6 +4948,24 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                           ref.watch(spendingBitcoinLandingUsdProvider))));
     }
 
+    // A market bet Confirm will fund is placed, once the money lands, at
+    // the funded rule's price (at least 10% of room under 25¢): the price
+    // its one approval covers. The chip under the amount says that price
+    // whenever it is wider than the slip's own.
+    var fundedMaxPrice = orderPrice;
+    if (!_isLedger && !_isLimitMode && cash != null && _amount > 0) {
+      final token = effectiveTokenId;
+      final fundTerms = token == null || token.isEmpty
+          ? PolymarketFeeTerms.worstCase
+          : ref.watch(polymarketFeeTermsProvider(token)).valueOrNull ??
+              PolymarketFeeTerms.worstCase;
+      if (_predictionsShortfall(cash, fundTerms) > 0) {
+        final funded = autofireOrderPrice(
+            currentPrice, autofireSlippagePct(currentPrice, _slippagePct));
+        if (funded > fundedMaxPrice) fundedMaxPrice = funded;
+      }
+    }
+
     // Max is the largest stake whose stake PLUS venue fees fits what is
     // spendable, sized at the price the order would pay. Until the
     // market's fee curve has loaded the documented maxima apply, which
@@ -5297,7 +5316,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                             maxLocked:
                                 _buyInFlight || ledgerLocked || activelyPlacing,
                             advancedModified:
-                                _advancedSummary(orderPrice) != null,
+                                _advancedSummary(orderPrice, fundedMax: fundedMaxPrice) != null,
                             note: heroNote,
                           ),
                   ),
@@ -5313,7 +5332,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (_advancedSummary(orderPrice)
+                        if (_advancedSummary(orderPrice, fundedMax: fundedMaxPrice)
                             case final summary?) ...[
                           SlipGap(10.h),
                           SlipAdvancedChip(
@@ -5661,9 +5680,19 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// names its price; a market order with its own slippage names its
   /// maximum price (the ask plus the slippage, the cap the approval
   /// binds), or the slippage before a stake is typed.
-  String? _advancedSummary(double maxPrice) {
+  ///
+  /// [fundedMax]: the price a bet Confirm will fund may be placed at once
+  /// the money lands; named whenever it is wider than [maxPrice], at any
+  /// slippage, so the price the approval covers is always on the slip.
+  String? _advancedSummary(double maxPrice, {double? fundedMax}) {
     if (_isLimitMode) {
       return context.l10n.betSlipLimitAt(formatPolyCents(_limitPrice));
+    }
+    if (fundedMax != null &&
+        fundedMax > maxPrice + 1e-9 &&
+        _amount > 0 &&
+        fundedMax < 1) {
+      return context.l10n.betSlipMaxAt(polymarketCentsLabel(fundedMax));
     }
     final slippage = _draft.slippageChoice ?? kPolymarketDefaultSlippagePct;
     if (slippage == kPolymarketDefaultSlippagePct) return null;
