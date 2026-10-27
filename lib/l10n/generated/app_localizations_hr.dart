@@ -10745,7 +10745,7 @@ class AppLocalizationsHr extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Postavi na $side';
+    return 'Postavi minimum na $side';
   }
 
   @override

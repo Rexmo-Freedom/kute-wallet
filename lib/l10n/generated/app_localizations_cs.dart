@@ -10711,7 +10711,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Predikovat $side';
+    return 'Predikovat minimum na $side';
   }
 
   @override

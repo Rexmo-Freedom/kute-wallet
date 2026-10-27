@@ -10689,7 +10689,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Prognozēt $side';
+    return 'Prognozēt minimumu: $side';
   }
 
   @override

@@ -392,7 +392,7 @@ void main() {
     expect(find.byType(SlipFundingReadyNote), findsNothing);
     expect(find.textContaining('Tap to place'), findsNothing);
     // Nothing typed: the bet's short name; the tap tops up first.
-    expect(_cta(tester).label, 'Place on Yes');
+    expect(_cta(tester).label, 'Place minimum on Yes');
     expect(_cta(tester).enabled, isTrue);
     await release(tester);
   });
@@ -404,7 +404,7 @@ void main() {
     await _pumpSlip(tester);
     expect(_door, findsOneWidget);
     // Nothing typed: the bet's short name; the tap adds, then places.
-    expect(_cta(tester).label, 'Place on Yes');
+    expect(_cta(tester).label, 'Place minimum on Yes');
 
     await tester.tap(_door);
     await _frames(tester, 10);

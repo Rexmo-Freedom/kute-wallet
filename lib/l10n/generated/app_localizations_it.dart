@@ -10770,7 +10770,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Piazza su $side';
+    return 'Piazza il minimo su $side';
   }
 
   @override

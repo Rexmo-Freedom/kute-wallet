@@ -10746,7 +10746,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Erre: $side';
+    return 'Minimum erre: $side';
   }
 
   @override

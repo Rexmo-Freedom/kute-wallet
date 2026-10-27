@@ -582,7 +582,7 @@ void main() {
       expect(_door, findsOneWidget);
       // Nothing typed: the one action is the bet's short name, no
       // amounts; its tap still tops up first.
-      expect(_cta(tester).label, 'Place on Yes');
+      expect(_cta(tester).label, 'Place minimum on Yes');
       expect(_cta(tester).enabled, isTrue);
       // One action: no second Add or Deposit beside it.
       expect(find.byType(PolySlipCta), findsOneWidget);

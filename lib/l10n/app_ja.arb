@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "{side}を予測",
+  "betPlaceOnSide": "{side}を最低額で予測",
   "betAmountOnSide": "{side}に{amount}",
   "slipAddThenOrder": "{amount}を追加 · {order}",
   "slipShortOfMinimum": "最低額まであと{amount}",

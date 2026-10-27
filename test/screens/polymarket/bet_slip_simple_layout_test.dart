@@ -1021,7 +1021,7 @@ void main() {
       final policy = await _allowEverything();
       await _pumpSlip(tester);
       await _typeOnKeypad(tester, '0');
-      expect(cta(tester).label, 'Place on Yes');
+      expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       await _release(tester, policy);
     });
@@ -1110,7 +1110,7 @@ void main() {
       await _pumpSlip(tester, initialAmountUsd: null);
       // The amount, and the payout and fee figures under it.
       expect(find.text(r'$0'), findsNWidgets(3));
-      expect(cta(tester).label, 'Place on Yes');
+      expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
       await tester.pumpAndSettle();
@@ -1145,7 +1145,7 @@ void main() {
           ]);
       expect(find.text(r'$0'), findsNWidgets(3));
       expect(find.text(r'Available $100.00 · Minimum $5.00'), findsOneWidget);
-      expect(cta(tester).label, 'Place on Yes');
+      expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       await tester.tap(find.byType(PolySlipCta));
       await tester.pumpAndSettle();
@@ -1201,7 +1201,7 @@ void main() {
                     allowances: const {})),
           ]);
       expect(find.text(r'$0'), findsNWidgets(3));
-      expect(cta(tester).label, 'Place on Yes');
+      expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       await _typeOnKeypad(tester, '0.5');
       expect(cta(tester).label, r'Minimum $1.00');
@@ -1222,7 +1222,7 @@ void main() {
       expect(find.text(r'$0'), findsNWidgets(3));
       // Nothing typed: the bet's short name, no amounts; the tap still
       // adds what the $5 minimum lacks, then places it.
-      expect(cta(tester).label, 'Place on Yes');
+      expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       expect(find.byType(PolySlipCta), findsOneWidget);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);

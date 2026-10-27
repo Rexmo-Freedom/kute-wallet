@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Skirti: {side}",
+  "betPlaceOnSide": "Skirti minimumą: {side}",
   "betAmountOnSide": "{amount}: {side}",
   "slipAddThenOrder": "Pridėti {amount} · {order}",
   "slipShortOfMinimum": "Iki minimumo trūksta {amount}",

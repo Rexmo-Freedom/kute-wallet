@@ -10779,7 +10779,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Plasează pe $side';
+    return 'Plasează minimul pe $side';
   }
 
   @override

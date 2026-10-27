@@ -10719,7 +10719,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Lägg på $side';
+    return 'Lägg minimum på $side';
   }
 
   @override

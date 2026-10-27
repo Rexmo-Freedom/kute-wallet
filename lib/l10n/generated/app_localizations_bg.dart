@@ -10740,7 +10740,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Прогнозирай $side';
+    return 'Прогнозирай минимума за $side';
   }
 
   @override

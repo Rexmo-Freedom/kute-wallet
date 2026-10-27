@@ -10722,7 +10722,7 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Forudsig $side';
+    return 'Forudsig minimum på $side';
   }
 
   @override

@@ -10800,7 +10800,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Στο $side';
+    return 'Ελάχιστο στο $side';
   }
 
   @override

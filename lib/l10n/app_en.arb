@@ -6543,9 +6543,9 @@
       }
     }
   },
-  "betPlaceOnSide": "Place on {side}",
+  "betPlaceOnSide": "Place minimum on {side}",
   "@betPlaceOnSide": {
-    "description": "The bet slip's button before a stake is typed ('Place on No').",
+    "description": "The bet slip's button before a stake is typed; a tap places the minimum ('Place minimum on No').",
     "placeholders": {
       "side": {
         "type": "String"

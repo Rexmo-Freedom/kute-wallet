@@ -6181,7 +6181,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// The bet button's words for a stake of [amountUsd] on [selected].
   /// [empty]: nothing typed yet, the bet's short name with no amount
-  /// ("Place on No"). [afterTopUp]: the bet after an "Add $1.00 · ",
+  /// ("Place minimum on No"). [afterTopUp]: the bet after an "Add $1.00 · ",
   /// without its verb ("$12.00 on No").
   String _betCtaLabel(PolymarketOutcome selected, double amountUsd,
       {bool empty = false, bool afterTopUp = false}) {

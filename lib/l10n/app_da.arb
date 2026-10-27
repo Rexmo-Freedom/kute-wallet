@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Forudsig {side}",
+  "betPlaceOnSide": "Forudsig minimum på {side}",
   "betAmountOnSide": "{amount} på {side}",
   "slipAddThenOrder": "Tilføj {amount} · {order}",
   "slipShortOfMinimum": "{amount} under minimum",

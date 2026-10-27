@@ -18133,10 +18133,10 @@ abstract class AppLocalizations {
   /// **'{side} {amount}'**
   String slipCtaSideAmount(String side, String amount);
 
-  /// The bet slip's button before a stake is typed ('Place on No').
+  /// The bet slip's button before a stake is typed; a tap places the minimum ('Place minimum on No').
   ///
   /// In en, this message translates to:
-  /// **'Place on {side}'**
+  /// **'Place minimum on {side}'**
   String betPlaceOnSide(String side);
 
   /// The bet after a top-up on the bet slip's button ('Add $1.00 · $12.00 on No').

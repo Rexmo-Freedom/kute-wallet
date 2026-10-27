@@ -538,7 +538,7 @@ void main() {
       await _pumpSlip(tester, initialAmountUsd: typed);
       expect(find.byKey(const ValueKey('bet-slip-deposit-door')), findsNothing);
       expect(_cta(tester).label,
-          typed == null ? 'Place on Yes' : r'Minimum $1.00');
+          typed == null ? 'Place minimum on Yes' : r'Minimum $1.00');
 
       await tester.tap(find.byType(PolySlipCta));
       await _frames(tester, 10);

@@ -10755,7 +10755,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Voorspel $side';
+    return 'Voorspel minimum op $side';
   }
 
   @override

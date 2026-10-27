@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Postavi na {side}",
+  "betPlaceOnSide": "Postavi minimum na {side}",
   "betAmountOnSide": "{amount} na {side}",
   "slipAddThenOrder": "Dodaj {amount} · {order}",
   "slipShortOfMinimum": "Do minimuma nedostaje {amount}",

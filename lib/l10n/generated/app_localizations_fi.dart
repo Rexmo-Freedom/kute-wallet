@@ -10732,7 +10732,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Aseta: $side';
+    return 'Aseta minimi: $side';
   }
 
   @override

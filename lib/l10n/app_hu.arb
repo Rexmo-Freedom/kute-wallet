@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Erre: {side}",
+  "betPlaceOnSide": "Minimum erre: {side}",
   "betAmountOnSide": "{amount} erre: {side}",
   "slipAddThenOrder": "{amount} hozzáadása · {order}",
   "slipShortOfMinimum": "{amount} hiányzik a minimumhoz",

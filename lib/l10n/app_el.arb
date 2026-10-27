@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Στο {side}",
+  "betPlaceOnSide": "Ελάχιστο στο {side}",
   "betAmountOnSide": "{amount} στο {side}",
   "slipAddThenOrder": "Πρόσθεσε {amount} · {order}",
   "slipShortOfMinimum": "Λείπουν {amount} για το ελάχιστο",

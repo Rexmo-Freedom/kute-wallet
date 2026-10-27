@@ -10303,7 +10303,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return '$sideを予測';
+    return '$sideを最低額で予測';
   }
 
   @override

@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Aseta: {side}",
+  "betPlaceOnSide": "Aseta minimi: {side}",
   "betAmountOnSide": "{amount}: {side}",
   "slipAddThenOrder": "Lisää {amount} · {order}",
   "slipShortOfMinimum": "{amount} alle minimin",

@@ -10726,7 +10726,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Vložiť na $side';
+    return 'Vložiť minimum na $side';
   }
 
   @override

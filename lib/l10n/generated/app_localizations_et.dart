@@ -10708,7 +10708,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Pane valikule $side';
+    return 'Pane miinimum valikule $side';
   }
 
   @override

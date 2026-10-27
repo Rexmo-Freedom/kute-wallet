@@ -3004,7 +3004,7 @@
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
   "slipCtaSideAmount": "{side} {amount}",
-  "betPlaceOnSide": "Prognozuj {side}",
+  "betPlaceOnSide": "Prognozuj minimum na {side}",
   "betAmountOnSide": "{amount} na {side}",
   "slipAddThenOrder": "Dodaj {amount} · {order}",
   "slipShortOfMinimum": "Do minimum brakuje {amount}",

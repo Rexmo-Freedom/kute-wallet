@@ -10804,7 +10804,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String betPlaceOnSide(String side) {
-    return 'Placer sur $side';
+    return 'Placer le minimum sur $side';
   }
 
   @override
