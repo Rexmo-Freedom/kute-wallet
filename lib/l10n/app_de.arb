@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Um es zu bewegen, nutze eine Wallet wie MetaMask mit derselben Wiederherstellungsphrase.",
   "cctpRefundContactSupport": "Um es zu bewegen, kontaktiere den Support.",
   "portfolioSectionPnlCharts": "GuV-Charts",
-  "portfolioSectionBalances": "Guthaben",
+  "portfolioSectionBalances": "Portfolio",
   "balanceChangePastWeek": "{change} in der letzten Woche",
   "balanceChangePastMonth": "{change} im letzten Monat",
   "balanceChangePast3Months": "{change} in den letzten 3 Monaten",

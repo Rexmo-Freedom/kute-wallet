@@ -11213,7 +11213,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'GuV-Charts';
 
   @override
-  String get portfolioSectionBalances => 'Guthaben';
+  String get portfolioSectionBalances => 'Portfolio';
 
   @override
   String balanceChangePastWeek(String change) {

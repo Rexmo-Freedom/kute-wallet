@@ -11115,7 +11115,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'P&L graafikud';
 
   @override
-  String get portfolioSectionBalances => 'Saldod';
+  String get portfolioSectionBalances => 'Portfell';
 
   @override
   String balanceChangePastWeek(String change) {

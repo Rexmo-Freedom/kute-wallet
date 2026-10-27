@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Brug en wallet som MetaMask med den samme gendannelsesfrase for at flytte dem.",
   "cctpRefundContactSupport": "Kontakt support for at flytte dem.",
   "portfolioSectionPnlCharts": "P&L-grafer",
-  "portfolioSectionBalances": "Saldi",
+  "portfolioSectionBalances": "Portefølje",
   "balanceChangePastWeek": "{change} den seneste uge",
   "balanceChangePastMonth": "{change} den seneste måned",
   "balanceChangePast3Months": "{change} de seneste 3 måneder",

@@ -11153,7 +11153,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'P&L grafikonok';
 
   @override
-  String get portfolioSectionBalances => 'Egyenlegek';
+  String get portfolioSectionBalances => 'Portfólió';
 
   @override
   String balanceChangePastWeek(String change) {

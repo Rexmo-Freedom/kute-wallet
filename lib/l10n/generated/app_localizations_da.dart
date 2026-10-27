@@ -11129,7 +11129,7 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'P&L-grafer';
 
   @override
-  String get portfolioSectionBalances => 'Saldi';
+  String get portfolioSectionBalances => 'Portefølje';
 
   @override
   String balanceChangePastWeek(String change) {

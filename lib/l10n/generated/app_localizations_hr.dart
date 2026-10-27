@@ -11152,7 +11152,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'Grafikoni P&L';
 
   @override
-  String get portfolioSectionBalances => 'Stanja';
+  String get portfolioSectionBalances => 'Portfelj';
 
   @override
   String balanceChangePastWeek(String change) {

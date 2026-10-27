@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "За да го преместиш, използвай портфейл като MetaMask със същата фраза за възстановяване.",
   "cctpRefundContactSupport": "За да го преместиш, свържи се с поддръжката.",
   "portfolioSectionPnlCharts": "Графики P&L",
-  "portfolioSectionBalances": "Баланси",
+  "portfolioSectionBalances": "Портфолио",
   "balanceChangePastWeek": "{change} за последната седмица",
   "balanceChangePastMonth": "{change} за последния месец",
   "balanceChangePast3Months": "{change} за последните 3 месеца",

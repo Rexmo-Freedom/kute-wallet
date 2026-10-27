@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Gebruik een wallet zoals MetaMask met dezelfde herstelzin om het te verplaatsen.",
   "cctpRefundContactSupport": "Neem contact op met support om het te verplaatsen.",
   "portfolioSectionPnlCharts": "W&V-grafieken",
-  "portfolioSectionBalances": "Saldi",
+  "portfolioSectionBalances": "Portfolio",
   "balanceChangePastWeek": "{change} afgelopen week",
   "balanceChangePastMonth": "{change} afgelopen maand",
   "balanceChangePast3Months": "{change} afgelopen 3 maanden",

@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Če jih želite premakniti, uporabite denarnico, kot je MetaMask, z isto obnovitveno frazo.",
   "cctpRefundContactSupport": "Če jih želite premakniti, se obrnite na podporo.",
   "portfolioSectionPnlCharts": "Grafi P&L",
-  "portfolioSectionBalances": "Stanja",
+  "portfolioSectionBalances": "Portfelj",
   "balanceChangePastWeek": "{change} v zadnjem tednu",
   "balanceChangePastMonth": "{change} v zadnjem mesecu",
   "balanceChangePast3Months": "{change} v zadnjih 3 mesecih",

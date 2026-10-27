@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Ak ich chceš presunúť, použi peňaženku ako MetaMask s rovnakou frázou na obnovenie.",
   "cctpRefundContactSupport": "Ak ich chceš presunúť, kontaktuj podporu.",
   "portfolioSectionPnlCharts": "Grafy P&L",
-  "portfolioSectionBalances": "Zostatky",
+  "portfolioSectionBalances": "Portfólio",
   "balanceChangePastWeek": "{change} za posledný týždeň",
   "balanceChangePastMonth": "{change} za posledný mesiac",
   "balanceChangePast3Months": "{change} za posledné 3 mesiace",

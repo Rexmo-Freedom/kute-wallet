@@ -11139,7 +11139,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'P&L-kaaviot';
 
   @override
-  String get portfolioSectionBalances => 'Saldot';
+  String get portfolioSectionBalances => 'Salkku';
 
   @override
   String balanceChangePastWeek(String change) {

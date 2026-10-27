@@ -11148,7 +11148,7 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'Графики P&L';
 
   @override
-  String get portfolioSectionBalances => 'Баланси';
+  String get portfolioSectionBalances => 'Портфолио';
 
   @override
   String balanceChangePastWeek(String change) {

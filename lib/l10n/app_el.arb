@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Για να τα μετακινήσεις, χρησιμοποίησε ένα πορτοφόλι όπως το MetaMask με την ίδια φράση ανάκτησης.",
   "cctpRefundContactSupport": "Για να τα μετακινήσεις, επικοινώνησε με την υποστήριξη.",
   "portfolioSectionPnlCharts": "Γραφήματα P&L",
-  "portfolioSectionBalances": "Υπόλοιπα",
+  "portfolioSectionBalances": "Χαρτοφυλάκιο",
   "balanceChangePastWeek": "{change} την τελευταία εβδομάδα",
   "balanceChangePastMonth": "{change} τον τελευταίο μήνα",
   "balanceChangePast3Months": "{change} τους τελευταίους 3 μήνες",

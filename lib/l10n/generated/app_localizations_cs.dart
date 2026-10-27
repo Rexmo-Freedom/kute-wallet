@@ -11119,7 +11119,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'Grafy P&L';
 
   @override
-  String get portfolioSectionBalances => 'Zůstatky';
+  String get portfolioSectionBalances => 'Portfolio';
 
   @override
   String balanceChangePastWeek(String change) {

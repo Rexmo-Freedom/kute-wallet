@@ -533,7 +533,8 @@ void main() {
     final l10n = _l10n(tester);
     await tapPill(tester, l10n.walletPortfolioAction);
 
-    // Three small pills, in order, Balances first and picked, then P&L
+    // Three small pills, in order, Portfolio (was Balances) first and
+    // picked, then P&L
     // charts and Activity; no Positions pill.
     final pills = find.descendant(
         of: find.byType(InvestmentsPortfolio), matching: _sectionPills);
@@ -543,7 +544,7 @@ void main() {
       l10n.activity,
     ]);
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        ['Balances', 'P&L charts', 'Activity']);
+        ['Portfolio', 'P&L charts', 'Activity']);
     expect(find.text(l10n.ledgerPositionsTitle), findsNothing);
     expect(tester.widget<KutePill>(_section('balances')).selected, isTrue);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);

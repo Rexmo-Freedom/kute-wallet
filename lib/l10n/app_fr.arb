@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Pour le déplacer, utilisez un portefeuille comme MetaMask avec la même phrase de récupération.",
   "cctpRefundContactSupport": "Pour le déplacer, contactez l'assistance.",
   "portfolioSectionPnlCharts": "Graphiques P&L",
-  "portfolioSectionBalances": "Soldes",
+  "portfolioSectionBalances": "Portefeuille",
   "balanceChangePastWeek": "{change} sur la dernière semaine",
   "balanceChangePastMonth": "{change} sur le dernier mois",
   "balanceChangePast3Months": "{change} sur les 3 derniers mois",

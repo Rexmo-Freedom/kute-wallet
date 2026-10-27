@@ -18687,10 +18687,10 @@ abstract class AppLocalizations {
   /// **'P&L charts'**
   String get portfolioSectionPnlCharts;
 
-  /// Investments, Portfolio pill: the small pill (beside Charts and Activity) for the section with the Dollars, Investing and Predictions balances and the Move money button.
+  /// Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was "Balances".
   ///
   /// In en, this message translates to:
-  /// **'Balances'**
+  /// **'Portfolio'**
   String get portfolioSectionBalances;
 
   /// Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.

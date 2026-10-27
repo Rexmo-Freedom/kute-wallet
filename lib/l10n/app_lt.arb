@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Norėdami juos perkelti, naudokite piniginę, pvz., MetaMask, su ta pačia atkūrimo fraze.",
   "cctpRefundContactSupport": "Norėdami juos perkelti, susisiekite su pagalba.",
   "portfolioSectionPnlCharts": "P&L grafikai",
-  "portfolioSectionBalances": "Likučiai",
+  "portfolioSectionBalances": "Portfelis",
   "balanceChangePastWeek": "{change} per pastarąją savaitę",
   "balanceChangePastMonth": "{change} per pastarąjį mėnesį",
   "balanceChangePast3Months": "{change} per pastaruosius 3 mėnesius",

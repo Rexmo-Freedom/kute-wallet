@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Az áthelyezéséhez használj egy MetaMaskhoz hasonló tárcát ugyanazzal a helyreállítási kifejezéssel.",
   "cctpRefundContactSupport": "Az áthelyezéséhez fordulj az ügyfélszolgálathoz.",
   "portfolioSectionPnlCharts": "P&L grafikonok",
-  "portfolioSectionBalances": "Egyenlegek",
+  "portfolioSectionBalances": "Portfólió",
   "balanceChangePastWeek": "{change} az elmúlt héten",
   "balanceChangePastMonth": "{change} az elmúlt hónapban",
   "balanceChangePast3Months": "{change} az elmúlt 3 hónapban",

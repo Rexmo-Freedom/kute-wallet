@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Använd en plånbok som MetaMask med samma återställningsfras för att flytta dem.",
   "cctpRefundContactSupport": "Kontakta supporten för att flytta dem.",
   "portfolioSectionPnlCharts": "P&L-diagram",
-  "portfolioSectionBalances": "Saldon",
+  "portfolioSectionBalances": "Portfölj",
   "balanceChangePastWeek": "{change} senaste veckan",
   "balanceChangePastMonth": "{change} senaste månaden",
   "balanceChangePast3Months": "{change} senaste 3 månaderna",

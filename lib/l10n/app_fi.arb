@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Siirtääksesi sen käytä MetaMaskin kaltaista lompakkoa samalla palautuslausekkeella.",
   "cctpRefundContactSupport": "Siirtääksesi sen ota yhteyttä tukeen.",
   "portfolioSectionPnlCharts": "P&L-kaaviot",
-  "portfolioSectionBalances": "Saldot",
+  "portfolioSectionBalances": "Salkku",
   "balanceChangePastWeek": "{change} viimeisen viikon aikana",
   "balanceChangePastMonth": "{change} viimeisen kuukauden aikana",
   "balanceChangePast3Months": "{change} viimeisten 3 kuukauden aikana",

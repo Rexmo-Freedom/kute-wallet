@@ -11208,7 +11208,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioSectionPnlCharts => 'Γραφήματα P&L';
 
   @override
-  String get portfolioSectionBalances => 'Υπόλοιπα';
+  String get portfolioSectionBalances => 'Χαρτοφυλάκιο';
 
   @override
   String balanceChangePastWeek(String change) {

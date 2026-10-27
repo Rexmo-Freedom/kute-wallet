@@ -3096,7 +3096,7 @@
   "cctpRefundMoveWithWallet": "Ca să îi muți, folosește un portofel precum MetaMask cu aceeași frază de recuperare.",
   "cctpRefundContactSupport": "Ca să îi muți, contactează suportul.",
   "portfolioSectionPnlCharts": "Grafice P&L",
-  "portfolioSectionBalances": "Solduri",
+  "portfolioSectionBalances": "Portofoliu",
   "balanceChangePastWeek": "{change} în ultima săptămână",
   "balanceChangePastMonth": "{change} în ultima lună",
   "balanceChangePast3Months": "{change} în ultimele 3 luni",
