@@ -30,6 +30,8 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/http/shared_http_client.dart';
@@ -244,6 +246,23 @@ void main() {
         for (final e in events)
           if (e.$1 == name) e.$2
       ];
+
+  group('Investing while the EVM format check is pending', () {
+    test(
+        'no Investing account until the check settles (nothing can be sent '
+        'to an account the wallet may leave), then the account', () async {
+      final (c, settings) = container([_wallet('spend', formatPending: true)]);
+      expect(await c.read(hyperliquidAddressProvider.future), isNull);
+      expect(scheduled, greaterThanOrEqualTo(1),
+          reason: 'the format retry runs in this session');
+
+      // The check keeps the standard format: the account comes back.
+      settings.put(_settings([_wallet('spend')]));
+      final address = await c.read(hyperliquidAddressProvider.future);
+      expect(address, isNotNull);
+      expect(address, startsWith('0x'));
+    });
+  });
 
   group('restore with nothing cached', () {
     test(
