@@ -1708,13 +1708,8 @@ void main() {
       expect(find.text('2 open'), findsNothing);
       expect(find.text('Ready to use'), findsNothing);
       expect(find.text('In positions'), findsNothing);
-      // The only chevron to the right is Move money's own.
-      expect(
-          find.descendant(
-              of: _rebalance,
-              matching: find.byIcon(Icons.chevron_right_rounded)),
-          findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      // Move money is a pill now: no chevron to the right anywhere.
+      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
       expect(tester.takeException(), isNull);
