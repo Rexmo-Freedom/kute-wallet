@@ -4487,13 +4487,12 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                   SizedBox(
                     width: double.infinity,
                     height: 48.h,
-                    child: OutlinedButton.icon(
+                    child: OutlinedButton(
                       onPressed: () => MarketDetailSheet.show(context,
                           event: event,
                           ledgerWalletId: ledgerWalletId,
                           source: 'activity'),
-                      icon: Icon(Icons.chevron_right_rounded, size: 18.sp),
-                      label: Text(l.salViewMarket,
+                      child: Text(l.salViewMarket,
                           style: TextStyle(
                               fontSize: 16.sp, fontWeight: FontWeight.w600)),
                       style: OutlinedButton.styleFrom(

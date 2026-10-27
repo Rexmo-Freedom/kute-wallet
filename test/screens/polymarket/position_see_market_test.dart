@@ -187,7 +187,7 @@ void main() {
   tearDown(OpenOnce.reset);
 
   testWidgets('"View market" is the first row, above Protect it and '
-      'Closing Conditions, with the chart glyph', (tester) async {
+      'Closing Conditions, with no leading glyph', (tester) async {
     await http.runWithClient(() async {
       await _pump(tester, const PositionDetailSheet(position: _position),
           event: _election);
@@ -195,10 +195,11 @@ void main() {
       expect(
           find.descendant(of: _row, matching: find.text('View market')),
           findsOneWidget);
+      // No leading glyph: the label alone, like the rows under it.
       expect(
           find.descendant(
               of: _row, matching: find.byIcon(Icons.show_chart_rounded)),
-          findsOneWidget);
+          findsNothing);
       final rules = find.byType(PolyRulesRow);
       expect(rules, findsOneWidget);
       expect(tester.getTopLeft(_row).dy,

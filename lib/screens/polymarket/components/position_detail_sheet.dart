@@ -817,7 +817,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         PositionLinkRow(
                           key: PositionDetailSheet.seeMarketRowKey,
                           label: context.l10n.salViewMarket,
-                          icon: Icons.show_chart_rounded,
                           onTap: () => _seeMarket(event),
                         ),
 
