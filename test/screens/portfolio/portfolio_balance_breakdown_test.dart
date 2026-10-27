@@ -1637,9 +1637,16 @@ void main() {
           .style;
       expect(style.fontSize, venueStyle.fontSize);
       expect(style.fontWeight, venueStyle.fontWeight);
-      // Ending on the venues' column: the overview's right edge.
+      // The chevron after the amount ends the row on the overview's right
+      // edge (founder, 27 October 2026); the amount sits just before it.
+      final chevron = find.descendant(
+          of: find.byKey(const ValueKey('portfolio-balance-category-buyingPower')),
+          matching: find.byIcon(Icons.keyboard_arrow_down_rounded));
+      expect(chevron, findsOneWidget);
+      expect(tester.getRect(bpAmount).right,
+          lessThanOrEqualTo(tester.getRect(chevron).left + 0.5));
       expect(
-          tester.getRect(bpAmount).right,
+          tester.getRect(chevron).right,
           moreOrLessEquals(
               tester
                   .getRect(

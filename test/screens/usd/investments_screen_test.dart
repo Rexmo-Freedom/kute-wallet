@@ -746,15 +746,18 @@ void main() {
   });
 
   testWidgets(
-      'nothing held: Balances has no position rows, each venue reads "No '
-      'open positions"', (tester) async {
+      'nothing held: Balances has no position rows, one Sal "No open '
+      'positions" state', (tester) async {
     await pumpInvestments(tester);
     final l10n = _l10n(tester);
     await tapPill(tester, l10n.walletPortfolioAction);
     expect(find.byKey(const ValueKey('portfolio-balance-overview')),
         findsOneWidget);
     expect(find.byType(PortfolioPositionRow), findsNothing);
-    expect(find.text(l10n.portfolioNoOpenPositions), findsNWidgets(2));
+    // Nothing open anywhere: Sal's empty state once, not two empty venues.
+    expect(find.text(l10n.portfolioNoOpenPositions), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-balance-no-positions')),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-positions-heading')),
         findsNothing);
     expect(tester.takeException(), isNull);

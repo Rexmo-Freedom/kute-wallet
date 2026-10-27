@@ -47,6 +47,7 @@ import 'package:kute/screens/portfolio/components/position_rows.dart'
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -309,6 +310,17 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       thickness: 0.5,
     );
 
+    // A venue with nothing to show: no positions, none loading, nothing
+    // held in open orders and a known figure.
+    bool venueEmpty(BalancesCategory category, BalancesEntry? e) {
+      if (e == null) return true;
+      final list = widget.venues[category] ?? BalancesVenueList.empty;
+      final open = e.positionCount > 0 || list.rows.isNotEmpty;
+      final held = e.reservedCashUsd >= kBalancesCentUsd ||
+          (!open && e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd);
+      return !open && !list.loading && !held && !figure(categories[category]!).stale;
+    }
+
     Widget venue(BalancesCategory category, BalancesEntry e) {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
       final open = e.positionCount > 0 || list.rows.isNotEmpty;
@@ -432,7 +444,19 @@ class _BalancesOverviewState extends State<BalancesOverview> {
         ),
         if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
-        if (predictions != null || investing != null) ...[
+        // Nothing open anywhere: Sal's empty state, not two empty venue
+        // rows (founder, 27 October 2026).
+        if ((predictions != null || investing != null) &&
+            venueEmpty(BalancesCategory.predictions, predictions) &&
+            venueEmpty(BalancesCategory.investing, investing)) ...[
+          hairline,
+          Padding(
+            key: const ValueKey('portfolio-balance-no-positions'),
+            padding: EdgeInsets.symmetric(vertical: 24.h),
+            child: NoActivityState(
+                title: l10n.portfolioNoOpenPositions, cycles: 3, compact: true),
+          ),
+        ] else if (predictions != null || investing != null) ...[
           hairline,
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
@@ -643,27 +667,10 @@ class _BuyingPower extends StatelessWidget {
                 _Dot(color: color),
                 SizedBox(width: 8.w),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle),
-                      ),
-                      if (onToggle != null) ...[
-                        SizedBox(width: 2.w),
-                        AnimatedRotation(
-                          turns: open ? 0.5 : 0,
-                          duration: kuteReduceMotion(context)
-                              ? Duration.zero
-                              : const Duration(milliseconds: 200),
-                          child: Icon(Icons.keyboard_arrow_down_rounded,
-                              size: 18.w, color: c.textTertiary),
-                        ),
-                      ],
-                    ],
-                  ),
+                  child: Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle),
                 ),
                 SizedBox(width: 12.w),
                 ConstrainedBox(
@@ -682,6 +689,18 @@ class _BuyingPower extends StatelessWidget {
                     ),
                   ),
                 ),
+                // The chevron after the amount (founder, 27 October 2026).
+                if (onToggle != null) ...[
+                  SizedBox(width: 2.w),
+                  AnimatedRotation(
+                    turns: open ? 0.5 : 0,
+                    duration: kuteReduceMotion(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    child: Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 18.w, color: c.textTertiary),
+                  ),
+                ],
               ],
             ),
           ),
