@@ -10797,6 +10797,14 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Čiastočne hotové';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount zostáva na účte $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Vašich $amount je v $balance. Ťuknutím kúpite Bitcoin';
   }

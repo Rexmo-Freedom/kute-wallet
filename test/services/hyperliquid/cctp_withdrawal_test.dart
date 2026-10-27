@@ -173,7 +173,14 @@ class _Reads implements CctpChainReads {
   }
 }
 
-enum _SendMode { ok, refused, rejected, lostAfterPost, refusedAfterNonce }
+enum _SendMode {
+  ok,
+  refused,
+  rejected,
+  lostAfterPost,
+  refusedAfterNonce,
+  failedBeforePost
+}
 
 class _Sender implements CctpSender {
   BigInt sendable = BigInt.from(2500000000); // $25
@@ -206,6 +213,9 @@ class _Sender implements CctpSender {
     }
     signed++;
     afterSigning?.call();
+    if (mode == _SendMode.failedBeforePost) {
+      throw StateError('signing failed');
+    }
     await onBeforePost(nonce);
     if (mode == _SendMode.refusedAfterNonce) {
       throw SettlementFundingRefused(StateError('wallet changed'));
@@ -1534,6 +1544,43 @@ void main() {
     expect((await only()).stage, SettlementStage.abandoned);
     expect(rows.byId, isEmpty);
     expect(sender.signed, 0);
+  });
+
+  test('a refusal before the POST names the record it ended', () async {
+    sender.mode = _SendMode.refused;
+    Object? thrown;
+    try {
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+    } catch (e) {
+      thrown = e;
+    }
+    final op = await only();
+    expect(thrown, isA<SettlementFundingRefused>());
+    expect((thrown! as SettlementFundingRefused).operationId, op.operationId,
+        reason: 'a move links the stopped leg\'s record to its own row');
+  });
+
+  test(
+      'any failure before the nonce was written is proof nothing was sent, '
+      'never an unknown outcome', () async {
+    // A Buy bitcoin's Investing leg stopped here with a bare error: the
+    // move said "Needs attention" with no Retry while its cash never left.
+    sender.mode = _SendMode.failedBeforePost;
+    Object? thrown;
+    try {
+      await service().withdrawToDollars(usd: 5, stepUp: approve());
+    } catch (e) {
+      thrown = e;
+    }
+    final op = await only();
+    expect(thrown, isA<SettlementFundingRefused>()
+        .having((e) => e.cause, 'cause', isA<StateError>())
+        .having((e) => e.operationId, 'operationId', op.operationId));
+    expect(moneyMovementProvesNothingSent(thrown!, fundingStarted: true),
+        isTrue);
+    expect(op.stage, SettlementStage.abandoned);
+    expect(rows.byId, isEmpty);
+    expect(sender.sends, isEmpty);
   });
 
   test('a stop between the nonce write and the POST is not funded', () async {

@@ -10850,6 +10850,14 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Finalizat parțial';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount este încă în $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Cei $amount sunt în $balance. Atinge pentru a cumpăra Bitcoin';
   }

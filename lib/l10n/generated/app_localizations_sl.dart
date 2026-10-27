@@ -10822,6 +10822,14 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Delno opravljeno';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount je še vedno na računu $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Vaših $amount je v $balance. Tapnite za nakup Bitcoina';
   }

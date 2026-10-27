@@ -10803,6 +10803,14 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Osittain valmis';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount on yhä tilillä $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return '$amount on kohteessa $balance. Osta Bitcoinia napauttamalla';
   }

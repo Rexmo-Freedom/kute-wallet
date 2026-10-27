@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "{amount}を送金",
   "multiMoveTitle": "{amount}を{destination}へ移動",
   "multiMoveDeliveredRemaining": "{delivered} 着金 · 残り {remaining}",
+  "activityPartlyDone": "一部完了",
+  "multiMoveStillIn": "{amount}は{place}に残っています",
   "multiMovePurchaseWaiting": "{amount}は{balance}にあります。タップしてビットコインを購入",
   "multiMoveSendWaiting": "{amount}は{balance}にあります。送金は完了していません",
   "usdReceiveDepositNow": "今すぐ入金",

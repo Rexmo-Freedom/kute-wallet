@@ -38,6 +38,8 @@ import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyStepStatus;
 import 'package:kute/services/one_balance/move_steps.dart' show MoveSteps;
 import 'package:kute/services/one_balance/multi_source_move.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/one_balance/pending_bitcoin_purchase.dart'
     show
         BitcoinPurchaseFinisher,
@@ -91,7 +93,13 @@ class MultiSourceMoveTransaction extends BaseTransaction {
       (move.isParallelPurchase &&
           legRows.any((row) =>
               isMultiSourceMoveLeg(row, move) &&
+              !multiSourceMoveStoppedRow(row, move) &&
               OwnSparkArrivals.failedStatuses.contains(row.details.status)));
+
+  /// Part of the move went and everything else is proven still where it
+  /// was ([multiSourceMovePartlyDone]): "Partly done", never a bare
+  /// "Needs attention".
+  bool get partlyDone => multiSourceMovePartlyDone(this);
 
   @override
   TransactionType get type => move.forAction == 'send'
@@ -254,6 +262,66 @@ bool multiSourceMoveBitcoinKnown(MultiSourceMoveTransaction tx) {
   return true;
 }
 
+/// Whether [row] is the record of a leg that stopped before anything left
+/// its venue ([MultiSourceMoveLeg.stoppedOperationId]): it belongs to the
+/// move, but it neither delivers nor keeps the move pending.
+bool multiSourceMoveStoppedRow(SwapOrderTransaction row, MultiSourceMove move) {
+  for (final leg in move.legs) {
+    final op = leg.stoppedOperationId;
+    if (op == null || leg.ok) continue;
+    if (row.details.operationId == op || row.id == op || row.id == 'cctp-$op') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// What of [move] never left its venue, by venue: the latest attempt of
+/// each leg that stopped with proof nothing was sent
+/// ([MultiSourceMove.provenUnsentLegs]), at what was asked of it.
+Map<OneBalanceVenue, double> multiSourceMoveStillAtVenue(MultiSourceMove move) {
+  final out = <OneBalanceVenue, double>{};
+  for (final leg in move.provenUnsentLegs) {
+    out[leg.venue] = (out[leg.venue] ?? 0) + leg.usd;
+  }
+  return out;
+}
+
+/// Whether [tx] is partly done: something went (a leg, or Dollars' own
+/// purchase), every leg that did not go is proven still at its venue
+/// ([multiSourceMoveStillAtVenue]: nothing uncertain, nothing on its way
+/// unaccounted for), and no row of what went has failed. The row then says
+/// "Partly done" and where the rest is ("$16.53 is still in Investing"),
+/// with Retry on its detail, instead of "Needs attention" and nothing
+/// else.
+bool multiSourceMovePartlyDone(MultiSourceMoveTransaction tx) {
+  final move = tx.move;
+  if (!move.partial) return false;
+  final latest = {for (final leg in move.legs) leg.venue: leg};
+  final still = multiSourceMoveStillAtVenue(move);
+  if (still.isEmpty) return false;
+  for (final leg in latest.values) {
+    if (leg.uncertain) return false;
+    if (!leg.ok && !still.containsKey(leg.venue)) return false;
+  }
+  final initial = MoveSteps.of(move).byId(MoveSteps.initialDollarsId);
+  if (initial != null &&
+      move.initialDollarsOperationId == null &&
+      initial.status == MoneyStepStatus.running) {
+    return false; // Dollars' own part: outcome unknown
+  }
+  if (move.okLegs.isEmpty && move.initialDollarsOperationId == null) {
+    return false; // nothing went: not "partly"
+  }
+  for (final row in tx.legRows) {
+    if (multiSourceMoveStoppedRow(row, move)) continue;
+    if (OwnSparkArrivals.failedStatuses.contains(row.details.status)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// Whether [row] is one of [move]'s legs (or its own step).
 bool isMultiSourceMoveLeg(SwapOrderTransaction row, MultiSourceMove move) {
   final ids = move.linkedIds;
@@ -394,6 +462,10 @@ bool multiSourceMoveSettled(
       }
     }
   }
+  legRows = [
+    for (final r in legRows)
+      if (!multiSourceMoveStoppedRow(r, move)) r,
+  ];
   if (legRows.isEmpty) return false;
   for (final r in legRows) {
     if (!r.isComplete || OwnSparkArrivals.awaitingCredit(r.id)) return false;

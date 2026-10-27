@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Lähetä {amount}",
   "multiMoveTitle": "Siirrä {amount} kohteeseen {destination}",
   "multiMoveDeliveredRemaining": "{delivered} perillä · {remaining} jäljellä",
+  "activityPartlyDone": "Osittain valmis",
+  "multiMoveStillIn": "{amount} on yhä tilillä {place}",
   "multiMovePurchaseWaiting": "{amount} on kohteessa {balance}. Osta Bitcoinia napauttamalla",
   "multiMoveSendWaiting": "{amount} on kohteessa {balance}. Lähetys ei mennyt läpi",
   "usdReceiveDepositNow": "Talleta nyt",

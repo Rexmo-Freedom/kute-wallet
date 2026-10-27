@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Trimite {amount}",
   "multiMoveTitle": "Mută {amount} în {destination}",
   "multiMoveDeliveredRemaining": "{delivered} livrați · {remaining} rămași",
+  "activityPartlyDone": "Finalizat parțial",
+  "multiMoveStillIn": "{amount} este încă în {place}",
   "multiMovePurchaseWaiting": "Cei {amount} sunt în {balance}. Atinge pentru a cumpăra Bitcoin",
   "multiMoveSendWaiting": "Cei {amount} sunt în {balance}. Trimiterea nu a avut loc",
   "usdReceiveDepositNow": "Depune acum",

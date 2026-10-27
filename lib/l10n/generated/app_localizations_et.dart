@@ -10779,6 +10779,14 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Osaliselt tehtud';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount on endiselt kontol $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Sinu $amount on kontol $balance. Puuduta, et osta Bitcoini';
   }

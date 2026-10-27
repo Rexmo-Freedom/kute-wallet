@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Skicka {amount}",
   "multiMoveTitle": "Flytta {amount} till {destination}",
   "multiMoveDeliveredRemaining": "{delivered} levererat · {remaining} kvar",
+  "activityPartlyDone": "Delvis klart",
+  "multiMoveStillIn": "{amount} finns kvar i {place}",
   "multiMovePurchaseWaiting": "Dina {amount} finns i {balance}. Tryck för att köpa Bitcoin",
   "multiMoveSendWaiting": "Dina {amount} finns i {balance}. Betalningen skickades inte",
   "usdReceiveDepositNow": "Sätt in nu",

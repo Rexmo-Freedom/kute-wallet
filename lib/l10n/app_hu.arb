@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "{amount} küldése",
   "multiMoveTitle": "{amount} mozgatása ide: {destination}",
   "multiMoveDeliveredRemaining": "{delivered} megérkezett · {remaining} hátravan",
+  "activityPartlyDone": "Részben kész",
+  "multiMoveStillIn": "{amount} még itt van: {place}",
   "multiMovePurchaseWaiting": "{amount} a(z) {balance} egyenlegeden van. Koppints a Bitcoin vásárlásához",
   "multiMoveSendWaiting": "{amount} a(z) {balance} egyenlegeden van. A küldés nem ment végbe",
   "usdReceiveDepositNow": "Befizetés most",

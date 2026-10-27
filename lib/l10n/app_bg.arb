@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Изпрати {amount}",
   "multiMoveTitle": "Прехвърли {amount} към {destination}",
   "multiMoveDeliveredRemaining": "{delivered} доставени · {remaining} остават",
+  "activityPartlyDone": "Частично изпълнено",
+  "multiMoveStillIn": "{amount} все още е в {place}",
   "multiMovePurchaseWaiting": "Вашите {amount} са в {balance}. Докоснете, за да купите Bitcoin",
   "multiMoveSendWaiting": "Вашите {amount} са в {balance}. Изпращането не беше извършено",
   "usdReceiveDepositNow": "Депозирай сега",

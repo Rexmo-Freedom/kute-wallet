@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Odeslat {amount}",
   "multiMoveTitle": "Přesunout {amount} do {destination}",
   "multiMoveDeliveredRemaining": "{delivered} doručeno · {remaining} zbývá",
+  "activityPartlyDone": "Částečně hotovo",
+  "multiMoveStillIn": "{amount} zůstává na účtu {place}",
   "multiMovePurchaseWaiting": "Vašich {amount} je v {balance}. Klepnutím koupíte Bitcoin",
   "multiMoveSendWaiting": "Vašich {amount} je v {balance}. Odeslání neproběhlo",
   "usdReceiveDepositNow": "Vložit nyní",

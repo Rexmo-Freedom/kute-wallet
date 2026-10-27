@@ -10875,6 +10875,14 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Teilweise erledigt';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount sind noch in $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Deine $amount sind in $balance. Tippe, um Bitcoin zu kaufen';
   }

@@ -91,7 +91,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart'
-    show SettlementFundingNotStarted;
+    show SettlementFundingNotStarted, SettlementFundingRefused;
 import 'package:kute/services/funding/owned_address_resolver.dart'
     show ProviderReader;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart'
@@ -1536,6 +1536,9 @@ class VenueCashPuller {
               : TrackingService.errorCategory(leg.error),
       uncertain: parallel && !leg.ok && !knownUnsent,
       fellBack: leg.fellBackReason,
+      stoppedOperationId: leg.error is SettlementFundingRefused
+          ? (leg.error as SettlementFundingRefused).operationId
+          : null,
     );
     // The leg and its step (on its way, failed, or through Dollars
     // instead: MultiSourceMoveStore.addLeg records both).

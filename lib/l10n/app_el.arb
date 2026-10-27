@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Αποστολή {amount}",
   "multiMoveTitle": "Μετακίνηση {amount} σε {destination}",
   "multiMoveDeliveredRemaining": "{delivered} παραδόθηκαν · {remaining} απομένουν",
+  "activityPartlyDone": "Ολοκληρώθηκε εν μέρει",
+  "multiMoveStillIn": "{amount} παραμένουν στο {place}",
   "multiMovePurchaseWaiting": "Τα {amount} σας είναι στο {balance}. Πατήστε για να αγοράσετε Bitcoin",
   "multiMoveSendWaiting": "Τα {amount} σας είναι στο {balance}. Η αποστολή δεν ολοκληρώθηκε",
   "usdReceiveDepositNow": "Κατάθεση τώρα",

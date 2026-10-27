@@ -1104,6 +1104,59 @@ void main() {
     }
 
     testWidgets(
+        'partly done: the status says so, where the rest is, and Retry',
+        (tester) async {
+      // Buy bitcoin from both venues: Predictions landed, the Investing
+      // leg stopped before anything was sent.
+      final move = MultiSourceMoveStore.start(MultiSourceMove(
+        id: 'msm_partly',
+        walletId: 'w1',
+        forAction: VenueCashFor.buyBitcoin,
+        destination: VenueCashDestination.bitcoin,
+        totalUsd: 25.02,
+        dollarsUsd: 0,
+        createdAt: _t0,
+        parallelPurchase: true,
+      ));
+      MultiSourceMoveStore.addLeg(
+          move.id,
+          MultiSourceMoveLeg(
+              venue: OneBalanceVenue.predictions,
+              usd: 8.49,
+              arrivingUsd: 8.40,
+              route: VenueCashRoute.direct,
+              ok: true,
+              at: _t0,
+              operationId: 'op-pm'));
+      MultiSourceMoveStore.addLeg(
+          move.id,
+          MultiSourceMoveLeg(
+              venue: OneBalanceVenue.investing,
+              usd: 16.53,
+              arrivingUsd: 16.36,
+              route: VenueCashRoute.direct,
+              ok: false,
+              at: _t0,
+              error: 'not_sent',
+              stoppedOperationId: 'op-stopped'));
+      final pm = _row('ord_pm',
+              from: 'USDC',
+              fromNet: 'POLYGON',
+              to: 'BTC',
+              toNet: 'SPARK',
+              operationId: 'op-pm',
+              status: 'success')
+          .details
+          .copyWith(withdrawalAmount: '0.00010537', depositAmount: '8.49');
+      await openSheet(tester, MultiSourceMoveStore.get(move.id)!,
+          orders: [pm]);
+      expect(rowValue('Status', find.text('Partly done')), findsOneWidget);
+      expect(find.text('\$16.53 is still in Investing'), findsWidgets);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Needs attention'), findsNothing);
+    });
+
+    testWidgets(
         'Date and Status once, the totals across legs, one compact line per '
         'step, no block per leg', (tester) async {
       await openSheet(tester, threeLegs(),

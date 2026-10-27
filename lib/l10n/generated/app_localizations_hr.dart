@@ -10816,6 +10816,14 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get activityPartlyDone => 'Djelomično obavljeno';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount je i dalje na računu $place';
+  }
+
+  @override
   String multiMovePurchaseWaiting(String amount, String balance) {
     return 'Vaših $amount je u $balance. Dodirnite za kupnju Bitcoina';
   }

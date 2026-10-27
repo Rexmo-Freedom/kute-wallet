@@ -3019,6 +3019,8 @@
   "multiMoveSendTitle": "Send {amount}",
   "multiMoveTitle": "Flyt {amount} til {destination}",
   "multiMoveDeliveredRemaining": "{delivered} leveret · {remaining} tilbage",
+  "activityPartlyDone": "Delvist gennemført",
+  "multiMoveStillIn": "{amount} er stadig i {place}",
   "multiMovePurchaseWaiting": "Dine {amount} er i {balance}. Tryk for at købe Bitcoin",
   "multiMoveSendWaiting": "Dine {amount} er i {balance}. Afsendelsen blev ikke gennemført",
   "usdReceiveDepositNow": "Indsæt nu",
