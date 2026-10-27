@@ -383,17 +383,18 @@ Future<double> _dollarsDoorPrefill(
 
 /// What a hot slip's "Available" reads: its own venue's free cash
 /// ([venueUsd]) plus what the rest of Investments can bring
-/// ([otherSpendableUsd], `investmentsSpendableExcludingProvider`), floored
-/// to the cent. The whole spendable Investments, never the venue alone.
-/// Pure.
+/// ([otherSpendableUsd], `investmentsSpendableExcludingProvider`) plus what
+/// the spending Bitcoin can land for the order ([bitcoinUsd],
+/// `bitcoinMaxLandingUsd`: funded orders draw on it after Dollars; founder,
+/// 27 October 2026), floored to the cent. Pure.
 double slipAvailableUsd({
   required double venueUsd,
   required double otherSpendableUsd,
+  double bitcoinUsd = 0,
 }) {
-  final venue = venueUsd.isFinite && venueUsd > 0 ? venueUsd : 0.0;
-  final other =
-      otherSpendableUsd.isFinite && otherSpendableUsd > 0 ? otherSpendableUsd : 0.0;
-  return ((venue + other) * 100 + 1e-6).floorToDouble() / 100;
+  double clean(double v) => v.isFinite && v > 0 ? v : 0.0;
+  final sum = clean(venueUsd) + clean(otherSpendableUsd) + clean(bitcoinUsd);
+  return (sum * 100 + 1e-6).floorToDouble() / 100;
 }
 
 /// Headroom a slip's Max keeps on the move it would need: the move's cost

@@ -4278,6 +4278,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         ? slipAvailableUsd(
             venueUsd: available, otherSpendableUsd: otherSpendableUsd)
         : available;
+    // What the "Available" line reads: the same, plus what the spending
+    // Bitcoin can land, since funded orders draw on it too (founder,
+    // 27 October 2026). The line only: Max and the minimum keep
+    // [shownAvailable].
+    final availableLineUsd = buysFromInvestments
+        ? slipAvailableUsd(
+            venueUsd: available,
+            otherSpendableUsd: otherSpendableUsd,
+            bitcoinUsd: ref.watch(spendingBitcoinLandingUsdProvider))
+        : available;
 
     // Spread guard from the order book (market orders only).
     final spreadPct = ref
@@ -4756,7 +4766,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                           '${_sideWord()} ${market.coin} · ${_orderTypeName()}',
                     )
                   : _buildAmountField(c, available,
-                      shownAvailableUsd: shownAvailable,
+                      shownAvailableUsd: availableLineUsd,
                       balanceKnown: balanceKnown,
                       maxUsdOverride: fundedMaxUsd,
                       keypad: true,
@@ -4772,7 +4782,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             )
           else
           _buildAmountField(c, available,
-              shownAvailableUsd: shownAvailable,
+              shownAvailableUsd: availableLineUsd,
               balanceKnown: balanceKnown,
               maxUsdOverride: fundedMaxUsd,
               keypad: !advanced,
@@ -6019,8 +6029,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
 
   /// [available] is this account's own figure (what a spot sell holds);
   /// [shownAvailableUsd] what "Available" reads for a buy (the whole
-  /// spendable Investments on a hot ticket) and [maxUsdOverride] the Max
-  /// worked out on it.
+  /// spendable Investments and the spending Bitcoin on a hot ticket; the
+  /// label only) and [maxUsdOverride] the Max, worked out without the
+  /// Bitcoin.
   Widget _buildAmountField(AppColorsExtension c, double available,
       {double? shownAvailableUsd,
       bool balanceKnown = true,

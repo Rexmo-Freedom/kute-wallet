@@ -4914,7 +4914,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
               ? context.l10n.betSlipBalanceUpdating
               : context.l10n.betSlipAvailableAmount(_fiatCompanion(
                   slipAvailableUsd(
-                      venueUsd: spendable, otherSpendableUsd: otherSpendable)));
+                      venueUsd: spendable,
+                      otherSpendableUsd: otherSpendable,
+                      // Funded bets draw on the spending Bitcoin too; the
+                      // line only (Max and the minimum keep their figure).
+                      bitcoinUsd:
+                          ref.watch(spendingBitcoinLandingUsdProvider))));
     }
 
     // Max is the largest stake whose stake PLUS venue fees fits what is

@@ -1032,6 +1032,30 @@ SpendingBitcoin cachedSpendingBitcoin(
   return (sats: sats, usdPerBtc: isUsableUsdPerBtc(rate) ? rate : 0.0);
 }
 
+/// What the spending bitcoin can land for a funded order, in dollars
+/// ([bitcoinMaxLandingUsd] on the figures [cachedSpendingBitcoin] reads),
+/// for the order slips' "Available" line (founder, 27 October 2026:
+/// Available is the free Investments cash and the Bitcoin). The price is
+/// read only when there is bitcoin. Display only: it authorizes nothing.
+final spendingBitcoinLandingUsdProvider = Provider.autoDispose<double>((ref) {
+  var sats = 0;
+  try {
+    final spending = pickSpendingWallet(ref.watch(settingsProvider));
+    sats = spending == null
+        ? 0
+        : ref.watch(walletBalanceCacheProvider)[spending.id]
+                ?.sparkBitcoinbalance ??
+            0;
+  } catch (_) {}
+  if (sats <= 0) return 0;
+  var rate = 0.0;
+  try {
+    rate = ref.watch(selectedCurrencyProvider('USD')).toDouble();
+  } catch (_) {}
+  return bitcoinMaxLandingUsd(
+      (sats: sats, usdPerBtc: isUsableUsdPerBtc(rate) ? rate : 0.0));
+});
+
 /// The spending wallet's bitcoin read fresh, for a tap whose cached
 /// figures do not cover the leg (the balance not synced yet on a cold
 /// start, the price not loaded): the SDK's own `getInfo`, written through
