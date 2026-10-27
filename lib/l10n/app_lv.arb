@@ -1749,6 +1749,8 @@
   "polyPosIfWins": "Ja {side} uzvarēs",
   "polyPosSetSellAt": "Iestatīt pārdošanu pie {percent}%",
   "polyPosSinceBoughtAt": "kopš pirkuma par {price}",
+  "polyPosDragHint": "Velc rādītāju, lai redzētu, cik tas būtu vērts",
+  "polyPosChangeSince": "{percent} kopš {price}",
   "polyPosYourAvg": "Tava vid. {price}",
   "chartNoData": "Nav grafika datu",
   "ledgerBetPrepared": "Tēriņi iespējoti. Pārskati prognozi, lai turpinātu.",

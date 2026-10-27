@@ -3,20 +3,28 @@
 // Two quiet pieces of the open-position screen, around the speedometer
 // (position_speedometer.dart):
 //
-//   * the result, under the dial: "▲ $9.40 · +247%", the figure in the
-//     app's up / down colour after a painted caret, as the Portfolio rows
-//     write theirs (flat reads "$0.00 · 0.0%" quietly, no caret), and a
-//     quiet "since you bought at 19¢" under it;
+//   * the result, at the top left over the dial: "▲ $9.40", the figure in
+//     the app's up / down colour after a painted caret, as the Portfolio
+//     rows write theirs (flat reads "$0.00" quietly, no caret), and a
+//     quiet "+247% since 19¢" under it; while the needle is dragged, the
+//     what-if result the same way;
 //   * the chart, at the bottom, brokerage style: the held side's chance
 //     since the first buy of this holding (the market sheet's own price
 //     history of the held token, so a No reads as 1 − Yes), one 2 px line
 //     in the colour of the result (up, down, or neutral when flat), a faint
 //     dashed line at the average price labelled "Your avg 19¢", the live
-//     end dot; no fill, no axes; the start date and "Now" under it. Hidden
-//     without history.
+//     end dot; no fill, no axes; the start date and "Now" under it. Never
+//     hidden on an open position: with no history point after the buy yet
+//     (the Data API keeps one point per minute in which the price moved,
+//     so a fresh buy or a quiet market has none), the line runs from the
+//     price paid to the live chance and the history is read again while
+//     the sheet is open; when the first buy's time is unknown, the last
+//     week of the held side's history, the dashed line still at the
+//     average price.
 //
 // Nothing here is logged.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -27,7 +35,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketMarketHistoryProvider;
+    show PolyPriceHistoryCache, polymarketMarketHistoryProvider;
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketActivityProvider;
 import 'package:kute/screens/polymarket/components/market_chart.dart'
@@ -48,8 +56,7 @@ String polyResultPercent(double percent) {
 /// Whether a profit or loss of [pnl] dollars reads as flat.
 bool polyResultIsFlat(double pnl) => pnl.abs() < 0.005;
 
-/// "▲ $9.40 · +247%" under the dial, "since you bought at 19¢" under
-/// it.
+/// "▲ $9.40" at the top left over the dial, "+247% since 19¢" under it.
 class PolyPositionResultLine extends StatelessWidget {
   const PolyPositionResultLine({
     super.key,
@@ -59,14 +66,15 @@ class PolyPositionResultLine extends StatelessWidget {
     this.boughtText,
   });
 
-  /// The profit or loss in dollars (value now less what was paid).
+  /// The profit or loss in dollars (value now, or at the dragged chance,
+  /// less what was paid).
   final double pnl;
   final double pnlPercent;
 
   /// [pnl]'s size, formatted ("$9.40"), no sign.
   final String amountText;
 
-  /// The average price paid ("19¢"); no second line without it.
+  /// The average price paid ("19¢"); the percent alone without it.
   final String? boughtText;
 
   static const lineKey = ValueKey('poly-position-result');
@@ -82,30 +90,32 @@ class PolyPositionResultLine extends StatelessWidget {
     final color = flat
         ? c.textSecondary
         : (up ? AppColors.marketUp : AppColors.marketDown);
-    final change =
-        '$amountText · ${flat ? '0.0%' : polyResultPercent(pnlPercent)}';
+    final percent = flat ? '0.0%' : polyResultPercent(pnlPercent);
     final figure = TextStyle(
       color: color,
-      fontSize: 15.sp,
+      fontSize: 17.sp,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.1,
-      height: 1.3,
+      letterSpacing: -0.2,
+      height: 1.25,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final quiet = TextStyle(
       color: c.textTertiary,
-      fontSize: 13.sp,
+      fontSize: 12.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
     final bought = boughtText;
     return Column(
       key: lineKey,
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FittedBox(
           fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -117,20 +127,22 @@ class PolyPositionResultLine extends StatelessWidget {
                 ),
                 SizedBox(width: 5.w),
               ],
-              Text(change, key: figureKey, style: figure, maxLines: 1),
+              Text(amountText, key: figureKey, style: figure, maxLines: 1),
             ],
           ),
         ),
-        if (bought != null)
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              context.l10n.polyPosSinceBoughtAt(bought),
-              key: sinceKey,
-              style: quiet,
-              maxLines: 1,
-            ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            bought == null
+                ? percent
+                : context.l10n.polyPosChangeSince(percent, bought),
+            key: sinceKey,
+            style: quiet,
+            maxLines: 1,
           ),
+        ),
       ],
     );
   }
@@ -166,11 +178,23 @@ class PolyCaretPainter extends CustomPainter {
 // ─── Journey data ────────────────────────────────────────────────────
 
 /// The held side's chance since the holding's first buy: [since], then
-/// the history after it, oldest first.
+/// the history after it, oldest first (none when the price has not moved
+/// since the buy). [fromBuy] false: the buy's time is unknown, and [since]
+/// is the start of the history drawn ([kPolyJourneyUnknownInterval]).
 typedef PolyPositionJourney = ({
   DateTime since,
   List<PolymarketPricePoint> points,
+  bool fromBuy,
 });
+
+/// The range drawn when the first buy's time is unknown (neither the trade
+/// history nor the position's own first entry has it).
+const String kPolyJourneyUnknownInterval = '1w';
+
+/// How long the chart waits on the trade history before starting from the
+/// position's own first entry instead; the history still moves it to the
+/// buy once it answers.
+const Duration kPolyJourneyActivityWait = Duration(seconds: 6);
 
 /// When the shares of [tokenId] held now were first bought: the first
 /// buy after the last time the holding went to zero. Null without a buy.
@@ -205,31 +229,72 @@ String polyJourneyInterval(Duration age) {
   return 'max';
 }
 
+/// When the chart last read a thin history again, per (token, range).
+final Map<({String tokenId, String interval}), DateTime> _journeyRereadAt = {};
+
 /// The journey of the holding of [tokenId]: its first buy from the trade
-/// history ([fallbackSince], the position's own date, without one) and
-/// the held token's history since, from the market sheet's cache. Null
-/// when the start is unknown or there is no history after it.
+/// history ([fallbackSince], the position's own first entry, without one)
+/// and the held token's history since, from the market sheet's cache.
+/// Never null for a token: with no point after the buy, no points (the
+/// line runs from the price paid to the live chance) and the history is
+/// read again after its cache's freshness ([PolyPriceHistoryCache.ttlFor]);
+/// with no known buy, the last [kPolyJourneyUnknownInterval] of history.
 final polyPositionJourneyProvider = FutureProvider.autoDispose
     .family<PolyPositionJourney?, ({String tokenId, DateTime? fallbackSince})>(
         (ref, key) async {
   if (key.tokenId.isEmpty) return null;
   DateTime? since;
   try {
-    final activities = await ref.watch(polymarketActivityProvider.future);
+    final activities = await ref
+        .watch(polymarketActivityProvider.future)
+        .timeout(kPolyJourneyActivityWait);
     since = polyFirstBuyOfHolding(activities, key.tokenId);
   } catch (_) {}
   since ??= key.fallbackSince;
-  if (since == null) return null;
   final now = DateTime.now();
-  if (!since.isBefore(now)) return null;
-  final interval = polyJourneyInterval(now.difference(since));
-  final history = await ref.watch(polymarketMarketHistoryProvider(
-      (tokenId: key.tokenId, interval: interval)).future);
-  final start = since;
-  final after = history.where((p) => p.timestamp.isAfter(start)).toList()
+  // A buy stamped ahead of this clock was just now.
+  if (since != null && !since.isBefore(now)) {
+    since = now.subtract(const Duration(seconds: 1));
+  }
+  final interval = since == null
+      ? kPolyJourneyUnknownInterval
+      : polyJourneyInterval(now.difference(since));
+  final historyKey = (tokenId: key.tokenId, interval: interval);
+  var history = const <PolymarketPricePoint>[];
+  try {
+    history =
+        await ref.watch(polymarketMarketHistoryProvider(historyKey).future);
+  } catch (_) {}
+  final sorted = [...history]
     ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-  if (after.isEmpty) return null;
-  return (since: start, points: after);
+  final start = since;
+  if (start == null) {
+    return (
+      since: sorted.isEmpty
+          ? now.subtract(const Duration(days: 7))
+          : sorted.first.timestamp,
+      points: sorted,
+      fromBuy: false,
+    );
+  }
+  final after = sorted.where((p) => p.timestamp.isAfter(start)).toList();
+  if (after.length < 2) {
+    // Thin: read the history again once the cached copy is no longer
+    // fresh, so the minutes since the buy come in while the sheet is open.
+    // Timed from the last re-read, not from this run: the trade history
+    // reruns this every few seconds.
+    if (_journeyRereadAt.length > 64) _journeyRereadAt.clear();
+    final last = _journeyRereadAt[historyKey] ??= now;
+    final every =
+        PolyPriceHistoryCache.ttlFor(interval) + const Duration(seconds: 1);
+    final wait = every - now.difference(last);
+    final again = Timer(wait.isNegative ? Duration.zero : wait, () {
+      _journeyRereadAt[historyKey] = DateTime.now();
+      ref.invalidate(polymarketMarketHistoryProvider(historyKey));
+    });
+    ref.onDispose(again.cancel);
+  }
+  return (since: start, points: after, fromBuy: true);
 });
 
 // ─── Journey line ────────────────────────────────────────────────────
@@ -264,14 +329,20 @@ class PolyPositionJourneyLine extends StatelessWidget {
   static const avgKey = ValueKey('poly-position-journey-avg');
 
   /// The chart's points: the buy at the price paid (or the first point's
-  /// price), the history after it, and the live chance now.
+  /// price, or the live chance), the history after it, and the live
+  /// chance now. Without a known buy ([PolyPositionJourney.fromBuy] false)
+  /// the line starts on the history's first point instead. Always at
+  /// least two points.
   static List<({double t, double p})> series(
       PolyPositionJourney journey, double live, double? entry, DateTime now) {
     final t0 = journey.since.millisecondsSinceEpoch.toDouble();
     final t1 = math.max(now.millisecondsSinceEpoch.toDouble(), t0 + 1);
     double x(DateTime t) =>
         ((t.millisecondsSinceEpoch - t0) / (t1 - t0)).clamp(0.0, 1.0);
-    final first = entry ?? journey.points.first.price;
+    final firstPoint = journey.points.firstOrNull?.price;
+    final first = journey.fromBuy
+        ? (entry ?? firstPoint ?? live)
+        : (firstPoint ?? entry ?? live);
     return [
       (t: 0.0, p: first.clamp(0.0, 1.0).toDouble()),
       for (final pt in journey.points)
@@ -317,14 +388,16 @@ class PolyPositionJourneyLine extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final chartH = 110.h;
-    final range = polyJourneyRange(pts.map((p) => p.p), entry);
-    // "Your avg 19¢" at the dashed line's left: under it where there is
-    // room, else over it; on the screen's background, clear of the line
-    // (which starts at that price).
-    final avgY = e == null
-        ? 0.0
-        : (1 - (e - range.lo) / (range.hi - range.lo)) * chartH;
-    final avgBelow = avgY + 20 <= chartH;
+    // "Your avg 19¢" at the dashed line's left, on the side the line
+    // leaves it from (under it when the line climbs away, over it when it
+    // falls), the range opened just enough to hold it there; else under it
+    // where there is room, else over it. On the screen's background, clear
+    // of the line (which starts at that price).
+    final placed = polyJourneyAvgPlacement(
+        pts, e, polyJourneyRange(pts.map((p) => p.p), entry), chartH);
+    final range = placed.range;
+    final avgY = placed.y;
+    final avgBelow = placed.below;
 
     return Semantics(
       container: true,
@@ -415,6 +488,64 @@ class PolyPositionJourneyLine extends StatelessWidget {
     h = 1;
   }
   return (lo: math.max(0, l), hi: math.min(1, h));
+}
+
+/// Where "Your avg" goes on a chart [height] tall: [range] (opened a
+/// little when needed), the dashed line's y, and whether the label sits
+/// under it. The label (20 px tall) takes the side away from where the
+/// line heads over the label's first stretch (the first 30% of the
+/// width): under a line that climbs, over one that falls, so a line
+/// leaving the price paid never runs through it.
+({({double lo, double hi}) range, double y, bool below})
+    polyJourneyAvgPlacement(List<({double t, double p})> pts, double? entry,
+        ({double lo, double hi}) range, double height) {
+  const room = 20.0;
+  double yOf(double p, ({double lo, double hi}) r) =>
+      (1 - (p - r.lo) / (r.hi - r.lo)) * height;
+  final e = entry;
+  if (e == null || pts.isEmpty || height <= room * 2) {
+    return (range: range, y: 0, below: true);
+  }
+  // The line over the label's stretch.
+  double at(double t) {
+    for (var i = 1; i < pts.length; i++) {
+      final a = pts[i - 1];
+      final b = pts[i];
+      if (t <= b.t) {
+        final span = b.t - a.t;
+        return span <= 0 ? b.p : a.p + (b.p - a.p) * (t - a.t) / span;
+      }
+    }
+    return pts.last.p;
+  }
+
+  var climbs = false;
+  var falls = false;
+  for (final t in const [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]) {
+    final d = at(t) - e;
+    if (d > 0.002) climbs = true;
+    if (d < -0.002) falls = true;
+  }
+  final r = room / height;
+  var out = range;
+  bool? below;
+  if (climbs && !falls) {
+    // Under the dashed line: room under it.
+    final lo = (e - r * out.hi) / (1 - r);
+    if (lo >= 0) {
+      if (lo < out.lo) out = (lo: lo, hi: out.hi);
+      below = true;
+    }
+  } else if (falls && !climbs) {
+    // Over it: room over it.
+    final hi = (e - r * out.lo) / (1 - r);
+    if (hi <= 1) {
+      if (hi > out.hi) out = (lo: out.lo, hi: hi);
+      below = false;
+    }
+  }
+  final y = yOf(e, out);
+  return (range: out, y: y, below: below ?? (y + room <= height));
 }
 
 /// The chart's line colour: the result's, up or down, neutral when flat.

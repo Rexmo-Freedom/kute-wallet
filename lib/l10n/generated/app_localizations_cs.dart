@@ -6042,6 +6042,15 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Posuň ručičku a uvidíš, jakou by to mělo hodnotu';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent od $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tvůj průměr $price';
   }

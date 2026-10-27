@@ -6063,6 +6063,15 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Przeciągnij wskazówkę, aby zobaczyć, ile byłoby warte';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent od $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Twoja śr. $price';
   }

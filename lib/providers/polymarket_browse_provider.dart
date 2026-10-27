@@ -1165,6 +1165,10 @@ final polymarketActivePositionsProvider =
             pnl: p.cashPnl,
             pnlPercent: p.percentPnl,
             isResolved: false,
+            // When the holding was first entered (`first_entry_at`): the
+            // chart's start when the trade history no longer reaches it.
+            createdAt:
+                PolyPositionFirstEntry.of(state.proxyWalletAddress, p.asset),
             tokenId: p.asset,
             eventSlug: p.eventSlug,
             endDateStr: p.endDate,

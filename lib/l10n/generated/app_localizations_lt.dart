@@ -6075,6 +6075,15 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint =>
+      'Vilkite rodyklę ir pamatysite, kiek tai būtų verta';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent nuo $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Jūsų vid. $price';
   }

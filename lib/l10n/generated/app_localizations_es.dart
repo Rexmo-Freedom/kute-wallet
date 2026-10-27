@@ -6076,6 +6076,14 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get polyPosDragHint => 'Arrastra la aguja para ver cuánto valdría';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent desde $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tu promedio $price';
   }

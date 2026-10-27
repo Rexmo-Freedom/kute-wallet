@@ -875,10 +875,78 @@ Map<String, dynamic> _activitySnakeFromV2(Map<String, dynamic> r) => {
       'profile_image': r['profile_image']?.toString(),
     };
 
-List<Position> _parsePositions(String body) {
-  return _dataApiV2Rows(jsonDecode(body))
-      .map((row) => Position.fromJson(_positionSnakeFromV2(row)))
-      .toList();
+List<Position> _parsePositions(String body) => _parseOpenPositions(body).positions;
+
+/// The open arm's [Position]s and, by token id, when each holding was
+/// first entered (`first_entry_at`, epoch seconds), which polybrainz'
+/// [Position] has no field for.
+({List<Position> positions, Map<String, int> entries}) _parseOpenPositions(
+    String body) {
+  final rows = _dataApiV2Rows(jsonDecode(body));
+  return (
+    positions:
+        rows.map((row) => Position.fromJson(_positionSnakeFromV2(row))).toList(),
+    entries: {
+      for (final r in rows)
+        if (_v2Str(r['token_id']).isNotEmpty && _v2Epoch(r['first_entry_at']) > 0)
+          _v2Str(r['token_id']): _v2Epoch(r['first_entry_at']),
+    },
+  );
+}
+
+/// Epoch seconds from a number, a numeric string or an ISO date; 0 when
+/// absent or unreadable.
+int _v2Epoch(dynamic v) {
+  if (v is num) return v.toInt();
+  final s = v?.toString() ?? '';
+  final n = int.tryParse(s);
+  if (n != null) return n;
+  final d = DateTime.tryParse(s);
+  return d == null ? 0 : d.millisecondsSinceEpoch ~/ 1000;
+}
+
+/// When each open holding was first entered, by wallet and token, from the
+/// last `/v2/positions` read (`first_entry_at`). The open-position screen
+/// starts its chart there when the trade history (100 rows) no longer
+/// reaches the first buy.
+class PolyPositionFirstEntry {
+  PolyPositionFirstEntry._();
+
+  static final Map<String, DateTime> _at = {};
+
+  static String _key(String wallet, String tokenId) =>
+      '${wallet.toLowerCase()}|$tokenId';
+
+  /// Keeps [entries] (token id -> epoch seconds) for [wallet].
+  static void note(String wallet, Map<String, int> entries) {
+    if (wallet.isEmpty) return;
+    if (_at.length > 2048) _at.clear();
+    entries.forEach((token, at) {
+      _at[_key(wallet, token)] =
+          DateTime.fromMillisecondsSinceEpoch(at * 1000);
+    });
+  }
+
+  /// When [wallet]'s holding of [tokenId] was first entered; null when
+  /// unknown.
+  static DateTime? of(String? wallet, String? tokenId) {
+    if (wallet == null || wallet.isEmpty || tokenId == null) return null;
+    return _at[_key(wallet, tokenId)];
+  }
+
+  @visibleForTesting
+  static void debugReset() => _at.clear();
+}
+
+/// [_parseOpenPositions] for [wallet], off the UI isolate unless [inline],
+/// keeping the first-entry times ([PolyPositionFirstEntry]).
+Future<List<Position>> _openPositionsOf(String wallet, String body,
+    {bool inline = false}) async {
+  final parsed = inline
+      ? _parseOpenPositions(body)
+      : await Isolate.run(() => _parseOpenPositions(body));
+  PolyPositionFirstEntry.note(wallet, parsed.entries);
+  return parsed.positions;
 }
 
 ({
@@ -910,6 +978,12 @@ List<Position> _parsePositions(String body) {
 /// the settled CLOSED list.
 @visibleForTesting
 List<Position> debugParseOpenPositions(String body) => _parsePositions(body);
+
+/// The first-entry times [PolyPositionFirstEntry] keeps from one
+/// `/v2/positions` body: token id -> epoch seconds.
+@visibleForTesting
+Map<String, int> debugParsePositionEntries(String body) =>
+    _parseOpenPositions(body).entries;
 
 @visibleForTesting
 List<ClosedPosition> debugParseSettledClosedPositions(String body) =>
@@ -1406,8 +1480,7 @@ class PolymarketModel {
         .get(_positionsUri(addr))
         .timeout(const Duration(seconds: 10));
     if (resp.statusCode != 200) return [];
-    final body = resp.body;
-    return await Isolate.run(() => _parsePositions(body));
+    return _openPositionsOf(addr, resp.body);
   }
 
   /// Like [getPositions] but null when the read failed (a non-200, a
@@ -1425,8 +1498,7 @@ class PolymarketModel {
           .get(_positionsUri(addr))
           .timeout(const Duration(seconds: 10));
       if (resp.statusCode != 200) return null;
-      final body = resp.body;
-      return await Isolate.run(() => _parsePositions(body));
+      return await _openPositionsOf(addr, resp.body);
     } catch (_) {
       return null;
     }
@@ -1448,7 +1520,7 @@ class PolymarketModel {
       throw http.ClientException(
           'positions read failed (${resp.statusCode})', resp.request?.url);
     }
-    return _parsePositions(resp.body);
+    return _openPositionsOf(addr, resp.body, inline: true);
   }
 
   /// `GET /v2/positions?status=CLOSED` (was v1 `/positions?closed=true`,

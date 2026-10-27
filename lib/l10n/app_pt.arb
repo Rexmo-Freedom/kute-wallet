@@ -1902,6 +1902,8 @@
   "polyPosIfWins": "Se {side} ganhar",
   "polyPosSetSellAt": "Definir venda a {percent}%",
   "polyPosSinceBoughtAt": "desde a compra a {price}",
+  "polyPosDragHint": "Arrasta o ponteiro para veres quanto valeria",
+  "polyPosChangeSince": "{percent} desde {price}",
   "polyPosYourAvg": "A sua média {price}",
   "chartNoData": "Sem dados para o gráfico",
   "ledgerBetPrepared": "Gastos ativados. Revê a previsão para continuar.",
