@@ -439,6 +439,11 @@ Future<void> _initPostHog() async {
     // Surveys are never shown in Kute (founder decision, 2026-09-30).
     // Set explicitly so an SDK default flip can't render one.
     ..surveys = false
+    // No rage-click capture (on by default for iOS in the SDK). The
+    // native SDK builds those events itself, so they never pass the
+    // beforeSend scrubbers below, and three quick taps on one PIN keypad
+    // key would say where on screen they landed.
+    ..rageClickConfig = (PostHogRageClickConfig()..enabled = false)
     // Last line of defence before anything leaves the device. Exception
     // capture is off, so this should never have work to do; it is here so
     // that if a future flag or SDK default turns it back on, the message
