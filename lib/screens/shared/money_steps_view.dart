@@ -3,52 +3,63 @@
 // The ONE widget that shows a money step graph ([MoneyStepGraph]) under a
 // slip's or a sheet's button, and in an Activity detail: the MONEY
 // JOURNEY, in the calm look the founder approved on 20 October 2026 (the
-// earlier map read "childish and cheap"). One quiet row: the balances the
-// money passes through are plain round STATIONS left to right (their own
-// marks in their fixed brand colours, never theme tokens, so they read on
-// a green Yes or red No slip as on a plain sheet: ₿ on orange, the
-// Dollars (USDB) mark, the Investing and Predictions marks; no ring, no
-// disc behind), and a straight hairline CONNECTOR with a small chevron
-// joins each column to the next. Legs from several balances run at once
-// (founder, 25 October 2026): their stations stack in their column, just
-// overlapped, and each leg is its own hairline from its own station,
-// filling at its own pace and joining the others for the last few
-// points into the destination (one chevron there, orange once all of
-// them landed); the status line says them together ("Moving $4.18 from
-// Bitcoin and $5.00 from Investing"), then the destination's first dot
-// waits for all of it ("Waiting for both to arrive") before anything
-// there (the conversion, the order) runs. A station waits at 40% until the money is
-// there (55% over the sheet's ink on a slip in a side colour, so it reads
-// as a paler mark of its own colour), then shows in full; a small check
-// sits on it once its part is
-// done, a small red "!" where the money stopped. As a leg runs its
-// connector fills orange from the left and the chevron turns orange when
-// it lands; a leg's sub-legs (HyperCore → Circle → Arbitrum) are small
-// rings on its connector that fill as the orange passes them. The
-// destination's own sub-steps (converting, approving, confirming,
-// placing, crediting) are a row of small dots under its name: a ring
-// while waiting, a softly breathing dot while running, filled once done.
-// ONE coin, in the currency of where the money is, glides along the
-// running connector a little above it, rests above each station and
-// cross-fades into that station's currency, and once everything is done
-// sinks into the destination. Sal, small, walks the line behind the coin
-// and waits beside the next station while it works. Under the row: one
-// status line in the step's own words ("Moving $4.18 from Bitcoin",
-// "Confirming balance", "Placed!", or the surface's line saying where
-// the money is after a stop), "Taking longer than usual" quietly on its
-// right. No progress bar (founder, 2026-10-20): the row already shows how
-// far the money is, the status line says the rest. Every line (each leg,
-// sub-leg and checkpoint) is a real semantics node in its final words:
-// the status line is the current line itself, the others are there
-// unseen.
+// earlier map read "childish and cheap"), its connectors redrawn as the
+// "B2 · rounded elbows" wireframe on 27 October 2026 (the slanted legs
+// and chevrons did not look like a proper payment flow). One quiet row:
+// the balances the money passes through are plain round STATIONS left to
+// right (their own marks in their fixed brand colours, never theme
+// tokens, so they read on a green Yes or red No slip as on a plain sheet:
+// ₿ on orange, the Dollars (USDB) mark, the Investing and Predictions
+// marks; no disc behind), joined by CONNECTORS: neutral 1.5 px
+// hairlines, never an arrowhead, never a diagonal. One source: one
+// straight horizontal line from its station to the next. Legs from
+// several balances run at once (founder, 25 October 2026): their
+// stations stack in their column, each on its own row with a small gap;
+// each leg runs straight along its own row, turns with a rounded
+// right-angle corner (~8 px) and runs vertically to ONE merge point on
+// the destination's centre line, and one straight shared line goes on
+// from there into the destination, like an org chart. Each leg fills
+// orange from its own station along its own path (round its corner) at
+// its own pace; the shared line fills once every leg landed. Under each
+// source, at the start of its leg, its amount in small quiet type
+// ("$4.18"). The status line says the legs together ("Moving $4.18
+// from Bitcoin and $5.00 from Investing"), then the destination's first
+// dot waits for all of it ("Waiting for both to arrive") before anything
+// there (the conversion, the order) runs. A station waits at 40% until
+// the money is there (55% over the sheet's ink on a slip in a side
+// colour, so it reads as a paler mark of its own colour), then shows in
+// full; a small check sits on it once its part is done, a small red "!"
+// where the money stopped. A leg's sub-legs (HyperCore → Circle →
+// Arbitrum) are small rings on its connector that fill as the orange
+// passes them. While the destination's own sub-steps run (converting,
+// approving, confirming, placing, crediting) a thin ring in its brand
+// colour sits round its mark with a small gap, and nothing else there
+// asks for attention; done, the ring goes and the check comes. Those
+// sub-steps are a row of small dots under its name: a ring while
+// waiting, a softly breathing dot while running, filled once done.
+// ONE coin, in the currency of where the money is, rides the running
+// connector a little above it, rests above each station on the way and
+// cross-fades into that station's currency; it never parks at a merge
+// point (on a leg into one it stops before the corner and fades out
+// once the leg landed), and at a destination with sub-steps it sinks in
+// as the ring takes over (else once everything is done). Sal, small,
+// walks the line behind the coin and waits there while it works, never
+// at the merge point. Under the row: one status line in the step's own
+// words ("Moving $4.18 from Bitcoin", "Confirming balance", "Placed!",
+// or the surface's line saying where the money is after a stop),
+// "Taking longer than usual" quietly under it. No progress bar (founder,
+// 2026-10-20): the row already shows how far the money is, the status
+// line says the rest. Every line (each leg, sub-leg and checkpoint) is a
+// real semantics node in its final words: the status line is the
+// current line itself, the others are there unseen.
 //
 // While a step runs and the money waits (held near the end of its
-// connector for a bridge, or above the destination while its balance is
-// confirmed) the row stays quietly alive, never with bursts, rings or
-// borders: the parked coin hovers ±1.5 px, a soft light runs along the
-// running connector's orange every ~1.6 s, Sal blinks and sniffs, and the
-// working station breathes very slightly (97% to full). Only the row's
-// own layers repaint for it.
+// connector for a bridge) the row stays quietly alive, never with
+// bursts or borders: the parked coin hovers ±1.5 px, a soft light runs
+// along the running connector's orange every ~1.6 s, Sal blinks and
+// sniffs, and the station a leg runs to breathes very slightly (97% to
+// full; the destination's ring takes its place while it works). Only the
+// row's own layers repaint for it.
 //
 // A record whose steps have all ended (an Activity detail) draws its
 // final state at rest (the coin gone, every check on) and replays the
@@ -339,7 +350,8 @@ class _Look {
     required this.coinR,
     required this.coinLift,
     required this.gap,
-    required this.chevron,
+    required this.corner,
+    required this.rowGap,
     required this.salSize,
     required this.rowY,
     required this.nameTop,
@@ -375,7 +387,12 @@ class _Look {
 
   /// How far short of a station a connector stops.
   final double gap;
-  final double chevron;
+
+  /// A leg's rounded corner on its way to a merge point.
+  final double corner;
+
+  /// Between two stations stacked in one column.
+  final double rowGap;
   final double salSize;
 
   /// The stations' centre line, from the map's top (room above it for the
@@ -398,22 +415,30 @@ class _Look {
 }
 
 /// One road's own line in a row with parallel legs ([_Geometry.branches]):
-/// along its source's row, then straight into its station, so legs from
-/// several balances converge on the destination.
+/// straight along its source's row and, into a merge point on another
+/// row, round one corner and vertically into it (the corners drawn in
+/// short steps, so the fill and the coin follow them like any line).
 class _RoadPath {
-  _RoadPath(this.points) {
+  _RoadPath(this.points, {double? coinStop}) {
     var sum = 0.0;
     cum.add(0);
     for (var i = 1; i < points.length; i++) {
       sum += (points[i] - points[i - 1]).distance;
       cum.add(sum);
     }
+    _coinStop = coinStop;
   }
   final List<Offset> points;
   final List<double> cum = [];
+  double? _coinStop;
   double get length => cum.last;
   Offset get start => points.first;
   Offset get end => points.last;
+
+  /// How far along the coin (and Sal behind it) may go, 0..1: before a
+  /// corner, or short of a merge point, never on it.
+  double get coinStop =>
+      length <= 0 ? 1 : _unit((_coinStop ?? length) / length);
 
   /// The point [f] (0..1) of the way along.
   Offset at(double f) {
@@ -426,13 +451,6 @@ class _RoadPath {
       }
     }
     return end;
-  }
-
-  /// The way the line runs into its end (unit vector).
-  Offset get endDirection {
-    final v = points.last - points[points.length - 2];
-    final l = v.distance;
-    return l <= 0 ? const Offset(1, 0) : v / l;
   }
 
   /// The line from its start to [f] of the way.
@@ -452,11 +470,50 @@ class _RoadPath {
   }
 }
 
+/// The steps a rounded corner is drawn in.
+const int _kArcSteps = 10;
+
+/// The arc about [c] of radius [r] from angle [t0] to [t1], without its
+/// first point.
+Iterable<Offset> _arc(Offset c, double r, double t0, double t1) sync* {
+  for (var k = 1; k <= _kArcSteps; k++) {
+    final t = t0 + (t1 - t0) * k / _kArcSteps;
+    yield c + Offset(math.cos(t), math.sin(t)) * r;
+  }
+}
+
+/// A leg from [a] to [m]: right along [a]'s row, one rounded right-angle
+/// corner of [corner], then straight up or down into [m] (a merge point
+/// on its station's row); straight when [m] is on [a]'s row. With [end],
+/// a second rounded corner onto [m]'s row and on to [end] (a leg into a
+/// station of its own on another row). Never a diagonal.
+List<Offset> _elbowPoints(Offset a, Offset m, double corner, {Offset? end}) {
+  final dy = m.dy - a.dy;
+  if (dy.abs() < 0.5) return [a, end ?? m];
+  final sign = dy.sign;
+  final r = math.max(
+      0.0,
+      math.min(math.min(corner, end == null ? dy.abs() : dy.abs() / 2),
+          m.dx - a.dx));
+  final pts = <Offset>[
+    a,
+    Offset(m.dx - r, a.dy),
+    ..._arc(Offset(m.dx - r, a.dy + sign * r), r, -sign * math.pi / 2, 0),
+  ];
+  if (end == null) return [...pts, m];
+  return [
+    ...pts,
+    Offset(m.dx, m.dy - sign * r),
+    ..._arc(Offset(m.dx + r, m.dy - sign * r), r, math.pi, sign * math.pi / 2),
+    end,
+  ];
+}
+
 /// Where everything sits in the row, for one size.
 class _Geometry {
   _Geometry(this.size, this.stations, this.columnX, this.gaps, this.gapRoad,
       this.dotsY,
-      {this.paths = const [], this.branchRows = 1});
+      {this.paths = const [], this.trunks = const {}, this.branchRows = 1});
   final Size size;
 
   /// Each station's icon centre.
@@ -472,9 +529,12 @@ class _Geometry {
   final double dotsY;
 
   /// Legs from several balances run at once: each station on its own row
-  /// and each road its own line ([paths], by road), converging on the
-  /// destination. Otherwise one row and one connector per column gap.
+  /// and each road its own line ([paths], by road), into one merge point
+  /// before the station they go to, and from there one shared line into
+  /// it ([trunks], by station). Otherwise one row and one connector per
+  /// column gap.
   final List<_RoadPath?> paths;
+  final Map<int, _RoadPath> trunks;
   final int branchRows;
   bool get branches => paths.isNotEmpty;
 
@@ -489,9 +549,8 @@ class _Geometry {
   }
 
   /// From one row's centre line to the next: the stations of one column
-  /// just overlap (as an overlapped column's did side by side), so a
-  /// three-source row stays about as high as a sheet allows.
-  static double rowStep(_Look look) => 2 * look.stationR * 0.7;
+  /// each on their own row, a small gap between them.
+  static double rowStep(_Look look) => 2 * look.stationR + look.rowGap;
 
   /// The row's height for [plan] (the map above the status line), less
   /// its bottom margin.
@@ -558,8 +617,10 @@ class _Geometry {
   /// Legs from several balances at once: every source on its own row (the
   /// column's rows centred on the row's middle), a station passed on the
   /// way on the row of the leg that feeds it, the destination on the
-  /// middle; each road its own hairline along its source's row, turning
-  /// in the last gap straight into its station.
+  /// middle. Each road is its own hairline along its source's row; into
+  /// a station several roads go to, it turns with a rounded corner in the
+  /// last gap and runs vertically into one merge point on the station's
+  /// row, and one shared line goes on from there into the station.
   static _Geometry _branched(MoneyJourneyPlan plan, Size size, _Look look,
       List<double> columnX, int cols) {
     final r = look.stationR;
@@ -591,6 +652,17 @@ class _Geometry {
       for (var i = 0; i < n; i++)
         Offset(columnX[_col(plan.stations[i], cols)], ys[i] ?? mid),
     ];
+    // How many drawn roads go into each station: two or more merge.
+    final into = <int, int>{};
+    for (final road in plan.roads) {
+      if (_col(plan.stations[road.to], cols) >
+          _col(plan.stations[road.from], cols)) {
+        into[road.to] = (into[road.to] ?? 0) + 1;
+      }
+    }
+    // The coin keeps clear of a corner, and of a merge point.
+    final clear = look.coinR + 4;
+    final trunks = <int, _RoadPath>{};
     final paths = <_RoadPath?>[
       for (final road in plan.roads)
         () {
@@ -600,26 +672,38 @@ class _Geometry {
           final c1 = _col(plan.stations[road.to], cols);
           if (c1 <= c0) return null;
           final start = Offset(a.dx + r + look.gap, a.dy);
-          if ((a.dy - b.dy).abs() < 0.5) {
-            return _RoadPath([start, Offset(b.dx - r - look.gap, b.dy)]);
-          }
-          // Along its row to just short of halfway through the last gap,
-          // then across to the station's row, joining the other legs for
-          // the last few points into it: one end, one chevron.
           final end = Offset(b.dx - r - look.gap, b.dy);
           final lastGap0 = columnX[c1 - 1] + r + look.gap;
-          final bend = Offset(
-              math.max(start.dx + 4, lastGap0 + (end.dx - lastGap0) * 0.4),
-              a.dy);
-          final join = Offset(math.max(bend.dx + 4, end.dx - 3 * look.gap), b.dy);
-          return _RoadPath([start, bend, join, end]);
+          if ((into[road.to] ?? 0) >= 2) {
+            // Into the merge point, a little past the last gap's middle,
+            // so the shared line into the station reads as one.
+            final m = Offset(
+                math.max(start.dx + look.corner + 2 * clear,
+                    lastGap0 + (end.dx - lastGap0) * 0.55),
+                b.dy);
+            trunks.putIfAbsent(road.to, () => _RoadPath([m, end]));
+            final pts = _elbowPoints(start, m, look.corner);
+            final straight = pts.length == 2;
+            return _RoadPath(pts,
+                coinStop: straight
+                    ? (m.dx - start.dx) - 2 * clear - look.corner
+                    : (pts[1].dx - start.dx) - clear);
+          }
+          if ((a.dy - b.dy).abs() < 0.5) return _RoadPath([start, end]);
+          // A station of its own on another row: two rounded corners
+          // halfway through the last gap.
+          final pts = _elbowPoints(
+              start, Offset(lastGap0 + (end.dx - lastGap0) * 0.5, b.dy),
+              look.corner,
+              end: end);
+          return _RoadPath(pts, coinStop: (pts[1].dx - start.dx) - clear);
         }(),
     ];
     final destY = dest == null ? mid : stations[dest].dy;
     final dotsY = destY - look.rowY + look.nameTop + look.nameH +
         look.dotsGap + look.dotR;
     return _Geometry(size, stations, columnX, const [], const [], dotsY,
-        paths: paths, branchRows: rowsAll);
+        paths: paths, trunks: trunks, branchRows: rowsAll);
   }
 
   static int _col(JourneyStation st, int cols) => st.column.clamp(0, cols - 1);
@@ -669,7 +753,10 @@ class _Geometry {
       if (path == null) {
         return Offset.lerp(from, restAt(look, road.to), _unit(f))!;
       }
-      final line = path.at(f).translate(0, -look.coinLift);
+      // Along its own row, never round a corner or onto a merge point:
+      // it waits before them.
+      final line =
+          path.at(math.min(f, path.coinStop)).translate(0, -look.coinLift);
       // Down from above its station onto the line; into the last station
       // it stays on the line and settles once the leg landed.
       final u = _unit(f);
@@ -1042,7 +1129,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       coinR: 6.5.r,
       coinLift: 9.r,
       gap: 12.r,
-      chevron: 3.5.r,
+      corner: 8.r,
+      rowGap: 8.r,
       salSize: 20.r,
       rowY: 30.r,
       nameTop: 30.r + stationR + 4.r,
@@ -1157,6 +1245,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                         ),
                       ),
                       ..._names(context, geo, l10n, scaler),
+                      ..._amounts(context, geo),
                       // Right to left, so the left one of an overlapped
                       // column sits on top.
                       for (final i in [
@@ -1355,6 +1444,38 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     return out;
   }
 
+  /// In a row of parallel legs, under the start of each source's leg:
+  /// its amount, small and quiet ("\$4.18"). Only seen: the status line
+  /// and the leg's own line say it for a screen reader.
+  List<Widget> _amounts(BuildContext context, _Geometry geo) {
+    final money = widget.money;
+    if (!geo.branches || money == null) return const [];
+    final c = context.colors;
+    final plan = _scene.plan;
+    final out = <Widget>[];
+    for (var i = 0; i < plan.roads.length; i++) {
+      final road = plan.roads[i];
+      final path = geo.paths[i];
+      if (path == null || road.usd <= 0) continue;
+      if (plan.roads.any((r) => r.to == road.from)) continue;
+      out.add(Positioned(
+        key: ValueKey('money-steps-leg-amount-${plan.stations[road.from].id}'),
+        left: path.start.dx,
+        top: path.start.dy + 3.r,
+        child: ExcludeSemantics(
+          child: Text(money(road.usd),
+              maxLines: 1,
+              style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2)),
+        ),
+      ));
+    }
+    return out;
+  }
+
   /// A station: its own mark on its own colour, at 40% until the money is
   /// there, with a small check once its part is done or a small red "!"
   /// where the money stopped. The fades are paint-only.
@@ -1541,12 +1662,47 @@ double? _roadArrivedAt(_Scene s, JourneyRoad road) {
   return latest ?? double.negativeInfinity;
 }
 
-/// When the money reached station [i] (the first road into it landed):
-/// negative infinity when it was there before the view (a source), null
-/// while not yet.
+/// When every road into station [i] had landed (null while one has
+/// not), and how long the last one's dash took.
+(double, double)? _allLandedAt(_Scene s, int i) {
+  double? latest;
+  var dash = _kDash;
+  for (final r in s.plan.roads.where((r) => r.to == i)) {
+    final at = _roadArrivedAt(s, r);
+    if (at == null) return null;
+    if (latest == null || at > latest) {
+      latest = at;
+      for (final k in r.segments) {
+        dash = s.fx[s.keys[k]]?.dashMs ?? dash;
+      }
+    }
+  }
+  return latest == null ? null : (latest, dash);
+}
+
+/// How far the shared line from the merge point into station [i] is
+/// filled at [now]: nothing until every leg into it landed, then filling
+/// over one dash.
+double _trunkLit(_Scene s, int i, double now) {
+  final landed = _allLandedAt(s, i);
+  if (landed == null) return 0;
+  final (at, dash) = landed;
+  if (s.still || !at.isFinite) return 1;
+  return Curves.easeInOutCubic.transform(_unit((now - at) / dash));
+}
+
+/// When the money reached station [i]: the first road into it landed,
+/// or, into a merge point, its shared line filled; negative infinity
+/// when it was there before the view (a source), null while not yet.
 double? _stationArrivedAt(_Scene s, int i) {
   final into = s.plan.roads.where((r) => r.to == i);
   if (into.isEmpty) return double.negativeInfinity;
+  if (s.geo?.trunks.containsKey(i) ?? false) {
+    final landed = _allLandedAt(s, i);
+    if (landed == null) return null;
+    final (at, dash) = landed;
+    return at.isFinite ? at + dash : at;
+  }
   double? first;
   for (final r in into) {
     final at = _roadArrivedAt(s, r);
@@ -1666,10 +1822,38 @@ int? _workingStation(_Scene s) {
   return null;
 }
 
+/// Whether the destination has sub-steps of its own to run once the
+/// money is there (its ring shows while they do).
+bool _destinationWorks(MoneyJourneyPlan plan) => plan.checkpoints.any((k) =>
+    plan.lines[k].status != MoneyStepStatus.fellBack &&
+    plan.roads.every((r) => !r.segments.contains(k)));
+
+/// The destination's ring now, 0..1: in once the money is all there
+/// (as the coin sinks in) while its sub-steps run, out as its check or
+/// its "!" comes.
+double _ringAlpha(_Scene s, double now) {
+  final plan = s.plan;
+  final dest = plan.destination;
+  if (dest == null || !_destinationWorks(plan)) return 0;
+  final landed = _allLandedAt(s, dest);
+  if (landed == null && plan.roads.any((r) => r.to == dest)) return 0;
+  var from = landed == null ? double.negativeInfinity : landed.$1;
+  if (from.isFinite) {
+    if (s.geo?.trunks.containsKey(dest) ?? false) from += landed!.$2;
+    from += _kSwap;
+  }
+  final end = _stationFailedAt(s, dest) ?? _stationDoneAt(s, dest);
+  final fadeIn = _fadeIn(s, from, now, _kStationFade);
+  final fadeOut = _fadeIn(s, end, now, _kBadgeFade);
+  return fadeIn * (1 - fadeOut);
+}
+
 /// Station [i]'s size now: the working one breathes very slightly
-/// (97% to full, from full), every other one sits still.
+/// (97% to full, from full), every other one sits still; the destination
+/// never while its ring is on.
 double _stationScale(_Scene s, int i, double now) {
   if (_workingStation(s) != i) return 1;
+  if (i == s.plan.destination && _ringAlpha(s, now) > 0) return 1;
   return 1 - 0.03 * (0.5 - 0.5 * math.cos(2 * math.pi * now / _kWorkBreath));
 }
 
@@ -1728,15 +1912,18 @@ Color _placeColor(MoneyPlace? place) => switch (place) {
 // The painters
 // ─────────────────────────────────────────────────────────────────────
 
-/// Behind the stations: the connectors (quiet, filling orange as their
-/// leg runs, a chevron at each end), the waypoints on them, and the
-/// destination's checkpoint dots.
+/// Behind the stations: the connectors (quiet hairlines filling orange
+/// as their leg runs; never an arrowhead), the waypoints on them, the
+/// destination's ring while it works and its checkpoint dots.
 class _MapPainter extends CustomPainter {
   _MapPainter(this._scene, this._clock, this._geo) : super(repaint: _clock);
 
   final _Scene _scene;
   final Animation<double> _clock;
   final _Geometry _geo;
+
+  /// A connector shorter than this is not drawn.
+  static const double _minLine = 4;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1755,85 +1942,58 @@ class _MapPainter extends CustomPainter {
     final track = stroke(look.track);
     final bg = Paint()..color = look.background;
     final idle = _idle(s);
+    bool stoppedRoad(JourneyRoad road) =>
+        road.segments.any((k) => plan.lines[k].status == MoneyStepStatus.failed);
 
     // ── Legs from several balances: each its own line ──
-    // Every road fills at its own pace from its own station and its
-    // chevron turns orange as it lands, converging on the destination.
+    // The quiet tracks first (the shared lines too), so no fill is ever
+    // under a track where lines meet.
+    for (final path in geo.paths) {
+      if (path == null || path.length < _minLine) continue;
+      canvas.drawPath(path.upTo(1), track);
+    }
+    for (final trunk in geo.trunks.values) {
+      if (trunk.length < _minLine) continue;
+      canvas.drawPath(trunk.upTo(1), track);
+    }
+    // Every road fills at its own pace from its own station, round its
+    // corner into the merge point; the shared line on into the station
+    // fills once every one of them landed.
     for (var i = 0; i < geo.paths.length; i++) {
       final path = geo.paths[i];
-      if (path == null || path.length < 2 * look.chevron) continue;
+      if (path == null || path.length < _minLine) continue;
       final road = plan.roads[i];
       final f = _roadLit(s, road, now);
-      final stopped =
-          road.segments.any((k) => plan.lines[k].status == MoneyStepStatus.failed);
-      final lit = stroke(stopped ? look.stopped : _kAccent);
-      canvas.drawPath(path.upTo(1), track);
+      final stopped = stoppedRoad(road);
       if (f > 0) {
-        canvas.drawPath(path.upTo(f), lit);
+        canvas.drawPath(path.upTo(f), stroke(stopped ? look.stopped : _kAccent));
         if (idle && !stopped && _roadRuns(plan, road)) {
           // The light runs along its first stretch (its own row).
           final a = path.points[0];
           final b = path.points[1];
           final tip = path.at(f);
-          final xl = math.min(tip.dx, b.dx);
           if ((a.dy - tip.dy).abs() < 0.5 || tip.dx >= b.dx) {
-            _glint(canvas, a.dx, xl, a.dy, now);
+            _glint(canvas, a.dx, math.min(tip.dx, b.dx), a.dy, now);
           }
         }
       }
       final n = road.segments.length;
       for (var k = 0; k < road.waypoints.length; k++) {
         final frac = (k + 1) / n;
-        final c = path.at(frac);
-        final line = plan.lines[road.waypoints[k].line];
-        final failed = line.status == MoneyStepStatus.failed;
-        final passed = !failed && f >= frac - 1e-6;
-        canvas.drawCircle(c, look.waypointR, bg);
-        canvas.drawCircle(
-            c,
-            look.waypointR,
-            stroke(failed
-                ? look.failed
-                : passed
-                    ? _kAccent
-                    : look.track));
-        if (passed) {
-          canvas.drawCircle(c, look.waypointR * 0.42, Paint()..color = _kAccent);
-        }
+        _waypoint(canvas, path.at(frac), road.waypoints[k], f >= frac - 1e-6,
+            bg, stroke);
       }
     }
-
-    // One chevron where the legs into a station join, orange once every
-    // one of them landed.
-    final ends = <int, List<int>>{};
-    for (var i = 0; i < geo.paths.length; i++) {
-      if (geo.paths[i] == null) continue;
-      (ends[plan.roads[i].to] ??= []).add(i);
-    }
-    for (final into in ends.values) {
-      final path = geo.paths[into.first]!;
-      if (path.length < 2 * look.chevron) continue;
-      final landed = into.every((i) => _roadLit(s, plan.roads[i], now) >= 1);
-      final stopped = into.any((i) => plan.roads[i].segments
-          .any((k) => plan.lines[k].status == MoneyStepStatus.failed));
-      final ch = look.chevron;
-      final e = path.end;
-      final d = path.endDirection;
-      final nrm = Offset(-d.dy, d.dx);
-      canvas.drawPath(
-          Path()
-            ..moveTo(e.dx - d.dx * ch + nrm.dx * ch,
-                e.dy - d.dy * ch + nrm.dy * ch)
-            ..lineTo(e.dx, e.dy)
-            ..lineTo(e.dx - d.dx * ch - nrm.dx * ch,
-                e.dy - d.dy * ch - nrm.dy * ch),
-          landed && !stopped ? stroke(_kAccent) : track);
+    for (final e in geo.trunks.entries) {
+      if (e.value.length < _minLine) continue;
+      final f = _trunkLit(s, e.key, now);
+      if (f > 0) canvas.drawPath(e.value.upTo(f), stroke(_kAccent));
     }
 
-    // ── Connectors and their waypoints ──
+    // ── One straight line per column gap, and its waypoints ──
     for (var g = 0; g < geo.gaps.length; g++) {
       final (x0, x1) = geo.gaps[g];
-      if (x1 - x0 < 2 * look.chevron) continue;
+      if (x1 - x0 < _minLine) continue;
       final r = geo.gapRoad[g];
       final road = r == null ? null : plan.roads[r];
       var local = 0.0;
@@ -1843,57 +2003,45 @@ class _MapPainter extends CustomPainter {
         if (at != null) {
           local = at.$1 > g ? 1 : (at.$1 < g ? 0 : at.$2);
         }
-        stopped = road.segments
-            .any((k) => plan.lines[k].status == MoneyStepStatus.failed);
+        stopped = stoppedRoad(road);
       }
-      final lit = stroke(stopped ? look.stopped : _kAccent);
       canvas.drawLine(Offset(x0, y), Offset(x1, y), track);
       if (local > 0) {
         final xl = x0 + (x1 - x0) * local;
-        canvas.drawLine(Offset(x0, y), Offset(xl, y), lit);
+        canvas.drawLine(
+            Offset(x0, y), Offset(xl, y), stroke(stopped ? look.stopped : _kAccent));
         if (idle && !stopped && _roadRuns(plan, road!)) {
           _glint(canvas, x0, xl, y, now);
         }
       }
-      final ch = look.chevron;
-      canvas.drawPath(
-          Path()
-            ..moveTo(x1 - ch, y - ch)
-            ..lineTo(x1, y)
-            ..lineTo(x1 - ch, y + ch),
-          local >= 1 ? lit : track);
       if (road == null) continue;
       final n = road.segments.length;
       for (var k = 0; k < road.waypoints.length; k++) {
         final frac = (k + 1) / n;
         final at = geo.gapAt(plan, road, frac);
         if (at == null || at.$1 != g) continue;
-        final c = Offset(x0 + (x1 - x0) * at.$2, y);
-        final line = plan.lines[road.waypoints[k].line];
-        final failed = line.status == MoneyStepStatus.failed;
-        final passed = !failed && local >= at.$2 - 1e-6;
-        canvas.drawCircle(c, look.waypointR, bg);
-        canvas.drawCircle(
-            c,
-            look.waypointR,
-            stroke(failed
-                ? look.failed
-                : passed
-                    ? _kAccent
-                    : look.track));
-        if (passed) {
-          canvas.drawCircle(
-              c, look.waypointR * 0.42, Paint()..color = _kAccent);
-        }
+        _waypoint(canvas, Offset(x0 + (x1 - x0) * at.$2, y), road.waypoints[k],
+            local >= at.$2 - 1e-6, bg, stroke);
       }
     }
 
-    // ── The destination's checkpoints ──
     final dest = plan.destination;
     if (dest == null) return;
+    final color = _placeColor(plan.stations[dest].place);
+
+    // ── The destination's ring while its own sub-steps run ──
+    final ring = _ringAlpha(s, now);
+    if (ring > 0) {
+      canvas.drawCircle(
+          geo.stations[dest],
+          look.stationR + 4,
+          stroke(color.withValues(alpha: color.a * ring))
+            ..strokeWidth = 1.5);
+    }
+
+    // ── The destination's checkpoints ──
     final dots = _dots(plan);
     if (dots.isEmpty) return;
-    final color = _placeColor(plan.stations[dest].place);
     final x = geo.stations[dest].dx - (dots.length - 1) * look.dotGap / 2;
     for (var n = 0; n < dots.length; n++) {
       final i = dots[n];
@@ -1924,6 +2072,28 @@ class _MapPainter extends CustomPainter {
               ..strokeWidth = 1.2
               ..color = look.track);
       }
+    }
+  }
+
+  /// A sub-leg's waypoint: a small ring on its connector, filled once the
+  /// orange passed it, red where it stopped.
+  void _waypoint(Canvas canvas, Offset c, JourneyWaypoint w, bool reached,
+      Paint bg, Paint Function(Color) stroke) {
+    final look = _scene.look;
+    final failed =
+        _scene.plan.lines[w.line].status == MoneyStepStatus.failed;
+    final passed = !failed && reached;
+    canvas.drawCircle(c, look.waypointR, bg);
+    canvas.drawCircle(
+        c,
+        look.waypointR,
+        stroke(failed
+            ? look.failed
+            : passed
+                ? _kAccent
+                : look.track));
+    if (passed) {
+      canvas.drawCircle(c, look.waypointR * 0.42, Paint()..color = _kAccent);
     }
   }
 
@@ -2023,6 +2193,25 @@ class MoneyJourneyPainter extends CustomPainter {
     return road == null ? _segLit(s, s.fx[id], _now) : _roadLit(s, road, _now);
   }
 
+  /// How strongly the destination's ring shows now, 0..1 (on while its
+  /// own sub-steps run, once the money is all there).
+  double get destinationRing => _ringAlpha(_scene, _now);
+
+  /// How far the shared line from a merge point into station [id] is
+  /// filled now, 0..1; null when no legs merge there.
+  double? mergeLitOf(String id) {
+    final s = _scene;
+    final i = s.plan.stations.indexWhere((st) => st.id == id);
+    if (i < 0 || !_geo.trunks.containsKey(i)) return null;
+    return _trunkLit(s, i, _now);
+  }
+
+  /// Where the legs into station [id] merge, null when none do.
+  Offset? mergePointOf(String id) {
+    final i = _scene.plan.stations.indexWhere((st) => st.id == id);
+    return i < 0 ? null : _geo.trunks[i]?.start;
+  }
+
   /// Whether a finished record is replaying its journey now.
   bool get replaying {
     final at = _scene.replayAt;
@@ -2064,11 +2253,25 @@ class MoneyJourneyPainter extends CustomPainter {
       via = plan.roads[chain.last];
       station = via.to;
     }
+    final arrived = via == null ? null : _roadArrivedAt(s, via);
+    // Into a merge point it waits before the corner (the shared line is
+    // the legs' together), and fades out there once its leg landed:
+    // never parked at the merge point.
+    if (on == null && via != null && geo.trunks.containsKey(via.to)) {
+      if (s.still || arrived == null || !arrived.isFinite) return null;
+      final t = _unit((now - arrived) / _kSwap);
+      if (t >= 1) return null;
+      return (
+        at: geo.coinOnRoad(plan, via, 1, look),
+        place: plan.stations[via.from].place,
+        alpha: 1 - t,
+        scale: 1.0,
+      );
+    }
     var at = on ?? geo.restAt(look, station);
     place ??= plan.stations[station].place;
     var alpha = 1.0;
     var scale = 1.0;
-    final arrived = via == null ? null : _roadArrivedAt(s, via);
     if (on == null && via != null && arrived != null && !s.still) {
       // Just landed: from the line's end up above the station, fading
       // to ~40% and back as it turns into the station's currency.
@@ -2083,12 +2286,21 @@ class MoneyJourneyPainter extends CustomPainter {
         if (t < 0.5) place = plan.stations[via.from].place;
       }
     }
-    // Done: it sinks into the destination and is gone.
-    if (s.outcome == _Outcome.success && on == null) {
-      var start = math.max(s.outcomeAt, arrived ?? double.negativeInfinity);
-      for (final k in plan.checkpoints) {
-        final d = s.fx[s.keys[k]]?.doneAt;
-        if (d != null) start = math.max(start, d);
+    // At a destination with sub-steps of its own it sinks in once it
+    // turned into its currency, and the ring takes over; elsewhere it
+    // sinks in once everything is done. Then it is gone.
+    final works = station == plan.destination && _destinationWorks(plan);
+    if (on == null && (works || s.outcome == _Outcome.success)) {
+      double start;
+      if (works) {
+        if (s.still || arrived == null || !arrived.isFinite) return null;
+        start = arrived + _kSwap - 150;
+      } else {
+        start = math.max(s.outcomeAt, arrived ?? double.negativeInfinity);
+        for (final k in plan.checkpoints) {
+          final d = s.fx[s.keys[k]]?.doneAt;
+          if (d != null) start = math.max(start, d);
+        }
       }
       final t = _unit((now - start - 150) / _kSink);
       if (t >= 1) return null;
@@ -2123,15 +2335,17 @@ class MoneyJourneyPainter extends CustomPainter {
     final f = _roadLit(s, road, now);
     final behind = look.coinR + half + 4;
     if (geo.branches) {
-      // Along the leg's own line: a little behind the coin, never past
-      // the hold (beside the destination while it works).
+      // Along the leg's own row: a little behind the coin, never past
+      // the hold, and never round a corner or onto a merge point (he
+      // waits there, behind where the coin stopped).
       final path = geo.paths[plan.roads.indexOf(road)];
       if (path == null || path.length <= 0) {
         final st = geo.stations[road.to];
         return Offset(st.dx - look.stationR - look.gap - half, st.dy);
       }
       final lo = half / path.length;
-      final want = math.min(f - behind / path.length, _kHold);
+      final want = math.min(math.min(f, path.coinStop) - behind / path.length,
+          _kHold);
       return path.at(math.max(lo, want));
     }
     final start = geo.tipX(plan, road, 0) + half;

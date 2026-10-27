@@ -1,9 +1,12 @@
 // Legs from several balances run at once (founder, 25 October 2026): the
-// journey draws them as parallel branches converging on Predictions, each
-// filling at its own pace from its own station, says them together in
-// the status line, then waits at Predictions until every leg's money is
-// confirmed there ("Waiting for both to arrive") before the conversion
-// and the order.
+// journey draws them as parallel legs, each source on its own row, each
+// leg turning with a rounded corner into one merge point on Predictions'
+// centre line and one shared line on into it ("B2 · rounded elbows", 27
+// October 2026). Each leg fills at its own pace from its own station, the
+// shared line once both landed; the status line says them together, then
+// Predictions waits until every leg's money is confirmed there ("Waiting
+// for both to arrive"), its ring on while it works, before the
+// conversion and the order.
 
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -27,8 +30,12 @@ const _run = MoneyStepStatus.running;
 const _done = MoneyStepStatus.done;
 const _wait = MoneyStepStatus.waiting;
 
-/// \$9.18 on No: \$4.18 from Bitcoin straight in, \$5.00 from Investing.
+/// \$9.18 on No: \$4.18 from Bitcoin straight in, \$5.00 from Investing
+/// (only Bitcoin's \$9.18 when [single]; with [dollars], \$2.00 from
+/// Dollars too).
 MoneyStepGraph _bet({
+  bool single = false,
+  MoneyStepStatus? dollars,
   MoneyStepStatus bitcoin = _run,
   MoneyStepStatus investing = _run,
   MoneyStepStatus gather = _wait,
@@ -39,18 +46,25 @@ MoneyStepGraph _bet({
   final g = fundedOrderGraph(
     venue: OneBalanceVenue.predictions,
     orderUsd: 9.18,
-    legs: const [
+    legs: [
       MoneyStep(
           id: 'leg:bitcoin',
           kind: MoneyStepKind.leg,
           from: MoneyPlace.bitcoin,
-          usd: 4.18,
+          usd: single ? 9.18 : 4.18,
           route: MoneyRoute.direct),
-      MoneyStep(
-          id: 'leg:investing',
-          kind: MoneyStepKind.leg,
-          from: MoneyPlace.investing,
-          usd: 5),
+      if (!single)
+        const MoneyStep(
+            id: 'leg:investing',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.investing,
+            usd: 5),
+      if (dollars != null)
+        const MoneyStep(
+            id: 'leg:dollars',
+            kind: MoneyStepKind.leg,
+            from: MoneyPlace.dollars,
+            usd: 2),
     ],
   );
   return MoneyStepGraph([
@@ -59,6 +73,7 @@ MoneyStepGraph _bet({
         status: switch (s.id) {
           'leg:bitcoin' => bitcoin,
           'leg:investing' => investing,
+          'leg:dollars' => dollars ?? s.status,
           'ready:gather' => gather,
           'ready:convert' => convert,
           'ready:confirm' => confirm,
@@ -165,13 +180,39 @@ void main() {
     final btc = _station(tester, 'bitcoin');
     final hl = _station(tester, 'investing');
     final pm = _station(tester, 'predictions');
-    // Parallel branches: one column, two rows, converging on Predictions.
+    // Parallel legs: one column, each source on its own row with a gap,
+    // Predictions on the middle.
     expect(btc.dx, hl.dx);
-    expect(btc.dy, isNot(hl.dy));
+    final icon =
+        tester.getSize(find.byKey(const ValueKey('money-steps-station-bitcoin')));
+    expect(hl.dy - btc.dy, greaterThan(icon.height));
     expect(pm.dx, greaterThan(btc.dx));
     expect(pm.dy, closeTo((btc.dy + hl.dy) / 2, 0.01));
+    // The row about 100 high with two sources (the whole view about 125
+    // with its one status line), so a sheet's cards stay above the
+    // keypad.
+    expect(
+        tester.getSize(find.byKey(const ValueKey('money-steps-map'))).height,
+        lessThan(105));
+    // One merge point on Predictions' centre line; the shared line into
+    // it waits for both legs.
+    final merge = tester.getTopLeft(
+            find.byKey(const ValueKey('money-steps-map'))) +
+        _motion(tester).mergePointOf('predictions')!;
+    expect(merge.dy, closeTo(pm.dy, 0.01));
+    expect(merge.dx, inExclusiveRange(btc.dx, pm.dx));
+    expect(_motion(tester).mergeLitOf('predictions'), 0);
     expect(_motion(tester).litOf('leg:bitcoin'), greaterThan(0));
     expect(_motion(tester).litOf('leg:investing'), greaterThan(0));
+    // The coin rides the bigger leg (Investing's), short of the merge
+    // point, Sal behind it.
+    final coin = _motion(tester).coin!;
+    expect(coin.place, MoneyPlace.investing);
+    final mapAt =
+        tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
+    expect((mapAt + coin.at).dx, lessThan(merge.dx - 10));
+    expect(_motion(tester).travellerAt!.dx, lessThan(coin.at.dx));
+    expect(_motion(tester).destinationRing, 0);
     expect(_seen(tester),
         ['Moving \$4.18 from Bitcoin and \$5.00 from Investing']);
     // Each leg's own words stay there for a screen reader.
@@ -183,6 +224,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 900));
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).litOf('leg:investing'), lessThan(1));
+    expect(_motion(tester).mergeLitOf('predictions'), 0,
+        reason: 'the shared line waits for both');
     expect(_seen(tester), ['Moving \$5.00 from Investing']);
 
     // Both landed, the venue has not seen all of it yet: the wait, and no
@@ -191,6 +234,12 @@ void main() {
         _app(_bet(bitcoin: _done, investing: _done, gather: _run)));
     await tester.pump(const Duration(milliseconds: 900));
     expect(_seen(tester), ['Waiting for both to arrive']);
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(_motion(tester).mergeLitOf('predictions'), 1);
+    // The coin never parks at the merge point: it is gone, and the ring
+    // says Predictions works.
+    expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).destinationRing, greaterThan(0));
     expect(find.text('Converting to pUSD'), findsNothing);
     final lines =
         _lines(_bet(bitcoin: _done, investing: _done, gather: _run));
@@ -223,12 +272,13 @@ void main() {
         place: _done)));
     await tester.pump(const Duration(seconds: 3));
     expect(_seen(tester), ['Placed!']);
+    expect(_motion(tester).destinationRing, 0, reason: 'done: the check');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 3));
   });
 
-  // Frames for a look by eye (written only when asked:
+  // Frames for a look by eye, 390 wide (written only when asked:
   // JOURNEY_FRAMES=<dir>).
   final framesDir = Platform.environment['JOURNEY_FRAMES'];
   testWidgets('frames', skip: framesDir == null, (tester) async {
@@ -241,7 +291,7 @@ void main() {
         ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
       await icons.load();
     });
-    tester.view.physicalSize = const Size(430 * 3, 932 * 3);
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     Directory(framesDir!).createSync(recursive: true);
@@ -250,34 +300,57 @@ void main() {
       final theme = base.copyWith(
           textTheme: base.textTheme.apply(fontFamily: 'Inter'));
       final key = GlobalKey();
-      Future<void> shot(String name, MoneyStepGraph g, Duration after) async {
+      Future<void> pump(MoneyStepGraph g, Duration after) async {
         await tester.pumpWidget(DefaultTextStyle(
             style: const TextStyle(fontFamily: 'Inter'),
             child: _app(g, theme: theme, boundary: key)));
         await tester.pump(after);
-        await tester.runAsync(() async {
-          final boundary =
-              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-          final image = await boundary.toImage(pixelRatio: 3);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          File('$framesDir/${dark ? 'dark' : 'light'}-$name.png')
-              .writeAsBytesSync(bytes!.buffer.asUint8List());
-        });
       }
 
-      await shot('1-both-moving', _bet(), const Duration(milliseconds: 1500));
-      await shot('2-bitcoin-landed', _bet(bitcoin: _done, gather: _run),
-          const Duration(milliseconds: 1200));
-      await shot(
-          '3-waiting-for-both',
-          _bet(bitcoin: _done, investing: _done, gather: _run),
-          const Duration(milliseconds: 1200));
-      await shot(
-          '4-converting',
-          _bet(bitcoin: _done, investing: _done, gather: _done, convert: _run),
+      Future<void> shot(String name) => tester.runAsync(() async {
+            final boundary = key.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 3);
+            final bytes =
+                await image.toByteData(format: ui.ImageByteFormat.png);
+            File('$framesDir/${dark ? 'dark' : 'light'}-$name.png')
+                .writeAsBytesSync(bytes!.buffer.asUint8List());
+          });
+
+      Future<void> reset() async {
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 3));
+      }
+
+      // One source, moving.
+      await pump(_bet(single: true), const Duration(milliseconds: 1500));
+      await shot('1-single-moving');
+      await reset();
+      // Two sources at different progress: Investing left first.
+      await pump(_bet(bitcoin: _wait), const Duration(milliseconds: 1400));
+      await pump(_bet(), const Duration(milliseconds: 350));
+      await shot('2-two-moving');
+      await reset();
+      // Bitcoin landed, Investing still on its way.
+      await pump(_bet(), const Duration(milliseconds: 600));
+      await pump(_bet(bitcoin: _done, gather: _run),
+          const Duration(milliseconds: 1400));
+      await shot('3-one-landed');
+      await reset();
+      // Both arrived, the destination converting: its ring.
+      await pump(_bet(), const Duration(milliseconds: 600));
+      await pump(_bet(bitcoin: _done, investing: _done, gather: _run),
           const Duration(milliseconds: 900));
-      await shot(
-          '5-placed',
+      await pump(
+          _bet(bitcoin: _done, investing: _done, gather: _done, convert: _run),
+          const Duration(milliseconds: 1500));
+      await shot('4-converting');
+      await reset();
+      // Done.
+      await pump(
+          _bet(bitcoin: _done, investing: _done, gather: _done, convert: _run),
+          const Duration(milliseconds: 600));
+      await pump(
           _bet(
               bitcoin: _done,
               investing: _done,
@@ -285,9 +358,27 @@ void main() {
               convert: _done,
               confirm: _done,
               place: _done),
-          const Duration(milliseconds: 400));
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
+          const Duration(milliseconds: 2500));
+      await shot('5-done');
+      await reset();
+      // A stop: Investing's leg failed, Bitcoin's landed.
+      await pump(_bet(), const Duration(milliseconds: 600));
+      await pump(_bet(bitcoin: _done, gather: _run),
+          const Duration(milliseconds: 900));
+      await pump(_bet(bitcoin: _done, investing: MoneyStepStatus.failed),
+          const Duration(milliseconds: 1500));
+      await shot('6-failed');
+      await reset();
+      // Three sources, moving.
+      await pump(_bet(dollars: _run), const Duration(milliseconds: 1500));
+      await shot('7-three-moving');
+      await reset();
+      // One source, the destination converting: its ring.
+      await pump(_bet(single: true), const Duration(milliseconds: 600));
+      await pump(_bet(single: true, bitcoin: _done, convert: _run),
+          const Duration(milliseconds: 1600));
+      await shot('8-single-converting');
+      await reset();
     }
   });
 }

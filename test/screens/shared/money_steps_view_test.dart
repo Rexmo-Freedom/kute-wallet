@@ -486,9 +486,11 @@ void main() {
       }
       expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
           findsNothing);
-      // About 120 high, so a sheet's cards stay above the keypad.
+      // Three sources, each on its own row with a small gap (B2, 27
+      // October 2026): about 160 high, still short of a sheet's keypad.
+      // Two sources stay about 125 (money_journey_parallel_test).
       expect(tester.getSize(find.byKey(const ValueKey('money-steps'))).height,
-          lessThan(130));
+          lessThan(170));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 3));
     });

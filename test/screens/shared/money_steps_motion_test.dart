@@ -1,8 +1,9 @@
-// The money journey in motion, the calm look (founder, 20 October 2026):
-// one coin glides along the running connector as it fills, rests above
-// each station it reaches and cross-fades into that station's currency,
-// and sinks into the destination once everything is done; Sal walks the
-// line behind it; a leg's sub-legs are waypoints on its connector, the
+// The money journey in motion, the calm look (founder, 20 October 2026;
+// connectors as "B2 · rounded elbows", 27 October): one coin glides along
+// the running connector as it fills, rests above each station it reaches
+// and cross-fades into that station's currency, and sinks into the
+// destination (as its ring takes over while its own sub-steps run, else
+// once everything is done); Sal walks the line behind it; a leg's sub-legs are waypoints on its connector, the
 // destination's sub-steps dots under its name; one status line says the
 // step at work. A stop just stops, a finished record replays once,
 // silent, and each live moment is felt once, never for lines that were
@@ -258,9 +259,31 @@ void main() {
       expect(xs[0].dy, lessThan(xs[1].dy));
       expect(xs[1].dy, lessThan(xs[2].dy));
       expect(poly.dy, closeTo(xs[1].dy, 0.01));
-      // Just overlapped, as the column's were side by side.
+      // Each on its own row, a small gap between them (no longer
+      // overlapped).
       final icon = tester.getSize(_station('bitcoin')).height;
-      expect(xs[1].dy - xs[0].dy, lessThan(icon));
+      expect(xs[1].dy - xs[0].dy, greaterThan(icon));
+      expect(xs[2].dy - xs[1].dy, greaterThan(icon));
+      // One merge point on the destination's centre line, between the
+      // column and the destination; nothing filled past it yet.
+      final merge = tester.getTopLeft(
+              find.byKey(const ValueKey('money-steps-map'))) +
+          _motion(tester).mergePointOf('predictions')!;
+      expect(merge.dy, closeTo(poly.dy, 0.01));
+      expect(merge.dx, greaterThan(xs.first.dx));
+      expect(merge.dx, lessThan(poly.dx));
+      expect(_motion(tester).mergeLitOf('predictions'), 0);
+      // Each source's amount under the start of its leg.
+      for (final (id, amount) in [
+        ('bitcoin', '\$8.00'),
+        ('dollars', '\$5.00'),
+        ('investing', '\$2.00'),
+      ]) {
+        final label = find.byKey(ValueKey('money-steps-leg-amount-$id'));
+        expect(label, findsOneWidget);
+        expect(find.descendant(of: label, matching: find.text(amount)),
+            findsOneWidget);
+      }
       // Their names together under the column, moved in from the edge.
       expect(find.text('Bitcoin · Dollars · Investing'), findsOneWidget);
       final plan = MoneyJourneyPlan.of(
@@ -410,10 +433,13 @@ void main() {
     final landing = _motion(tester).coin!;
     expect(landing.place, MoneyPlace.bitcoin);
     expect(landing.alpha, lessThan(1));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_motion(tester).coin!.place, MoneyPlace.predictions);
-    expect(_motion(tester).coin!.alpha, 1);
-    await tester.pump(const Duration(seconds: 1));
+    // Then it sinks into Predictions as its ring takes over while it
+    // works.
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).destinationRing, 1);
     expect(count('lightImpact'), 1);
     expect(count('selectionClick'), 1);
     expect(find.byKey(const ValueKey('money-step-done-0')), findsOneWidget);
@@ -428,9 +454,9 @@ void main() {
     expect(patterns('success'), 1);
     expect(count('lightImpact'), 1);
     expect(_status(tester), 'Placed!');
-    expect(_motion(tester).coin, isNotNull, reason: 'sinking in');
     await tester.pump(const Duration(seconds: 1));
     expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).destinationRing, 0, reason: 'done: the check');
     expect(find.byKey(const ValueKey('money-steps-station-done-predictions')),
         findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
@@ -497,7 +523,9 @@ void main() {
     expect(bridge, isEmpty);
     expect(_motion(tester).replaying, isFalse);
     expect(_motion(tester).travellerStation, 'predictions');
-    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
+    // The coin is in; Predictions' ring says it works.
+    expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).destinationRing, 1);
   });
 
   testWidgets(
@@ -516,8 +544,8 @@ void main() {
     expect(count('selectionClick'), 1);
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).travellerStation, 'predictions');
-    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
-    expect(_motion(tester).coin!.alpha, 1, reason: 'no cross-fade');
+    expect(_motion(tester).coin, isNull, reason: 'in at once');
+    expect(_motion(tester).destinationRing, 1, reason: 'no fade');
 
     await tester.pumpWidget(_bet3(_done, _done, _done, still: true));
     await tester.pump();
