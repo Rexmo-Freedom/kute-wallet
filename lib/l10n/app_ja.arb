@@ -3110,6 +3110,7 @@
   "portfolioPositionsCount": "{count, plural, =1{1件のポジション} other{{count}件のポジション}}",
   "portfolioBuyingPower": "購買力",
   "portfolioBuyingPowerHint": "どの取引や予想にもすぐ使えます",
+  "portfolioTotalInvestments": "投資合計",
   "portfolioNoOpenPositions": "保有中のポジションはありません",
   "portfolioRowShares": "{shares}シェア · 平均{price}",
   "portfolioRowEntry": "エントリー {price}"

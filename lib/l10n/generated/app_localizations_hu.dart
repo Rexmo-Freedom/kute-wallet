@@ -11224,6 +11224,9 @@ class AppLocalizationsHu extends AppLocalizations {
       'Bármilyen kereskedésre vagy előrejelzésre kész';
 
   @override
+  String get portfolioTotalInvestments => 'Összes befektetés';
+
+  @override
   String get portfolioNoOpenPositions => 'Nincs nyitott pozíció';
 
   @override

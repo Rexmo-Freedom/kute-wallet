@@ -10772,6 +10772,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'どの取引や予想にもすぐ使えます';
 
   @override
+  String get portfolioTotalInvestments => '投資合計';
+
+  @override
   String get portfolioNoOpenPositions => '保有中のポジションはありません';
 
   @override

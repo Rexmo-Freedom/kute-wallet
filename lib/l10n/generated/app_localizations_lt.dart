@@ -11245,6 +11245,9 @@ class AppLocalizationsLt extends AppLocalizations {
       'Paruošta bet kokiam sandoriui ar prognozei';
 
   @override
+  String get portfolioTotalInvestments => 'Iš viso investicijų';
+
+  @override
   String get portfolioNoOpenPositions => 'Atvirų pozicijų nėra';
 
   @override

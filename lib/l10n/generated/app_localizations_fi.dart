@@ -11211,6 +11211,9 @@ class AppLocalizationsFi extends AppLocalizations {
       'Valmiina mihin tahansa kauppaan tai ennusteeseen';
 
   @override
+  String get portfolioTotalInvestments => 'Sijoitukset yhteensä';
+
+  @override
   String get portfolioNoOpenPositions => 'Ei avoimia positioita';
 
   @override

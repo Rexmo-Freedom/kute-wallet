@@ -67,6 +67,12 @@ import 'investments_harness.dart';
 
 Finder _pill(String label) => investmentsPill(label);
 
+/// The Portfolio's section pills (not Balances' Move money pill).
+final _sectionPills = find.byWidgetPredicate((w) =>
+    w is KutePill &&
+    w.key is ValueKey<String> &&
+    (w.key! as ValueKey<String>).value.startsWith('portfolio-section-pill-'));
+
 /// A Portfolio section pill, by its analytics key.
 Finder _section(String key) =>
     find.byKey(ValueKey('portfolio-section-pill-$key'));
@@ -504,7 +510,7 @@ void main() {
     // Three small pills, in order, Balances first and picked, then P&L
     // charts and Activity; no Positions pill.
     final pills = find.descendant(
-        of: find.byType(InvestmentsPortfolio), matching: find.byType(KutePill));
+        of: find.byType(InvestmentsPortfolio), matching: _sectionPills);
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label), [
       l10n.portfolioSectionBalances,
       l10n.portfolioSectionPnlCharts,
@@ -515,8 +521,8 @@ void main() {
     expect(find.text(l10n.ledgerPositionsTitle), findsNothing);
     expect(tester.widget<KutePill>(_section('balances')).selected, isTrue);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
-    // Balances: Buying power with the ring, one Move money (no Add
-    // money), which can be tapped.
+    // Balances: Buying power with the ring, Total investments, and Move
+    // money as a pill (no button, no Add money), which can be tapped.
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsOneWidget);
     expect(
@@ -524,7 +530,10 @@ void main() {
     final move = find.byKey(const ValueKey('portfolio-move-money'));
     expect(move.hitTestable(), findsOneWidget);
     expect(find.text(l10n.moveTransfer), findsOneWidget);
-    expect(find.byType(AppButton), findsOneWidget);
+    expect(tester.widget<KutePill>(move).selected, isTrue);
+    expect(find.byType(AppButton), findsNothing);
+    expect(find.text(l10n.portfolioTotalInvestments), findsOneWidget);
+    expect(find.text(l10n.betInvested), findsNothing);
 
     // P&L charts: the chart, pair and figures; neither Balances nor the
     // activity.
@@ -759,7 +768,7 @@ void main() {
     await pumpInvestments(tester, size: const Size(375, 812));
     await tapPill(tester, _l10n(tester).walletPortfolioAction);
     final pills = find.descendant(
-        of: find.byType(InvestmentsPortfolio), matching: find.byType(KutePill));
+        of: find.byType(InvestmentsPortfolio), matching: _sectionPills);
     expect(pills, findsNWidgets(3));
     final top = tester.getTopLeft(pills.at(0)).dy;
     for (var i = 0; i < 3; i++) {

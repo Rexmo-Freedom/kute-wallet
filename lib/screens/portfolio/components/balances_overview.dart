@@ -12,15 +12,19 @@
 //     small chevron that opens, in place, where that cash sits, largest
 //     first: Hyperliquid, Polymarket, Dollars (all three, $0.00 when
 //     known). A Rebalance note under a place opens the split by itself.
-//     On the right a small RING (the engine's KuteDonutChart, 90) with
+//     Under the hint (and the split, when open) "Total investments" and what Predictions and
+//     Investing have at work (label quiet, amount primary, a step under
+//     the venues' amounts), then the breakdown's [action]: Move money as a
+//     pill like the section pills' selected one (founder, 27 October 2026:
+//     no Invested row further down, no full-width button); its [steps]
+//     under the row while a move runs.
+//     On the right a small RING (the engine's KuteDonutChart, 96) with
 //     "Total" and the total in its hole; its slices wear each category's
 //     FIXED colour of the muted chart palette (Buying power indigo,
 //     Investing teal, Predictions amber: AppColorsExtension.chartCategorical),
 //     the same as the dots, so there is no legend and no percentages;
-//   * the breakdown's [action] (one full-width Move money, its steps);
-//   * a hairline, then INVESTED with what Predictions and Investing have at
-//     work on the right (bold);
-//   * one block per venue: "● Predictions  N" with its value and its P&L
+//   * a hairline, then one block per venue: "● Predictions  N" with its
+//     value and its P&L
 //     (in the result colour) on the right, the venue's positions under it,
 //     slightly indented, as the Option-B position rows
 //     (components/position_rows.dart: picture, short title, "event ·
@@ -238,7 +242,8 @@ class BalancesVenueList {
   static const BalancesVenueList empty = BalancesVenueList();
 }
 
-/// Buying power and the ring, Move money ([action]), Invested and each
+/// Buying power with Total investments and Move money ([action], its
+/// [steps]) beside the ring, then each
 /// venue with its positions (see the file header). [money] writes an
 /// amount (masked when balances are hidden); [wrap] lets the breakdown
 /// wrap each account's place row (its Rebalance band, the Dollars
@@ -250,6 +255,7 @@ class BalancesOverview extends StatefulWidget {
     required this.money,
     this.wrap,
     this.action,
+    this.steps,
     this.venues = const {},
   });
 
@@ -257,6 +263,7 @@ class BalancesOverview extends StatefulWidget {
   final String Function(double usd) money;
   final Widget Function(BalancesPart part, Widget row)? wrap;
   final Widget? action;
+  final Widget? steps;
   final Map<BalancesCategory, BalancesVenueList> venues;
 
   @override
@@ -302,7 +309,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       thickness: 0.5,
     );
 
-    // Invested: what both venues have at work, the hero's old second line.
+    // Total investments: what both venues have at work, the hero's old
+    // "Invested" line.
     final atWork = [
       for (final e in categories.entries)
         if (e.key != BalancesCategory.buyingPower) e.value,
@@ -435,14 +443,25 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 )
               : const SizedBox(width: double.infinity),
         ),
-        if (widget.action case final action?) ...[
-          SizedBox(height: 16.h),
-          action,
-        ],
+        if (predictions != null || investing != null)
+          Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _TotalInvestments(
+                  label: l10n.portfolioTotalInvestments, figure: invested),
+            ),
+          ),
+        if (widget.action case final pill?)
+          Padding(
+            padding: EdgeInsets.only(top: 14.h),
+            child:
+                Align(alignment: AlignmentDirectional.centerStart, child: pill),
+          ),
+        if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
         if (predictions != null || investing != null) ...[
           hairline,
-          _InvestedRow(title: l10n.betInvested, figure: invested),
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
           if (predictions != null && investing != null) ...[
@@ -748,47 +767,58 @@ class _BuyingPower extends StatelessWidget {
   }
 }
 
-/// Invested: what both venues have at work, a bold row.
-class _InvestedRow extends StatelessWidget {
-  const _InvestedRow({required this.title, required this.figure});
+/// "Total investments" and what both venues have at work: the label
+/// quiet, the amount primary, a step under the venues' amounts.
+class _TotalInvestments extends StatelessWidget {
+  const _TotalInvestments({required this.label, required this.figure});
 
-  final String title;
+  final String label;
   final BalancesFigure figure;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final style = TextStyle(
-      color: c.textPrimary,
-      fontSize: 17.sp,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.3,
-      height: 1.25,
-      fontFeatures: const [FontFeature.tabularFigures()],
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.3,
     );
     return Semantics(
       container: true,
-      label: '$title, ${figure.text}',
+      label: '$label, ${figure.text}',
       excludeSemantics: true,
-      child: Padding(
+      child: Row(
         key: const ValueKey('portfolio-balance-invested'),
-        padding: EdgeInsets.only(top: 16.h, bottom: 4.h),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(title,
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Flexible(
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: quiet),
+          ),
+          SizedBox(width: 8.w),
+          Flexible(
+            child: FittedBox(
+              key: const ValueKey('portfolio-balance-invested-amount'),
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: _Live(
+                figure: figure,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.2,
+                  height: 1.3,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
-            SizedBox(width: 12.w),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 210.w),
-              child: _EndFigure(
-                  key: const ValueKey('portfolio-balance-invested-amount'),
-                  figure: figure,
-                  style: style),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

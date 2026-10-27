@@ -44,6 +44,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -610,6 +611,25 @@ class _PortfolioBalanceBreakdownState
       ),
     );
 
+    // Balances' Move money: a pill like the section pills' selected one,
+    // under Buying power, less prominent than the full-width button (founder,
+    // 27 October 2026). Same tap: the movement sheet; nothing while a
+    // Rebalance from before is still being sent.
+    final pill = RubberBandBusy(
+      busy: rebalance.running,
+      expected: kRebalanceSendExpected,
+      child: KutePill(
+        key: const ValueKey('portfolio-move-money'),
+        label: l10n.moveTransfer,
+        selected: true,
+        link: true,
+        onTap: () {
+          if (rebalance.running) return;
+          unawaited(showMoneyMovementSheet(context));
+        },
+      ),
+    );
+
     Widget band(OneBalanceVenue venue, Widget tile) => _VenueBand(
           key: ValueKey('portfolio-band-${venue.name}'),
           phase: phases[venue] ?? RebalanceBandPhase.rest,
@@ -669,12 +689,13 @@ class _PortfolioBalanceBreakdownState
     // The Balances section: the same figures, notes and bands around
     // Buying power, the ring and the venues' positions; Move money and its
     // steps under Buying power ([action]).
-    Widget overviewView(Widget action) {
+    Widget overviewView(Widget action, Widget steps) {
       BalancesFigure figureOf(_Figure f) =>
           BalancesFigure(f.text, stale: f.stale, usd: f.usd);
       return BalancesOverview(
         money: amount,
         action: action,
+        steps: steps,
         venues: widget.venues,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
@@ -755,11 +776,7 @@ class _PortfolioBalanceBreakdownState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          overviewView(Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [button, stepsView],
-          )),
+          overviewView(pill, stepsView),
           SizedBox(height: 12.h),
         ],
       );

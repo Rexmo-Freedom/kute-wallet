@@ -11248,6 +11248,9 @@ class AppLocalizationsPt extends AppLocalizations {
       'Pronto para qualquer negociação ou previsão';
 
   @override
+  String get portfolioTotalInvestments => 'Total de investimentos';
+
+  @override
   String get portfolioNoOpenPositions => 'Sem posições abertas';
 
   @override

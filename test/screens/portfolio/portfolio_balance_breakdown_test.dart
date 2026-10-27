@@ -48,6 +48,7 @@ import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
@@ -1586,7 +1587,7 @@ void main() {
 
     testWidgets(
         "the founder's wallet: Buying power big with the ring, one Move "
-        'money and no Add money, then Invested with each venue',
+        'money pill and no Add money, Total investments, then each venue',
         (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
@@ -1636,21 +1637,32 @@ void main() {
           find.byKey(const ValueKey('portfolio-balance-split')), findsNothing);
       expect(find.text('Hyperliquid'), findsNothing);
 
-      // One Move money, full width, and no Add money.
-      expect(find.byType(AppButton), findsOneWidget);
-      expect(find.text('Move money'), findsOneWidget);
-      expect(find.text('Add money'), findsNothing);
-      expect(
-          tester.getRect(_rebalance).width,
-          moreOrLessEquals(tester
-              .getRect(find.byKey(const ValueKey('portfolio-balance-overview')))
-              .width));
-
-      // Invested, under Move money: what both venues have at work.
+      // Total investments under the hint: what both venues have at work,
+      // the label quiet, the amount primary; no Invested heading row.
       final invested = tester
           .getRect(find.byKey(const ValueKey('portfolio-balance-invested')));
-      expect(invested.top, greaterThan(tester.getRect(_rebalance).bottom));
+      expect(find.text('Total investments'), findsOneWidget);
+      expect(find.text('Invested'), findsNothing);
       expect(figureOf(tester, 'portfolio-balance-invested-amount'), r'$17.39');
+      final hint = tester.getRect(find.byKey(
+          const ValueKey('portfolio-balance-category-buyingPower-line')));
+      expect(invested.top, greaterThanOrEqualTo(hint.bottom));
+      expect(invested.left, moreOrLessEquals(hint.left, epsilon: 0.5));
+
+      // Move money: a pill like the section pills' selected one, under
+      // Total investments on the left, not a full-width button; no Add
+      // money.
+      final pill = tester.widget<KutePill>(_rebalance);
+      expect(pill.selected, isTrue);
+      expect(pill.label, 'Move money');
+      expect(find.byType(AppButton), findsNothing);
+      expect(find.text('Add money'), findsNothing);
+      final move = tester.getRect(_rebalance);
+      final overview = tester
+          .getRect(find.byKey(const ValueKey('portfolio-balance-overview')));
+      expect(move.width, lessThan(overview.width / 2));
+      expect(move.left, moreOrLessEquals(overview.left, epsilon: 0.5));
+      expect(move.top, greaterThan(invested.bottom));
 
       // Predictions: its count and value; Investing, nothing open, says so
       // in place of a figure and lists nothing.
@@ -1671,7 +1683,7 @@ void main() {
           findsNothing);
       final pr = _tile(tester, 'category-predictions');
       final inv = _tile(tester, 'category-investing');
-      expect(pr.top, greaterThanOrEqualTo(invested.bottom));
+      expect(pr.top, greaterThan(move.bottom));
       expect(inv.top, greaterThanOrEqualTo(pr.bottom));
       // The old rows' words are gone.
       expect(find.text('2 open'), findsNothing);
@@ -1680,6 +1692,28 @@ void main() {
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the Move money pill opens the movement review, as before',
+        (tester) async {
+      final events = _events();
+      final c = await _pump(tester, home: overviewBreakdown, overrides: [
+        currencyProvider.overrideWith((_) => _Currency()),
+      ]);
+      c.read(_balance.notifier).state = founder;
+      await tester.pumpAndSettle();
+      await tester.tap(_rebalance);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+          find.byKey(const ValueKey('money-movement-sheet')), findsOneWidget);
+      expect(_FakeSweeper.calls, 0);
+      expect(events.where((event) => event.$1 == 'portfolio_rebalance_tapped'),
+          isEmpty);
+      Navigator.of(tester.element(find.byType(DepositSheet))).pop();
+      await _pumpFor(tester);
       expect(tester.takeException(), isNull);
     });
 

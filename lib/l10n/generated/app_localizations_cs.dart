@@ -11189,6 +11189,9 @@ class AppLocalizationsCs extends AppLocalizations {
       'Připraveno na jakýkoli obchod nebo predikci';
 
   @override
+  String get portfolioTotalInvestments => 'Investice celkem';
+
+  @override
   String get portfolioNoOpenPositions => 'Žádné otevřené pozice';
 
   @override

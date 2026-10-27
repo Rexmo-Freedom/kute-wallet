@@ -11230,6 +11230,9 @@ class AppLocalizationsSl extends AppLocalizations {
       'Pripravljeno za vsako trgovanje ali napoved';
 
   @override
+  String get portfolioTotalInvestments => 'Naložbe skupaj';
+
+  @override
   String get portfolioNoOpenPositions => 'Ni odprtih pozicij';
 
   @override

@@ -3110,6 +3110,7 @@
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positioner}}",
   "portfolioBuyingPower": "Köpkraft",
   "portfolioBuyingPowerHint": "Redo för alla affärer och förutsägelser",
+  "portfolioTotalInvestments": "Totala investeringar",
   "portfolioNoOpenPositions": "Inga öppna positioner",
   "portfolioRowShares": "{shares} andelar · snitt {price}",
   "portfolioRowEntry": "ingång {price}"

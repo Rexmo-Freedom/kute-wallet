@@ -11197,6 +11197,9 @@ class AppLocalizationsSv extends AppLocalizations {
       'Redo för alla affärer och förutsägelser';
 
   @override
+  String get portfolioTotalInvestments => 'Totala investeringar';
+
+  @override
   String get portfolioNoOpenPositions => 'Inga öppna positioner';
 
   @override

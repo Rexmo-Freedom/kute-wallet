@@ -11278,6 +11278,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'Έτοιμα για κάθε συναλλαγή ή πρόβλεψη';
 
   @override
+  String get portfolioTotalInvestments => 'Σύνολο επενδύσεων';
+
+  @override
   String get portfolioNoOpenPositions => 'Καμία ανοιχτή θέση';
 
   @override

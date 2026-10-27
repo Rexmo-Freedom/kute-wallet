@@ -11257,6 +11257,9 @@ class AppLocalizationsRo extends AppLocalizations {
       'Gata pentru orice tranzacție sau predicție';
 
   @override
+  String get portfolioTotalInvestments => 'Total investiții';
+
+  @override
   String get portfolioNoOpenPositions => 'Nicio poziție deschisă';
 
   @override

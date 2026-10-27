@@ -11204,6 +11204,9 @@ class AppLocalizationsSk extends AppLocalizations {
       'Pripravené na akýkoľvek obchod alebo predikciu';
 
   @override
+  String get portfolioTotalInvestments => 'Investície spolu';
+
+  @override
   String get portfolioNoOpenPositions => 'Žiadne otvorené pozície';
 
   @override

@@ -11216,6 +11216,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get portfolioBuyingPowerHint => 'Готови за всяка сделка или прогноза';
 
   @override
+  String get portfolioTotalInvestments => 'Общо инвестиции';
+
+  @override
   String get portfolioNoOpenPositions => 'Няма отворени позиции';
 
   @override

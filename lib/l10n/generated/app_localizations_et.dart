@@ -11185,6 +11185,9 @@ class AppLocalizationsEt extends AppLocalizations {
       'Valmis igaks tehinguks või ennustuseks';
 
   @override
+  String get portfolioTotalInvestments => 'Investeeringud kokku';
+
+  @override
   String get portfolioNoOpenPositions => 'Avatud positsioone pole';
 
   @override
