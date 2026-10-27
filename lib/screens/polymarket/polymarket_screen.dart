@@ -793,17 +793,21 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// The window chips and the BTC Up or Down hero (live chart, strike line, countdown, live odds); with
   /// [otherAssets] (Crypto › 5 Min) the other assets in one card under it.
   List<Widget> _fiveMinuteSlivers({required bool otherAssets}) => [
-        SliverToBoxAdapter(
-          // No title over the card (founder, October 2026): only its
-          // window chips, at the right.
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-            child: const Align(
-              alignment: Alignment.centerRight,
-              child: _CryptoWindowChips(),
+        // No title over the card (founder, October 2026). The 5m / 15m
+        // window chips only on Crypto › 5 Min, never on Trending
+        // (founder, 27 October 2026).
+        if (otherAssets)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: _CryptoWindowChips(),
+              ),
             ),
-          ),
-        ),
+          )
+        else
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
         _heroSliver(),
         if (otherAssets)
           SliverToBoxAdapter(
