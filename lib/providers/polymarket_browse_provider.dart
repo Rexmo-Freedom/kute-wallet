@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
+    show PolyCrestImage, polyFeedArtworkUrls;
 import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/services/polymarket/polymarket_category_gate.dart';
 import 'package:kute/services/polymarket/polymarket_feed_cache.dart';
@@ -2186,6 +2188,13 @@ class PolyFeedNotifier
     // Kept for a while after the screen moves to another pill, so going
     // back shows the same rows (and scroll) without a reload.
     _cacheFor(ref, const Duration(minutes: 10));
+    // The first cards' artwork, resolved ahead (disk first) so the cards
+    // draw it on their first frame: the page cached from the last launch
+    // as soon as it is drawn, then every page that lands.
+    listenSelf((prev, next) {
+      if (identical(prev?.events, next.events)) return;
+      unawaited(PolyCrestImage.prefetch(polyFeedArtworkUrls(next.events)));
+    });
     ref.watch(runtimeCapabilitiesProvider);
     _spec = _specFor(arg);
     // The watchlist reads again whenever a star changes.

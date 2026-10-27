@@ -9,6 +9,7 @@ import 'package:kute/services/exit_reason_service.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/hive_boot.dart';
+import 'package:kute/services/icon_cache/icon_warmup.dart';
 import 'package:kute/services/hive_wipe.dart' show deleteOrphanedHiveBoxes;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
@@ -156,6 +157,10 @@ Future<void> _bootstrap() async {
   };
 
   await _initializeApp();
+
+  // Icon disk caches open now; the logos of the last launch are read
+  // back into memory after the first frame (non-blocking).
+  startIconWarmup();
 
   runApp(
     const OverlaySupport.global(
