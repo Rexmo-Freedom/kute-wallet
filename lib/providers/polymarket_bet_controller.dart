@@ -995,6 +995,7 @@ class PolymarketBetController {
         // the book moved to.
         final plan = _planFor(effectiveAmount, orderPrice, sendQuote);
         final shares = plan.shares;
+        final spend = plan.spendUsd;
         PolymarketPlacementDiagnostics.note('order', {
           'prebuilt': identical(plan, _plan) && _planBuilds == 1,
           'builder': plan.builderCode == null ? 'none' : 'attributed',
@@ -1007,6 +1008,7 @@ class PolymarketBetController {
             tokenId: intent.tokenId,
             side: OrderSide.buy,
             size: shares,
+            spendUsd: spend,
             negRisk: sendQuote.negRisk,
             marketQuote: sendQuote,
             price: orderPrice,
@@ -1032,6 +1034,7 @@ class PolymarketBetController {
               size: shares,
               price: orderPrice,
               orderType: OrderType.fak.name,
+              spendUsd: spend,
             ),
             onStep: _onPlacementStep,
           );

@@ -69,6 +69,7 @@ class _Trading extends PolymarketTradingNotifier {
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
     String? marketTitle,
     String? marketImage,
     String? marketOutcome,
