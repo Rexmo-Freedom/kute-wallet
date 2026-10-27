@@ -174,7 +174,7 @@ void main() {
 
       expect(find.byType(UnifiedSearchSurface), findsOneWidget);
       // The first frame already shows the venue's own tab.
-      expect(firstTab, predictions ? 2 : 3);
+      expect(firstTab, predictions ? 1 : 2);
       // Built once to open, once as Sal's availability resolves and once
       // when the composer takes focus after the slide; the keyboard's
       // frames do not rebuild it.

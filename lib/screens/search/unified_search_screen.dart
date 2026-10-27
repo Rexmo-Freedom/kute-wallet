@@ -13,8 +13,8 @@
 //      transparent)`, with a keyboard-aware bottom inset so the field +
 //      results lift above the keyboard. No backdrop blur.
 //
-//   2. Category filter chips — a horizontal All / Transactions /
-//      Predictions / Investing row styled like the Polymarket category
+//   2. Category filter chips — a horizontal All / Predictions /
+//      Investing / Transactions row styled like the Polymarket category
 //      pills. All searches the three at once; selecting one narrows the
 //      results to that section. Nothing else is searched: no balances,
 //      no wallet-action shortcuts, no Settings destinations.
@@ -792,8 +792,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       context,
       children: [
         // While a query is being typed (or in search-only mode) the
-        // compact filter "tabs" (All · Transactions · Predictions ·
-        // Investing) narrow the live results. Idle with Sal available:
+        // compact filter "tabs" (All · Predictions · Investing ·
+        // Transactions) narrow the live results. Idle with Sal available:
         // no header row — the drag handle sits straight above the chat /
         // intro, so there's no empty gap. A pool-scoped sheet renders
         // its OWN tab set even under
@@ -877,7 +877,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
 }
 
 /// The compact filter "tabs" shown while a query is being typed:
-/// All · Transactions · Predictions · Investing. Selecting one writes
+/// All · Predictions · Investing · Transactions. Selecting one writes
 /// [selectedSearchCategoryProvider], which the sheet's `showTx` /
 /// `showPredictions` / `showPerpetuals` visibility already reads to narrow
 /// the result groups. Replaces the old "Search wallet" text label — the
@@ -890,13 +890,14 @@ class _WalletFilterChips extends ConsumerWidget {
   final List<(SearchCategory, String)>? tabs;
   const _WalletFilterChips({required this.selected, this.tabs});
 
-  /// The global tab set. The Hyperliquid leg keeps its `perpetuals`
-  /// category key (analytics stay stable) but reads Investing.
+  /// The global tab set, in All's section order: Predictions, Investing,
+  /// Transactions. The Hyperliquid leg keeps its `perpetuals` category key
+  /// (analytics stay stable) but reads Investing.
   static List<(SearchCategory, String)> _standardTabs(BuildContext context) => [
         (SearchCategory.all, context.l10n.searchFilterAll),
-        (SearchCategory.transactions, context.l10n.transactions),
         (SearchCategory.predictions, context.l10n.predictions),
         (SearchCategory.perpetuals, context.l10n.trading),
+        (SearchCategory.transactions, context.l10n.transactions),
       ];
 
   @override

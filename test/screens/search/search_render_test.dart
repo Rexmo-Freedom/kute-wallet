@@ -245,7 +245,7 @@ Future<void> _render(WidgetTester tester,
   // the sheet on All.
   final tabs = find.byType(KutePillTabs);
   if (tabs.evaluate().isNotEmpty) {
-    final index = predictions ? 2 : 3;
+    final index = predictions ? 1 : 2;
     final pills = find.descendant(of: tabs.first, matching: find.byType(KutePill));
     if (pills.evaluate().length > index) {
       await tester.tap(pills.at(index));

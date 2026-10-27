@@ -120,7 +120,7 @@ void main() {
     // Investing's own card, the exact ticker first, three under All.
     expect([for (final c in cards) c.market.coin],
         ['BTC', 'BTCDOM', 'WBTC']);
-    expect(find.text('Investing'), findsOneWidget);
+    expect(find.byKey(const ValueKey('header-investing')), findsOneWidget);
     expect(find.text('See all'), findsOneWidget);
 
     await tester.tap(find.text('See all'));

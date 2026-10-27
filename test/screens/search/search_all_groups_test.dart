@@ -1,7 +1,8 @@
 // What All searches: transactions, Predictions and Investing at once, and
 // nothing else. No balances, no Send/Receive shortcuts, no Settings rows,
 // even for a query like "bitcoin" that used to surface all three. The
-// groups always read Predictions, Investing, Transactions; each shows
+// groups always read Predictions, Investing, Transactions, and the pills
+// read All, Predictions, Investing, Transactions; each group shows
 // three with a "See all" that switches to its pill; the pills narrow to
 // one group.
 
@@ -25,6 +26,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/trade_notification_store.dart'
@@ -214,6 +216,13 @@ void main() {
       (tester) async {
     await _open(tester, 'bitcoin');
     expect(_headers(tester), ['predictions', 'investing', 'transactions']);
+    // The pills read in the same order as the groups.
+    expect(
+        tester
+            .widget<KutePillTabs>(find.byType(KutePillTabs))
+            .items
+            .map((i) => i.label),
+        ['All', 'Predictions', 'Investing', 'Transactions']);
     for (final gone in [
       'Balances',
       'Spending balance',
