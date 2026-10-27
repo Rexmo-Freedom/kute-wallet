@@ -11,7 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -148,4 +150,70 @@ void main() {
 
     await unmountInvestments(tester);
   });
+
+  testWidgets(
+      'the list sits under no title, in one grouped card like Home\'s '
+      'Activity', (tester) async {
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        size: const Size(390, 2000),
+        overrides: [
+          hyperliquidBrowseUniverseProvider
+              .overrideWithValue(AsyncValue.data(_universe)),
+          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+        ]);
+
+    for (final pill in ['Trending', 'Perps']) {
+      if (pill != 'Trending') {
+        await _tap(tester, _pill(pill));
+        await _settle(tester);
+      }
+      expect(_selected(tester, pill), isTrue);
+      // The pill names the list: its label is written once, on the pill.
+      expect(_inBrowser(find.text(pill)), findsOneWidget);
+      expect(
+          find.descendant(of: _pill(pill), matching: find.text(pill)),
+          findsOneWidget);
+
+      final rows = _inBrowser(find.byType(HlMarketCard));
+      final n = rows.evaluate().length;
+      expect(n, greaterThan(1));
+      // The list comes straight under the pills.
+      final pills = _inBrowser(find.byType(PolyDrillRow));
+      expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
+          lessThan(20));
+
+      // ONE grouped card, Home Activity's, holds every row: no card per
+      // market, Home's inset hairline between rows.
+      final group = _inBrowser(find.byType(DecoratedSliver));
+      expect(group, findsOneWidget);
+      final context = tester.element(rows.first);
+      expect(tester.widget<DecoratedSliver>(group).decoration,
+          PremiumGroupContainer.decorationOf(context));
+      expect(find.descendant(of: group, matching: find.byType(HlMarketCard)),
+          findsNWidgets(n));
+      for (final row in tester.widgetList<HlMarketCard>(rows)) {
+        expect(row.inGroup, isTrue);
+      }
+      final dividers =
+          find.descendant(of: group, matching: find.byType(Divider));
+      expect(dividers, findsNWidgets(n - 1));
+      for (var i = 0; i < n - 1; i++) {
+        final d = tester.widget<Divider>(dividers.at(i));
+        expect(d.indent, hlGroupRowIndent());
+        expect(d.thickness, 0.5);
+        expect(tester.getRect(dividers.at(i)).top,
+            moreOrLessEquals(tester.getRect(rows.at(i)).bottom, epsilon: 0.5));
+      }
+      // The press ink of the first and last rows is clipped to the card's
+      // corners.
+      for (final row in [rows.first, rows.last]) {
+        expect(find.ancestor(of: row, matching: find.byType(ClipRRect)),
+            findsWidgets);
+      }
+    }
+
+    await unmountInvestments(tester);
+  });
 }
+

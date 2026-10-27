@@ -13,6 +13,8 @@
 // Public discovery stays visible independently of account reads. Activity
 // lives in Portfolio; its shared rows below use this Ledger's records only.
 
+import 'package:kute/screens/polymarket/components/market_card.dart'
+    show polyCardGroups, polyGroupRowIndent;
 import 'package:kute/screens/polymarket/components/position_card.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -267,8 +269,10 @@ class _LedgerPredictionsDiscovery extends ConsumerWidget {
               product: 'predictions',
               leading: fiveMinute,
               sections: sections,
-              cardBuilder: (event, onTap) =>
-                  PredictionBrowseCard(event: event, onTap: onTap),
+              cardBuilder: (event, onTap, inGroup) => PredictionBrowseCard(
+                  event: event, onTap: onTap, inGroup: inGroup),
+              groups: (e) => polyCardGroups(e.title, e.outcomes),
+              groupRowIndent: polyGroupRowIndent,
               onOpenMarket: (event) {
                 if (!context.mounted) return;
                 MarketDetailSheet.show(context,

@@ -26,6 +26,8 @@ import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/crypto_odds_scope.dart';
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
@@ -401,14 +403,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     ref.read(polyBrowseSelectionProvider.notifier).state = next;
   }
 
-  /// The chip the selection's subcategory names, from the chips loaded.
-  PolySub? _subFor(PolyBrowseSelection s, List<PolySub> subs) {
-    for (final sub in subs) {
-      if (sub.key == s.sub) return sub;
-    }
-    return null;
-  }
-
   /// A category: its list, and its subcategories in place of the
   /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
@@ -531,7 +525,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         if (s.route == route) selection = selection.copyWith(sub: s.key);
       }
     }
-    final sub = _subFor(selection, subs) ?? PolySub(selection.sub);
     // The one browse row shows the subcategories of the category drilled
     // into, while it has a row of them.
     final drilled = _drilledInto == pill && subs.length > 1;
@@ -587,16 +580,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       if (pos.hasContentDimensions && pos.extentAfter < 900) _loadMore();
     });
 
-    final title = (pill.isTopic || pill == PolyPill.live) &&
-            selection.sub != 'all'
-        ? polySubLabel(l10n, sub)
-        : polyPillLabel(l10n, pill);
-    // Games in play are listed under their leagues' own headings: the
-    // list's heading would only sit on top of the first of them.
+    // Live › a league: just that league's games, under no heading.
     final liveLeague = pill == PolyPill.live && selection.sub != 'all'
         ? selection.sub
         : null;
-    final groupedLive = isLiveList && liveLeague == null;
 
     // NOTE: live CLOB prices and sports scores are watched PER CARD
     // inside [_PolyFeedCard] with narrow
@@ -675,17 +662,17 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       SliverSelectionFade(
                         selection: (pill, selection.sub),
                         slivers: [
-                          // ── "Crypto markets": section header first, then
-                          // the BTC Up-or-Down hero card UNDER it (user
-                          // decision). On the home and under Crypto › 5 Min;
+                          // ── The BTC Up-or-Down hero card, under its window
+                          // chips and no title (founder, October 2026). On
+                          // the home and under Crypto › 5 Min;
                           // the other assets' card shows only under Crypto
                           // (user decision: not on the main screen).
                           if (showHeroSection)
                             ..._fiveMinuteSlivers(otherAssets: fiveMinOnly),
 
-                          // ── The list's own heading.
-                          if (!fiveMinOnly && !(groupedLive && feed.events.isNotEmpty))
-                            SliverToBoxAdapter(child: _SectionHeader(label: title)),
+                          // No heading over the list: the selected pill
+                          // (or subcategory) already names it (October
+                          // 2026).
 
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
@@ -803,14 +790,18 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     );
   }
 
-  /// "Crypto markets": the header with its window chips and the BTC Up or
-  /// Down hero (live chart, strike line, countdown, live odds); with
+  /// The window chips and the BTC Up or Down hero (live chart, strike line, countdown, live odds); with
   /// [otherAssets] (Crypto › 5 Min) the other assets in one card under it.
   List<Widget> _fiveMinuteSlivers({required bool otherAssets}) => [
         SliverToBoxAdapter(
-          child: _SectionHeader(
-            label: context.l10n.predictionsCryptoMarkets,
-            trailing: const _CryptoWindowChips(),
+          // No title over the card (founder, October 2026): only its
+          // window chips, at the right.
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+            child: const Align(
+              alignment: Alignment.centerRight,
+              child: _CryptoWindowChips(),
+            ),
           ),
         ),
         _heroSliver(),
@@ -857,7 +848,15 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(top: 8.h),
-              child: SkeletonCardList(count: 3, height: 160.h),
+              // The grouped card the list lands in, with skeleton rows.
+              child: PremiumGroupContainer(
+                child: SkeletonRowList(
+                  count: 4,
+                  padding: EdgeInsets.zero,
+                  rowPadding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                ),
+              ),
             ),
           ),
         ];
@@ -879,24 +878,18 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
+      // Plain Yes/No markets share one grouped card like Home's
+      // Activity; an event with many outcomes or a game keeps its own
+      // card and breaks the group (founder, October 2026).
       body = [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-          sliver: SliverList.separated(
-            itemCount: events.length,
-            separatorBuilder: (_, __) => SizedBox(height: 10.h),
-            itemBuilder: (_, i) {
-              final market = events[i];
-              return _PolyFeedCard(
-                market: market,
-                isSportsCategory: market.category == 'sports',
-                matchSiblings: market.gameId != null
-                    ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
-                    : const <PolymarketEvent>[],
-              );
-            },
-          ),
-        ),
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ..._groupedSlivers(events, (market) => (
+              isSportsCategory: market.category == 'sports',
+              siblings: market.gameId != null
+                  ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])
+                  : const <PolymarketEvent>[],
+            )),
+        SliverToBoxAdapter(child: SizedBox(height: 8.h)),
       ];
     }
     return [
@@ -951,19 +944,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         for (final e in collapseByGameId(events))
           if (e.hasLivestream) e
       ];
-      return [
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          sliver: SliverList.separated(
-            itemCount: streams.length,
-            separatorBuilder: (_, __) => SizedBox(height: 10.h),
-            itemBuilder: (_, i) => _PolyFeedCard(
-              market: streams[i],
-              isSportsCategory: true,
-            ),
-          ),
-        ),
-      ];
+      return _groupedSlivers(streams, (_) => _kLiveRow);
     }
     for (final group in _liveGroups(events)) {
       if (only != null && group.sub.key != only) continue;
@@ -972,20 +953,36 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           child: _SectionHeader(label: polySubLabel(context.l10n, group.sub)),
         ));
       }
-      slivers.add(SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        sliver: SliverList.separated(
-          itemCount: group.games.length,
-          separatorBuilder: (_, __) => SizedBox(height: 10.h),
-          itemBuilder: (_, i) => _PolyFeedCard(
-            market: group.games[i],
-            isSportsCategory: true,
-          ),
-        ),
-      ));
+      slivers.addAll(_groupedSlivers(group.games, (_) => _kLiveRow));
     }
     return slivers;
   }
+
+  /// [events] as list slivers: runs of plain Yes/No markets in one
+  /// grouped card, every other market its own card ([marketGroupSlivers]).
+  /// [rowOf] says how a market's row reads its sport and its match's
+  /// other markets.
+  List<Widget> _groupedSlivers(
+    List<PolymarketEvent> events,
+    ({bool isSportsCategory, List<PolymarketEvent> siblings}) Function(
+            PolymarketEvent market)
+        rowOf,
+  ) =>
+      marketGroupSlivers<PolymarketEvent>(
+        context,
+        items: events,
+        groups: (e) => polyCardGroups(e.title, e.outcomes),
+        dividerIndent: polyGroupRowIndent(),
+        build: (market, inGroup) {
+          final row = rowOf(market);
+          return _PolyFeedCard(
+            market: market,
+            isSportsCategory: row.isSportsCategory,
+            matchSiblings: row.siblings,
+            inGroup: inGroup,
+          );
+        },
+      );
 
   Future<void> _onRefresh() {
     PolymarketScreen.refreshBrowse(ref);
@@ -1005,6 +1002,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
 /// card's slices of the live-price and sports
 /// providers via narrow selects — so a WS tick repaints just the cards
 /// it touches instead of the whole screen.
+/// A game in play's row: a sports row, no other markets of its match.
+const ({bool isSportsCategory, List<PolymarketEvent> siblings}) _kLiveRow =
+    (isSportsCategory: true, siblings: <PolymarketEvent>[]);
+
 class _PolyFeedCard extends ConsumerWidget {
   final PolymarketEvent market;
   final bool isSportsCategory;
@@ -1014,10 +1015,14 @@ class _PolyFeedCard extends ConsumerWidget {
   /// "+N more markets" affordance opening the grouped match view.
   final List<PolymarketEvent> matchSiblings;
 
+  /// A row of a grouped list card ([MarketCard.inGroup]).
+  final bool inGroup;
+
   const _PolyFeedCard({
     required this.market,
     required this.isSportsCategory,
     this.matchSiblings = const <PolymarketEvent>[],
+    this.inGroup = false,
   });
 
   @override
@@ -1071,6 +1076,7 @@ class _PolyFeedCard extends ConsumerWidget {
       tokens: outcomeTokenIds,
       child: RepaintBoundary(
         child: MarketCard(
+          inGroup: inGroup,
           title: roundAsset == null
               ? market.title
               : '$roundAsset · '
@@ -2242,38 +2248,29 @@ class _FiveMinTile extends ConsumerWidget {
   }
 }
 
-/// Section header used above feed groups: the title, with controls at
-/// its right where a section has them (the window chips).
+/// A league's heading over its games in play (Live). The only title left
+/// in the lists: without it, games of different leagues would run
+/// together.
 class _SectionHeader extends StatelessWidget {
   final String label;
 
-  /// Controls at the right of the title, such as the window chips.
-  final Widget? trailing;
-
-  const _SectionHeader({required this.label, this.trailing});
+  const _SectionHeader({required this.label});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Padding(
       padding: EdgeInsets.fromLTRB(20.w, 18.h, 16.w, 10.h),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 22.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: c.textPrimary,
+          fontSize: 22.sp,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+        ),
       ),
     );
   }
