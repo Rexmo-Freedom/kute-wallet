@@ -156,6 +156,40 @@ void main() {
         await AdvisorInputGuard.isSafe('What does 10x leverage mean?'), isTrue);
   });
 
+  test(
+      'part of a phrase is blocked too: six seed words in a row, a typo at a '
+      "word's end, a phrase broken by typos, other key formats", () async {
+    for (final query in [
+      // The first six words of a phrase, typed into search or Sal.
+      'legal winner thank year wave sausage',
+      // A typo at the end of a word does not break the run.
+      'legal winnerr thank year wavee sausage',
+      // A phrase split by mistakes still reads as one.
+      'legal winner thamk year wave sausaje worth useful legal winner thank',
+      // Electrum / Sparrow exports and a raw BIP39 seed.
+      'zprvAWgYBBk7JR8Gjrh4UJQ2uJdG1r3WNRRfURiABBE3RvMXYSrRJL62XuezvGdPvG6GFBZduosCc1YP5wixPox7zhZLfiUm8aunE96BBa4Kei5',
+      'yprvAHwhK6RbpuS3dgCYHM5jc2ZvEKd7Bi61u9FVhYMpgMSuZS613T1xxQeKTffhrHY79hZ5PsskBjcc6C2V7DrnsMsNaGDaWev3GLRQRgV7hxF',
+      '5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4',
+      'cRp4uUnreGMZN8vB7nQFX6XWMHU5Lc73HMAhmcDEwHfbgRS66Cqp',
+    ]) {
+      expect(await AdvisorInputGuard.isSafe(query), isFalse, reason: query);
+    }
+    // Ordinary market questions and searches pass.
+    for (final query in [
+      'will bitcoin hit 100k this year',
+      'stock market crash this month',
+      'oil price above one hundred',
+      'federal reserve interest rate decision',
+      'will donald trump win the presidential election',
+      'total goals over under two point five',
+      'can you explain how this market works and what happens if the game '
+          'is cancelled before the end',
+      'what would happen to the price if the fed cut rates again in december',
+    ]) {
+      expect(await AdvisorInputGuard.isSafe(query), isTrue, reason: query);
+    }
+  });
+
   test('unrecognised and private market identifiers are not sent', () {
     expect(
         const AdvisorContext(

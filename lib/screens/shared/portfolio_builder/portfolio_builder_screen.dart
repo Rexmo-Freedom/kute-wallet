@@ -27,6 +27,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_search_provider.dart';
@@ -131,6 +132,42 @@ class _PortfolioBuilderScreenState
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+
+  /// [_query] once [AdvisorInputGuard] has let it through: the only text
+  /// the Predictions search sends to Polymarket. Empty while the check
+  /// runs and when the text reads like a phrase, key or address.
+  String _searchQuery = '';
+  int _queryGeneration = 0;
+
+  /// The guard refused [_query]: the list shows no results.
+  bool _queryBlocked = false;
+
+  void _onQueryChanged(String text) {
+    final generation = ++_queryGeneration;
+    setState(() {
+      _query = text;
+      _searchQuery = '';
+      _queryBlocked = false;
+    });
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    unawaited(() async {
+      var safe = false;
+      try {
+        safe = await AdvisorInputGuard.isSafe(trimmed);
+      } catch (_) {
+        // Unchecked text never reaches a public search provider.
+      }
+      if (!mounted || generation != _queryGeneration) return;
+      setState(() {
+        if (safe) {
+          _searchQuery = trimmed;
+        } else {
+          _queryBlocked = true;
+        }
+      });
+    }());
+  }
 
   /// The category the Predictions pick list browses. Breaking is the
   /// list the Builder always opened on.
@@ -1341,7 +1378,7 @@ class _PortfolioBuilderScreenState
   Widget _searchField(AppColorsExtension c) {
     return TextField(
       controller: _searchCtrl,
-      onChanged: (t) => setState(() => _query = t),
+      onChanged: _onQueryChanged,
       autocorrect: false,
       textInputAction: TextInputAction.search,
       cursorColor: c.accent,
@@ -1360,7 +1397,7 @@ class _PortfolioBuilderScreenState
                 tooltip: context.l10n.builderClearSearch,
                 onPressed: () {
                   _searchCtrl.clear();
-                  setState(() => _query = '');
+                  _onQueryChanged('');
                 },
                 icon: Icon(Icons.close_rounded,
                     size: 20.sp, color: c.textTertiary),
@@ -1387,9 +1424,15 @@ class _PortfolioBuilderScreenState
     final q = _query.trim();
     final policy = ref.watch(runtimeCapabilitiesProvider);
     final pill = polyPillOffered(_pill, policy) ? _pill : PolyPill.breaking;
+    // The search sends only text the guard let through ([_searchQuery]):
+    // while it checks, or for a phrase, key or address, nothing is asked.
     final async = q.isEmpty
         ? ref.watch(polymarketEventsProvider(_categoryOf(pill)))
-        : ref.watch(polymarketSearchProvider(q));
+        : _searchQuery.isEmpty
+            ? (_queryBlocked
+                ? const AsyncValue<List<PolymarketEvent>>.data([])
+                : const AsyncValue<List<PolymarketEvent>>.loading())
+            : ref.watch(polymarketSearchProvider(_searchQuery));
     final legs = {for (final l in _watchPredictionLegs()) l.key: l};
     return async.when(
       data: (events) {
