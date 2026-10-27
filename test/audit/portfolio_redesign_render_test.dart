@@ -55,7 +55,12 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceUnknownProvider;
 import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/screens/portfolio/open_investments_screen.dart'
+    show InvestmentsProduct;
+import 'package:kute/screens/shared/investment_balance_header.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/services/http/shared_http_client.dart';
@@ -348,6 +353,7 @@ Future<ui.Image> _shoot(WidgetTester tester, bool dark,
           nodeType: '',
           reviewDone: true))),
       oneBalanceProvider.overrideWith((ref) => state),
+      usdBalanceUnknownProvider.overrideWithValue(false),
       venueSweeperProvider.overrideWith(_Sweeper.new),
       ...(held ?? _held),
       ...overrides,
@@ -454,6 +460,7 @@ void main() {
     ('balances', false, false, false),
     ('balances_split', false, true, false),
     ('balances_empty_investing', true, false, false),
+    ('hero_balances', false, false, false),
   ]) {
     testWidgets('$name, light and dark', (tester) async {
       tester.view.devicePixelRatio = _dpr;
@@ -463,7 +470,15 @@ void main() {
         await _shoot(tester, dark,
             state: empty ? _emptyInvestingState : _state,
             held: empty ? _emptyInvestingHeld : null,
-            body: (_) => _section(PortfolioSection.balances));
+            body: (_) => name.startsWith('hero')
+                // The Investments hero ("Available · Invested" under the
+                // total) over Balances, without the app's top tabs.
+                ? Column(children: [
+                    const InvestmentBalanceHeader(
+                        product: InvestmentsProduct.trading, oneBalance: true),
+                    Expanded(child: _section(PortfolioSection.balances)),
+                  ])
+                : _section(PortfolioSection.balances));
         await _prepare(tester, scroll: scroll, split: split);
         final boundary =
             tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
