@@ -2,8 +2,10 @@
 // connectors as "B2 · rounded elbows", 27 October): one coin glides along
 // the running connector as it fills, rests above each station it reaches
 // and cross-fades into that station's currency, and sinks into the
-// destination (as its ring takes over while its own sub-steps run, else
-// once everything is done); Sal walks the line behind it; a leg's sub-legs are waypoints on its connector, the
+// destination once everything is done; Sal walks the line behind it,
+// fetches it once it parks and carries it on to wait beside the
+// destination while that works (his moods: money_journey_moods_test),
+// then drops it in on confirm; a leg's sub-legs are waypoints on its connector, the
 // destination's sub-steps dots under its name; one status line says the
 // step at work. A stop just stops, a finished record replays once,
 // silent, and each live moment is felt once, never for lines that were
@@ -417,14 +419,20 @@ void main() {
                     'lib/assets/bitcoin-icon.svg')),
         findsOneWidget);
     expect(find.byIcon(Icons.currency_bitcoin_rounded), findsNothing);
-    // Sal walks behind the coin, then waits.
+    // Sal walks behind the coin; once it parks he walks up and fetches
+    // it, and waits with it in his mouth.
     expect(_motion(tester).walking, isTrue);
+    expect(_motion(tester).travellerAt!.dx,
+        lessThan(_motion(tester).coin!.at.dx),
+        reason: 'behind the coin');
     await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(milliseconds: 100));
     expect(_motion(tester).walking, isFalse);
     final sal = _motion(tester).travellerAt!;
-    expect(sal.dx, lessThan(_motion(tester).coin!.at.dx),
-        reason: 'behind the coin');
+    expect(_motion(tester).carrying, isTrue);
+    expect(_motion(tester).mood, SalMood.fetch);
+    expect(_motion(tester).coin!.at.dx, closeTo(sal.dx, 0.5),
+        reason: 'in his mouth');
     expect(find.byKey(const ValueKey('money-step-running-0')), findsOneWidget);
     expect(_status(tester), 'Moving \$8.00 from Bitcoin');
     expect(findMoneyStep('Getting your prediction ready'), findsOneWidget);
@@ -447,10 +455,11 @@ void main() {
     expect(landing.alpha, lessThan(1));
     await tester.pump(const Duration(milliseconds: 300));
     expect(_motion(tester).coin!.place, MoneyPlace.predictions);
-    // Then it sinks into Predictions as its ring takes over while it
-    // works.
+    // Sal carries it on (no hop: not a confirm yet) while Predictions'
+    // ring says it works.
     await tester.pump(const Duration(milliseconds: 1200));
-    expect(_motion(tester).coin, isNull);
+    expect(_motion(tester).carrying, isTrue);
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
     expect(_motion(tester).destinationRing, 1);
     // Sal walks on and waits beside Predictions while it works.
     await tester.pump(const Duration(seconds: 2));
@@ -474,9 +483,11 @@ void main() {
         findsOneWidget);
     expect(_status(tester), 'Confirming balance');
 
-    // Everything lands at once: one success beat, no light tap on top.
+    // Everything lands at once: one success beat, no light tap on top;
+    // Sal hops and drops the coin in.
     await tester.pumpWidget(_bet3(_done, _done, _done));
     await tester.pump(const Duration(milliseconds: 140));
+    expect(_motion(tester).hopping, isTrue);
     expect(patterns('success'), 1);
     expect(count('lightImpact'), 1);
     expect(_status(tester), 'Placed!');
@@ -549,8 +560,10 @@ void main() {
     expect(bridge, isEmpty);
     expect(_motion(tester).replaying, isFalse);
     expect(_motion(tester).travellerStation, 'predictions');
-    // The coin is in; Predictions' ring says it works.
-    expect(_motion(tester).coin, isNull);
+    // Predictions' ring says it works; Sal waits beside it, the coin in
+    // his mouth in its currency.
+    expect(_motion(tester).carrying, isTrue);
+    expect(_motion(tester).coin!.place, MoneyPlace.predictions);
     expect(_motion(tester).destinationRing, 1);
   });
 
@@ -570,7 +583,9 @@ void main() {
     expect(count('selectionClick'), 1);
     expect(_motion(tester).litOf('leg:bitcoin'), 1);
     expect(_motion(tester).travellerStation, 'predictions');
-    expect(_motion(tester).coin, isNull, reason: 'in at once');
+    expect(_motion(tester).carrying, isTrue,
+        reason: 'at once in his mouth, sitting still');
+    expect(_motion(tester).mood, SalMood.fetch);
     expect(_motion(tester).destinationRing, 1, reason: 'no fade');
 
     await tester.pumpWidget(_bet3(_done, _done, _done, still: true));

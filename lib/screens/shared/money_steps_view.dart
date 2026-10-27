@@ -43,11 +43,25 @@
 // cross-fades into that station's currency; it never parks at a merge
 // point (on a leg into one it stops before the corner and fades out
 // once the leg landed), and at a destination with sub-steps it sinks in
-// as the ring takes over (else once everything is done). Sal, small,
+// as the ring takes over (else once everything is done; or in Sal's
+// mouth while he waits with it, below). Sal, small,
 // walks the line behind the coin and waits there while it works, never
 // at the merge point: once the money is all there he walks on along the
 // line (round the corner, along the shared line) and waits beside the
-// destination, left of its ring, while it works. Under the row: one
+// destination, left of its ring, while it works. While the money waits
+// on a running step he waits in a mood that follows how long the wait
+// has lasted (founder, 27 October 2026; [SalMood]): fetch (0–8 s, he
+// walks up to the parked coin and sits with it in his mouth like a
+// ball, wearing its mark, a wag every 2 s; he carries it on to the
+// destination when the money goes on there), sniff the trail (8–25 s,
+// the coin at his paws, nose down, padding back and forth along the
+// line with small puffs), settle in (25 s on, with "Taking longer than
+// usual": lying, chin on his paws, a breath every 3 s, ears up and a
+// small "!" when the step reports news). Drawn as pixel-sprite frames
+// at ~8 fps in short beats with rests. On confirm a little hop and he
+// drops the coin in; on a stop he stays still in the pose he was in.
+// Reduce Motion: one still pose per mood at the same thresholds; a
+// record replayed at rest has no moods. Under the row: one
 // status line in the step's own
 // words ("Moving $4.18 from Bitcoin", "Confirming balance", "Placed!",
 // or the surface's line saying where the money is after a stop),
@@ -75,7 +89,7 @@
 // surface. Reduce Motion: the same states at once, no glide, walk,
 // breath, idle activity or replay; the haptics still play.
 
-import 'dart:async' show unawaited;
+import 'dart:async' show Timer, unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -317,6 +331,20 @@ const double _kWorkBreath = 2400; // the working station's breath
 // runs on while any step runs.
 const double _kRest = 2600;
 
+// Sal's waiting moods (founder, 27 October 2026): drawn as pixel-sprite
+// frames at ~8 fps ([_kSprite]) in short beats with rests between them.
+const double _kSprite = 125; // one frame of a mood
+const double _kSniffAt = 8000; // fetch → sniff the trail
+const double _kSettleAt = 25000; // → settle in (with "Taking longer")
+const double _kFetchBeat = 2000; // a wag (5 frames) every 2 s
+const double _kSniffBeat = 3000; // pad back and forth (12 frames), pause
+const double _kSettleBeat = 3000; // a breath (3 frames) every 3 s
+const double _kPerk = 1000; // ears up and a "!" on news
+const double _kPickUp = 3 * _kSprite; // the coin into his mouth
+const double _kHop = 480; // the hop on confirm
+const double _kDrop = 520; // the coin dropped into the station
+const double _kHeldScale = 0.55; // the coin in his mouth or at his paws
+
 /// The progress accent: the connectors' fill and the waypoints passed.
 const Color _kAccent = Color(0xFFF29B2D);
 
@@ -343,6 +371,7 @@ class _Fx {
 class _Look {
   const _Look({
     required this.track,
+    required this.ink,
     required this.stopped,
     required this.failed,
     required this.background,
@@ -369,6 +398,9 @@ class _Look {
 
   /// The connectors' and the waiting rings' quiet tone.
   final Color track;
+
+  /// Sal's "!" and his sniff puffs.
+  final Color ink;
 
   /// A stopped leg's fill.
   final Color stopped;
@@ -832,6 +864,35 @@ class _Scene {
   // The coin's hover, 0..1, and when it was last painted.
   double hover = 0;
   double hoverPaintedAt = 0;
+
+  // Sal's wait: which one ([_waitKeyOf]), since when he has been waiting
+  // there (null while he walks to it), and the last news while he did.
+  String? waitKey;
+  double? waitSince;
+  double? perkAt;
+
+  /// The mood he stopped in when a step failed: held still, no loop.
+  SalMood? stopMood;
+
+  // Sal has the coin (in his mouth, or at his paws), since when, and
+  // where it was when he took it.
+  bool carry = false;
+  double? carryAt;
+  Offset? carryFrom;
+
+  // The hop on confirm and the coin dropped from his mouth into the
+  // station ([dropSink]: into the destination, gone after).
+  double? hopAt;
+  double? dropAt;
+  Offset? dropFrom;
+  MoneyPlace? dropPlace;
+  int? dropTo;
+  bool dropSink = false;
+
+  /// His body's offset at the last paint (px, down), for the coin he
+  /// carries; and the lines' words and states, for news while he waits.
+  double salBob = 0;
+  String linesSig = '';
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -897,8 +958,78 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   void dispose() {
     _events.clear();
+    _stillTimer?.cancel();
     _clock.dispose();
     super.dispose();
+  }
+
+  /// Under Reduce Motion the clock does not run: this moves it on to the
+  /// next mood's threshold, so the still pose changes there.
+  Timer? _stillTimer;
+
+  /// Keeps Sal's wait up to date at [now]: a new wait (a new station, the
+  /// coin further on, all the money there) starts over at fetch once he
+  /// stands at his spot, and he takes the coin then. True when anything
+  /// changed.
+  bool _noteWait(double now) {
+    final s = _scene;
+    final geo = s.geo;
+    final key = _waitKeyOf(s, now);
+    if (key == null) {
+      final had = s.waitSince != null || s.waitKey != null;
+      s.waitKey = null;
+      s.waitSince = null;
+      s.perkAt = null;
+      return had;
+    }
+    var changed = false;
+    if (key != s.waitKey) {
+      s.waitKey = key;
+      s.waitSince = null;
+      s.perkAt = null;
+      changed = true;
+    }
+    if (s.waitSince != null || geo == null) return changed;
+    final aim = _salTarget(s, geo, now);
+    final x = s.salX;
+    final quiet = s.still ||
+        (x != null &&
+            (Offset(x, s.salY ?? aim.dy) - aim).distance < 0.5 &&
+            (_salTarget(s, geo, now + 120) - aim).distance < 0.3);
+    if (!quiet) return changed;
+    s.waitSince = now;
+    if (!s.carry) {
+      final free = _freeCoin(s, geo, now);
+      s.carry = true;
+      s.dropAt = null;
+      s.dropSink = false;
+      s.carryAt = s.still ? null : now;
+      s.carryFrom = s.still ? null : free?.at;
+    }
+    return true;
+  }
+
+  /// Under Reduce Motion: on to the next mood's still pose when its
+  /// time comes.
+  void _scheduleStill() {
+    _stillTimer?.cancel();
+    _stillTimer = null;
+    final s = _scene;
+    final since = s.waitSince;
+    if (!s.still || since == null || !_waiting(s)) return;
+    final e = _now - since;
+    final next = e < _kSniffAt
+        ? _kSniffAt
+        : e < _kSettleAt
+            ? _kSettleAt
+            : null;
+    if (next == null) return;
+    _stillTimer = Timer(Duration(milliseconds: (next - e).ceil()), () {
+      _stillTimer = null;
+      if (!mounted || _scene.waitSince != since) return;
+      _clock.value = math.max(_clock.value, (since + next) / 1000);
+      _scheduleStill();
+    });
   }
 
   /// Runs the clock while something moves (a while after the last moment,
@@ -906,6 +1037,17 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   /// tickers off) plays the pending haptics once this frame is drawn
   /// instead.
   void _kick() {
+    if (_scene.still) {
+      // Sal's still pose for the wait, once the row is laid out.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_noteWait(_now)) setState(() {});
+        _scheduleStill();
+      });
+    } else {
+      _stillTimer?.cancel();
+      _stillTimer = null;
+    }
     final ticking = TickerMode.valuesOf(context).enabled;
     if (_scene.still || !ticking) {
       if (_clock.isAnimating) _clock.stop();
@@ -927,6 +1069,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   void _onTick() {
     final now = _now;
     _flush(now);
+    if (!_scene.still) _noteWait(now);
     if (!_needsTick(now)) _clock.stop();
   }
 
@@ -1003,7 +1146,23 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       s.live = true;
       cameAlive = true;
       s.replayAt = null;
+      s.carry = false;
+      s.stopMood = null;
+      s.dropAt = null;
+      s.hopAt = null;
     }
+    // Sal before the change: whether he had the coin, where it was, his
+    // mood and his wait.
+    final wasWaiting = !first && _waiting(s);
+    final keyBefore = first ? null : _waitKeyOf(s, now);
+    final moodBefore = first ? SalMood.none : _moodOf(s, now);
+    final geoBefore = s.geo;
+    final heldBefore = !first && s.carry && geoBefore != null
+        ? _coinOf(s, geoBefore, now)
+        : null;
+    final sig = [for (final l in lines) '${l.text}|${l.status.name}'].join('\n');
+    final news = !first && sig != s.linesSig;
+    s.linesSig = sig;
     final animate = s.live;
     final spotBefore = first ? 0 : _spotOf(s, now);
 
@@ -1064,6 +1223,51 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     if (cameAlive) {
       s.outcome = _Outcome.none;
       s.outcomeAt = now;
+    }
+
+    // Sal with the coin: a confirm drops it in (with a hop); a stop
+    // holds him still in the mood he was in; news while he lies waiting
+    // perks his ears.
+    final spotNext = _spotOf(s, now + _kDash + 1);
+    if (s.carry) {
+      int? dropTo;
+      var sink = false;
+      if (outcome == _Outcome.success) {
+        dropTo = plan.destination;
+        sink = true;
+      } else if (outcome == _Outcome.none &&
+          spotNext > spotBefore &&
+          spotBefore < plan.chain.length) {
+        final reached = plan.roads[plan.chain[spotBefore]].to;
+        final carryOn =
+            (reached == plan.destination && _destinationWorks(plan)) ||
+                (geoBefore?.trunks.containsKey(reached) ?? false);
+        if (!carryOn) dropTo = reached;
+      }
+      if (dropTo != null) {
+        s.carry = false;
+        s.carryFrom = null;
+        s.carryAt = null;
+        if (!s.still) {
+          s.dropAt = now;
+          s.dropFrom = heldBefore?.at;
+          s.dropPlace = heldBefore?.place;
+          s.dropTo = dropTo;
+          s.dropSink = sink;
+          s.hopAt = now;
+        }
+      }
+    }
+    if (outcome == _Outcome.failure && wasWaiting && moodBefore != SalMood.none) {
+      s.stopMood = moodBefore;
+    }
+    if (news &&
+        wasWaiting &&
+        !s.still &&
+        _waiting(s) &&
+        moodBefore == SalMood.settle &&
+        _waitKeyOf(s, now) == keyBefore) {
+      s.perkAt = now;
     }
 
     if (outcome != s.outcome) {
@@ -1127,6 +1331,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final stationR = 14.r;
     s.look = _Look(
       track: c.textTertiary.withValues(alpha: 0.4),
+      ink: c.textSecondary,
       stopped: c.textTertiary,
       failed: c.error,
       background: c.background,
@@ -1941,6 +2146,488 @@ Color _placeColor(MoneyPlace? place) => switch (place) {
       null => _kOutsideGrey,
     };
 
+/// Where Sal walks on to once road [road]'s money is there: along the
+/// rest of its line (round its corner, along the shared line) to
+/// beside the station it goes to, at about 80 px a second; null while
+/// it is not there yet. Under Reduce Motion, and for a road that
+/// landed before the view, he is beside it at once.
+Offset? _salWalk(_Scene s, _Geometry geo, JourneyRoad road, double now,
+  double half, double behind) {
+  final plan = s.plan;
+  final look = s.look;
+  final into = plan.roads.indexOf(road);
+  final trunk = geo.trunks[road.to];
+  final double? at;
+  if (trunk != null) {
+    at = _allLandedAt(s, road.to)?.$1;
+  } else {
+    at = _roadLit(s, road, now) >= 1 ? _roadArrivedAt(s, road) : null;
+  }
+  if (at == null) return null;
+  final beside = _besideStation(s, geo, road.to);
+  // The way on: from where he waited to beside the station.
+  final way = <Offset>[];
+  final path = geo.branches ? geo.paths[into] : null;
+  if (path != null && path.length > 0) {
+    final from = math.max(half / path.length,
+        math.min(path.coinStop - behind / path.length, _kHold));
+    final d0 = from * path.length;
+    way.add(path.at(from));
+    for (var i = 1; i < path.points.length; i++) {
+      if (path.cum[i] > d0) way.add(path.points[i]);
+    }
+    if (trunk != null) way.addAll(trunk.points.skip(1));
+  } else {
+    way.add(Offset(
+        math.max(geo.tipX(plan, road, 0) + half,
+            math.min(geo.tipX(plan, road, 1) - behind,
+                geo.tipX(plan, road, _kHold))),
+        look.rowY));
+  }
+  // Never past beside: the line's end on the station's row is
+  // dropped for it.
+  while (way.length > 1 &&
+      (way.last.dy - beside.dy).abs() < 0.5 &&
+      way.last.dx >= beside.dx) {
+    way.removeLast();
+  }
+  way.add(beside);
+  final walk = _RoadPath(way);
+  if (s.still || !at.isFinite || walk.length <= 0) return beside;
+  final dur = (walk.length / 0.08).clamp(500.0, 2200.0);
+  return walk.at(Curves.easeInOut.transform(_unit((now - at) / dur)));
+}
+
+/// Where Sal waits beside station [i]: left of it (of its ring while it
+/// works), with room between him and it for the coin he sets down.
+Offset _besideStation(_Scene s, _Geometry geo, int i) {
+  final look = s.look;
+  final st = geo.stations[i];
+  return Offset(
+      st.dx -
+          look.stationR -
+          look.gap -
+          look.salSize * 0.45 -
+          (2 * look.coinR * _kHeldScale + 2),
+      st.dy);
+}
+
+/// Sal's mark: on the line a little behind the coin while it glides,
+/// then (once it parked there, the leg still running) right up to it to
+/// fetch it; never past ~78% of the leg. At the start of the first line
+/// before it leaves; beside the destination when nothing travels; once
+/// the money is there, on along the line to beside the station.
+Offset _salTarget(_Scene s, _Geometry geo, double now) {
+  final plan = s.plan;
+  final look = s.look;
+  final half = look.salSize * 0.45;
+  if (plan.chain.isEmpty) {
+    return _besideStation(s, geo, plan.destination ?? 0);
+  }
+  var k = 0;
+  for (var i = 0; i < plan.chain.length; i++) {
+    if (_roadLit(s, plan.roads[plan.chain[i]], now) > 0) k = i;
+  }
+  final road = plan.roads[plan.chain[k]];
+  final f = _roadLit(s, road, now);
+  // Carrying the coin, or the coin parked while its leg runs: at it (he
+  // fetches it); else a little behind it.
+  final parked = _waiting(s) &&
+      f < 1 &&
+      (geo.coinOnRoad(plan, road, f, look) -
+                  geo.coinOnRoad(
+                      plan, road, _roadLit(s, road, now + 120), look))
+              .distance <
+          0.05;
+  final behind = s.carry || parked ? 0.0 : look.coinR + half + 4;
+  // Once the money is there (into a merge point: once every leg landed
+  // and the shared line fills) he walks on along the line and waits
+  // beside the station, left of its ring, while it works.
+  final on = _salWalk(s, geo, road, now, half, behind);
+  if (on != null) return on;
+  if (geo.branches) {
+    // Along the leg's own row: a little behind the coin, never past
+    // the hold, and never round a corner or onto a merge point (he
+    // waits there, behind where the coin stopped).
+    final path = geo.paths[plan.roads.indexOf(road)];
+    if (path == null || path.length <= 0) {
+      return _besideStation(s, geo, road.to);
+    }
+    final lo = half / path.length;
+    final want = math.min(math.min(f, path.coinStop) - behind / path.length,
+        _kHold);
+    return path.at(math.max(lo, want));
+  }
+  final start = geo.tipX(plan, road, 0) + half;
+  final x = math.min(
+      geo.tipX(plan, road, f) - behind, geo.tipX(plan, road, _kHold));
+  return Offset(math.max(start, x), look.rowY);
+}
+
+
+typedef _Coin = ({Offset at, MoneyPlace? place, double alpha, double scale});
+
+/// The coin left to itself (not in Sal's mouth): gliding on its road,
+/// resting above the station it reached, sinking in.
+_Coin? _freeCoin(_Scene s, _Geometry geo, double now) {
+  final plan = s.plan;
+  final look = s.look;
+  if (plan.stations.isEmpty) return null;
+  if (s.outcome == _Outcome.success &&
+      (s.still || (!s.live && s.replayAt == null))) {
+    return null;
+  }
+  // Where it is: on the road it travels, or resting above the station
+  // it reached (cross-fading into that station's currency as it lands).
+  int station;
+  JourneyRoad? via;
+  Offset? on;
+  MoneyPlace? place;
+  final chain = plan.chain;
+  final spot = _spotOf(s, now);
+  if (chain.isEmpty) {
+    station = plan.destination ?? 0;
+  } else if (spot < chain.length) {
+    final road = plan.roads[chain[spot]];
+    final f = _roadLit(s, road, now);
+    station = road.from;
+    if (f > 0) {
+      on = geo.coinOnRoad(plan, road, f, look);
+      place = plan.stations[road.from].place;
+    } else if (spot > 0) {
+      via = plan.roads[chain[spot - 1]];
+    }
+  } else {
+    via = plan.roads[chain.last];
+    station = via.to;
+  }
+  final arrived = via == null ? null : _roadArrivedAt(s, via);
+  // Into a merge point it waits before the corner (the shared line is
+  // the legs' together), and fades out there once its leg landed:
+  // never parked at the merge point.
+  if (on == null && via != null && geo.trunks.containsKey(via.to)) {
+    if (s.still || arrived == null || !arrived.isFinite) return null;
+    final t = _unit((now - arrived) / _kSwap);
+    if (t >= 1) return null;
+    return (
+      at: geo.coinOnRoad(plan, via, 1, look),
+      place: plan.stations[via.from].place,
+      alpha: 1 - t,
+      scale: 1.0,
+    );
+  }
+  var at = on ?? geo.restAt(look, station);
+  place ??= plan.stations[station].place;
+  var alpha = 1.0;
+  var scale = 1.0;
+  if (on == null && via != null && arrived != null && !s.still) {
+    // Just landed: from the line's end up above the station, fading
+    // to ~40% and back as it turns into the station's currency.
+    final settle = _unit((now - arrived) / _kSettle);
+    if (settle < 1) {
+      at = Offset.lerp(geo.coinOnRoad(plan, via, 1, look), at,
+          Curves.easeInOut.transform(settle))!;
+    }
+    final t = (now - arrived) / _kSwap;
+    if (t >= 0 && t < 1) {
+      alpha = 1 - 0.6 * math.sin(math.pi * t);
+      if (t < 0.5) place = plan.stations[via.from].place;
+    }
+  }
+  // At a destination with sub-steps of its own it sinks in once it
+  // turned into its currency, and the ring takes over (while the
+  // journey waits it stays for Sal to fetch); elsewhere it sinks in
+  // once everything is done. Then it is gone.
+  final works = station == plan.destination &&
+      _destinationWorks(plan) &&
+      !_waiting(s);
+  if (on == null && (works || s.outcome == _Outcome.success)) {
+    double start;
+    if (works) {
+      if (s.still || arrived == null || !arrived.isFinite) return null;
+      start = arrived + _kSwap - 150;
+    } else {
+      start = math.max(s.outcomeAt, arrived ?? double.negativeInfinity);
+      for (final k in plan.checkpoints) {
+        final d = s.fx[s.keys[k]]?.doneAt;
+        if (d != null) start = math.max(start, d);
+      }
+    }
+    final t = _unit((now - start - 150) / _kSink);
+    if (t >= 1) return null;
+    final e = Curves.easeIn.transform(t);
+    final lineY = geo.stations[station].dy;
+    at = Offset(at.dx, at.dy + (lineY - at.dy) * e);
+    alpha *= 1 - e;
+    scale = 1 - 0.4 * e;
+  }
+  return (at: at, place: place, alpha: alpha, scale: scale);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Sal's waiting moods
+// ─────────────────────────────────────────────────────────────────────
+
+/// How Sal waits while a step runs and the money is parked (founder,
+/// 27 October 2026), by how long the wait has lasted: [fetch] (0–8 s,
+/// sitting with the coin in his mouth like a ball, a wag every 2 s),
+/// [sniff] (8–25 s, the coin at his paws, nose down, padding back and
+/// forth along the line with small sniff puffs), [settle] (25 s on, with
+/// "Taking longer than usual": lying, chin on his paws, a breath every
+/// 3 s, ears up and a small "!" when the step reports news). [none]
+/// while he walks, hops, or nothing waits.
+enum SalMood { none, fetch, sniff, settle }
+
+/// Whether the journey waits on a step, seen live: one runs and nothing
+/// has ended. Under Reduce Motion too (still poses); never in a record.
+bool _waiting(_Scene s) =>
+    s.live &&
+    s.outcome == _Outcome.none &&
+    s.plan.lines.any((l) => l.status == MoneyStepStatus.running);
+
+/// The station the money waits on (as [_workingStation], Reduce Motion
+/// or not).
+int? _waitStation(_Scene s) {
+  if (!_waiting(s)) return null;
+  final plan = s.plan;
+  for (final i in plan.chain) {
+    if (_roadRuns(plan, plan.roads[i])) return plan.roads[i].to;
+  }
+  for (final r in plan.roads) {
+    if (_roadRuns(plan, r)) return r.to;
+  }
+  return plan.destination;
+}
+
+/// Which wait this is: the station, how far the coin got, and whether
+/// all the money is there. News inside one wait (a sub-step, a sub-leg)
+/// keeps its mood; a new wait starts at fetch.
+String? _waitKeyOf(_Scene s, double now) {
+  final st = _waitStation(s);
+  if (st == null) return null;
+  return '$st|${_spotOf(s, now)}|${_allLandedAt(s, st) != null}';
+}
+
+/// Sal's mood at [now].
+SalMood _moodOf(_Scene s, double now) {
+  if (s.stopMood case final m?) return m;
+  final since = s.waitSince;
+  if (since == null || !_waiting(s)) return SalMood.none;
+  if (!s.still && (s.salWalking || _hopping(s, now))) return SalMood.none;
+  final e = now - since;
+  if (e < _kSniffAt) return SalMood.fetch;
+  if (e < _kSettleAt) return SalMood.sniff;
+  return SalMood.settle;
+}
+
+bool _hopping(_Scene s, double now) {
+  final at = s.hopAt;
+  return at != null && !s.still && now >= at && now < at + _kHop;
+}
+
+/// The sprite frame [now] falls on in a beat of [period] that started
+/// at [start]: its index in the beat, and which beat.
+(int frame, int beat) _spriteFrame(double now, double start, double period) {
+  final local = math.max(0.0, now - start);
+  final beat = local ~/ period;
+  return ((local - beat * period) ~/ _kSprite, beat);
+}
+
+/// One frame of Sal's mood: the pose (or lying), how far he paced off
+/// his spot (px), the sniff puffs, the ears' "!".
+class _SalFrame {
+  const _SalFrame(this.pose,
+      {this.lying = false,
+      this.breath = 0,
+      this.ears = 0,
+      this.blink = 0.45,
+      this.dx = 0,
+      this.puffs = 0,
+      this.exclaim = false,
+      this.exclaimDy = 0});
+  final KuteDogPose pose;
+  final bool lying;
+  final double breath;
+  final double ears;
+  final double blink;
+  final double dx;
+  final int puffs;
+  final bool exclaim;
+  final double exclaimDy;
+}
+
+const List<double> _kWag = [0.5, -0.15, 0.5, -0.15, 0.5];
+const List<double> _kPace = [0, -2, -4, -6, -6, -6, -6, -6, -4, -2, 0, 0];
+const List<double> _kBreathe = [0.6, 1, 0.5];
+
+/// Sal's frame in [mood] at [now]: one still pose per mood under Reduce
+/// Motion (or once a step stopped), else the mood's sprite beat.
+_SalFrame _salFrameOf(_Scene s, SalMood mood, double now) {
+  final still = s.still || s.stopMood != null;
+  final since = s.waitSince ?? now;
+  switch (mood) {
+    case SalMood.none:
+      return const _SalFrame(KuteDogPose.neutral);
+    case SalMood.fetch:
+      // Sitting up, the coin in his mouth; a wag every 2 s.
+      if (still) return const _SalFrame(KuteDogPose(headBob: -0.2, tail: 0.15));
+      final (f, beat) = _spriteFrame(now, since, _kFetchBeat);
+      return _SalFrame(KuteDogPose(
+        headBob: -0.2,
+        tail: f < _kWag.length ? _kWag[f] : 0.15,
+        blink: beat % 3 == 2 && f == 7 ? 1 : 0,
+      ));
+    case SalMood.sniff:
+      // Nose down; pads back along the line and home, sniffing.
+      if (still) return const _SalFrame(KuteDogPose(sniff: 1, blink: 0.4));
+      final (f, _) = _spriteFrame(now, since + _kSniffAt, _kSniffBeat);
+      final pacing = f < _kPace.length;
+      final step = pacing && f > 0 && _kPace[f] != _kPace[f - 1];
+      return _SalFrame(
+        KuteDogPose(
+          sniff: 1,
+          blink: 0.4,
+          headBob: f == 5 || f == 7 ? 0.35 : 0,
+          pawLeft: step && f.isOdd ? -0.6 : 0,
+          pawRight: step && f.isEven ? -0.6 : 0,
+          tail: step ? 0.2 : 0.05,
+        ),
+        dx: pacing ? _kPace[f] : 0,
+        puffs: f >= 4 && f <= 7 ? [1, 2, 3, 3][f - 4] : 0,
+      );
+    case SalMood.settle:
+      // Lying, chin on his paws; a breath every 3 s; ears up and a "!"
+      // on news.
+      if (still) return const _SalFrame(KuteDogPose.neutral, lying: true);
+      final (f, _) = _spriteFrame(now, since + _kSettleAt, _kSettleBeat);
+      final perk = s.perkAt;
+      final p = perk == null ? -1.0 : now - perk;
+      final perked = p >= 0 && p < _kPerk;
+      final pf = perked ? p ~/ _kSprite : 0;
+      return _SalFrame(
+        KuteDogPose.neutral,
+        lying: true,
+        breath: f < _kBreathe.length ? _kBreathe[f] : 0,
+        ears: perked ? -0.55 : 0,
+        blink: perked ? 0 : 0.45,
+        exclaim: perked && pf < 7,
+        exclaimDy: perked && pf < 2 ? -0.8 : 0,
+      );
+  }
+}
+
+/// Where the coin Sal has sits at [now]: in his mouth (fetching,
+/// walking, hopping), at his paws on the line (sniffing, lying); on its
+/// way into his mouth while he takes it. Null before he was drawn.
+({Offset at, double scale})? _heldAt(_Scene s, double now) {
+  final x = s.salX;
+  final y = s.salY;
+  if (x == null || y == null) return null;
+  final look = s.look;
+  final u = look.salSize / 16;
+  final feet = y - 0.75;
+  final r = look.coinR * _kHeldScale;
+  final mouth = Offset(x, feet - 4.5 * u + s.salBob);
+  final ground = Offset(x + 8 * u + 1 + r, feet - r);
+  final mood = _moodOf(s, now);
+  var at = switch (mood) {
+    SalMood.sniff || SalMood.settle => ground,
+    _ => mouth,
+  };
+  if (mood == SalMood.sniff && !s.still && s.stopMood == null) {
+    // Set down over one frame as he starts to sniff.
+    final since = s.waitSince ?? now;
+    if (now - since - _kSniffAt < _kSprite) {
+      at = Offset.lerp(mouth, ground, 0.5)!;
+    }
+  }
+  var scale = _kHeldScale;
+  final from = s.carryFrom;
+  final t0 = s.carryAt;
+  if (from != null && t0 != null && !s.still && now < t0 + _kPickUp) {
+    // Taken in three frames, with a little arc.
+    final t = (math.max(0.0, now - t0) ~/ _kSprite + 1) / 3;
+    at = Offset.lerp(from, at, t)!.translate(0, -5 * math.sin(math.pi * t));
+    scale = 1 + (_kHeldScale - 1) * t;
+  }
+  return (at: at, scale: scale);
+}
+
+/// The currency the coin Sal carries is in at [now], and its opacity
+/// (dipping as it turns into a station's currency where it arrives).
+({MoneyPlace? place, double alpha}) _carriedPlace(_Scene s, double now) {
+  final plan = s.plan;
+  final chain = plan.chain;
+  if (plan.stations.isEmpty) return (place: null, alpha: 1);
+  if (chain.isEmpty) {
+    return (place: plan.stations[plan.destination ?? 0].place, alpha: 1);
+  }
+  final spot = _spotOf(s, now);
+  if (spot < chain.length) {
+    return (place: plan.stations[plan.roads[chain[spot]].from].place, alpha: 1);
+  }
+  final via = plan.roads[chain.last];
+  final from = plan.stations[via.from].place;
+  final to = plan.stations[via.to].place;
+  double? arrived;
+  if (s.geo?.trunks.containsKey(via.to) ?? false) {
+    final landed = _allLandedAt(s, via.to);
+    if (landed == null) return (place: from, alpha: 1);
+    arrived = landed.$1.isFinite ? landed.$1 + landed.$2 : landed.$1;
+  } else {
+    arrived = _roadArrivedAt(s, via);
+  }
+  if (arrived == null) return (place: from, alpha: 1);
+  if (s.still || !arrived.isFinite) return (place: to, alpha: 1);
+  final t = (now - arrived) / _kSwap;
+  if (t < 0) return (place: from, alpha: 1);
+  if (t >= 1) return (place: to, alpha: 1);
+  return (place: t < 0.5 ? from : to, alpha: 1 - 0.6 * math.sin(math.pi * t));
+}
+
+/// The coin at [now]: dropped from Sal's mouth into its station (on
+/// confirm), in his mouth or at his paws while he has it, else left to
+/// itself ([_freeCoin]).
+_Coin? _coinOf(_Scene s, _Geometry geo, double now) {
+  final dropAt = s.dropAt;
+  if (dropAt != null && !s.carry) {
+    final t = (now - dropAt) / _kDrop;
+    if (t >= 1 && s.dropSink) return null;
+    if (t >= 0 && t < 1) {
+      final free = s.dropSink ? null : _freeCoin(s, geo, now);
+      final to = s.dropTo;
+      final _Coin target = free ??
+          (
+            at: to == null ? s.dropFrom ?? Offset.zero : geo.stations[to],
+            place: to == null ? s.dropPlace : s.plan.stations[to].place,
+            alpha: 1.0,
+            scale: 0.4,
+          );
+      final e = Curves.easeInOut.transform(t);
+      final from = s.dropFrom ?? target.at;
+      final at = Offset.lerp(from, target.at, e)!
+          .translate(0, -10 * math.sin(math.pi * t));
+      final fade =
+          s.dropSink ? 1 - Curves.easeIn.transform(_unit((t - 0.55) / 0.45)) : 1;
+      return (
+        at: at,
+        place: t < 0.5 ? s.dropPlace : target.place,
+        alpha: target.alpha * fade,
+        scale: _kHeldScale + (target.scale - _kHeldScale) * e,
+      );
+    }
+  }
+  if (s.carry && s.plan.stations.isNotEmpty) {
+    final held = _heldAt(s, now);
+    if (held != null) {
+      final p = _carriedPlace(s, now);
+      return (at: held.at, place: p.place, alpha: p.alpha, scale: held.scale);
+    }
+  }
+  return _freeCoin(s, geo, now);
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // The painters
 // ─────────────────────────────────────────────────────────────────────
@@ -2252,6 +2939,29 @@ class MoneyJourneyPainter extends CustomPainter {
     return i < 0 ? null : _geo.trunks[i]?.start;
   }
 
+  /// Sal's waiting mood now.
+  SalMood get mood => _moodOf(_scene, _now);
+
+  /// How long Sal has waited at his spot now (null while he does not).
+  Duration? get waited {
+    final since = _scene.waitSince;
+    if (since == null || !_waiting(_scene)) return null;
+    return Duration(microseconds: ((_now - since) * 1000).round());
+  }
+
+  /// Whether Sal has the coin (in his mouth, or at his paws).
+  bool get carrying => _scene.carry;
+
+  /// Whether his ears are up with a "!" over them now (news while he
+  /// lies waiting).
+  bool get earsPerked {
+    final m = mood;
+    return m == SalMood.settle && _salFrameOf(_scene, m, _now).exclaim;
+  }
+
+  /// Whether he is hopping now (a step confirmed while he had the coin).
+  bool get hopping => _hopping(_scene, _now);
+
   /// Whether a finished record is replaying its journey now.
   bool get replaying {
     final at = _scene.replayAt;
@@ -2259,199 +2969,8 @@ class MoneyJourneyPainter extends CustomPainter {
   }
 
   ({Offset at, MoneyPlace? place, double alpha, double scale})? _coin(
-      double now) {
-    final s = _scene;
-    final plan = s.plan;
-    final look = s.look;
-    final geo = _geo;
-    if (plan.stations.isEmpty) return null;
-    if (s.outcome == _Outcome.success &&
-        (s.still || (!s.live && s.replayAt == null))) {
-      return null;
-    }
-    // Where it is: on the road it travels, or resting above the station
-    // it reached (cross-fading into that station's currency as it lands).
-    int station;
-    JourneyRoad? via;
-    Offset? on;
-    MoneyPlace? place;
-    final chain = plan.chain;
-    final spot = _spotOf(s, now);
-    if (chain.isEmpty) {
-      station = plan.destination ?? 0;
-    } else if (spot < chain.length) {
-      final road = plan.roads[chain[spot]];
-      final f = _roadLit(s, road, now);
-      station = road.from;
-      if (f > 0) {
-        on = geo.coinOnRoad(plan, road, f, look);
-        place = plan.stations[road.from].place;
-      } else if (spot > 0) {
-        via = plan.roads[chain[spot - 1]];
-      }
-    } else {
-      via = plan.roads[chain.last];
-      station = via.to;
-    }
-    final arrived = via == null ? null : _roadArrivedAt(s, via);
-    // Into a merge point it waits before the corner (the shared line is
-    // the legs' together), and fades out there once its leg landed:
-    // never parked at the merge point.
-    if (on == null && via != null && geo.trunks.containsKey(via.to)) {
-      if (s.still || arrived == null || !arrived.isFinite) return null;
-      final t = _unit((now - arrived) / _kSwap);
-      if (t >= 1) return null;
-      return (
-        at: geo.coinOnRoad(plan, via, 1, look),
-        place: plan.stations[via.from].place,
-        alpha: 1 - t,
-        scale: 1.0,
-      );
-    }
-    var at = on ?? geo.restAt(look, station);
-    place ??= plan.stations[station].place;
-    var alpha = 1.0;
-    var scale = 1.0;
-    if (on == null && via != null && arrived != null && !s.still) {
-      // Just landed: from the line's end up above the station, fading
-      // to ~40% and back as it turns into the station's currency.
-      final settle = _unit((now - arrived) / _kSettle);
-      if (settle < 1) {
-        at = Offset.lerp(geo.coinOnRoad(plan, via, 1, look), at,
-            Curves.easeInOut.transform(settle))!;
-      }
-      final t = (now - arrived) / _kSwap;
-      if (t >= 0 && t < 1) {
-        alpha = 1 - 0.6 * math.sin(math.pi * t);
-        if (t < 0.5) place = plan.stations[via.from].place;
-      }
-    }
-    // At a destination with sub-steps of its own it sinks in once it
-    // turned into its currency, and the ring takes over; elsewhere it
-    // sinks in once everything is done. Then it is gone.
-    final works = station == plan.destination && _destinationWorks(plan);
-    if (on == null && (works || s.outcome == _Outcome.success)) {
-      double start;
-      if (works) {
-        if (s.still || arrived == null || !arrived.isFinite) return null;
-        start = arrived + _kSwap - 150;
-      } else {
-        start = math.max(s.outcomeAt, arrived ?? double.negativeInfinity);
-        for (final k in plan.checkpoints) {
-          final d = s.fx[s.keys[k]]?.doneAt;
-          if (d != null) start = math.max(start, d);
-        }
-      }
-      final t = _unit((now - start - 150) / _kSink);
-      if (t >= 1) return null;
-      final e = Curves.easeIn.transform(t);
-      final lineY = geo.stations[station].dy;
-      at = Offset(at.dx, at.dy + (lineY - at.dy) * e);
-      alpha *= 1 - e;
-      scale = 1 - 0.4 * e;
-    }
-    return (at: at, place: place, alpha: alpha, scale: scale);
-  }
-
-  /// Sal's mark: on the line a little behind the coin while its leg
-  /// runs, never past ~78% of the leg (beside the next station, where he
-  /// waits while it works); at the start of the first line before it
-  /// leaves; beside the destination when nothing travels.
-  /// Where Sal walks on to once road [road]'s money is there: along the
-  /// rest of its line (round its corner, along the shared line) to
-  /// beside the station it goes to, at about 80 px a second; null while
-  /// it is not there yet. Under Reduce Motion, and for a road that
-  /// landed before the view, he is beside it at once.
-  Offset? _salWalk(JourneyRoad road, double now, double half, double behind) {
-    final s = _scene;
-    final plan = s.plan;
-    final look = s.look;
-    final geo = _geo;
-    final into = plan.roads.indexOf(road);
-    final trunk = geo.trunks[road.to];
-    final double? at;
-    if (trunk != null) {
-      at = _allLandedAt(s, road.to)?.$1;
-    } else {
-      at = _roadLit(s, road, now) >= 1 ? _roadArrivedAt(s, road) : null;
-    }
-    if (at == null) return null;
-    final st = geo.stations[road.to];
-    final beside = Offset(st.dx - look.stationR - look.gap - half, st.dy);
-    // The way on: from where he waited to beside the station.
-    final way = <Offset>[];
-    final path = geo.branches ? geo.paths[into] : null;
-    if (path != null && path.length > 0) {
-      final from = math.max(half / path.length,
-          math.min(path.coinStop - behind / path.length, _kHold));
-      final d0 = from * path.length;
-      way.add(path.at(from));
-      for (var i = 1; i < path.points.length; i++) {
-        if (path.cum[i] > d0) way.add(path.points[i]);
-      }
-      if (trunk != null) way.addAll(trunk.points.skip(1));
-    } else {
-      way.add(Offset(
-          math.max(geo.tipX(plan, road, 0) + half,
-              math.min(geo.tipX(plan, road, 1) - behind,
-                  geo.tipX(plan, road, _kHold))),
-          look.rowY));
-    }
-    // Never past beside: the line's end on the station's row is
-    // dropped for it.
-    while (way.length > 1 &&
-        (way.last.dy - beside.dy).abs() < 0.5 &&
-        way.last.dx >= beside.dx) {
-      way.removeLast();
-    }
-    way.add(beside);
-    final walk = _RoadPath(way);
-    if (s.still || !at.isFinite || walk.length <= 0) return beside;
-    final dur = (walk.length / 0.08).clamp(500.0, 2200.0);
-    return walk.at(Curves.easeInOut.transform(_unit((now - at) / dur)));
-  }
-
-  Offset _salTarget(double now) {
-    final s = _scene;
-    final plan = s.plan;
-    final look = s.look;
-    final geo = _geo;
-    final half = look.salSize * 0.45;
-    if (plan.chain.isEmpty) {
-      final dest = geo.stations[plan.destination ?? 0];
-      return Offset(dest.dx - look.stationR - look.gap - half, dest.dy);
-    }
-    var k = 0;
-    for (var i = 0; i < plan.chain.length; i++) {
-      if (_roadLit(s, plan.roads[plan.chain[i]], now) > 0) k = i;
-    }
-    final road = plan.roads[plan.chain[k]];
-    final f = _roadLit(s, road, now);
-    final behind = look.coinR + half + 4;
-    // Once the money is there (into a merge point: once every leg landed
-    // and the shared line fills) he walks on along the line and waits
-    // beside the station, left of its ring, while it works.
-    final on = _salWalk(road, now, half, behind);
-    if (on != null) return on;
-    if (geo.branches) {
-      // Along the leg's own row: a little behind the coin, never past
-      // the hold, and never round a corner or onto a merge point (he
-      // waits there, behind where the coin stopped).
-      final path = geo.paths[plan.roads.indexOf(road)];
-      if (path == null || path.length <= 0) {
-        final st = geo.stations[road.to];
-        return Offset(st.dx - look.stationR - look.gap - half, st.dy);
-      }
-      final lo = half / path.length;
-      final want = math.min(math.min(f, path.coinStop) - behind / path.length,
-          _kHold);
-      return path.at(math.max(lo, want));
-    }
-    final start = geo.tipX(plan, road, 0) + half;
-    final x = math.min(
-        geo.tipX(plan, road, f) - behind, geo.tipX(plan, road, _kHold));
-    return Offset(math.max(start, x), look.rowY);
-  }
+          double now) =>
+      _coinOf(_scene, _geo, now);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2462,7 +2981,7 @@ class MoneyJourneyPainter extends CustomPainter {
     if (s.plan.stations.isEmpty) return;
 
     // ── Sal ──
-    final aim = _salTarget(now);
+    final aim = _salTarget(s, _geo, now);
     final target = aim.dx;
     final was = s.salX;
     var x = target;
@@ -2484,8 +3003,23 @@ class MoneyJourneyPainter extends CustomPainter {
     s.salPaintedAt = now;
     s.salWalking = walking;
     final u = look.salSize / 16;
+    final mood = walking ? SalMood.none : _moodOf(s, now);
+    final frame = mood == SalMood.none ? null : _salFrameOf(s, mood, now);
     KuteDogPose pose;
-    if (still) {
+    if (frame != null) {
+      pose = frame.pose;
+    } else if (_hopping(s, now)) {
+      // A step confirmed: a little hop as he drops the coin in.
+      final e = now - s.hopAt!;
+      final hop = kutePulse(e, 0, 380);
+      pose = KuteDogPose(
+        lift: 1.8 * hop,
+        squash: 1 + 0.08 * hop - 0.12 * kutePulse(e, 360, _kHop),
+        earLeft: 0.4 * hop,
+        earRight: 0.5 * hop,
+        tail: 0.4 * kuteWave(e, 240),
+      );
+    } else if (still) {
       pose = KuteDogPose.neutral;
     } else if (walking) {
       final step = kuteWave(now, _kWalk);
@@ -2506,11 +3040,40 @@ class MoneyJourneyPainter extends CustomPainter {
     } else {
       pose = KuteDogPose(blink: kuteBlink(now % 4200, 3000));
     }
-    paintKuteDog(canvas,
-        origin: Offset(x - 8 * u, y - 0.75 - 15 * u),
-        unit: u,
-        pose: pose,
-        palette: KuteDogPalette.mascot);
+    s.salBob = (pose.bodyBob - pose.lift) * u;
+    final origin = Offset(x - 8 * u + (frame?.dx ?? 0), y - 0.75 - 15 * u);
+    if (frame != null && frame.lying) {
+      paintKuteDogLying(canvas,
+          origin: origin,
+          unit: u,
+          palette: KuteDogPalette.mascot,
+          breath: frame.breath,
+          ears: frame.ears,
+          blink: frame.blink);
+      if (frame.exclaim) {
+        paintKuteExclaim(canvas,
+            origin: origin,
+            unit: u,
+            at: Offset(14.6, 0.6 + frame.exclaimDy),
+            color: look.ink);
+      }
+    } else {
+      paintKuteDog(canvas,
+          origin: origin,
+          unit: u,
+          pose: pose,
+          palette: KuteDogPalette.mascot);
+    }
+    if (frame != null && frame.puffs > 0) {
+      // Sniff puffs off his nose, low on the line, rising one by one.
+      final nose = origin + Offset(8 * u, 13.6 * u);
+      final puff = Paint()..color = look.ink.withValues(alpha: 0.55);
+      final d = math.max(1.2, 1.1 * u);
+      for (var i = 0; i < frame.puffs; i++) {
+        final c = nose + Offset(-4.5 * u - i * 1.6 * u, -0.6 * u - i * 1.3 * u);
+        canvas.drawRect(Rect.fromCenter(center: c, width: d, height: d), puff);
+      }
+    }
 
     // ── The coin ──
     final c = _coin(now);
@@ -2520,7 +3083,7 @@ class MoneyJourneyPainter extends CustomPainter {
     final dt = math.max(0.0, now - s.hoverPaintedAt);
     s.hoverPaintedAt = now;
     var parked = false;
-    if (c != null && _idle(s)) {
+    if (c != null && _idle(s) && !s.carry) {
       final before = _coin(now - 80);
       parked = before != null && (before.at - c.at).distance < 0.4;
     }
