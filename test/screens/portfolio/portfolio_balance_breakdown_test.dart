@@ -1722,8 +1722,7 @@ void main() {
       expect(find.text('2 open'), findsNothing);
       expect(find.text('Ready to use'), findsNothing);
       expect(find.text('In positions'), findsNothing);
-      // Move money is a plain pill (no chevron since it stopped being a
-      // text link), and nothing else points right.
+      // Move money is a pill now: no chevron to the right anywhere.
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
