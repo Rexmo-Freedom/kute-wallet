@@ -864,11 +864,22 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               title: context.l10n.salChatWith,
               trailing: const AppBottomSheetCloseButton(),
             )
-          else ...[
-            SizedBox(height: 12.h),
-            AppDecorations.dragHandle(context),
-            SizedBox(height: 8.h),
-          ],
+          else
+            // The drag handle with the shared close X at the row's end
+            // (founder, 27 October 2026: a way out besides dragging down).
+            SizedBox(
+              height: 44.h,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  AppDecorations.dragHandle(context),
+                  Positioned(
+                    right: 8.w,
+                    child: const AppBottomSheetCloseButton(),
+                  ),
+                ],
+              ),
+            ),
           ...children,
         ],
       ),
