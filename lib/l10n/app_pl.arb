@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Ustaw sprzedaż przy {percent}%",
   "polyPosSinceBoughtAt": "od zakupu po {price}",
   "polyPosDragHint": "Przeciągnij wskazówkę, aby zobaczyć, ile byłoby warte",
+  "polyPosChangeSince": "{percent} od {price}",
   "polyPosYourAvg": "Twoja śr. {price}",
   "chartNoData": "Brak danych wykresu",
   "ledgerBetPrepared": "Wydawanie włączone. Przejrzyj prognozę, aby kontynuować.",

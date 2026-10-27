@@ -6062,6 +6062,11 @@ class AppLocalizationsHr extends AppLocalizations {
   String get polyPosDragHint => 'Povuci kazaljku da vidiš koliko bi vrijedilo';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent od $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tvoj prosjek $price';
   }

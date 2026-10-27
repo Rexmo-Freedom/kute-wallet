@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Όρισε πώληση στο {percent}%",
   "polyPosSinceBoughtAt": "από την αγορά στα {price}",
   "polyPosDragHint": "Σύρε τη βελόνα για να δεις πόσο θα άξιζε",
+  "polyPosChangeSince": "{percent} από τα {price}",
   "polyPosYourAvg": "Μ.Ο. σου {price}",
   "chartNoData": "Δεν υπάρχουν δεδομένα γραφήματος",
   "ledgerBetPrepared": "Η δαπάνη ενεργοποιήθηκε. Έλεγξε την πρόβλεψή σου για να συνεχίσεις.",

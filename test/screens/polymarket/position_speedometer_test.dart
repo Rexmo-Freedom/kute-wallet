@@ -186,13 +186,14 @@ void main() {
   });
 
   group('the dial', () {
-    test('the needle stops short of the chance at every angle', () {
+    test('a long needle: from the hub to the track, its knob on it', () {
       for (final w in [320.0, 350.0, 390.0, 600.0]) {
         final g = polySpeedometerGeometry(w);
-        // Under half the track's radius, so its highest reach (at 50%)
-        // stays below the chance's baseline.
-        expect(g.needle, lessThan(g.radius * 0.5));
+        expect(g.needle, g.radius);
         expect(g.stroke, 4);
+        // Room for the knob's ring riding the track.
+        expect(g.center.dy - g.radius,
+            greaterThanOrEqualTo(kPolySpeedometerKnobRing));
       }
     });
 
@@ -236,8 +237,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the needle never crosses the digits: at 20, 50, 66 and 85% '
-        'its tip, knob and ring, stays below the chance', (tester) async {
+    testWidgets('a speedometer: the chance under the hub, centred, the '
+        'knob on the track at the needle\'s tip at 20, 50, 66 and 85%',
+        (tester) async {
       for (final c in [0.20, 0.50, 0.66, 0.85]) {
         await _pump(tester, chance: c, sweep: false);
         final box =
@@ -246,12 +248,71 @@ void main() {
             .widget<CustomPaint>(
                 find.byKey(PolyPositionSpeedometer.needlePaintKey))
             .painter! as PolySpeedometerNeedlePainter;
-        final tip = box.topLeft + needle.tip;
+        final g = needle.geometry;
+        expect((needle.tip - g.center).distance, closeTo(g.radius, 1e-6),
+            reason: '$c');
         final figure =
             tester.getRect(find.byKey(PolyPositionSpeedometer.figureKey));
-        expect(tip.dy - kPolySpeedometerKnobRing, greaterThan(figure.bottom),
+        final hub = box.topLeft + g.center;
+        expect(figure.top, greaterThan(hub.dy + kPolySpeedometerHub),
             reason: '$c');
+        expect(figure.center.dx, closeTo(hub.dx, 0.5), reason: '$c');
       }
+    });
+
+    testWidgets('the sweep: the track filled to the needle in the result\'s '
+        'colour, the dragged chance\'s while dragging', (tester) async {
+      Color colorAt(double x) =>
+          x >= 0.19 ? AppColors.marketUp : AppColors.marketDown;
+      tester.view.physicalSize = const Size(390, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ScreenUtilInit(
+        designSize: const Size(430, 932),
+        builder: (_, __) => MaterialApp(
+          theme: ThemeData(extensions: [AppColorsExtension.light()]),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 350,
+                child: PolyPositionSpeedometer(
+                  chance: 0.66,
+                  entry: 0.19,
+                  side: 'No',
+                  sweepOnOpen: false,
+                  colorAt: colorAt,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      PolySpeedometerSweepPainter sweep() => tester
+          .widget<CustomPaint>(
+              find.byKey(PolyPositionSpeedometer.sweepPaintKey))
+          .painter! as PolySpeedometerSweepPainter;
+      expect(sweep().color, AppColors.marketUp);
+      expect(sweep().extent, closeTo(0.66, 1e-9));
+      expect(sweep().entry, 0.19);
+      // Dragged under the price paid: the down colour, to the finger.
+      final box = tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
+      final g = sweep().geometry;
+      final hub = box.topLeft + g.center;
+      final drag = await tester.startGesture(hub + const Offset(0, -10));
+      await tester.pump();
+      final a = polyGaugeAngle(0.10);
+      await drag.moveTo(hub +
+          Offset(g.radius * 0.7 * math.cos(a), g.radius * 0.7 * math.sin(a)));
+      await tester.pump();
+      expect(sweep().color, AppColors.marketDown);
+      expect(sweep().extent, closeTo(0.10, 0.01));
+      await drag.up();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(sweep().color, AppColors.marketUp);
     });
 
     testWidgets('a grab knob at the needle\'s tip: larger than the hub, in '

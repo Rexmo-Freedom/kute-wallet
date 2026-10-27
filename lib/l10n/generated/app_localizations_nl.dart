@@ -6073,6 +6073,11 @@ class AppLocalizationsNl extends AppLocalizations {
       'Sleep de naald om te zien wat het waard zou zijn';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent sinds $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Jouw gem. $price';
   }

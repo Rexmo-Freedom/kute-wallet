@@ -67,12 +67,14 @@ const Color _kPolyRed = AppColors.marketDown;
 // between them (PolyGameTeamsHeader); any other market shows the sheet's
 // icon-and-title header. Under it, what is the user's: a line naming the
 // held side ("You hold No": Yes / Up in the up colour, No / Down in the
-// down colour, any other outcome in the primary text colour); while the
-// bet is open, the speedometer as the screen's hero (the held side's
-// chance on a calm 180° dial, the price paid a dot on its track, an
-// elastic needle with a grab knob at its tip, drag to explore:
-// position_speedometer.dart), the result since the buy under it ("▲ $9.40 ·
-// +247%", "since you bought at 19¢") and, until the dial's first drag on
+// down colour, any other outcome in the primary text colour; at the top
+// right while open, centred once settled); while the bet is open, the
+// speedometer as the screen's hero (the held side's chance on a calm 180°
+// dial, the price paid a dot on its track, a long needle with a grab knob riding the track, the track filled to the
+// needle in the result's colour, the chance under the hub, drag to
+// explore: position_speedometer.dart); over it the result since the buy at
+// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one)
+// and the held side at the right; under it, until the dial's first drag on
 // this device, a quiet "Drag the needle to see what it'd be worth" (the
 // needle leans once to show it moves),
 // and once settled the chance bar (position_chance_bar.dart). Then two
@@ -551,16 +553,66 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               if (showGauge) {
                                 final kind = VenueAnalytics.pmKindParams(
                                     [pos.tokenId, pos.marketId, pos.eventSlug]);
+                                // The result at a chance: up, down or
+                                // neutral, as the result line reads it.
+                                Color colorAt(double x) => polyJourneyColor(
+                                    x * pos.size - costBasis, c.textSecondary);
                                 return Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    heldLine,
-                                    SizedBox(height: 14.h),
+                                    // Over the dial: the result at the
+                                    // left (while dragging, the what-if
+                                    // one), the held side at the right.
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.topLeft,
+                                            child: ValueListenableBuilder<
+                                                double?>(
+                                              valueListenable: _whatIf,
+                                              builder: (context, whatIf, _) {
+                                                final change = whatIf == null
+                                                    ? pnl
+                                                    : pos.size * whatIf -
+                                                        costBasis;
+                                                final percent = whatIf == null
+                                                    ? pnlPercent
+                                                    : (costBasis > 0
+                                                        ? change /
+                                                            costBasis *
+                                                            100
+                                                        : 0.0);
+                                                return PolyPositionResultLine(
+                                                  pnl: change,
+                                                  pnlPercent: percent,
+                                                  amountText: formatPolyAmount(
+                                                      ref, change.abs()),
+                                                  boughtText: bought == null
+                                                      ? null
+                                                      : formatPolyBoughtCents(
+                                                          bought),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 12.w),
+                                        Padding(
+                                          padding: EdgeInsets.only(top: 3.h),
+                                          child: heldLine,
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 8.h),
                                     PolyPositionSpeedometer(
                                       chance: currentPrice,
                                       entry: bought,
                                       side: pos.outcome,
                                       hintDrag: _dialHint,
+                                      colorAt: colorAt,
                                       onExploreStart: _onExploreStart,
                                       onExplore: (h) => _whatIf.value = h,
                                       onExploreEnd: (h) => _onExploreEnd(h,
@@ -568,26 +620,19 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           entry: bought,
                                           kind: kind),
                                     ),
-                                    SizedBox(height: 12.h),
-                                    // The result since the buy, or, while
-                                    // and just after a drag, the offer to
-                                    // sell at the explored chance.
+                                    SizedBox(height: 2.h),
+                                    // Under the chance: the drag hint
+                                    // until the first drag, or, while and
+                                    // just after a drag, the offer to sell
+                                    // at the explored chance.
                                     _ResultOrSellSlot(
                                       whatIf: _whatIf,
                                       sellAt: _sellAt,
-                                      result: PolyPositionResultLine(
-                                        pnl: pnl,
-                                        pnlPercent: pnlPercent,
-                                        amountText:
-                                            formatPolyAmount(ref, pnl.abs()),
-                                        boughtText: bought == null
-                                            ? null
-                                            : formatPolyBoughtCents(bought),
-                                      ),
+                                      result: _dialHintRoom
+                                          ? _DialHintLine(visible: _dialHint)
+                                          : const SizedBox.shrink(),
                                       onSell: (at) => _sellAtWhatIf(pos, at),
                                     ),
-                                    if (_dialHintRoom)
-                                      _DialHintLine(visible: _dialHint),
                                   ],
                                 );
                               }
@@ -1149,7 +1194,7 @@ class _ResultOrSellSlot extends StatelessWidget {
           }
           // One height for both, so nothing under it moves.
           return SizedBox(
-            height: 44.h,
+            height: 36.h,
             child: Center(
               child: AnimatedSwitcher(
                 duration: reduceMotion
@@ -1165,9 +1210,9 @@ class _ResultOrSellSlot extends StatelessWidget {
   }
 }
 
-/// "Drag the needle to see what it'd be worth": under the result, in the
-/// quiet type of its "since you bought" line, a size smaller; until the
-/// dial's first drag, then faded out for good.
+/// "Drag the needle to see what it'd be worth": under the chance, in the
+/// quiet type of the result's "+31% since 36¢" line; until the dial's
+/// first drag, then faded out for good.
 class _DialHintLine extends StatelessWidget {
   const _DialHintLine({required this.visible});
 
@@ -1179,7 +1224,7 @@ class _DialHintLine extends StatelessWidget {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return Padding(
-      padding: EdgeInsets.only(top: 2.h),
+      padding: EdgeInsets.zero,
       child: AnimatedOpacity(
         opacity: visible ? 1 : 0,
         duration:

@@ -6063,6 +6063,11 @@ class AppLocalizationsSl extends AppLocalizations {
       'Povlecite kazalec, da vidite, koliko bi bilo vredno';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent od $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Vaše povp. $price';
   }

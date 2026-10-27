@@ -6033,6 +6033,11 @@ class AppLocalizationsLv extends AppLocalizations {
       'Velc rādītāju, lai redzētu, cik tas būtu vērts';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent kopš $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tava vid. $price';
   }

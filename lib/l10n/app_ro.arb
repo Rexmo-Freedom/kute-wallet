@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Setează o vânzare la {percent}%",
   "polyPosSinceBoughtAt": "de la cumpărarea la {price}",
   "polyPosDragHint": "Trage acul ca să vezi cât ar valora",
+  "polyPosChangeSince": "{percent} de la {price}",
   "polyPosYourAvg": "Media ta {price}",
   "chartNoData": "Nu există date pentru grafic",
   "ledgerBetPrepared": "Cheltuirea a fost activată. Verifică predicția pentru a continua.",

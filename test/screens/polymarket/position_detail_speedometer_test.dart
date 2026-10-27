@@ -218,12 +218,30 @@ void main() {
     expect(find.text('You · 19%'), findsNothing);
     // No is the down side: its word in the down colour, as everywhere.
     expect(_heldSide(tester).style!.color, AppColors.marketDown);
-    // ▲ $9.40 · +247% since you bought.
+    // ▲ $9.40, "+247% since 19¢", at the top left over the dial; "You
+    // hold No" at the top right.
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$9.40 · +247%');
+    expect(figure.data, r'$9.40');
     expect(figure.style!.color, AppColors.marketUp);
-    expect(find.text('since you bought at 19¢'), findsOneWidget);
+    expect(find.text('+247% since 19¢'), findsOneWidget);
+    final result = tester.getRect(find.byKey(PolyPositionResultLine.lineKey));
+    final heldRect =
+        tester.getRect(find.byKey(const ValueKey('poly-position-held')));
+    final dialRect =
+        tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
+    expect(result.left, closeTo(dialRect.left, 1));
+    expect(heldRect.right, closeTo(dialRect.right, 1));
+    expect(result.bottom, lessThanOrEqualTo(dialRect.top));
+    expect(heldRect.bottom, lessThanOrEqualTo(dialRect.top));
+    // The sweep in the result's colour.
+    expect(
+        (tester
+                .widget<CustomPaint>(
+                    find.byKey(PolyPositionSpeedometer.sweepPaintKey))
+                .painter! as PolySpeedometerSweepPainter)
+            .color,
+        AppColors.marketUp);
     final caret = tester.widget<CustomPaint>(
         find.byKey(PolyPositionResultLine.caretKey));
     expect((caret.painter! as PolyCaretPainter).up, isTrue);
@@ -257,11 +275,11 @@ void main() {
     // candidate colours.
     expect(painter.entry, closeTo(0.34, 1e-9));
     expect(painter.trackColor, AppColorsExtension.light().border);
-    expect(find.text('since you bought at 34¢'), findsOneWidget);
+    expect(find.text('-0.3% since 34¢'), findsOneWidget);
     expect(_heldSide(tester).style!.color, AppColors.marketUp);
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$0.05 · -0.3%');
+    expect(figure.data, r'$0.05');
     expect(figure.style!.color, AppColors.marketDown);
     expect(
         (tester
@@ -294,7 +312,8 @@ void main() {
         AppColorsExtension.light().textPrimary);
     final figure = tester.widget<Text>(
         find.byKey(PolyPositionResultLine.figureKey));
-    expect(figure.data, r'$0.00 · 0.0%');
+    expect(figure.data, r'$0.00');
+    expect(find.text('0.0% since 50¢'), findsOneWidget);
     expect(figure.style!.color, AppColorsExtension.light().textSecondary);
     expect(find.byKey(PolyPositionResultLine.caretKey), findsNothing);
   });
@@ -328,6 +347,13 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('poly-position-payout')), findsNothing);
     expect(find.text('Set a sell at 85%'), findsOneWidget);
+    // The top left reads the what-if: ▲ $13.20, +347% since 19¢.
+    expect(
+        tester
+            .widget<Text>(find.byKey(PolyPositionResultLine.figureKey))
+            .data,
+        r'$13.20');
+    expect(find.text('+347% since 19¢'), findsOneWidget);
     expect(events.where((e) => e.$1 == 'prediction_position_whatif_used'),
         isEmpty);
 
@@ -368,7 +394,7 @@ void main() {
   });
 
   testWidgets('never dragged: "Drag the needle to see what it\'d be worth" '
-      'under the result and the needle hinted; the first drag fades it for '
+      'under the chance and the needle hinted; the first drag fades it for '
       'good, the event the same', (tester) async {
     await _pump(tester, _no);
     final hint = find.byKey(PositionDetailSheet.dialHintKey);
@@ -381,9 +407,11 @@ void main() {
                 find.byType(PolyPositionSpeedometer))
             .hintDrag,
         isTrue);
-    // Under the "since you bought" line, over the tiles.
+    // Under the chance, over the tiles.
     expect(tester.getRect(hint).top,
-        greaterThan(tester.getRect(find.text('since you bought at 19¢')).bottom));
+        greaterThan(tester
+            .getRect(find.byKey(PolyPositionSpeedometer.figureKey))
+            .bottom));
     expect(tester.getRect(hint).bottom,
         lessThan(tester
             .getRect(find.byKey(const ValueKey('poly-position-value')))
@@ -402,8 +430,8 @@ void main() {
     await tester.pump();
     await g.moveTo(d.at(0.8));
     await tester.pump(const Duration(milliseconds: 16));
-    // Fading out; nothing under it moves.
-    expect(opacity(), 0);
+    // The offer to sell takes its place while dragging.
+    expect(find.text('Set a sell at 80%'), findsOneWidget);
     expect(PolyDialDragMemory.dragged, isTrue);
     expect(
         tester
@@ -413,6 +441,10 @@ void main() {
         isFalse);
     await g.up();
     await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(milliseconds: 300));
+    // The offer over: the hint's place is back, faded for good; nothing
+    // under it moved.
+    expect(opacity(), 0);
     expect(
         tester
             .getRect(find.byKey(const ValueKey('poly-position-value')))

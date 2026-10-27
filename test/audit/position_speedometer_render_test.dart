@@ -13,10 +13,12 @@
 // The cases: a No bought at 19¢ now at 66%, and a Lula Yes bought at 34¢
 // now at 33.9%; and, 390 wide, the founder's Flávio Yes bought at 36¢ now
 // at 47.7% ($10.01 paid, worth $13.14) right after the buy (no history
-// since: the chart from the price paid to now), with the drag hint, and
-// after a first drag (the hint gone).
+// since: the chart from the price paid to now), with the drag hint,
+// mid-drag (the what-if), after a first drag (the hint gone), and the same
+// Yes at a loss (the sweep in the down colour).
 
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -310,35 +312,95 @@ void main() {
     points: const <PolymarketPricePoint>[],
     fromBuy: true,
   );
+  // Lost since the buy: the same Yes bought at 36¢, now 28%.
+  final flavioDown = PolymarketPosition(
+    marketId: flavio.marketId,
+    marketQuestion: flavio.marketQuestion,
+    outcome: 'Yes',
+    size: flavio.size,
+    avgPrice: flavio.avgPrice,
+    currentPrice: 0.28,
+    pnl: 0.28 * 27.5523 - 10.01,
+    pnlPercent: (0.28 * 27.5523 - 10.01) / 10.01 * 100,
+    isResolved: false,
+    tokenId: flavio.tokenId,
+    eventSlug: flavio.eventSlug,
+    endDateStr: flavio.endDateStr,
+  );
+  final fellSince = (
+    since: DateTime.now().subtract(const Duration(hours: 5)),
+    points: [
+      for (var i = 1; i < 60; i++)
+        PolymarketPricePoint(
+            timestamp: DateTime.now()
+                .subtract(const Duration(hours: 5))
+                .add(Duration(minutes: i * 5)),
+            price: 0.36 - 0.08 * i / 60 + 0.012 * math.sin(i / 4)),
+    ],
+    fromBuy: true,
+  );
+
+  Future<TestGesture> dragTo(WidgetTester tester, double fraction) async {
+    final dial = find.byKey(PolyPositionSpeedometer.dialKey);
+    final box = tester.getRect(dial);
+    final g = (tester
+            .widget<CustomPaint>(
+                find.byKey(PolyPositionSpeedometer.dialPaintKey))
+            .painter! as PolySpeedometerDialPainter)
+        .geometry;
+    final hub = box.topLeft + g.center;
+    final gesture = await tester.startGesture(hub + const Offset(0, -10));
+    await tester.pump();
+    final r = g.radius * 0.7;
+    final a = 3.141592653589793 * (1 + fraction);
+    final to = hub + Offset(r * math.cos(a), r * math.sin(a));
+    for (var i = 1; i <= 10; i++) {
+      final f = 0.5 + (fraction - 0.5) * i / 10;
+      final ai = 3.141592653589793 * (1 + f);
+      await gesture.moveTo(i == 10
+          ? to
+          : hub + Offset(r * math.cos(ai), r * math.sin(ai)));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pump(const Duration(milliseconds: 200));
+    return gesture;
+  }
+
   for (final dark in [false, true]) {
-    final id = 'flavio_just_bought_hint_${dark ? 'dark' : 'light'}';
-    testWidgets(id, (tester) async {
+    final tone = dark ? 'dark' : 'light';
+    testWidgets('flavio_just_bought_hint_$tone', (tester) async {
       await _show(tester, flavio,
           dark: dark, journey: justBought, phone: founderPhone);
-      await _shot(tester, id);
+      await _shot(tester, 'flavio_just_bought_hint_$tone');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 8));
     });
-    final dragged = 'flavio_after_drag_${dark ? 'dark' : 'light'}';
-    testWidgets(dragged, (tester) async {
+    testWidgets('flavio_mid_drag_whatif_$tone', (tester) async {
       await _show(tester, flavio,
           dark: dark, journey: justBought, phone: founderPhone);
-      final dial = find.byKey(PolyPositionSpeedometer.dialKey);
-      final box = tester.getRect(dial);
-      final hub = Offset(box.center.dx, box.bottom - 14);
-      final g = await tester.startGesture(hub);
-      await tester.pump();
-      final r = box.width / 2 - 30;
-      for (var i = 1; i <= 10; i++) {
-        await g.moveTo(hub + Offset(r * 0.6 * i / 10, -r * 0.8 * i / 10));
-        await tester.pump(const Duration(milliseconds: 16));
-      }
+      final g = await dragTo(tester, 0.72);
+      await _shot(tester, 'flavio_mid_drag_whatif_$tone');
+      await g.up();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 8));
+    });
+    testWidgets('flavio_after_drag_$tone', (tester) async {
+      await _show(tester, flavio,
+          dark: dark, journey: justBought, phone: founderPhone);
+      final g = await dragTo(tester, 0.72);
       await g.up();
       // The sell offer runs out; the needle is home.
       for (var i = 0; i < 40; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      await _shot(tester, dragged);
+      await _shot(tester, 'flavio_after_drag_$tone');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 8));
+    });
+    testWidgets('flavio_losing_$tone', (tester) async {
+      await _show(tester, flavioDown,
+          dark: dark, journey: fellSince, phone: founderPhone);
+      await _shot(tester, 'flavio_losing_$tone');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 8));
     });

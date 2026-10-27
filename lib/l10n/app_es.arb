@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Poner una venta al {percent}%",
   "polyPosSinceBoughtAt": "desde que compraste a {price}",
   "polyPosDragHint": "Arrastra la aguja para ver cuánto valdría",
+  "polyPosChangeSince": "{percent} desde {price}",
   "polyPosYourAvg": "Tu promedio {price}",
   "chartNoData": "No hay datos del gráfico",
   "ledgerBetPrepared": "Gasto activado. Revisa tu predicción para continuar.",

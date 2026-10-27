@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Sea müük {percent}% juures",
   "polyPosSinceBoughtAt": "ostust saati hinnaga {price}",
   "polyPosDragHint": "Lohista nõela, et näha, palju see väärt oleks",
+  "polyPosChangeSince": "{percent} alates {price}",
   "polyPosYourAvg": "Sinu keskm. {price}",
   "chartNoData": "Graafiku andmed puuduvad",
   "ledgerBetPrepared": "Kulutamine lubatud. Jätkamiseks vaata oma ennustus üle.",

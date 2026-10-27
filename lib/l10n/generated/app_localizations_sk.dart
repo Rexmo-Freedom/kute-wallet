@@ -6054,6 +6054,11 @@ class AppLocalizationsSk extends AppLocalizations {
       'Potiahni ručičku a uvidíš, akú by to malo hodnotu';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent od $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Tvoj priemer $price';
   }

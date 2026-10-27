@@ -503,8 +503,9 @@ void main() {
       expect(find.byWidgetPredicate(
               (w) => w is RollingNumberText && w.text == '50% chance'),
           findsNothing);
-      // Under the line naming the held side, the side in the primary text
-      // colour (a team is neither up nor down); over the tiles.
+      // The line naming the held side over the dial (at its top right),
+      // the side in the primary text colour (a team is neither up nor
+      // down); over the tiles.
       final pill = find.byKey(const ValueKey('poly-position-held'));
       final held = tester.widget<Text>(pill);
       expect(held.textSpan!.toPlainText(), 'You hold 49ers');
@@ -521,10 +522,10 @@ void main() {
               .getRect(find.byKey(const ValueKey('poly-position-value')))
               .top));
       // The screen's hero: the dial spans the whole content width (390
-      // less the 20 pt gutters), the entry dot's room just inside it.
+      // less the 20 pt gutters), the knob's ring's room just inside it.
       final g = painter.geometry;
       final content = 390 - 2 * 20 * 390 / 430;
-      expect(2 * (g.radius + g.stroke / 2 + kPolySpeedometerEntryDot + 2),
+      expect(2 * (g.radius + g.stroke / 2 + kPolySpeedometerKnobRing + 2),
           closeTo(content, 1));
       // The live feed's subscribe debounce runs out; the sweep settles.
       await tester.pump(const Duration(seconds: 1));

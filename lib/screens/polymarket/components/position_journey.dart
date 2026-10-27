@@ -3,10 +3,11 @@
 // Two quiet pieces of the open-position screen, around the speedometer
 // (position_speedometer.dart):
 //
-//   * the result, under the dial: "▲ $9.40 · +247%", the figure in the
-//     app's up / down colour after a painted caret, as the Portfolio rows
-//     write theirs (flat reads "$0.00 · 0.0%" quietly, no caret), and a
-//     quiet "since you bought at 19¢" under it;
+//   * the result, at the top left over the dial: "▲ $9.40", the figure in
+//     the app's up / down colour after a painted caret, as the Portfolio
+//     rows write theirs (flat reads "$0.00" quietly, no caret), and a
+//     quiet "+247% since 19¢" under it; while the needle is dragged, the
+//     what-if result the same way;
 //   * the chart, at the bottom, brokerage style: the held side's chance
 //     since the first buy of this holding (the market sheet's own price
 //     history of the held token, so a No reads as 1 − Yes), one 2 px line
@@ -55,8 +56,7 @@ String polyResultPercent(double percent) {
 /// Whether a profit or loss of [pnl] dollars reads as flat.
 bool polyResultIsFlat(double pnl) => pnl.abs() < 0.005;
 
-/// "▲ $9.40 · +247%" under the dial, "since you bought at 19¢" under
-/// it.
+/// "▲ $9.40" at the top left over the dial, "+247% since 19¢" under it.
 class PolyPositionResultLine extends StatelessWidget {
   const PolyPositionResultLine({
     super.key,
@@ -66,14 +66,15 @@ class PolyPositionResultLine extends StatelessWidget {
     this.boughtText,
   });
 
-  /// The profit or loss in dollars (value now less what was paid).
+  /// The profit or loss in dollars (value now, or at the dragged chance,
+  /// less what was paid).
   final double pnl;
   final double pnlPercent;
 
   /// [pnl]'s size, formatted ("$9.40"), no sign.
   final String amountText;
 
-  /// The average price paid ("19¢"); no second line without it.
+  /// The average price paid ("19¢"); the percent alone without it.
   final String? boughtText;
 
   static const lineKey = ValueKey('poly-position-result');
@@ -89,30 +90,32 @@ class PolyPositionResultLine extends StatelessWidget {
     final color = flat
         ? c.textSecondary
         : (up ? AppColors.marketUp : AppColors.marketDown);
-    final change =
-        '$amountText · ${flat ? '0.0%' : polyResultPercent(pnlPercent)}';
+    final percent = flat ? '0.0%' : polyResultPercent(pnlPercent);
     final figure = TextStyle(
       color: color,
-      fontSize: 15.sp,
+      fontSize: 17.sp,
       fontWeight: FontWeight.w700,
-      letterSpacing: -0.1,
-      height: 1.3,
+      letterSpacing: -0.2,
+      height: 1.25,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final quiet = TextStyle(
       color: c.textTertiary,
-      fontSize: 13.sp,
+      fontSize: 12.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
     final bought = boughtText;
     return Column(
       key: lineKey,
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FittedBox(
           fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -124,20 +127,22 @@ class PolyPositionResultLine extends StatelessWidget {
                 ),
                 SizedBox(width: 5.w),
               ],
-              Text(change, key: figureKey, style: figure, maxLines: 1),
+              Text(amountText, key: figureKey, style: figure, maxLines: 1),
             ],
           ),
         ),
-        if (bought != null)
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              context.l10n.polyPosSinceBoughtAt(bought),
-              key: sinceKey,
-              style: quiet,
-              maxLines: 1,
-            ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            bought == null
+                ? percent
+                : context.l10n.polyPosChangeSince(percent, bought),
+            key: sinceKey,
+            style: quiet,
+            maxLines: 1,
           ),
+        ),
       ],
     );
   }

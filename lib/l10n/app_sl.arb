@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Nastavi prodajo pri {percent} %",
   "polyPosSinceBoughtAt": "od nakupa po {price}",
   "polyPosDragHint": "Povlecite kazalec, da vidite, koliko bi bilo vredno",
+  "polyPosChangeSince": "{percent} od {price}",
   "polyPosYourAvg": "Vaše povp. {price}",
   "chartNoData": "Ni podatkov za graf",
   "ledgerBetPrepared": "Poraba omogočena. Za nadaljevanje preglejte napoved.",

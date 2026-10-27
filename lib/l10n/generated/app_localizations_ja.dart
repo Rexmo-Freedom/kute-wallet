@@ -5824,6 +5824,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get polyPosDragHint => '針をドラッグすると、その時の価値がわかります';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$priceから$percent';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return '平均取得 $price';
   }

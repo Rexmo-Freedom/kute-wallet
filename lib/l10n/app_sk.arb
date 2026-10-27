@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Nastaviť predaj na {percent} %",
   "polyPosSinceBoughtAt": "od nákupu za {price}",
   "polyPosDragHint": "Potiahni ručičku a uvidíš, akú by to malo hodnotu",
+  "polyPosChangeSince": "{percent} od {price}",
   "polyPosYourAvg": "Tvoj priemer {price}",
   "chartNoData": "Žiadne údaje pre graf",
   "ledgerBetPrepared": "Míňanie povolené. Pokračuj kontrolou predpovede.",

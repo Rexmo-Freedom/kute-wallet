@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Eladás beállítása {percent}%-on",
   "polyPosSinceBoughtAt": "a vétel óta, {price} áron",
   "polyPosDragHint": "Húzd a mutatót, és lásd, mennyit érne",
+  "polyPosChangeSince": "{percent} {price} óta",
   "polyPosYourAvg": "Átlagod {price}",
   "chartNoData": "Nincs diagramadat",
   "ledgerBetPrepared": "Költés engedélyezve. A folytatáshoz nézd át az előrejelzésedet.",

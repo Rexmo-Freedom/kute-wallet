@@ -6048,6 +6048,11 @@ class AppLocalizationsSv extends AppLocalizations {
       'Dra i nålen för att se vad det skulle vara värt';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent sedan $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Ditt snitt $price';
   }

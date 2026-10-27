@@ -9,13 +9,16 @@
 // Down, a candidate, a team):
 //   * a thin neutral track with round ends, three small ticks at 0, 50
 //     and 100, no figures, no zones;
-//   * the price paid as a small filled dot on the track;
-//   * a thin needle from a small solid hub, both in the primary text
-//     colour, short enough that its tip always stops below the chance;
-//     at its tip a round grab knob in the same colour inside a faint ring
-//     of it, so the needle reads as something to take hold of;
-//   * the live chance, large, in the upper middle of the dial, so the
-//     needle never crosses its digits.
+//   * a speedometer's sweep: the track filled from its left end up to the
+//     needle in the result's colour at that chance ([colorAt]: up, down,
+//     or neutral when flat), following the needle as it moves;
+//   * the price paid as a small filled dot on the track, over the sweep;
+//   * a long thin needle from a small solid hub to the track, both in the
+//     primary text colour; at its tip, riding the track, a round grab
+//     knob in the same colour inside a faint ring of it, so the needle
+//     reads as something to take hold of;
+//   * the chance, large, under the hub, centred, like a car's digital
+//     speed; while dragging, "If No reaches" over it.
 
 // The needle is a car's tachometer needle: its angle is a spring
 // ([kPolyNeedleSpring], slightly under-damped), so it accelerates,
@@ -48,7 +51,7 @@
 // passes [hintDrag]), the needle shows it can be moved: once, a moment
 // after the opening sweep has settled, it leans a few degrees and springs
 // back ([kPolyNeedleNudge]), no haptic; the screen writes a quiet "Drag
-// the needle to see what it'd be worth" under the result. Reduce Motion:
+// the needle to see what it'd be worth" under the chance. Reduce Motion:
 // no lean, the knob and the line only.
 
 import 'dart:async';
@@ -285,12 +288,13 @@ const double kPolySpeedometerEntryDot = 4;
 const double kPolySpeedometerKnob = 6.5;
 const double kPolySpeedometerKnobRing = 12;
 
-/// Lays the dial out across [width]: the track as wide as it allows
-/// (capped on tablets), room above it for the entry dot and below the
-/// centre line for the hub; the needle under half the track's radius, so
-/// the chance above it is never crossed.
+/// Lays the dial's arc out across [width]: the track as wide as it allows
+/// (capped on tablets), room around it for the knob's ring riding it and
+/// below the centre line for the hub; the needle reaches the track, its
+/// knob on it. [PolySpeedometerGeometry.size] is the arc's box; the
+/// chance sits under it.
 PolySpeedometerGeometry polySpeedometerGeometry(double width) {
-  const margin = kPolySpeedometerEntryDot + 2;
+  const margin = kPolySpeedometerKnobRing + 2;
   final outer =
       (width / 2 - margin).clamp(math.min(60.0, width / 4), 190.0).toDouble();
   final radius = outer - kPolySpeedometerStroke / 2;
@@ -301,7 +305,7 @@ PolySpeedometerGeometry polySpeedometerGeometry(double width) {
     center: Offset(width / 2, top),
     radius: radius,
     stroke: kPolySpeedometerStroke,
-    needle: radius * 0.42,
+    needle: radius,
   );
 }
 
@@ -365,6 +369,7 @@ class PolyPositionSpeedometer extends StatefulWidget {
     this.entry,
     this.sweepOnOpen = true,
     this.hintDrag = false,
+    this.colorAt,
     this.onExploreStart,
     this.onExplore,
     this.onExploreEnd,
@@ -387,6 +392,11 @@ class PolyPositionSpeedometer extends StatefulWidget {
   /// it settles, to show it moves (off under Reduce Motion).
   final bool hintDrag;
 
+  /// The result's colour at a chance (0..1): the sweep's, the live
+  /// chance's while still and the dragged one's while dragging. Neutral
+  /// when null.
+  final Color Function(double chance)? colorAt;
+
   /// A drag on the dial began.
   final VoidCallback? onExploreStart;
 
@@ -399,6 +409,7 @@ class PolyPositionSpeedometer extends StatefulWidget {
   static const dialKey = ValueKey('poly-speedometer');
   static const dialPaintKey = ValueKey('poly-speedometer-dial');
   static const needlePaintKey = ValueKey('poly-speedometer-needle');
+  static const sweepPaintKey = ValueKey('poly-speedometer-sweep');
   static const entryLabelKey = ValueKey('poly-speedometer-entry');
   static const figureKey = ValueKey('poly-speedometer-figure');
   static const captionKey = ValueKey('poly-speedometer-caption');
@@ -665,13 +676,14 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
   // ─── Drag ─────────────────────────────────────────────────────────
 
   /// The chance (0..1) at [local] on the dial: by the angle from the
-  /// hub; below the hub's line, the nearer end.
+  /// hub; below the hub's line (over the chance), as its mirror above it.
   double _fractionAt(Offset local) {
     final g = _geometry;
     if (g == null) return _motion.position;
     final d = local - g.center;
-    if (d.dy >= 0) return d.dx < 0 ? 0 : 1;
-    return ((math.atan2(d.dy, d.dx) + math.pi) / math.pi)
+    final dy = -d.dy.abs();
+    if (dy == 0) return d.dx < 0 ? 0 : 1;
+    return ((math.atan2(dy, d.dx) + math.pi) / math.pi)
         .clamp(0.0, 1.0)
         .toDouble();
   }
@@ -737,9 +749,10 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
 
   // ─── Build ────────────────────────────────────────────────────────
 
-  /// The room between the needle's reach and the chance's baseline:
-  /// clear of the knob's ring.
-  static const double _figureGap = kPolySpeedometerKnobRing + 3;
+  /// Under the hub: the room before the "If No reaches" line, and
+  /// between it and the chance.
+  static const double _underHub = 4;
+  static const double _readoutGap = 2;
 
   @override
   Widget build(BuildContext context) {
@@ -759,6 +772,9 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
     final full = l10n.betPercentChance(figureText);
     final figure = polyGaugeChanceParts(full, figureText).figure;
     final readout = l10n.polyPosIfReaches(widget.side);
+    final sweepColor =
+        widget.colorAt?.call(shown.clamp(0.0, 1.0).toDouble()) ??
+            c.textTertiary;
     final smallStyle = TextStyle(
       color: c.textSecondary,
       fontSize: 13.sp,
@@ -787,13 +803,13 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
       )..layout();
       final smallH = tp.height;
       tp.dispose();
-      // From the box's bottom: the chance's baseline just past the
-      // needle's reach, the drag's line over it.
-      final below = g.size.height - g.center.dy;
-      final figureBottom = below + g.needle + _figureGap;
+      // Under the hub, centred: the drag's line (its room kept, so the
+      // chance never moves), then the chance.
+      final readoutTop = g.center.dy + kPolySpeedometerHub + _underHub;
+      final figureTop = readoutTop + smallH + _readoutGap;
       final figureH = scaler.scale(figureSize) * 1.05;
-      final readoutBottom = figureBottom + figureH + 2;
-      final textWidth = g.radius * 1.1;
+      final height = figureTop + figureH;
+      final textWidth = g.radius * 1.4;
       final textLeft = g.center.dx - textWidth / 2;
       final duration = _reduceMotion
           ? Duration.zero
@@ -812,11 +828,15 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
             child: SizedBox(
               key: PolyPositionSpeedometer.dialKey,
               width: g.size.width,
-              height: g.size.height,
+              height: height,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    width: g.size.width,
+                    height: g.size.height,
                     child: CustomPaint(
                       key: PolyPositionSpeedometer.dialPaintKey,
                       painter: PolySpeedometerDialPainter(
@@ -829,7 +849,28 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                       ),
                     ),
                   ),
-                  Positioned.fill(
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    width: g.size.width,
+                    height: g.size.height,
+                    child: CustomPaint(
+                      key: PolyPositionSpeedometer.sweepPaintKey,
+                      painter: PolySpeedometerSweepPainter(
+                        geometry: g,
+                        needle: _needle,
+                        color: sweepColor,
+                        entry: entry,
+                        entryColor: c.textSecondary,
+                        ringColor: c.background,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    width: g.size.width,
+                    height: g.size.height,
                     child: CustomPaint(
                       key: PolyPositionSpeedometer.needlePaintKey,
                       painter: PolySpeedometerNeedlePainter(
@@ -845,11 +886,11 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                       key: PolyPositionSpeedometer.readoutKey,
                       left: textLeft,
                       width: textWidth,
-                      bottom: readoutBottom,
+                      top: readoutTop,
                       height: smallH,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.bottomCenter,
+                        alignment: Alignment.center,
                         child: Text(readout,
                             style: smallStyle, maxLines: 1, softWrap: false),
                       ),
@@ -858,11 +899,11 @@ class PolyPositionSpeedometerState extends State<PolyPositionSpeedometer>
                     key: PolyPositionSpeedometer.figureKey,
                     left: textLeft,
                     width: textWidth,
-                    bottom: figureBottom,
+                    top: figureTop,
                     height: figureH,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      alignment: Alignment.bottomCenter,
+                      alignment: Alignment.topCenter,
                       child: RollingNumberText(
                         text: figure,
                         style: figureStyle,
@@ -963,6 +1004,70 @@ class PolySpeedometerDialPainter extends CustomPainter {
       old.ringColor != ringColor;
 }
 
+/// The speedometer's sweep: the track filled from its left end up to the
+/// needle in [color], then the dot at the price paid over it; repainted
+/// on every frame of the spring without rebuilding anything.
+class PolySpeedometerSweepPainter extends CustomPainter {
+  PolySpeedometerSweepPainter({
+    required this.geometry,
+    required this.needle,
+    required this.color,
+    required this.entry,
+    required this.entryColor,
+    required this.ringColor,
+  }) : super(repaint: needle);
+
+  final PolySpeedometerGeometry geometry;
+  final ValueListenable<double> needle;
+
+  /// The result's colour at the chance shown.
+  final Color color;
+  final double? entry;
+  final Color entryColor;
+  final Color ringColor;
+
+  /// How far round the sweep reaches (0..1): to the needle.
+  double get extent => needle.value.clamp(0.0, 1.0).toDouble();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final g = geometry;
+    final f = extent;
+    if (f > 0.001) {
+      canvas.drawArc(
+        Rect.fromCircle(center: g.center, radius: g.radius),
+        math.pi,
+        f * math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = g.stroke
+          ..strokeCap = StrokeCap.round
+          ..isAntiAlias = true
+          ..color = color,
+      );
+    }
+    final e = entry;
+    if (e != null) {
+      final a = polyGaugeAngle(e);
+      final dot = g.center + Offset(math.cos(a), math.sin(a)) * g.radius;
+      canvas.drawCircle(dot, kPolySpeedometerEntryDot + 1.5,
+          Paint()..color = ringColor..isAntiAlias = true);
+      canvas.drawCircle(dot, kPolySpeedometerEntryDot,
+          Paint()..color = entryColor..isAntiAlias = true);
+    }
+  }
+
+  @override
+  bool shouldRepaint(PolySpeedometerSweepPainter old) =>
+      old.geometry != geometry ||
+      old.needle != needle ||
+      old.color != color ||
+      old.entry != entry ||
+      old.entryColor != entryColor ||
+      old.ringColor != ringColor;
+}
+
 /// The needle, the hub and the grab knob at the tip, repainted on every
 /// frame of the spring without rebuilding anything.
 class PolySpeedometerNeedlePainter extends CustomPainter {
@@ -983,7 +1088,8 @@ class PolySpeedometerNeedlePainter extends CustomPainter {
 
   static const double width = 2.5;
 
-  /// Where the needle's tip (the knob's centre) is, in the dial's box.
+  /// Where the needle's tip (the knob's centre, on the track) is, in the
+  /// dial's box.
   Offset get tip {
     final a = polyGaugeAngle(needle.value);
     return geometry.center +
@@ -1010,9 +1116,9 @@ class PolySpeedometerNeedlePainter extends CustomPainter {
           ..strokeWidth = 1
           ..color = color.withValues(alpha: 0.16)
           ..isAntiAlias = true);
-    // A thin straight line from the hub's centre to the knob; then the
-    // hub, a small solid disc, and the knob, a larger one with a hairline
-    // of the background around it.
+    // A thin straight line from the hub's centre to the knob on the
+    // track; then the hub, a small solid disc, and the knob, a larger one
+    // with a hairline of the background around it.
     canvas.drawLine(geometry.center, t, paint);
     canvas.drawCircle(geometry.center, kPolySpeedometerHub,
         Paint()..color = color..isAntiAlias = true);

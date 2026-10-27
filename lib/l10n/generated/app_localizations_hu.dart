@@ -6064,6 +6064,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get polyPosDragHint => 'Húzd a mutatót, és lásd, mennyit érne';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent $price óta';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Átlagod $price';
   }

@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Lägg en försäljning på {percent} %",
   "polyPosSinceBoughtAt": "sedan du köpte för {price}",
   "polyPosDragHint": "Dra i nålen för att se vad det skulle vara värt",
+  "polyPosChangeSince": "{percent} sedan {price}",
   "polyPosYourAvg": "Ditt snitt {price}",
   "chartNoData": "Ingen diagramdata",
   "ledgerBetPrepared": "Spendering aktiverad. Granska din prognos för att fortsätta.",

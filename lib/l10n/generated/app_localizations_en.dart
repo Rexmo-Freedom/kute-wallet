@@ -6031,6 +6031,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get polyPosDragHint => 'Drag the needle to see what it\'d be worth';
 
   @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent since $price';
+  }
+
+  @override
   String polyPosYourAvg(String price) {
     return 'Your avg $price';
   }

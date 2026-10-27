@@ -1750,6 +1750,7 @@
   "polyPosSetSellAt": "Aseta myynti: {percent} %",
   "polyPosSinceBoughtAt": "ostosta hintaan {price}",
   "polyPosDragHint": "Vedä neulaa ja näet, mitä se olisi arvoinen",
+  "polyPosChangeSince": "{percent} hinnasta {price}",
   "polyPosYourAvg": "Keskihintasi {price}",
   "chartNoData": "Ei kaaviotietoja",
   "ledgerBetPrepared": "Käyttö sallittu. Tarkista ennusteesi jatkaaksesi.",
