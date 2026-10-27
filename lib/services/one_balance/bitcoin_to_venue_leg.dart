@@ -555,10 +555,16 @@ abstract final class BitcoinToVenueLeg {
         walletId: read(settingsProvider).activeWalletId,
         operationId: settled.operation.operationId,
       );
-      await read(swapOrdersProvider.notifier).addExchange(row);
-      if (orderId != quote.quoteId) {
-        await read(swapOrdersProvider.notifier).deleteExchange(quote.quoteId);
-      }
+      // The money has left: a local row that fails to save is the
+      // activity sync's to restore, never an error the caller could read
+      // as nothing sent (and fall back to sending another way).
+      try {
+        await read(swapOrdersProvider.notifier).addExchange(row);
+        if (orderId != quote.quoteId) {
+          await read(swapOrdersProvider.notifier)
+              .deleteExchange(quote.quoteId);
+        }
+      } catch (_) {}
       followSettlementRegistration(read, settled);
       final estOut = orchestraAmountToDouble(quote.estimatedOut, route.toAsset,
           chain: route.toChain);

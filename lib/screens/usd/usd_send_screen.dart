@@ -1521,7 +1521,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     // Not before the route has priced this amount, and never for an
     // amount or coin it refused: venue cash must not start home for a
     // send that cannot go.
+    // Once a send has gone out this sheet never sends again.
     final canSend = !_processing &&
+        !_sent &&
         !waiting &&
         _estimateBlock == null &&
         _completedSteps.containsAll({_kAmountStep, _kSendToStep}) &&
@@ -1993,6 +1995,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         },
       ));
 
+      // The money has left: from here nothing may read as a failed send
+      // or offer Send again (a local write failing below is not one).
+      sendDone = true;
       final orchQuote = settled.quote.quote;
       final sentUsd = settled.quote.amountIn.toDouble() / 1e6;
       final orderId = settled.orderId ?? orchQuote.quoteId;
@@ -2025,12 +2030,18 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         operationId: settled.operation.operationId,
       );
       // The send is the last leg of its multi-source move: one row.
-      MultiSourceMoveStore.attachFinal(_moveId, settled.operation.operationId);
-      _moveId = null;
-      await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
-      ref
-          .read(walletTransactionCacheProvider.notifier)
-          .mergeSwapOrder(exchange);
+      try {
+        MultiSourceMoveStore.attachFinal(
+            _moveId, settled.operation.operationId);
+        _moveId = null;
+        await ref.read(swapOrdersProvider.notifier).addExchange(exchange);
+        ref
+            .read(walletTransactionCacheProvider.notifier)
+            .mergeSwapOrder(exchange);
+      } catch (_) {
+        // The local row could not be written: the operation record and
+        // the activity sync still carry the send. Never a failed send.
+      }
       // Backend attribution for the REAL order only — a quote id (q_…)
       // would create a row the completion can never reconcile with.
       if (orderId.startsWith('ord_')) {
@@ -2058,7 +2069,6 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       // Deposit submitted: the user's send is done (delivery is the
       // swap lifecycle's). For a dollar destination the route's whole
       // cost is what went in less the quoted output.
-      sendDone = true;
       final feeUsd = estOut > 0 ? sentUsd - estOut : null;
       TrackingService.sendCompleted(
         flow: 'usd_send',
@@ -2137,6 +2147,15 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
         TrackingService.moneyFlowError('usd_send', e);
       }
       if (!mounted) return;
+      if (sendDone) {
+        // Something after the send threw: the money left, so the sheet
+        // reads sent and Send is not offered again.
+        setState(() {
+          _processing = false;
+          _sent = true;
+        });
+        return;
+      }
       if (e is SettlementStopped && e.reason == SettlementStopReason.declined) {
         setState(() {
           _processing = false;
