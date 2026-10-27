@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "U međuspremniku je pronađena adresa. Koristiti je?",
   "useIt": "Koristi",
   "sendFailedTitle": "Plaćanje nije poslano",
+  "sendOutcomeUnknownTitle": "Status plaćanja nije poznat",
   "scannerCameraAccessOff": "Pristup kameri je isključen. Otvori Postavke da ga dopustiš.",
   "openSettings": "Otvori Postavke",
   "sendChooseAccountFirst": "Prije slanja odaberi dostupan račun.",

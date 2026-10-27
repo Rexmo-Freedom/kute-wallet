@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Starpliktuvē atrasta adrese. Izmantot to?",
   "useIt": "Izmantot",
   "sendFailedTitle": "Maksājums nav nosūtīts",
+  "sendOutcomeUnknownTitle": "Maksājuma statuss nav zināms",
   "scannerCameraAccessOff": "Piekļuve kamerai ir izslēgta. Atver Iestatījumus, lai to atļautu.",
   "openSettings": "Atvērt Iestatījumus",
   "sendChooseAccountFirst": "Pirms sūtīšanas izvēlies pieejamu kontu.",

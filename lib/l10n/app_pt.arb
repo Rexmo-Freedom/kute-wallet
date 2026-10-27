@@ -2134,6 +2134,7 @@
   "sendClipboardAddressFound": "Endereço encontrado na área de transferência. Usar?",
   "useIt": "Usar",
   "sendFailedTitle": "Pagamento não enviado",
+  "sendOutcomeUnknownTitle": "Estado do pagamento desconhecido",
   "scannerCameraAccessOff": "O acesso à câmara está desligado. Abra as Definições para o permitir.",
   "openSettings": "Abrir Definições",
   "sendChooseAccountFirst": "Escolha uma conta disponível antes de enviar.",

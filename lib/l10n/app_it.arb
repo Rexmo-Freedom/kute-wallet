@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Indirizzo trovato negli appunti. Usarlo?",
   "useIt": "Usa",
   "sendFailedTitle": "Pagamento non inviato",
+  "sendOutcomeUnknownTitle": "Stato del pagamento sconosciuto",
   "scannerCameraAccessOff": "L'accesso alla fotocamera è disattivato. Apri Impostazioni per consentirlo.",
   "openSettings": "Apri Impostazioni",
   "sendChooseAccountFirst": "Scegli un conto disponibile prima di inviare.",

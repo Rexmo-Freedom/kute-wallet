@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Leikepöydältä löytyi osoite. Käytetäänkö sitä?",
   "useIt": "Käytä",
   "sendFailedTitle": "Maksua ei lähetetty",
+  "sendOutcomeUnknownTitle": "Maksun tila ei ole tiedossa",
   "scannerCameraAccessOff": "Kameran käyttö on estetty. Salli se Asetuksissa.",
   "openSettings": "Avaa Asetukset",
   "sendChooseAccountFirst": "Valitse käytettävissä oleva tili ennen lähettämistä.",

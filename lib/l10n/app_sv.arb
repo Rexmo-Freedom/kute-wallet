@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Adress hittades i urklipp. Använda den?",
   "useIt": "Använd",
   "sendFailedTitle": "Betalningen skickades inte",
+  "sendOutcomeUnknownTitle": "Betalningsstatus okänd",
   "scannerCameraAccessOff": "Kameraåtkomst är avstängd. Öppna Inställningar för att tillåta den.",
   "openSettings": "Öppna Inställningar",
   "sendChooseAccountFirst": "Välj ett tillgängligt konto innan du skickar.",

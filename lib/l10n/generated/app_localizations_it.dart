@@ -6600,6 +6600,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sendFailedTitle => 'Pagamento non inviato';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Stato del pagamento sconosciuto';
+
+  @override
   String get scannerCameraAccessOff =>
       'L\'accesso alla fotocamera è disattivato. Apri Impostazioni per consentirlo.';
 

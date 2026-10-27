@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "クリップボードにアドレスが見つかりました。使用しますか？",
   "useIt": "使用",
   "sendFailedTitle": "支払いは送信されませんでした",
+  "sendOutcomeUnknownTitle": "支払い状況が不明です",
   "scannerCameraAccessOff": "カメラへのアクセスがオフになっています。設定を開いて許可してください。",
   "openSettings": "設定を開く",
   "sendChooseAccountFirst": "送金する前に利用可能なアカウントを選択してください。",

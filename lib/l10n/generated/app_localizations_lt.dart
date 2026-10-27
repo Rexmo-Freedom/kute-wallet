@@ -6614,6 +6614,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendFailedTitle => 'Mokėjimas neišsiųstas';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Mokėjimo būsena nežinoma';
+
+  @override
   String get scannerCameraAccessOff =>
       'Prieiga prie kameros išjungta. Atidarykite Nustatymus, kad ją leistumėte.';
 

@@ -6614,6 +6614,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendFailedTitle => 'Plata nu a fost trimisă';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Starea plății este necunoscută';
+
+  @override
   String get scannerCameraAccessOff =>
       'Accesul la cameră este dezactivat. Deschide Setări ca să-l permiți.';
 

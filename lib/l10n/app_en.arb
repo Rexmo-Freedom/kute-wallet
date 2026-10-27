@@ -3480,6 +3480,8 @@
   "sendClipboardAddressFound": "Address found in clipboard. Use it?",
   "useIt": "Use",
   "sendFailedTitle": "Payment not sent",
+  "sendOutcomeUnknownTitle": "Payment status unknown",
+  "@sendOutcomeUnknownTitle": {"description": "Title of the screen after a Bitcoin, Lightning or Spark send failed while it was being sent: the app cannot tell whether the payment left. Shown with sendCouldNotComplete under it and a Done button (never Try again)."},
   "scannerCameraAccessOff": "Camera access is off. Open Settings to allow it.",
   "openSettings": "Open Settings",
   "sendChooseAccountFirst": "Choose an available account before sending.",

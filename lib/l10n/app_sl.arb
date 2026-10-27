@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "V odložišču je naslov. Ga uporabim?",
   "useIt": "Uporabi",
   "sendFailedTitle": "Plačilo ni poslano",
+  "sendOutcomeUnknownTitle": "Stanje plačila ni znano",
   "scannerCameraAccessOff": "Dostop do kamere je izklopljen. Odprite Nastavitve in ga dovolite.",
   "openSettings": "Odpri Nastavitve",
   "sendChooseAccountFirst": "Pred pošiljanjem izberite razpoložljiv račun.",

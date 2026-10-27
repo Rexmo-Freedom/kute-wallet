@@ -6584,6 +6584,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendFailedTitle => 'Platba neodoslaná';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Stav platby nie je známy';
+
+  @override
   String get scannerCameraAccessOff =>
       'Prístup k fotoaparátu je vypnutý. Povoľ ho v Nastaveniach.';
 

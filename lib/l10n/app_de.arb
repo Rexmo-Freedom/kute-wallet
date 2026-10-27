@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Adresse in der Zwischenablage gefunden. Verwenden?",
   "useIt": "Verwenden",
   "sendFailedTitle": "Zahlung nicht gesendet",
+  "sendOutcomeUnknownTitle": "Zahlungsstatus unbekannt",
   "scannerCameraAccessOff": "Der Kamerazugriff ist aus. Öffne die Einstellungen, um ihn zu erlauben.",
   "openSettings": "Einstellungen öffnen",
   "sendChooseAccountFirst": "Wähle vor dem Senden ein verfügbares Konto.",

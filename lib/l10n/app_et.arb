@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "Lõikelaualt leiti aadress. Kas kasutada seda?",
   "useIt": "Kasuta",
   "sendFailedTitle": "Makset ei saadetud",
+  "sendOutcomeUnknownTitle": "Makse olek on teadmata",
   "scannerCameraAccessOff": "Kaamera juurdepääs on väljas. Selle lubamiseks ava Seaded.",
   "openSettings": "Ava Seaded",
   "sendChooseAccountFirst": "Enne saatmist vali saadaolev konto.",

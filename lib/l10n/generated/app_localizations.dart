@@ -11488,6 +11488,12 @@ abstract class AppLocalizations {
   /// **'Payment not sent'**
   String get sendFailedTitle;
 
+  /// Title of the screen after a Bitcoin, Lightning or Spark send failed while it was being sent: the app cannot tell whether the payment left. Shown with sendCouldNotComplete under it and a Done button (never Try again).
+  ///
+  /// In en, this message translates to:
+  /// **'Payment status unknown'**
+  String get sendOutcomeUnknownTitle;
+
   /// No description provided for @scannerCameraAccessOff.
   ///
   /// In en, this message translates to:

@@ -6563,6 +6563,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get sendFailedTitle => 'Maksājums nav nosūtīts';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Maksājuma statuss nav zināms';
+
+  @override
   String get scannerCameraAccessOff =>
       'Piekļuve kamerai ir izslēgta. Atver Iestatījumus, lai to atļautu.';
 

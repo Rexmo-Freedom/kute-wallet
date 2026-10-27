@@ -1898,6 +1898,7 @@
   "sendClipboardAddressFound": "В клипборда има адрес. Да го използваме ли?",
   "useIt": "Използвай",
   "sendFailedTitle": "Плащането не е изпратено",
+  "sendOutcomeUnknownTitle": "Състоянието на плащането е неизвестно",
   "scannerCameraAccessOff": "Достъпът до камерата е изключен. Отвори Настройки, за да го разрешиш.",
   "openSettings": "Отвори Настройки",
   "sendChooseAccountFirst": "Избери наличен акаунт, преди да изпратиш.",

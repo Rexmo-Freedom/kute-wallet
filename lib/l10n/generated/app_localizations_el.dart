@@ -6631,6 +6631,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendFailedTitle => 'Η πληρωμή δεν στάλθηκε';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Άγνωστη κατάσταση πληρωμής';
+
+  @override
   String get scannerCameraAccessOff =>
       'Η πρόσβαση στην κάμερα είναι απενεργοποιημένη. Άνοιξε τις Ρυθμίσεις για να την επιτρέψεις.';
 

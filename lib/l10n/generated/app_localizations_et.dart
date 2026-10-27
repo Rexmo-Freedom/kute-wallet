@@ -6564,6 +6564,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get sendFailedTitle => 'Makset ei saadetud';
 
   @override
+  String get sendOutcomeUnknownTitle => 'Makse olek on teadmata';
+
+  @override
   String get scannerCameraAccessOff =>
       'Kaamera juurdepääs on väljas. Selle lubamiseks ava Seaded.';
 

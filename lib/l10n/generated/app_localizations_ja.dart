@@ -6330,6 +6330,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendFailedTitle => '支払いは送信されませんでした';
 
   @override
+  String get sendOutcomeUnknownTitle => '支払い状況が不明です';
+
+  @override
   String get scannerCameraAccessOff => 'カメラへのアクセスがオフになっています。設定を開いて許可してください。';
 
   @override

@@ -6595,6 +6595,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendFailedTitle => 'A fizetés nem lett elküldve';
 
   @override
+  String get sendOutcomeUnknownTitle => 'A fizetés állapota ismeretlen';
+
+  @override
   String get scannerCameraAccessOff =>
       'A kamerahozzáférés ki van kapcsolva. Engedélyezd a Beállításokban.';
 
