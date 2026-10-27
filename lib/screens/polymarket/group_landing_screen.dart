@@ -136,8 +136,7 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
                   itemCount: events.length,
-                  separatorBuilder: (context, _) =>
-                      polyMarketRowDivider(context),
+                  separatorBuilder: (_, __) => SizedBox(height: 10.h),
                   itemBuilder: (_, i) => _GroupFeedCard(market: events[i]),
                 );
               },

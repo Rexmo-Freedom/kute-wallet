@@ -3,9 +3,8 @@ import 'package:kute/l10n/l10n.dart';
 //
 // The Investing browse lists' market card (Home and the Ledger tab).
 //
-// Layout: ONE flat row, about 56 pt tall, straight on the page (no card
-// surface or shadow; the lists draw a hairline between rows with
-// hlMarketRowDivider, October 2026):
+// Layout: ONE row, about 72 px tall, on the app's card surface
+// (AppDecorations.card):
 //   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
 //   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
 //     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
@@ -51,24 +50,6 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
-
-/// The row's logo, the gap after it and its vertical padding: about a
-/// 56 pt row (the logo's 36 and the two text lines, 10 above and below).
-const double kHlMarketRowIcon = 36;
-const double kHlMarketRowGap = 12;
-const double kHlMarketRowPadV = 10;
-
-/// The hairline between two market rows, the app's row-list divider
-/// (Portfolio's position rows), starting where the row's text does.
-Widget hlMarketRowDivider(BuildContext context) {
-  final c = context.colors;
-  return Divider(
-    color: context.isDark ? c.border : c.borderSubtle,
-    height: 1,
-    thickness: 0.5,
-    indent: kHlMarketRowIcon.w + kHlMarketRowGap.w,
-  );
-}
 
 /// Browse card for one Hyperliquid market (perp or spot). Consumer-stateful
 /// so it can watch this coin's live mid + tick direction and register the
@@ -180,103 +161,105 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
       letterSpacing: -0.1,
     );
 
-    // A flat row on the page (no card surface, no shadow): the list
-    // draws the hairlines between rows ([hlMarketRowDivider]). The ink
-    // spans the whole row.
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _openDetail,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: kHlMarketRowPadV.h),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // The REAL coin/token logo (category glyph or letter badge
-              // on a miss), cut round for this row.
-              ClipOval(
-                child: HlCoinIcon(
-                  coin: m.coin,
-                  wireCoin: m.wireCoin,
-                  category: m.category,
-                  iconUrl: m.iconUrl,
-                  size: kHlMarketRowIcon,
+    return Container(
+      decoration: AppDecorations.card(context),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: InkWell(
+          onTap: _openDetail,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // The REAL coin/token logo (category glyph or letter badge
+                // on a miss), cut round for this row.
+                ClipOval(
+                  child: HlCoinIcon(
+                    coin: m.coin,
+                    wireCoin: m.wireCoin,
+                    category: m.category,
+                    iconUrl: m.iconUrl,
+                    size: 36,
+                  ),
                 ),
-              ),
-              SizedBox(width: kHlMarketRowGap.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: titleStyle,
-                    ),
-                    // No caption: the name alone, centred in the row.
-                    if (thin || caption.isNotEmpty)
-                      SizedBox(height: 2.h),
-                    if (thin)
-                      _ThinCaption(
-                        caption: caption,
-                        note: context.l10n.investingLowLiquidity,
-                        style: captionStyle,
-                      )
-                    else if (caption.isNotEmpty)
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        caption,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: captionStyle,
+                        style: titleStyle,
                       ),
-                  ],
+                      // No caption: the name alone, centred in the row.
+                      if (thin || caption.isNotEmpty)
+                        SizedBox(height: 2.h),
+                      if (thin)
+                        _ThinCaption(
+                          caption: caption,
+                          note: context.l10n.investingLowLiquidity,
+                          style: captionStyle,
+                        )
+                      else if (caption.isNotEmpty)
+                        Text(
+                          caption,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: captionStyle,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              // The line only, no fill and no axes. Empty (same width,
-              // so the prices stay aligned) until the candles land. A
-              // thin market has none: see [thin].
-              if (!thin) ...[
+                // The line only, no fill and no axes. Empty (same width,
+                // so the prices stay aligned) until the candles land. A
+                // thin market has none: see [thin].
+                if (!thin) ...[
+                  SizedBox(width: 12.w),
+                  HlLineSparkline(
+                    closes: closes,
+                    width: 64,
+                    height: 28,
+                    upColor: changeColor,
+                    downColor: changeColor,
+                  ),
+                ],
                 SizedBox(width: 12.w),
-                HlLineSparkline(
-                  closes: closes,
-                  width: 64,
-                  height: 28,
-                  upColor: changeColor,
-                  downColor: changeColor,
+                // A fixed minimum width, right-aligned, so the prices line
+                // up down the list; a longer price widens it, never wraps.
+                ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: 84.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Always the primary text colour: the digits roll on
+                      // a tick, the colour belongs to the change below.
+                      RollingNumberText(
+                        text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+                        style: titleStyle.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      // No change to show on a thin market: the price
+                      // stands alone, centred, not over a lone dash.
+                      if (change != null || !thin) ...[
+                        SizedBox(height: 2.h),
+                        _ChangeText(
+                          text: change == null ? '—' : formatHlPct(change),
+                          color: changeColor,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
-              SizedBox(width: 12.w),
-              // A fixed minimum width, right-aligned, so the prices line
-              // up down the list; a longer price widens it, never wraps.
-              ConstrainedBox(
-                constraints: BoxConstraints(minWidth: 84.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Always the primary text colour: the digits roll on
-                    // a tick, the colour belongs to the change below.
-                    RollingNumberText(
-                      text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
-                      style: titleStyle.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    // No change to show on a thin market: the price
-                    // stands alone, centred, not over a lone dash.
-                    if (change != null || !thin) ...[
-                      SizedBox(height: 2.h),
-                      _ChangeText(
-                        text: change == null ? '—' : formatHlPct(change),
-                        color: changeColor,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

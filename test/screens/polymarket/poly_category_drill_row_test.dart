@@ -13,14 +13,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
-import 'package:kute/models/polymarket_model.dart';
-import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/tracking_service.dart';
 
-import '../../helpers/offline_venue_overrides.dart';
 import '../usd/investments_harness.dart';
 
 /// Every list empty and read: nothing goes to the network.
@@ -127,97 +123,4 @@ void main() {
     // The BTC price feed lets its socket go 30 s after the last listener.
     await tester.pump(const Duration(seconds: 31));
   });
-
-  testWidgets(
-      'the list is flat markets split by hairlines, under no heading that '
-      'repeats the selected pill; "Crypto markets" stays as a small label',
-      (tester) async {
-    await pumpInvestments(tester,
-        browsePredictions: true,
-        size: const Size(390, 2400),
-        overrides: [
-          polyBrowseFeedProvider.overrideWith(_ThreeMarkets.new),
-          ...offlineVenueOverrides,
-        ]);
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
-    await tapAndPump(tester, investmentsPill(l10n.predictions));
-
-    for (final pill in ['Trending', 'New']) {
-      if (pill != 'Trending') {
-        await _tap(tester, _pill(pill));
-        await _settle(tester);
-      }
-      expect(_selected(tester, pill), isTrue);
-      // The pill names the list: its label is written once, on the pill.
-      expect(_inBrowser(find.text(pill)), findsOneWidget);
-      expect(find.descendant(of: _pill(pill), matching: find.text(pill)),
-          findsOneWidget);
-
-      final cards = _inBrowser(find.byType(MarketCard));
-      expect(cards, findsNWidgets(3));
-      final dividers = find.descendant(
-          of: find.ancestor(of: cards.first, matching: find.byType(SliverList)),
-          matching: find.byType(Divider));
-      expect(dividers, findsNWidgets(2));
-      for (var i = 0; i < 2; i++) {
-        final line = tester.getRect(dividers.at(i));
-        expect(line.top,
-            moreOrLessEquals(tester.getRect(cards.at(i)).bottom, epsilon: 0.5));
-        expect(line.bottom,
-            moreOrLessEquals(tester.getRect(cards.at(i + 1)).top, epsilon: 0.5));
-        expect(tester.widget<Divider>(dividers.at(i)).indent, greaterThan(0));
-      }
-      for (final box in tester.widgetList<DecoratedBox>(find.descendant(
-          of: cards, matching: find.byType(DecoratedBox)))) {
-        final d = box.decoration;
-        if (d is BoxDecoration) {
-          expect(d.boxShadow ?? const <BoxShadow>[], isEmpty);
-        }
-      }
-
-      // The 5-minute group keeps its label on Trending only, in the
-      // quiet section-label style, not as a big heading.
-      final crypto = _inBrowser(find.text(l10n.predictionsCryptoMarkets));
-      if (pill == 'Trending') {
-        expect(crypto, findsOneWidget);
-        final style = tester.widget<Text>(crypto).style!;
-        final colors = tester.element(crypto).colors;
-        expect(style.color, colors.textSecondary);
-        expect(style.fontWeight, FontWeight.w600);
-        expect(style.fontSize!, lessThan(16));
-      } else {
-        expect(crypto, findsNothing);
-      }
-    }
-
-    await unmountInvestments(tester);
-    await tester.pump(const Duration(seconds: 31));
-  });
 }
-
-/// Three open Yes/No markets in every list.
-class _ThreeMarkets extends PolyFeedNotifier {
-  @override
-  PolyFeedState build(PolyFeedQuery arg) => PolyFeedState(done: true, events: [
-        for (final (id, title) in [
-          ('fed', 'Fed cuts in December?'),
-          ('btc', 'Bitcoin above 150k?'),
-          ('rain', 'Rain in London tomorrow?'),
-        ])
-          PolymarketEvent(
-            id: id,
-            slug: id,
-            title: title,
-            volume: 1e6,
-            liquidity: 1e5,
-            category: 'finance',
-            conditionId: id,
-            outcomes: const [
-              PolymarketOutcome(name: 'Yes', price: 0.4),
-              PolymarketOutcome(name: 'No', price: 0.6),
-            ],
-          ),
-      ]);
-}
-

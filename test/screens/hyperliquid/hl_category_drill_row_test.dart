@@ -11,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
-import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
@@ -149,57 +148,4 @@ void main() {
 
     await unmountInvestments(tester);
   });
-
-  testWidgets(
-      'the list is flat rows split by hairlines, under no heading that '
-      'repeats the selected pill', (tester) async {
-    await pumpInvestments(tester,
-        browseInvesting: true,
-        size: const Size(390, 2000),
-        overrides: [
-          hyperliquidBrowseUniverseProvider
-              .overrideWithValue(AsyncValue.data(_universe)),
-          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
-        ]);
-
-    for (final pill in ['Trending', 'Perps']) {
-      if (pill != 'Trending') {
-        await _tap(tester, _pill(pill));
-        await _settle(tester);
-      }
-      expect(_selected(tester, pill), isTrue);
-      // The pill names the list: its label is written once, on the pill.
-      expect(_inBrowser(find.text(pill)), findsOneWidget);
-      expect(
-          find.descendant(of: _pill(pill), matching: find.text(pill)),
-          findsOneWidget);
-
-      final rows = _inBrowser(find.byType(HlMarketCard));
-      final n = rows.evaluate().length;
-      expect(n, greaterThan(1));
-      final dividers = _inBrowser(find.byType(Divider));
-      expect(dividers, findsNWidgets(n - 1));
-      for (var i = 0; i < n - 1; i++) {
-        final line = tester.getRect(dividers.at(i));
-        // Each hairline sits between two rows, inset to the rows' text.
-        expect(line.top,
-            moreOrLessEquals(tester.getRect(rows.at(i)).bottom, epsilon: 0.5));
-        expect(line.bottom,
-            moreOrLessEquals(tester.getRect(rows.at(i + 1)).top, epsilon: 0.5));
-        expect(tester.widget<Divider>(dividers.at(i)).indent, greaterThan(0));
-        expect(tester.widget<Divider>(dividers.at(i)).thickness, 0.5);
-      }
-      // Rows, not cards: no shadow behind a market.
-      for (final box in tester.widgetList<DecoratedBox>(find.descendant(
-          of: rows, matching: find.byType(DecoratedBox)))) {
-        final d = box.decoration;
-        if (d is BoxDecoration) {
-          expect(d.boxShadow ?? const <BoxShadow>[], isEmpty);
-        }
-      }
-    }
-
-    await unmountInvestments(tester);
-  });
 }
-

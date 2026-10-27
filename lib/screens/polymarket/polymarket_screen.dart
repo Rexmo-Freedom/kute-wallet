@@ -401,6 +401,14 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     ref.read(polyBrowseSelectionProvider.notifier).state = next;
   }
 
+  /// The chip the selection's subcategory names, from the chips loaded.
+  PolySub? _subFor(PolyBrowseSelection s, List<PolySub> subs) {
+    for (final sub in subs) {
+      if (sub.key == s.sub) return sub;
+    }
+    return null;
+  }
+
   /// A category: its list, and its subcategories in place of the
   /// categories when it has any (the row stays put when it has none).
   void _onPill(PolyPill pill) {
@@ -523,6 +531,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         if (s.route == route) selection = selection.copyWith(sub: s.key);
       }
     }
+    final sub = _subFor(selection, subs) ?? PolySub(selection.sub);
     // The one browse row shows the subcategories of the category drilled
     // into, while it has a row of them.
     final drilled = _drilledInto == pill && subs.length > 1;
@@ -578,10 +587,16 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       if (pos.hasContentDimensions && pos.extentAfter < 900) _loadMore();
     });
 
-    // Live › a league: just that league's games, under no heading.
+    final title = (pill.isTopic || pill == PolyPill.live) &&
+            selection.sub != 'all'
+        ? polySubLabel(l10n, sub)
+        : polyPillLabel(l10n, pill);
+    // Games in play are listed under their leagues' own headings: the
+    // list's heading would only sit on top of the first of them.
     final liveLeague = pill == PolyPill.live && selection.sub != 'all'
         ? selection.sub
         : null;
+    final groupedLive = isLiveList && liveLeague == null;
 
     // NOTE: live CLOB prices and sports scores are watched PER CARD
     // inside [_PolyFeedCard] with narrow
@@ -668,9 +683,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                           if (showHeroSection)
                             ..._fiveMinuteSlivers(otherAssets: fiveMinOnly),
 
-                          // No heading over the list: the selected pill
-                          // (or subcategory) already names it (October
-                          // 2026).
+                          // ── The list's own heading.
+                          if (!fiveMinOnly && !(groupedLive && feed.events.isNotEmpty))
+                            SliverToBoxAdapter(child: _SectionHeader(label: title)),
 
                           // The hero alone pinned first under Crypto › All.
                           if (showHeroPinned) _heroSliver(),
@@ -793,10 +808,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
   /// [otherAssets] (Crypto › 5 Min) the other assets in one card under it.
   List<Widget> _fiveMinuteSlivers({required bool otherAssets}) => [
         SliverToBoxAdapter(
-          // A sub-group label on Trending; under Crypto › 5 Min the pill
-          // names it, so only the window chips stay.
           child: _SectionHeader(
-            label: otherAssets ? '' : context.l10n.predictionsCryptoMarkets,
+            label: context.l10n.predictionsCryptoMarkets,
             trailing: const _CryptoWindowChips(),
           ),
         ),
@@ -868,10 +881,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final siblings = siblingsByGameId(open);
       body = [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(16.w, 6.h, 16.w, 8.h),
+          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
           sliver: SliverList.separated(
             itemCount: events.length,
-            separatorBuilder: (context, _) => polyMarketRowDivider(context),
+            separatorBuilder: (_, __) => SizedBox(height: 10.h),
             itemBuilder: (_, i) {
               final market = events[i];
               return _PolyFeedCard(
@@ -943,7 +956,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           sliver: SliverList.separated(
             itemCount: streams.length,
-            separatorBuilder: (context, _) => polyMarketRowDivider(context),
+            separatorBuilder: (_, __) => SizedBox(height: 10.h),
             itemBuilder: (_, i) => _PolyFeedCard(
               market: streams[i],
               isSportsCategory: true,
@@ -963,7 +976,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         sliver: SliverList.separated(
           itemCount: group.games.length,
-          separatorBuilder: (context, _) => polyMarketRowDivider(context),
+          separatorBuilder: (_, __) => SizedBox(height: 10.h),
           itemBuilder: (_, i) => _PolyFeedCard(
             market: group.games[i],
             isSportsCategory: true,
@@ -2229,15 +2242,12 @@ class _FiveMinTile extends ConsumerWidget {
   }
 }
 
-/// A sub-group's label inside a list ("Crypto markets" over the 5-minute
-/// card, a league over its games in play): the app's quiet section label
-/// (14sp w600 secondary, as search's result groups), with controls at its
-/// right where a group has them (the window chips). An empty [label]
-/// leaves the controls alone.
+/// Section header used above feed groups: the title, with controls at
+/// its right where a section has them (the window chips).
 class _SectionHeader extends StatelessWidget {
   final String label;
 
-  /// Controls at the right of the label, such as the window chips.
+  /// Controls at the right of the title, such as the window chips.
   final Widget? trailing;
 
   const _SectionHeader({required this.label, this.trailing});
@@ -2246,21 +2256,19 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 10.h),
+      padding: EdgeInsets.fromLTRB(20.w, 18.h, 16.w, 10.h),
       child: Row(
         children: [
           Expanded(
-            child: Semantics(
-              header: label.isNotEmpty,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
-                ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
               ),
             ),
           ),

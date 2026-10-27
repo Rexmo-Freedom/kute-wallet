@@ -145,11 +145,9 @@ void main() {
     // Nothing the old card carried: no kind badge, no volume line.
     expect(find.byType(HlKindBadge), findsNothing);
     expect(find.textContaining('volume'), findsNothing);
-    // One flat row of about 56 pt (the old card was about 76), still a
-    // full tap target.
+    // One row, not the old tall card.
     final height = tester.getSize(find.byType(HlMarketCard)).height;
-    expect(height, inInclusiveRange(50, 62));
-    expect(height, greaterThanOrEqualTo(44));
+    expect(height, inInclusiveRange(64, 80));
   });
 
   testWidgets('a falling market colours the change and the line, not the price',
@@ -448,42 +446,5 @@ void main() {
     await _pump(tester, _market(), onTap: () => taps++);
     await tester.tap(find.text('Bitcoin'));
     expect(taps, 1);
-  });
-
-  testWidgets(
-      'a flat row: no card surface, border or shadow; the ink spans the row',
-      (tester) async {
-    await _pump(tester, _market(), closes: [80000, 82000, 85000]);
-    final row = find.byType(HlMarketCard);
-    final card = AppDecorations.card(tester.element(row));
-    // Nothing in the row draws a surface with a shadow or a border, and
-    // nothing paints the card's own fill.
-    for (final box in tester.widgetList<DecoratedBox>(
-        find.descendant(of: row, matching: find.byType(DecoratedBox)))) {
-      final d = box.decoration;
-      if (d is! BoxDecoration) continue;
-      expect(d.boxShadow ?? const <BoxShadow>[], isEmpty);
-      expect(d.border, isNull);
-      expect(d == card, isFalse);
-    }
-    // The press feedback is kept, as wide and tall as the row itself.
-    final ink = find.descendant(of: row, matching: find.byType(InkWell));
-    expect(ink, findsOneWidget);
-    expect(tester.getSize(ink), tester.getSize(row));
-    expect(tester.widget<InkWell>(ink).borderRadius, isNull);
-  });
-
-  testWidgets('the row divider is the app\'s hairline, inset to the text',
-      (tester) async {
-    await _pump(tester, _market());
-    final context = tester.element(find.byType(HlMarketCard));
-    final divider = hlMarketRowDivider(context) as Divider;
-    expect(divider.thickness, 0.5);
-    expect(divider.height, 1);
-    expect(divider.color, context.colors.borderSubtle);
-    // Where the name starts: the logo and the gap after it.
-    final textLeft = tester.getTopLeft(find.text('Bitcoin')).dx -
-        tester.getTopLeft(find.byType(HlMarketCard)).dx;
-    expect(divider.indent, moreOrLessEquals(textLeft, epsilon: 0.5));
   });
 }
