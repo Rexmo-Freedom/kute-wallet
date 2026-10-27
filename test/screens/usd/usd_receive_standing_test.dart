@@ -16,6 +16,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:flutter/material.dart';
@@ -230,10 +231,24 @@ void main() {
       String? idempotencyKey,
       int offset}) realStanding;
 
+  // The rails' boxes live in memory. A box on disk answers a write on
+  // the real event loop, which a widget test reaches only in _settle's
+  // runAsync turns, and its continuation only on the next pump: whether a
+  // registration's writes (and the compactions an earlier test's records
+  // set off) fit in those turns depended on the machine and on which
+  // tests ran before, so the address sometimes never landed. In memory a
+  // write completes in the pump that made it.
+  const boxes = [
+    StandingDepositStore.boxName,
+    BitcoinReceiveMarks.boxName,
+    ReceiveRouteAvailability.boxName,
+  ];
+
   setUpAll(() async {
     Hive.init((await Directory.systemTemp.createTemp('usd_standing_')).path);
-    await Hive.openBox<String>(StandingDepositStore.boxName);
-    await Hive.openBox<String>(BitcoinReceiveMarks.boxName);
+    for (final name in boxes) {
+      await Hive.openBox<String>(name, bytes: Uint8List(0));
+    }
     await StandingDepositStore.records('none');
     registerFallbackValue(const ReceivePaymentRequest(
         paymentMethod: ReceivePaymentMethod.sparkAddress()));
@@ -260,6 +275,10 @@ void main() {
     StandingReceiveRefusal.clear();
     StandingDepositStore.forgetDestinations();
     StandingDepositStore.debugResetQueue();
+    // Each test registers from nothing: no record an earlier test wrote.
+    for (final name in boxes) {
+      await Hive.box<String>(name).clear();
+    }
     await ReceiveRouteAvailability.clear();
     BitcoinReceiveMarks.reset();
     StandingDepositStore.standingRequest = (
