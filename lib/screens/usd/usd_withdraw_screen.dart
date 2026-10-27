@@ -194,8 +194,18 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       'networks': group.options.length,
     });
     if (group.isSingleNetwork) {
-      final d = _destinationFor(group.options.first);
-      if (d != null) unawaited(_openSend(d));
+      unawaited(() async {
+        // A coin only a region refuses stays listed; its tap says why
+        // instead of opening the send.
+        if (await coinPickStoppedByRegion(context, group.options.first,
+                otherLegAsset: kOrchestraUsdAssetCode,
+                surface: 'usd_withdraw') ||
+            !mounted) {
+          return;
+        }
+        final d = _destinationFor(group.options.first);
+        if (d != null) unawaited(_openSend(d));
+      }());
       return;
     }
     _openCoinPicker(initialGroupKey: group.key);

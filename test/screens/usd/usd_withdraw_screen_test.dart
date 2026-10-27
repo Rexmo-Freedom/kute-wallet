@@ -22,6 +22,7 @@ import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart' show PickerRow;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppButton;
 import 'package:kute/screens/shared/receive_surface.dart'
@@ -291,6 +292,55 @@ void main() {
     // The send was closed without going out: this sheet stays.
     expect(find.byType(UsdWithdrawScreen), findsOneWidget);
     await _unmount(tester);
+  });
+
+  testWidgets(
+      'swaps blocked for a named region: the coins stay; a tap says why '
+      'and opens no send', (tester) async {
+    const regions = {'label': 'the European Union, the UK and Switzerland'};
+    final policy = runtimePolicyFixture(blocked: {
+      'orchestra.swap',
+      'orchestra.swap.stablecoins',
+    }, reasons: {
+      'orchestra.swap': 'country_blocked',
+      'orchestra.swap.stablecoins': 'country_blocked',
+    }, decorations: {
+      'orchestra.swap': {'regions': regions},
+      'orchestra.swap.stablecoins': {
+        'blockedBy': 'orchestra.swap',
+        'regions': regions
+      },
+    });
+    RuntimeCapabilitiesService.debugInstance = policy;
+    expect(await policy.refresh(), isTrue);
+    await _pump(tester);
+    expect(_tile('USDC'), findsOneWidget);
+    expect(_tile('USDT'), findsOneWidget);
+    await tester.tap(_tile('USDT'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(
+        find.text(
+            'Not available in the European Union, the UK and Switzerland'),
+        findsOneWidget);
+    expect(find.text("If this isn't where you are, check your VPN settings."),
+        findsOneWidget);
+    expect(sendsOpened, isEmpty);
+    expect(
+        events
+            .where((e) => e.$1 == 'capability_region_blocked')
+            .map((e) => e.$2)
+            .toList(),
+        [
+          {
+            'capability': 'orchestra.swap',
+            'blocked_by': 'none',
+            'surface': 'usd_withdraw',
+          }
+        ]);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+    policy.dispose();
   });
 
   testWidgets('a coin on several networks asks which one, then opens the send',

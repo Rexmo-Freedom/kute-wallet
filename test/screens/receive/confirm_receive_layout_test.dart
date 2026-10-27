@@ -287,6 +287,77 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets(
+      'swaps blocked for a region (and the cascade): plain bitcoin is '
+      'untouched (the on-chain address, the Lightning address and LNURL, '
+      'Share), and "also accepts" still lists its coins', (tester) async {
+    const regions = {'label': 'the European Union, the UK and Switzerland'};
+    const cascade = [
+      'orchestra.swap.stablecoins',
+      'orchestra.swap.altcoins',
+      'crypto.deposit',
+      'orchestra.onetime_addresses',
+      'hyperliquid.deposit',
+      'hyperliquid.trade',
+      'polymarket.deposit',
+      'polymarket.trade',
+    ];
+    final policy = runtimePolicyFixture(blocked: {
+      'orchestra.swap',
+      ...cascade
+    }, reasons: {
+      'orchestra.swap': 'country_blocked',
+      for (final id in cascade) id: 'country_blocked',
+    }, decorations: {
+      'orchestra.swap': {'regions': regions},
+      for (final id in cascade)
+        id: {'blockedBy': 'orchestra.swap', 'regions': regions},
+    });
+    RuntimeCapabilitiesService.debugInstance = policy;
+    expect(await policy.refresh(), isTrue);
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await _pump(tester);
+    expect(find.byType(ReceiveQrPlate), findsOneWidget);
+    expect(find.byType(ReceiveAddressLine), findsOneWidget);
+    expect(_button(_l10n.share), findsOneWidget);
+    expect(tester.widget<AppButton>(_button(_l10n.share)).onPressed,
+        isNotNull);
+    expect(find.textContaining('Not available'), findsNothing);
+    await tester.tap(find.descendant(
+        of: find.byType(ReceiveAddressLine),
+        matching: find.byIcon(Icons.copy_rounded)));
+    await tester.pump();
+    expect(copied, [_lnAddress]);
+    // The other formats are the plain bitcoin ones.
+    await tester.tap(find.text(_l10n.receiveQrFormatBitcoinOnly));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.descendant(
+        of: find.byType(ReceiveAddressLine),
+        matching: find.byIcon(Icons.copy_rounded)));
+    await tester.pump();
+    expect(copied.last, contains(_address));
+
+    final accepts = find.byType(CoinMarksLine);
+    await tester.scrollUntilVisible(accepts, 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(accepts, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(milliseconds: 300));
+    await _unmount(tester);
+    policy.dispose();
+  });
+
   testWidgets('no overflow at 375pt with text at 1.3x (scroll allowed)',
       (tester) async {
     await _pump(tester, size: const Size(375, 812), textScale: 1.3);

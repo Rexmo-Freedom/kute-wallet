@@ -1208,8 +1208,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       'networks': group.options.length,
     });
     if (group.isSingleNetwork) {
-      final d = _destinationFor(group.options.first);
-      if (d != null) _selectDestination(d, selection: 'grid');
+      unawaited(() async {
+        // A coin only a region refuses stays listed; its tap says why
+        // instead of picking it.
+        if (await coinPickStoppedByRegion(context, group.options.first,
+                otherLegAsset: kOrchestraUsdAssetCode, surface: 'usd_send') ||
+            !mounted) {
+          return;
+        }
+        final d = _destinationFor(group.options.first);
+        if (d != null) _selectDestination(d, selection: 'grid');
+      }());
       return;
     }
     _openDestinationPicker(initialGroupKey: group.key);

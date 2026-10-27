@@ -218,21 +218,32 @@ final standingDestinationsProvider =
 /// refusal is remembered ([StandingReceiveRefusal]), the standing rail
 /// does not take the source or the pair, or [destinations] (when known)
 /// do not list `spark:USDB`. Asks nothing.
+///
+/// [listRegionBlocked] reads a REGION refusal as no refusal: what a
+/// picker still lists (founder decision, 27 October 2026), with the tap
+/// saying why ([orchestraOptionRegionBlock]). Never for a flow that is
+/// about to use the address.
 StandingFallbackReason? standingReceiveFallback({
   required String sourceChain,
   required String sourceAsset,
   Set<String>? destinations,
   RuntimeCapabilitiesService? policy,
+  bool listRegionBlocked = false,
 }) {
   final rules = policy ?? RuntimeCapabilitiesService.instance;
-  if (standingAddressPolicy(rules) == StandingPolicy.denied) {
+  bool listed(String gate) =>
+      listRegionBlocked && capabilityRegionBlocked(rules, gate);
+  if (standingAddressPolicy(rules) == StandingPolicy.denied &&
+      !listed(kStandingAddressCapability)) {
     return StandingFallbackReason.standingPolicyOff;
   }
   for (final gate in orchestraReceiveAddressCapabilities(
       sourceChain: sourceChain,
       sourceAsset: sourceAsset,
       destinationAsset: kOrchestraUsdAssetCode)) {
-    if (!rules.allows(gate)) return StandingFallbackReason.standingPolicyOff;
+    if (!rules.allows(gate) && !listed(gate)) {
+      return StandingFallbackReason.standingPolicyOff;
+    }
   }
   if (StandingReceiveRefusal.active(rules)) {
     return StandingFallbackReason.standingRefused;
@@ -259,6 +270,11 @@ StandingFallbackReason? standingReceiveFallback({
 /// destination class (`.bitcoin` or `.dollars`) allow it. A
 /// coin only one-time can serve is listed and goes straight to one-time.
 /// Venue rails are never listed. Sorted by coin, then network.
+///
+/// A region block hides nothing (founder decision, 27 October 2026): a
+/// row only a region refuses is still listed, an open route first (the
+/// standing row, else the one-time one), and its tap says why
+/// ([orchestraOptionRegionBlock]).
 List<OrchestraReceiveOption> receiveOtherCoinOptions(
   OrchestraRoutesCatalog catalog, {
   required String destinationAsset,
@@ -269,25 +285,39 @@ List<OrchestraReceiveOption> receiveOtherCoinOptions(
   String id(OrchestraReceiveOption o) =>
       '${o.chain}:${o.assetCode.toUpperCase()}';
   final rows = <String, OrchestraReceiveOption>{};
+  // Rows only a region refuses, listed after every open route.
+  final regionRows = <String, OrchestraReceiveOption>{};
   for (final o in catalog.receiveOptions(
       destinationChain: 'spark', destinationAsset: kOrchestraUsdAssetCode)) {
     if (!o.reusableAddress) continue;
-    if (standingReceiveFallback(
+    StandingFallbackReason? fallback({bool listRegionBlocked = false}) =>
+        standingReceiveFallback(
             sourceChain: o.chain,
             sourceAsset: o.assetCode,
             destinations: standingDestinations,
-            policy: rules) !=
-        null) {
-      continue;
+            policy: rules,
+            listRegionBlocked: listRegionBlocked);
+    if (fallback() == null) {
+      rows[id(o)] = o;
+    } else if (fallback(listRegionBlocked: true) == null) {
+      regionRows[id(o)] = o;
     }
-    rows[id(o)] = o;
   }
-  if (oneTimeReceiveAllowed(rules, destinationAsset: destinationAsset)) {
+  final oneTimeOpen =
+      oneTimeReceiveAllowed(rules, destinationAsset: destinationAsset);
+  final oneTimeListed = oneTimeOpen ||
+      ((rules.allows(kOneTimeAddressCapability) ||
+              capabilityRegionBlocked(rules, kOneTimeAddressCapability)) &&
+          (oneTimeDestinationBlockReason(rules, destinationAsset) == null ||
+              capabilityRegionBlocked(
+                  rules, oneTimeDestinationCapability(destinationAsset))));
+  if (oneTimeListed) {
     for (final o
         in oneTimeReceiveOptions(catalog, destinationAsset: destinationAsset)) {
-      rows.putIfAbsent(id(o), () => o);
+      (oneTimeOpen ? rows : regionRows).putIfAbsent(id(o), () => o);
     }
   }
+  regionRows.forEach((key, o) => rows.putIfAbsent(key, () => o));
   return rows.values.toList()
     ..sort((a, b) {
       final bySymbol = a.displaySymbol
@@ -321,7 +351,9 @@ OrchestraReceiveOption? oneTimeFallbackOption(
       continue;
     }
     final offered = orchestraOptionsOfferedUnderPolicy([o], rules,
-        otherLegAsset: destinationAsset, depositAddress: true);
+        otherLegAsset: destinationAsset,
+        depositAddress: true,
+        keepRegionBlocked: false);
     return offered.offered.isEmpty ? null : o;
   }
   return null;

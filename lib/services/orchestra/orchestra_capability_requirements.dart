@@ -226,9 +226,16 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
 /// The rows the policy lets a picker offer, and why the rest are absent.
 /// A row is hidden when any of its gates denies, a one-time receive row
 /// also when its destination class ([otherLegAsset]) is explicitly denied;
-/// the reason is the first denial's, so the sheet can say it once. Fails closed: with no readable
-/// policy the swap gates deny and every cross-chain row disappears, while
-/// rows with a venue leg follow their venue rule as before.
+/// the reason is the first denial's, so the sheet can say it once. Fails
+/// closed: with no readable policy the swap gates deny and every
+/// cross-chain row disappears, while rows with a venue leg follow their
+/// venue rule as before.
+///
+/// A REGION block hides nothing (founder decision, 27 October 2026): a
+/// row whose only refusals are region blocks ([keepRegionBlocked], the
+/// pickers) stays listed exactly as today, and its tap says why instead
+/// of opening its flow ([orchestraOptionRegionBlock]). A caller that
+/// must only ever get a row it can use passes false.
 ({List<OrchestraReceiveOption> offered, String? hiddenReason})
     orchestraOptionsOfferedUnderPolicy(
   List<OrchestraReceiveOption> options,
@@ -236,26 +243,85 @@ List<String> orchestraOptionCapabilities(OrchestraReceiveOption option,
   String otherLegAsset = 'BTC',
   bool depositAddress = false,
   String? reusableLegAsset,
+  bool keepRegionBlocked = true,
 }) {
   final offered = <OrchestraReceiveOption>[];
   String? reason;
+  bool open(CapabilityDecision d) => d.allowed && !d.comingSoon;
   for (final option in options) {
-    String? denied;
-    for (final gate in orchestraOptionCapabilities(option,
-        otherLegAsset: otherLegAsset,
-        depositAddress: depositAddress,
-        reusableLegAsset: reusableLegAsset)) {
-      denied = policy.blockReason(gate);
-      if (denied != null) break;
-    }
-    if (denied == null && depositAddress && !option.reusableAddress) {
-      denied = oneTimeDestinationBlockReason(policy, otherLegAsset);
+    CapabilityDecision? denied;
+    final decisions = [
+      for (final gate in orchestraOptionCapabilities(option,
+          otherLegAsset: otherLegAsset,
+          depositAddress: depositAddress,
+          reusableLegAsset: reusableLegAsset))
+        () => policy.decision(gate),
+      if (depositAddress && !option.reusableAddress)
+        () => oneTimeDestinationDecision(policy, otherLegAsset),
+    ];
+    for (final decide in decisions) {
+      final decision = decide();
+      if (open(decision)) continue;
+      if (keepRegionBlocked && decision.regionRestricted) continue;
+      denied = decision;
+      break;
     }
     if (denied == null) {
       offered.add(option);
     } else {
-      reason ??= denied;
+      reason ??= denied.message;
     }
   }
   return (offered: offered, hiddenReason: reason);
+}
+
+/// Kute's region refusal of [capability], as a picker row's tap shows it.
+typedef CapabilityRegionBlock = ({
+  String capability,
+  CapabilityDecision decision
+});
+
+/// The first of [capabilities] [policy] refuses for a region (its own
+/// block or one it inherits through the backend's `requires` cascade), or
+/// null. Any other refusal is not a region block and gives null.
+CapabilityRegionBlock? capabilityRegionBlock(
+    RuntimeCapabilitiesService policy, Iterable<String> capabilities) {
+  for (final id in capabilities) {
+    final decision = policy.decision(id);
+    if (!decision.allowed && !decision.comingSoon && decision.regionRestricted) {
+      return (capability: id, decision: decision);
+    }
+  }
+  return null;
+}
+
+/// The region block standing in front of a picker row, or null when the
+/// row is open: the first of its gates ([orchestraOptionCapabilities],
+/// the standing switch for a reusable receive row, the destination class
+/// for a one-time one) that [policy] refuses for a region, its own block
+/// or one inherited through the backend's `requires` cascade. The row
+/// stays listed; its tap shows this instead of opening its flow.
+CapabilityRegionBlock? orchestraOptionRegionBlock(
+  OrchestraReceiveOption option,
+  RuntimeCapabilitiesService policy, {
+  String otherLegAsset = 'BTC',
+  bool depositAddress = false,
+  String? reusableLegAsset,
+}) =>
+    capabilityRegionBlock(policy, [
+      ...orchestraOptionCapabilities(option,
+          otherLegAsset: otherLegAsset,
+          depositAddress: depositAddress,
+          reusableLegAsset: reusableLegAsset),
+      if (depositAddress && option.reusableAddress) kStandingAddressCapability,
+      if (depositAddress && !option.reusableAddress)
+        oneTimeDestinationCapability(otherLegAsset),
+    ]);
+
+/// Whether [policy] refuses [capability] for a region (and for nothing
+/// else): what a listing keeps on show behind a tap that says why.
+bool capabilityRegionBlocked(
+    RuntimeCapabilitiesService policy, String capability) {
+  final decision = policy.decision(capability);
+  return !decision.allowed && !decision.comingSoon && decision.regionRestricted;
 }

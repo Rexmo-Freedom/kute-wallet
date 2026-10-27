@@ -359,10 +359,26 @@ class _UsdReceiveScreenState extends ConsumerState<UsdReceiveScreen> {
       'networks': group.options.length,
     });
     if (group.isSingleNetwork) {
-      unawaited(_pick(group.options.first));
+      unawaited(_pickFromGrid(group.options.first));
       return;
     }
     _openCoinPicker(initialGroupKey: group.key);
+  }
+
+  /// A one-network coin tapped on the grid: picked, unless a region block
+  /// stands in front of it, which the shared sheet explains instead of
+  /// opening the address (the coin stays listed, founder decision, 27
+  /// October 2026).
+  Future<void> _pickFromGrid(OrchestraReceiveOption option) async {
+    if (await coinPickStoppedByRegion(context, option,
+        otherLegAsset: widget.destinationAsset,
+        reusableLegAsset: kOrchestraUsdAssetCode,
+        depositAddress: true,
+        surface: _dollars ? 'usd_receive' : 'receive_other_coins')) {
+      return;
+    }
+    if (!mounted) return;
+    await _pick(option);
   }
 
   /// The sheet itself, open on [initialGroupKey]'s networks.
