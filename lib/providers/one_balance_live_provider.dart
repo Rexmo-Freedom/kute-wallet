@@ -51,6 +51,8 @@ import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/sweep_rules.dart'
     show venueDepositRowOf, venueWithdrawalRowOf;
 import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/polymarket/book_seed.dart'
+    show ClobBookSeeds, fetchClobBookSeeds;
 import 'package:kute/services/polymarket/shown_price.dart' show polyShownPrice;
 import 'package:kute/services/polymarket_clob_websocket.dart';
 
@@ -92,6 +94,16 @@ class _ClobHeldMarketSocket implements HeldMarketSocket {
 final heldMarketSocketFactoryProvider =
     Provider<HeldMarketSocket Function(List<String> tokens)>(
         (_) => _ClobHeldMarketSocket.new);
+
+/// Reads the books of the held outcome tokens over REST when the market
+/// socket opens (`POST /books`, and the last trades of the wide ones), as
+/// the rows' live feed seeds itself. Without it the header kept the
+/// venue's last read (`curPrice`) until the socket sent a book or a trade,
+/// which a quiet market may not do for minutes: the Predictions figure sat
+/// near what was paid while its row showed the value now. Tests stub it.
+final heldBookSeedProvider =
+    Provider<Future<ClobBookSeeds> Function(List<String> tokens)>(
+        (_) => (tokens) => fetchClobBookSeeds(tokens));
 
 /// Reads [venue] again (cash and positions) through the venue's own
 /// provider; tests count the calls.
@@ -338,6 +350,39 @@ class OneBalanceLiveNotifier extends Notifier<OneBalanceLiveMarks> {
     final socket = ref.read(heldMarketSocketFactoryProvider)(want.toList());
     _socket = socket;
     _socketSub = socket.messages.listen(_onMarket, onError: (Object _) {});
+    unawaited(_seed(want));
+  }
+
+  /// Prices the held tokens from their books right away
+  /// ([heldBookSeedProvider]), by the rows' rule ([polyShownPrice]: the
+  /// midpoint of a book 10¢ wide or less, else its last trade). A token the
+  /// socket priced first keeps the socket's price; a failed read leaves the
+  /// venue's own read standing.
+  Future<void> _seed(Set<String> tokens) async {
+    final read = ref.read(heldBookSeedProvider);
+    final ClobBookSeeds seeds;
+    try {
+      seeds = await read(tokens.toList());
+    } catch (_) {
+      return;
+    }
+    if (_disposed || _socket == null || !_sameTokens(tokens, _socketTokens)) {
+      return;
+    }
+    var any = false;
+    for (final token in tokens) {
+      final last = seeds.lastTrades[token];
+      if (last != null && last > 0 && last < 1) {
+        _lastTrades.putIfAbsent(token, () => last);
+      }
+      if (_outcomePrices.containsKey(token)) continue;
+      final price =
+          seeds.wide.contains(token) ? _lastTrades[token] : seeds.mids[token];
+      if (price == null || price <= 0 || price >= 1) continue;
+      _outcomePrices[token] = price;
+      any = true;
+    }
+    if (any) _commit(force: true);
   }
 
   void _closeSocket() {

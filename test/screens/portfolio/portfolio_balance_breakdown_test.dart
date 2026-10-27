@@ -1851,15 +1851,16 @@ void main() {
       expect(investingRows, findsOneWidget);
       expect(category(tester, 'predictions'), r'$6.00');
       expect(category(tester, 'investing'), r'$612.50');
-      // Each venue's P&L, in the result colour: (0.5 - 0.4) x 10 = $1.00
-      // at Predictions; $12.50 at Investing.
+      // Each venue's P&L, in the result colour, with its percentage against
+      // what was paid: (0.5 - 0.4) x 10 = $1.00 at Predictions on $5.00 paid
+      // (20.0%); $12.50 at Investing.
       expect(
           tester
               .widget<RollingFigure>(find.descendant(
                   of: find.byKey(const ValueKey('portfolio-predictions-pnl')),
                   matching: find.byType(RollingFigure)))
               .text,
-          r'+$1.00');
+          r'+$1.00 (20.0%)');
       expect(
           tester
               .widget<RollingFigure>(find.descendant(

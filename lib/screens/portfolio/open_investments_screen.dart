@@ -480,7 +480,13 @@ class _PredictionsPnl extends ConsumerWidget {
       }
       return sum;
     }));
-    return BalancesPnlText(usd: pnl, money: (v) => formatPolyAmount(ref, v));
+    // What was paid, for the percentage, as each row divides by.
+    var cost = 0.0;
+    for (final p in positions) {
+      if (p.avgPrice > 0 && p.size > 0) cost += p.avgPrice * p.size;
+    }
+    return BalancesPnlText(
+        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
   }
 }
 
@@ -498,9 +504,14 @@ class _InvestingPnl extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     var pnl = 0.0;
+    // What was put in, for the percentage, as each row divides by: a
+    // perp's margin (hlPositionMargin), a holding's recorded cost.
+    var cost = 0.0;
     for (final p in state.positions) {
       pnl +=
           hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
+      final margin = hlPositionMargin(p);
+      if (margin.isFinite && margin > 0) cost += margin;
     }
     final spot = state.spotBalances
         .where((b) => b.coin != 'USDC' && b.total > 0 && b.costBasis != null)
@@ -511,10 +522,14 @@ class _InvestingPnl extends ConsumerWidget {
       for (final b in spot) {
         final mid =
             markets.where((m) => m.coin == b.coin).firstOrNull?.midPx ?? 0;
-        if (mid > 0) pnl += b.total * mid - b.costBasis!;
+        if (mid > 0) {
+          pnl += b.total * mid - b.costBasis!;
+          cost += b.costBasis!;
+        }
       }
     }
-    return BalancesPnlText(usd: pnl, money: (v) => formatPolyAmount(ref, v));
+    return BalancesPnlText(
+        usd: pnl, costUsd: cost, money: (v) => formatPolyAmount(ref, v));
   }
 }
 

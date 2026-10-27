@@ -15,6 +15,7 @@ import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/auth_provider.dart' show appVisibleProvider;
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/one_balance_live_provider.dart';
+import 'package:kute/services/polymarket/book_seed.dart' show ClobBookSeeds;
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -25,8 +26,7 @@ import 'package:kute/services/one_balance/live_marks.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/one_balance/venue_cash_released.dart';
 import 'package:kute/services/polymarket_clob_websocket.dart';
-import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
-    show Position;
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Position;
 
 import '../helpers/fake_swap_orders.dart';
 
@@ -119,13 +119,21 @@ PolymarketTradingState _pm(List<Position> positions) => PolymarketTradingState(
     usdcBalance: 0,
     openPositions: positions);
 
-SwapOrder _fundingRow(String status) => poolDepositRow(
-    id: 'ord_fund', network: 'POLYGON', usd: 5, status: status);
+SwapOrder _fundingRow(String status) =>
+    poolDepositRow(id: 'ord_fund', network: 'POLYGON', usd: 5, status: status);
+
+const ClobBookSeeds _noSeeds = (
+  mids: <String, double>{},
+  wide: <String>{},
+  lastTrades: <String, double>{}
+);
 
 class _Rig {
   _Rig(FakeAsync async,
       {List<Position> positions = const [],
-      Duration readFor = Duration.zero}) {
+      Duration readFor = Duration.zero,
+      ClobBookSeeds seeds = _noSeeds,
+      Duration seedFor = Duration.zero}) {
     final clock = async.getClock(DateTime(2026, 10, 13, 12));
     rows = FakeSwapOrders();
     container = ProviderContainer(overrides: [
@@ -151,6 +159,11 @@ class _Rig {
         sockets.add(s);
         return s;
       }),
+      heldBookSeedProvider.overrideWithValue((tokens) async {
+        seedAsks.add(tokens);
+        if (seedFor > Duration.zero) await Future<void>.delayed(seedFor);
+        return seeds;
+      }),
       oneBalanceVenueRefreshProvider.overrideWithValue((venue) async {
         refreshes.add(venue);
         if (readFor > Duration.zero) await Future<void>.delayed(readFor);
@@ -167,6 +180,7 @@ class _Rig {
   late final FakeSwapOrders rows;
   final sockets = <_FakeSocket>[];
   final refreshes = <OneBalanceVenue>[];
+  final seedAsks = <List<String>>[];
 
   double get total => container.read(oneBalanceProvider).totalUsd;
   _Pm get pm => container.read(polymarketTradingProvider.notifier) as _Pm;
@@ -180,8 +194,8 @@ void main() {
         HeldOutcome(token: 'b', size: 4, readPrice: 0.2),
       ];
       expect(predictionsMarkDelta(held, {'a': 0.6}), closeTo(1.0, 1e-9));
-      expect(predictionsMarkDelta(held, {'a': 0.6, 'b': 0.1}),
-          closeTo(0.6, 1e-9));
+      expect(
+          predictionsMarkDelta(held, {'a': 0.6, 'b': 0.1}), closeTo(0.6, 1e-9));
       expect(predictionsMarkDelta(held, const {}), 0);
     });
 
@@ -248,8 +262,7 @@ void main() {
     });
   });
 
-  test('a Predictions event reads the chain, not the 30 s cached balance',
-      () {
+  test('a Predictions event reads the chain, not the 30 s cached balance', () {
     fakeAsync((async) {
       final rig = _Rig(async);
       addTearDown(rig.container.dispose);
@@ -287,8 +300,7 @@ void main() {
     });
   });
 
-  test('a held token\'s price tick moves the header total, once a second',
-      () {
+  test('a held token\'s price tick moves the header total, once a second', () {
     fakeAsync((async) {
       final rig = _Rig(async, positions: [_position('tok', size: 10)]);
       addTearDown(rig.container.dispose);
@@ -314,6 +326,46 @@ void main() {
       rig.pm.set(_pm([_position('tok', size: 10, price: 0.7)]));
       async.elapse(Duration.zero);
       expect(rig.total, closeTo(107, 1e-9));
+    });
+  });
+
+  test(
+      'the books seed the held tokens when the socket opens: the total '
+      'moves to the price the rows show before any socket frame', () {
+    fakeAsync((async) {
+      // The venue read says 0.50; the book is tight at 0.69 / 0.71 and a
+      // wide one shows its last trade, as the rows do.
+      final rig = _Rig(async, positions: [
+        _position('tok', size: 10),
+        _position('wide', size: 10),
+      ], seeds: (
+        mids: const {'tok': 0.70},
+        wide: const {'wide'},
+        lastTrades: const {'wide': 0.80},
+      ));
+      addTearDown(rig.container.dispose);
+      expect(rig.seedAsks.single.toSet(), {'tok', 'wide'});
+      async.elapse(Duration.zero);
+      // $100 + 10 × 0.70 + 10 × 0.80.
+      expect(rig.total, closeTo(115, 1e-9));
+    });
+  });
+
+  test('a socket price that lands before the seed keeps winning', () {
+    fakeAsync((async) {
+      final rig = _Rig(async,
+          positions: [_position('tok', size: 10)],
+          seeds: (
+            mids: const {'tok': 0.70},
+            wide: const <String>{},
+            lastTrades: const <String, double>{},
+          ),
+          seedFor: const Duration(seconds: 3));
+      addTearDown(rig.container.dispose);
+      async.elapse(const Duration(seconds: 2));
+      rig.sockets.single.book('tok', 0.59, 0.61); // mid 0.60
+      async.elapse(const Duration(seconds: 2)); // the seed lands
+      expect(rig.total, closeTo(106, 1e-9));
     });
   });
 

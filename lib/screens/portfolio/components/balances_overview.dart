@@ -574,13 +574,25 @@ class _Dot extends StatelessWidget {
       );
 }
 
-/// A P&L beside a venue's value: "+$1.10" or "−$0.40" in the result
-/// colour; nothing when it is under a cent. [money] writes the amount.
+/// A P&L beside a venue's value: "+$1.10 (12.4%)" or "−$0.40 (3.1%)" in
+/// the result colour, the percentage against what was paid ([costUsd], as
+/// the rows read theirs; left out when it is not known); nothing when the
+/// P&L is under a cent. [money] writes the amount.
 class BalancesPnlText extends StatelessWidget {
-  const BalancesPnlText({super.key, required this.usd, required this.money});
+  const BalancesPnlText(
+      {super.key, required this.usd, required this.money, this.costUsd});
 
   final double usd;
   final String Function(double usd) money;
+  final double? costUsd;
+
+  /// "37.9%", one decimal like the rows; null without a cost to divide by.
+  static String? percentOf(double usd, double? costUsd) {
+    final cost = costUsd;
+    if (cost == null || !cost.isFinite || cost < kBalancesCentUsd) return null;
+    final pct = (usd / cost * 100).abs();
+    return pct.isFinite ? '${pct.toStringAsFixed(1)}%' : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -588,11 +600,13 @@ class BalancesPnlText extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final up = usd > 0;
+    final pct = percentOf(usd, costUsd);
     return Padding(
       padding: EdgeInsetsDirectional.only(start: 6.w),
       child: RollingFigure(
         key: const ValueKey('portfolio-balance-venue-pnl'),
-        text: '${up ? '+' : '−'}${money(usd.abs())}',
+        text: '${up ? '+' : '−'}${money(usd.abs())}'
+            '${pct == null ? '' : ' ($pct)'}',
         style: TextStyle(
           color: up ? AppColors.marketUp : AppColors.marketDown,
           fontSize: 13.sp,
