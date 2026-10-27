@@ -44,6 +44,7 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -610,43 +611,22 @@ class _PortfolioBalanceBreakdownState
       ),
     );
 
-    // Balances' Move money: a quiet text link under Buying power (founder,
-    // 27 October 2026: no pill, no button). Same tap: the movement sheet;
-    // nothing while a Rebalance from before is still being sent.
-    final c = context.colors;
+    // Balances' Move money: a pill like the section pills (Balances,
+    // P&L charts), under Buying power (founder, 27 October 2026). Same
+    // tap: the movement sheet; nothing while a Rebalance from before is
+    // still being sent.
     final link = RubberBandBusy(
       busy: rebalance.running,
       expected: kRebalanceSendExpected,
-      child: Semantics(
-        button: true,
+      child: KutePill(
+        key: const ValueKey('portfolio-move-money'),
         label: l10n.moveTransfer,
-        excludeSemantics: true,
-        child: GestureDetector(
-          key: const ValueKey('portfolio-move-money'),
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (rebalance.running) return;
-            unawaited(showMoneyMovementSheet(context));
-          },
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(l10n.moveTransfer,
-                    style: TextStyle(
-                      color: c.textSecondary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                      height: 1.3,
-                    )),
-                Icon(Icons.chevron_right_rounded,
-                    size: 16.w, color: c.textSecondary),
-              ],
-            ),
-          ),
-        ),
+        selected: true,
+        link: true,
+        onTap: () {
+          if (rebalance.running) return;
+          unawaited(showMoneyMovementSheet(context));
+        },
       ),
     );
 

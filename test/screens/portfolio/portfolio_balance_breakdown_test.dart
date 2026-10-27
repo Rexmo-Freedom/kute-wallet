@@ -1670,17 +1670,17 @@ void main() {
           find.byKey(const ValueKey('portfolio-balance-split')), findsNothing);
       expect(find.text('Hyperliquid'), findsNothing);
 
-      // Move money: a quiet text link under Buying power, no pill, no
-      // button, no Add money.
+      // Move money: a pill like the section pills, under Buying power, no
+      // full-width button, no Add money.
       expect(find.text('Move money'), findsOneWidget);
-      expect(find.byType(KutePill), findsNothing);
+      expect(find.descendant(of: _rebalance, matching: find.byType(KutePill)),
+          findsNothing);
+      expect(tester.widget(_rebalance), isA<KutePill>());
       expect(find.byType(AppButton), findsNothing);
       expect(find.text('Add money'), findsNothing);
       final move = tester.getRect(_rebalance);
       expect(move.top, greaterThanOrEqualTo(label.bottom));
       expect(move.left, greaterThan(ring.right));
-      expect(tester.widget<Text>(find.text('Move money')).style!.color,
-          light.textSecondary);
 
       // Predictions: its count and value; Investing, nothing open, says so
       // in place of a figure and lists nothing.
