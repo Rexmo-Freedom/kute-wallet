@@ -116,7 +116,9 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart'
     show InvestingWithdrawalDestination;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
-    show SettlementFundingUnknown;
+    show SettlementFundingUnknown, SettlementStopped;
+import 'package:kute/services/funding/spark_hypercore_funding_service.dart'
+    show HypercoreFundingUnavailable;
 
 // ─── Actions ───────────────────────────────────────────────────────
 
@@ -1517,6 +1519,23 @@ class VenueCashPuller {
         MultiSourceMoveStore.get(moveId)?.isParallelPurchase == true;
     final knownUnsent = leg.error is DirectRouteRefused ||
         leg.error is SettlementFundingNotStarted;
+    // Any other move: a leg whose failure came before anything could be
+    // sent (a route or quote refusal, a stop before funding, the approval
+    // refused or spent, the source unavailable) failed plainly and a Retry
+    // may run it again. Any other failure (an unknown outcome, a timeout,
+    // an untyped error) may have moved the money: the leg stays uncertain,
+    // its amount is never "remaining" and no Retry sends it again (the
+    // route's unresolved operation also holds new sends, F11). Parallel
+    // purchases keep their own, narrower proof.
+    final e = leg.error;
+    final beforeSending = knownUnsent ||
+        e is RouteUnavailable ||
+        e is SettlementStopped ||
+        e is OrchestraQuoteFailure ||
+        e is HypercoreFundingUnavailable ||
+        e is AuthGrantException;
+    final uncertain =
+        !leg.ok && (parallel ? !knownUnsent : !beforeSending);
     final recorded = MultiSourceMoveLeg(
       venue: leg.venue,
       usd: leg.ok ? _cents(leg.sentUsd) : leg.pull.usd,
@@ -1534,7 +1553,7 @@ class VenueCashPuller {
           : parallel && knownUnsent
               ? 'not_sent'
               : TrackingService.errorCategory(leg.error),
-      uncertain: parallel && !leg.ok && !knownUnsent,
+      uncertain: uncertain,
       fellBack: leg.fellBackReason,
       stoppedOperationId: leg.error is SettlementFundingRefused
           ? (leg.error as SettlementFundingRefused).operationId
