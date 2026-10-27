@@ -323,6 +323,12 @@ class PolymarketOrderPlan {
         builderCode: builderCode,
       );
 
+  /// What the market buy spends: the stake itself, signed to the cent
+  /// (PolymarketOrderAmounts.encode's `spendUsd`), or the venue's minimum
+  /// when [shares] were bumped up to it. Never the floored [shares] ×
+  /// [price], which signed a typed \$5.00 as \$4.99.
+  double get spendUsd => math.max(amount, shares * price);
+
   /// Shares for [amount] at [price], floored to a hundredth; bumped up to
   /// meet the venue's one-dollar floor only within the stake plus the
   /// quote's rounding cent, never into the fee room.

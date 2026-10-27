@@ -9,6 +9,8 @@ import 'package:kute/screens/shared/slip_stat_tiles.dart'
     show SlipFigure, slipZeroFigure;
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/services/one_balance/funding_fees.dart'
+    show FundingLegSource;
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
@@ -25,6 +27,20 @@ double? feeUsdPerBtc(WidgetRef ref) {
       ? ref.watch(selectedCurrencyProvider('USD')).toDouble()
       : null;
 }
+
+/// One leg of an order's funding as a fee sheet line: what it is
+/// ("Move from Bitcoin") and its fee in dollars.
+typedef MoneyFeeLeg = ({String label, double usd});
+
+/// The fee sheet's line for a funding leg from [source]: "Move from
+/// Bitcoin", "Move from Investing".
+String fundingLegFeeLabel(AppLocalizations l10n, FundingLegSource source) =>
+    switch (source) {
+      FundingLegSource.dollars => l10n.slipMoveFromDollars,
+      FundingLegSource.bitcoin => l10n.slipMoveFromBitcoin,
+      FundingLegSource.investing => l10n.slipMoveFromInvesting,
+      FundingLegSource.predictions => l10n.slipMoveFromPredictions,
+    };
 
 /// Display-only money conversion. Never supplies amounts to a signer.
 ({String primary, String? secondary}) feeAmountText(WidgetRef ref,

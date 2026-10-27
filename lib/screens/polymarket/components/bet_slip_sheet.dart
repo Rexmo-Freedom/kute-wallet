@@ -105,7 +105,7 @@ import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
-    show MoneyFeeFigure;
+    show MoneyFeeFigure, MoneyFeeLeg, fundingLegFeeLabel;
 import 'package:kute/services/one_balance/money_steps.dart'
     show MoneyPlace;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -128,6 +128,7 @@ import 'package:kute/services/one_balance/investments_spendable.dart'
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/funding_fees.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart'
     show pendingBetHoldsCash, venueSweeperProvider;
 import 'package:kute/services/one_balance/prediction_funding_ledger.dart';
@@ -768,6 +769,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   OrderFundingPlan? _fundingPlan;
   double? _fundingPlanAmount;
   bool _fundingPlanReading = false;
+
+  /// The Bitcoin conversion's share Orchestra quoted when the plan was
+  /// read (null: the fallback spread), for the Bitcoin leg's fee line.
+  double? _fundingBitcoinSpread;
+
+  /// What funding the placed bet cost (every leg, estimated), held from
+  /// its approval for the receipt's fee. Null when nothing moved.
+  double? _placedFundingFeeUsd;
 
   /// Read once in initState: dispose and a pre-fund move finishing after
   /// the slip went must not touch `ref`.
@@ -2487,6 +2496,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // placement. Once `_isPlacing` is set the CTA and this guard both
     // keep further taps out.
     if (_buyInFlight || _isPlacing) return;
+    // A new bet: nothing moved for it yet.
+    _placedFundingFeeUsd = null;
     _updateState(() {
       _buyInFlight = true;
       _prepareFailed = false;
@@ -3265,8 +3276,18 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           readyUsd: ready,
         );
         if (!mounted) return;
+        // Dollars short of the move: a Bitcoin leg may carry part of it,
+        // priced on Orchestra's own spread for the fee row.
+        final dollars = _dollarsUsd();
+        double? spread;
+        if (dollars + 1e-9 < plan.fundUsd) {
+          spread = await bitcoinLegSpreadEstimate(
+              cachedSpendingBitcoin(ref.read), plan.fundUsd - dollars);
+          if (!mounted) return;
+        }
         _fundingPlan = plan;
         _fundingPlanAmount = amount;
+        _fundingBitcoinSpread = spread;
       } catch (_) {
         // The fallback share stands until the next read.
       } finally {
@@ -3345,6 +3366,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     }
     if (!mounted) return;
     PolymarketPlacementTimeline.mark('funding_plan');
+    // The receipt's fee carries what this move costs, every leg.
+    final fundingFees = _fundingFees(plan);
+    _placedFundingFeeUsd = fundingFees.isEmpty || fundingFees.dollarsOnly
+        ? plan.feeUsd
+        : fundingFees.totalUsd;
     // The shared funding engine: Dollars first, then Bitcoin, and the
     // Investing cash only for what those cannot cover (founder decision,
     // 15 October 2026: venue to venue is the slow way;
@@ -4577,6 +4603,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 price: intent?.expectedPrice ?? 0,
                 filledCost: intent?.filledCost,
                 filledShares: intent?.filledShares,
+                feeTerms: intent?.feeTerms,
+                fundingFeeUsd: _placedFundingFeeUsd,
                 note: partial == null
                     ? null
                     : l10n.betBuyPartialMarket(
@@ -4619,6 +4647,8 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   price: limitIntent.limitPrice,
                   filledCost: limitIntent.filledCost,
                   filledShares: limitIntent.filledShares,
+                  feeTerms: limitIntent.feeTerms,
+                  fundingFeeUsd: _placedFundingFeeUsd,
                   position: placedPositionFor(
                     intent: limitIntent,
                     outcomes: widget.outcomes,
@@ -5013,6 +5043,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         moveFeeUsd: moveFee?.usd,
         moveFeeLabel: context.l10n.slipMoveFee,
         moveFeePending: moveFee != null && moveFee.usd == null,
+        moveLegs: moveFee?.legs ?? const [],
       );
       final minBetWarning = _amount > 0 && _amount < _effectiveMinBetUsd
           ? Text(
@@ -6228,7 +6259,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Null while the venue cash covers the stake (nothing moves), on a
   /// Ledger slip, or before the stake is typed; a null `usd` while the
   /// plan for this stake is still being read.
-  ({double? usd})? _moveFee(double? cash) {
+  ///
+  /// A move from more than Dollars (Bitcoin, the Investing cash, every
+  /// leg at once) is every leg's fee added, each leg its own line
+  /// ([estimateOrderFundingFees]), never the Dollars route's share on the
+  /// whole move.
+  ({double? usd, List<MoneyFeeLeg> legs})? _moveFee(double? cash) {
     if (_isLedger || cash == null || _amount <= 0) return null;
     final terms = ref
             .watch(polymarketFeeTermsProvider(_selectedTokenId ?? ''))
@@ -6236,8 +6272,36 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         PolymarketFeeTerms.worstCase;
     if (_predictionsShortfall(cash, terms) <= 0) return null;
     final plan = _fundingPlanAmount == _amount ? _fundingPlan : null;
-    return (usd: plan?.feeUsd);
+    if (plan == null) return (usd: null, legs: const []);
+    final fees = _fundingFees(plan);
+    if (fees.isEmpty || fees.dollarsOnly) {
+      return (usd: plan.feeUsd, legs: const []);
+    }
+    return (
+      usd: fees.totalUsd,
+      legs: [
+        for (final leg in fees.legs)
+          (
+            label: fundingLegFeeLabel(context.l10n, leg.source),
+            usd: leg.feeUsd
+          ),
+      ],
+    );
   }
+
+  /// Every leg the move of [plan] would take and its fee, on the figures
+  /// the app holds now (Dollars, the spending bitcoin, the Investing
+  /// cash). Reads nothing new.
+  OrderFundingFees _fundingFees(OrderFundingPlan plan) =>
+      estimateOrderFundingFees(
+        fundUsd: plan.fundUsd,
+        arrivingUsd: plan.arrivingUsd,
+        dollarsUsd: _dollarsUsd(),
+        venue: OneBalanceVenue.predictions,
+        bitcoinMaxUsd: bitcoinMaxLandingUsd(cachedSpendingBitcoin(ref.read)),
+        bitcoinSpread: _fundingBitcoinSpread ?? BitcoinLegRules.fallbackSpread,
+        otherVenues: venueCashCandidatesNow(ref.read),
+      );
 
   /// Source account detail in the advanced order summary.
   Widget _buildFundingSource(AppColorsExtension c) {
@@ -7168,6 +7232,8 @@ void showBetSlipPlacedConfirmation({
   required double price,
   double? filledCost,
   double? filledShares,
+  PolymarketFeeTerms? feeTerms,
+  double? fundingFeeUsd,
   String? note,
   PolymarketPosition? position,
   bool keepMarketSheet = false,
@@ -7178,6 +7244,8 @@ void showBetSlipPlacedConfirmation({
         (keepMarketSheet || name != 'polymarket-market-detail-sheet');
   });
   final shares = price > 0 ? total / price : 0.0;
+  final boughtShares = filledShares ?? shares;
+  final cost = filledCost ?? total;
   pushBetPlacedOverlay(
     navigator: navigator,
     marketQuestion: marketQuestion,
@@ -7188,9 +7256,36 @@ void showBetSlipPlacedConfirmation({
     avgPrice: price,
     potentialPayout: filledShares ?? shares,
     estimated: filledShares == null || filledCost == null,
+    feeUsd: betReceiptFeeUsd(
+        terms: feeTerms,
+        shares: boughtShares,
+        costUsd: cost,
+        fundingFeeUsd: fundingFeeUsd),
     note: note,
     position: position,
   );
+}
+
+/// The receipt's fee: the venue's fee curve and Kute's at what the order
+/// got ([shares] for [costUsd]: the fill's average price), plus what
+/// funding it cost ([fundingFeeUsd], every leg). An estimate (the venue
+/// reports no fee with the fill), shown as "Estimated fee"; null without
+/// the market's fee terms.
+double? betReceiptFeeUsd({
+  required PolymarketFeeTerms? terms,
+  required double shares,
+  required double costUsd,
+  double? fundingFeeUsd,
+}) {
+  if (terms == null || shares <= 0 || costUsd <= 0) return null;
+  final price = costUsd / shares;
+  final venue = terms.totalFee(shares, price);
+  final funding =
+      fundingFeeUsd != null && fundingFeeUsd.isFinite && fundingFeeUsd > 0
+          ? fundingFeeUsd
+          : 0.0;
+  final total = venue + funding;
+  return total.isFinite && total > 0 ? total : null;
 }
 
 /// The prediction just filled, as the position its own page shows, from

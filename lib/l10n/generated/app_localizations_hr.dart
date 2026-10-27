@@ -10792,6 +10792,18 @@ class AppLocalizationsHr extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Prijenos iz Dolara';
+
+  @override
+  String get slipMoveFromBitcoin => 'Prijenos iz Bitcoina';
+
+  @override
+  String get slipMoveFromInvesting => 'Prijenos iz Ulaganja';
+
+  @override
+  String get slipMoveFromPredictions => 'Prijenos iz Predviđanja';
+
+  @override
   String get addMoneyToInvestments => 'Dodaj novac u Investments';
 
   @override

@@ -75,6 +75,7 @@ class _Trading extends PolymarketTradingNotifier {
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
     String? marketTitle,
     String? marketImage,
     String? marketOutcome,
@@ -88,7 +89,7 @@ class _Trading extends PolymarketTradingNotifier {
     required AuthGrant grant,
     void Function(String step)? onStep,
   }) async {
-    orders.add(size * price);
+    orders.add(spendUsd ?? size * price);
     throw StateError('stopped by the test');
   }
 }

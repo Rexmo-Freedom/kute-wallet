@@ -34,6 +34,8 @@ import 'package:kute/services/hyperliquid/trailing_stop.dart';
 
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/services/polymarket/order_amounts.dart'
+    show polymarketMarketBuyBudgetMicros;
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementAuthorizationIntent;
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
@@ -725,13 +727,19 @@ abstract final class PmGrants {
   }
 
   /// What an order binds as its amount: the cost for a buy, the share size
-  /// (1e8) for a sell.
+  /// (1e8) for a sell. A market buy sized by its stake ([spendUsd]) binds
+  /// exactly the cents it signs ([polymarketMarketBuyBudgetMicros]).
   static BigInt orderAmount({
     required bool isBuy,
     required double size,
     required double price,
+    double? spendUsd,
   }) =>
-      isBuy ? buyCostMicros(size, price) : IntentUnits.size(size);
+      isBuy
+          ? (spendUsd != null
+              ? polymarketMarketBuyBudgetMicros(spendUsd)
+              : buyCostMicros(size, price))
+          : IntentUnits.size(size);
 
   /// Bounds of a funded order's one approval that belong to its funding
   /// leg, not to the order: the move's cap and venue
@@ -768,12 +776,14 @@ abstract final class PmGrants {
     required double size,
     required double price,
     required String orderType,
+    double? spendUsd,
   }) {
     final base = PmIntents.order(
       walletId: walletId,
       tokenId: tokenId,
       isBuy: isBuy,
-      amountMax: orderAmount(isBuy: isBuy, size: size, price: price),
+      amountMax: orderAmount(
+          isBuy: isBuy, size: size, price: price, spendUsd: spendUsd),
       limitPrice: price,
       orderType: orderType,
     );
@@ -799,6 +809,7 @@ abstract final class PmGrants {
     required double size,
     required double price,
     required String orderType,
+    double? spendUsd,
   }) {
     final actual = executedOrder(grant,
         walletId: walletId,
@@ -806,7 +817,8 @@ abstract final class PmGrants {
         isBuy: isBuy,
         size: size,
         price: price,
-        orderType: orderType);
+        orderType: orderType,
+        spendUsd: spendUsd);
     GrantGuard.consume(grant, actual, allowed: orderActions(isBuy));
     return actual;
   }
@@ -1086,6 +1098,7 @@ class PmLadderGrant {
     required double size,
     required double price,
     required String orderType,
+    double? spendUsd,
   }) {
     final actual = PmGrants.executedOrder(
       approval,
@@ -1095,6 +1108,7 @@ class PmLadderGrant {
       size: size,
       price: price,
       orderType: orderType,
+      spendUsd: spendUsd,
     );
     GrantGuard.check(approval, actual, allowed: PmGrants.orderActions(isBuy));
     return GrantGuard.chain(approval, actual);

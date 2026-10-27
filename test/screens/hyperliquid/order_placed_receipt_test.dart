@@ -210,4 +210,12 @@ void main() {
       expect(hlRealizedFromFills(const [], 0.05), isNull);
     });
   });
+
+  test('the receipt fee is what the fills paid, as Hyperliquid reported it',
+      () {
+    expect(hlFeeFromFills([_fill(0.1, fee: 1.2), _fill(0.2, fee: 2.4)], 0.3),
+        closeTo(3.6, 1e-12));
+    // Not all the fills in hand: no figure rather than part of one.
+    expect(hlFeeFromFills([_fill(0.1, fee: 1.2)], 0.3), isNull);
+  });
 }

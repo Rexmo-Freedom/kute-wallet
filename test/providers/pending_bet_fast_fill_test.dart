@@ -113,6 +113,7 @@ class _Trading extends PolymarketTradingNotifier {
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
     String? marketTitle,
     String? marketImage,
     String? marketOutcome,
@@ -133,7 +134,11 @@ class _Trading extends PolymarketTradingNotifier {
         isBuy: side == OrderSide.buy,
         size: size,
         price: price,
-        orderType: orderType.name);
+        orderType: orderType.name,
+        spendUsd: side == OrderSide.buy &&
+                (orderType == OrderType.fok || orderType == OrderType.fak)
+            ? spendUsd
+            : null);
     onStep?.call('ready');
     orders.add(_Order(price, size, analytics));
     if (refusals.isNotEmpty) throw refusals.removeAt(0);

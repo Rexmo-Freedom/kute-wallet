@@ -10793,6 +10793,18 @@ class AppLocalizationsHu extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Átvezetés a Dollárból';
+
+  @override
+  String get slipMoveFromBitcoin => 'Átvezetés a Bitcoinból';
+
+  @override
+  String get slipMoveFromInvesting => 'Átvezetés a Befektetésből';
+
+  @override
+  String get slipMoveFromPredictions => 'Átvezetés az Előrejelzésekből';
+
+  @override
   String get addMoneyToInvestments => 'Pénz hozzáadása az Investmentshez';
 
   @override

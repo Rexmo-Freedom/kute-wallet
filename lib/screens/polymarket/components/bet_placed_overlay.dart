@@ -28,6 +28,7 @@ void pushBetPlacedOverlay({
   required double avgPrice,
   required double potentialPayout,
   bool estimated = false,
+  double? feeUsd,
   String? note,
   PolymarketPosition? position,
 }) {
@@ -42,6 +43,7 @@ void pushBetPlacedOverlay({
       avgPrice: avgPrice,
       potentialPayout: potentialPayout,
       estimated: estimated,
+      feeUsd: feeUsd,
       note: note,
       position: position,
     ),
@@ -57,6 +59,11 @@ class BetPlacedOverlay extends StatelessWidget {
   final double avgPrice;
   final double potentialPayout;
   final bool estimated;
+
+  /// Every fee the bet cost: the venue's, Kute's and its funding legs'.
+  /// The venue reports none with the fill, so it is always an estimate
+  /// and labelled one. Null leaves the row out.
+  final double? feeUsd;
 
   /// What else happened, under the check (a part fill: how much was
   /// bought, and that the rest was not).
@@ -77,6 +84,7 @@ class BetPlacedOverlay extends StatelessWidget {
     required this.avgPrice,
     required this.potentialPayout,
     this.estimated = false,
+    this.feeUsd,
     this.note,
     this.position,
   });
@@ -95,6 +103,10 @@ class BetPlacedOverlay extends StatelessWidget {
         l10n.betShares: '$approx${shares.toStringAsFixed(2)}',
         l10n.betReceiptPayout:
             '$approx\$${potentialPayout.toStringAsFixed(2)}',
+        if (feeUsd case final fee?)
+          // To the cent up: a fee never reads less than it cost.
+          l10n.feeUiEstimatedFee:
+              '\$${(((fee * 100) - 1e-6).ceil() / 100).toStringAsFixed(2)}',
       },
       detail: note ?? (estimated ? l10n.betReceiptUpdating : null),
       onDone: () => Navigator.of(context).pop(),

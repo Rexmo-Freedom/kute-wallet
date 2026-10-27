@@ -10803,6 +10803,18 @@ class AppLocalizationsNl extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Verplaatsen vanuit Dollars';
+
+  @override
+  String get slipMoveFromBitcoin => 'Verplaatsen vanuit Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Verplaatsen vanuit Beleggen';
+
+  @override
+  String get slipMoveFromPredictions => 'Verplaatsen vanuit Voorspellingen';
+
+  @override
   String get addMoneyToInvestments => 'Geld toevoegen aan Investments';
 
   @override

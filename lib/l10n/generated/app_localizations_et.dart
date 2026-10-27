@@ -10755,6 +10755,18 @@ class AppLocalizationsEt extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Ülekanne Dollaritest';
+
+  @override
+  String get slipMoveFromBitcoin => 'Ülekanne Bitcoinist';
+
+  @override
+  String get slipMoveFromInvesting => 'Ülekanne Investeerimisest';
+
+  @override
+  String get slipMoveFromPredictions => 'Ülekanne Ennustustest';
+
+  @override
   String get addMoneyToInvestments => 'Lisa raha Investmentsisse';
 
   @override

@@ -3180,6 +3180,9 @@ class PolymarketTradingNotifier
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    // A market buy's stake: the order spends exactly this, to the cent,
+    // not [size] × [price] floored (PolymarketOrderAmounts.encode).
+    double? spendUsd,
     // Optional metadata for optimistic position display
     String? marketTitle,
     String? marketImage,
@@ -3262,6 +3265,10 @@ class PolymarketTradingNotifier
     // the order are signed, so drift throws `ReauthRequired` and nothing is
     // sent. The in-order self-heal below re-checks it on every retry.
     final grantIsBuy = side == OrderSide.buy;
+    final marketSpend = grantIsBuy &&
+            (orderType == OrderType.fok || orderType == OrderType.fak)
+        ? spendUsd
+        : null;
     SensitiveIntent executedOrder() => PmGrants.executedOrder(
           grant,
           walletId: _credentialsWalletId() ?? '',
@@ -3270,6 +3277,7 @@ class PolymarketTradingNotifier
           size: size,
           price: price,
           orderType: orderType.name,
+          spendUsd: marketSpend,
         );
     PmGrants.consumeOrder(
       grant,
@@ -3279,6 +3287,7 @@ class PolymarketTradingNotifier
       size: size,
       price: price,
       orderType: orderType.name,
+      spendUsd: marketSpend,
     );
 
     // The derived deposit address alone does not mean the contract or its
@@ -3384,7 +3393,9 @@ class PolymarketTradingNotifier
     // The venue counts the fees against pUSD too: a buy whose notional
     // fits pUSD but not its fees is refused all the same.
     final buyCostMicros = side == OrderSide.buy
-        ? polyBuyCostMicros(size: size, price: price) +
+        ? (marketSpend != null
+                ? polymarketMarketBuyBudgetMicros(marketSpend)
+                : polyBuyCostMicros(size: size, price: price)) +
             BigInt.from(((marketQuote?.tokenId == tokenId
                         ? marketQuote!.feeCeiling +
                             PolymarketMarketBuyQuote.roundingHeadroom
@@ -3479,6 +3490,7 @@ class PolymarketTradingNotifier
               eoaAddress: live.walletAddress ?? current.walletAddress!,
               orderType: orderType,
               preparedTerms: terms,
+              spendUsd: marketSpend,
             );
           }
 
@@ -4073,6 +4085,7 @@ class PolymarketTradingNotifier
     String? proxyWallet,
     PolymarketMarketBuyQuote? preparedTerms,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
   }) async {
     ensureCurrent();
     final hasWallet = proxyWallet != null && proxyWallet.isNotEmpty;
@@ -4125,6 +4138,7 @@ class PolymarketTradingNotifier
       size: size,
       isBuy: side == OrderSide.buy,
       isMarket: orderType == OrderType.fok || orderType == OrderType.fak,
+      spendUsd: side == OrderSide.buy ? spendUsd : null,
     );
     final makerAmount = amounts.maker;
     final takerAmount = amounts.taker;

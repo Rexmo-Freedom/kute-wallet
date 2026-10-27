@@ -1430,11 +1430,19 @@ class PendingBetAutoFire {
           shares = (minShares * 100).ceilToDouble() / 100;
         }
         orderedShares = shares;
+        // The stake itself is signed, to the cent, never the floored
+        // shares × price (a typed \$5.00 signed as \$4.99); the venue's
+        // minimum when the shares were lifted to it.
+        final spend = max(stake, shares * fill.orderPrice);
         final actual = withFunding(PmIntents.order(
           walletId: tradingNotifier.signingWalletId ?? '',
           tokenId: intent.tokenId,
           isBuy: true,
-          amountMax: PmGrants.buyCostMicros(shares, fill.orderPrice),
+          amountMax: PmGrants.orderAmount(
+              isBuy: true,
+              size: shares,
+              price: fill.orderPrice,
+              spendUsd: spend),
           limitPrice: fill.orderPrice,
           orderType: OrderType.fak.name,
           maxSlippageBps: IntentUnits.bps(slippage),
@@ -1469,6 +1477,7 @@ class PendingBetAutoFire {
             tokenId: intent.tokenId,
             side: OrderSide.buy,
             size: shares,
+            spendUsd: spend,
             negRisk: fill.quote.negRisk,
             marketQuote: fill.quote,
             price: fill.orderPrice,

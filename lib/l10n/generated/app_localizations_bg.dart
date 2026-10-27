@@ -10788,6 +10788,18 @@ class AppLocalizationsBg extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Преместване от Долари';
+
+  @override
+  String get slipMoveFromBitcoin => 'Преместване от Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Преместване от Инвестиране';
+
+  @override
+  String get slipMoveFromPredictions => 'Преместване от Прогнози';
+
+  @override
   String get addMoneyToInvestments => 'Добави пари в Investments';
 
   @override
