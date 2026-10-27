@@ -397,12 +397,13 @@ void main() {
     expect(find.byType(KuteBottomActionBar), findsOneWidget);
   });
 
-  testWidgets('the Dollars dock searches the spending account\'s activity',
+  testWidgets('the Portfolio pill\'s dock opens search on All',
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
-    // The Positions pill's square searches the activity; a venue pill's
-    // searches that venue's markets.
+    // The Portfolio pill's square opens the whole search on All, never
+    // the spending wallet's history alone (founder, 27 October 2026); a
+    // venue pill's searches that venue's markets.
     container.read(investmentsTabProvider.notifier).state =
         InvestmentsTab.positions;
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
@@ -410,9 +411,9 @@ void main() {
     await tester.tap(find.byType(KuteDogMagnifier));
     await tester.pumpAndSettle();
     expect(find.byType(UnifiedSearchSurface), findsOneWidget);
-    expect(container.read(searchWalletScopeProvider), 'spending');
+    expect(container.read(searchWalletScopeProvider), isNull);
     expect(container.read(selectedSearchCategoryProvider),
-        SearchCategory.transactions);
+        SearchCategory.all);
     expect(tester.takeException(), isNull);
   });
 
