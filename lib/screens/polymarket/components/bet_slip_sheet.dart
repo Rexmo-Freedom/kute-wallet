@@ -1047,6 +1047,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // offline_grace, …), so bet_slip_abandoned says why the slip stopped.
     var reason = 'capability_unavailable';
     var offline = false;
+    CapabilityUnavailableException? denial;
     try {
       await RuntimeCapabilitiesService.instance
           .ensureAllAllowed(_betCapabilities());
@@ -1060,6 +1061,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       regionBlocked = decision.regionRestricted;
       if (decision.reason.isNotEmpty) reason = decision.reason;
       offline = decision.offline;
+      denial = error;
     }
     if (!mounted || _isPlacing || _buyInFlight) return;
     if (message == null) {
@@ -1109,6 +1111,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     // confirms it.
     if (regionBlocked && _draft.openBlockMessage == null) {
       TrackingService.polymarketGeoblockedShown();
+      if (denial != null) {
+        TrackingService.capabilityRegionBlocked(denial.capability,
+            blockedBy: denial.decision.blockedBy, surface: 'bet_slip');
+      }
     }
     _stopped(regionBlocked ? 'geoblocked' : reason);
     _draft.lastErrorCategory = reason;

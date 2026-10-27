@@ -181,6 +181,7 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
     Duration maxAge = Duration.zero}) async {
   late String message;
   var regionBlocked = false;
+  ({String capability, CapabilityDecision decision})? denial;
   final l10n = context.l10n;
   try {
     // At confirm the ticket re-checks what it checked when it opened; a
@@ -192,8 +193,9 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
         .ensureAllAllowed(capabilities ?? [capability], maxAge: maxAge);
     return false;
   } on CapabilityUnavailableException catch (error) {
-    message = error.decision.messageIn(l10n);
+    message = error.decision.bodyIn(l10n);
     regionBlocked = error.decision.regionRestricted;
+    denial = (capability: error.capability, decision: error.decision);
   } on ProviderAvailabilityException catch (error) {
     message = error.availability.messageIn(l10n);
     regionBlocked =
@@ -209,6 +211,8 @@ Future<bool> checkHyperliquidGeoblock(BuildContext context, WidgetRef ref,
     context,
     message: message,
     regionRestricted: regionBlocked,
+    denial: denial,
+    surface: 'investing_gate_sheet',
     title: l10n.gateInvestingUnavailable,
     capabilities: capabilities ?? [capability],
   ));
@@ -712,6 +716,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   Future<void> _resolveOpenGate() async {
     String? message;
     var regionBlocked = false;
+    CapabilityUnavailableException? denial;
     try {
       await ref
           .read(runtimeCapabilitiesProvider)
@@ -719,6 +724,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     } on CapabilityUnavailableException catch (error) {
       message = error.decision.message;
       regionBlocked = error.decision.regionRestricted;
+      denial = error;
     } on ProviderAvailabilityException catch (error) {
       message = error.availability.message;
       regionBlocked =
@@ -742,6 +748,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Counted once per refusal shown, not again for each re-check.
     if (regionBlocked && _openGateMessage == null) {
       TrackingService.hyperliquidGeoblockedShown();
+      if (denial != null) {
+        TrackingService.capabilityRegionBlocked(denial.capability,
+            blockedBy: denial.decision.blockedBy, surface: 'order_slip');
+      }
     }
     _updateDraft(() {
       _openGateMessage = message;

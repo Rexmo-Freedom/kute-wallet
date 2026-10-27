@@ -13,9 +13,14 @@
 // the container's own safe-area and home-indicator handling. No artwork,
 // no reason codes.
 //
-// Title: "Not available in your region" for a region block, whose body is
-// the network / VPN sentence; the caller's title (or the generic
-// "Unavailable") for anything else.
+// Title: for a region block whose regions the backend names (founder
+// decision, 27 October 2026: region blocks live only in the backend
+// policy), "Not available in the European Union, the UK and Switzerland"
+// over the one VPN sentence allowed ("If this isn't where you are, check
+// your VPN settings."); "Not available in your region" over the
+// connection sentence for one it does not name; the caller's title (or
+// the generic "Unavailable") for anything else. A block a capability
+// inherits (`blockedBy`) reads the same.
 //
 // A region block's one button is "Check connection" instead of "Got it"
 // (founder decision, October 2026; lib/services/region_freshness.dart):
@@ -38,6 +43,7 @@ import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/success_feedback.dart'
     show moneyFailureFeedbackAfterBand;
+import 'package:kute/services/tracking_service.dart';
 
 class CapabilityUnavailableSheet extends StatefulWidget {
   const CapabilityUnavailableSheet({
@@ -45,6 +51,7 @@ class CapabilityUnavailableSheet extends StatefulWidget {
     required this.message,
     this.regionRestricted = false,
     this.title,
+    this.regionTitle,
     this.capabilities,
     this.venues = const [],
   });
@@ -60,6 +67,11 @@ class CapabilityUnavailableSheet extends StatefulWidget {
   /// Title for a block that is not about the region. Defaults to the
   /// generic "Unavailable".
   final String? title;
+
+  /// A region block's title when the backend named its regions
+  /// ([CapabilityDecision.regionTitleIn]); the generic "Not available in
+  /// your region" otherwise.
+  final String? regionTitle;
 
   /// What a region block was opened for, read again after "Check
   /// connection": the policy capabilities (and the venues gating them).
@@ -112,7 +124,7 @@ class _CapabilityUnavailableSheetState
         children: [
           AppBottomSheetHeader(
             title: region
-                ? l10n.capabilityRegionTitle
+                ? (widget.regionTitle ?? l10n.capabilityRegionTitle)
                 : (widget.title ?? l10n.gateUnavailableTitle),
             subtitle: widget.message,
           ),
@@ -156,16 +168,29 @@ bool _opening = false;
 /// (a region block; [capabilities] and [venues] as on
 /// [CapabilityUnavailableSheet]), so the caller may go on into the
 /// action. Does nothing (false) while one is already showing.
+///
+/// [denial] is Kute's policy refusal behind the sheet, when there is one
+/// (the capability and its decision): a region block names its regions in
+/// the title when the backend did, and is counted once as
+/// `capability_region_blocked` on [surface].
 Future<bool> showCapabilityUnavailableSheet(
   BuildContext context, {
   required String message,
   bool regionRestricted = false,
   String? title,
+  String? regionTitle,
   Iterable<String>? capabilities,
   Iterable<InvestmentProvider> venues = const [],
+  ({String capability, CapabilityDecision decision})? denial,
+  String surface = 'unavailable_sheet',
 }) async {
   if (_opening || _openSheet?.mounted == true || !context.mounted) {
     return false;
+  }
+  if (denial != null && denial.decision.regionRestricted) {
+    regionTitle ??= denial.decision.regionTitleIn(context.l10n);
+    TrackingService.capabilityRegionBlocked(denial.capability,
+        blockedBy: denial.decision.blockedBy, surface: surface);
   }
   _opening = true;
   try {
@@ -178,6 +203,7 @@ Future<bool> showCapabilityUnavailableSheet(
           message: message,
           regionRestricted: regionRestricted,
           title: title,
+          regionTitle: regionTitle,
           capabilities: capabilities,
           venues: venues,
         );
@@ -201,19 +227,23 @@ Future<void> showBuyUnavailableSheet(BuildContext context) {
 
 /// The shared sheet for a policy [decision] that denies [capability]
 /// (when the caller knows it: "Check connection" reads it again). True
-/// when "Check connection" found it allowed now.
+/// when "Check connection" found it allowed now. A region block names
+/// the backend's regions in the title, over the VPN sentence.
 Future<bool> showCapabilityDecisionSheet(
   BuildContext context,
   CapabilityDecision decision, {
   String? title,
   String? capability,
+  String surface = 'unavailable_sheet',
 }) =>
     showCapabilityUnavailableSheet(
       context,
-      message: decision.messageIn(context.l10n),
+      message: decision.bodyIn(context.l10n),
       regionRestricted: decision.regionRestricted,
       title: title,
       capabilities: capability == null ? null : [capability],
+      denial: (capability: capability ?? 'unknown', decision: decision),
+      surface: surface,
     );
 
 /// The shared sheet for whatever [error] a capability check threw: the
@@ -223,10 +253,11 @@ Future<bool> showCapabilityErrorSheet(
   BuildContext context,
   Object error, {
   String? title,
+  String surface = 'unavailable_sheet',
 }) async {
   if (error is CapabilityUnavailableException) {
     await showCapabilityDecisionSheet(context, error.decision,
-        title: title, capability: error.capability);
+        title: title, capability: error.capability, surface: surface);
     return true;
   }
   if (error is ProviderAvailabilityException) {

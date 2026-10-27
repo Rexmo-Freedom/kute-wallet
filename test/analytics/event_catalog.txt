@@ -90,6 +90,7 @@ buy_currency_picker_opened
 buy_started
 buy_step
 buy_submitted
+capability_region_blocked
 cashapp_amount_out_of_band
 cashapp_buy_cancelled
 cashapp_buy_completed

@@ -4869,6 +4869,20 @@ class TrackingService {
   static void hyperliquidGeoblockedShown() =>
       track('hyperliquid_geoblocked_shown');
 
+  /// Kute's runtime policy refused [capability] for a region, and the
+  /// person saw it on [surface] (a sheet, a ticket, a picker row). Fixed
+  /// ids only: the capability, the capability whose block it inherits
+  /// ([blockedBy], `none` for its own) and the surface. Never a country,
+  /// a region label or anything about the connection: the backend's
+  /// decision already holds that.
+  static void capabilityRegionBlocked(String capability,
+          {String blockedBy = '', required String surface}) =>
+      track('capability_region_blocked', params: {
+        'capability': capability,
+        'blocked_by': blockedBy.isEmpty ? 'none' : blockedBy,
+        'surface': surface,
+      });
+
   // The old vault "Earn" helpers were removed with that integration, and
   // the Flashnet USDB Earn funnel that replaced them was removed with the
   // Earn product itself. Retire both sets of event names (earn_*, usdb_*,

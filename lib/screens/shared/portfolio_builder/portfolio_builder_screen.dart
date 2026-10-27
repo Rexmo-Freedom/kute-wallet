@@ -333,6 +333,12 @@ class _PortfolioBuilderScreenState
     _blockTracked = true;
     if (block.region) {
       TrackingService.polymarketGeoblockedShown();
+      final decision =
+          ref.read(runtimeCapabilitiesProvider).decision(block.capability);
+      if (decision.regionRestricted) {
+        TrackingService.capabilityRegionBlocked(block.capability,
+            blockedBy: decision.blockedBy, surface: 'portfolio_builder');
+      }
     } else {
       TrackingService.track('feature_unavailable_shown', params: {
         'feature': 'predictions',

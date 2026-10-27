@@ -22,6 +22,7 @@ import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _en = lookupAppLocalizations(const Locale('en'));
@@ -85,6 +86,57 @@ void main() {
 
     await dismiss(tester);
     expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a region the backend named: "Not available in …" over the one VPN '
+      'sentence, Check connection, counted once without the region',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final context = await pumpHost(tester);
+    final decision = CapabilityDecision.fromJson({
+      'allowed': false,
+      'reason': 'country_blocked',
+      'blockedBy': 'orchestra.swap',
+      'message': 'The operator text of orchestra.swap.',
+      'regions': {
+        'label': 'the European Union, the UK and Switzerland',
+        'labels': {'pt': 'na União Europeia, no Reino Unido e na Suíça'},
+        'groups': ['EU', 'UK'],
+        'countries': ['CH'],
+      },
+    });
+    showCapabilityDecisionSheet(context, decision,
+        capability: 'hyperliquid.deposit', surface: 'investing_deposit');
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text(
+            'Not available in the European Union, the UK and Switzerland'),
+        findsOneWidget);
+    expect(find.text("If this isn't where you are, check your VPN settings."),
+        findsOneWidget);
+    expect(find.text(_en.capabilityRegionTitle), findsNothing);
+    expect(find.textContaining('operator text'), findsNothing);
+    expect(find.text(_en.checkConnection), findsOneWidget);
+    expect(find.textContaining(RegExp(r'use (a )?VPN', caseSensitive: false)),
+        findsNothing);
+    expect(
+        events
+            .where((e) => e.$1 == 'capability_region_blocked')
+            .map((e) => e.$2)
+            .toList(),
+        [
+          {
+            'capability': 'hyperliquid.deposit',
+            'blocked_by': 'orchestra.swap',
+            'surface': 'investing_deposit',
+          }
+        ]);
+    await dismiss(tester);
     expect(tester.takeException(), isNull);
   });
 

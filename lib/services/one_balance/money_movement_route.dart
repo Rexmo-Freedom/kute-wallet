@@ -301,18 +301,27 @@ String moneyMovementFailureReason(Object e, {required bool fundingStarted}) {
 /// a [region] refusal, disabled otherwise. [capability] is the fixed id
 /// for analytics, [reason] the policy's fixed reason code
 /// (`country_blocked`, `disabled`, `policy_unavailable`, …;
-/// `venue_restricted` for a venue's own location answer).
+/// `venue_restricted` for a venue's own location answer), [blockedBy]
+/// the capability a cascaded block inherits (empty for its own). A region
+/// block the backend named reads "Not available in …" over the VPN
+/// sentence ([CapabilityDecision.messageIn]).
 class MoneyMovementRestriction {
   const MoneyMovementRestriction(
       {required this.capability,
       required this.message,
       required this.region,
-      this.reason = ''});
+      this.reason = '',
+      this.blockedBy = ''});
 
   final String capability;
   final String message;
   final bool region;
   final String reason;
+  final String blockedBy;
+
+  /// Kute's own policy refused the route for a region (not a venue's own
+  /// location answer).
+  bool get policyRegion => region && reason != 'venue_restricted';
 
   /// Kute's runtime policy refusing [capability].
   factory MoneyMovementRestriction.ofDecision(
@@ -321,7 +330,8 @@ class MoneyMovementRestriction {
           capability: capability,
           message: decision.message,
           region: decision.regionRestricted,
-          reason: decision.reason);
+          reason: decision.reason,
+          blockedBy: decision.blockedBy);
 
   @override
   bool operator ==(Object other) =>
@@ -329,10 +339,12 @@ class MoneyMovementRestriction {
       other.capability == capability &&
       other.message == message &&
       other.region == region &&
-      other.reason == reason;
+      other.reason == reason &&
+      other.blockedBy == blockedBy;
 
   @override
-  int get hashCode => Object.hash(capability, message, region, reason);
+  int get hashCode =>
+      Object.hash(capability, message, region, reason, blockedBy);
 }
 
 /// The first of [capabilities] (a plan's, [MoneyMovementPlan.capabilities])

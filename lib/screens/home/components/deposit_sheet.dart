@@ -750,6 +750,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         '${route.code}|${restriction.capability}|${restriction.reason}')) {
       return;
     }
+    if (restriction.policyRegion) {
+      TrackingService.capabilityRegionBlocked(restriction.capability,
+          blockedBy: restriction.blockedBy, surface: 'money_movement');
+    }
     final venue = restriction.capability.startsWith('polymarket.')
         ? 'polymarket'
         : restriction.capability.startsWith('hyperliquid.')
