@@ -24,6 +24,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/constants/polymarket_constants.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 
 /// Where a resolved builder code came from: the runtime policy snapshot,
 /// the backend this run, the copy kept on the device from an earlier run,
@@ -253,10 +254,17 @@ class PolymarketBuilderCodeResolver {
     final backend = baseUrl().replaceFirst(RegExp(r'/$'), '');
     if (backend.isEmpty) return ResolvedBuilderCode.none;
     final clock = Stopwatch()..start();
+    // Platform and app version, as every call to Kute's backend sends.
+    var context = const <String, String>{};
+    try {
+      context =
+          await RuntimeCapabilitiesService.instance.requestContextHeaders();
+    } catch (_) {}
     for (final timeout in timeouts) {
       try {
         final response = await client()
             .get(Uri.parse('$backend/api/v1/pm/builder-code'), headers: {
+          ...context,
           if (bearer != null && bearer.isNotEmpty)
             'Authorization': 'Bearer $bearer',
         }).timeout(timeout);

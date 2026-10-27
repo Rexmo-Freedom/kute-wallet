@@ -12,11 +12,19 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 /// are bitcoin, USDC or USDT, `orchestra.swap.altcoins` when either leg is
 /// anything else. A move between the person's own bitcoin rails, or of the
 /// dollar balance (USDB), answers to the master alone.
+///
+/// Bitcoin to bitcoin ([orchestraBitcoinOnlyRoute]: bitcoin, Lightning or
+/// Spark on both legs, no dollars) is plain bitcoin, which no region ever
+/// blocks: the backend's guard ignores country rules on `orchestra.swap`
+/// for it, so a COUNTRY refusal of the master (`country_*`, read from
+/// [policy], the app's own by default) asks nothing of it. Only the
+/// master switched off for everyone still stops it.
 List<String> orchestraCapabilityRequirements({
   required String sourceChain,
   required String sourceAsset,
   required String destinationChain,
   required String destinationAsset,
+  RuntimeCapabilitiesService? policy,
 }) {
   final source = sourceChain.trim().toLowerCase();
   final destination = destinationChain.trim().toLowerCase();
@@ -29,12 +37,40 @@ List<String> orchestraCapabilityRequirements({
       'polymarket.deposit',
   ];
   if (caps.isNotEmpty) return caps;
+  if (orchestraBitcoinOnlyRoute(
+      sourceChain: sourceChain,
+      sourceAsset: sourceAsset,
+      destinationChain: destinationChain,
+      destinationAsset: destinationAsset)) {
+    final swap = (policy ?? RuntimeCapabilitiesService.instance)
+        .decision('orchestra.swap');
+    if (!swap.allowed && !swap.comingSoon && swap.reason.startsWith('country_')) {
+      return const [];
+    }
+  }
   return [
     'orchestra.swap',
     if (orchestraSwapClassCapability(sourceAsset, destinationAsset)
         case final gate?)
       gate,
   ];
+}
+
+/// Whether a route moves bitcoin to bitcoin on the person's bitcoin rails
+/// (`bitcoin`, `lightning` or `spark` on both legs, BTC on both, never
+/// the dollar balance): the shape the backend exempts from country rules
+/// on `orchestra.swap`.
+bool orchestraBitcoinOnlyRoute({
+  required String sourceChain,
+  required String sourceAsset,
+  required String destinationChain,
+  required String destinationAsset,
+}) {
+  const rails = {'bitcoin', 'lightning', 'spark'};
+  return rails.contains(sourceChain.trim().toLowerCase()) &&
+      rails.contains(destinationChain.trim().toLowerCase()) &&
+      sourceAsset.trim().toUpperCase() == 'BTC' &&
+      destinationAsset.trim().toUpperCase() == 'BTC';
 }
 
 /// The class gate a non-venue route needs on top of `orchestra.swap`, or

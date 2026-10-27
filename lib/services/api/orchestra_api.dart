@@ -399,8 +399,12 @@ class OrchestraService {
       return null;
     }
 
+    // Kute's backend hears the platform and app version on every call,
+    // as on the policy fetch, so its platform rules read the same.
     final fromBackend = await tryGet(
-        Uri.parse('$_baseUrl/limits').replace(queryParameters: query));
+        Uri.parse('$_baseUrl/limits').replace(queryParameters: query),
+        headers:
+            await RuntimeCapabilitiesService.instance.requestContextHeaders());
     if (fromBackend != null) return fromBackend;
     return tryGet(Uri.parse('$_publicBaseUrl/v1/orchestration/limits')
         .replace(queryParameters: query));

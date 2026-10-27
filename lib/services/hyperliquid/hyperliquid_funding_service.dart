@@ -185,6 +185,8 @@ class HyperliquidFundingService {
     if (backend.isEmpty) return _noBuilder('no_backend');
 
     final headers = {
+      // Platform and app version, as every call to Kute's backend sends.
+      ...await RuntimeCapabilitiesService.instance.requestContextHeaders(),
       if (session != null && session.isNotEmpty)
         'Authorization': 'Bearer $session',
     };
