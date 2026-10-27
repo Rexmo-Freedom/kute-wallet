@@ -3109,8 +3109,6 @@
   "pnlChartEmpty": "Gdy zaczniesz handlować lub przewidywać, tu zobaczysz swój zysk i stratę",
   "portfolioPositionsCount": "{count, plural, =1{1 pozycja} few{{count} pozycje} many{{count} pozycji} other{{count} pozycji}}",
   "portfolioBuyingPower": "Siła nabywcza",
-  "portfolioBuyingPowerHint": "Gotowe na każdą transakcję lub prognozę",
-  "portfolioTotalInvestments": "Inwestycje łącznie",
   "portfolioNoOpenPositions": "Brak otwartych pozycji",
   "portfolioRowShares": "Udziały: {shares} · śr. {price}",
   "portfolioRowEntry": "wejście {price}"

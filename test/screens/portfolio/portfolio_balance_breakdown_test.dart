@@ -1586,8 +1586,8 @@ void main() {
     });
 
     testWidgets(
-        "the founder's wallet: Buying power big with the ring, one Move "
-        'money pill and no Add money, Total investments, then each venue',
+        "the founder's wallet: a bare ring beside Buying power and its "
+        'amount, a Move money link, no repeated total, then each venue',
         (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
@@ -1595,41 +1595,67 @@ void main() {
       await tester.pumpAndSettle();
       final light = AppColorsExtension.light();
 
-      // Buying power: the dotted label, the big figure, the hint.
-      expect(find.text('Buying power'), findsOneWidget);
-      expect(category(tester, 'buyingPower'), r'$17.64');
-      expect(
-          tester
-              .widget<RollingFigure>(find.descendant(
-                  of: find.byKey(const ValueKey(
-                      'portfolio-balance-category-buyingPower-amount')),
-                  matching: find.byType(RollingFigure)))
-              .style
-              .fontSize,
-          greaterThan(30));
-      expect(line(tester, 'buyingPower'), 'Ready for any trade or prediction');
-
-      // The ring beside it: small, the total in its hole, a slice per
-      // non-empty category in its own colour (Investing, at 0%, has none),
-      // and no legend, no percentages.
-      expect(find.text('Total'), findsOneWidget);
-      expect(figureOf(tester, 'portfolio-balance-total'), r'$35.03');
+      // The ring on the left: small, a slice per non-empty category in its
+      // own colour (Investing, at 0%, has none), no text inside (the hero
+      // carries the total), no legend, no percentages.
       final ring =
           tester.getRect(find.byKey(const ValueKey('portfolio-balance-ring')));
-      expect(ring.width, lessThanOrEqualTo(100));
+      expect(ring.width, lessThanOrEqualTo(64));
       expect(
-          ring.left,
-          greaterThan(tester
-              .getRect(find.byKey(const ValueKey(
-                  'portfolio-balance-category-buyingPower-amount')))
-              .right));
+          find.descendant(
+              of: find.byKey(const ValueKey('portfolio-balance-ring')),
+              matching: find.byType(Text)),
+          findsNothing);
+      expect(find.text('Total'), findsNothing);
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-total')), findsNothing);
+      expect(find.text(r'$35.03'), findsNothing);
+      expect(_figure(r'$35.03'), findsNothing);
       expect(slices(tester).map((s) => s.id),
           [BalancesCategory.buyingPower, BalancesCategory.predictions]);
       expect(slices(tester).map((s) => s.color),
           [light.chartCategorical[0], light.chartCategorical[2]]);
       expect(slices(tester)[0].value, moreOrLessEquals(17.64 / 35.03));
       expect(find.textContaining('%'), findsNothing);
-      expect(find.byKey(const ValueKey('portfolio-balance-legend-share')),
+
+      // Buying power to its right: the label and its amount on one row, the
+      // amount at the venue headers' size (not a big figure), ending on
+      // their column.
+      expect(find.text('Buying power'), findsOneWidget);
+      expect(category(tester, 'buyingPower'), r'$17.64');
+      final bpAmount = find.byKey(
+          const ValueKey('portfolio-balance-category-buyingPower-amount'));
+      final style = tester
+          .widget<RollingFigure>(find.descendant(
+              of: bpAmount, matching: find.byType(RollingFigure)))
+          .style;
+      final venueStyle = tester
+          .widget<RollingFigure>(find.descendant(
+              of: find.byKey(const ValueKey(
+                  'portfolio-balance-category-predictions-amount')),
+              matching: find.byType(RollingFigure)))
+          .style;
+      expect(style.fontSize, venueStyle.fontSize);
+      expect(style.fontWeight, venueStyle.fontWeight);
+      // Ending on the venues' column: the overview's right edge.
+      expect(
+          tester.getRect(bpAmount).right,
+          moreOrLessEquals(
+              tester
+                  .getRect(
+                      find.byKey(const ValueKey('portfolio-balance-overview')))
+                  .right,
+              epsilon: 0.5));
+      expect(tester.getRect(bpAmount).left, greaterThan(ring.right));
+      final label = tester.getRect(find.text('Buying power'));
+      expect(label.left, greaterThan(ring.right));
+      expect(tester.getRect(bpAmount).center.dy,
+          moreOrLessEquals(label.center.dy, epsilon: 3));
+      // The tagline and Total investments are gone.
+      expect(find.text('Ready for any trade or prediction'), findsNothing);
+      expect(find.text('Total investments'), findsNothing);
+      expect(find.text('Invested'), findsNothing);
+      expect(find.byKey(const ValueKey('portfolio-balance-invested')),
           findsNothing);
 
       // Where it sits stays folded until its chevron.
@@ -1637,32 +1663,17 @@ void main() {
           find.byKey(const ValueKey('portfolio-balance-split')), findsNothing);
       expect(find.text('Hyperliquid'), findsNothing);
 
-      // Total investments under the hint: what both venues have at work,
-      // the label quiet, the amount primary; no Invested heading row.
-      final invested = tester
-          .getRect(find.byKey(const ValueKey('portfolio-balance-invested')));
-      expect(find.text('Total investments'), findsOneWidget);
-      expect(find.text('Invested'), findsNothing);
-      expect(figureOf(tester, 'portfolio-balance-invested-amount'), r'$17.39');
-      final hint = tester.getRect(find.byKey(
-          const ValueKey('portfolio-balance-category-buyingPower-line')));
-      expect(invested.top, greaterThanOrEqualTo(hint.bottom));
-      expect(invested.left, moreOrLessEquals(hint.left, epsilon: 0.5));
-
-      // Move money: a pill like the section pills' selected one, under
-      // Total investments on the left, not a full-width button; no Add
-      // money.
-      final pill = tester.widget<KutePill>(_rebalance);
-      expect(pill.selected, isTrue);
-      expect(pill.label, 'Move money');
+      // Move money: a quiet text link under Buying power, no pill, no
+      // button, no Add money.
+      expect(find.text('Move money'), findsOneWidget);
+      expect(find.byType(KutePill), findsNothing);
       expect(find.byType(AppButton), findsNothing);
       expect(find.text('Add money'), findsNothing);
       final move = tester.getRect(_rebalance);
-      final overview = tester
-          .getRect(find.byKey(const ValueKey('portfolio-balance-overview')));
-      expect(move.width, lessThan(overview.width / 2));
-      expect(move.left, moreOrLessEquals(overview.left, epsilon: 0.5));
-      expect(move.top, greaterThan(invested.bottom));
+      expect(move.top, greaterThanOrEqualTo(label.bottom));
+      expect(move.left, greaterThan(ring.right));
+      expect(tester.widget<Text>(find.text('Move money')).style!.color,
+          light.textSecondary);
 
       // Predictions: its count and value; Investing, nothing open, says so
       // in place of a figure and lists nothing.
@@ -1684,18 +1695,25 @@ void main() {
       final pr = _tile(tester, 'category-predictions');
       final inv = _tile(tester, 'category-investing');
       expect(pr.top, greaterThan(move.bottom));
+      expect(pr.top, greaterThan(ring.bottom));
       expect(inv.top, greaterThanOrEqualTo(pr.bottom));
       // The old rows' words are gone.
       expect(find.text('2 open'), findsNothing);
       expect(find.text('Ready to use'), findsNothing);
       expect(find.text('In positions'), findsNothing);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      // The only chevron to the right is Move money's own.
+      expect(
+          find.descendant(
+              of: _rebalance,
+              matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
       // Drawn once, then still: nothing ticks.
       expect(tester.binding.hasScheduledFrame, isFalse);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the Move money pill opens the movement review, as before',
+    testWidgets('the Move money link opens the movement review, as before',
         (tester) async {
       final events = _events();
       final c = await _pump(tester, home: overviewBreakdown, overrides: [
@@ -1738,7 +1756,10 @@ void main() {
               _tile(tester, 'category-buyingPower').bottom - 0.01));
       expect(pm.top, greaterThanOrEqualTo(hl.bottom - 0.01));
       expect(usd.top, greaterThanOrEqualTo(pm.bottom - 0.01));
-      expect(tester.getRect(_rebalance).top, greaterThan(usd.bottom));
+      // Under the top row (Move money included), above the venues.
+      expect(hl.top, greaterThan(tester.getRect(_rebalance).bottom));
+      expect(
+          _tile(tester, 'category-predictions').top, greaterThan(usd.bottom));
       // Folded again.
       await openSplit(tester);
       expect(
@@ -1806,7 +1827,6 @@ void main() {
           matching: find.byType(HlPositionRow));
       expect(predictionRows, findsNWidgets(2));
       expect(investingRows, findsOneWidget);
-      expect(figureOf(tester, 'portfolio-balance-invested-amount'), r'$618.50');
       expect(category(tester, 'predictions'), r'$6.00');
       expect(category(tester, 'investing'), r'$612.50');
       // Each venue's P&L, in the result colour: (0.5 - 0.4) x 10 = $1.00
@@ -1923,9 +1943,8 @@ void main() {
       expect(sweeping(tester, 'portfolio-balance-investing-amount'), isTrue);
       expect(category(tester, 'investing'), '—');
       expect(_inCard('investing', find.textContaining(r'$0.00')), findsNothing);
-      // The whole is not known: no total, no Invested, no slices.
-      expect(figureOf(tester, 'portfolio-balance-total'), '—');
-      expect(figureOf(tester, 'portfolio-balance-invested-amount'), '—');
+      // The whole is not known: no slices.
+
       expect(category(tester, 'buyingPower'), '—');
       expect(sweeping(tester, 'portfolio-balance-category-buyingPower-amount'),
           isTrue);

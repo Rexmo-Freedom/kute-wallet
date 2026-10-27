@@ -44,7 +44,6 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show showMoneyMovementSheet;
 import 'package:kute/screens/shared/kute_motion.dart'
@@ -611,22 +610,43 @@ class _PortfolioBalanceBreakdownState
       ),
     );
 
-    // Balances' Move money: a pill like the section pills' selected one,
-    // under Buying power, less prominent than the full-width button (founder,
-    // 27 October 2026). Same tap: the movement sheet; nothing while a
-    // Rebalance from before is still being sent.
-    final pill = RubberBandBusy(
+    // Balances' Move money: a quiet text link under Buying power (founder,
+    // 27 October 2026: no pill, no button). Same tap: the movement sheet;
+    // nothing while a Rebalance from before is still being sent.
+    final c = context.colors;
+    final link = RubberBandBusy(
       busy: rebalance.running,
       expected: kRebalanceSendExpected,
-      child: KutePill(
-        key: const ValueKey('portfolio-move-money'),
+      child: Semantics(
+        button: true,
         label: l10n.moveTransfer,
-        selected: true,
-        link: true,
-        onTap: () {
-          if (rebalance.running) return;
-          unawaited(showMoneyMovementSheet(context));
-        },
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: const ValueKey('portfolio-move-money'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (rebalance.running) return;
+            unawaited(showMoneyMovementSheet(context));
+          },
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.moveTransfer,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.1,
+                      height: 1.3,
+                    )),
+                Icon(Icons.chevron_right_rounded,
+                    size: 16.w, color: c.textSecondary),
+              ],
+            ),
+          ),
+        ),
       ),
     );
 
@@ -776,7 +796,7 @@ class _PortfolioBalanceBreakdownState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          overviewView(pill, stepsView),
+          overviewView(link, stepsView),
           SizedBox(height: 12.h),
         ],
       );

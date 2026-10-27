@@ -3109,8 +3109,6 @@
   "pnlChartEmpty": "A nyereséged és veszteséged itt jelenik meg, amint befektetsz vagy előrejelzést adsz",
   "portfolioPositionsCount": "{count, plural, =1{1 pozíció} other{{count} pozíció}}",
   "portfolioBuyingPower": "Vásárlóerő",
-  "portfolioBuyingPowerHint": "Bármilyen kereskedésre vagy előrejelzésre kész",
-  "portfolioTotalInvestments": "Összes befektetés",
   "portfolioNoOpenPositions": "Nincs nyitott pozíció",
   "portfolioRowShares": "{shares} egység · átl. {price}",
   "portfolioRowEntry": "belépés {price}"

@@ -3109,8 +3109,6 @@
   "pnlChartEmpty": "Je winst en verlies verschijnt hier zodra je handelt of voorspelt",
   "portfolioPositionsCount": "{count, plural, =1{1 positie} other{{count} posities}}",
   "portfolioBuyingPower": "Koopkracht",
-  "portfolioBuyingPowerHint": "Klaar voor elke trade of voorspelling",
-  "portfolioTotalInvestments": "Totale investeringen",
   "portfolioNoOpenPositions": "Geen open posities",
   "portfolioRowShares": "{shares} aandelen · gem. {price}",
   "portfolioRowEntry": "instap {price}"

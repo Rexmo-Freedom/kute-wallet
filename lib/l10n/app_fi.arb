@@ -3109,8 +3109,6 @@
   "pnlChartEmpty": "Voittosi ja tappiosi näkyvät tässä, kun käyt kauppaa tai ennustat",
   "portfolioPositionsCount": "{count, plural, =1{1 positio} other{{count} positiota}}",
   "portfolioBuyingPower": "Ostovoima",
-  "portfolioBuyingPowerHint": "Valmiina mihin tahansa kauppaan tai ennusteeseen",
-  "portfolioTotalInvestments": "Sijoitukset yhteensä",
   "portfolioNoOpenPositions": "Ei avoimia positioita",
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
   "portfolioRowEntry": "avaus {price}"

@@ -3109,8 +3109,6 @@
   "pnlChartEmpty": "Kui kaupled või ennustad, näed siin oma kasumit ja kahjumit",
   "portfolioPositionsCount": "{count, plural, =1{1 positsioon} other{{count} positsiooni}}",
   "portfolioBuyingPower": "Ostujõud",
-  "portfolioBuyingPowerHint": "Valmis igaks tehinguks või ennustuseks",
-  "portfolioTotalInvestments": "Investeeringud kokku",
   "portfolioNoOpenPositions": "Avatud positsioone pole",
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
   "portfolioRowEntry": "sisenemine {price}"

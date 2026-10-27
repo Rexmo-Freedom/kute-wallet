@@ -11194,13 +11194,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get portfolioBuyingPower => 'Købekraft';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Klar til enhver handel eller forudsigelse';
-
-  @override
-  String get portfolioTotalInvestments => 'Investeringer i alt';
-
-  @override
   String get portfolioNoOpenPositions => 'Ingen åbne positioner';
 
   @override

@@ -521,8 +521,9 @@ void main() {
     expect(find.text(l10n.ledgerPositionsTitle), findsNothing);
     expect(tester.widget<KutePill>(_section('balances')).selected, isTrue);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
-    // Balances: Buying power with the ring, Total investments, and Move
-    // money as a pill (no button, no Add money), which can be tapped.
+    // Balances: the bare ring, Buying power and its amount, and Move money
+    // as a quiet link (no pill, no button, no Add money), which can be
+    // tapped; no tagline, no Total investments.
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsOneWidget);
     expect(
@@ -530,9 +531,9 @@ void main() {
     final move = find.byKey(const ValueKey('portfolio-move-money'));
     expect(move.hitTestable(), findsOneWidget);
     expect(find.text(l10n.moveTransfer), findsOneWidget);
-    expect(tester.widget<KutePill>(move).selected, isTrue);
     expect(find.byType(AppButton), findsNothing);
-    expect(find.text(l10n.portfolioTotalInvestments), findsOneWidget);
+    expect(find.text('Total investments'), findsNothing);
+    expect(find.text('Ready for any trade or prediction'), findsNothing);
     expect(find.text(l10n.betInvested), findsNothing);
 
     // P&L charts: the chart, pair and figures; neither Balances nor the

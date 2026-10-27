@@ -11193,13 +11193,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get portfolioBuyingPower => 'Köpkraft';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Redo för alla affärer och förutsägelser';
-
-  @override
-  String get portfolioTotalInvestments => 'Totala investeringar';
-
-  @override
   String get portfolioNoOpenPositions => 'Inga öppna positioner';
 
   @override

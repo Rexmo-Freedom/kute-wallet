@@ -11223,13 +11223,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get portfolioBuyingPower => 'Kupovna moć';
 
   @override
-  String get portfolioBuyingPowerHint =>
-      'Spremno za bilo koju trgovinu ili predviđanje';
-
-  @override
-  String get portfolioTotalInvestments => 'Ukupno ulaganja';
-
-  @override
   String get portfolioNoOpenPositions => 'Nema otvorenih pozicija';
 
   @override
