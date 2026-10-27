@@ -10765,6 +10765,18 @@ class AppLocalizationsSk extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Presun z Dolárov';
+
+  @override
+  String get slipMoveFromBitcoin => 'Presun z Bitcoinu';
+
+  @override
+  String get slipMoveFromInvesting => 'Presun z Investovania';
+
+  @override
+  String get slipMoveFromPredictions => 'Presun z Predpovedí';
+
+  @override
   String get addMoneyToInvestments => 'Pridať peniaze do Investments';
 
   @override

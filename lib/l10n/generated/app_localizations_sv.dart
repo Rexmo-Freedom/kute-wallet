@@ -10758,6 +10758,18 @@ class AppLocalizationsSv extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Flytt från Dollar';
+
+  @override
+  String get slipMoveFromBitcoin => 'Flytt från Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Flytt från Investera';
+
+  @override
+  String get slipMoveFromPredictions => 'Flytt från Prognoser';
+
+  @override
   String get addMoneyToInvestments => 'Lägg till pengar i Investments';
 
   @override

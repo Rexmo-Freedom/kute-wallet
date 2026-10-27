@@ -10790,6 +10790,18 @@ class AppLocalizationsSl extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Prenos iz Dolarjev';
+
+  @override
+  String get slipMoveFromBitcoin => 'Prenos iz Bitcoina';
+
+  @override
+  String get slipMoveFromInvesting => 'Prenos iz Investiranja';
+
+  @override
+  String get slipMoveFromPredictions => 'Prenos iz Napovedi';
+
+  @override
   String get addMoneyToInvestments => 'Dodaj denar v Investments';
 
   @override

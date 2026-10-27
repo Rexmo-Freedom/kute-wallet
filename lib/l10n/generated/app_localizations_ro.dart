@@ -10818,6 +10818,18 @@ class AppLocalizationsRo extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Mutare din Dolari';
+
+  @override
+  String get slipMoveFromBitcoin => 'Mutare din Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Mutare din Investiții';
+
+  @override
+  String get slipMoveFromPredictions => 'Mutare din Predicții';
+
+  @override
   String get addMoneyToInvestments => 'Adaugă bani în Investments';
 
   @override

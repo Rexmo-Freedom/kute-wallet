@@ -18175,6 +18175,30 @@ abstract class AppLocalizations {
   /// **'Move fee'**
   String get slipMoveFee;
 
+  /// Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Dollars into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move from Dollars'**
+  String get slipMoveFromDollars;
+
+  /// Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Bitcoin into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move from Bitcoin'**
+  String get slipMoveFromBitcoin;
+
+  /// Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Investing into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move from Investing'**
+  String get slipMoveFromInvesting;
+
+  /// Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Predictions into the venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Move from Predictions'**
+  String get slipMoveFromPredictions;
+
   /// No description provided for @addMoneyToInvestments.
   ///
   /// In en, this message translates to:

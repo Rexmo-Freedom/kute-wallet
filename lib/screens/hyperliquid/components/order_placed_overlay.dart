@@ -29,6 +29,7 @@ void pushHlOrderPlacedOverlay({
   required double notionalUsd,
   HlPositionPlan? positionPlan,
   double? realizedPnl,
+  double? feeUsd,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
@@ -43,8 +44,26 @@ void pushHlOrderPlacedOverlay({
       notionalUsd: notionalUsd,
       positionPlan: positionPlan,
       realizedPnl: realizedPnl,
+      feeUsd: feeUsd,
     ),
   );
+}
+
+/// What the fills paid in fees, as Hyperliquid reports them with each fill
+/// (the exchange's fee with Kute's builder fee inside it): exact, from the
+/// provider. Null unless [fills] are the whole of [sizeFilled] and every
+/// fee is in USDC (a spot buy pays its fee in the coin it buys).
+double? hlFeeFromFills(Iterable<HlFill> fills, double sizeFilled) {
+  if (sizeFilled <= 0) return null;
+  var size = 0.0;
+  var fee = 0.0;
+  for (final f in fills) {
+    if (!f.fee.isFinite || f.feeToken != 'USDC') return null;
+    size += f.sz;
+    fee += f.fee;
+  }
+  if ((size - sizeFilled).abs() > 1e-9 * (1 + sizeFilled)) return null;
+  return fee >= 0 ? fee : null;
 }
 
 /// The receipt chip for a perp fill against a position already held,
@@ -104,6 +123,10 @@ class HlOrderPlacedOverlay extends StatelessWidget {
   /// Realised P&L net of fees, when the fills behind it are all in hand.
   final double? realizedPnl;
 
+  /// What the fills paid in fees, as Hyperliquid reported them
+  /// ([hlFeeFromFills]). Null leaves the row out.
+  final double? feeUsd;
+
   const HlOrderPlacedOverlay({
     super.key,
     required this.coin,
@@ -116,6 +139,7 @@ class HlOrderPlacedOverlay extends StatelessWidget {
     required this.notionalUsd,
     this.positionPlan,
     this.realizedPnl,
+    this.feeUsd,
   });
 
   @override
@@ -161,6 +185,7 @@ class HlOrderPlacedOverlay extends StatelessWidget {
         if (exits && pnl != null)
           l10n.portfolioStatRealized:
               '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
+        if (feeUsd case final fee?) l10n.feeUiPaidFee: formatHlUsd(fee),
       },
       detail: l10n.investingBalanceUpdating,
       onDone: () => Navigator.of(context).pop(),

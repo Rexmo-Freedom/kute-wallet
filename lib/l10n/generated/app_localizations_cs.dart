@@ -10750,6 +10750,18 @@ class AppLocalizationsCs extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Přesun z Dolarů';
+
+  @override
+  String get slipMoveFromBitcoin => 'Přesun z Bitcoinu';
+
+  @override
+  String get slipMoveFromInvesting => 'Přesun z Investování';
+
+  @override
+  String get slipMoveFromPredictions => 'Přesun z Predikcí';
+
+  @override
   String get addMoneyToInvestments => 'Přidat peníze do Investments';
 
   @override

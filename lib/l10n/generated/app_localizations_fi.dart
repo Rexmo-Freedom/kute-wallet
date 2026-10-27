@@ -10771,6 +10771,18 @@ class AppLocalizationsFi extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Siirto Dollareista';
+
+  @override
+  String get slipMoveFromBitcoin => 'Siirto Bitcoinista';
+
+  @override
+  String get slipMoveFromInvesting => 'Siirto Sijoituksista';
+
+  @override
+  String get slipMoveFromPredictions => 'Siirto Ennusteista';
+
+  @override
   String get addMoneyToInvestments => 'Lisää rahaa Investmentsiin';
 
   @override

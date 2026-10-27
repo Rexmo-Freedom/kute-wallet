@@ -10811,6 +10811,18 @@ class AppLocalizationsPt extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Mover de Dólares';
+
+  @override
+  String get slipMoveFromBitcoin => 'Mover de Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Mover de Investir';
+
+  @override
+  String get slipMoveFromPredictions => 'Mover de Previsões';
+
+  @override
   String get addMoneyToInvestments => 'Adicionar dinheiro a Investments';
 
   @override

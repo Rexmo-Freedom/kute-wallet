@@ -63,6 +63,8 @@ import 'package:kute/providers/hyperliquid_account_provider.dart'
 import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/services/one_balance/bitcoin_to_venue_leg.dart';
+import 'package:kute/services/one_balance/funding_fees.dart'
+    show bitcoinSpreadFrom;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
 import 'package:kute/services/one_balance/money_steps.dart';
@@ -1099,6 +1101,29 @@ Future<double?> _bitcoinLegEstimate(int sats) async {
   } catch (_) {
     return null;
   }
+}
+
+/// The Bitcoin conversion's share now, for the slips' fee row: Orchestra's
+/// own estimate (Kute's fee inside it) for about [landUsd] of [wallet]'s
+/// bitcoin. Null when it cannot be read; the fallback spread then
+/// stands. A read: nothing is quoted or moved.
+Future<double?> bitcoinLegSpreadEstimate(
+    SpendingBitcoin wallet, double landUsd) async {
+  if (wallet.sats <= 0 ||
+      !isUsableUsdPerBtc(wallet.usdPerBtc) ||
+      !landUsd.isFinite ||
+      landUsd <= 0) {
+    return null;
+  }
+  final sats = math.min(
+      wallet.sats,
+      (landUsd / (1 - BitcoinLegRules.fallbackSpread) / wallet.usdPerBtc * 1e8)
+          .ceil());
+  if (sats <= 0) return null;
+  final out = await _bitcoinLegEstimate(sats);
+  if (out == null) return null;
+  return bitcoinSpreadFrom(
+      sats: sats, usdPerBtc: wallet.usdPerBtc, estimatedOutUsd: out);
 }
 
 /// The leg [dollarsShortUsd] needs from [wallet]: sized on the route's own

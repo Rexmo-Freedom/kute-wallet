@@ -10820,6 +10820,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Mover desde Dólares';
+
+  @override
+  String get slipMoveFromBitcoin => 'Mover desde Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Mover desde Invertir';
+
+  @override
+  String get slipMoveFromPredictions => 'Mover desde Predicciones';
+
+  @override
   String get addMoneyToInvestments => 'Añadir dinero a Investments';
 
   @override

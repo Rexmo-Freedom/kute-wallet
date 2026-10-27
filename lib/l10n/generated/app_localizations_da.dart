@@ -10761,6 +10761,18 @@ class AppLocalizationsDa extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Flyt fra Dollars';
+
+  @override
+  String get slipMoveFromBitcoin => 'Flyt fra Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Flyt fra Investering';
+
+  @override
+  String get slipMoveFromPredictions => 'Flyt fra Forudsigelser';
+
+  @override
   String get addMoneyToInvestments => 'Tilføj penge til Investments';
 
   @override

@@ -109,7 +109,7 @@ import 'package:kute/screens/polymarket/components/slip_chrome.dart'
     show SlipAdvancedButton, SlipAdvancedChip, SlipAmountPills;
 import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
-    show MoneyFeeFigure;
+    show MoneyFeeFigure, MoneyFeeLeg, fundingLegFeeLabel;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
@@ -138,6 +138,7 @@ import 'package:kute/services/one_balance/investments_spendable.dart'
 import 'package:kute/services/one_balance/bitcoin_to_dollars_leg.dart'
     show BitcoinLegPlan, BitcoinLegRules;
 import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/funding_fees.dart';
 import 'package:kute/providers/spark_address_provider.dart'
     show sparkSelfAddressProvider;
 import 'package:kute/services/one_balance/venue_cash_source.dart'
@@ -263,11 +264,16 @@ class _FundPlan {
     required this.shortfallUsd,
     required this.fundUsd,
     required this.arrivingUsd,
+    this.bitcoinSpread,
   });
 
   final double shortfallUsd;
   final double fundUsd;
   final double arrivingUsd;
+
+  /// The Bitcoin conversion's share Orchestra quoted with the plan (null:
+  /// the fallback spread), for a Bitcoin leg's fee line.
+  final double? bitcoinSpread;
 
   double get moveFeeUsd => math.max(0, fundUsd - arrivingUsd);
 }
@@ -2154,10 +2160,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
             .timeout(const Duration(seconds: 6));
         final fund =
             HyperliquidVenueFunder.fundUsdFor(shortfallUsd: target, quote: quote);
+        // Dollars short of the move: a Bitcoin leg may carry part of it,
+        // priced on Orchestra's own spread for the fee row.
+        final dollars = _dollarsUsd();
+        final spread = dollars + 1e-9 < fund
+            ? await bitcoinLegSpreadEstimate(
+                cachedSpendingBitcoin(ref.read), fund - dollars)
+            : null;
         plan = _FundPlan(
           shortfallUsd: shortfallUsd,
           fundUsd: fund,
           arrivingUsd: target,
+          bitcoinSpread: spread,
         );
       } catch (_) {
         plan = _fundPlanFor(shortfallUsd);
@@ -4152,6 +4166,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       realizedPnl: filledPlan == null
           ? null
           : hlRealizedFromFills(fills.toList(), sizeFilled),
+      // The fee the fills paid, as the exchange reported it (exact).
+      feeUsd: hlFeeFromFills(
+          fills.isNotEmpty ? fills : _orderFills, sizeFilled),
     );
   }
 
@@ -6539,16 +6556,46 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         // What moving the shortfall from Dollars costs (the route's fee),
         // inside the one fee row: added to the total, one "Move fee"
         // detail. Only while the order needs the move.
-        moveFeeUsd: _slipShortfallUsd > 0 &&
-                _fundPlan != null &&
-                (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() < 0.005
-            ? _fundPlan!.moveFeeUsd
-            : null,
+        moveFeeUsd: _moveFee()?.usd,
+        moveLegs: _moveFee()?.legs ?? const [],
         moveFeeLabel: _strings.slipMoveFee,
         moveFeePending: _slipShortfallUsd > 0 &&
             (_fundPlan == null ||
                 (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
       );
+
+  /// What moving the shortfall costs while the order needs the move, from
+  /// the plan read for it: the Dollars route's share when Dollars carry it
+  /// all, else every leg's fee added (Bitcoin, the Predictions cash, at
+  /// once), each leg its own line ([estimateOrderFundingFees]). Null while
+  /// no move is needed or its plan is still being read.
+  ({double usd, List<MoneyFeeLeg> legs})? _moveFee() {
+    final plan = _fundPlan;
+    if (_slipShortfallUsd <= 0 ||
+        plan == null ||
+        (plan.shortfallUsd - _slipShortfallUsd).abs() >= 0.005) {
+      return null;
+    }
+    final fees = estimateOrderFundingFees(
+      fundUsd: plan.fundUsd,
+      arrivingUsd: plan.arrivingUsd,
+      dollarsUsd: _dollarsUsd(),
+      venue: OneBalanceVenue.investing,
+      bitcoinMaxUsd: bitcoinMaxLandingUsd(cachedSpendingBitcoin(ref.read)),
+      bitcoinSpread: plan.bitcoinSpread ?? BitcoinLegRules.fallbackSpread,
+      otherVenues: venueCashCandidatesNow(ref.read),
+    );
+    if (fees.isEmpty || fees.dollarsOnly) {
+      return (usd: plan.moveFeeUsd, legs: const []);
+    }
+    return (
+      usd: fees.totalUsd,
+      legs: [
+        for (final leg in fees.legs)
+          (label: fundingLegFeeLabel(_strings, leg.source), usd: leg.feeUsd),
+      ],
+    );
+  }
 
   /// The plain ticket's two figures, no boxes: what the order buys (the
   /// size in the coin) and its fee, zero in each until an amount is typed

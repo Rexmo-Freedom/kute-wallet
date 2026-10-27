@@ -10728,6 +10728,18 @@ class AppLocalizationsLv extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Pārvietošana no Dolāriem';
+
+  @override
+  String get slipMoveFromBitcoin => 'Pārvietošana no Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Pārvietošana no Investēšanas';
+
+  @override
+  String get slipMoveFromPredictions => 'Pārvietošana no Prognozēm';
+
+  @override
   String get addMoneyToInvestments => 'Pievienot naudu Investments';
 
   @override

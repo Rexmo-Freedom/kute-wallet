@@ -37,7 +37,8 @@ void main() {
 
   for (final (price, tick) in cases) {
     for (final stake in [5.0, 3.59, 12.34, 1.0]) {
-      test('\$$stake typed at ${price * 100}¢ signs \$$stake, never a cent less',
+      test(
+          '\$$stake typed at ${price * 100}¢ signs \$$stake, never a cent less',
           () {
         final wire = sign(stake, price, tick);
         expect(wire.maker, BigInt.from((stake * 100).round() * 10000));

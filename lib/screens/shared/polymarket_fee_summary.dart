@@ -18,7 +18,8 @@ class PolymarketFeeSummary extends ConsumerWidget {
       this.showNote = true,
       this.moveFeeUsd,
       this.moveFeeLabel = 'Move fee',
-      this.moveFeePending = false});
+      this.moveFeePending = false,
+      this.moveLegs = const []});
   final String? tokenId;
   final double shares, price;
   final bool bitcoinFirst, limit, hasFunds;
@@ -37,6 +38,12 @@ class PolymarketFeeSummary extends ConsumerWidget {
   /// The move is needed but its cost is still being read: the total
   /// reads "Calculating…" until it is.
   final bool moveFeePending;
+
+  /// A move funded from more than Dollars (Bitcoin, the other venue's
+  /// cash, every leg at once): each leg's fee as its own line in the
+  /// breakdown, in place of the one [moveFeeLabel] line. [moveFeeUsd] is
+  /// then their sum.
+  final List<MoneyFeeLeg> moveLegs;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (!hasFunds) {
@@ -60,23 +67,34 @@ class PolymarketFeeSummary extends ConsumerWidget {
     final moving = moveFeePending || moveFee != null;
     // The move's own cost, known or still being read, as the row's one
     // detail: kept even while the venue curve is loading or unavailable.
-    final moveDetail = moving
-        ? MoneyFeeSummary(
-            label: moveFeeLabel,
-            usd: moveFee,
-            state: moveFee == null ? 'Calculating…' : null,
-            bitcoinFirst: bitcoinFirst)
-        : null;
+    // A move from more than Dollars lists every leg's fee, one line each.
+    final moveDetails = !moving
+        ? const <Widget>[]
+        : moveLegs.isNotEmpty && moveFee != null
+            ? [
+                for (final leg in moveLegs)
+                  MoneyFeeSummary(
+                      label: leg.label,
+                      usd: leg.usd,
+                      bitcoinFirst: bitcoinFirst),
+              ]
+            : [
+                MoneyFeeSummary(
+                    label: moveFeeLabel,
+                    usd: moveFee,
+                    state: moveFee == null ? 'Calculating…' : null,
+                    bitcoinFirst: bitcoinFirst),
+              ];
     return fees.when(
       loading: () => MoneyFeeSummary(
           bitcoinFirst: bitcoinFirst,
           state: 'Calculating…',
-          details: [if (moveDetail != null) moveDetail]),
+          details: moveDetails),
       error: (_, __) => MoneyFeeSummary(
           bitcoinFirst: bitcoinFirst,
           state: 'Estimate unavailable',
           onRetry: () => ref.invalidate(polymarketFeeTermsProvider(tokenId!)),
-          details: [if (moveDetail != null) moveDetail]),
+          details: moveDetails),
       data: (f) {
         final platform = f.platformFee(shares, price);
         // A resting limit may still cross and fill as a taker.
@@ -100,7 +118,7 @@ class PolymarketFeeSummary extends ConsumerWidget {
                     label: 'Kute fee',
                     usd: builder,
                     bitcoinFirst: bitcoinFirst),
-                if (moveDetail != null) moveDetail,
+                ...moveDetails,
               ]);
       },
     );

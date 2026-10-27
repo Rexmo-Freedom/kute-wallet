@@ -10342,6 +10342,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'ドルから移動';
+
+  @override
+  String get slipMoveFromBitcoin => 'ビットコインから移動';
+
+  @override
+  String get slipMoveFromInvesting => '投資から移動';
+
+  @override
+  String get slipMoveFromPredictions => '予測から移動';
+
+  @override
   String get addMoneyToInvestments => 'Investments に入金';
 
   @override

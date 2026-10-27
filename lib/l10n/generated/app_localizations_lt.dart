@@ -10804,6 +10804,18 @@ class AppLocalizationsLt extends AppLocalizations {
   String get slipMoveFee => 'Move fee';
 
   @override
+  String get slipMoveFromDollars => 'Perkėlimas iš Dolerių';
+
+  @override
+  String get slipMoveFromBitcoin => 'Perkėlimas iš Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Perkėlimas iš Investavimo';
+
+  @override
+  String get slipMoveFromPredictions => 'Perkėlimas iš Prognozių';
+
+  @override
   String get addMoneyToInvestments => 'Įnešti pinigų į Investments';
 
   @override

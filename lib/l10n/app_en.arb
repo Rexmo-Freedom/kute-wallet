@@ -6610,6 +6610,22 @@
   "@slipMoveFee": {
     "description": "Row label on an order slip for the cost of moving the shortfall into the venue."
   },
+  "slipMoveFromDollars": "Move from Dollars",
+  "@slipMoveFromDollars": {
+    "description": "Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Dollars into the venue."
+  },
+  "slipMoveFromBitcoin": "Move from Bitcoin",
+  "@slipMoveFromBitcoin": {
+    "description": "Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Bitcoin into the venue."
+  },
+  "slipMoveFromInvesting": "Move from Investing",
+  "@slipMoveFromInvesting": {
+    "description": "Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Investing into the venue."
+  },
+  "slipMoveFromPredictions": "Move from Predictions",
+  "@slipMoveFromPredictions": {
+    "description": "Line in an order slip's fee breakdown: the fee of the funding leg that moves money from Predictions into the venue."
+  },
   "addMoneyToInvestments": "Add money to Investments",
   "depositFromSpendingWallet": "Your spending wallet",
   "depositFromSpendingWalletWithBalance": "Your spending wallet · {amount}",

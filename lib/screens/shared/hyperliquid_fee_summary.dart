@@ -151,7 +151,8 @@ class HyperliquidFeeSummary extends ConsumerWidget {
       this.hasFunds = true,
       this.moveFeeUsd,
       this.moveFeeLabel = 'Move fee',
-      this.moveFeePending = false})
+      this.moveFeePending = false,
+      this.moveLegs = const []})
       : legs = null;
 
   /// The total across several market orders on the hot account (the
@@ -169,7 +170,8 @@ class HyperliquidFeeSummary extends ConsumerWidget {
         hasFunds = true,
         moveFeeUsd = null,
         moveFeeLabel = 'Move fee',
-        moveFeePending = false;
+        moveFeePending = false,
+        moveLegs = const [];
   final double notional;
   final bool spot, buy, maker, builder, useHotAccount, hasFunds;
   final String dex;
@@ -187,6 +189,12 @@ class HyperliquidFeeSummary extends ConsumerWidget {
   /// The move is needed but its cost is still being read: the total
   /// reads "Calculating…" until it is.
   final bool moveFeePending;
+
+  /// A move funded from more than Dollars (Bitcoin, the other venue's
+  /// cash, every leg at once): each leg's fee as its own line in the
+  /// breakdown, in place of the one [moveFeeLabel] line. [moveFeeUsd] is
+  /// then their sum.
+  final List<MoneyFeeLeg> moveLegs;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const btc = false;
@@ -255,7 +263,11 @@ class HyperliquidFeeSummary extends ConsumerWidget {
                   : null,
               state: builderFee == null ? 'Unavailable' : null,
               bitcoinFirst: btc),
-          if (moving)
+          if (moving && moveLegs.isNotEmpty && moveFee != null)
+            for (final leg in moveLegs)
+              MoneyFeeSummary(
+                  label: leg.label, usd: leg.usd, bitcoinFirst: btc)
+          else if (moving)
             MoneyFeeSummary(
                 label: moveFeeLabel,
                 usd: moveFee,
