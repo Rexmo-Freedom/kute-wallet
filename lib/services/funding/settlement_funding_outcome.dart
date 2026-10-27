@@ -26,9 +26,14 @@ abstract interface class SettlementFundingNotStarted {}
 /// put into words.
 class SettlementFundingRefused
     implements Exception, SettlementFundingNotStarted {
-  const SettlementFundingRefused(this.cause);
+  const SettlementFundingRefused(this.cause, {this.operationId});
 
   final Object cause;
+
+  /// The settlement record that ended unsent, when one was written (a
+  /// CCTP move writes its record and its Activity row before it signs):
+  /// what a caller links the stopped attempt's row to.
+  final String? operationId;
 
   @override
   String toString() => 'SettlementFundingRefused($cause)';

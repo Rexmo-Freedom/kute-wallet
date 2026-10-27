@@ -60,6 +60,7 @@ class MultiSourceMoveLeg {
     this.error,
     this.fellBack,
     this.uncertain = false,
+    this.stoppedOperationId,
   });
 
   final OneBalanceVenue venue;
@@ -90,6 +91,12 @@ class MultiSourceMoveLeg {
   /// A failed RPC is not proof that no source payment happened.
   final bool uncertain;
 
+  /// The settlement record of a leg that stopped before anything left (a
+  /// CCTP move writes its record and Activity row before it signs): its
+  /// row folds into the move instead of standing beside it. Never an
+  /// operation that moved money ([operationId] is that).
+  final String? stoppedOperationId;
+
   bool get direct => route == VenueCashRoute.direct;
 
   Map<String, dynamic> toJson() => {
@@ -104,6 +111,8 @@ class MultiSourceMoveLeg {
         if (error != null) 'error': error,
         if (fellBack != null) 'fellBack': fellBack,
         if (uncertain) 'uncertain': true,
+        if (stoppedOperationId != null)
+          'stoppedOperationId': stoppedOperationId,
       };
 
   static MultiSourceMoveLeg? fromJson(Object? raw) {
@@ -130,6 +139,7 @@ class MultiSourceMoveLeg {
       error: raw['error'] as String?,
       fellBack: raw['fellBack'] as String?,
       uncertain: raw['uncertain'] == true,
+      stoppedOperationId: raw['stoppedOperationId'] as String?,
     );
   }
 }
@@ -290,6 +300,8 @@ class MultiSourceMove {
           if (l.operationId != null) l.operationId!,
           if (l.operationId != null) 'cctp-${l.operationId}',
           if (l.quoteId != null) l.quoteId!,
+          if (l.stoppedOperationId != null) l.stoppedOperationId!,
+          if (l.stoppedOperationId != null) 'cctp-${l.stoppedOperationId}',
         ],
         if (finalOperationId != null) finalOperationId!,
         if (initialDollarsOperationId != null) initialDollarsOperationId!,

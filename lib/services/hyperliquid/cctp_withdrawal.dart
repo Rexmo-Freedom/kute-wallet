@@ -1045,8 +1045,9 @@ class HypercoreCctpWithdrawal {
       // The proof travels with the stop: the Move sheet and the rails read
       // [SettlementFundingRefused] as "nothing sent" (a fresh Retry, never
       // the unknown-outcome lock), while its bare cause after the approval
-      // would read as an outcome nobody can account for.
-      rethrow;
+      // would read as an outcome nobody can account for. The record goes
+      // with it, so a move's stopped leg keeps its row.
+      throw SettlementFundingRefused(cause, operationId: op.operationId);
     } on CctpSendRejected catch (e) {
       // Signed and answered with a rejection: not executed. The record
       // keeps its slow ledger check in case the answer was wrong.
@@ -1061,7 +1062,17 @@ class HypercoreCctpWithdrawal {
       if (current?.stage == SettlementStage.created) {
         await _endUnsent(store, op.operationId, rowId);
         if (e is CctpUnavailable) _unavailable(e.reason, usd);
-        rethrow;
+        // Still `created`: the nonce was never written, so the send never
+        // reached its POST (onBeforePost runs first). Nothing left
+        // Investing, and the stop says so. A bare error here read as an
+        // outcome nobody could account for: a Buy bitcoin's Investing leg
+        // then showed "Needs attention" with no Retry while its cash had
+        // never moved.
+        if (e is SettlementFundingRefused) {
+          throw SettlementFundingRefused(e.cause,
+              operationId: e.operationId ?? op.operationId);
+        }
+        throw SettlementFundingRefused(e, operationId: op.operationId);
       }
       _startWatch(op.operationId);
       return CctpWithdrawalResult(
