@@ -1,5 +1,5 @@
 // How results sit on the search sheet: the tabs' own market cards, the
-// named market first, four per group under All with a "See all" that
+// named market first, three per group under All with a "See all" that
 // switches the filter, and skeletons holding a group's place while its
 // markets load.
 
@@ -113,14 +113,14 @@ void main() {
     OpenOnce.reset();
   });
 
-  testWidgets('the named market leads, four per group with See all',
+  testWidgets('the named market leads, three per group with See all',
       (tester) async {
     final container = await _open(tester, hl: AsyncValue.data(_hits));
     final cards = tester.widgetList<HlMarketCard>(find.byType(HlMarketCard));
-    // Investing's own card, the exact ticker first, four under All.
+    // Investing's own card, the exact ticker first, three under All.
     expect([for (final c in cards) c.market.coin],
-        ['BTC', 'BTCDOM', 'WBTC', 'UBTC']);
-    expect(find.text('Investing'), findsOneWidget);
+        ['BTC', 'BTCDOM', 'WBTC']);
+    expect(find.byKey(const ValueKey('header-investing')), findsOneWidget);
     expect(find.text('See all'), findsOneWidget);
 
     await tester.tap(find.text('See all'));

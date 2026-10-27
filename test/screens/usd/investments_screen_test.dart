@@ -32,7 +32,11 @@ import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
-    show SearchCategory;
+    show
+        SearchCategory,
+        searchMarketsOnlyProvider,
+        searchWalletScopeProvider,
+        selectedSearchCategoryProvider;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
@@ -316,9 +320,32 @@ void main() {
         (category: SearchCategory.perpetuals, source: 'trading'));
     expect(UsdAccountActionBar.searchTarget(InvestmentsTab.predictions),
         (category: SearchCategory.predictions, source: 'predictions'));
-    // Portfolio searches this account's activity.
+    // Portfolio (Positions) searches everything: All, never this
+    // account's past transactions alone.
     expect(UsdAccountActionBar.searchTarget(InvestmentsTab.positions),
-        (category: null, source: 'usd'));
+        (category: SearchCategory.all, source: 'usd'));
+  });
+
+  testWidgets('the search square on Positions opens search on All',
+      (tester) async {
+    final events = recordEvents();
+    await pumpInvestments(tester, earn: kEarnOn);
+    final l10n = _l10n(tester);
+    await tapPill(tester, l10n.walletPortfolioAction);
+    expect(_container(tester).read(investmentsTabProvider),
+        InvestmentsTab.positions);
+    final bar =
+        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
+    bar.onSearch!();
+    await tester.pump();
+    final container = _container(tester);
+    expect(container.read(selectedSearchCategoryProvider), SearchCategory.all);
+    // Not the wallet-scoped history: no wallet scope, every group.
+    expect(container.read(searchWalletScopeProvider), isNull);
+    expect(container.read(searchMarketsOnlyProvider), isFalse);
+    expect(events.where((e) => e.$1 == 'search_opened').single.$2,
+        {'source': 'usd', 'initial_category': 'all'});
+    await unmountInvestments(tester);
   });
 
   testWidgets(

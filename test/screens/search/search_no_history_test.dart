@@ -191,6 +191,10 @@ Future<void> _close(WidgetTester tester) async {
 }
 
 Future<void> _pickTab(WidgetTester tester, String label) async {
+  // The pill row scrolls: Transactions, the last pill, can sit past the
+  // edge.
+  await tester.ensureVisible(find.text(label).first);
+  await tester.pump();
   await tester.tap(find.text(label).first);
   await tester.pump();
   await tester.runAsync(() => Future<void>.delayed(Duration.zero));

@@ -17,7 +17,7 @@ import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlFriendlyName;
 
 /// Rows a section shows under the All filter before its "See all".
-const int kSearchSectionCap = 4;
+const int kSearchSectionCap = 3;
 
 String _norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 

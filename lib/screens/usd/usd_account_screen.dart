@@ -136,9 +136,6 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
-import 'package:kute/providers/settings_provider.dart';
-import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
-    show pickSpendingWallet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -976,9 +973,11 @@ class UsdAccountActionBar extends ConsumerWidget {
   }
 
   /// What the square searches for [tab]: a venue's own markets, results
-  /// first and under the venue's own source, or (null category) this
-  /// account's activity under the Investments source.
-  static ({SearchCategory? category, String source}) searchTarget(
+  /// first and under the venue's own source, or, from Positions, everything
+  /// (All: Predictions, Investing, then Transactions) under the Investments
+  /// source. Positions used to open this account's activity alone, which
+  /// read as past transactions rather than search (founder, 2026-10-27).
+  static ({SearchCategory category, String source}) searchTarget(
           InvestmentsTab tab) =>
       switch (tab) {
         InvestmentsTab.investing => (
@@ -990,7 +989,7 @@ class UsdAccountActionBar extends ConsumerWidget {
             source: 'predictions'
           ),
         InvestmentsTab.positions => (
-            category: null,
+            category: SearchCategory.all,
             source: kUsdSurfaceSource
           ),
       };
@@ -998,24 +997,15 @@ class UsdAccountActionBar extends ConsumerWidget {
   void _search(BuildContext context, WidgetRef ref) {
     final tab = ref.read(investmentsTabProvider);
     final target = searchTarget(tab);
-    final category = target.category;
-    if (category == null) {
-      // This account's activity, the dollar rows included: the spending
-      // wallet's own transaction scope.
-      showKuteSearch(
-        context,
-        source: target.source,
-        walletId: pickSpendingWallet(ref.read(settingsProvider))?.id,
-      );
-      return;
-    }
     showKuteSearch(
       context,
-      initialCategory: category,
+      initialCategory: target.category,
       searchFirst: true,
-      searchHint: tab == InvestmentsTab.predictions
-          ? context.l10n.searchPredictionsHint
-          : context.l10n.searchInvestmentsHint,
+      searchHint: switch (tab) {
+        InvestmentsTab.predictions => context.l10n.searchPredictionsHint,
+        InvestmentsTab.investing => context.l10n.searchInvestmentsHint,
+        InvestmentsTab.positions => null,
+      },
       source: target.source,
     );
   }
