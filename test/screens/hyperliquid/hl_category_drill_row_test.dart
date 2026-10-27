@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
@@ -148,4 +149,41 @@ void main() {
 
     await unmountInvestments(tester);
   });
+
+  testWidgets(
+      'the list sits under no heading that repeats the selected pill',
+      (tester) async {
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        size: const Size(390, 2000),
+        overrides: [
+          hyperliquidBrowseUniverseProvider
+              .overrideWithValue(AsyncValue.data(_universe)),
+          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+        ]);
+
+    for (final pill in ['Trending', 'Perps']) {
+      if (pill != 'Trending') {
+        await _tap(tester, _pill(pill));
+        await _settle(tester);
+      }
+      expect(_selected(tester, pill), isTrue);
+      // The pill names the list: its label is written once, on the pill.
+      expect(_inBrowser(find.text(pill)), findsOneWidget);
+      expect(
+          find.descendant(of: _pill(pill), matching: find.text(pill)),
+          findsOneWidget);
+
+      final rows = _inBrowser(find.byType(HlMarketCard));
+      final n = rows.evaluate().length;
+      expect(n, greaterThan(1));
+      // The cards come straight under the pills.
+      final pills = _inBrowser(find.byType(PolyDrillRow));
+      expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
+          lessThan(20));
+    }
+
+    await unmountInvestments(tester);
+  });
 }
+

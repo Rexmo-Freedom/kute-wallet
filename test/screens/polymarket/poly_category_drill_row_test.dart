@@ -13,10 +13,13 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
+import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/services/tracking_service.dart';
 
+import '../../helpers/offline_venue_overrides.dart';
 import '../usd/investments_harness.dart';
 
 /// Every list empty and read: nothing goes to the network.
@@ -123,4 +126,67 @@ void main() {
     // The BTC price feed lets its socket go 30 s after the last listener.
     await tester.pump(const Duration(seconds: 31));
   });
+
+  testWidgets(
+      'the lists carry no titles: none repeating the selected pill, no '
+      '"Crypto markets" over the 5-minute card',
+      (tester) async {
+    await pumpInvestments(tester,
+        browsePredictions: true,
+        size: const Size(390, 2400),
+        overrides: [
+          polyBrowseFeedProvider.overrideWith(_ThreeMarkets.new),
+          ...offlineVenueOverrides,
+        ]);
+    final l10n =
+        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
+    await tapAndPump(tester, investmentsPill(l10n.predictions));
+
+    for (final pill in ['Trending', 'New']) {
+      if (pill != 'Trending') {
+        await _tap(tester, _pill(pill));
+        await _settle(tester);
+      }
+      expect(_selected(tester, pill), isTrue);
+      // The pill names the list: its label is written once, on the pill.
+      expect(_inBrowser(find.text(pill)), findsOneWidget);
+      expect(find.descendant(of: _pill(pill), matching: find.text(pill)),
+          findsOneWidget);
+
+      final cards = _inBrowser(find.byType(MarketCard));
+      expect(cards, findsNWidgets(3));
+      // No title over the 5-minute card either, big or small.
+      expect(_inBrowser(find.text(l10n.predictionsCryptoMarkets)),
+          findsNothing);
+    }
+
+    await unmountInvestments(tester);
+    await tester.pump(const Duration(seconds: 31));
+  });
 }
+
+/// Three open Yes/No markets in every list.
+class _ThreeMarkets extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) => PolyFeedState(done: true, events: [
+        for (final (id, title) in [
+          ('fed', 'Fed cuts in December?'),
+          ('btc', 'Bitcoin above 150k?'),
+          ('rain', 'Rain in London tomorrow?'),
+        ])
+          PolymarketEvent(
+            id: id,
+            slug: id,
+            title: title,
+            volume: 1e6,
+            liquidity: 1e5,
+            category: 'finance',
+            conditionId: id,
+            outcomes: const [
+              PolymarketOutcome(name: 'Yes', price: 0.4),
+              PolymarketOutcome(name: 'No', price: 0.6),
+            ],
+          ),
+      ]);
+}
+

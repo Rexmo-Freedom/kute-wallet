@@ -573,11 +573,8 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                       SliverSelectionFade(
                         selection: (tab, sub),
                         slivers: [
-                          // The list's own heading, as on Predictions.
-                          SliverToBoxAdapter(
-                            child: _HlSectionHeader(
-                                label: tab.localizedLabel(context.l10n)),
-                          ),
+                          // No heading: the selected pill already names
+                          // the list (October 2026).
                           if (awaitingBuilderMarkets)
                             SliverToBoxAdapter(
                               child: SkeletonCardList(count: 5, height: 120.h),
@@ -587,7 +584,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // subscribing [HlMarketCard]s build lazily as they
                             // scroll in, so every price on screen is live.
                             SliverPadding(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
                               sliver: SliverList.separated(
                                 itemCount: markets.length,
                                 separatorBuilder: (_, __) =>
@@ -723,33 +720,6 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The list's heading, matching the Predictions screen's exactly: a bold
-/// label, text only.
-class _HlSectionHeader extends StatelessWidget {
-  final String label;
-
-  const _HlSectionHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 18.h, 16.w, 10.h),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: c.textPrimary,
-          fontSize: 22.sp,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
         ),
       ),
     );
