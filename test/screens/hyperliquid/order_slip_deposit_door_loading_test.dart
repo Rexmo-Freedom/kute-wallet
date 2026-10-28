@@ -201,14 +201,18 @@ void main() {
     });
 
     testWidgets(
-        'the line under the amount names only the minimum, before and after '
-        'the account is read', (tester) async {
+        'an account not read yet is not added into Available as \$0.00: '
+        'the line says it is updating', (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(find.textContaining('Available'), findsNothing);
+      expect(find.textContaining('Updating balance'), findsOneWidget);
+      expect(find.textContaining(r'Available $0'), findsNothing);
       account.complete(_snapshot(500));
       await _frames(tester);
-      expect(find.textContaining('Available'), findsNothing);
+      expect(find.textContaining('Updating balance'), findsNothing);
+      expect(find.textContaining('Available'), findsWidgets);
+      // The minimum on a line of its own, never after the balance.
+      expect(find.textContaining(' · Minimum'), findsNothing);
       expect(find.textContaining('Minimum '), findsWidgets);
       await tester.pumpWidget(const SizedBox.shrink());
     });

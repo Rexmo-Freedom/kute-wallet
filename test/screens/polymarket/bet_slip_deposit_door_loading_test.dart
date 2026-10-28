@@ -1281,8 +1281,9 @@ void main() {
           dollars: 8.10,
           initialAmountUsd: null);
       await _frames(tester);
-      // No available figure under the amount, only the minimum.
-      expect(find.textContaining('Available'), findsNothing);
+      // Available is the whole wallet: the venue's cash plus Dollars.
+      expect(find.textContaining(r'Available $8.59'), findsOneWidget);
+      expect(find.textContaining(r'Available $0.49'), findsNothing);
 
       await tester.tap(find.text('Max'));
       await _frames(tester);
@@ -1310,8 +1311,8 @@ void main() {
           dollars: 8.10,
           initialAmountUsd: null);
       await _frames(tester);
-      // The line under the figure names only the minimum.
-      expect(find.textContaining('Available'), findsNothing);
+      expect(find.textContaining('Updating balance'), findsOneWidget);
+      expect(find.textContaining(r'Available $8.10'), findsNothing);
       // The button waits rather than deciding a shortfall on the 0.
       expect(find.byKey(const ValueKey('bet-slip-loading-account')),
           findsOneWidget);

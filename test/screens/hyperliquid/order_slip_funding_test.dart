@@ -1001,12 +1001,14 @@ void main() {
   });
 
   testWidgets(
-      'the line names only the minimum, and Max fills an order the ticket '
+      'Available is the whole wallet, and Max fills an order the ticket '
       'funds itself', (tester) async {
-    // $0.49 of Investing cash and $8.10 in Dollars.
+    // $0.49 of Investing cash and $8.10 in Dollars (the founder's case:
+    // the ticket read "Available $0.49").
     await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 8.10, rail: rail);
-    expect(find.textContaining('Available'), findsNothing);
-    // The minimum stays on the line.
+    expect(find.textContaining(r'Available $8.59'), findsOneWidget);
+    expect(find.textContaining(r'Available $0.49'), findsNothing);
+    // The minimum stays, on its own line.
     expect(find.textContaining('Minimum'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
 

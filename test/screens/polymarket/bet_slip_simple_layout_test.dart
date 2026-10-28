@@ -278,10 +278,10 @@ void main() {
       (tester) async {
     await _pumpSlip(tester);
     expect(find.text('Payout if you win'), findsOneWidget);
-    // A stake is typed: just the figure, no minimum and never an
-    // available figure under it.
+    // The whole wallet's balance under the figure; a stake is typed, so
+    // no minimum.
+    expect(find.text(r'Available $100.00'), findsOneWidget);
     expect(find.text(r'Minimum $1.00'), findsNothing);
-    expect(find.textContaining('Available'), findsNothing);
     expect(find.text('Limit'), findsNothing);
     expect(find.text('Estimated shares'), findsNothing);
     expect(tester.takeException(), isNull);

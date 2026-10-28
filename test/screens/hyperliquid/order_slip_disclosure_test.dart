@@ -452,10 +452,11 @@ void main() {
       expect(chip.height, lessThan(figure.height));
       expect(chip.width, lessThan(390 / 4));
 
-      // One quiet line under it: only the minimum, no available figure.
+      // Under it the whole wallet's balance, then the minimum on a line
+      // of its own.
       final line = tester.widget<Text>(infoLine()).textSpan!.toPlainText();
       expect(line, matches(RegExp(r'^Minimum \$\d+\.\d{2}$')));
-      expect(find.textContaining('Available'), findsNothing);
+      expect(find.text(r'Available $500.00'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Use maximum'));
       await tester.pumpAndSettle();

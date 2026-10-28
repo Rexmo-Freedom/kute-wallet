@@ -134,6 +134,10 @@ class BigAmountDisplay extends StatelessWidget {
   /// palette's error color: the typed amount is under it.
   final bool minimumIsError;
 
+  /// Puts [minimumLabel] on a line of its own under the available line
+  /// instead of after a middle dot (the bet and order slips).
+  final bool minimumOnOwnLine;
+
   /// One more quiet line under the available line, in its caption style
   /// (the Investing slip says what the order does to a position already
   /// held). Null leaves it out.
@@ -142,6 +146,10 @@ class BigAmountDisplay extends StatelessWidget {
   /// Optional widget rendered to the right of the number (the fiat
   /// currency selector pill).
   final Widget? trailing;
+
+  /// One quiet line under [trailing], right-aligned in its column (the
+  /// bet and order slips' balance under Max and Advanced).
+  final String? trailingCaption;
 
   /// Unit control rendered CENTRED under the figure, the arrangement the
   /// Receive request sheet uses and the one this component now leads
@@ -167,8 +175,10 @@ class BigAmountDisplay extends StatelessWidget {
     this.onAvailableTap,
     this.minimumLabel,
     this.minimumIsError = false,
+    this.minimumOnOwnLine = false,
     this.noteLabel,
     this.trailing,
+    this.trailingCaption,
     this.unitControl,
     this.centered = false,
   });
@@ -227,7 +237,28 @@ class BigAmountDisplay extends StatelessWidget {
             ),
             if (trailing != null) ...[
               SizedBox(width: 10.w),
-              trailing!,
+              if (trailingCaption == null)
+                trailing!
+              else
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    trailing!,
+                    SizedBox(height: tight ? 4.h : 6.h),
+                    Text(
+                      trailingCaption!,
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ],
         ),
@@ -245,7 +276,8 @@ class BigAmountDisplay extends StatelessWidget {
               letterSpacing: -0.1,
             ),
           ),
-        if (availableLabel != null || minimumLabel != null) ...[
+        if (availableLabel != null ||
+            (minimumLabel != null && !minimumOnOwnLine)) ...[
           SizedBox(height: tight ? 3.h : 6.h),
           _TappableAvailable(
             onTap: onAvailableTap,
@@ -253,9 +285,11 @@ class BigAmountDisplay extends StatelessWidget {
             child: Text.rich(
               TextSpan(children: [
                 if (availableLabel != null) TextSpan(text: availableLabel),
-                if (availableLabel != null && minimumLabel != null)
+                if (!minimumOnOwnLine &&
+                    availableLabel != null &&
+                    minimumLabel != null)
                   const TextSpan(text: ' · '),
-                if (minimumLabel != null)
+                if (!minimumOnOwnLine && minimumLabel != null)
                   TextSpan(
                     text: minimumLabel,
                     // The palette's error ink: red on the app ground, the
@@ -269,6 +303,23 @@ class BigAmountDisplay extends StatelessWidget {
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w600,
               ),
+            ),
+          ),
+        ],
+        if (minimumOnOwnLine && minimumLabel != null) ...[
+          SizedBox(height: tight ? 2.h : 4.h),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: minimumLabel,
+                style: minimumIsError ? TextStyle(color: c.error) : null,
+              ),
+            ]),
+            textAlign: align,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

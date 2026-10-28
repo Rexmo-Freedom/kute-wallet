@@ -5272,6 +5272,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                                 _fiatCompanion(payout)),
                           )
                         : _buildAmountHero(
+                            available,
                             belowMinimum: minBetWarning != null,
                             onMax: maxStake != null && maxStake >= _kMinBetUsd
                                 ? () => _fillAmount(maxStake!, 100,
@@ -5452,14 +5453,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Compact slip amount: one big typed figure with the USDC equivalent,
   /// a small Max chip beside it ([onMax]; null hides it, [maxLocked]
   /// dims it, and the Advanced pill after it, with its dot when
-  /// [advancedModified]) and, until a stake is typed or while it is under
-  /// it, the market's minimum beneath it ([belowMinimum] paints it red),
-  /// never an available figure (owner
-  /// decision: a bet draws on the whole wallet). There is no TextField on
-  /// this step, so the OS keyboard never opens over the ticket; the pinned
-  /// [AmountKeypad] under the form is the only way in. [note] is one quiet
-  /// line under the minimum (how much more the minimum needs).
-  Widget _buildAmountHero(
+  /// [advancedModified]) with [available] under them in their column (the
+  /// whole wallet: Dollars, both venues' cash and what the spending
+  /// Bitcoin lands) and, under the figure until a stake is typed or while
+  /// it is under it, the market's minimum ([belowMinimum] paints it red). There is no
+  /// TextField on this step, so the OS keyboard never opens over the
+  /// ticket; the pinned [AmountKeypad] under the form is the only way in.
+  /// [note] is one quiet line under them.
+  Widget _buildAmountHero(String available,
       {VoidCallback? onMax,
       bool maxLocked = false,
       bool advancedModified = false,
@@ -5475,6 +5476,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       prefix: polyDisplayLabel(ref),
       amountText: _amountController.text,
       conversionLabel: conversion,
+      // The whole wallet's balance under Max and Advanced, in their column.
+      trailingCaption: available,
+      minimumOnOwnLine: true,
       // The minimum until a stake is typed, then just the figure; it
       // comes back, red, while the stake is under it.
       minimumLabel: _emptyStake || belowMinimum

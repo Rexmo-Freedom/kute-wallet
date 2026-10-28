@@ -6049,10 +6049,15 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Simple ticket: the shared hero + the app's own keypad (pinned by the
     // ticket below the form), so the OS keyboard never covers the sheet.
     if (keypad) {
-      // The line under the figure names only the minimum (owner decision:
-      // an order draws on the whole wallet, so no available figure); a
-      // spot sell still says what is held, the most it can sell.
-      final compactAvailLabel = isSpot && !_isLong ? availLabel : null;
+      // The whole wallet a buy draws on (Dollars, both venues' cash and
+      // what the spending Bitcoin lands); a spot sell says what is held,
+      // the most it can sell. It sits under Max and Advanced; the minimum
+      // under the figure.
+      final compactAvailLabel = isSpot && !_isLong
+          ? availLabel
+          : !balanceKnown
+              ? context.l10n.betSlipBalanceUpdating
+              : context.l10n.betSlipAvailableAmount(formatHlUsd(shown));
       // Everything, floored to a cent: a spot sell of the whole holding
       // as is, a buy or a perp margin with its slippage and fees reserved
       // out of the same cash so the order can be funded (on a hot ticket,
@@ -6076,7 +6081,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         amountText: _amountController.text,
         conversionLabel:
             _marginUsd > 0 ? _denomLine(_denomEquivalent(_marginUsd)) : null,
-        availableLabel: compactAvailLabel,
+        // Under Max and Advanced, in their column.
+        trailingCaption: compactAvailLabel,
+        minimumOnOwnLine: true,
         // The minimum until an amount is typed, then just the figure; it
         // comes back, red, while the amount is under it.
         minimumLabel: minAmountUsd == null ||
