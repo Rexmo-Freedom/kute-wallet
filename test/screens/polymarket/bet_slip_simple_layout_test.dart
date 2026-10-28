@@ -278,8 +278,9 @@ void main() {
       (tester) async {
     await _pumpSlip(tester);
     expect(find.text('Payout if you win'), findsOneWidget);
-    // Only the minimum under the figure, never an available figure.
-    expect(find.text(r'Minimum $1.00'), findsOneWidget);
+    // A stake is typed: just the figure, no minimum and never an
+    // available figure under it.
+    expect(find.text(r'Minimum $1.00'), findsNothing);
     expect(find.textContaining('Available'), findsNothing);
     expect(find.text('Limit'), findsNothing);
     expect(find.text('Estimated shares'), findsNothing);
@@ -606,8 +607,8 @@ void main() {
           outcome: 'Yes'),
     ]);
     // 100 cash less the unfilled 80 shares of the resting buy at 50c is
-    // what Max works on; the line under the figure names only the minimum.
-    expect(find.text(r'Minimum $1.00'), findsOneWidget);
+    // what Max works on; with a stake typed no minimum line shows.
+    expect(find.text(r'Minimum $1.00'), findsNothing);
     // Max beside the figure stakes all of it: the largest stake
     // whose stake plus worst-case venue fees, plus the market buy's
     // rounding cent, still fits the $60. The fee is sized at the side's
@@ -633,7 +634,8 @@ void main() {
       'one small Max beside the figure; available and minimum under it, '
       'the minimum red while the stake is under it', (tester) async {
     final policy = await _allowEverything();
-    await _pumpSlip(tester, balance: 60);
+    // Opened empty: the minimum shows until a stake is typed.
+    await _pumpSlip(tester, balance: 60, initialAmountUsd: null);
     String typed() => tester
         .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
         .amountText;
@@ -678,7 +680,8 @@ void main() {
     const terms = PolymarketFeeTerms.worstCase;
     final fundable = terms.maxNotionalFor(60, 0.5, reserve: 0.01);
     expect(double.parse(typed()), (fundable * 100).floorToDouble() / 100);
-    expect(minimumSpan().style?.color, isNot(errorInk));
+    // A stake over the minimum: just the figure, no minimum line.
+    expect(infoLine(), findsNothing);
     expect(placeEnabled(), isTrue);
     expect(tester.takeException(), isNull);
     await _release(tester, policy);

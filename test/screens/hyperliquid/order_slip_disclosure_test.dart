@@ -483,7 +483,12 @@ void main() {
       expect(button.onPressed, isNotNull);
 
       await typeOnKeypad(tester, '50');
-      expect(minimumSpan(tester).style?.color, isNot(errorInk(tester)));
+      // Over the minimum: just the figure, no minimum line.
+      expect(
+          tester
+              .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+              .minimumLabel,
+          isNull);
       expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed,
           isNotNull);
       expect(tester.takeException(), isNull);
@@ -512,7 +517,12 @@ void main() {
       // The minimum went into the figure and on into the normal confirm,
       // once, whose gate stopped it with its sheet.
       expect('Minimum \$${typed(tester)}', minimum);
-      expect(minimumSpan(tester).style?.color, isNot(errorInk(tester)));
+      // At the minimum: just the figure, no minimum line.
+      expect(
+          tester
+              .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+              .minimumLabel,
+          isNull);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
       expect(button().text, 'Long \$${typed(tester)}');
