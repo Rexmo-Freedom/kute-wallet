@@ -4572,26 +4572,30 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         openBlock == null &&
         investmentsUsd + 1e-9 >= fundPlan.fundUsd;
     _canFundFromDollars = canFundFromDollars;
-    // Max on the same whole figure: the largest order this ticket's own
-    // funding check passes (the Investing cash, else a move the rest of
-    // Investments covers, the move's cost counted), so Max never turns the
-    // button into "Add".
+    // Max on the whole wallet: the largest order this ticket's own funding
+    // check passes (the Investing cash, else a move the rest of
+    // Investments and what the spending Bitcoin lands cover, the move's
+    // cost counted; founder, 28 October 2026). Past what Investments hold,
+    // the tap converts the Bitcoin first, as for a typed order.
+    final bitcoinUsd =
+        buysFromInvestments ? ref.watch(spendingBitcoinLandingUsdProvider) : 0.0;
     double? fundedMaxUsd;
     if (buysFromInvestments &&
-        otherSpendableUsd > 0 &&
+        otherSpendableUsd + bitcoinUsd > 0 &&
         canDeposit &&
         depositBlock == null) {
       final reach = math.min(
-          otherSpendableUsd,
-          ref
-                  .watch(venueCashReachExcludingProvider(
-                      OneBalanceVenue.investing))
-                  .valueOrNull ??
-              dollarsUsd);
+              otherSpendableUsd,
+              ref
+                      .watch(venueCashReachExcludingProvider(
+                          OneBalanceVenue.investing))
+                      .valueOrNull ??
+                  dollarsUsd) +
+          bitcoinUsd;
       final held = _fundPlan;
       fundedMaxUsd = slipMaxFundableUsd(
         upperUsd: hypercoreMaxOrderUsd(
-          availableUsd: shownAvailable,
+          availableUsd: shownAvailable + bitcoinUsd,
           leverage: isSpot ? 1 : _leverage,
           slippagePct: _mode == _OrderMode.market ? _slippagePct : 0,
         ),

@@ -4967,12 +4967,16 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           ? PolymarketMarketBuyQuote.roundingHeadroom
           : 0.0;
       maxStake = terms.maxNotionalFor(budget, maxFeePrice, reserve: reserve);
-      // A hot slip's Max works on the whole spendable Investments: the
-      // largest stake this slip's own funding check passes (the venue's
-      // cash, else a move the rest of Investments covers, the move's cost
-      // counted), so Max never turns the button into "Add".
+      // A hot slip's Max works on the whole wallet: the largest stake this
+      // slip's own funding check passes (the venue's cash, else a move the
+      // rest of Investments and what the spending Bitcoin lands cover, the
+      // move's cost counted; founder, 28 October 2026). Past what
+      // Investments hold, the tap converts the Bitcoin first, as for a
+      // typed stake.
+      final bitcoinUsd =
+          _isLedger ? 0.0 : ref.watch(spendingBitcoinLandingUsdProvider);
       if (!_isLedger &&
-          otherSpendable > 0 &&
+          otherSpendable + bitcoinUsd > 0 &&
           cash != null &&
           _depositBlock == null) {
         final venueCash = cash;
@@ -4981,12 +4985,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                     OneBalanceVenue.predictions))
                 .valueOrNull ??
             ref.watch(usdBalanceProvider);
-        final reach = min(otherSpendable, reachRead);
+        final reach = min(otherSpendable, reachRead) + bitcoinUsd;
         final ready = _predictionsReady(venueCash);
         final held = _fundingPlan;
         final funded = slipMaxFundableUsd(
           upperUsd: terms.maxNotionalFor(
-              budget + otherSpendable, maxFeePrice,
+              budget + otherSpendable + bitcoinUsd, maxFeePrice,
               reserve: reserve),
           fits: (stake) {
             final required = _predictionsRequired(terms, stakeUsd: stake);
