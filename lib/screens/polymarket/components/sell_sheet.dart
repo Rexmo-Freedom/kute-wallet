@@ -15,12 +15,12 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
         polymarketSellSendPrice;
 import 'package:kute/services/polymarket/polymarket_slippage_defaults.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart'
-    show PolyReceiptArtwork;
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders;
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 // lib/screens/polymarket/components/sell_sheet.dart
@@ -34,8 +34,16 @@ import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart'
     show polymarketFeeTermsProvider;
 import 'package:kute/screens/shared/sticky_action_bar.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart'
+    show SlipFigure, SlipFigures, slipZeroFigure;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
+import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/polymarket/components/position_chance_bar.dart'
+    show polyOutcomeDirection;
+import 'package:kute/screens/polymarket/components/price_format.dart'
+    show formatPolyChanceFigure;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:kute/services/sound_service.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -78,8 +86,20 @@ class SellSheet extends ConsumerStatefulWidget {
   /// Surface the sheet was opened from (analytics only).
   final String source;
 
+  /// Open straight on a limit sell ("sell at" a price), its Advanced page
+  /// showing: the position screen's "Protect it".
+  final bool startWithLimit;
+
+  /// With [startWithLimit]: the limit price to start on (0 to 1), instead
+  /// of the live price (the position screen's "Set a sell at 72%").
+  final double? limitPrice;
+
   const SellSheet(
-      {super.key, required this.position, this.source = 'position_detail'});
+      {super.key,
+      required this.position,
+      this.source = 'position_detail',
+      this.startWithLimit = false,
+      this.limitPrice});
 
   /// Route name used to identify the sell route when popping back after a
   /// sell succeeds — mirrors BetSlipSheet.routeName.
@@ -87,7 +107,9 @@ class SellSheet extends ConsumerStatefulWidget {
 
   static void show(BuildContext context,
       {required PolymarketPosition position,
-      String source = 'position_detail'}) {
+      String source = 'position_detail',
+      bool startWithLimit = false,
+      double? limitPrice}) {
     // A resolved market cannot be sold (the CLOB rejects it as "market
     // does not exist"): it is claimed in one tap where it is shown
     // (PolyClaimButton on the card and the position screen), never here.
@@ -118,7 +140,11 @@ class SellSheet extends ConsumerStatefulWidget {
       routeSettings: const RouteSettings(name: routeName),
       builder: (_) => FastBetScope(
         active: polyIsFastBetRound(position.eventSlug),
-        child: SellSheet(position: position, source: source),
+        child: SellSheet(
+            position: position,
+            source: source,
+            startWithLimit: startWithLimit,
+            limitPrice: limitPrice),
       ),
     );
   }
@@ -146,6 +172,18 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// The CTA's label while a sale is in flight once it has moved past
   /// "Selling…" ("Sold · confirming"); null for the plain busy label.
   String? _progressLabel;
+
+  /// The sale's rubber band on the CTA: how far along it is (approval,
+  /// sent, accepted, the venue's answer), and how it ended. Presentation
+  /// only; set beside [_isSelling], never read by the sale itself.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  /// Moves the band to the sale's next phase while it runs.
+  void _bandTo(double progress) {
+    if (!mounted || !_isSelling) return;
+    setState(() => _bandProgress = progress);
+  }
 
   /// The venue held the order for a live game's delay, and the shares have
   /// sold (the trade is on its way on chain). Drive the line over the CTA.
@@ -273,6 +311,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     TrackingService.track('polymarket_sell_submitted', params: {
       ..._kindParams(),
       ...inputs,
+      'time_in_flow_ms': DateTime.now().difference(_openedAt).inMilliseconds,
       'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
           DateTime.now().difference(_openedAt)),
     });
@@ -321,6 +360,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // move fast on small markets.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (widget.startWithLimit) _openLimit();
       _refreshBid();
       _bidRefreshTimer = Timer.periodic(
         const Duration(seconds: 20),
@@ -416,6 +456,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           'reason': _stopReason ?? 'user_closed',
           if (_lastErrorCategory != null)
             'last_error_category': _lastErrorCategory!,
+          'time_in_flow_ms':
+              DateTime.now().difference(_openedAt).inMilliseconds,
           'time_in_flow_bucket': VenueAnalytics.timeInFlowBucket(
               DateTime.now().difference(_openedAt)),
         });
@@ -445,6 +487,10 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     if (_isSelling) return;
     setState(() {
       _isSelling = true;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
+      _bandOutcome = null;
       _progressLabel = null;
       _venueDelayed = false;
       _matched = false;
@@ -478,6 +524,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final l10n = context.l10n;
     TrackingService.track('prediction_sell_cta_tapped', params: {
       'amount_bucket': TrackingService.usdBucket(_amountUsdc),
+      ...TrackingService.exactUsd('amount_usd', _amountUsdc),
       'denomination': 'fiat',
     });
     if (_sharesToSell <= 0 || _sharesToSell > pos.size) {
@@ -540,6 +587,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           return;
         }
         _trackSubmitted(tokenId);
+        _bandTo(0.55);
         final placed =
             await ref.read(polymarketTradingProvider.notifier).placeOrder(
                   tokenId: tokenId,
@@ -556,6 +604,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                   marketOutcome: pos.outcome,
                 );
         ref.invalidate(polymarketOpenOrdersProvider);
+        _bandTo(0.7);
         // What the order did on arrival: rests whole, sold part of it
         // against bids already at the price (the rest still for sale), or
         // sold it all. One read of the order says which.
@@ -665,6 +714,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       return;
     }
     _trackSubmitted(tokenId);
+    _bandTo(0.55);
     // One approval for the whole ladder: each rung gets a child grant bound
     // to exactly that rung.
     final ladder = PmLadderGrant(approval);
@@ -801,6 +851,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
       // then its trades on chain), and the Portfolio card says "Selling…"
       // until there is an answer.
       notifier.markPositionSelling(tokenId);
+      _bandTo(0.7);
       final PmSellSettlement settlement;
       try {
         settlement = await _watchSale(response,
@@ -908,6 +959,16 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         setState(() {
           if (stage == PmSellStage.delayed) _venueDelayed = true;
           _matched = stage == PmSellStage.matched;
+          if (_isSelling) {
+            final next = _matched
+                ? 0.88
+                : _venueDelayed
+                    ? 0.78
+                    : null;
+            if (next != null && next > (_bandProgress ?? 0)) {
+              _bandProgress = next;
+            }
+          }
           _progressLabel = _matched ? l10n.betSoldConfirming : null;
         });
       },
@@ -953,7 +1014,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     switch (s.result) {
       case PmSellResult.unknown:
         if (limit) {
-          _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+          await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
           return;
         }
         // Accepted, and the venue did not say in time what became of it.
@@ -964,7 +1025,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         await _resolveBlockedSale(probe: false);
         return;
       case PmSellResult.resting:
-        _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
+        await _showLimitPlaced(limitPrice ?? 0, s.offeredShares, l10n);
         return;
       case PmSellResult.notFilled:
       case PmSellResult.failed:
@@ -1132,15 +1193,23 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final image = positionCrestImage(ref, pos, listen: false);
     final question = pos.marketQuestion;
     final outcome = pos.outcome;
+    // The band snaps (a light tap) and is seen doing it: the sale stays
+    // busy, the CTA still spinning and the ticket still trapped, for the
+    // bounded moment the snap takes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
     // Release the sale FIRST. The ticket traps itself while an order is
     // in flight, and this flag is what arms that trap, so leaving it set
     // refused the hand-off. A direct pop, not maybePop, because this is
     // the flow closing itself rather than the person leaving mid-order.
-    setState(() {
-      _isSelling = false;
-      _progressLabel = null;
-    });
-    _closeTicket();
+    // (Torn down during the snap anyway: the receipt still shows.)
+    if (mounted) {
+      setState(() {
+        _isSelling = false;
+        _progressLabel = null;
+      });
+      _closeTicket();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!rootNavigator.mounted) return;
       if (partialLimit) {
@@ -1150,24 +1219,22 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         pushKuteSuccessOverlay(
           navigator: rootNavigator,
           overlay: KuteConfirmation(
-            message: l10n.betLimitSellPartial(
+            message: l10n.betPositionSold,
+            amount: proceeds != null
+                ? '\$${proceeds.toStringAsFixed(2)}'
+                : l10n.portfolioPredictionEntry(
+                    sold.toStringAsFixed(2), _formatPriceCompact(at)),
+            contextLine: '$outcome · $question',
+            rows: {l10n.betShares: sold.toStringAsFixed(2)},
+            // How much sold, and that the rest is still for sale at the
+            // person's price.
+            detail: l10n.betLimitSellPartial(
               sold.toStringAsFixed(2),
               s.offeredShares.toStringAsFixed(2),
               _formatPriceCompact(at),
               s.remainingShares.toStringAsFixed(2),
             ),
-            detail: l10n.betRestingSellNote,
             onDone: rootNavigator.pop,
-            receipt: TradeReceipt(
-              leading: PolyReceiptArtwork(url: image),
-              title: question,
-              subtitle: outcome,
-              rows: {
-                l10n.betShares: sold.toStringAsFixed(2),
-                if (proceeds != null)
-                  l10n.betSaleProceeds: '\$${proceeds.toStringAsFixed(2)}',
-              },
-            ),
           ),
         );
         return;
@@ -1188,22 +1255,38 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   }
 
   /// The resting limit sell's confirmation, as it always was.
-  void _showLimitPlaced(double price, double shares, AppLocalizations l10n) {
+  Future<void> _showLimitPlaced(
+      double price, double shares, AppLocalizations l10n) async {
     if (!mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
-    setState(() => _isSelling = false);
-    _closeTicket();
+    // The snap plays while the ticket still holds the sale (see the sold
+    // path), then the ticket lets go and closes.
+    setState(() => _bandOutcome = RubberBandOutcome.success);
+    await RubberBand.settle(context);
+    if (mounted) {
+      setState(() => _isSelling = false);
+      _closeTicket();
+    }
+    if (!navigator.mounted) return;
     pushKuteSuccessOverlay(
         navigator: navigator,
         overlay: KuteConfirmation(
-          message:
-              l10n.betLimitSellPlaced('${(price * 100).toStringAsFixed(2)}¢'),
+          // Accepted, resting until it fills: the pending clock.
+          tone: KuteConfirmationTone.pending,
+          message: l10n.investingOrderAccepted,
+          amount: l10n.portfolioPredictionEntry(shares.toStringAsFixed(2),
+              '${(price * 100).toStringAsFixed(2)}¢'),
+          contextLine: '${pos.outcome} · ${pos.marketQuestion}',
           detail: l10n.betRestingSellNote,
           onDone: navigator.pop,
-          receipt: TradeReceipt(
-              title: pos.marketQuestion,
-              subtitle: pos.outcome,
-              rows: {l10n.betShares: shares.toStringAsFixed(2)}),
+          // The sell rests: "View orders" opens the Portfolio's P&L
+          // charts, where it is listed.
+          secondaryButtonText: l10n.investingViewOrders,
+          onSecondary: () {
+            navigator.pop();
+            openInvestmentsOrders(navigator.context,
+                product: 'predictions', orderKind: 'limit_sell');
+          },
         ));
   }
 
@@ -1301,9 +1384,9 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         message: read ? l10n.betSaleStatusChecked : l10n.betSalePending,
         detail:
             read ? l10n.betSaleStatusCheckedDetail : l10n.betSalePendingDetail,
-        success: read,
-        showCloseButton: true,
-        buttonText: l10n.done,
+        tone: read
+            ? KuteConfirmationTone.success
+            : KuteConfirmationTone.pending,
         onDone: navigator.pop,
       ),
     );
@@ -1402,10 +1485,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   // ── Spot / Limit (sell) ───────────────────────────────────────────────
 
   /// Push the Advanced page, the way the buy slip does: a full-screen
-  /// dialog route on the ROOT navigator, which is why it keeps the app
-  /// palette. The tinted palette is installed by the `SideTintedSubtree`
-  /// inside this sheet's own build, so a route pushed from above it never
-  /// inherits the red (user decision: only sheets wear the side colour).
+  /// dialog route on the ROOT navigator, on the app palette.
   ///
   /// The sheet does not hand the screen its state object — the sell sheet
   /// keeps plain State fields. The screen is seeded with the current
@@ -1413,6 +1493,13 @@ class _SellSheetState extends ConsumerState<SellSheet> {
   /// which are applied here on pop. Its Sell button returns too: the
   /// sale runs from this sheet so there is one selling path and the
   /// progress lands on the CTA the person is already looking at.
+  /// What Advanced is set to when it is not the default (a limit, at its
+  /// price), for the chip under the amount; null: the default.
+  String? get _advancedSummary => _isLimitMode
+      ? context.l10n
+          .betSlipLimitAt('${(_limitPrice * 100).toStringAsFixed(1)}¢')
+      : null;
+
   Future<void> _openAdvanced() async {
     if (_openingAdvanced || _isSelling) return;
     // Withheld Advanced opens nothing; the shared sheet says why.
@@ -1470,6 +1557,24 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     }
   }
 
+  /// Switches to a limit sell at the live price and opens the Advanced
+  /// page where its price is set (the position screen's "Protect it").
+  void _openLimit() {
+    final lp = pos.tokenId != null
+        ? ref.read(livePriceProvider).prices[pos.tokenId]
+        : null;
+    final asked = widget.limitPrice;
+    setState(() {
+      _isLimitMode = true;
+      if (_limitPrice <= 0) {
+        _limitPrice = (asked != null && asked > 0 ? asked : lp ?? pos.currentPrice)
+            .clamp(0.01, 0.99)
+            .toDouble();
+      }
+    });
+    unawaited(_openAdvanced());
+  }
+
   /// Re-run the sell after a failure. Drops the notice, so the ticket is
   /// back to a plain sell before the button starts working again. A new
   /// sale is a new approval and a new order; nothing is re-sent.
@@ -1491,10 +1596,6 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final livePrice = ref.watch(livePriceProvider
         .select((s) => pos.tokenId != null ? s.prices[pos.tokenId] : null));
     final currentPrice = livePrice ?? pos.currentPrice;
-    final livePnl = (currentPrice - pos.avgPrice) * pos.size;
-    final livePnlPct = pos.avgPrice > 0
-        ? ((currentPrice - pos.avgPrice) / pos.avgPrice) * 100
-        : 0.0;
     final currentValue = pos.size * currentPrice;
     final canSell = _sharesToSell > 0 && _sharesToSell <= pos.size;
 
@@ -1506,7 +1607,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     final activelySelling = _isSelling;
 
     // While a sale waits on a live game's in-play delay, the line over
-    // the CTA says why it is taking a moment.
+    // the CTA says why it is taking a moment. Its place is kept from the
+    // start on a game in play, so the line appearing moves nothing.
     final delayNote = activelySelling &&
             !_matched &&
             _liveDelaySeconds > 0 &&
@@ -1519,7 +1621,8 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Selling is money coming out, so the ticket wears the red side the
     // same way the buy slip wears the outcome's colour: the whole subtree
     // is handed the tinted palette and every child that reads
-    // `context.colors` follows without knowing about it.
+    // `context.colors` follows without knowing about it (the tiles, the
+    // pill, Max, the Advanced box and the keypad on translucent white).
     //
     // Nothing inside the tinted subtree opens a sheet of its own. The
     // step-up PIN gate, the geoblock wall and the error snackbars are all
@@ -1529,6 +1632,30 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     const sideColor = AppColors.marketDown;
     final tc = sideTintPalette(c, sideColor);
 
+    // The sale's two figures, off the same fee curve the placement engine
+    // sizes with (polymarketFeeTermsProvider) and the cost basis the
+    // position screen reads: what the shares bring in after the fee, and
+    // the profit or loss of the shares sold against what they cost.
+    final gross = _sharesToSell * orderPrice;
+    final tokenId = pos.tokenId;
+    final feeTerms = tokenId == null || tokenId.isEmpty
+        ? null
+        : ref.watch(polymarketFeeTermsProvider(tokenId)).valueOrNull;
+    final double? fee = _sharesToSell <= 0
+        ? 0
+        : feeTerms == null || !(orderPrice > 0 && orderPrice < 1)
+            ? null
+            : feeTerms.platformFee(_sharesToSell, orderPrice) +
+                feeTerms.builderFee(_sharesToSell, orderPrice, taker: true);
+    final proceeds = math.max(0.0, gross - (fee ?? 0));
+    final costBasis = polymarketPositionCostBasis(ref, pos);
+    final costSold =
+        pos.size > 0 ? costBasis * (_sharesToSell / pos.size) : 0.0;
+    final pnl = _sharesToSell > 0 ? proceeds - costSold : 0.0;
+    // Green and red do not read on the red sheet: the sign carries the
+    // direction, in the sheet's ink.
+    final pnlColor = pnl.abs() < 0.005 ? tc.textSecondary : tc.textPrimary;
+
     final viewInsetBottom = MediaQuery.of(context).viewInsets.bottom;
 
     final form = Padding(
@@ -1537,67 +1664,77 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // The sell ticket's side block: what is being sold, what it is
-          // worth right now. Inert, so it stays on the quietest step.
-          _buildPositionCard(tc, currentValue, livePnl, livePnlPct),
-          SizedBox(height: 8.h),
-          Text(
-            context.l10n.betAvgNowPrice(_formatPriceCompact(pos.avgPrice),
-                _formatPriceCompact(currentPrice)),
-            style: TextStyle(
-              color: tc.textSecondary,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-            ),
+          // What is held, in its colour: "You hold Up · 4.67 shares".
+          PositionSidePill(
+            key: const ValueKey('poly-sell-held'),
+            text: '${context.l10n.chartYouHold} ${pos.outcome} · '
+                '${context.l10n.betSharesCount(pos.size.toStringAsFixed(2))}',
+            color: tc.textPrimary,
+            up: polyOutcomeDirection(pos.outcome),
           ),
-          SizedBox(height: 22.h),
-          // One big typed figure, the share equivalent and the position's
-          // value underneath. There is no TextField on this step, so the
-          // OS keyboard never opens over the ticket; the pinned keypad
-          // below the form is the only way in.
+          SlipGap(18.h),
+          // One big typed figure and one quiet line under it: what the
+          // position is worth now and its chance. There is no TextField on
+          // this step, so the OS keyboard never opens over the ticket; the
+          // pinned keypad below the form is the way in.
           BigAmountDisplay(
             prefix: polyDisplayLabel(ref),
             amountText: _amountController.text,
-            conversionLabel: _sharesToSell > 0
-                ? '≈ ${context.l10n.betSharesCount(_sharesToSell.toStringAsFixed(2))}'
-                : null,
             availableLabel:
-                '${context.l10n.available} ${formatPolyAmount(ref, currentValue)}',
+                '${context.l10n.betCurrentValue} ${formatPolyAmount(ref, currentValue)}'
+                ' · ${context.l10n.betPercentChance(formatPolyChanceFigure(currentPrice))}',
             availableExceeded: _amountUsdc > currentValue,
             // One small Max chip beside the figure, as on the buy slips:
             // it fills the whole position (every share), and brings that
-            // back after an edit. Nothing to sell, no chip.
-            trailing: pos.size > 0 && currentValue > 0
-                ? AmountMaxChip(
-                    label: context.l10n.max,
-                    semanticLabel: context.l10n.amountUseMaximum,
-                    onTap: _isSelling
-                        ? null
-                        : () {
-                            _setSellFraction(1);
-                            _amountMethod = 'max';
-                            TrackingService.track(
-                                'sell_sheet_available_tapped');
-                          },
-                  )
-                : null,
+            // back after an edit. Nothing to sell, no chip. The Advanced
+            // pill follows it, inert while the sale runs.
+            trailing: SlipAmountPills(
+              max: pos.size > 0 && currentValue > 0
+                  ? AmountMaxChip(
+                      label: context.l10n.max,
+                      semanticLabel: context.l10n.amountUseMaximum,
+                      onTap: _isSelling
+                          ? null
+                          : () {
+                              _setSellFraction(1);
+                              _amountMethod = 'max';
+                              TrackingService.track(
+                                  'sell_sheet_available_tapped');
+                            },
+                    )
+                  : null,
+              advanced: SlipAdvancedButton(
+                onTap: _openAdvanced,
+                modified: _advancedSummary != null,
+                enabled: !_isSelling,
+              ),
+            ),
           ),
-          SizedBox(height: 24.h),
-          // The estimated fee, and nothing else (owner decision): no
-          // proceeds line before it and none after it.
-          PolymarketFeeSummary(
-              tokenId: pos.tokenId,
-              shares: _sharesToSell,
-              price: orderPrice,
-              bitcoinFirst: false,
-              limit: _isLimitMode),
-          SizedBox(height: 8.h),
-          PolySlipAdvancedRow(
-            trailingText: _isLimitMode
-                ? context.l10n.betSlipLimitAt(
-                    '${(_limitPrice * 100).toStringAsFixed(1)}¢')
-                : null,
-            onTap: _openAdvanced,
+          // Advanced is the pill beside Max; when it is not the default,
+          // a chip under the amount says what it is set to.
+          if (_advancedSummary case final summary?) ...[
+            SlipGap(10.h),
+            SlipAdvancedChip(text: summary, onTap: _openAdvanced),
+          ],
+          SlipGap(20.h),
+          // What the sale brings in after the fee, and its profit or loss:
+          // two figures, no boxes, zero until something is typed.
+          SlipFigures(
+            left: SlipFigure(
+              key: const ValueKey('poly-sell-proceeds'),
+              label: context.l10n.youReceive,
+              value: _sharesToSell > 0
+                  ? formatPolyAmount(ref, fee == null ? gross : proceeds)
+                  : slipZeroFigure(formatPolyAmount(ref, 0)),
+            ),
+            right: SlipFigure(
+              key: const ValueKey('poly-sell-pnl'),
+              label: context.l10n.portfolioProfitLoss,
+              value: pnl.abs() < 0.005
+                  ? slipZeroFigure(formatPolyAmount(ref, 0))
+                  : '${pnl < 0 ? '-' : '+'}${formatPolyAmount(ref, pnl.abs())}',
+              valueColor: pnlColor,
+            ),
           ),
           if (_advancedBlock case final reason?)
             CapabilityBlockNote(reason, padding: EdgeInsets.only(top: 10.h)),
@@ -1605,7 +1742,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
           // the person is still looking at, and the CTA underneath
           // becomes the retry the locked panel used to carry.
           if (_sellFailed) ...[
-            SizedBox(height: 12.h),
+            SlipGap(12.h),
             PolySlipNotice(
               title: context.l10n.betCouldNotSell,
               message:
@@ -1613,7 +1750,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
               details: _sellErrorDetails,
             ),
           ],
-          SizedBox(height: 12.h),
+          SlipGap(12.h),
         ],
       ),
     );
@@ -1627,58 +1764,63 @@ class _SellSheetState extends ConsumerState<SellSheet> {
         child: SideTintedSubtree(
           side: sideColor,
           child: Container(
-            // Bottom-modal chrome — the buy slip's, to the pixel: the side
-            // colour as the fill, rounded-top corners, keyboard inset, max
-            // 92% screen height. Sized to content (mainAxisSize.min on the
-            // inner Column) so the sheet doesn't stretch to full screen.
-            padding: EdgeInsets.only(bottom: viewInsetBottom),
-            decoration: BoxDecoration(
-              color: sideColor,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-              border: Border(top: BorderSide(color: tc.border)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (MediaQuery.of(context).size.height * 0.92 -
-                          viewInsetBottom)
-                      .clamp(0.0, double.infinity),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PolySlipHeader(
-                      marketQuestion: pos.marketQuestion,
-                      marketImage: pos.marketImage,
-                    ),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        primary: false,
-                        child: IgnorePointer(
-                            ignoring: activelySelling, child: form),
+          // Bottom-modal chrome — the buy slip's, to the pixel: the side
+          // colour as the fill, rounded-top corners, keyboard inset, max
+          // 92% screen height. Sized to content (mainAxisSize.min on the
+          // inner Column) so the sheet doesn't stretch to full screen.
+          padding: EdgeInsets.only(bottom: viewInsetBottom),
+          decoration: BoxDecoration(
+            color: sideColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            border: Border(top: BorderSide(color: tc.border)),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: (MediaQuery.of(context).size.height * 0.92 -
+                        viewInsetBottom)
+                    .clamp(0.0, double.infinity),
+              ),
+              child: SlipFit(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The buy slip's own header: the market's artwork, the
+                  // title (two lines at most) and the round close X.
+                  PolySlipHeader(
+                    marketQuestion: pos.marketQuestion,
+                    marketImage: pos.marketImage,
+                    maxLines: 2,
+                  ),
+                  Flexible(
+                    child: SlipFormBody(
+                      expandForMessage: _sellFailed,
+                      form: IgnorePointer(
+                          ignoring: activelySelling, child: form),
+                      input: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w),
+                        child: AmountKeypad(
+                          value: _amountController.text,
+                          maxDecimals: 2,
+                          enabled: !_isSelling,
+                          onChanged: (v) => _amountController.text = v,
+                        ),
                       ),
                     ),
-                    // The sheet's only amount input, pinned under the
-                    // scrolling form so the figure above it never hides
-                    // behind a keyboard.
+                  ),
+                  if (_liveDelaySeconds > 0)
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w),
-                      child: AmountKeypad(
-                        value: _amountController.text,
-                        maxDecimals: 2,
-                        enabled: !_isSelling,
-                        onChanged: (v) => _amountController.text = v,
-                      ),
-                    ),
-                    // The greater of a comfortable gap and the system
-                    // inset, never both. See the buy slip's action row.
-                    if (delayNote != null)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
+                      padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
+                      child: Visibility(
+                        visible: delayNote != null,
+                        maintainSize: true,
+                        maintainAnimation: true,
+                        maintainState: true,
                         child: Text(
-                          delayNote,
+                          delayNote ??
+                              context.l10n
+                                  .polyGameInPlayDelay('$_liveDelaySeconds'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: tc.textSecondary,
@@ -1687,124 +1829,57 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                           ),
                         ),
                       ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          20.w,
-                          8.h,
-                          20.w,
-                          math.max(
-                              16.h, MediaQuery.of(context).padding.bottom)),
-                      child: PolySlipCta(
-                        color: sideColor,
-                        isBusy: _isSelling,
-                        enabled:
-                            canSell && !_isSelling && _advancedBlock == null,
-                        onTap: _sellFailed ? _retrySell : _handleSell,
-                        // "Selling…" → "Sold · confirming" once it matched.
-                        busyLabel:
-                            _progressLabel ?? context.l10n.betSellingEllipsis,
-                        label: _sellFailed
-                            ? (_sellRetryPrice != null
-                                ? context.l10n.betRetryAtPrice(
-                                    polymarketCentsLabel(_sellRetryPrice!))
-                                : context.l10n.retry)
-                            : _isLimitMode
-                                ? (canSell
-                                    ? context.l10n.betPlaceLimitAtPrice(
-                                        '${(_limitPrice * 100).toStringAsFixed(1)}¢')
-                                    : context.l10n.betPlaceLimit)
-                                : (canSell
-                                    ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
-                                    : context.l10n.sell),
-                      ),
                     ),
-                  ],
-                ),
+                  // The greater of a comfortable gap and the system
+                  // inset, never both. See the buy slip's action row.
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        20.w,
+                        8.h,
+                        20.w,
+                        math.max(16.h, MediaQuery.of(context).padding.bottom)),
+                    // On the red sheet the button is the sheet's white
+                    // with dark letters (white buttons never take a
+                    // coloured label). The money stays in Predictions, so
+                    // there is no journey; the button carries the wait.
+                    child: PolySlipCta(
+                      color: sideColor,
+                      neutral: true,
+                      isBusy: _isSelling,
+                      // Approval, sent, accepted, the venue's answer;
+                      // a snap into the receipt when it sold.
+                      bandProgress: _bandProgress,
+                      bandOutcome: _bandOutcome,
+                      // A market sell is answered in a second or two.
+                      bandExpected: const Duration(milliseconds: 1500),
+                      enabled:
+                          canSell && !_isSelling && _advancedBlock == null,
+                      onTap: _sellFailed ? _retrySell : _handleSell,
+                      // "Selling…" → "Sold · confirming" once it matched.
+                      busyLabel:
+                          _progressLabel ?? context.l10n.betSellingEllipsis,
+                      label: _sellFailed
+                          ? (_sellRetryPrice != null
+                              ? context.l10n.betRetryAtPrice(
+                                  polymarketCentsLabel(_sellRetryPrice!))
+                              : context.l10n.retry)
+                          : _isLimitMode
+                              ? (canSell
+                                  ? context.l10n.betPlaceLimitAtPrice(
+                                      '${(_limitPrice * 100).toStringAsFixed(1)}¢')
+                                  : context.l10n.betPlaceLimit)
+                              : (canSell
+                                  ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
+                                  : context.l10n.sell),
+                    ),
+                  ),
+                ],
+              ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  /// The sell ticket's side block. Mirrors the buy slip's selected-outcome
-  /// card: an inert identity panel stating what is being sold and what it
-  /// is worth, on the quietest tier of the tinted palette.
-  ///
-  /// The outcome pill is neutral here on purpose. The sheet's own red
-  /// already means "selling", so a second directional fill beside it (a
-  /// red NO pill on a red sheet) would both vanish and lie. The gain and
-  /// loss line keeps its sign, and reads through `success` / `error`,
-  /// which the tinted palette collapses onto the contrast ink.
-  Widget _buildPositionCard(AppColorsExtension c, double currentValue,
-      double livePnl, double livePnlPct) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  pos.outcome.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  context.l10n.betSharesCount(pos.size.toStringAsFixed(1)),
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                formatPolyAmount(ref, currentValue),
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: c.textPrimary,
-                  letterSpacing: -0.3,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              SizedBox(height: 3.h),
-              Text(
-                '${livePnl >= 0 ? '+' : '-'}${formatPolyAmount(ref, livePnl.abs())} '
-                '${livePnlPct >= 0 ? '+' : ''}${livePnlPct.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  color: livePnl >= 0 ? c.success : c.error,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1936,9 +2011,8 @@ class _SellAdvancedResult {
 /// and read as one. The shared pieces now live in `slip_chrome.dart`, so
 /// the two pages cannot drift apart again.
 ///
-/// It is pushed as a full-screen dialog on the root navigator, so it sits
-/// ABOVE the sheet's `SideTintedSubtree` and keeps the app palette. Only
-/// sheets wear the side colour.
+/// It is pushed as a full-screen dialog on the root navigator, on the app
+/// palette.
 class _SellAdvancedScreen extends ConsumerStatefulWidget {
   const _SellAdvancedScreen({
     required this.position,
@@ -1983,7 +2057,6 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
   late double _slippagePct = widget.slippagePct;
   late final TextEditingController _amountController =
       TextEditingController(text: widget.amountText);
-  bool _detailsOpen = false;
 
   PolymarketPosition get pos => widget.position;
 
@@ -2392,14 +2465,11 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                         ),
                         SizedBox(height: 14.h),
                         PolySlipDetailsGroup(
-                          open: _detailsOpen,
-                          onToggle: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _detailsOpen = !_detailsOpen);
-                            TrackingService.track(
-                                'sell_sheet_advanced_details_toggled',
-                                params: {'open': _detailsOpen});
-                          },
+                          // Opens the rows in a bottom sheet; the event hears it open
+                          // and close.
+                          onToggle: (open) => TrackingService.track(
+                              'sell_sheet_advanced_details_toggled',
+                              params: {'open': open}),
                           rows: [
                             PolySlipDetailRow(
                                 label: l10n.betSharesToSell,

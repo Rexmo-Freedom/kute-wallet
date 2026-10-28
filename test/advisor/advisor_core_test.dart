@@ -156,6 +156,62 @@ void main() {
         await AdvisorInputGuard.isSafe('What does 10x leverage mean?'), isTrue);
   });
 
+  test(
+      'part of a phrase is blocked too: six seed words in a row, a typo at a '
+      "word's end, a phrase broken by typos, other key formats", () async {
+    for (final query in [
+      // The first six words of a phrase, typed into search or Sal.
+      'legal winner thank year wave sausage',
+      // A typo at the end of a word does not break the run.
+      'legal winnerr thank year wavee sausage',
+      // A phrase split by mistakes still reads as one.
+      'legal winner thamk year wave sausaje worth useful legal winner thank',
+      // Electrum / Sparrow exports and a raw BIP39 seed.
+      'zprvAWgYBBk7JR8Gjrh4UJQ2uJdG1r3WNRRfURiABBE3RvMXYSrRJL62XuezvGdPvG6GFBZduosCc1YP5wixPox7zhZLfiUm8aunE96BBa4Kei5',
+      'yprvAHwhK6RbpuS3dgCYHM5jc2ZvEKd7Bi61u9FVhYMpgMSuZS613T1xxQeKTffhrHY79hZ5PsskBjcc6C2V7DrnsMsNaGDaWev3GLRQRgV7hxF',
+      '5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4',
+      'cRp4uUnreGMZN8vB7nQFX6XWMHU5Lc73HMAhmcDEwHfbgRS66Cqp',
+    ]) {
+      expect(await AdvisorInputGuard.isSafe(query), isFalse, reason: query);
+    }
+    // Ordinary market questions and searches pass.
+    for (final query in [
+      'will bitcoin hit 100k this year',
+      'stock market crash this month',
+      'oil price above one hundred',
+      'federal reserve interest rate decision',
+      'will donald trump win the presidential election',
+      'total goals over under two point five',
+      'can you explain how this market works and what happens if the game '
+          'is cancelled before the end',
+      'what would happen to the price if the fed cut rates again in december',
+    ]) {
+      expect(await AdvisorInputGuard.isSafe(query), isTrue, reason: query);
+    }
+  });
+
+  test(
+      'a scanned or pasted recovery phrase or private key is a secret, an '
+      'address is not', () async {
+    for (final value in [
+      'legal winner thank year wave sausage worth useful legal winner thank yellow',
+      'zprvAWgYBBk7JR8Gjrh4UJQ2uJdG1r3WNRRfURiABBE3RvMXYSrRJL62XuezvGdPvG6GFBZduosCc1YP5wixPox7zhZLfiUm8aunE96BBa4Kei5',
+      'L1aW4aubDFB7yfras2S1mN3bqg9nwySY8nkoLmJebSLD5BWv3ENZ',
+      '5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4',
+    ]) {
+      expect(await AdvisorInputGuard.holdsSecret(value), isTrue, reason: value);
+    }
+    for (final value in [
+      '0x1234567890123456789012345678901234567890',
+      'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+      'So11111111111111111111111111111111111111112',
+      'TJYeasTPa6gpEEfYcRbGKbqyczKmYTEHEB',
+    ]) {
+      expect(await AdvisorInputGuard.holdsSecret(value), isFalse,
+          reason: value);
+    }
+  });
+
   test('unrecognised and private market identifiers are not sent', () {
     expect(
         const AdvisorContext(
@@ -355,7 +411,11 @@ void main() {
 
   test('cancellation closes HTTP while waiting for headers', () async {
     final pending = Completer<http.StreamedResponse>();
-    final client = _StreamingClient((_) => pending.future, onClose: () {
+    final sent = Completer<void>();
+    final client = _StreamingClient((_) {
+      sent.complete();
+      return pending.future;
+    }, onClose: () {
       if (!pending.isCompleted) {
         pending.completeError(const AdvisorUnavailableException());
       }
@@ -372,7 +432,10 @@ void main() {
         .toList();
     final expectation =
         expectLater(stream, throwsA(isA<AdvisorUnavailableException>()));
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    // Cancel only once the request is out and waiting for headers. A fixed
+    // delay could land before send (still reading the device headers),
+    // where the stream rightly ends quietly instead.
+    await sent.future;
     cancellation.cancel();
     await expectation;
     expect(client.closed, isTrue);
@@ -556,6 +619,43 @@ void main() {
       }
     });
 
+    test('each question names the door Sal was opened from, until the '
+        'session is cleared', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      Future<void> answer(Future<void> pending) async {
+        await _until(
+            () => streams.length == prompts.length && streams.isNotEmpty);
+        streams.last.add(const AdvisorStreamEvent.done(_response));
+        await streams.last.close();
+        await pending;
+      }
+
+      // Search names its door; a market chip there starts a new
+      // conversation from the same door.
+      notifier.setAnalyticsSurface('search');
+      notifier.setEntrySource('search');
+      await answer(notifier.ask('What moved today?'));
+      await answer(notifier.ask('Why is BTC moving today?',
+          context: _context,
+          input: 'suggested',
+          template: 'hl.moving_today',
+          chipIndex: 0));
+      // A cleared session forgets it.
+      notifier.clear();
+      await answer(notifier.ask('Explain funding'));
+      final asked = [
+        for (final (name, params) in events)
+          if (name == 'sal_question_asked') params!
+      ];
+      expect(asked, hasLength(3));
+      expect(asked[0]['entry_source'], 'search');
+      expect(asked[1]['entry_source'], 'search');
+      expect(asked[2].keys, isNot(contains('entry_source')));
+    });
+
     test('a template outside the allowlist never reaches analytics', () async {
       final events = <(String, Map<String, Object>?)>[];
       TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
@@ -571,6 +671,95 @@ void main() {
       notifier.cancel();
       await pending;
     });
+    test('a question asked mid-answer stops that answer, keeps what streamed '
+        'and reports interrupted', () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      final first = notifier.ask('Explain funding', context: _context);
+      await _until(() => streams.isNotEmpty);
+      streams[0].add(const AdvisorStreamEvent.delta('Funding is paid'));
+      await _until(() => container
+          .read(advisorSessionProvider)
+          .turns
+          .single
+          .partialText
+          .isNotEmpty);
+
+      final second = notifier.ask('And the fees?', context: _context);
+      await _until(() => streams.length == 2);
+      await first;
+      expect(cancellations[0].isCancelled, isTrue);
+      expect(cancellations[1].isCancelled, isFalse);
+      final turns = container.read(advisorSessionProvider).turns;
+      expect(turns, hasLength(2));
+      // The stopped answer: what was streamed, marked stopped, kept out of
+      // the next request's history.
+      expect(turns[0].loading, isFalse);
+      expect(turns[0].includeInHistory, isFalse);
+      expect(turns[0].blocks.single.id, 'interrupted');
+      expect(turns[0].blocks.single.markdown, startsWith('Funding is paid'));
+      expect(turns[1].loading, isTrue);
+      expect(histories[1], isEmpty);
+      final asked = [
+        for (final (name, params) in events)
+          if (name == 'sal_question_asked') params!
+      ];
+      expect(asked, hasLength(2));
+      expect(asked[0].keys, isNot(contains('interrupted')));
+      expect(asked[1]['interrupted'], isTrue);
+      final failed = [
+        for (final (name, params) in events)
+          if (name == 'sal_answer_failed') params!['error_category']
+      ];
+      expect(failed, ['cancelled']);
+
+      streams[1].add(const AdvisorStreamEvent.done(_response));
+      await streams[1].close();
+      await second;
+      expect(container.read(advisorSessionProvider).turns[1].loading, isFalse);
+      expect(container.read(advisorSessionProvider).turns[1].blocks,
+          _response.blocks);
+      // Only the stop was a failure; the second answer was received.
+      expect(events.where((e) => e.$1 == 'sal_answer_failed'), hasLength(1));
+      expect(events.where((e) => e.$1 == 'sal_answer_received'), hasLength(1));
+    });
+
+    test('the daily quota answers an interrupting question as any other',
+        () async {
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      final notifier = container.read(advisorSessionProvider.notifier);
+      final first = notifier.ask('Explain funding', context: _context);
+      await _until(() => streams.isNotEmpty);
+      streams[0].add(const AdvisorStreamEvent.delta('Funding is paid'));
+      await _until(() => container
+          .read(advisorSessionProvider)
+          .turns
+          .single
+          .partialText
+          .isNotEmpty);
+      final second = notifier.ask('And the fees?', context: _context);
+      await _until(() => streams.length == 2);
+      await first;
+      streams[1].addError(AdvisorRateLimitedException(const Duration(hours: 1),
+          daily: true, resetAt: DateTime.utc(2026, 10, 13)));
+      await second;
+      final turns = container.read(advisorSessionProvider).turns;
+      expect(turns, hasLength(2));
+      expect(turns[0].blocks.single.id, 'interrupted');
+      expect(turns[1].loading, isFalse);
+      expect(turns[1].includeInHistory, isFalse);
+      expect(turns[1].blocks.single.id, 'daily_limit');
+      final failed = [
+        for (final (name, params) in events)
+          if (name == 'sal_answer_failed') params!['error_category']
+      ];
+      expect(failed, ['cancelled', 'quota_daily']);
+    });
+
     tearDown(() async {
       container.dispose();
       for (final stream in streams) {

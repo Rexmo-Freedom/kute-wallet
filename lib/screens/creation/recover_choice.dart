@@ -5,24 +5,33 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
 import 'package:kute/services/secure/recovery_check.dart';
+import 'package:kute/services/secure/recovery_evm_format.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/helpers/pin_attempt_guard.dart';
+import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart'
     show recoveryModeProvider, trackOnboardingStep;
+import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 import 'package:kute/services/passkey_recovery.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -79,6 +88,7 @@ class RestoreFlowAnalytics {
     TrackingService.track('restore_abandoned', params: {
       'step': _step,
       if (_method != null) 'method': _method!,
+      'time_in_flow_ms': DateTime.now().difference(started).inMilliseconds,
       'time_in_flow_bucket': _timeBucket(DateTime.now().difference(started)),
       if (_lastErrorCategory != null)
         'last_error_category': _lastErrorCategory!,
@@ -100,7 +110,18 @@ class RestoreFlowAnalytics {
 /// Attempts passkey recovery once on entry. Dismissing the native prompt
 /// reveals recovery-phrase entry and an explicit passkey retry.
 class RecoverChoiceScreen extends ConsumerStatefulWidget {
-  const RecoverChoiceScreen({super.key});
+  const RecoverChoiceScreen({
+    super.key,
+    @visibleForTesting this.rescue,
+    @visibleForTesting this.chooseEvmFormat,
+  });
+
+  /// Finds wallet copies an older build left on this phone under the
+  /// legacy Keychain accessibility. iOS only by default.
+  final LegacyKeychainRescue? rescue;
+
+  /// The EVM-format check a restored phrase runs through.
+  final Future<RecoveryEvmChoice> Function(String mnemonic)? chooseEvmFormat;
 
   @override
   ConsumerState<RecoverChoiceScreen> createState() =>
@@ -109,6 +130,26 @@ class RecoverChoiceScreen extends ConsumerStatefulWidget {
 
 class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   bool _checkingPasskey = false;
+
+  /// Old copies found on this phone (key names only, nothing decrypted).
+  /// Listed in the picker beside the passkeys discovery finds.
+  List<LegacyWalletCopy> _legacyCopies = const [];
+  Future<void>? _legacyLookup;
+
+  LegacyKeychainRescue? get _rescue => widget.rescue ??
+      (defaultTargetPlatform == TargetPlatform.iOS
+          ? LegacyKeychainRescue()
+          : null);
+
+  /// Predictions builds again for the restored spending wallet. Its
+  /// identity watch does too; this also covers a build that ended on a
+  /// placeholder (no phrase yet) for the same identity.
+  void _rebuildPredictions() {
+    if (!mounted) return;
+    ref
+      ..invalidate(polymarketTradingProvider)
+      ..invalidate(polymarketBalanceProvider);
+  }
 
   @override
   void initState() {
@@ -121,12 +162,26 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     }
     RestoreFlowAnalytics.start(
         entrySource: firstWallet ? 'onboarding' : 'add_wallet');
+    _legacyLookup = _lookUpLegacyCopies();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _handlePasskeyChoice(trigger: 'auto');
     });
   }
 
+  Future<void> _lookUpLegacyCopies() async {
+    final rescue = _rescue;
+    if (rescue == null) return;
+    try {
+      final scan = await rescue.scan(ref.read(settingsProvider).wallets,
+          source: 'sheet', includeUnlisted: true);
+      if (mounted) _legacyCopies = scan.copies;
+    } catch (_) {
+      // Nothing to list; the passkey and phrase paths are unaffected.
+    }
+  }
+
   bool _restoringPasskey = false;
+  bool _restoringLegacy = false;
 
   /// The passkey wallet waiting on its confirmation ceremony, so the
   /// screen can say which wallet the OS prompt is for.
@@ -157,37 +212,47 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         discovery = await PasskeyService.discoverWallets();
       } catch (e) {
         // A cancelled ceremony is the user backing out — stop here rather
-        // than fall through and prompt them a second time.
-        if (e.toString().toLowerCase().contains('cancel')) {
+        // than fall through and prompt them a second time. Copies from an
+        // older version still get their list: they need no ceremony.
+        if (PasskeyService.isUserCancelledError(e)) {
           _trackPasskeyRestoreCancelled('lookup');
+          await _legacyLookup;
+          if (mounted && _legacyCopies.isNotEmpty) {
+            _showLabelPicker(const [], null, legacy: _legacyCopies);
+          }
           return;
         }
         // Any other new-SDK failure is non-fatal: fall through to legacy.
       }
       if (!mounted) return;
+      await _legacyLookup;
+      if (!mounted) return;
       final labels = discovery?.labels ?? const <String>[];
-      if (labels.length == 1) {
+      final legacy = _legacyCopies;
+      if (labels.length == 1 && legacy.isEmpty) {
         // One wallet: nothing to choose, restore it straight away. The
         // confirmation ceremony is pinned to the discovered credential.
         await _restoreFromPasskeys(labels,
             credentialId: discovery!.credentialId, trigger: 'auto');
         return;
       }
-      if (labels.isNotEmpty) {
-        _showLabelPicker(labels, discovery!.credentialId);
+      if (labels.isNotEmpty || legacy.isNotEmpty) {
+        _showLabelPicker(labels, discovery?.credentialId, legacy: legacy);
         return;
       }
       if (!mounted) return;
-      // 2) LEGACY (pre-2.x) recovery. 0.15.1 never published a Nostr label,
-      //    so discovery can't see it even though the wallet is fully
-      //    recoverable — rebuild the seed the 0.15.1 way and probe its
+      // 2) LEGACY (pre-2.x) recovery. Pre-2.x builds published their
+      //    Nostr label only best-effort, under whatever credential their
+      //    ceremony resolved, so discovery cannot be relied on to list it
+      //    even though the wallet is fully recoverable. This path reads
+      //    no relay: rebuild the seed the 0.15.1 way and probe its
       //    balance/history BEFORE offering it (never adopt an empty
       //    phantom). Gated on the LEGACY availability signal, not the new
       //    SDK's.
       await _attemptLegacyRecovery();
     } catch (e) {
       // A cancelled biometric is the user backing out — don't nag.
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('lookup');
         return;
       }
@@ -222,11 +287,47 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   /// Picker for the user to choose which passkey-backed wallet to
   /// restore. One tap → one wallet — there is no "Restore all"
   /// option (incompatible with the always-one-spending-wallet
-  /// architecture).
-  void _showLabelPicker(List<String> labels, Uint8List? credentialId) {
+  /// architecture). [legacy] lists copies an older version of the app
+  /// left on this phone, in the same rows, under their own heading.
+  ///
+  /// Everything the sheet shows is captured here, before it opens: the
+  /// sheet outlives this screen when a restore navigates away, and the
+  /// builder must never read the screen's own context then.
+  void _showLabelPicker(List<String> labels, Uint8List? credentialId,
+      {List<LegacyWalletCopy> legacy = const []}) {
     final c = context.colors;
     final l10n = context.l10n;
-    RestoreFlowAnalytics.step('passkey_pick', method: 'passkey');
+    if (labels.isNotEmpty) {
+      RestoreFlowAnalytics.step('passkey_pick', method: 'passkey');
+    } else {
+      RestoreFlowAnalytics.step('legacy_copy_pick', method: 'seed');
+    }
+    final total = labels.length + legacy.length;
+    final title = total == 1 ? l10n.recoverPickWalletOne : l10n.recoverPickWalletMany;
+    final rows = <_PickerRow>[
+      for (final label in labels)
+        _PickerRow(
+          title: PasskeyService.displayNameForLabel(label),
+          subtitle: PasskeyService.creationDateForLabel(label).isEmpty
+              ? null
+              : l10n.recoverPasskeyCreated(
+                  PasskeyService.creationDateForLabel(label)),
+          onTap: () => _restoreFromPasskeys([label], credentialId: credentialId),
+        ),
+    ];
+    final legacyRows = <_PickerRow>[
+      for (final copy in legacy)
+        _PickerRow(
+          key: ValueKey('legacy-copy-${copy.walletId}'),
+          title: copy.wallet?.name ?? l10n.recoverOlderVersionWallet,
+          subtitle: copy.plain
+              ? null
+              : copy.icloud
+                  ? l10n.recoverOlderVersionIcloud
+                  : l10n.recoverOlderVersionNeedsPin,
+          onTap: () => _restoreLegacyCopy(copy),
+        ),
+    ];
     var picked = false;
     showModalBottomSheet<void>(
       context: context,
@@ -249,9 +350,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  labels.length == 1
-                      ? l10n.recoverPickWalletOne
-                      : l10n.recoverPickWalletMany,
+                  title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: c.textPrimary,
@@ -265,54 +364,25 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final label in labels)
+                        for (final row in rows)
+                          _pickerButton(ctx, c, row, () => picked = true),
+                        if (legacyRows.isNotEmpty) ...[
+                          if (rows.isNotEmpty) SizedBox(height: 6.h),
                           Padding(
                             padding: EdgeInsets.only(bottom: 8.h),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                picked = true;
-                                Navigator.of(ctx).pop();
-                                _restoreFromPasskeys([label],
-                                    credentialId: credentialId);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: c.surfaceLight,
-                                foregroundColor: c.textPrimary,
-                                minimumSize: Size.fromHeight(48.h),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.lg),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    PasskeyService.displayNameForLabel(label),
-                                    style: TextStyle(
-                                        fontSize: 15.sp,
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                  if (PasskeyService.creationDateForLabel(label)
-                                      .isNotEmpty)
-                                    Padding(
-                                      padding: EdgeInsets.only(top: 2.h),
-                                      child: Text(
-                                        context.l10n.recoverPasskeyCreated(
-                                            PasskeyService.creationDateForLabel(
-                                                label)),
-                                        style: TextStyle(
-                                          fontSize: 12.sp,
-                                          fontWeight: FontWeight.w400,
-                                          color: c.textSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                ],
+                            child: Text(
+                              l10n.recoverOlderVersionSection,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: c.textSecondary,
+                                fontSize: 13.sp,
+                                height: 1.3,
                               ),
                             ),
                           ),
+                          for (final row in legacyRows)
+                            _pickerButton(ctx, c, row, () => picked = true),
+                        ],
                       ],
                     ),
                   ),
@@ -328,6 +398,239 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     });
   }
 
+  /// One picker row, in the style every picker on this screen uses. Reads
+  /// only the sheet's [ctx] and the values captured in [row].
+  Widget _pickerButton(BuildContext ctx, AppColorsExtension c, _PickerRow row,
+      VoidCallback markPicked) {
+    return Padding(
+      key: row.key,
+      padding: EdgeInsets.only(bottom: 8.h),
+      child: ElevatedButton(
+        onPressed: () {
+          markPicked();
+          Navigator.of(ctx).pop();
+          row.onTap();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: c.surfaceLight,
+          foregroundColor: c.textPrimary,
+          minimumSize: Size.fromHeight(48.h),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          elevation: 0,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              row.title,
+              style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600),
+            ),
+            if (row.subtitle != null)
+              Padding(
+                padding: EdgeInsets.only(top: 2.h),
+                child: Text(
+                  row.subtitle!,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w400,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Restores one copy an older version left on this phone by adding a
+  /// wallet next to the current ones. A plain or iCloud copy is read as
+  /// is; a PIN-encrypted one tries the PIN typed this session and a stored
+  /// `biometric_pin` first, then asks for the PIN that version used. The
+  /// phrase is validated (BIP39, then the wallet's public data when the
+  /// phone still has some) and runs through the same EVM-format check as
+  /// a typed phrase. Nothing old is deleted.
+  Future<void> _restoreLegacyCopy(LegacyWalletCopy copy) async {
+    final rescue = _rescue;
+    if (rescue == null || !mounted) return;
+    const source = 'sheet';
+    final era = copy.preferredEra;
+    HapticFeedback.lightImpact();
+    RestoreFlowAnalytics.step('legacy_copy_confirm', method: 'seed');
+    setState(() => _restoringLegacy = true);
+    try {
+      final String? phrase;
+      if (copy.needsPin) {
+        phrase = await _decryptLegacyCopy(rescue, copy);
+        if (phrase == null) {
+          TrackingService.seedRescueFailed(
+              source: source, era: era.name, reason: 'cancelled');
+          return;
+        }
+      } else {
+        phrase = await rescue.readPlain(copy);
+      }
+      final check = await rescue.validate(phrase, copy.wallet);
+      if (!mounted) return;
+      await _addWalletFromLegacyCopy(
+        RecoveryCheck.normalize(phrase),
+        name: copy.wallet?.name ?? context.l10n.recoverOlderVersionWallet,
+        era: era,
+        check: check,
+      );
+    } on LegacyRescueException catch (e) {
+      TrackingService.seedRescueFailed(
+          source: source, era: era.name, reason: e.reason.name);
+      RestoreFlowAnalytics.failed(e.reason.name);
+      if (mounted) {
+        showMessageSnackBar(
+          context: context,
+          message: e.reason == LegacyRescueFailure.invalidPhrase ||
+                  e.reason == LegacyRescueFailure.mismatch
+              ? context.l10n.recoveryPhraseInvalid
+              : context.l10n.recoverOlderVersionFailed,
+          error: true,
+        );
+      }
+    } catch (e) {
+      final category = TrackingService.errorCategory(e);
+      TrackingService.seedRescueFailed(
+          source: source, era: era.name, reason: 'writeFailed');
+      RestoreFlowAnalytics.failed(category);
+      TrackingService.track('wallet_add_failed', params: {
+        'reason': 'restore_failed',
+        'error_code': e.runtimeType.toString(),
+        'error_category': category,
+      });
+      if (mounted) {
+        showMessageSnackBar(
+          context: context,
+          message: context.l10n.recoverOlderVersionFailed,
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _restoringLegacy = false);
+    }
+  }
+
+  /// The phrase behind a PIN-encrypted copy, or null when the user closed
+  /// the PIN sheet. Throws [LegacyRescueException] for anything but a wrong
+  /// PIN.
+  Future<String?> _decryptLegacyCopy(
+      LegacyKeychainRescue rescue, LegacyWalletCopy copy) async {
+    // Only the PIN typed this session is tried silently. The stored
+    // biometric_pin is never used here: it would decrypt an old copy
+    // with no PIN entry and no biometric prompt on this surface.
+    final typedPin = ref.read(typedPinProvider);
+    if (typedPin != null && typedPin.isNotEmpty) {
+      try {
+        return await rescue.readEncrypted(copy, typedPin);
+      } on LegacyRescueException catch (e) {
+        if (e.reason != LegacyRescueFailure.wrongPin) rethrow;
+      }
+    }
+    if (!mounted) return null;
+    final title = context.l10n.recoverOlderVersionEnterPin;
+    // Wrong PINs count on the shared attempt counter like any other
+    // sheet: a lockout between attempts, and the app locks at the sheet
+    // threshold; this surface never wipes.
+    final guard = PinAttemptGuard(ref.read(authModelProvider));
+    final result = await showAppBottomSheet<Object>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (ctx) => _LegacyPinSheet(
+        title: title,
+        tryPin: (pin) => rescue.readEncrypted(copy, pin),
+        guard: guard,
+      ),
+    );
+    if (result is LegacyRescueException) throw result;
+    if (result == _LegacyPinSheet.locked) {
+      if (mounted) lockAppAfterSheetLockout(ref);
+      return null;
+    }
+    return result is String ? result : null;
+  }
+
+  /// The same persistence a typed phrase gets in `recover_wallet.dart`:
+  /// EVM-format check, V2 seed write, wallet record, recovery check
+  /// address, venue provisioning, then home.
+  Future<void> _addWalletFromLegacyCopy(
+    String mnemonic, {
+    required String name,
+    required LegacyCopyEra era,
+    required LegacyCopyCheck check,
+  }) async {
+    if (!ref.read(sessionUnlockedProvider)) {
+      TrackingService.walletAddFailed(reason: 'session_locked');
+      RestoreFlowAnalytics.failed('session_locked');
+      showMessageSnackBar(
+          context: context,
+          message: context.l10n.pleaseSetUpYourPinFirst,
+          error: true);
+      return;
+    }
+    final evmChoice =
+        await (widget.chooseEvmFormat ?? RecoveryEvmFormat.choose)(mnemonic);
+    if (!mounted) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final authModel = ref.read(authModelProvider);
+    final walletId =
+        '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1000)}';
+    await authModel.setMnemonic(walletId, mnemonic);
+    final config = WalletConfig(
+      id: walletId,
+      name: name,
+      sparkEnabled: true,
+      backedUp: true,
+      isRestore: true,
+      evmDerivationVersion: evmChoice.version,
+      evmFormatCheckPending: !evmChoice.checked,
+    );
+    final settingsNotifier = ref.read(settingsProvider.notifier);
+    await settingsNotifier.addWallet(config);
+    RecoveryCheck.record(settingsNotifier, walletId, mnemonic);
+    ref.invalidate(bitcoinConfigProvider);
+    if (evmChoice.hyperliquidActive) {
+      unawaited(HyperliquidOnboardingService.markEnabled(walletId));
+    }
+    _rebuildPredictions();
+    // A format check that could not finish is retried in this session;
+    // Predictions is set up once it settles, not before.
+    if (config.evmFormatCheckPending) EvmFormatSettle.schedule(container);
+    provisionPolymarketAccount(
+        mnemonic: mnemonic,
+        walletId: walletId,
+        evmDerivationVersion: config.evmDerivationVersion,
+        evmFormatPending: config.evmFormatCheckPending);
+
+    TrackingService.recoverySeedEntered(
+        evmFormat: evmChoice.analyticsValue,
+        legacySignal: evmChoice.legacySignal);
+    TrackingService.seedRescueRestored(
+        source: 'sheet', era: era.name, check: check.name);
+    TrackingService.walletCreated(type: 'imported');
+    final isFirstWallet = ref.read(settingsProvider).wallets.length == 1;
+    TrackingService.walletAdded(
+      walletKind: 'hot',
+      importMethod: 'legacy_copy',
+      network: 'spark',
+      source: isFirstWallet ? 'onboarding' : 'add_wallet',
+    );
+    if (isFirstWallet) {
+      TrackingService.onboardingCompletedOnce(authMode: 'recovered');
+    }
+    RestoreFlowAnalytics.completed();
+    if (mounted) {
+      ref.read(recoveryModeProvider.notifier).state = false;
+      context.go('/home');
+    }
+  }
+
   /// Restore the chosen wallet(s). [credentialId] is the credential the
   /// discovery sign-in resolved: the confirmation ceremony is pinned to it
   /// so a different passkey can never answer for this wallet. [trigger] is
@@ -336,6 +639,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       {Uint8List? credentialId, String trigger = 'tap'}) async {
     if (!mounted) return;
     setState(() => _restoringPasskey = true);
+    // True once any wallet record was written: from then on a failure
+    // ends the flow as a success (the wallet is listed and works).
+    var savedAny = false;
     try {
       for (final label in labels) {
         RestoreFlowAnalytics.step('passkey_confirm',
@@ -343,8 +649,9 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         if (mounted) setState(() => _confirmingLabel = label);
         // legacy: false — labels here came from the new SDK's discovery
         // sign-in (Nostr), so this restore is by definition the new-SDK
-        // path (legacy pre-2.x wallets never published labels and can't
-        // appear in this picker).
+        // path, including any label a pre-2.x build happened to publish.
+        // Legacy wallets are found by the legacy copies and probe, which
+        // read no relay.
         final pkWallet = await PasskeyService.getWallet(
             label: label, legacy: false, credentialId: credentialId);
         await PasskeyService.cacheLabel(label);
@@ -371,44 +678,59 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           passkeyProvider: 'breez-0.17',
           evmDerivationVersion: passkeyEvmDerivationVersion(label),
         );
-        await ref.read(settingsProvider.notifier).addWallet(config);
-        TrackingService.walletAdded(
-          walletKind: 'hot',
-          importMethod: 'passkey',
-          network: 'spark',
-          source: ref.read(settingsProvider).wallets.length == 1
-              ? 'onboarding'
-              : 'add_wallet',
-        );
+        // addWallet returns the existing record when this label is
+        // already listed (a retry after a failure past the save).
+        final stored =
+            await ref.read(settingsProvider.notifier).addWallet(config);
+        savedAny = true;
+        // Past the save, nothing may fail the restore: the wallet is
+        // listed and works. Each step is reported by kind only.
+        _postSave('rebuild', () => _rebuildPredictions());
+        _postSave(
+            'track',
+            () => TrackingService.walletAdded(
+                  walletKind: 'hot',
+                  importMethod: 'passkey',
+                  network: 'spark',
+                  source: ref.read(settingsProvider).wallets.length == 1
+                      ? 'onboarding'
+                      : 'add_wallet',
+                ));
         // Every passkey wallet is a spending wallet now, so provision
         // Polymarket for the restored wallet (matches creation). The REAL
         // mnemonic string is required here: `seed.toString()` is a debug
         // representation and silently broke provisioning.
-        final mnemonic = await PasskeyService.mnemonicOfSeed(pkWallet.seed);
+        String? mnemonic;
+        try {
+          mnemonic = await PasskeyService.mnemonicOfSeed(pkWallet.seed);
+        } catch (e) {
+          _trackPostSaveFailed('mnemonic', e);
+        }
         if (mnemonic != null) {
-          RecoveryCheck.record(
-              ref.read(settingsProvider.notifier), walletId, mnemonic);
+          final phrase = mnemonic;
+          _postSave(
+              'recovery_check',
+              () => RecoveryCheck.record(
+                  ref.read(settingsProvider.notifier), stored.id, phrase));
           Future.delayed(const Duration(seconds: 5), () {
             provisionPolymarketAccount(
-              mnemonic: mnemonic,
-              walletId: walletId,
-              evmDerivationVersion: config.evmDerivationVersion,
+              mnemonic: phrase,
+              walletId: stored.id,
+              evmDerivationVersion: stored.evmDerivationVersion,
             );
           });
         }
       }
-      TrackingService.walletCreated(type: 'imported', authMode: 'passkey');
-      RestoreFlowAnalytics.completed();
-      if (ref.read(settingsProvider).wallets.length == 1) {
-        TrackingService.onboardingCompletedOnce(authMode: 'recovered');
-      }
-      ref.invalidate(bitcoinConfigProvider);
-      if (mounted) {
-        ref.read(recoveryModeProvider.notifier).state = false;
-        context.go('/home');
-      }
+      _finishPasskeyRestore();
     } catch (e) {
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (savedAny) {
+        // A later label (or a step after a save) failed: the wallets
+        // saved so far are listed and work, so finish as a success.
+        _trackPostSaveFailed('later_label', e);
+        _finishPasskeyRestore();
+        return;
+      }
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('restore');
       } else {
         _trackPasskeyRestoreFailed('restore', e);
@@ -427,6 +749,39 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     }
   }
 
+  /// The end of a passkey restore that saved at least one wallet.
+  void _finishPasskeyRestore() {
+    _postSave('completed', () {
+      TrackingService.walletCreated(type: 'imported', authMode: 'passkey');
+      RestoreFlowAnalytics.completed();
+      if (ref.read(settingsProvider).wallets.length == 1) {
+        TrackingService.onboardingCompletedOnce(authMode: 'recovered');
+      }
+    });
+    _postSave('invalidate', () => ref.invalidate(bitcoinConfigProvider));
+    if (mounted) {
+      ref.read(recoveryModeProvider.notifier).state = false;
+      context.go('/home');
+    }
+  }
+
+  /// Runs one step after a wallet record was saved; a throw is reported by
+  /// step and error kind only and never fails the restore.
+  void _postSave(String stage, void Function() body) {
+    try {
+      body();
+    } catch (e) {
+      _trackPostSaveFailed(stage, e);
+    }
+  }
+
+  void _trackPostSaveFailed(String stage, Object e) {
+    TrackingService.track('passkey_restore_post_save_failed', params: {
+      'stage': stage,
+      'error_category': TrackingService.errorCategory(e),
+    });
+  }
+
   /// Legacy (pre-2.x) recovery. Runs when the new-SDK Nostr list is empty.
   /// Rebuilds the seed the 0.15.1 way for each plausible label, probes
   /// each candidate's on-chain balance + history, and only surfaces
@@ -438,7 +793,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
       candidates = await PasskeyRecovery.probeLegacyCandidates();
     } catch (e) {
       // Cancelled biometric = user backing out, don't nag.
-      if (e.toString().toLowerCase().contains('cancel')) {
+      if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('legacy_probe');
         return;
       }
@@ -472,6 +827,13 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   void _showLegacyCandidateSheet(List<LegacyPasskeyCandidate> candidates) {
     final c = context.colors;
     final l10n = context.l10n;
+    // Captured before the sheet opens: its builder must not touch this
+    // screen's context once a restore has navigated away.
+    final format = ref.read(settingsProvider).btcFormat;
+    final subtitles = {
+      for (final cand in candidates)
+        cand: _candidateSubtitle(cand, l10n: l10n, format: format),
+    };
     RestoreFlowAnalytics.step('legacy_pick', method: 'passkey');
     var picked = false;
     showModalBottomSheet<void>(
@@ -507,7 +869,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                 ),
                 SizedBox(height: 6.h),
                 Text(
-                  context.l10n.recoverFoundOnDevice,
+                  l10n.recoverFoundOnDevice,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: c.textSecondary,
@@ -552,7 +914,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                   ),
                                   SizedBox(height: 2.h),
                                   Text(
-                                    _candidateSubtitle(cand),
+                                    subtitles[cand]!,
                                     style: TextStyle(
                                       fontSize: 12.sp,
                                       fontWeight: FontWeight.w500,
@@ -579,11 +941,11 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
 
   /// "12,345 sats · 8 transactions" — the two signals that tell this
   /// wallet apart from an empty phantom.
-  String _candidateSubtitle(LegacyPasskeyCandidate cand) {
-    final format = ref.read(settingsProvider).btcFormat;
+  String _candidateSubtitle(LegacyPasskeyCandidate cand,
+      {required AppLocalizations l10n, required String format}) {
     final amount =
         '${cand.balanceSats.toFormattedString(format)} ${format == 'sats' ? 'sats' : 'BTC'}';
-    return context.l10n.recoveryCandidateBalance(amount, cand.paymentCount);
+    return l10n.recoveryCandidateBalance(amount, cand.paymentCount);
   }
 
   /// Persist a confirmed legacy candidate as the restored spending
@@ -613,6 +975,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         passkeyProvider: null,
       );
       await ref.read(settingsProvider.notifier).addWallet(config);
+      _rebuildPredictions();
       TrackingService.walletAdded(
         walletKind: 'hot',
         importMethod: 'passkey',
@@ -667,7 +1030,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final l10n = context.l10n;
-    final busy = _checkingPasskey || _restoringPasskey;
+    final busy = _checkingPasskey || _restoringPasskey || _restoringLegacy;
     return Scaffold(
       backgroundColor: c.background,
       appBar: AppBar(
@@ -779,7 +1142,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                               // The passkey lookup and restore wait here,
                               // on the button, not behind a full-screen
                               // overlay over this page.
-                              isLoading: _checkingPasskey || _restoringPasskey,
+                              isLoading: busy,
                             ),
                           ],
                         ),
@@ -790,6 +1153,229 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One row of the restore picker, captured before the sheet opens.
+class _PickerRow {
+  const _PickerRow({
+    this.key,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
+
+  final Key? key;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+}
+
+/// Asks for the PIN an older version used for one of its copies. Each six
+/// digits run [tryPin]; a wrong PIN shakes the dots and says so, any other
+/// failure closes the sheet with the exception, Cancel closes it with
+/// nothing. The current PIN is not involved: this PIN only opens that copy.
+class _LegacyPinSheet extends StatefulWidget {
+  const _LegacyPinSheet(
+      {required this.title, required this.tryPin, required this.guard});
+
+  /// Popped as the result when the sheet reached the attempt threshold:
+  /// the caller locks the app.
+  static const Object locked = Object();
+
+  final String title;
+  final Future<String> Function(String pin) tryPin;
+
+  /// Counts wrong PINs on the shared attempt counter (sheet rules: a
+  /// lockout between attempts, the app locks at the threshold, no wipe).
+  final PinAttemptGuard guard;
+
+  @override
+  State<_LegacyPinSheet> createState() => _LegacyPinSheetState();
+}
+
+class _LegacyPinSheetState extends State<_LegacyPinSheet>
+    with SingleTickerProviderStateMixin {
+  String _pin = '';
+  bool _verifying = false;
+  bool _wrong = false;
+  int _lockoutSeconds = 0;
+  Timer? _lockoutTimer;
+  late final AnimationController _shake = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
+  late final Animation<double> _shakeAnim =
+      Tween<double>(begin: 0, end: 24)
+          .chain(CurveTween(curve: Curves.elasticIn))
+          .animate(_shake)
+        ..addStatusListener((s) {
+          if (s == AnimationStatus.completed) _shake.reverse();
+        });
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLockout();
+  }
+
+  @override
+  void dispose() {
+    _lockoutTimer?.cancel();
+    _shake.dispose();
+    super.dispose();
+  }
+
+  /// A lockout left by an earlier surface applies here too.
+  Future<void> _loadLockout() async {
+    try {
+      final remaining = await widget.guard.lockoutRemaining();
+      if (mounted && remaining > Duration.zero) _startLockout(remaining);
+    } catch (_) {}
+  }
+
+  void _startLockout(Duration lockout) {
+    _lockoutTimer?.cancel();
+    setState(() => _lockoutSeconds = lockout.inSeconds);
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _lockoutSeconds--);
+      if (_lockoutSeconds <= 0) timer.cancel();
+    });
+  }
+
+  String _formatLockout(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _verify() async {
+    if (_pin.length != 6 || _verifying || _lockoutSeconds > 0) return;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    setState(() => _verifying = true);
+    try {
+      final phrase = await widget.tryPin(_pin);
+      try {
+        await widget.guard.recordSuccess();
+      } catch (_) {/* the counter resets on the next unlock */}
+      if (mounted) Navigator.of(context).pop(phrase);
+    } on LegacyRescueException catch (e) {
+      if (!mounted) return;
+      if (e.reason != LegacyRescueFailure.wrongPin) {
+        Navigator.of(context).pop(e);
+        return;
+      }
+      var lockout = Duration.zero;
+      try {
+        final outcome = await widget.guard.recordFailure(
+          surface: PinSurface.sheet,
+          analyticsSurface: 'legacy_copy',
+        );
+        if (!mounted) return;
+        if (outcome.action == PinFailureAction.lockApp) {
+          Navigator.of(context).pop(_LegacyPinSheet.locked);
+          return;
+        }
+        lockout = outcome.lockout;
+      } catch (_) {/* counter unavailable: the sheet still shows wrong */}
+      if (!mounted) return;
+      if (!reduceMotion) _shake.forward(from: 0);
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _pin = '';
+        _wrong = true;
+        _verifying = false;
+      });
+      if (lockout > Duration.zero) _startLockout(lockout);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return AppBottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 28.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                height: 1.1,
+              ),
+            ),
+          ),
+          if (_lockoutSeconds > 0 || _wrong) ...[
+            SizedBox(height: 6.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Text(
+                _lockoutSeconds > 0
+                    ? context.l10n.lockedForTime(_formatLockout(_lockoutSeconds))
+                    : context.l10n.incorrectPin,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.error,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+          SizedBox(height: 24.h),
+          AnimatedBuilder(
+            animation: _shakeAnim,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(_shakeAnim.value, 0),
+              child: child,
+            ),
+            child: PinProgressIndicator(currentLength: _pin.length),
+          ),
+          SizedBox(height: 24.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: IgnorePointer(
+              ignoring: _verifying || _lockoutSeconds > 0,
+              child: CustomKeypad(
+                onDigitPressed: (d) {
+                  if (_pin.length < 6) {
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      _pin += d;
+                      _wrong = false;
+                    });
+                    if (_pin.length == 6) {
+                      Future.delayed(const Duration(milliseconds: 100), _verify);
+                    }
+                  }
+                },
+                onBackspacePressed: () {
+                  if (_pin.isNotEmpty) {
+                    HapticFeedback.lightImpact();
+                    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+                  }
+                },
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          AppTextButton(
+            text: context.l10n.cancel,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          SizedBox(height: 8.h),
+        ],
       ),
     );
   }

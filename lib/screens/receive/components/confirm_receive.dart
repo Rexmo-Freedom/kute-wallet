@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,12 +15,8 @@ import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/breez/lnurl_model.dart';
-import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/address_provider.dart';
 import 'package:kute/providers/address_receive_provider.dart';
-import 'package:kute/providers/pending_asset_provider.dart';
-import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kUsdMarkAsset;
 import 'package:kute/models/account.dart';
 import 'package:kute/providers/accounts_provider.dart';
 import 'package:kute/providers/balance_provider.dart';
@@ -32,40 +25,36 @@ import 'package:kute/screens/home/components/action_pill.dart'
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
-import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usdc_balance_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
-import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/screens/receive/components/request_amount_sheet.dart';
-import 'package:kute/screens/receive/orchestra_deposit_poller.dart';
-import 'package:kute/screens/receive/quoted_receive_screen.dart';
-import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/receive/receive_sheet.dart'
+    show showOtherCoinsReceiveSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/ledger/ledger_failure_copy.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
 import 'package:kute/screens/shared/message_display.dart';
-import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/qr_code.dart';
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
-import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/background_sync_service.dart';
-import 'package:kute/services/orchestra/orchestra_capability_requirements.dart';
-import 'package:kute/services/orchestra_routes.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/orchestra/reusable_deposit_address.dart'
+    show standingDestinationsProvider;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode;
 import 'package:kute/services/jade_service.dart';
 import 'package:kute/services/ledger_service.dart';
 import 'package:kute/services/sound_service.dart';
+import 'package:kute/services/success_feedback.dart' show moneyFailureFeedback;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -82,121 +71,9 @@ enum _ReceivePool { btc, usdc }
 //
 // Ported verbatim from the prior `receive_bitcoin_widget.dart`.
 // `unified` = unified BIP21 QR (Bitcoin + Lightning embedded) — the
-// default state on Spark/hot wallets. `null` is reserved for flows
-// where the toggle is bypassed entirely (swap mode,
-// USDC pool default caption).
+// default state on Spark/hot wallets. `null` is reserved for the USDC
+// pool's default caption, where the toggle is bypassed entirely.
 enum _FallbackAddress { bitcoin, unified, lightning, usdc }
-
-class _DestAsset {
-  final String code;
-  final String name;
-  final String? iconUrl;
-  final String? svgAsset;
-  final Color color;
-
-  _DestAsset({
-    required this.code,
-    required this.name,
-    required this.color,
-    this.iconUrl,
-    this.svgAsset,
-  });
-
-  Widget iconWidget({required double size}) {
-    if (svgAsset != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.3),
-        child: SvgPicture.asset(svgAsset!, width: size, height: size),
-      );
-    }
-    if (iconUrl != null) {
-      final isSvg = Uri.tryParse(iconUrl!)?.path.endsWith('.svg') ?? false;
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.3),
-        child: isSvg
-            ? SafeSvgNetwork(
-                url: iconUrl!,
-                width: size,
-                height: size,
-                fallback: _textFallback(size),
-              )
-            : CachedNetworkImage(
-                imageUrl: iconUrl!,
-                width: size,
-                height: size,
-                // No BuildContext here — decode at ~3x the logical size as a
-                // safe devicePixelRatio ceiling for these small coin icons.
-                memCacheWidth: (size * 3).round(),
-                placeholder: (ctx, url) => SizedBox(width: size, height: size),
-                errorWidget: (ctx, url, err) => _textFallback(size),
-              ),
-      );
-    }
-    return _textFallback(size);
-  }
-
-  // Neutral fallback disc — no asset-colored tint/border around the
-  // icon. Plain class (no BuildContext here), so use const neutral
-  // greys rather than theme colors.
-  Widget _textFallback(double size) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: const Color(0x14808080),
-          borderRadius: BorderRadius.circular(size * 0.3),
-        ),
-        child: Center(
-          child: Text(
-            code.substring(0, code.length.clamp(0, 2)),
-            style: TextStyle(
-                color: const Color(0xFF888888),
-                fontSize: size * 0.4,
-                fontWeight: FontWeight.w700),
-          ),
-        ),
-      );
-}
-
-class _DestNetwork {
-  final String network;
-  final String name;
-  final String addressHint;
-
-  _DestNetwork({
-    required this.network,
-    required this.name,
-    required this.addressHint,
-  });
-}
-
-Color _getCoinColor(String code) {
-  const colors = {
-    'ETH': Color(0xFF627EEA),
-    'USDT': Color(0xFF26A17B),
-    'USDC': Color(0xFF2775CA),
-    'BNB': Color(0xFFF3BA2F),
-    'SOL': Color(0xFF9945FF),
-    'XRP': Color(0xFF00AAE4),
-    'TRX': Color(0xFFFF0013),
-    'LTC': Color(0xFF345D9D),
-    'POL': Color(0xFF8247E5),
-    'DOGE': Color(0xFFC2A633),
-    'ADA': Color(0xFF0033AD),
-    'DOT': Color(0xFFE6007A),
-    'AVAX': Color(0xFFE84142),
-    'NEAR': Color(0xFF00C08B),
-    'ATOM': Color(0xFF2E3148),
-    'TON': Color(0xFF0098EA),
-    'SUI': Color(0xFF4DA2FF),
-    'SEI': Color(0xFFFF4545),
-    'BTC': AppColors.accent,
-    'WBTC': Color(0xFFF09242),
-    'BCH': Color(0xFF8DC351),
-    'STX': Color(0xFF5546FF),
-    'TIA': Color(0xFF7B2BF9),
-  };
-  return colors[code] ?? Color(code.hashCode | 0xFF404040);
-}
 
 /// 2-step Receive stepper.
 ///
@@ -258,31 +135,9 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   bool _isLedgerVerifying = false;
   bool _isJadeVerifying = false;
 
-  // Orchestra cross-chain receive
-  _DestAsset? _selectedSourceAsset;
-  _DestNetwork? _selectedSourceNetwork;
-  String? _rateError;
-  bool _creatingOrder = false;
-  int _receiveRequestId = 0;
-  bool Function()? _sameReceiveSdk;
-
-  /// Orchestra deposit addresses are discovered through the recipient's
-  /// order history rather than by id, so they get their own poller
-  /// (shared with the dollars receive screen).
-  late final OrchestraDepositPoller _orchestraPoller =
-      OrchestraDepositPoller(ref);
-  SwapOrder? _activeExchange;
-
-  /// The Kute fee the shown Orchestra address's own terms charge, keyed
-  /// by that address so a later address never inherits it. Null bps
-  /// shows no fee line.
-  ({String address, int? bps})? _activeAddressFee;
-
-  /// Stops the deposit poll. A stale one left running would keep
-  /// writing to a screen that moved on.
-  void _stopPolling() {
-    _orchestraPoller.cancel();
-  }
+  /// The wallet's own Bitcoin address whose minimum was last recorded,
+  /// so `receive_address_generated` fires once per address shown.
+  String? _onChainMinimumTrackedFor;
 
   /// Independent poll that nudges the background sync while the
   /// Receive screen is open. The Spark/Lightning event stream is
@@ -322,7 +177,11 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     _selectedWalletId =
         selected?.wallet?.id ?? ref.read(settingsProvider).activeWalletId;
     final entryWallet = selected?.wallet ??
-        ref.read(settingsProvider).wallets.where((w) => w.id == _selectedWalletId).firstOrNull;
+        ref
+            .read(settingsProvider)
+            .wallets
+            .where((w) => w.id == _selectedWalletId)
+            .firstOrNull;
     _receiveWalletKind = entryWallet == null
         ? null
         : TrackingService.walletKind(
@@ -338,7 +197,10 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       entrySource: TrackingService.takeEntrySource('receive'),
       walletKind: _receiveWalletKind,
       network: selected is UsdcSpendingAccount ? 'polygon' : 'bitcoin',
-      props: {'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc'},
+      props: {
+        'pool': selected is UsdcSpendingAccount ? 'usdc' : 'btc',
+        'presentation': 'sheet',
+      },
     );
     // Seed the pool + network branch the Share body reads off of.
     // `_selectedPool` is what flips the QR to the Polymarket Safe and
@@ -475,15 +337,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           _checkForIncomingPayment();
         },
       );
-
-      // One-shot "open the full cross-asset picker" hand-off from the Add
-      // Funds → From crypto tile. No asset pre-selected: shows the whole
-      // "Receive other assets" list.
-      final openOtherAssets = ref.read(pendingReceiveOpenOtherAssetsProvider);
-      if (openOtherAssets) {
-        ref.read(pendingReceiveOpenOtherAssetsProvider.notifier).state = false;
-        _showSourceAssetPicker();
-      }
     });
   }
 
@@ -670,26 +523,21 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     }
   }
 
-  /// Rail (`lightning` | `spark` | `bitcoin`) for a BTC balance rise on
-  /// the picked wallet. An on-chain leg rise is always `bitcoin`. A
-  /// Spark leg rise depends on what the sender could have paid: a
-  /// cross-asset deposit address converts and settles on the Spark
-  /// address (`spark`); the plain Bitcoin address on a Spark wallet is
-  /// the SDK deposit address, claimed into the Spark balance
-  /// (`bitcoin`); the invoice / unified BIP21 QR is paid over
+  /// Rail (`lightning` | `bitcoin`) for a BTC balance rise on the picked
+  /// wallet. An on-chain leg rise is always `bitcoin`. A Spark leg rise
+  /// depends on what the sender could have paid: the plain Bitcoin address
+  /// on a Spark wallet is the SDK deposit address, claimed into the Spark
+  /// balance (`bitcoin`); the invoice / unified BIP21 QR is paid over
   /// `lightning` in practice.
   String _railForBtcDelta(
       {required int sparkDelta, required int onChainDelta}) {
     if (onChainDelta > 0 && sparkDelta <= 0) return 'bitcoin';
-    if (_activeExchange != null) return 'spark';
     if (_expandedFallback == _FallbackAddress.bitcoin) return 'bitcoin';
     return 'lightning';
   }
 
   String? _receiveWalletKind;
   bool _payloadExported = false;
-  String? _sourceAssetPicked;
-  String? _sourceNetworkPicked;
 
   /// Receive funnel props: what was set up so far. Never an address,
   /// invoice or balance.
@@ -708,15 +556,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       'invoice_type': _invoiceTypeForShare(),
       'amount_requested': requested != null && requested > 0,
       'payload_exported': _payloadExported,
-      'source_asset_picked': _sourceAssetPicked != null,
-      if (_sourceAssetPicked != null)
-        ...TrackingService.routeParams(
-          fromAsset: _sourceAssetPicked,
-          fromNetwork: _sourceNetworkPicked,
-          toAsset: 'btc',
-          toNetwork: 'spark',
-          provider: 'orchestra',
-        ),
       ...TrackingService.moneyParams(
         amountUsd: usd,
         amount: requested != null && requested > 0 ? requested / 1e8 : null,
@@ -742,7 +581,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       ref.read(polymarketTradingProvider.notifier).setAwaitingDeposit(false);
     } catch (_) {}
     _pageCtrl.dispose();
-    _stopPolling();
     _balanceWatchTimer?.cancel();
     super.dispose();
   }
@@ -754,31 +592,19 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     _closeAndReset();
   }
 
+  /// Closes the receive sheet (the route a deep link opened is the same
+  /// sheet, so popping it is right either way).
   void _closeAndReset() {
     try {
       ref.read(inputAmountProvider.notifier).state = '0.0';
     } catch (_) {}
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    Navigator.of(context).maybePop();
   }
 
   // ─── Build ─────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(breezSDKProvider, (old, next) {
-      if (_sameReceiveSdk != null && !_sameReceiveSdk!()) {
-        setState(_resetShareState);
-      }
-    });
-    ref.listen(settingsProvider.select((s) => s.wallets), (old, next) {
-      if (_sameReceiveSdk != null && !_isPickedWalletSparkSpending()) {
-        setState(_resetShareState);
-      }
-    });
     final c = context.colors;
     return PopScope(
       canPop: true,
@@ -795,74 +621,54 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           });
         }
       },
+      // Opens as a sheet over the current screen (receive_sheet.dart):
+      // the close button and the account the money lands in sit in the
+      // sheet's header row, where the app bar had them.
       child: KeyboardDismissOnTap(
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          backgroundColor: c.background,
-          resizeToAvoidBottomInset: false,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            centerTitle: true,
-            // The destination stays fixed for the entire receive flow.
-            title: AccountSwitcherPill(
-              pickerTitle: context.l10n.receiveInto,
-              account: _selectedAccount,
-              readOnly: true,
-            ),
-            leading: Center(
-              child: KuteCloseButton(onPressed: _onLeadingTap),
-            ),
+        child: ReceiveSheetFrame(
+          leading: KuteCloseButton(onPressed: _onLeadingTap),
+          // The destination stays fixed for the entire receive flow.
+          title: AccountSwitcherPill(
+            pickerTitle: context.l10n.receiveInto,
+            account: _selectedAccount,
+            readOnly: true,
           ),
-          body: _buildStepperBody(context, c),
+          child: _buildStepperBody(context, c),
         ),
       ),
     );
   }
 
+  /// The sheet's body. The sheet container already keeps it above the
+  /// home indicator and the keyboard.
   Widget _buildStepperBody(BuildContext context, AppColorsExtension c) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
-    // Android-only system-nav inset (see camera.dart / confirm_send.dart
-    // for rationale — iOS keeps the 20.h baseline so we don't introduce
-    // a "fake bar" under the home indicator).
-    final androidNavInset =
-        Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0.0;
-    return Container(
-      decoration: AppDecorations.screenGradient(context),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w,
-              20.h + androidNavInset + (viewInsets > 0 ? viewInsets : 0)),
-          child: Column(
-            children: [
-              // A single receive surface for the account shown in the header.
-              Expanded(
-                child: StepPageWrapper(
-                  title: context.l10n.receive,
-                  subtitle: context.l10n.receiveScanOrShareSubtitle,
-                  colors: c,
-                  child: _sharePage(c),
-                ),
-              ),
-              // Share step owns its own primary actions (Generate
-              // invoice / Update QR / Share / verify-on-device), and
-              // Step 0 auto-advances on tile tap, so the shared CTA
-              // never surfaces. Kept here for shape-parity with the
-              // Send stepper in case future steps need a Continue.
-              SharedStepCta(
-                step: _step,
-                colors: c,
-                visibleSteps: const <int>{},
-                enabled: false,
-                onContinue: () {},
-              ),
-            ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        children: [
+          // A single receive surface for the account shown in the header.
+          // No title over it: the sheet already says "receive", and the
+          // header row (close + "Receive into") is the top, so the code
+          // gets the room.
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12.h),
+              child: _sharePage(c),
+            ),
           ),
-        ),
+          // Share step owns its own primary actions (Generate
+          // invoice / Update QR / Share / verify-on-device), and
+          // Step 0 auto-advances on tile tap, so the shared CTA
+          // never surfaces. Kept here for shape-parity with the
+          // Send stepper in case future steps need a Continue.
+          SharedStepCta(
+            step: _step,
+            colors: c,
+            visibleSteps: const <int>{},
+            enabled: false,
+            onContinue: () {},
+          ),
+        ],
       ),
     );
   }
@@ -929,23 +735,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     String? qrPayload;
     Widget? qrPlaceholder;
 
-    if (_selectedSourceAsset != null && _creatingOrder) {
-      // Shimmer while the deposit address is being minted.
-    } else if (_selectedSourceAsset != null &&
-        _activeExchange != null &&
-        _activeSwapAddressUnsupported) {
-      // FUND-SAFETY: a cached Orchestra accumulation address whose
-      // (asset, network) pair fell off the live receive catalog must
-      // never be shown — the "reusable, converts automatically"
-      // promise no longer holds and a deposit could strand.
-      qrPlaceholder =
-          _buildErrorDisplay(context.l10n.receiveAssetTemporarilyUnavailable);
-    } else if (_selectedSourceAsset != null && _activeExchange != null) {
-      final ex = _activeExchange!;
-      qrPayload = ex.depositExtraId != null && ex.depositExtraId!.isNotEmpty
-          ? '${ex.depositAddress}?memo=${ex.depositExtraId}'
-          : ex.depositAddress;
-    } else if (_selectedPool == _ReceivePool.usdc) {
+    if (_selectedPool == _ReceivePool.usdc) {
       // USDC pool wins regardless of wallet type. The Polymarket Safe
       // is per-user (derived from the spending wallet's seed-derived
       // EOA) and is the same address whether the user is parked on the
@@ -1023,7 +813,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     final String? lightningAddress = lnData?.lightningAddress;
     final String? lnUsername = lightningAddress?.split('@').first;
 
-    final bool isSwapMode = _selectedSourceAsset != null;
     final bool isUsdcFallback = _expandedFallback == _FallbackAddress.usdc;
     // Request amount is offered on the native rails of a hot wallet.
     // In the unified and Lightning formats the request is a Lightning
@@ -1032,7 +821,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // request. Cold wallets (hardware / watch-only / software bitcoin
     // / tracked) show just the QR and the address, as before.
     final bool showRequestAmount = canUseLightning &&
-        !isSwapMode &&
         !isUsdcFallback &&
         _selectedPool != _ReceivePool.usdc;
 
@@ -1042,7 +830,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     final bool showSyncingCaption = activeWallet != null &&
         activeWallet.usesBdk &&
         !canUseLightning &&
-        !isSwapMode &&
         _selectedPool != _ReceivePool.usdc &&
         displayOnChainAddress.isEmpty &&
         onChainAddressAsync != null &&
@@ -1057,11 +844,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     // sign Lightning at all — the override hides and the on-chain
     // address is shown by itself. USDC pool also hides the override
     // (the QR points to the Polymarket Safe; BTC/LN doesn't apply).
-    // Hidden in swap mode: the three formats answer "which bitcoin
-    // code", which is not the question on screen once the address is
-    // another coin's. The way back is the card under the address.
     final bool showFormatPicker = canUseLightning &&
-        !isSwapMode &&
         !isUsdcFallback &&
         _selectedPool != _ReceivePool.usdc;
 
@@ -1091,25 +874,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 SizedBox(height: ReceiveGaps.qrToAddress),
 
                 // 2. Address display below QR
-                if (isSwapMode && _activeExchange != null) ...[
-                  // Suppressed for a stale Orchestra address (see
-                  // `_activeSwapAddressUnsupported`) — the copy row
-                  // would hand out the very address the QR gate hides.
-                  if (!_activeSwapAddressUnsupported) ...[
-                    _buildMinimalAddress(
-                      icon: Icons.account_balance_wallet_outlined,
-                      iconColor: _selectedSourceAsset!.color,
-                      address: _activeExchange!.depositAddress,
-                      copyText: _activeExchange!.depositAddress,
-                    ),
-                    ReceiveKuteFeeCaption(
-                      bps: _activeAddressFee?.address ==
-                              _activeExchange!.depositAddress
-                          ? _activeAddressFee!.bps
-                          : null,
-                    ),
-                  ],
-                ] else if (_selectedPool == _ReceivePool.usdc &&
+                if (_selectedPool == _ReceivePool.usdc &&
                     _expandedFallback == null) ...[
                   // USDC pool default — caption mirrors the Polymarket
                   // Safe address so the user can copy it without
@@ -1143,13 +908,22 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   }),
                 ] else ...[
                   if (_expandedFallback == _FallbackAddress.bitcoin &&
-                      displayOnChainAddress.isNotEmpty)
+                      displayOnChainAddress.isNotEmpty) ...[
                     _buildMinimalAddress(
                       icon: Icons.link_rounded,
                       iconColor: c.accent,
                       address: displayOnChainAddress,
                       copyText: displayOnChainAddress,
                     ),
+                    // The Spark wallet's Bitcoin address has no route
+                    // minimum (Bitcoin itself sets none); only that it
+                    // was shown is recorded.
+                    if (activeWallet != null && activeWallet.isSparkWallet)
+                      Builder(builder: (_) {
+                        _trackOnChainAddressShown(baseOnChainAddress);
+                        return const SizedBox.shrink();
+                      }),
+                  ],
                   if (_expandedFallback == _FallbackAddress.unified &&
                       displayOnChainAddress.isNotEmpty) ...[
                     // Unified caption — flipped from "everything behind
@@ -1224,12 +998,12 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                   ],
                 ],
 
-                // 2a. Share / Copy pills. The subtitle promises "scan or
-                // share this code", so the share lives right under the
-                // address and hands out the exact payload the QR
+                // 2a. Share. It lives right under the address (which
+                // copies on tap) and hands out the exact payload the QR
                 // encodes (unified BIP21, invoice, address or swap
-                // deposit address). Hidden while the plate shimmers or
-                // shows an error: nothing verified to share yet.
+                // deposit address), with request amount as a quiet
+                // text action under it. Hidden while the plate shimmers
+                // or shows an error: nothing verified to share yet.
                 if (qrPayload != null) ...[
                   SizedBox(height: ReceiveGaps.addressToActions),
                   _buildActionPills(
@@ -1271,10 +1045,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 // format buttons (owner decision). Those answer "which
                 // bitcoin code"; this states a property of the address
                 // they all encode, so it reads after them, not before.
-                // At rest it is one quiet line: the words, a few coin
-                // marks and a count. With a coin picked, the same slot
-                // names the pick, says what it arrives as, and carries
-                // the way back to the wallet's own bitcoin.
+                // One quiet line: the words, a few coin marks and a count.
+                // A tap opens the Dollars receive's sheet over this one.
                 ...() {
                   final card = _buildAlsoAcceptsSlot(c);
                   if (card == null) return const <Widget>[];
@@ -1290,7 +1062,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 if (canUseLightning &&
                     _expandedFallback == _FallbackAddress.unified &&
                     lightningAddress == null &&
-                    !(isSwapMode && _activeExchange != null) &&
                     _selectedPool != _ReceivePool.usdc) ...[
                   SizedBox(height: 10.h),
                   setupLnAddressAsync.when(
@@ -1323,8 +1094,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 // so without this guard the address renders twice.
                 if (!canUseLightning &&
                     _expandedFallback != _FallbackAddress.bitcoin &&
-                    displayOnChainAddress.isNotEmpty &&
-                    !(isSwapMode && _activeExchange != null))
+                    displayOnChainAddress.isNotEmpty)
                   _buildMinimalAddress(
                     icon: Icons.link_rounded,
                     iconColor: c.accent,
@@ -1335,8 +1105,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 // 3. Hardware wallet verify
                 if ((_expandedFallback == _FallbackAddress.bitcoin ||
                         !canUseLightning) &&
-                    !isSwapMode &&
-                    _activeExchange == null &&
                     activeWallet != null &&
                     activeWallet.isHardware &&
                     activeWallet.walletType == 'ledger' &&
@@ -1355,8 +1123,6 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                 ],
                 if ((_expandedFallback == _FallbackAddress.bitcoin ||
                         !canUseLightning) &&
-                    !isSwapMode &&
-                    _activeExchange == null &&
                     activeWallet != null &&
                     activeWallet.isHardware &&
                     activeWallet.walletType == 'jade' &&
@@ -1373,53 +1139,9 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
                     compact: true,
                   ),
                 ],
-
-                // 4. Cross-asset deposit details. Only swap mode has
-                // content here; the native rails used to open this
-                // block too and render a lone divider over empty space.
-                if (isSwapMode) ...[
-                  SizedBox(height: 12.h),
-                  if (_activeExchange == null) ...[
-                    if (_creatingOrder)
-                      // Skeleton mimicking the rate card about to render.
-                      KuteSkeleton(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12.h),
-                          child:
-                              SkeletonBar(double.infinity, 64.h, radius: 12.r),
-                        ),
-                      )
-                    else if (_rateError != null)
-                      Container(
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        child: Text(_rateError!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: AppColors.error, fontSize: 14.sp)),
-                      ),
-                    if (!_creatingOrder && _rateError != null)
-                      _quotedAlternativeAction(),
-                  ] else ...[
-                    if (_activeSwapAddressUnsupported)
-                      _buildUnsupportedSwapNotice(c)
-                    else
-                      _buildSwapDepositSection(c),
-                  ],
-                ],
               ],
             ),
           ),
-          // Powered-by attribution. Every cross-chain receive settles
-          // through Orchestra, the only rail this screen presents, so a
-          // retired provider's name never appears here.
-          if (isSwapMode || _activeExchange != null) ...[
-            SizedBox(height: 14.h),
-            const PoweredByBadge(provider: 'Orchestra'),
-          ],
 
           // Bottom breathing room so the last More Way row clears
           // the iOS home indicator. The page's outer SafeArea
@@ -1444,45 +1166,43 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     return 'bitcoin:$bitcoinAddress';
   }
 
-  /// Solid Share pill and neutral Copy pill side by side under the
-  /// address. Both act on [payload], the exact string the QR encodes.
-  /// With [showRequestAmount] a third pill opens the amount sheet; once
-  /// a request is live it shows the requested sats and a tap clears it.
+  /// Share under the address (copy lives on the address line), acting
+  /// on [payload], the exact string the QR encodes. With
+  /// [showRequestAmount] a quiet text action under it opens the
+  /// amount sheet; once a request is live it shows the requested amount
+  /// and a tap clears it.
   Widget _buildActionPills({
     required String payload,
     required bool showRequestAmount,
   }) {
     final requested = _requestedSats;
-    final orchestraId = _activeExchange?.providerName == 'Orchestra'
-        ? _activeExchange?.id : null;
     final btcFormat = ref.watch(settingsProvider.select((s) => s.btcFormat));
-    // Three pills share the row, so labels drop to 14sp and lose the
-    // leading icon; the request pill gets more room for its longer copy.
-    return ReceiveActionPills(
-      onShare: () => _sharePayload(payload, orchestraId: orchestraId),
-      onCopy: () => _copyPayload(payload, orchestraId: orchestraId),
-      trailing: !showRequestAmount
-          ? null
-          : requested == null
-              ? AppButton(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ReceiveActionPills(
+          onShare: () => _sharePayload(payload),
+        ),
+        if (showRequestAmount) ...[
+          SizedBox(height: 4.h),
+          requested == null
+              ? AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: _isInvoiceLoading ? null : _requestAmount,
                   text: context.l10n.receiveRequestAmount,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
-                  isLoading: _isInvoiceLoading,
+                  icon: Icons.add_rounded,
                 )
-              : AppButton(
+              : AppTextButton(
+                  key: const ValueKey('receive-request-amount'),
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     setState(_clearAmountRequest);
                   },
                   text: '₿${requested.toFormattedString(btcFormat)}',
                   icon: Icons.close_rounded,
-                  variant: AppButtonVariant.secondary,
-                  compact: true,
-                  fontSize: 14.sp,
                 ),
+        ],
+      ],
     );
   }
 
@@ -1490,8 +1210,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   /// wallet and messenger can take the string, and the payload is what
   /// a scanner of the QR would read. No address or invoice contents
   /// reach analytics, only the payload kind.
-  Future<void> _sharePayload(String payload, {String? orchestraId}) async {
-    if (!_canExportReceivePayload(payload, orchestraId)) return;
+  Future<void> _sharePayload(String payload) async {
+    if (!mounted || payload.isEmpty) return;
     final invoiceType = _invoiceTypeForShare();
     TrackingService.addressShared(invoiceType);
     TrackingService.track('receive_qr_shared', params: {
@@ -1511,9 +1231,9 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   }
 
   /// Clipboard copy with the shared snackbar and the copy events. Used
-  /// by the Copy pill and the copy icon on every address row.
-  void _copyPayload(String payload, {String? orchestraId}) {
-    if (!_canExportReceivePayload(payload, orchestraId)) return;
+  /// by the address row and its copy icon.
+  void _copyPayload(String payload) {
+    if (!mounted || payload.isEmpty) return;
     Clipboard.setData(ClipboardData(text: payload));
     TrackingService.addressCopied('address');
     TrackingService.track('receive_qr_shared', params: {
@@ -1530,85 +1250,42 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     );
   }
 
-  bool _canExportReceivePayload(String payload, String? orchestraId) {
-    if (!mounted || payload.isEmpty) return false;
-    if (orchestraId == null) return true;
-    return _activeExchange?.id == orchestraId &&
-        _activeExchange?.depositAddress == payload &&
-        _isPickedWalletSparkSpending() &&
-        (_sameReceiveSdk?.call() ?? false) &&
-        !_activeSwapAddressUnsupported;
-  }
-
-  /// Catalog receive options grouped by coin. Both reusable addresses and
-  /// quoted deposits here deliver to the Spark spending wallet. Hardware
-  /// and watch-only accounts use their own funding flows.
+  /// The coins the Bitcoin receive also takes from other networks, folded
+  /// one per coin: exactly the set its "other coins" sheet offers (a
+  /// reusable standing address into the Investments dollar balance where
+  /// that route may serve the coin, else a one-time address into
+  /// `spark:BTC` while the policy allows them). Empty off the spending
+  /// wallet, on the USDC pool, and for accounts that may not be offered
+  /// swaps.
   List<CoinAssetGroup> _alsoAcceptedCoins() {
     // Kick the live Flashnet route-catalog fetch (and rebuild when it
-    // lands) so the offering matches today's routes — static
-    // stablecoin fallback until then / when offline.
+    // lands) so the offering matches today's routes.
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offersOn = ref.watch(swapOffersEnabledProvider);
+    final destinations = ref.watch(standingDestinationsProvider).valueOrNull;
     if (_selectedPool == _ReceivePool.usdc) return const [];
     if (!_isPickedWalletSparkSpending()) return const [];
     // `swapOffersEnabledProvider` answers whether an account may be
     // offered swap affordances IT would have to sign for, which is why
     // a cold account is refused them.
     if (!offersOn) return const [];
-    return receiveCoinGroups(catalog, context.l10n);
+    return coinGroupsOfferedUnderPolicy(
+      receiveCoinGroups(catalog, context.l10n,
+          destinationAsset: 'BTC', standingDestinations: destinations),
+      otherLegAsset: 'BTC',
+      reusableLegAsset: kOrchestraUsdAssetCode,
+      depositAddress: true,
+    ).groups;
   }
 
-  /// The same gate, read rather than watched, for the sheet that opens
-  /// from the line above.
-  bool _alsoAcceptsReachable() {
-    if (_selectedPool == _ReceivePool.usdc) return false;
-    if (!_isPickedWalletSparkSpending()) return false;
-    return ref.read(swapOffersEnabledProvider);
-  }
-
-  /// The slot under the action pills.
-  ///
-  /// At rest: one quiet line stating what else the address on screen
-  /// takes. With a coin picked: the pick, what it arrives as, and the
-  /// way back to the wallet's own bitcoin address.
+  /// The line under the format buttons: what else the Bitcoin receive
+  /// takes. A tap opens the coin sheet over this one (closing it comes
+  /// back here as it was); a picked coin shows the reusable Dollars
+  /// address (landing in Investments, as its note says) or, where that
+  /// cannot serve it, asks its amount and shows a one-time address that
+  /// delivers bitcoin. Null when there is nothing to offer, so the line
+  /// is gone.
   Widget? _buildAlsoAcceptsSlot(AppColorsExtension c) {
-    final swapAsset = _selectedSourceAsset;
-    final swapNetwork = _selectedSourceNetwork;
-    if (swapAsset != null && swapNetwork != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _OtherAssetsCard(
-            leading: swapAsset.iconWidget(size: 36.sp),
-            title: swapAsset.name,
-            subtitle: context.l10n
-                .receiveAssetOnNetwork(swapAsset.code, swapNetwork.name),
-            onTap: () {
-              HapticFeedback.lightImpact();
-              _showSourceAssetPicker();
-            },
-            // "Back to Bitcoin" is the way out of a coin pick: the
-            // native rails are what this screen is otherwise showing.
-            secondaryIcon: Icons.arrow_back_rounded,
-            secondaryLabel: context.l10n.receiveBackToBitcoin,
-            onSecondaryTap: _backToBitcoin,
-          ),
-          SizedBox(height: 8.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.w),
-            child: Text(
-              context.l10n.receiveFundsLandAsBitcoin,
-              style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w500,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
     final groups = _alsoAcceptedCoins();
     if (groups.isEmpty) return null;
     return CoinMarksLine(
@@ -1619,7 +1296,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
         HapticFeedback.lightImpact();
         TrackingService.track('receive_also_accepts_opened',
             params: {'source': 'address', 'coins': groups.length});
-        _showSourceAssetPicker();
+        unawaited(showOtherCoinsReceiveSheet(context));
       },
     );
   }
@@ -1653,16 +1330,30 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     String? editUsername,
     bool compact = false,
   }) {
-    final orchestraId = _activeExchange?.providerName == 'Orchestra'
-        ? _activeExchange?.id : null;
     return ReceiveAddressLine(
       address: address,
       compact: compact,
-      onCopy: () => _copyPayload(copyText, orchestraId: orchestraId),
+      onCopy: () => _copyPayload(copyText),
       onEdit: showEdit && editUsername != null
           ? () => _showEditUsernameModal(editUsername)
           : null,
     );
+  }
+
+  /// Records the Spark wallet's Bitcoin address as shown, once per
+  /// address. No minimum: the network sets none.
+  void _trackOnChainAddressShown(String address) {
+    if (address.isEmpty || _onChainMinimumTrackedFor == address) return;
+    _onChainMinimumTrackedFor = address;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TrackingService.track('receive_address_generated', params: {
+        'asset': 'btc',
+        'network': 'bitcoin',
+        'provider': 'breez',
+        'destination': 'spark_btc',
+        'address_kind': 'static_deposit',
+      });
+    });
   }
 
   // ─── On-chain BIP21 amount embedding ─────────────────────────
@@ -1761,6 +1452,8 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
     } catch (e) {
       TrackingService.moneyFlowError('receive', e);
       if (!mounted) return;
+      // The invoice the person asked for could not be made.
+      unawaited(moneyFailureFeedback());
       showMessageSnackBar(
         context: context,
         message: railSafeErrorCopy(context, e,
@@ -1781,602 +1474,14 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   String? get _pickedReceiveWalletId =>
       _selectedWalletId ?? ref.read(settingsProvider).activeWalletId;
 
-  /// BTC settle address of the picked wallet. Falls back to the active
-  /// wallet's `addressProvider` cache only when the picked wallet IS the
-  /// active wallet; otherwise returns '' so the caller's empty-address
-  /// handling runs.
-  ///
-  /// FUND-SAFETY: a swap must never settle to a different wallet than
-  /// the one the user picked. `addressProvider` is pinned to the active
-  /// wallet, so using it as a fallback for another pick would redirect
-  /// the deposit.
-  Future<String> _resolvePickedBtcAddress() async {
-    final pickedId = _pickedReceiveWalletId;
-    if (pickedId != null) {
-      try {
-        final addr = await ref.read(walletAddressProvider(pickedId).future);
-        if (addr.isNotEmpty) return addr;
-      } catch (_) {
-        // Fall through to the active wallet address below.
-      }
-      if (pickedId != ref.read(settingsProvider).activeWalletId) return '';
-    }
-    return ref.read(addressProvider).bitcoinAddress;
-  }
-
-  // ─── Orchestra cross-chain receive ────────────────────────────
-
-  /// FUND-SAFETY: true when the active swap deposit address must not
-  /// be offered to pay into. Two cases:
-  ///   * it is not an Orchestra accumulation address at all. Orchestra
-  ///     is the only rail this screen mints for; any other provider's
-  ///     order is a legacy swap order whose address is retired, and
-  ///     its history belongs in Activity, never on the Receive QR.
-  ///   * it is an Orchestra address whose (asset, network) pair is NOT
-  ///     on Orchestra's current receive catalog (live Flashnet catalog,
-  ///     static fallback — orchestra_routes.dart). Such an address
-  ///     comes from the reuse cache: it was minted when the catalog
-  ///     still carried the pair, and rendering it again under the
-  ///     "reusable, converts automatically" caption invites a deposit
-  ///     the retired route may never convert.
-  bool get _activeSwapAddressUnsupported {
-    final order = _activeExchange;
-    if (order == null) return false;
-    if (order.providerName != 'Orchestra') return true;
-    final asset = _selectedSourceAsset;
-    final network = _selectedSourceNetwork;
-    if (asset == null || network == null) return false;
-    if (!_isPickedWalletSparkSpending() ||
-        !(_sameReceiveSdk?.call() ?? false)) {
-      return true;
-    }
-    return orchestraReceiveChainForDestination(asset.code, network.network,
-            destinationAsset: order.coinTo) ==
-        null;
-  }
-
-  /// Quiet replacement for `_buildSwapDepositSection` when
-  /// [_activeSwapAddressUnsupported]: no address, no reusable promise,
-  /// just the notice plus the supported-asset picker as the way
-  /// forward.
-  Widget _buildUnsupportedSwapNotice(AppColorsExtension c) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-          decoration: BoxDecoration(
-            color: c.surfaceLight,
-            borderRadius: BorderRadius.circular(10.r),
-          ),
-          child: Text(
-            context.l10n.receiveAssetTemporarilyUnavailable,
-            style: TextStyle(
-                color: c.textTertiary,
-                fontSize: 13.sp,
-                fontStyle: FontStyle.italic),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        SizedBox(height: 12.h),
-        AppButton(
-          onPressed: () {
-            TrackingService.receiveUnsupportedAssetPickerOpened(
-              asset: _selectedSourceAsset?.code ?? '',
-              network: _selectedSourceNetwork?.network ?? '',
-            );
-            _resetSwapState();
-            _showSourceAssetPicker();
-          },
-          text: context.l10n.receiveOtherAssets,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSwapDepositSection(AppColorsExtension c) {
-    final order = _activeExchange!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (order.depositExtraId != null &&
-            order.depositExtraId!.isNotEmpty) ...[
-          GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: order.depositExtraId!));
-              showMessageSnackBar(
-                  message: context.l10n.addressCopiedToClipboard,
-                  error: false,
-                  context: context);
-            },
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: c.surfaceLight,
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(color: c.borderSubtle, width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.note_outlined, size: 14.sp, color: Colors.orange),
-                  SizedBox(width: 6.w),
-                  Text(context.l10n.memoColon,
-                      style: TextStyle(
-                          color: c.textTertiary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500)),
-                  Expanded(
-                    child: Text(order.depositExtraId!,
-                        style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'monospace')),
-                  ),
-                  Icon(Icons.copy_rounded, size: 12.sp, color: c.textTertiary),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// What a one-off address is, said before the user shares it: one
-  /// payment, roughly this much, gone in a couple of minutes, and
-  /// where anything that misses goes. Once it lapses the same block
-  /// says so and offers a fresh one, which is the whole bargain of
-  /// this rail: no standing address, new ones on demand.
-  void _resetSwapState() {
-    _receiveRequestId++;
-    _stopPolling();
-    setState(() {
-      _selectedSourceAsset = null;
-      _selectedSourceNetwork = null;
-      _rateError = null;
-      _activeExchange = null;
-      _activeAddressFee = null;
-      _creatingOrder = false;
-    });
-  }
-
-  /// Leaves swap mode and restores the wallet's default native format:
-  /// the unified BIP21 code on hot wallets, the on-chain address on
-  /// cold ones (the same rule `initState` applies).
-  void _backToBitcoin() {
-    HapticFeedback.selectionClick();
-    _resetSwapState();
-    final wallet = _selectedAccount?.wallet;
-    final hasLightning = wallet != null &&
-        wallet.sparkEnabled &&
-        !wallet.isHardware &&
-        !wallet.isWatchOnly &&
-        !wallet.isExternalAddress;
-    setState(() {
-      // The USDC pool keeps `null` so its own caption renders.
-      _expandedFallback = _selectedPool == _ReceivePool.usdc
-          ? null
-          : hasLightning
-              ? _FallbackAddress.unified
-              : _FallbackAddress.bitcoin;
-    });
-    TrackingService.track('receive_invoice_type_selected',
-        params: {'invoice_type': _invoiceTypeForShare()});
-  }
-
-  void _resetShareState() {
-    _receiveRequestId++;
-    _sameReceiveSdk = null;
-    _isInvoiceLoading = false;
-    _clearAmountRequest();
-    _selectedSourceAsset = null;
-    _selectedSourceNetwork = null;
-    _activeExchange = null;
-    _activeAddressFee = null;
-    _rateError = null;
-    _creatingOrder = false;
-    _stopPolling();
-  }
-
-  Future<void> _createReceiveOrder(double userAmount) async {
-    final asset = _selectedSourceAsset;
-    final network = _selectedSourceNetwork;
-    if (asset == null || network == null) return;
-
-    final requestId = ++_receiveRequestId;
-    final walletId = _pickedReceiveWalletId;
-    bool current() => mounted && requestId == _receiveRequestId &&
-        walletId == _pickedReceiveWalletId &&
-        _isPickedWalletSparkSpending() &&
-        identical(asset, _selectedSourceAsset) &&
-        identical(network, _selectedSourceNetwork);
-
-    final btcAddress = await _resolvePickedBtcAddress();
-    if (!current() || btcAddress.isEmpty) return;
-
-    // Orchestra (Flashnet) accumulation address for BTC-pool receives
-    // on the Spark spending wallet when (asset, network) is on
-    // Orchestra's stablecoin→BTC table (orchestra_routes.dart).
-    // Persistent + reusable, and delivers BTC natively on Spark — no
-    // L1 settle leg. Hardware/watch-only wallets can't take this path
-    // (accumulation addresses need a `recipientSparkAddress`) and have
-    // no second rail, which is why they are never offered a coin to
-    // pick in the first place. The USDC pool settles to the Polygon
-    // Safe, which no deposit address can pay, and it is refused at the
-    // bottom with a reason rather than routed somewhere else.
-    // Why the MINT refused, when it was reached and refused. Null
-    // means it was never reached at all, which is a different refusal
-    // with a different way out, and the two must not borrow each
-    // other's sentence.
-    String? mintRefusal;
-    if (_selectedPool != _ReceivePool.usdc && _isPickedWalletSparkSpending()) {
-      final orchChain = orchestraReceiveChainForDestination(
-          asset.code, network.network,
-          destinationAsset: 'BTC');
-      if (orchChain != null) {
-        mintRefusal = await _createOrchestraReceiveAddress(
-          asset: asset,
-          network: network,
-          sourceChain: orchChain,
-          current: current,
-        );
-        if (!current() || mintRefusal == null) return;
-      }
-    }
-
-    // Orchestra could not take it, and there is no second rail. The
-    // coin and chain they picked are fine; it is the destination that
-    // cannot be delivered to, so the refusal must say so rather than
-    // call the route "temporarily unavailable".
-    //
-    // What still reaches here is a receive into the Predictions
-    // balance, which settles on Polygon at a Safe no deposit address
-    // can pay; a coin picked on a wallet the standing rail cannot
-    // deliver to; and a standing address the mint itself refused. The
-    // third used to wear the second's sentence, so someone already on
-    // the spending wallet was told to switch to it. Each says what
-    // actually happened and what to do next instead.
-    if (mounted && current()) {
-      final message = _selectedPool == _ReceivePool.usdc
-          ? context.l10n.receiveOtherCoinsNotToPredictions
-          : mintRefusal ?? context.l10n.receiveOtherCoinsSpendingOnly;
-      setState(() {
-        _creatingOrder = false;
-        _rateError = message;
-      });
-      showMessageSnackBar(message: message, error: true, context: context);
-    }
-  }
-
   /// True when the wallet picked on Step 0 is the Spark spending
-  /// wallet — the only wallet Orchestra accumulation addresses can
-  /// deliver to. `sparkSelfAddressProvider` resolves through
-  /// `breezSDKProvider`, which is pinned to the spending wallet for the
-  /// whole session (see breez_config_provider.dart), so a "hot but not
-  /// spending" pick would silently land the BTC in the wrong wallet.
-  /// Same predicate as `_pickSpending` there.
+  /// wallet — the only wallet the Dollars receive's addresses pay (its
+  /// spending account's dollar balance). Same predicate as
+  /// `_pickSpending` in breez_config_provider.dart.
   bool _isPickedWalletSparkSpending() {
     final settings = ref.read(settingsProvider);
     final spending = settings.wallets.where((w) => w.isSparkWallet).firstOrNull;
     return spending != null && spending.id == _pickedReceiveWalletId;
-  }
-
-  /// Orchestra receive: get-or-create the persistent accumulation
-  /// address for (sourceChain, asset) → BTC on Spark and surface it as
-  /// the active "exchange". Deliberately records NO exchange row here —
-  /// accumulation addresses have no order id at creation (Flashnet
-  /// spawns an `ord_…` order per inbound deposit), so a row written now
-  /// would make background sync poll a nonexistent id forever. The
-  /// history poll in `_startOrchestraHistoryPolling` discovers spawned
-  /// orders and records them then.
-  ///
-  /// Returns null when the address is on screen, and otherwise the
-  /// sentence to show: there is no other rail to fall back to, so the
-  /// caller refuses the receive and this is the reason it refuses
-  /// with. It must never be the wrong-wallet sentence, which is what a
-  /// bare false used to collapse into.
-  Future<String?> _createOrchestraReceiveAddress({
-    required _DestAsset asset,
-    required _DestNetwork network,
-    required String sourceChain,
-    required bool Function() current,
-  }) async {
-    setState(() {
-      _creatingOrder = true;
-    });
-
-    TrackingService.receiveSourceSelected(
-        asset: asset.code, network: network.network, provider: 'orchestra');
-    _sourceAssetPicked = asset.code;
-    _sourceNetworkPicked = network.network;
-    TrackingService.moneyFlowStep('receive', 'source_selected',
-        props: _receiveFlowInputs());
-
-    try {
-      final wrapper = await ref.read(breezSDKProvider.future);
-      if (!current()) return _mintRefusedWhileGone;
-      final sdk = wrapper.instance;
-      if (sdk == null) throw StateError('Wallet unavailable');
-      bool sameSdk() => identical(wrapper.instance, sdk) &&
-          identical(ref.read(breezSDKProvider).asData?.value.instance, sdk);
-      _sameReceiveSdk = sameSdk;
-      final received = await sdk.receivePayment(
-        request: const ReceivePaymentRequest(
-          paymentMethod: ReceivePaymentMethod.sparkAddress(),
-        ),
-      );
-      if (!current() || !sameSdk()) return _mintRefusedWhileGone;
-      final sparkAddress = received.paymentRequest;
-      const destinationAsset = 'BTC';
-      // Snapshot of already-issued deposit addresses, compared in memory
-      // only, so `receive_address_generated` can say whether this is a
-      // reuse. The address itself never leaves the device.
-      final priorAddresses = AccumulationAddressCache.getAll()
-          .map((a) => a.depositAddress)
-          .toSet();
-      final result = await AccumulationAddressCache.getOrCreate(
-        sourceChain: sourceChain,
-        sourceAsset: orchestraAssetCodeFor(asset.code),
-        destinationAsset: destinationAsset,
-        recipientSparkAddress: sparkAddress,
-      );
-      final depositAddress = result.data?.depositAddress ?? '';
-      final kuteFeeBps = result.data?.kuteFeeBps;
-      if (!current() || !sameSdk()) return _mintRefusedWhileGone;
-      if (depositAddress.isEmpty) {
-        throw result.error ?? 'Failed to create deposit address';
-      }
-
-      // Local display object only — drives the QR, the address row and
-      // the reusable-address caption (`providerName == 'Orchestra'` in
-      // `_buildSwapDepositSection`). NOT added to `swapOrdersProvider`;
-      // see the doc comment above.
-      final display = SwapOrder(
-        activityDirection: 'receive',
-        id: result.data!.id,
-        coinFrom: asset.code,
-        networkFrom: network.network,
-        coinTo: destinationAsset,
-        networkTo: 'SPARK',
-        depositAddress: depositAddress,
-        depositAmount: '0',
-        withdrawalAmount: '0',
-        status: 'wait',
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        withdrawalAddress: sparkAddress,
-        depositMin: '0',
-        depositMax: '0',
-        rate: '0',
-        refundAddress: '',
-        provider: 'Orchestra',
-        walletId: _pickedReceiveWalletId,
-      );
-
-      // No `swap_initiated` here: showing (or re-showing) a reusable
-      // deposit address is not a swap, and counting it inflated the
-      // swap funnel.
-      TrackingService.track('receive_address_generated', params: {
-        'asset': asset.code,
-        'network': network.network,
-        'provider': 'orchestra',
-        'reused': priorAddresses.contains(depositAddress),
-        'destination': 'spark_btc',
-        'address_kind': 'reusable_deposit',
-        if (kuteFeeBps != null) 'kute_fee_bps': kuteFeeBps,
-      });
-      TrackingService.moneyFlowStep('receive', 'deposit_address_shown',
-          props: _receiveFlowInputs());
-      if (mounted) {
-        setState(() {
-          _creatingOrder = false;
-          _activeExchange = display;
-          _activeAddressFee = (address: depositAddress, bps: kuteFeeBps);
-        });
-        _startPolling(display);
-      }
-      return null;
-    } catch (e) {
-      TrackingService.swapFailed(
-          fromCoin: asset.code,
-          toCoin: 'BTC',
-          provider: 'orchestra',
-          reason: e.toString());
-      // There is no second rail. Hand the caller the reason so it can
-      // say the coin or the network is the problem, rather than the
-      // wallet the person is already on.
-      if (!current()) return _mintRefusedWhileGone;
-      TrackingService.track('receive_address_failed', params: {
-        'asset': asset.code,
-        'network': network.network,
-        'provider': 'orchestra',
-        'error_category': TrackingService.errorCategory(e),
-      });
-      TrackingService.moneyFlowError('receive', e);
-      setState(() => _creatingOrder = false);
-      return _mintRefusalCopy(e);
-    }
-  }
-
-  /// Stands in for the reason when the screen went away mid-mint. The
-  /// caller only ever puts a reason on screen while mounted, so this
-  /// is never read as copy; it exists so "refused" stays distinct from
-  /// "never attempted" on a path that cannot ask for a sentence.
-  static const String _mintRefusedWhileGone = 'mint_refused';
-
-  /// What to say when the MINT refused, as opposed to when the wallet
-  /// was the wrong one. The guard against the rails' own vocabulary
-  /// lives in [railSafeErrorCopy], shared with the dollars receive.
-  String _mintRefusalCopy(Object error) => railSafeErrorCopy(
-        context,
-        error,
-        fallback: context.l10n.receiveCoinNetworkUnavailable,
-      );
-
-  void _startPolling(SwapOrder exchange) {
-    _stopPolling();
-    // Orchestra accumulation addresses have no order to poll by id —
-    // the address history is the discovery mechanism. Nothing else is
-    // ever polled from this screen.
-    if (exchange.providerName != 'Orchestra') return;
-    _startOrchestraHistoryPolling(exchange);
-  }
-
-  /// Orchestra variant of `_startPolling`. An accumulation address
-  /// spawns an `ord_…` order server-side only when a deposit actually
-  /// arrives, so poll the address history on the same 10 s cadence:
-  /// each newly-seen order is recorded as a
-  /// SwapOrder(provider: 'Orchestra') — from there the shared
-  /// tx UI and background sync's getStatus poller take over — and
-  /// mirrored into `_activeExchange` as arrival progress. The timer
-  /// deliberately never self-cancels: the address is reusable and more
-  /// deposits may follow; `dispose`/`_resetSwapState` cancel it.
-  /// Off-screen deposits are covered by background sync's
-  /// accumulation-address sweep, which shares this loop's vocabulary
-  /// and attribution rule (orchestra_routes.dart).
-  void _startOrchestraHistoryPolling(SwapOrder display) {
-    _orchestraPoller.start(
-      display,
-      stillWanted: () => mounted && _pickedReceiveWalletId == display.walletId,
-      onProgress: (exchange) {
-        if (mounted) setState(() => _activeExchange = exchange);
-      },
-    );
-  }
-
-  void _showSourceAssetPicker({String? initialAssetCode}) {
-    // THE ENTRY POINT IS THE GATE. A wallet Kute does not spend from
-    // has no rail to take another coin on (see [_alsoAcceptedCoins]),
-    // so the picker does not open at all, including from the one-shot
-    // hand-offs that ask for it on mount. An empty sheet would be the
-    // same dead end one screen later.
-    if (!_isPickedWalletSparkSpending()) return;
-    _showTwoPaneReceivePicker(initialAssetCode: initialAssetCode);
-  }
-
-  /// Choose a coin, then its network when needed. Reusable options mint
-  /// an address; one-time options first collect an amount and return address.
-  void _showTwoPaneReceivePicker({String? initialAssetCode}) {
-    // Rows only where a deposit address can actually deliver: the BTC
-    // pool on the spending wallet, with swap offers on. Every other
-    // wallet never reaches here (the entry point refuses first).
-    final reachable = _alsoAcceptsReachable();
-    final closed = showAppBottomSheet<void>(
-      context: context,
-      builder: (sheetCtx) => Consumer(
-        builder: (ctx, sheetRef, _) {
-          // Watch so the offering re-folds the moment the live catalog
-          // lands (static fallback serves until then).
-          final catalog = sheetRef.watch(orchestraSupportedRoutesProvider);
-          final loading =
-              sheetRef.watch(orchestraRoutesReadyProvider).isLoading;
-          final offered = reachable
-              ? receiveCoinGroups(catalog, ctx.l10n)
-              : const <CoinAssetGroup>[];
-          return CoinAssetPickerSheet(
-            groups: offered,
-            title: ctx.l10n.receiveAlsoAcceptsTitle,
-            subtitle: ctx.l10n.receiveAlsoAcceptsSubtitle,
-            // Still fetching is not the same as nothing to offer.
-            emptyLabel:
-                loading ? ctx.l10n.receiveCoinsLoading : ctx.l10n.noResults,
-            flow: 'receive',
-            depositAddress: true,
-            initialAssetCode: initialAssetCode,
-            selectedOptionId: _selectedSourceAsset != null &&
-                    _selectedSourceNetwork != null
-                ? '${_selectedSourceNetwork!.network}:${_selectedSourceAsset!.code}'
-                : null,
-            onPicked: (option) {
-              Navigator.of(sheetCtx).pop();
-              TrackingService.track('receive_also_accepts_selected', params: {
-                'asset': option.assetCode,
-                'chain': option.chain,
-              });
-              _pickOrchestraOption(option);
-            },
-          );
-        },
-      ),
-    );
-    unawaited(closed);
-  }
-
-  /// Reusable pairs stay on this page. Quoted deposits collect their
-  /// source amount and refund address in the shared receive flow.
-  void _pickOrchestraOption(OrchestraReceiveOption option) {
-    // The event keeps the catalogue's asset code, like every other row.
-    TrackingService.swapAssetSelected(flow: 'receive', asset: option.assetCode);
-    if (!mounted || !_alsoAcceptsReachable()) return;
-    if (!option.reusableAddress) {
-      _openQuotedReceive(option);
-      return;
-    }
-    final isDollars = isOrchestraUsdRoute(option.chain, option.assetCode);
-    setState(() {
-      _resetShareState();
-      _selectedSourceAsset = _DestAsset(
-        code: option.assetCode,
-        // Already the localized label for the dollar row (the sheet
-        // rewrote it before handing the option over).
-        name: option.displayName,
-        color: _getCoinColor(option.displaySymbol.toUpperCase()),
-        // The dollar balance has a local mark; the catalogue ships no
-        // artwork for it.
-        svgAsset: isDollars ? kUsdMarkAsset : null,
-        iconUrl: isDollars
-            ? null
-            : (option.assetIconUrl ?? orchestraAssetIconUrl(option.assetCode)),
-      );
-      _selectedSourceNetwork = _DestNetwork(
-        network: option.chain,
-        name: option.chainDisplayName,
-        addressHint: '',
-      );
-      _expandedFallback = null;
-    });
-    _createReceiveOrder(0);
-  }
-
-  void _openQuotedReceive(OrchestraReceiveOption option) {
-    if (!_alsoAcceptsReachable()) return;
-    // One-time addresses are an operator switch; a hand-off must not
-    // reach the quoted screen while it is off.
-    if (!oneTimeReceiveAllowed(RuntimeCapabilitiesService.instance)) return;
-    _receiveRequestId++;
-    _stopPolling();
-    unawaited(Navigator.of(context).push<void>(MaterialPageRoute(
-      builder: (_) => QuotedReceiveScreen(
-        option: option,
-        destinationAsset: 'BTC',
-      ),
-    )));
-  }
-
-  Widget _quotedAlternativeAction() {
-    if (!_alsoAcceptsReachable()) return const SizedBox.shrink();
-    if (!oneTimeReceiveAllowed(RuntimeCapabilitiesService.instance)) {
-      return const SizedBox.shrink();
-    }
-    final option = ref.watch(orchestraSupportedRoutesProvider)
-        .receiveOptions()
-        .where((o) => o.assetCode == _selectedSourceAsset?.code &&
-            o.chain == _selectedSourceNetwork?.network &&
-            !isVenueInternalRoute(o.chain, o.assetCode) &&
-            orchestraCanQuoteReceiveOn(o.chain))
-        .firstOrNull;
-    if (option == null) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(top: ReceiveGaps.block),
-      child: AppButton(
-        text: context.l10n.receiveOneOffUseAddress,
-        variant: AppButtonVariant.secondary,
-        compact: true,
-        onPressed: () => _openQuotedReceive(option),
-      ),
-    );
   }
 
   // ─── Misc helpers ─────────────────────────────────────────────
@@ -2408,12 +1513,14 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
 
   // ─── Hardware verify (Ledger / Jade) ──────────────────────────
 
-  /// The same confirmation every money moment ends on: one check, one
-  /// line, Done. Done only pops the overlay, so the user lands back on
-  /// the share step with the verified address still on screen.
+  /// The same result sheet every money moment ends on, with the address
+  /// the device confirmed in full as its context line. Done only closes
+  /// the sheet, so the user is back on the share step with the verified
+  /// address still on screen.
   void _showAddressVerified({
     required String message,
     required String device,
+    required String address,
   }) {
     if (device == 'ledger') {
       TrackingService.ledgerAddressVerified(context: 'receive');
@@ -2425,6 +1532,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
       navigator: rootNav,
       overlay: KuteConfirmation(
         message: message,
+        contextLine: address.isEmpty ? null : address,
         onDone: () => rootNav.pop(),
       ),
     );
@@ -2475,6 +1583,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           _showAddressVerified(
             message: context.l10n.addressVerifiedOnLedger,
             device: 'ledger',
+            address: displayAddress,
           );
         } else {
           showMessageSnackBar(
@@ -2578,6 +1687,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
           _showAddressVerified(
             message: context.l10n.addressVerifiedOnJade,
             device: 'jade',
+            address: displayAddress,
           );
         } else {
           showMessageSnackBar(
@@ -2868,138 +1978,6 @@ class _EditUsernameModalSheetState
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The receive screen's other-assets card: a neutral surface card in
-/// the house grammar (hairline border, 14 radius) with one full-width
-/// row per action. The first row is the door to the picker, or the
-/// selected asset once one is picked; the optional second row is the
-/// way back to bitcoin. Rows are 56pt tall targets and the labels wrap
-/// at large text scales instead of clipping.
-class _OtherAssetsCard extends StatelessWidget {
-  final Widget leading;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final IconData? secondaryIcon;
-  final String? secondaryLabel;
-  final VoidCallback? onSecondaryTap;
-
-  const _OtherAssetsCard({
-    required this.leading,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.secondaryIcon,
-    this.secondaryLabel,
-    this.onSecondaryTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final hasSecondary = secondaryLabel != null && onSecondaryTap != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.transparent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            InkWell(
-              onTap: onTap,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-                child: Row(
-                  children: [
-                    leading,
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 17.sp,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: 2.h),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              color: c.textSecondary,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.1,
-                              height: 1.25,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Icon(Icons.chevron_right_rounded,
-                        color: c.textTertiary, size: 22.sp),
-                  ],
-                ),
-              ),
-            ),
-            if (hasSecondary) ...[
-              Divider(
-                height: 0.5,
-                thickness: 0.5,
-                color: c.borderSubtle,
-                indent: 14.w,
-                endIndent: 14.w,
-              ),
-              InkWell(
-                onTap: onSecondaryTap,
-                child: Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-                  child: Row(
-                    children: [
-                      if (secondaryIcon != null) ...[
-                        Icon(secondaryIcon, color: c.textPrimary, size: 18.sp),
-                        SizedBox(width: 10.w),
-                      ],
-                      Expanded(
-                        child: Text(
-                          secondaryLabel!,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.1,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
         ),
       ),
     );

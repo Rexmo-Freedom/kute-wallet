@@ -1,16 +1,15 @@
 import 'package:kute/models/hyperliquid_market.dart';
-import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 // lib/screens/hyperliquid/components/order_placed_overlay.dart
 //
-// Confirmation shown after an Investing order fills. The order slip
+// Result sheet shown after an Investing order fills. The order slip
 // captures the root navigator BEFORE popping its sheets, then calls
 // [pushHlOrderPlacedOverlay] with the actual fill from the exchange.
 
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsOrders, openInvestmentsPositions;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -30,6 +29,7 @@ void pushHlOrderPlacedOverlay({
   required double notionalUsd,
   HlPositionPlan? positionPlan,
   double? realizedPnl,
+  double? feeUsd,
 }) {
   pushKuteSuccessOverlay(
     navigator: navigator,
@@ -44,8 +44,26 @@ void pushHlOrderPlacedOverlay({
       notionalUsd: notionalUsd,
       positionPlan: positionPlan,
       realizedPnl: realizedPnl,
+      feeUsd: feeUsd,
     ),
   );
+}
+
+/// What the fills paid in fees, as Hyperliquid reports them with each fill
+/// (the exchange's fee with Kute's builder fee inside it): exact, from the
+/// provider. Null unless [fills] are the whole of [sizeFilled] and every
+/// fee is in USDC (a spot buy pays its fee in the coin it buys).
+double? hlFeeFromFills(Iterable<HlFill> fills, double sizeFilled) {
+  if (sizeFilled <= 0) return null;
+  var size = 0.0;
+  var fee = 0.0;
+  for (final f in fills) {
+    if (!f.fee.isFinite || f.feeToken != 'USDC') return null;
+    size += f.sz;
+    fee += f.fee;
+  }
+  if ((size - sizeFilled).abs() > 1e-9 * (1 + sizeFilled)) return null;
+  return fee >= 0 ? fee : null;
 }
 
 /// The receipt chip for a perp fill against a position already held,
@@ -105,6 +123,10 @@ class HlOrderPlacedOverlay extends StatelessWidget {
   /// Realised P&L net of fees, when the fills behind it are all in hand.
   final double? realizedPnl;
 
+  /// What the fills paid in fees, as Hyperliquid reported them
+  /// ([hlFeeFromFills]). Null leaves the row out.
+  final double? feeUsd;
+
   const HlOrderPlacedOverlay({
     super.key,
     required this.coin,
@@ -117,6 +139,7 @@ class HlOrderPlacedOverlay extends StatelessWidget {
     required this.notionalUsd,
     this.positionPlan,
     this.realizedPnl,
+    this.feeUsd,
   });
 
   @override
@@ -131,47 +154,57 @@ class HlOrderPlacedOverlay extends StatelessWidget {
         effect == HlPositionEffect.close ||
         effect == HlPositionEffect.flip;
     final pnl = realizedPnl;
+    final base = HlMarket.baseCoin(coin);
+    final side = isSpot
+        ? (isLong ? l10n.investingBought : l10n.investingSold)
+        : (isLong ? l10n.longLabel : l10n.shortLabel);
+    // The hero: what the fill was worth. An open or an add says the side
+    // and the margin it took ("Long $12.00"), a spot fill its total, an
+    // exit the total it closed.
+    final amount = exits
+        ? formatHlUsd(notionalUsd)
+        : l10n.slipCtaSideAmount(
+            side,
+            formatHlUsd(isSpot || leverage <= 0
+                ? notionalUsd
+                : notionalUsd / leverage));
     return KuteConfirmation(
-      message: context.l10n.confirmationOrderFilled,
-      showCloseButton: true,
-      buttonText: context.l10n.investingViewPositions,
-      onDone: () {
+      message: l10n.confirmationOrderFilled,
+      amount: amount,
+      // The effect on a position already held ("Reduced long · 0.05 BTC",
+      // "Closed long"); the coin itself for an open. The Amount row
+      // carries the coin either way.
+      contextLine: effectLabel ?? base,
+      rows: {
+        l10n.amount: '${formatHlSize(sizeFilled)} $coin',
+        l10n.price2: formatHlPrice(avgPx, decimalCap: market?.pxDecimalCap),
+        if (!isSpot && !exits) ...{
+          l10n.chartPositionSize: formatHlUsd(notionalUsd),
+          l10n.chartLeverage: '$leverage×',
+        },
+        if (exits && pnl != null)
+          l10n.portfolioStatRealized:
+              '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
+        if (feeUsd case final fee?) l10n.feeUiPaidFee: formatHlUsd(fee),
+      },
+      detail: l10n.investingBalanceUpdating,
+      onDone: () => Navigator.of(context).pop(),
+      secondaryButtonText: l10n.investingViewPositions,
+      onSecondary: () {
         final nav = Navigator.of(context);
         nav.pop();
-        nav.push(MaterialPageRoute(
-            builder: (_) => const OpenInvestmentsScreen(
-                product: InvestmentsProduct.trading)));
+        // What the account holds now: the Investments tab's Positions.
+        openInvestmentsPositions(nav.context);
       },
-      detail: context.l10n.investingBalanceUpdating,
-      receipt: TradeReceipt(
-          leading: HlCoinIcon(
-              coin: HlMarket.baseCoin(coin),
-              wireCoin: market?.wireCoin ?? coin,
-              iconUrl: market?.iconUrl,
-              category: market?.category),
-          title: HlMarket.baseCoin(coin),
-          subtitle: isSpot
-              ? (isLong
-                  ? context.l10n.investingBought
-                  : context.l10n.investingSold)
-              : effectLabel ??
-                  '${isLong ? context.l10n.longLabel : context.l10n.shortLabel} · $leverage×',
-          rows: {
-            context.l10n.amount: '${formatHlSize(sizeFilled)} $coin',
-            context.l10n.price2:
-                formatHlPrice(avgPx, decimalCap: market?.pxDecimalCap),
-            isSpot || exits ? context.l10n.total : context.l10n.chartPositionSize:
-                formatHlUsd(notionalUsd),
-            if (exits && pnl != null)
-              l10n.portfolioStatRealized:
-                  '${pnl >= 0 ? '+' : '−'}${formatHlUsd(pnl.abs())}',
-          }),
     );
   }
 }
 
 /// An accepted order can still be unfilled. Keep that distinction explicit
 /// while using the same confirmation and receipt as other money actions.
+/// Under Done, "View orders" opens the Investments Portfolio on P&L
+/// charts, where the order rests ([viewOrders]: the spending account's
+/// slips; a Ledger's orders are not on that tab).
 class HlOrderAcceptedOverlay extends StatelessWidget {
   const HlOrderAcceptedOverlay({
     super.key,
@@ -179,29 +212,35 @@ class HlOrderAcceptedOverlay extends StatelessWidget {
     this.market,
     required this.amount,
     this.isClose = false,
+    this.viewOrders = false,
   });
 
   final String coin;
   final HlMarket? market;
   final String amount;
   final bool isClose;
+  final bool viewOrders;
 
   @override
   Widget build(BuildContext context) => KuteConfirmation(
+        tone: KuteConfirmationTone.pending,
         message: isClose
             ? context.l10n.investingCloseOrderAccepted
             : context.l10n.investingOrderAccepted,
+        amount: amount,
+        contextLine: HlMarket.baseCoin(coin),
         detail: context.l10n.investingOrderPendingFill,
-        showCloseButton: true,
         onDone: () => Navigator.of(context).pop(),
-        receipt: TradeReceipt(
-          leading: HlCoinIcon(
-              coin: HlMarket.baseCoin(coin),
-              wireCoin: market?.wireCoin ?? coin,
-              iconUrl: market?.iconUrl,
-              category: market?.category),
-          title: HlMarket.baseCoin(coin),
-          rows: {context.l10n.amount: amount},
-        ),
+        secondaryButtonText:
+            viewOrders ? context.l10n.investingViewOrders : null,
+        onSecondary: viewOrders
+            ? () {
+                final nav = Navigator.of(context);
+                nav.pop();
+                openInvestmentsOrders(nav.context,
+                    product: 'investing',
+                    orderKind: isClose ? 'close' : 'open');
+              }
+            : null,
       );
 }

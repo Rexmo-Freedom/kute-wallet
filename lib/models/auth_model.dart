@@ -2,15 +2,22 @@ import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/auth/pin_encryption.dart';
 import 'package:kute/services/auth/pin_hash.dart';
 import 'package:kute/services/onchain/native_bitcoin_primitives.dart';
+import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/services/secure/flutter_secret_store.dart';
+import 'package:kute/services/secure/legacy_keychain_rescue.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/secure/seed_access.dart';
 import 'package:kute/services/secure/secret_store.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/hive_wipe.dart' show wipeHiveBoxes;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
+    show BitcoinReceiveMarks;
 
 export 'package:kute/services/secure/seed_access.dart';
 
@@ -32,6 +39,17 @@ class ChangePinBlocked implements Exception {
   final int count;
   @override
   String toString() => 'ChangePinBlocked($count)';
+}
+
+/// [AuthModel.setPin] / [AuthModel.setPinAsync] found a stored `pin_hash`
+/// ([unreadable] when the store could not read it) and was not told to
+/// replace it, so it wrote nothing.
+class PinAlreadySetException implements Exception {
+  const PinAlreadySetException({this.unreadable = false});
+  final bool unreadable;
+  @override
+  String toString() =>
+      unreadable ? 'PinAlreadySetException(unreadable)' : 'PinAlreadySetException';
 }
 
 /// AuthModel — secret-material storage layer.
@@ -56,13 +74,59 @@ class ChangePinBlocked implements Exception {
 /// [readMnemonic] tries V2 then falls back to V1 and the root. Seed and PIN
 /// material is written and deleted with the store's local-only operations,
 /// so a synced twin under the same key always survives.
+///
+/// iOS wallets from some 1.x builds hold these keys under a Keychain
+/// accessibility the store cannot read (`LegacyKeychainRescue`). Two
+/// paths heal that in place, never deleting anything: a verified PIN
+/// ([checkPin], typed or the stored `biometric_pin`) restores every such
+/// copy before the app unlocks, and [readMnemonic] falls back to the
+/// legacy lookup when the filtered reads find nothing. Off iOS both are
+/// no-ops.
 class AuthModel {
-  AuthModel({SecretStore? store, SecretStore? syncedStore})
-      : _store = store ?? SecretStores.local,
-        _syncedStore = syncedStore ?? SecretStores.synced;
+  AuthModel({
+    SecretStore? store,
+    SecretStore? syncedStore,
+    LegacyKeychainRescue? rescue,
+    LegacyKeychainLookup? legacyLookup,
+    Future<List<WalletConfig>> Function()? wallets,
+  })  : _store = store ?? SecretStores.local,
+        _syncedStore = syncedStore ?? SecretStores.synced,
+        _legacyLookup = legacyLookup ?? const NativeLegacyKeychainLookup(),
+        _rescue = rescue ??
+            LegacyKeychainRescue(
+              lookup: legacyLookup,
+              store: store ?? SecretStores.local,
+              syncedStore: syncedStore ?? SecretStores.synced,
+            ),
+        _wallets = wallets ?? _hiveWallets;
 
   final SecretStore _store;
   final SecretStore _syncedStore;
+  final LegacyKeychainLookup _legacyLookup;
+  final LegacyKeychainRescue _rescue;
+
+  /// The wallet records, for the legacy copy rescue (which wallets hold a
+  /// stored seed, and their recovery check address). Read only when a
+  /// rescue is about to run.
+  final Future<List<WalletConfig>> Function() _wallets;
+
+  static Future<List<WalletConfig>> _hiveWallets() async {
+    final box = await Hive.openBox('settings');
+    final rawWallets = box.get('wallets', defaultValue: []);
+    return [
+      if (rawWallets is List)
+        for (final w in rawWallets)
+          if (w is Map) WalletConfig.fromMap(w),
+    ];
+  }
+
+  Future<WalletConfig?> _walletFor(String walletId) async {
+    try {
+      return (await _wallets()).where((w) => w.id == walletId).firstOrNull;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static const String _v2KeyPrefix = 'v2:wallet:';
   static String _v2MnemonicKey(String walletId) =>
@@ -81,16 +145,53 @@ class AuthModel {
     await _store.deleteLocalOnly(key: 'biometric_pin');
   }
 
-  Future<void> setPin(String pin) async {
+  /// Stores the hash of a NEW PIN. Refused with [PinAlreadySetException]
+  /// while a `pin_hash` exists (or cannot be read) unless [replace] is
+  /// set: a stored hash is what PIN-encrypted seed copies verify against,
+  /// and replacing it silently would strand them. [replace] is passed only
+  /// where setting a fresh PIN over an old hash is the point: the
+  /// restore-secrets return path and onboarding with no wallet records.
+  /// An existing PIN is changed through [changePin].
+  Future<void> setPin(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = PinHashHelper.hashPin(pin);
-    await _store.write(key: 'pin_hash', value: hashedPin);
+    await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
   }
 
-  Future<void> setPinAsync(String pin) async {
+  /// [setPin] with the hash computed off the main isolate.
+  Future<void> setPinAsync(String pin, {bool replace = false}) async {
+    await _refuseExistingPinHash(replace);
     final hashedPin = await PinHashHelper.hashPinAsync(pin);
-    await _store.write(key: 'pin_hash', value: hashedPin);
+    await _writePinHash(hashedPin);
     await _store.deleteLocalOnly(key: 'pin');
+  }
+
+  Future<void> _refuseExistingPinHash(bool replace) async {
+    if (replace) return;
+    switch (await _store.read(key: 'pin_hash')) {
+      case SecretAbsent():
+        return;
+      case SecretPresent():
+        throw const PinAlreadySetException();
+      case SecretFailed():
+        // Unknown is not absent: a hash the store cannot read right now
+        // may still guard a PIN-encrypted copy.
+        throw const PinAlreadySetException(unreadable: true);
+    }
+  }
+
+  /// The plugin write, retried once as a local-only in-place update when
+  /// it fails with `errSecDuplicateItem` (-25299): an old `pin_hash` stored
+  /// under another accessibility is invisible to the plugin's exists-check,
+  /// so it goes to `SecItemAdd` and collides with it.
+  Future<void> _writePinHash(String hashedPin) async {
+    try {
+      await _store.write(key: 'pin_hash', value: hashedPin);
+    } catch (error) {
+      if (!isDuplicateItemError(error)) rethrow;
+      await _store.writeLocalOnly(key: 'pin_hash', value: hashedPin);
+    }
   }
 
   Future<bool> hasPinSet() async {
@@ -138,7 +239,25 @@ class AuthModel {
   /// Compares [incomingPin] with the stored PIN material without throwing
   /// on a storage error. A legacy plaintext `pin` that matches is upgraded
   /// to `pin_hash`, as [pinMatches] does.
-  Future<PinCheck> checkPin(String incomingPin) async {
+  ///
+  /// A match is the one verified-PIN hook: before the caller unlocks, any
+  /// stored-seed wallet with no readable copy gets its old copies re-saved
+  /// in place with this PIN (`LegacyKeychainRescue.restoreWithVerifiedPin`).
+  /// [rescueSource] names the path for analytics: `pin` for a typed PIN,
+  /// `biometric` for the stored `biometric_pin` a biometric unlock
+  /// verified. The rescue never throws and needs nothing set earlier in
+  /// the process.
+  Future<PinCheck> checkPin(String incomingPin,
+      {String rescueSource = 'pin'}) async {
+    final check = await _checkPinOnly(incomingPin);
+    if (check == PinCheck.match) {
+      await _rescue.restoreWithVerifiedPin(_wallets, incomingPin,
+          source: rescueSource);
+    }
+    return check;
+  }
+
+  Future<PinCheck> _checkPinOnly(String incomingPin) async {
     switch (await _store.read(key: 'pin_hash')) {
       case SecretFailed():
         return PinCheck.unavailable;
@@ -405,7 +524,12 @@ class AuthModel {
   /// 3. V1 `mnemonic_{id}`, decrypted with the typed PIN or a kept
   ///    `biometric_pin` that verifies against `pin_hash`; without either it
   ///    is [SeedLocked]. A legacy-format copy is never rewritten.
-  /// 4. Root `mnemonic`: a plaintext root is copied to this wallet id and
+  /// 4. iOS only, when 2 and 3 found nothing: the same keys through the
+  ///    legacy Keychain lookup. A plain V2 copy is validated and re-saved
+  ///    in place; an encrypted V1 copy decrypts with the same PIN source
+  ///    as 3 and, on success, is re-saved in place with a V2 copy beside
+  ///    it. Nothing is deleted.
+  /// 5. Root `mnemonic`: a plaintext root is copied to this wallet id and
   ///    kept; an encrypted root decrypts like V1.
   ///
   /// A failed storage read retries the sequence up to 3 times, then
@@ -481,7 +605,8 @@ class AuthModel {
         return _decryptWithPinSource(value, session, SeedSource.v1,
             retryable: failed);
       case SecretAbsent():
-        break;
+        final legacy = await _readLegacyCopy(walletId, session);
+        if (legacy != null) return legacy;
     }
 
     switch (await _store.read(key: 'mnemonic')) {
@@ -500,6 +625,52 @@ class AuthModel {
         return failed
             ? null
             : const SeedUnavailable(SeedUnavailableReason.absent);
+    }
+  }
+
+  /// Step 4 of [readMnemonic]: the wallet's copies under the legacy
+  /// Keychain accessibility, re-saved in place as they are served. Null
+  /// when the lookup holds nothing usable for this wallet, so the caller
+  /// goes on to the root. Off iOS the lookup answers absent for everything.
+  Future<SeedRead?> _readLegacyCopy(
+      String walletId, SeedSession session) async {
+    final v2Key = _v2MnemonicKey(walletId);
+    final plain = await _legacyLookup.read(v2Key);
+    if (plain is SecretPresent && plain.value.isNotEmpty) {
+      final copy = LegacyWalletCopy(
+          walletId: walletId, wallet: await _walletFor(walletId), plain: true);
+      try {
+        final restored = await _rescue.restorePlainPhrase(copy, source: 'read');
+        return SeedOk(restored.phrase, SeedSource.v2Local);
+      } on LegacyRescueException catch (e) {
+        if (e.reason == LegacyRescueFailure.writeFailed) {
+          // Validated but not re-saved: served as is, re-saved next time.
+          return SeedOk(plain.value, SeedSource.v2Local);
+        }
+        // Invalid or mismatching words are not this wallet's seed.
+      }
+    }
+
+    final encrypted = await _legacyLookup.read('mnemonic_$walletId');
+    if (encrypted is! SecretPresent || encrypted.value.isEmpty) return null;
+    final pin = await _v1PinSource(session);
+    if (pin == null) return const SeedLocked();
+    final copy = LegacyWalletCopy(
+        walletId: walletId,
+        wallet: await _walletFor(walletId),
+        encrypted: true);
+    try {
+      final restored =
+          await _rescue.restoreEncryptedPhrase(copy, pin, source: 'read');
+      return SeedOk(restored.phrase, SeedSource.v1);
+    } on LegacyRescueException catch (e) {
+      if (e.reason == LegacyRescueFailure.writeFailed) {
+        // Decrypted and validated; the in-place re-save is retried on the
+        // next read. The filtered V1 path serves this value too.
+        final value = await _decryptOrNull(encrypted.value, pin);
+        if (value != null) return SeedOk(value, SeedSource.v1);
+      }
+      return const SeedUnavailable(SeedUnavailableReason.unreadable);
     }
   }
 
@@ -607,19 +778,16 @@ class AuthModel {
     // cancelled. Let only those writes settle before deleting local secrets.
     await Future.wait([
       PendingReceiveQuoteCache.clear(),
+      OneTimeRefundAddressStore.clear(),
       StandingDepositStore.clear(),
+      BitcoinReceiveMarks.clear(),
       PasskeyPrfService.drainPendingWrites(),
       PasskeyService.drainPendingWrites(),
     ]);
     await _store.deleteAllLocalOnly();
 
-    await Hive.deleteBoxFromDisk('bitcoin');
-    await Hive.deleteBoxFromDisk('affiliateCode');
-    await Hive.deleteBoxFromDisk('breez_prefs');
-    await Hive.deleteBoxFromDisk('settings');
-    await Hive.deleteBoxFromDisk('bitcoinTransactions');
-    await Hive.deleteBoxFromDisk('addresses');
-    await Hive.deleteBoxFromDisk('provider_event_outbox_v1');
-    await Hive.deleteBoxFromDisk('hyperliquid_revenue_orders_v1');
+    // Every app box, from the one list in hive_wipe.dart (best-effort,
+    // box by box). Only the boxes that list says survive do.
+    await wipeHiveBoxes();
   }
 }

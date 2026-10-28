@@ -674,9 +674,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get expires => 'Derīgs līdz';
 
   @override
-  String get enterRefundAddress => 'Ievadi atmaksas adresi';
-
-  @override
   String get description => 'Apraksts';
 
   @override
@@ -807,9 +804,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get confirmClaim => 'Apstiprināt saņemšanu';
 
   @override
-  String get confirmRefund => 'Apstiprināt atmaksu';
-
-  @override
   String get connectSign => 'Savienot un parakstīt';
 
   @override
@@ -853,10 +847,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Ievadi $assetCode adresi';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Ievadi Bitcoin adresi un maksas likmi atmaksai.';
 
   @override
   String get enterYourPinOnTheJadeDevice => 'Ievadi PIN Jade ierīcē...';
@@ -919,9 +909,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlMarketInvestCta => 'Investēt';
 
   @override
-  String get feeRateSatsVbyte => 'Maksas likme (sats/vByte)';
-
-  @override
   String get financials => 'Finanses';
 
   @override
@@ -963,9 +950,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Nederīga adrese vai summa';
-
-  @override
-  String get invalidRate => 'Nederīga likme';
 
   @override
   String get liquidity => 'LIKVIDITĀTE';
@@ -1117,9 +1101,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiveBitcoin => 'Saņemt Bitcoin';
 
   @override
-  String get refundDeposit => 'Atmaksāt iemaksu';
-
-  @override
   String get refunding => 'Atmaksā';
 
   @override
@@ -1189,34 +1170,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get totalFee => 'Kopējā maksa';
-
-  @override
-  String get usdEarnTitle => 'Pelnīt';
-
-  @override
-  String get usdEarnRate => 'Nesenā gada likme';
-
-  @override
-  String get usdEarnNextPayment => 'Nākamais maksājums';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Izmaksa pēc';
-
-  @override
-  String get usdEarnRatePending => 'Ielādē';
-
-  @override
-  String get usdEarnRateUnavailable => 'Šobrīd nav pieejams';
-
-  @override
-  String get usdEarnPaidToDate => 'Līdz šim izmaksāts';
-
-  @override
-  String get usdEarnActivityEmpty => 'Vēl nav maksājumu';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'Maksājumu vēsture šobrīd nav pieejama';
 
   @override
   String hlYieldAvailableLine(String amount) {
@@ -1564,8 +1517,8 @@ class AppLocalizationsLv extends AppLocalizations {
   String get scanCouldNotRead => 'Neizdevās nolasīt šo kodu. Mēģini vēlreiz.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Neizdevās izmantot starpliktuves saturu. Nokopē adresi vai kodu vēlreiz.';
+  String get scanSecretRefused =>
+      'Šis kods izskatās pēc atkopšanas frāzes vai privātās atslēgas, nevis adreses. Glabājiet to privāti.';
 
   @override
   String get walletImportCouldNotImport =>
@@ -1586,9 +1539,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get jadeErrorWrongDevice =>
       'Šī Jade nav tā, kas savienota pārī ar šo maciņu. Nekas netika parakstīts. Pievieno pārī savienoto Jade vai savieno šo no jauna, atjauninot maciņa galveno nospiedumu.';
-
-  @override
-  String get receiveOtherAssets => 'Saņemt citus aktīvus';
 
   @override
   String get medium => 'Vidēji';
@@ -1636,10 +1586,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get scanQrCode => 'Skenēt QR kodu';
 
   @override
-  String get scanAnyQRCodeDescription =>
-      'Noskenē jebkuru QR kodu, un mēs mēģināsim to atpazīt.';
-
-  @override
   String get importFile => 'Importēt failu';
 
   @override
@@ -1685,9 +1631,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Piezīme: ';
 
   @override
   String errorMessage(String err) {
@@ -1881,6 +1824,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Rādīt pilnu atslēgu';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark ir ātrs slānis virs Bitcoin, kur Kute glabā jūsu atlikumu. To kontrolējat tikai jūs. Parasts Bitcoin maks no šiem vārdiem šo atlikumu neparādīs. Atjaunojiet tos makā, kas atbalsta Spark, piemēram, Kute, Wallet of Satoshi vai Breez Glow.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Nekad nedalies ar šiem vārdiem. Ikviens, kam tie ir, var paņemt visu šajā maciņā.';
 
@@ -1953,9 +1900,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get scannerKeepInFrame => 'Turi kodu kadrā';
-
-  @override
-  String get scannerPointAtCode => 'Pavērs kameru pret QR kodu';
 
   @override
   String get trackAddressPasteHint => 'Ielīmē Bitcoin adresi';
@@ -2059,6 +2003,36 @@ class AppLocalizationsLv extends AppLocalizations {
       'Iestatīšana atcelta. Nekas netika izveidots.';
 
   @override
+  String get passkeyBackupSyncing => 'Sinhronizē dublējumu…';
+
+  @override
+  String get passkeyFinishBackupTitle =>
+      'Pabeidz dublēšanu ar piekļuves atslēgu';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Lai to varētu atjaunot jaunā tālrunī';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Apstiprini ar savu piekļuves atslēgu, lai šo maciņu varētu atjaunot jaunā tālrunī.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Dublēšanu ar piekļuves atslēgu neizdevās pabeigt. Pārbaudi savienojumu un mēģini vēlreiz.';
+
+  @override
+  String get passkeyCreateNewTitle => 'Piekļuves atslēga nav atrasta';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Nekas netika izveidots. Vai izveidot jaunu piekļuves atslēgu šim makam ar $method?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Izveidot jaunu piekļuves atslēgu';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Neizdevās iestatīt $method. Tavs maciņš tika izveidots ar atkopšanas vārdiem.';
   }
@@ -2118,13 +2092,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šis maršruts īslaicīgi nav pieejams. Mēģini vēlāk.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'Šī aktīva saņemšana īslaicīgi nav pieejama.';
-
-  @override
-  String get clipboardEmpty => 'Starpliktuve ir tukša';
-
-  @override
   String get pleaseSetUpPINFirst => 'Vispirms iestati PIN';
 
   @override
@@ -2164,7 +2131,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Tirdzniecība ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Tirdzniecība ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get ohlcOpen => 'Atv.: ';
@@ -2318,11 +2285,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get receiveBeneficiary => 'Saņēmējs';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset tīklā $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Neizdevās iegūt kursu';
 
   @override
@@ -2332,10 +2294,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Tavs Prognožu konts vēl tiek iestatīts. Mēģini vēlreiz pēc brīža.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Līdzekļi tavā maciņā nonāk kā Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Savienojums neizdevās.';
@@ -2671,9 +2629,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Ja tevi uzaicināja draugs, ievadi viņa kodu.';
-
-  @override
-  String get accountEarn => 'Pelnīt';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3414,6 +3369,62 @@ class AppLocalizationsLv extends AppLocalizations {
   String get activityTapToAddToWallet => 'Pieskaries, lai pievienotu maciņam';
 
   @override
+  String get activityDepositWaiting => 'Iemaksa gaida';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Pieskaries, lai pievienotu to atlikumam';
+
+  @override
+  String get activityAddingToBalance => 'Tiek pievienota atlikumam…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Tiek apstiprināta · $current no 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'Gaida zemāku maksu';
+
+  @override
+  String get depositStatusFailed => 'Vēl neizdevās pievienot';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Tiek pievienota automātiski pēc 3 apstiprinājumiem.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Pievienošanas maksa šobrīd ir neparasti augsta. Tā tiks pievienota automātiski, kad maksa samazināsies, vai vari to saņemt tagad.';
+
+  @override
+  String get depositReasonFailed => 'Vēl neizdevās pievienot. Mēģini vēlreiz.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Saņemt tagad · maksa $fee';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Maksa par saņemšanu tagad';
+
+  @override
+  String get depositWaitForLowerFee => 'Gaidīt zemāku maksu';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount gaida pievienošanu atlikumam';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Apstiprini maksu līdz $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Neizdevās pievienot tavu bitcoin';
+
+  @override
   String get activityAddToWallet => 'Pievienot maciņam';
 
   @override
@@ -3446,9 +3457,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'Var paiet dažas minūtes, līdz tas parādās atlikumā.';
-
-  @override
-  String get activityRefundStarted => 'Atmaksa sākta';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3520,10 +3528,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Neizdevās pievienot šo bitcoin tavam maciņam. Mēģini vēlreiz.';
 
   @override
-  String get depositRefundStartFailed =>
-      'Neizdevās sākt atmaksu. Mēģini vēlreiz.';
-
-  @override
   String get receiveRequestFailed =>
       'Neizdevās izveidot maksājuma pieprasījumu. Mēģini vēlreiz.';
 
@@ -3538,10 +3542,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Šī monēta un tīkls vēl nav pieejami iemaksām. Izvēlies citu.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Citas monētas nevar pienākt Prognozēs. Saņem tās tēriņu maciņā un tad pārvieto.';
 
   @override
   String get activityStables => 'Stabilās';
@@ -3666,7 +3666,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get activityProcessingEllipsis => 'Apstrādā…';
 
   @override
-  String get usdAccountTab => 'Dolāri';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -4056,6 +4056,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get settingsReferralProgram => 'Ieteikumu programma';
 
   @override
+  String get hubReferrals => 'Ieteikumi';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Nopelni daļu no tā, ko Kute nopelna no taviem draugiem';
 
@@ -4100,10 +4103,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Iestati, cik daudz sats šī saņemšana drīkst maksāt. Tas ir maksas limits, nevis apstiprināšanas ātrums. Ja vajadzīgā maksa ir augstāka, saņemšana tiks apturēta.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Atmaksa iesniegta. Gaida apstiprinājumu.';
-
-  @override
   String get depositActionWalletChanged =>
       'Maciņš mainījās. Atver iemaksu vēlreiz, lai turpinātu.';
 
@@ -4138,10 +4137,6 @@ class AppLocalizationsLv extends AppLocalizations {
       'Šī iemaksa vairs negaida. Atsvaidzina tās statusu.';
 
   @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Atmaksa tika parakstīta, bet tās pārraide netika apstiprināta. Vēlāk pārbaudi tās statusu vēlreiz.';
-
-  @override
   String claimFeeLastQuote(String sats) {
     return 'Ieteikts, pamatojoties uz pēdējo cenu $sats sats, ar nelielu rezervi.';
   }
@@ -4157,6 +4152,11 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get confirmationBitcoinSent => 'Bitcoin nosūtīts';
+
+  @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'Saņēmējs: $recipient';
+  }
 
   @override
   String get confirmationWalletBackedUp => 'Maciņš dublēts';
@@ -4482,8 +4482,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyAwaitingResult => 'Beidzies · Rezultāts pēc dažām minūtēm';
 
   @override
-  String get polyAwaitingWon =>
-      'Tu uzvarēji · Saņemšanai gatavs pēc dažām minūtēm';
+  String get polyAwaitingWon => 'Tu uzvarēji';
 
   @override
   String get polyAwaitingLost => 'Beidzies · Zaudēts';
@@ -4492,7 +4491,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Beidzies · Gaida rezultātu';
 
   @override
-  String get polyAwaitingWonSoon => 'Tu uzvarēji · Drīz gatavs saņemšanai';
+  String get polyAwaitingWonSoon => 'Tu uzvarēji';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {
@@ -4695,7 +4694,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investēšana ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Investēšana ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -5389,9 +5388,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get stepUpReasonRevealSeed => 'Parādīt atkopšanas frāzi';
 
   @override
-  String get stepUpReasonRefund => 'Apstiprini atmaksu';
-
-  @override
   String stepUpReasonSwitchWallet(String name) {
     return 'Pārslēgties uz $name';
   }
@@ -5460,11 +5456,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String feeUiKuteFeeWithRate(String rate) {
     return 'Kute maksa ($rate)';
-  }
-
-  @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Kute maksa $rate · tiek ieturēta no saņemtās summas';
   }
 
   @override
@@ -5785,6 +5776,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartStyleTitle => 'Grafika stils';
 
   @override
+  String get hlAdvancedChart => 'Paplašināts grafiks';
+
+  @override
   String get chartStyleCandles => 'Sveces';
 
   @override
@@ -5924,9 +5918,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioStatRealized => 'Realizētā peļņa / zaudējumi';
 
   @override
-  String get portfolioStatOpen => 'Atvērtā peļņa / zaudējumi';
-
-  @override
   String get portfolioStatAmountPredicted => 'Prognožu summa';
 
   @override
@@ -6013,6 +6004,49 @@ class AppLocalizationsLv extends AppLocalizations {
   String get chartYouHold => 'Tev ir';
 
   @override
+  String polyPosIfReaches(String side) {
+    return 'Ja $side sasniegs';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Vērtība tagad';
+
+  @override
+  String get polyPosWorthThen => 'Vērtība tad';
+
+  @override
+  String get polyPosNow => 'Tagad';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Ja $side uzvarēs';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Iestatīt pārdošanu pie $percent%';
+  }
+
+  @override
+  String polyPosSinceBoughtAt(String price) {
+    return 'kopš pirkuma par $price';
+  }
+
+  @override
+  String get polyPosDragHint =>
+      'Velc rādītāju, lai redzētu, cik tas būtu vērts';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent kopš $price';
+  }
+
+  @override
+  String polyPosYourAvg(String price) {
+    return 'Tava vid. $price';
+  }
+
+  @override
   String get chartNoData => 'Nav grafika datu';
 
   @override
@@ -6035,7 +6069,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get moveBuyBitcoin => 'Pirkt bitcoin';
 
   @override
-  String get dollarDeposit => 'Dolāru iemaksa';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Dolāru izņemšana';
@@ -6167,6 +6201,9 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get investingFeeSettingsUnavailable =>
       'Investēšanas maksu iestatījumus neizdevās pārbaudīt. Mēģini vēlreiz.';
+
+  @override
+  String get investingViewOrders => 'Skatīt rīkojumus';
 
   @override
   String get investingViewPositions => 'Skatīt pozīcijas';
@@ -6484,13 +6521,37 @@ class AppLocalizationsLv extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistika';
 
   @override
+  String get portfolioBalanceDollars => 'Dolāri';
+
+  @override
+  String get portfolioRebalance => 'Līdzsvarot';
+
+  @override
+  String get portfolioRebalanceMoving => 'Pārvieto uz USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Pārvieto uz USDB… aizņem dažas minūtes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Aizturēts atvērtajos rīkojumos';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Paturēts kā nodrošinājums atvērtajām pozīcijām';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Zem pārvietošanas minimuma';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Pašlaik nevar pārvietot. Pieskarieties Līdzsvarot, lai mēģinātu vēlreiz.';
+
+  @override
   String get sendMoreThanAvailable => 'Tas ir vairāk, nekā tev ir pieejams.';
 
   @override
   String get receiveRequestAmount => 'Pieprasīt summu';
-
-  @override
-  String get receiveBackToBitcoin => 'Atpakaļ uz Bitcoin';
 
   @override
   String get sendRecentRecipients => 'Nesenie';
@@ -6535,10 +6596,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get searchPredictionsHint => 'Meklēt prognozes';
 
   @override
-  String get assetDollars => 'Dolāri';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Maksā ar savu dolāru atlikumu';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dolāru konta adrese';
@@ -6612,10 +6673,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String get receiveOneOffNewAddress => 'Iegūt jaunu adresi';
+  String get receiveOneOffLateDepositRepriced =>
+      'Vēlāk saņemts depozīts var saņemt citu cenu.';
 
   @override
-  String get receiveOneOffAmountTitle => 'Cik daudz tu gaidi?';
+  String get receiveOneOffNewAddress => 'Iegūt jaunu adresi';
 
   @override
   String get usdFlowStepCoin => 'Izvēlies monētu';
@@ -6650,10 +6712,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get usdReceiveCreating => 'Iestata tavu adresi.';
 
   @override
-  String get usdReceiveArriving =>
-      'Tavi dolāri pienāk, tiklīdz maksājums ir apstiprināts.';
-
-  @override
   String get receiveAlsoAccepts => 'Pieņem arī';
 
   @override
@@ -6664,9 +6722,6 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Monētas vēl ielādējas. Mēģini vēlreiz pēc brīža.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Tava adrese pieņem arī';
 
   @override
   String get receiveAlsoAcceptsSubtitle =>
@@ -6792,46 +6847,14 @@ class AppLocalizationsLv extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Pārdod visu pozīciju';
 
   @override
-  String get usdEarnProjectionNote =>
-      'Raustītā līnija ir aprēķins pēc šodienas likmes, nevis saņemta nauda.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Atlīdzības sākas, kad tev ir $amount. Tās tiek izmaksātas katru dienu bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Prognoze pēc šodienas likmes';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Izvēlies, kas nonāk tavā tēriņu kontā.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Tavā dolāru atlikumā';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Notiek konvertēšana';
-
-  @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Ievadi $asset summu, ko sūtīsi tīklā $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Izmanto adresi, ko kontrolē tīklā $network. Ja atmaksa būs vajadzīga un atbalstīta, tā nonāks šeit; var tikt piemērotas maksas.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Ievadi derīgu $network atmaksas adresi.';
-  }
-
-  @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Nosūti tieši $amount vienā maksājumā, pirms šīs adreses derīgums beidzas.';
-  }
 
   @override
   String get quotedReceiveExpired =>
@@ -6844,10 +6867,21 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Tavs konts mainījās. Aizver šo ekrānu un sāc no jauna.';
+      'Tavs konts mainījās. Aizver šo un sāc no jauna.';
 
   @override
-  String get receiveOneOffUseAddress => 'Izmantot vienreizēju adresi';
+  String get onetimeRefundAddressTitle => 'Atgriešanas adrese';
+
+  @override
+  String get optionalLabel => 'Neobligāti';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Atgriežas uz';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Atgriezts uz $address tīklā $network';
+  }
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6881,13 +6915,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Pārbauda detaļas…';
-
-  @override
-  String get receiveRequiredMemo => 'Obligātā piezīme / tags';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Pievieno šo piezīmi savai iemaksai. Ar adresi vien nepietiek.';
 
   @override
   String get receiveOwnRefundAddress =>
@@ -6962,7 +6989,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Maks. · $price';
+    return 'Līdz $price par daļu';
   }
 
   @override
@@ -7052,7 +7079,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Šī funkcija ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+      'Šī funkcija ir ierobežota reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7075,6 +7102,10 @@ class AppLocalizationsLv extends AppLocalizations {
       'Neizdevās pārbaudīt pieejamību ar Kute. Mēģini vēlreiz.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute šobrīd nav sasniedzams. Saskaņā ar pēdējo pārbaudi tas joprojām ir pieejams.';
+
+  @override
   String get capabilityUnavailable => 'Šī funkcija Kute pašlaik nav pieejama.';
 
   @override
@@ -7084,7 +7115,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider ir ierobežots reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi tīkla vai VPN iestatījumus un mēģini vēlreiz.';
+    return '$provider ir ierobežots reģionā, kurā, šķiet, atrodas tavs interneta savienojums. Ja tu neesi tur, pārbaudi VPN iestatījumus.';
   }
 
   @override
@@ -7107,6 +7138,18 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Nav pieejams tavā reģionā';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Nav pieejams: $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Ja tu neesi tur, pārbaudi VPN iestatījumus.';
+
+  @override
+  String get checkConnection => 'Pārbaudīt savienojumu';
 
   @override
   String get gateUnavailableTitle => 'Nav pieejams';
@@ -7394,7 +7437,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Pelnīt.';
+      'Tavs kods tiek veidots. To vari atrast jebkurā laikā sadaļā Iestatījumi → Ieteikumu programma.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7421,7 +7464,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Pelnīt (7 dienu laikā).';
+      'To vari pievienot arī vēlāk sadaļā Iestatījumi → Ieteikumu programma (7 dienu laikā).';
 
   @override
   String get referrerSkip => 'Izlaist, man nav koda';
@@ -7450,6 +7493,31 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Atrasts šajā ierīcē. Pirms atjaunošanas pārbaudi, vai atlikums izskatās pareizs.';
+
+  @override
+  String get recoverOlderVersionSection => 'No vecākas versijas šajā tālrunī';
+
+  @override
+  String get recoverOlderVersionWallet => 'Maciņš no vecākas versijas';
+
+  @override
+  String get recoverOlderVersionNeedsPin => 'Atveras ar tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionIcloud => 'Saglabāts iCloud atslēgu saišķī';
+
+  @override
+  String get recoverOlderVersionEnterPin => 'Ievadiet tās versijas PIN kodu';
+
+  @override
+  String get recoverOlderVersionFailed => 'Šo kopiju neizdevās atjaunot.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Jūsu maciņu kopijas no vecākas Kute versijas vēl ir šajā tālrunī. Izmantot tās, nevis sākt no jauna?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Izmantot saglabātās kopijas';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8072,6 +8140,9 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Iepriekšējie raundi';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Šajā kategorijā pašlaik nav atvērtu tirgu';
 
@@ -8533,16 +8604,6 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
-  String slipCtaSpotNow(String side, String coin, String amount) {
-    return '$side $coin tagad · $amount';
-  }
-
-  @override
-  String slipCtaGo(String side, String coin, String leverage, String amount) {
-    return '$side $coin ${leverage}x · $amount';
-  }
-
-  @override
   String slipCtaLimit(String side, String coin) {
     return 'Veikt $side $coin limitu';
   }
@@ -8657,6 +8718,34 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get hlChartLiq => 'Likv.';
+
+  @override
+  String hlChartYourEntry(String price) {
+    return 'Tava ieeja $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvidācija $price';
+  }
+
+  @override
+  String get hlPositionYouPutIn => 'Tavs ieguldījums';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Tagad vērts $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Peļņa $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Zaudējums $amount ($percent)';
+  }
 
   @override
   String get hlChartTrail => 'Slīd.';
@@ -9355,6 +9444,11 @@ class AppLocalizationsLv extends AppLocalizations {
   @override
   String hlFundingIn(int minutes) {
     return 'pēc $minutes min';
+  }
+
+  @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/h (≈ $annual gadā)';
   }
 
   @override
@@ -10432,7 +10526,49 @@ class AppLocalizationsLv extends AppLocalizations {
   String get financialHubAndSettings => 'Finanšu centrs un iestatījumi';
 
   @override
-  String get analyticsBreakdownTab => 'Sadalījums';
+  String get analyticsInOutTab => 'Ienāk un iziet';
+
+  @override
+  String get inOutMonth => 'Mēnesis';
+
+  @override
+  String get inOutYear => 'Gads';
+
+  @override
+  String get inOutIn => 'Ienāk';
+
+  @override
+  String get inOutOut => 'Iziet';
+
+  @override
+  String get inOutWhereItWent => 'Kur aizgāja';
+
+  @override
+  String get inOutWhereItCameFrom => 'No kurienes ienāca';
+
+  @override
+  String get inOutSentToPeople => 'Nosūtīts citiem';
+
+  @override
+  String get inOutIntoInvestments => 'Uz Investments';
+
+  @override
+  String get inOutIntoDollars => 'Uz Dolāriem';
+
+  @override
+  String get inOutFromPeople => 'No citiem';
+
+  @override
+  String get inOutFromInvestments => 'No Investments';
+
+  @override
+  String get inOutFromDollars => 'No Dolāriem';
+
+  @override
+  String get inOutBought => 'Nopirkts';
+
+  @override
+  String get inOutEmpty => 'Nav ienākumu vai izdevumu';
 
   @override
   String get portfolioStatsActive => 'Aktīvās';
@@ -10442,6 +10578,9 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Ieguldītā summa';
+
+  @override
+  String get portfolioProfitLoss => 'Peļņa un zaudējumi';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10591,5 +10730,547 @@ class AppLocalizationsLv extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount tiek pārvietoti uz $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String slipCtaSideCoin(String side, String coin) {
+    return '$side $coin';
+  }
+
+  @override
+  String slipCtaSideMinimum(String side, String coin) {
+    return '$side minimumu: $coin';
+  }
+
+  @override
+  String slipCtaSideAmount(String side, String amount) {
+    return '$side $amount';
+  }
+
+  @override
+  String betPlaceOnSide(String side) {
+    return 'Prognozēt minimumu: $side';
+  }
+
+  @override
+  String betAmountOnSide(String amount, String side) {
+    return '$amount par $side';
+  }
+
+  @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Pievienot $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Līdz minimumam trūkst $amount';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Palielina tavu Long pozīciju',
+        'other': 'Palielina tavu Short pozīciju',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · izmaksā $amount, ja uzvarēsi';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get slipMoveFromDollars => 'Pārvietošana no Dolāriem';
+
+  @override
+  String get slipMoveFromBitcoin => 'Pārvietošana no Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Pārvietošana no Investēšanas';
+
+  @override
+  String get slipMoveFromPredictions => 'Pārvietošana no Prognozēm';
+
+  @override
+  String get addMoneyToInvestments => 'Pievienot naudu Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Jūsu tēriņu maks';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Jūsu tēriņu maks · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet => 'Cits maks vai birža';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Iegūstiet adresi, uz kuru sūtīt dolārus';
+
+  @override
+  String get portfolioStatOpenPnl => 'Atvērtā peļņa / zaudējumi';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Sagatavo prognozi $amount apmērā';
+  }
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Sūtīt $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Pārvietot $amount uz $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered piegādāti · $remaining atlikuši';
+  }
+
+  @override
+  String get activityPartlyDone => 'Daļēji izpildīts';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount joprojām ir kontā $place';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Pieskarieties, lai pirktu Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Sūtīšana neizdevās';
+  }
+
+  @override
+  String get usdReceiveDepositNow => 'Iemaksāt tagad';
+
+  @override
+  String get usdReceiveFromYourWallet => 'No tava maka';
+
+  @override
+  String get usdReceiveFromAnotherWallet => 'No cita maka vai biržas';
+
+  @override
+  String get usdWithdrawToYourWallet => 'Uz tavu maku';
+
+  @override
+  String get usdWithdrawToAnotherWallet => 'Uz citu maku vai biržu';
+
+  @override
+  String get usdWithdrawNow => 'Izņemt tagad';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Pievieno $amount kontam Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Gatavojam tavu prognozi';
+
+  @override
+  String get slipStepPreparingOrder => 'Gatavojam tavu rīkojumu';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Liek $amount uz $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Atver $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger =>
+      'Aizņem ilgāk, nekā gaidīts. Mazliet pacietības, gandrīz gatavs.';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Tavi $amount ir kontā Investments. Pieskaries, lai iesniegtu.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'Pievienošana kontam Investments neizdevās. Tavs bitcoin atgriežas.';
+
+  @override
+  String get slipFundingPriceMoved => 'Cena mainījās pārāk ātri.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Šī kārta noslēdzās, pirms tava nauda ieradās.';
+
+  @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Cena mainījās uz $price, kamēr tava nauda pārvietojās.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Šī kārta beidzās, kamēr tava nauda pārvietojās. Tavi $amount ir kontā Prognozes.';
+  }
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Tavi $amount ir kontā Prognozes. Pieskaries, lai mēģinātu vēlreiz.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Tavi $amount ir kontā Investēšana. Pieskaries, lai mēģinātu vēlreiz.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Liek $amount uz $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Atver $amount $market rīkojumu';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Pievieno $amount maržu pozīcijai $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Tavi $amount ir kontā Investments. Pieskaries, lai pievienotu maržu.';
+  }
+
+  @override
+  String get salWhyMoving => 'Kāpēc tas kustas?';
+
+  @override
+  String get positionProtectIt => 'Aizsargā to';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Ja $market nokritīsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Ja $market pakāpsies līdz $price, šī pozīcija tiks slēgta un tu zaudēsi $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Ja $outcome zaudēs, tu zaudēsi $cost; ja uzvarēs, saņemsi $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Pārvieto $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return 'Pārvietoti $amount no konta $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvieto $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return 'Pārvietoti $amount: $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount no konta $source netika pārvietoti';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Konta $source maršruts aizņemts, ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return 'No konta $source ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Konta $source maršruts nav pieejams, ejam caur kontu $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Summa ir par mazu tiešam ceļam no konta $source, ejam caur kontu $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Jūsu $amount ir $balance. Rīkojums neizdevās';
+  }
+
+  @override
+  String get moneyStepConverting => 'Konvertē uz pUSD';
+
+  @override
+  String get moneyStepConverted => 'Konvertēts uz pUSD';
+
+  @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Gaidām, kad pienāks viss',
+      two: 'Gaidām, kad pienāks abi',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Viss pienāca',
+      two: 'Abi pienāca',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Pārvietojam $amount1 no $source1 un $amount2 no $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Pārvietojam $amount no $count atlikumiem';
+  }
+
+  @override
+  String get moneyStepApproving => 'Apstiprina tēriņu';
+
+  @override
+  String get moneyStepApproved => 'Tēriņš apstiprināts';
+
+  @override
+  String get moneyStepConfirming => 'Apstiprina atlikumu';
+
+  @override
+  String get moneyStepConfirmed => 'Atlikums apstiprināts';
+
+  @override
+  String get moneyStepCrediting => 'Ieskaita tirdzniecības atlikumā';
+
+  @override
+  String get moneyStepCredited => 'Ieskaitīts tirdzniecības atlikumā';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Pērk Bitcoin par $amount';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return 'Nopirkts Bitcoin par $amount';
+  }
+
+  @override
+  String get moneyStepArriving => 'Ienāk kontā Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Ienācis kontā Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Sūta $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return 'Nosūtīts $amount';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
+
+  @override
+  String moneyJourneyAt(String place) {
+    return 'Vietā $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return 'Ieradušies $count no $total';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Izvietots!';
+
+  @override
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Atmaksāts uz tavu $network adresi $address.';
+  }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Lai to pārvietotu, izmanto maku, piemēram, MetaMask, ar to pašu atkopšanas frāzi.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Lai to pārvietotu, sazinies ar atbalstu.';
+
+  @override
+  String get portfolioSectionPnlCharts => 'P&L grafiki';
+
+  @override
+  String get portfolioSectionBalances => 'Portfelis';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change pēdējā nedēļā';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change pēdējā mēnesī';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change pēdējos 3 mēnešos';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change pēdējā gadā';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change kopā';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change kopš $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek => 'Pēdējā nedēļā bez izmaiņām';
+
+  @override
+  String get balanceNoChangePastMonth => 'Pēdējā mēnesī bez izmaiņām';
+
+  @override
+  String get balanceNoChangePast3Months => 'Pēdējos 3 mēnešos bez izmaiņām';
+
+  @override
+  String get balanceNoChangePastYear => 'Pēdējā gadā bez izmaiņām';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Kopš $date bez izmaiņām';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Bez izmaiņām, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'Kad jums būs bitkoini, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'Kad jums būs dolāri, šeit redzēsiet sava atlikuma izmaiņas laika gaitā';
+
+  @override
+  String get pnlChartEmpty =>
+      'Kad tirgosieties vai prognozēsiet, šeit redzēsiet savu peļņu un zaudējumus';
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pozīcijas',
+      one: '1 pozīcija',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Pieejams ieguldīšanai';
+
+  @override
+  String get portfolioNoOpenPositions => 'Nav atvērtu pozīciju';
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares daļas · vid. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'ieeja $price';
   }
 }

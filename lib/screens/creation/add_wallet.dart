@@ -71,6 +71,7 @@ class _AddWalletState extends ConsumerState<AddWallet> {
     if (!_optionPicked && !_completed) {
       TrackingService.track('wallet_add_abandoned', params: {
         'step': 'choose_type',
+        'time_in_flow_ms': _flowClock.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeInFlowBucket(_flowClock.elapsed),
         'reason': _lastErrorCategory != null ? 'error' : 'user_closed',
         if (_lastErrorCategory != null)
@@ -136,6 +137,10 @@ class _AddWalletState extends ConsumerState<AddWallet> {
 
       await ref.read(settingsProvider.notifier).addWallet(newWallet);
       await ref.read(settingsProvider.notifier).setActiveWallet(newWallet.id);
+      // Predictions builds again for the spending wallet as it is now.
+      ref
+        ..invalidate(polymarketTradingProvider)
+        ..invalidate(polymarketBalanceProvider);
 
       // Set up Polymarket account in background (Safe deploy + credentials)
       provisionPolymarketAccount(mnemonic: mnemonic, walletId: walletId, evmDerivationVersion: EvmDerivationVersion.standardBip39);

@@ -6,6 +6,7 @@ import 'package:kute/services/api/orchestra_api.dart'
     show StandingRequestException;
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
+import 'package:kute/services/tracking_service.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
 
@@ -186,6 +187,10 @@ void main() {
     expect(StandingDepositStore.supportsSource('tron', 'TRX'), isFalse);
     expect(StandingDepositStore.supportsSource('tron', 'USDT'), isTrue);
   });
+  test('HyperCore is never a standing funding source, EVM family or not', () {
+    expect(StandingDepositStore.supportsSource('hypercore', 'USDC'), isFalse);
+    expect(StandingDepositStore.supportsSource('hyperevm', 'USDC'), isTrue);
+  });
 
   group('one address per coin and network', () {
     const spark =
@@ -324,6 +329,216 @@ void main() {
       await expectLater(
           openReceive(), throwsA(isA<CapabilityUnavailableException>()));
       expect(calls, isEmpty);
+    });
+  });
+
+  // The founder's first Polygon USDC address failed and the second worked.
+  // The registration's label carries the policy revision the app holds and
+  // the backend pins its own current one: on a first use the session
+  // policy had not landed (null) or was an older revision. Both are a
+  // race with the policy fetch: the policy is asked again and the
+  // registration made once more. A refusal is never retried.
+  group('first registration races the policy', () {
+    const spark =
+        'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
+    const polygon = '0x01fff40e5f134060e396195b4f80a281d68e6b91';
+    late List<String> registered;
+    late List<(String, Map<String, Object>?)> events;
+    late Future<Map<String, dynamic>> Function(
+        {required String operation,
+        String? label,
+        required bool Function() current,
+        Map<String, dynamic>? body,
+        String? idempotencyKey,
+        int offset}) original;
+    late int backendRevision;
+
+    /// The backend: pins its own current revision on a label the first
+    /// time it sees it, then replays that pin. [failRegister] answers a
+    /// registration (by its 1-based call number) with a failure, or null.
+    void fakeProvider({
+      void Function()? onDestinations,
+      Object? Function(int call)? failRegister,
+    }) {
+      final pinned = <String, int>{};
+      final states = <String, Map<String, dynamic>>{};
+      StandingDepositStore.standingRequest = (
+          {required operation,
+          label,
+          required current,
+          body,
+          idempotencyKey,
+          offset = 0}) async {
+        switch (operation) {
+          case 'destinations':
+            onDestinations?.call();
+            return {
+              'destinations': [
+                {'chain': 'spark', 'asset': 'USDB'}
+              ]
+            };
+          case 'mine':
+            return {'references': []};
+          case 'read':
+            final state = states[label];
+            if (state == null) throw const StandingRequestException(404, null);
+            return state;
+          case 'register':
+            registered.add(label!);
+            final failure = failRegister?.call(registered.length);
+            if (failure != null) throw failure;
+            expect(idempotencyKey, 'register-$label');
+            return states[label] = {
+              'standingAddressId': 'sda_$label',
+              'enabled': true,
+              'addresses': {'polygon': polygon},
+              'kuteFeePolicy': {
+                'revision': pinned[label] ??= backendRevision,
+              },
+            };
+        }
+        throw StateError('unexpected $operation');
+      };
+    }
+
+    Future<String?> openReceive() async => (await StandingDepositStore.register(
+            walletId: 'a',
+            recipient: spark,
+            destinationAsset: 'USDB',
+            sourceChain: 'polygon',
+            sourceAsset: 'USDC',
+            wanted: () => true))
+        ?.addressFor('polygon');
+
+    List<String> retries() => [
+          for (final e in events)
+            if (e.$1 == 'reusable_deposit_address_retried')
+              e.$2!['reason'] as String
+        ];
+
+    setUp(() {
+      registered = [];
+      events = [];
+      backendRevision = 6;
+      StandingDepositStore.forgetDestinations();
+      original = StandingDepositStore.standingRequest;
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    });
+    tearDown(() {
+      StandingDepositStore.standingRequest = original;
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+      TrackingService.debugTrackObserver = null;
+    });
+
+    test('an older revision held: refreshed and registered once more',
+        () async {
+      // The app's policy fetch answers revision 5; the backend publishes
+      // 6 before the registration lands.
+      var served = 5;
+      AffiliateService.debugSessionToken = 'test-session';
+      final policy = runtimePolicyFixture(revisionOf: () => served);
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      expect(await policy.refresh(), isTrue);
+      fakeProvider(failRegister: (call) {
+        served = 6;
+        return null;
+      });
+      expect(await openReceive(), polygon);
+      expect(registered, [
+        StandingDepositStore.labelFor(spark, 'USDB', 5),
+        StandingDepositStore.labelFor(spark, 'USDB', 6),
+      ]);
+      expect(retries(), ['terms_changed']);
+      final kept = (await StandingDepositStore.records('a'))
+          .singleWhere((r) => r.response['standingAddressId'] != null);
+      expect(kept.revision, 6);
+      // And it is the address Receive shows from then on.
+      expect(await openReceive(), polygon);
+      expect(registered, hasLength(2));
+    });
+
+    test('no session policy yet: refreshed and registered once', () async {
+      // The first standing request mints the wallet session; the policy
+      // fetched before it was the public one, so no revision was held.
+      backendRevision = 5;
+      final policy = runtimePolicyFixture(revision: 5);
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      fakeProvider(
+          onDestinations: () =>
+              AffiliateService.debugSessionToken = 'test-session');
+      expect(await openReceive(), polygon);
+      expect(registered, [StandingDepositStore.labelFor(spark, 'USDB', 5)]);
+      expect(retries(), ['terms_unavailable']);
+    });
+
+    test('a race that does not clear fails after one refresh', () async {
+      AffiliateService.debugSessionToken = 'test-session';
+      final policy = runtimePolicyFixture(revision: 5);
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      fakeProvider();
+      await expectLater(openReceive(), throwsStateError);
+      expect(registered, hasLength(1),
+          reason: 'the same revision replays the same pin');
+      expect(retries(), ['terms_changed']);
+    });
+
+    test('an outage is retried once under the same key', () async {
+      AffiliateService.debugSessionToken = 'test-session';
+      backendRevision = 5;
+      final policy = runtimePolicyFixture(revision: 5);
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      fakeProvider(
+          failRegister: (call) =>
+              call == 1 ? const StandingRequestException(503, null) : null);
+      expect(await openReceive(), polygon);
+      expect(registered.toSet(), hasLength(1));
+      expect(registered, hasLength(2));
+      expect(retries(), ['provider_unavailable']);
+    });
+
+    for (final status in [400, 403, 404, 409, 422]) {
+      test('a refusal ($status) is never retried', () async {
+        AffiliateService.debugSessionToken = 'test-session';
+        backendRevision = 5;
+        final policy = runtimePolicyFixture(revision: 5);
+        addTearDown(policy.dispose);
+        RuntimeCapabilitiesService.debugInstance = policy;
+        fakeProvider(
+            failRegister: (_) => StandingRequestException(status, null));
+        await expectLater(openReceive(),
+            throwsA(isA<StandingRequestException>()));
+        expect(registered, hasLength(1));
+        expect(retries(), isEmpty);
+      });
+    }
+
+    test('a second outage is not retried again', () async {
+      AffiliateService.debugSessionToken = 'test-session';
+      final policy = runtimePolicyFixture(revision: 6);
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      fakeProvider(failRegister: (_) => const StandingRequestException(502, null));
+      await expectLater(
+          openReceive(), throwsA(isA<StandingRequestException>()));
+      expect(registered, hasLength(2));
+    });
+
+    test('the policy switch off is a refusal: nothing is registered',
+        () async {
+      AffiliateService.debugSessionToken = 'test-session';
+      final policy = runtimePolicyFixture(blocked: {'crypto.deposit'});
+      addTearDown(policy.dispose);
+      RuntimeCapabilitiesService.debugInstance = policy;
+      fakeProvider();
+      await expectLater(
+          openReceive(), throwsA(isA<CapabilityUnavailableException>()));
+      expect(registered, isEmpty);
+      expect(retries(), isEmpty);
     });
   });
 }

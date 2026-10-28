@@ -198,6 +198,23 @@ const List<HlTypedField> approveBuilderFeeSignTypes = [
   (name: 'nonce', type: 'uint64'),
 ];
 
+/// `sendToEvmWithData`: HyperCore → Circle CCTP. Field names, types and
+/// order exactly as Circle's guide and Hyperliquid's exchange-endpoint docs
+/// list them (https://developers.circle.com/cctp/howtos/withdraw-usdc-from-hypercore-to-evm).
+/// The only user-signed action with `uint32` and `bytes` fields.
+const List<HlTypedField> sendToEvmWithDataSignTypes = [
+  (name: 'hyperliquidChain', type: 'string'),
+  (name: 'token', type: 'string'),
+  (name: 'amount', type: 'string'),
+  (name: 'sourceDex', type: 'string'),
+  (name: 'destinationRecipient', type: 'string'),
+  (name: 'addressEncoding', type: 'string'),
+  (name: 'destinationChainId', type: 'uint32'),
+  (name: 'gasLimit', type: 'uint64'),
+  (name: 'data', type: 'bytes'),
+  (name: 'nonce', type: 'uint64'),
+];
+
 const String withdrawPrimaryType = 'HyperliquidTransaction:Withdraw';
 const String usdSendPrimaryType = 'HyperliquidTransaction:UsdSend';
 const String spotSendPrimaryType = 'HyperliquidTransaction:SpotSend';
@@ -205,6 +222,8 @@ const String usdClassTransferPrimaryType =
     'HyperliquidTransaction:UsdClassTransfer';
 const String approveBuilderFeePrimaryType =
     'HyperliquidTransaction:ApproveBuilderFee';
+const String sendToEvmWithDataPrimaryType =
+    'HyperliquidTransaction:SendToEvmWithData';
 
 /// Final 0x1901 digest for a user-signed action. [message] must already
 /// contain every field listed in [fields] (including `hyperliquidChain`).
@@ -234,7 +253,13 @@ Eip712Hashes userSignedActionHashes({
       case 'string':
         encoded.add(_keccak256(utf8.encode(value as String)));
       case 'uint64':
-        encoded.add(_encodeUint(BigInt.from(value as int)));
+        encoded.add(_encodeUint(_checkedUint(value, 64, f.name)));
+      case 'uint32':
+        encoded.add(_encodeUint(_checkedUint(value, 32, f.name)));
+      case 'bytes':
+        // EIP-712: dynamic `bytes` are encoded as keccak256 of the raw
+        // bytes, so "0x" (empty) hashes the empty string.
+        encoded.add(_keccak256(_hexBytes(value as String, f.name)));
       case 'bool':
         encoded.add(_encodeUint((value as bool) ? BigInt.one : BigInt.zero));
       case 'address':
@@ -486,6 +511,37 @@ Map<String, dynamic> buildWithdraw3Action({
       'type': 'withdraw3',
     };
 
+/// HyperCore USDC out through Circle CCTP (`sendToEvmWithData`). Circle's
+/// guide form: [token] `USDC` (Hyperliquid's docs also accept
+/// `USDC:<tokenId>`, see `kHypercoreCctpTokenForm`), [sourceDex] `''`
+/// for perpetuals or `spot`, [destinationChainId] the CCTP DOMAIN (3 =
+/// Arbitrum, 6 = Base), and empty [data] (`0x`) so Circle's
+/// CoreDepositWallet attaches its default forwarding hook and Circle's
+/// Forwarding Service pays the destination mint. The signed `nonce` IS
+/// the POSTed nonce.
+Map<String, dynamic> buildSendToEvmWithDataAction({
+  required String token,
+  required String amount,
+  required String sourceDex,
+  required String destinationRecipient,
+  required int destinationChainId,
+  required int gasLimit,
+  required int nonce,
+  String data = '0x',
+}) =>
+    {
+      'type': 'sendToEvmWithData',
+      'token': token,
+      'amount': amount,
+      'sourceDex': sourceDex,
+      'destinationRecipient': destinationRecipient,
+      'addressEncoding': 'hex',
+      'destinationChainId': destinationChainId,
+      'gasLimit': gasLimit,
+      'data': data,
+      'nonce': nonce,
+    };
+
 /// A TWAP order (`twapOrder`) — the exchange slices [sizeWire] into
 /// sub-orders spread over [minutes] and executes them itself. Signed as an
 /// L1 action (same path as `order`/`cancel`: signL1Action → _submitL1Action).
@@ -566,6 +622,32 @@ Map<String, dynamic> buildSetReferrerAction({required String code}) => {
 // ──────────────────────────── EIP-712 internals ────────────────────────
 
 const String _zeroAddress = '0x0000000000000000000000000000000000000000';
+
+/// [value] as an unsigned integer that fits [bits]; anything else throws
+/// before a signature exists.
+BigInt _checkedUint(Object value, int bits, String field) {
+  final big = value is BigInt
+      ? value
+      : value is int
+          ? BigInt.from(value)
+          : throw ArgumentError('$field must be an integer');
+  if (big.isNegative || big.bitLength > bits) {
+    throw ArgumentError('$field does not fit uint$bits');
+  }
+  return big;
+}
+
+/// The raw bytes of a 0x hex string (even length, hex digits only).
+Uint8List _hexBytes(String value, String field) {
+  if (!RegExp(r'^0[xX](?:[0-9a-fA-F]{2})*$').hasMatch(value)) {
+    throw ArgumentError('$field must be 0x-prefixed hex bytes');
+  }
+  final clean = value.substring(2);
+  return Uint8List.fromList([
+    for (var i = 0; i < clean.length; i += 2)
+      int.parse(clean.substring(i, i + 2), radix: 16),
+  ]);
+}
 
 Uint8List _hashDomain({
   required String name,

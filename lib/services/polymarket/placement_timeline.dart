@@ -18,7 +18,11 @@ class PolymarketPlacementTimeline {
   static PolymarketPlacementTimeline? _active;
   final Stopwatch _clock = Stopwatch()..start();
   final Map<String, int> _stages = <String, int>{};
+  final Map<String, String> _tags = <String, String>{};
   int _last = 0;
+
+  /// Whether a placement is being timed now.
+  static bool get isActive => _active != null;
 
   /// Starts timing a placement. Any previous timeline is dropped unsent.
   static void begin() => _active = PolymarketPlacementTimeline._();
@@ -30,6 +34,13 @@ class PolymarketPlacementTimeline {
     final now = active._clock.elapsedMilliseconds;
     active._stages[stage] = (active._stages[stage] ?? 0) + (now - active._last);
     active._last = now;
+  }
+
+  /// A closed-vocabulary fact about this placement, sent with the stage
+  /// durations: where the book or the fee terms came from (feed | rest,
+  /// cached | fetched). Never an id or an amount.
+  static void tag(String key, String value) {
+    _active?._tags[key] = value;
   }
 
   /// Debug builds only: prints [step] with the milliseconds since the tap
@@ -48,7 +59,9 @@ class PolymarketPlacementTimeline {
   int _lastTrace = 0;
 
   /// Emits the stage durations and clears the timeline. [outcome] is a
-  /// closed vocabulary: filled, pending, failed, declined, cancelled.
+  /// closed vocabulary: filled, resting, pending, failed, declined,
+  /// cancelled. Every way a placement ends calls this, so successful
+  /// bets are timed too, not only declined ones.
   static void finish(String outcome, {String? reason}) {
     final active = _active;
     _active = null;
@@ -63,6 +76,7 @@ class PolymarketPlacementTimeline {
       // Coarse bucket beside the raw ms (kept for existing dashboards).
       'total_latency_bucket': TrackingService.latencyBucket(now),
       for (final entry in active._stages.entries) 'ms_${entry.key}': entry.value,
+      ...active._tags,
     };
     if (kDebugMode) {
       debugPrint('polymarket placement timeline: $params');

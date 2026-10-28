@@ -13,6 +13,8 @@ import 'package:hive_ce/hive.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/services/once_flags_service.dart';
+import 'package:kute/services/orchestra/receive_route_availability.dart'
+    show ReceiveRouteAvailability;
 import 'package:kute/services/security/address_guard.dart'
     show kEvmAddressChains;
 import 'package:kute/services/tracking_service.dart';
@@ -107,16 +109,24 @@ const Set<String> kOrchestraSendableChains = {
 /// NECESSARY BUT NO LONGER SUFFICIENT. A chain here can still refuse
 /// an individual asset on it, and refuse it for one destination while
 /// standing for the other, so the offering is clipped a second time by
-/// [kOrchestraAccumulationDeniedPairs]. Ask that set, through
+/// [kOrchestraAccumulationDeniedPairs] and by the refusals learned at
+/// runtime (`ReceiveRouteAvailability`). Ask both, through
 /// [orchestraCanAccumulatePair], before offering a row; this one only
 /// answers the chain-wide question the quote mirror still needs.
+///
+/// `hypercore` was removed on 2026-10-12: Flashnet's accumulation
+/// endpoint now says "HyperCore source address creation is unavailable
+/// until independent deposit verification is supported; existing
+/// addresses require reconciliation". The app never minted one (HyperCore
+/// is the Investing venue's rail and never reaches a Receive picker), and
+/// `ReceiveRouteAvailability.isHyperCoreSource` refuses it at every mint
+/// choke point so that stays true.
 const Set<String> kOrchestraAccumulationSourceChains = {
   'arbitrum',
   'avalanche',
   'base',
   'bsc',
   'ethereum',
-  'hypercore',
   'hyperevm',
   'monad',
   'optimism',
@@ -146,17 +156,40 @@ const Set<String> kOrchestraAccumulationDeniedPairs = {
   // "Unsupported deposit source: tron:TRX". This does not establish
   // support for the separate BTC destination, so leave that unchanged.
   'tron:TRX:USDB',
+  // Receive bitcoin, PostHog swap_failed / receive_address_failed up to
+  // 2026-10-12: the mint refused the BTC destination too with
+  // "Unsupported deposit source: tron:TRX", so the chain's own coin is
+  // not a configured deposit asset for either destination.
+  'tron:TRX:BTC',
+  // Same period: "Unsupported source: hyperevm:USDE". The refusal names
+  // the source alone, with no destination, so both are withdrawn.
+  // There is no provider endpoint listing the configured deposit pairs
+  // of the legacy accumulation rail (the standing rail's per-chain
+  // address map covers chains, not assets, and only destination
+  // spark:USDB), so observed refusals are kept here by hand.
+  'hyperevm:USDE:BTC',
+  'hyperevm:USDE:USDB',
 };
 
-/// Whether a pair passes known reusable-address restrictions. Callers
-/// must also check the swap catalog and handle an upstream refusal.
+/// Whether a pair passes known reusable-address restrictions: the chain
+/// set, the hand-kept denied pairs, and the refusals the rails answered
+/// at runtime (`ReceiveRouteAvailability`, which also refuses HyperCore
+/// outright). Callers must also check the swap catalog and handle an
+/// upstream refusal, which they record there so the next offering
+/// already knows.
 bool orchestraCanAccumulatePair(
     String chain, String assetCode, String destinationAsset) {
   final slug = chain.trim().toLowerCase();
   if (!kOrchestraAccumulationSourceChains.contains(slug)) return false;
   final asset = _normalizeAsset(assetCode.trim());
   final dest = destinationAsset.trim().toUpperCase();
-  return !kOrchestraAccumulationDeniedPairs.contains('$slug:$asset:$dest');
+  if (kOrchestraAccumulationDeniedPairs.contains('$slug:$asset:$dest')) {
+    return false;
+  }
+  return !ReceiveRouteAvailability.isUnavailable(
+      sourceChain: slug,
+      sourceAsset: assetCode.trim(),
+      destinationAsset: dest);
 }
 
 /// Source rails whose deposit and refund addresses the app can verify
@@ -743,5 +776,6 @@ void reportCashAppPaymentWindowEnded(SwapOrder exchange) {
     'provider_status':
         exchange.status == 'unfulfilled' ? 'unfulfilled' : 'expired_locally',
     if (usd != null && usd.isFinite) 'amount_bucket': TrackingService.usdBucket(usd),
+    ...TrackingService.exactUsd('amount_usd', usd),
   });
 }

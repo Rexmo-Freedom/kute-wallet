@@ -3,7 +3,8 @@
 // One held Polymarket combo (parlay): the legs with their live prices and
 // status, an ESTIMATED value chart (the product of the legs' price
 // histories, with a "Bought" line at the stake), "Close combo" (a SELL
-// RFQ: the exact proceeds, confirm, accept) and "Claim" once it settled.
+// RFQ: the exact proceeds, confirm, accept). A settled combo with a payout
+// is claimed automatically (the combos notifier): no Claim button.
 //
 // There is no combo price feed, so the chart and the value are estimates
 // and say so. A SELL quote is the only exact exit price; it is never
@@ -27,7 +28,6 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
 import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
-import 'package:kute/screens/polymarket/components/claim_placed_overlay.dart';
 import 'package:kute/screens/polymarket/components/combo_copy.dart';
 import 'package:kute/screens/polymarket/components/combo_position_card.dart'
     show comboLegColor, comboLegStatusText;
@@ -411,88 +411,10 @@ class _Actions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = position;
-    if (p.redeemable && (p.settledPayoutUsd ?? 0) > 0) {
-      return ComboClaimButton(position: p, popRoute: true);
-    }
     if (!p.isOpen) return const SizedBox.shrink();
     return AppButton(
       text: context.l10n.comboClose,
       onPressed: () => _CloseComboSheet.show(context, p),
-    );
-  }
-}
-
-/// "Claim $X" on a settled combo: one tap runs the claim and ends on the
-/// claim confirmation, with no page in between. On the combo screen
-/// ([popRoute] closes it first) and, [compact], on the Portfolio card.
-class ComboClaimButton extends ConsumerStatefulWidget {
-  const ComboClaimButton(
-      {super.key,
-      required this.position,
-      this.compact = false,
-      this.popRoute = false});
-  final ComboPosition position;
-  final bool compact;
-  final bool popRoute;
-
-  @override
-  ConsumerState<ComboClaimButton> createState() => _ComboClaimButtonState();
-}
-
-class _ComboClaimButtonState extends ConsumerState<ComboClaimButton> {
-  bool _busy = false;
-
-  Future<void> _claim() async {
-    if (_busy) return;
-    final p = widget.position;
-    setState(() => _busy = true);
-    HapticFeedback.mediumImpact();
-    final nav = Navigator.of(context, rootNavigator: true);
-    final local = Navigator.of(context);
-    final question = context.l10n.comboLegsLabel(p.legsTotal);
-    final outcome = context.l10n.comboLegWon;
-    try {
-      final payout = await ref
-          .read(polymarketCombosProvider.notifier)
-          .claim(p, trigger: 'manual');
-      if (widget.popRoute && local.mounted) local.maybePop();
-      if (!nav.mounted) return;
-      pushClaimPlacedOverlay(
-        navigator: nav,
-        marketQuestion: question,
-        outcome: outcome,
-        amountUsd: payout,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(comboErrorCopy(context, e))));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = widget.position;
-    // A claim already sent stays "claiming" until the index drops it.
-    final claiming = ref.watch(polymarketCombosProvider.select(
-        (s) => s.valueOrNull?.claiming.contains(p.conditionId) ?? false));
-    final busy = _busy || claiming;
-    final text = context.l10n.comboClaim(formatHlUsd(p.settledPayoutUsd ?? 0));
-    if (widget.compact) {
-      return AppButton(
-        text: text,
-        compact: true,
-        isLoading: busy,
-        onPressed: busy ? null : _claim,
-      );
-    }
-    return AppButton(
-      text: text,
-      variant: AppButtonVariant.moneyIn,
-      isLoading: busy,
-      onPressed: busy ? null : _claim,
     );
   }
 }

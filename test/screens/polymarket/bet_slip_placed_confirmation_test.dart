@@ -12,7 +12,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
-import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -73,12 +73,16 @@ void main() {
     expect(find.text('market detail'), findsNothing);
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text('Prediction placed'), findsOneWidget);
-    expect(find.text(r'$10.00'), findsOneWidget);
+    // The cost on the side is the hero, the market the context line, and
+    // the payout a row.
+    expect(find.text(r'$10.00 on Yes'), findsOneWidget);
+    expect(find.text('Will it rain?'), findsOneWidget);
     expect(find.text(r'$20.00'), findsOneWidget);
     expect(find.text('View prediction'), findsOneWidget);
     expect(haptics, 1);
 
-    await tester.tap(find.byType(KuteCloseButton));
+    // Done closes the sheet onto the screen under it.
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('predictions'), findsOneWidget);
@@ -190,7 +194,7 @@ void main() {
       expect(FastBetWindow.instance.scopes, 1);
       expect(FastBetWindow.instance.isOpen, isTrue);
 
-      await tester.tap(find.byType(KuteCloseButton));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(find.text('market detail'), findsOneWidget,
           reason: 'back on the round, like the five-minute sheet');
@@ -226,5 +230,56 @@ void main() {
       'limit orders keep the in-sheet beat', () {
     expect(betSlipEndsOnConfirmation(isLimit: false), isTrue);
     expect(betSlipEndsOnConfirmation(isLimit: true), isFalse);
+  });
+
+  test('the receipt fee: the venue curve at the fill plus the funding legs',
+      () {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    // 10 shares for $5.00 (50¢): $0.075 to Polymarket, $0.01 to Kute,
+    // plus $0.53 moving it from Bitcoin and Investing.
+    expect(
+        betReceiptFeeUsd(
+            terms: terms, shares: 10, costUsd: 5, fundingFeeUsd: 0.53),
+        closeTo(0.075 + 0.01 + 0.53, 1e-9));
+    expect(betReceiptFeeUsd(terms: null, shares: 10, costUsd: 5), isNull);
+  });
+
+  testWidgets('a \$5.00 bet reads \$5.00 and its estimated fee',
+      (tester) async {
+    KuteConfirmation.debugFeedbackOverride = () async {};
+    final rootKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        navigatorKey: rootKey,
+        theme: buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: Text('predictions')),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    // The venue spent the whole stake (the order now signs it to the
+    // cent): 13.5135 shares at 37¢.
+    showBetSlipPlacedConfirmation(
+      navigator: rootKey.currentState!,
+      marketQuestion: 'Will it rain?',
+      outcome: 'Yes',
+      total: 5,
+      price: 0.37,
+      filledShares: 13.5135,
+      filledCost: 5.0,
+      feeTerms: terms,
+      fundingFeeUsd: 0.53,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(r'$5.00 on Yes'), findsOneWidget);
+    expect(find.text('Estimated fee'), findsOneWidget);
+    // 13.5135 × 0.03 × 0.37 × 0.63 = $0.0945, Kute $0.01, funding $0.53.
+    expect(find.text(r'$0.64'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

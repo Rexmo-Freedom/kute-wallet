@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Under this share of the whole a chart slice wears the "Other" grey.
+const double kChartOtherShare = 0.02;
+
 class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color accent;
   final Color accentLight;
@@ -35,13 +38,15 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
   final Color dragHandle;
   final Color modalBarrier;
 
-  /// The charts' categorical palette (the allocation donuts and their
-  /// legends): five distinct hues for the named slices, in slot order, and
-  /// a muted grey last for "Other". Stepped per mode against the card
-  /// surface: every slot clears 3:1 on it, and neighbouring slots differ in
-  /// lightness as well as hue so they stay apart under red-green colour
-  /// blindness. None is the market up/down pair or the accent, so an
-  /// allocation never reads as a gain, a loss or an action.
+  /// The charts' palette (every donut, pie and allocation bar and their
+  /// legends; founder choice October 2026, "muted fintech"): five distinct,
+  /// toned-down hues (indigo, teal, amber, coral, violet), then a neutral
+  /// grey last for "Other" (and any slice under 2%). Colours follow a
+  /// slice's rank by size, so the largest is always indigo. Stepped per mode
+  /// against the card surface: the founder's swatches as chosen (light keeps
+  /// the bright amber and teal rather than darkened browns), each at least
+  /// 2:1 on the light card and 3:1 on the dark one. Never the market up/down pair.
+  /// [chartColorsByShare] hands them out.
   final List<Color> chartCategorical;
 
   const AppColorsExtension({
@@ -95,14 +100,14 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         cardShadow: Colors.black.withValues(alpha: 0.4),
         dragHandle: Colors.white.withValues(alpha: 0.2),
         modalBarrier: Colors.black.withValues(alpha: 0.3),
-        // Violet, cyan, azure, sand, pink; slate for Other.
+        // The brand blue, saturated to muted and lighter; slate for Other.
         chartCategorical: const [
-          Color(0xFF9B79EE),
-          Color(0xFF4CD1EE),
-          Color(0xFF347EC4),
-          Color(0xFFEBD56A),
-          Color(0xFFEC78C9),
-          Color(0xFF70777F),
+          Color(0xFF7B86F0), // indigo
+          Color(0xFF2FB9BD), // teal
+          Color(0xFFF2A93B), // amber
+          Color(0xFFF07A6C), // coral
+          Color(0xFFB48CEB), // violet
+          Color(0xFF8A9098), // Other
         ],
       );
 
@@ -144,16 +149,40 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
         cardShadow: const Color(0x14000000),
         dragHandle: Colors.black.withValues(alpha: 0.10),
         modalBarrier: Colors.black.withValues(alpha: 0.20),
-        // Violet, cyan, cobalt, ochre, magenta; slate for Other.
+        // The brand blue, deep navy to light; slate for Other.
         chartCategorical: const [
-          Color(0xFF6443CC),
-          Color(0xFF0999B2),
-          Color(0xFF1E5099),
-          Color(0xFFB88513),
-          Color(0xFFC348A9),
-          Color(0xFF666C75),
+          Color(0xFF4F5BD5), // indigo
+          Color(0xFF1FA2A6), // teal
+          Color(0xFFF2A93B), // amber
+          Color(0xFFE8685A), // coral
+          Color(0xFF9B6DD6), // violet
+          Color(0xFF9AA0A6), // Other
         ],
       );
+
+  /// The chart grey: "Other", and any slice under [kChartOtherShare].
+  Color get chartOther => chartCategorical.last;
+
+  /// The chart colour of each of [shares] (each slice's share of the
+  /// whole, in any order), by its rank by size: the largest takes the
+  /// ramp's first step, the next the second, and so on; a slice under
+  /// [kChartOtherShare] or past the ramp's steps wears [chartOther]. Ties
+  /// keep their order. Pure for the tests.
+  List<Color> chartColorsByShare(List<double> shares) {
+    final steps = chartCategorical.length - 1;
+    final order = [for (var i = 0; i < shares.length; i++) i]..sort((a, b) {
+        final bySize = shares[b].compareTo(shares[a]);
+        return bySize != 0 ? bySize : a.compareTo(b);
+      });
+    final colors = List<Color>.filled(shares.length, chartOther);
+    for (var rank = 0; rank < order.length; rank++) {
+      final i = order[rank];
+      if (rank < steps && shares[i] >= kChartOtherShare) {
+        colors[i] = chartCategorical[rank];
+      }
+    }
+    return colors;
+  }
 
   @override
   ThemeExtension<AppColorsExtension> copyWith({
@@ -307,6 +336,10 @@ class AppColors {
   // #EF4444, #FF6565) — use these two everywhere a value goes up or down.
   static const Color marketUp = Color(0xFF1FA663);
   static const Color marketDown = Color(0xFFD9485A);
+
+  // The win accent: the mark on a result sheet for a won prediction or a
+  // claimed payout. Defined once here; nothing hardcodes the gold.
+  static const Color celebrate = Color(0xFFD4AF37);
 
   static const Color success = Color(0xFF34C759);
   static const Color error = Color(0xFFFF3B30);
@@ -559,6 +592,27 @@ const _actionButtonStyle = ButtonStyle(
     RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
   ),
 );
+
+/// Loads the app font (Inter, from the bundled assets) and waits until the
+/// engine has it, so no text is ever laid out before it.
+///
+/// `GoogleFonts.inter()` in the themes registers the font asynchronously.
+/// Text laid out before it lands is measured in the fallback font, and
+/// Flutter re-measures it only a frame after the font's change notice. A
+/// change of colour alone in that window (a P&L figure turning from red to
+/// green with its `$` in place) repaints the text in Inter inside a box
+/// measured in the fallback: a glyph drawn at the wrong size for a frame,
+/// and TextPainter's `debugSize == size` assertion in debug and in tests.
+///
+/// Awaited before the first frame (`main.dart`) and before every test file
+/// (`test/flutter_test_config.dart`). Never throws: without the asset the
+/// app keeps its fallback font, as it did before.
+Future<void> loadAppFonts() async {
+  try {
+    await GoogleFonts.pendingFonts([GoogleFonts.inter()])
+        .timeout(const Duration(seconds: 3));
+  } catch (_) {}
+}
 
 ThemeData buildDarkTheme() {
   final ext = AppColorsExtension.dark();

@@ -11,6 +11,7 @@ import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/category_pill_strip.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -75,13 +76,25 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
     required this.product,
     required this.cardBuilder,
     required this.onOpenMarket,
+    required this.groups,
+    required this.groupRowIndent,
     this.leading,
   });
 
   final List<InvestmentBrowseSection<T>> sections;
   final String product;
-  final Widget Function(T market, VoidCallback onTap) cardBuilder;
+
+  /// A market as its own card, or ([inGroup]) as a row of a grouped card.
+  final Widget Function(T market, VoidCallback onTap, bool inGroup)
+      cardBuilder;
   final ValueChanged<T> onOpenMarket;
+
+  /// Which markets share one grouped card like Home's Activity (as on the
+  /// Investments lists, market_groups.dart); the others keep their own.
+  final bool Function(T market) groups;
+
+  /// Where a grouped row's text starts, for the group's hairline.
+  final double Function() groupRowIndent;
 
   /// Shown between the category pills and the first section, like Home's
   /// 5 Minute Markets block.
@@ -98,6 +111,8 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => _CategoryPage<T>(
           title: section.label,
+          groups: groups,
+          groupRowIndent: groupRowIndent,
           markets: section.markets,
           cardBuilder: cardBuilder,
           onOpenMarket: onOpenMarket,
@@ -123,11 +138,15 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
             label: section.label,
             onTap: () => _openCategory(context, section),
           ),
-          for (final market in section.markets.take(6))
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-              child: cardBuilder(market, () => onOpenMarket(market)),
-            ),
+          ...marketGroupColumn<T>(
+            context,
+            items: section.markets.take(6).toList(),
+            groups: groups,
+            dividerIndent: groupRowIndent(),
+            build: (market, inGroup) =>
+                cardBuilder(market, () => onOpenMarket(market), inGroup),
+          ),
+          SizedBox(height: 12.h),
         ],
       ],
     );
@@ -142,10 +161,14 @@ class PredictionBrowseCard extends ConsumerWidget {
     required this.event,
     this.onTap,
     this.followLiveGame = false,
+    this.inGroup = false,
   });
 
   final PolymarketEvent event;
   final VoidCallback? onTap;
+
+  /// A row of a grouped list card ([MarketCard.inGroup]).
+  final bool inGroup;
 
   /// Read the game's score and clock from the live sports feed (as the
   /// Predictions list does) instead of only the event's seed. Only this
@@ -176,6 +199,7 @@ class PredictionBrowseCard extends ConsumerWidget {
     return LiveTokenScope(
       tokens: tokens,
       child: MarketCard(
+        inGroup: inGroup,
         title: event.title,
         imageUrl: event.imageUrl,
         outcomes: event.outcomes,
@@ -212,6 +236,8 @@ class PredictionBrowseCard extends ConsumerWidget {
 class _CategoryPage<T> extends StatelessWidget {
   const _CategoryPage({
     required this.title,
+    required this.groups,
+    required this.groupRowIndent,
     required this.markets,
     required this.cardBuilder,
     required this.onOpenMarket,
@@ -219,8 +245,11 @@ class _CategoryPage<T> extends StatelessWidget {
 
   final String title;
   final List<T> markets;
-  final Widget Function(T market, VoidCallback onTap) cardBuilder;
+  final Widget Function(T market, VoidCallback onTap, bool inGroup)
+      cardBuilder;
   final void Function(T market) onOpenMarket;
+  final bool Function(T market) groups;
+  final double Function() groupRowIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -251,14 +280,19 @@ class _CategoryPage<T> extends StatelessWidget {
         children: [
           Container(decoration: AppDecorations.screenGradient(context)),
           PlatformSafeArea(
-            child: ListView.separated(
-              padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
-              itemCount: markets.length,
-              separatorBuilder: (_, __) => SizedBox(height: 12.h),
-              itemBuilder: (_, index) {
-                final market = markets[index];
-                return cardBuilder(market, () => onOpenMarket(market));
-              },
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+                ...marketGroupSlivers<T>(
+                  context,
+                  items: markets,
+                  groups: groups,
+                  dividerIndent: groupRowIndent(),
+                  build: (market, inGroup) => cardBuilder(
+                      market, () => onOpenMarket(market), inGroup),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+              ],
             ),
           ),
         ],

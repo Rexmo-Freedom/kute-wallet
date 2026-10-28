@@ -275,12 +275,13 @@ PortfolioPerformance parseHyperliquidPerformance(Object? json) {
       }));
   var points = read(history);
   // The all-time series is sampled about once a week, too coarse for the
-  // 7D and 1M lines. The week and month series are sampled every few
-  // hours and start at zero; ending on the same sample as the all-time
-  // one, each is lifted onto it by the difference of their last values.
+  // 1D, 1W and 1M lines. The day, week and month series are sampled every
+  // few minutes to hours and start at zero; ending on the same sample as
+  // the all-time one, each is lifted onto it by the difference of their
+  // last values.
   if (points.isNotEmpty) {
     final byTime = {for (final p in points) p.timestamp: p};
-    for (final name in const ['week', 'month']) {
+    for (final name in const ['day', 'week', 'month']) {
       final rows = windows[name];
       if (rows is! List || rows.isEmpty) continue;
       final window = read(rows);

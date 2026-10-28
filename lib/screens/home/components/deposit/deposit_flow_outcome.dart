@@ -41,26 +41,31 @@ class MoveFlowOutcome {
   }
 
   /// The move left the sheet. [outcome] says how far it got; the
-  /// settlement pipelines report the final result.
-  void completed({String outcome = 'submitted'}) {
+  /// settlement pipelines report the final result. [extra] adds what only
+  /// the outcome knows (the rail taken, the fee, the time from the tap).
+  void completed(
+      {String outcome = 'submitted', Map<String, Object> extra = const {}}) {
     if (_ended) return;
     _done = true;
     _handoff = null;
     TrackingService.track('move_completed', params: {
       ...lastInputs,
+      ...extra,
       'outcome': outcome,
     });
     TrackingService.moneyFlowFinished(flow);
   }
 
   /// The submitted move did not go through. Once per submit: a retry is a
-  /// new [submitted].
-  void failed(String category, {required String stage}) {
+  /// new [submitted]. [extra] adds fixed categories only, never raw text.
+  void failed(String category,
+      {required String stage, Map<String, Object> extra = const {}}) {
     if (_ended || _failureTracked) return;
     _failureTracked = true;
     _handoff = null;
     TrackingService.track('move_failed', params: {
       ...lastInputs,
+      ...extra,
       'error_category': TrackingService.errorCategory(category),
       'stage': stage,
     });

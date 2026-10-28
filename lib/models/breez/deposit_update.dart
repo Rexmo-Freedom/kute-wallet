@@ -19,6 +19,18 @@ class SparkDepositUpdate {
 
 String sparkOutpointKey(String txid, int vout) => '${txid.toLowerCase()}:$vout';
 
+/// How long (in confirmations, about a day) a matured mempool deposit row
+/// may bridge the gap until the SDK lists the outpoint.
+const int kSparkDepositBridgeMaxConfirmations = 144;
+
+/// Lowercase txids of mempool rows still below maturity (0-2
+/// confirmations). Those rows are the single representation of their
+/// deposit; from 3 confirmations the SDK's unclaimed row takes over.
+Set<String> sparkConfirmingTxids(Iterable<SparkPendingDeposit> pending) => {
+      for (final row in pending)
+        if (row.confirmations < 3) row.mempoolTx.txid.toLowerCase(),
+    };
+
 /// Outpoints already credited as Spark deposit payments. Cache-hydrated
 /// payment shells carry no deposit details, so only live rows count.
 Set<String> sparkDepositPaymentOutpoints(Iterable<SparkTransaction> payments) {

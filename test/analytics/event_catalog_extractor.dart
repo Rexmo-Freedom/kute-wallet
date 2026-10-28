@@ -15,6 +15,11 @@
 //     forwards `track(event, …)` for the duration events it measures; the
 //     event names are the `static const` strings of its `LatencyKeys`
 //     class, which count as sent.
+//   * The one-balance sinks in [forwardingSinks]: a seam that forwards the
+//     name it is handed (`VenueSweeperHost.track`, the balance-snapshot
+//     reporter's `send`) is skipped where it calls `TrackingService.track`,
+//     and the sink's own call sites in the file that owns it
+//     (`_host.track('venue_sweep_started', …)`) count as sent.
 //
 // Events sent from a TrackingService helper count only when the helper
 // is reachable: referenced as `TrackingService.<helper>` outside the
@@ -30,6 +35,21 @@ import 'dart:io';
 
 const String trackingServicePath = 'lib/services/tracking_service.dart';
 const String latencyTrackerPath = 'lib/services/tracking/latency_tracker.dart';
+
+/// Sinks that forward the event name they are handed to
+/// `TrackingService.track`, by the file whose literal call sites emit
+/// through them: `<sink>('name', …)` there is an emitting call.
+const Map<String, String> forwardingSinks = {
+  'lib/services/one_balance/venue_sweeper.dart': '_host.track',
+  'lib/providers/balance_snapshot_provider.dart': '_send',
+};
+
+/// Files whose `TrackingService.track(event, …)` only forwards a
+/// [forwardingSinks] name: skipped, the names come from the sink's sites.
+const Set<String> forwardingFiles = {
+  'lib/providers/venue_sweeper_provider.dart',
+  'lib/providers/balance_snapshot_provider.dart',
+};
 
 /// The money-flow helpers and the suffix each one appends to the flow.
 const Map<String, String> moneyFlowSuffix = {
@@ -127,6 +147,11 @@ CatalogScan scanAnalyticsEvents({Directory? lib}) {
           c.helper == 'track' &&
           c.args.first.trim() == 'event') {
         continue; // LatencyTracker.record's forwarding call; see LatencyKeys.
+      }
+      if (forwardingFiles.contains(c.file) &&
+          c.helper == 'track' &&
+          c.args.first.trim() == 'event') {
+        continue; // a forwarding sink; expanded from its own call sites.
       }
       final names = c.eventLiterals(0);
       if (names == null) {
@@ -364,6 +389,20 @@ List<_Call> _findCalls(String file, String source) {
       }
     }
     calls.add(_Call(file, line, helper, enclosing, args, argsText, source));
+  }
+  final sink = forwardingSinks[file];
+  if (sink != null) {
+    final pattern = RegExp(r'(?<![\w.])' + RegExp.escape(sink) + r'\s*\(');
+    for (final m in pattern.allMatches(source)) {
+      final open = m.end - 1;
+      final close = _matchingClose(source, open);
+      if (close < 0) continue;
+      final argsText = source.substring(open + 1, close);
+      final args = _splitTopLevel(argsText);
+      if (args.isEmpty) continue;
+      final line = '\n'.allMatches(source.substring(0, m.start)).length + 1;
+      calls.add(_Call(file, line, 'track', null, args, argsText, source));
+    }
   }
   return calls;
 }

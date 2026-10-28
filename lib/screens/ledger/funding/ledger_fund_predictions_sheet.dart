@@ -32,6 +32,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/constants/feature_flags.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/helpers/formatters/currency_formatter.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/balance_provider.dart'
     show balanceForWalletProvider;
@@ -182,8 +183,10 @@ class _LedgerFundPredictionsSheetState
 
   double _usdPerBtc() => ref.read(selectedCurrencyProvider('USD')).toDouble();
 
+  double _amountUsd(BigInt sats) => sats.toDouble() / 1e8 * _usdPerBtc();
+
   String _amountBucket(BigInt sats) =>
-      TrackingService.usdBucket(sats.toDouble() / 1e8 * _usdPerBtc());
+      TrackingService.usdBucket(_amountUsd(sats));
 
   void _setStep(_PmFundStep step) {
     if (!mounted) return;
@@ -214,6 +217,7 @@ class _LedgerFundPredictionsSheetState
       route: _route,
       outcome: ledgerFundingOutcomeCode(error),
       amountBucket: sats == null ? null : _amountBucket(sats),
+      amountUsd: sats == null ? null : _amountUsd(sats),
     );
   }
 
@@ -336,16 +340,20 @@ class _LedgerFundPredictionsSheetState
     TrackingService.ledgerActionSubmitted(
       action: 'btc_to_predictions',
       amountBucket: _amountBucket(quote.amountSats),
+      amountUsd: _amountUsd(quote.amountSats),
     );
     widget.onSubmitted?.call();
     final navigator = Navigator.of(context, rootNavigator: true);
     final l10n = context.l10n;
+    final btcFormat = ref.read(settingsProvider).btcFormat;
     Navigator.of(context).pop();
     // Plan B13: the copy stays "Bitcoin sent. Waiting for confirmations."
     // whether or not Orchestra accepted the submit yet.
     pushLedgerPmFundingSentConfirmation(
       navigator: navigator,
       l10n: l10n,
+      amount: '${quote.amountSats.toInt().toFormattedString(btcFormat)} '
+          '${btcFormat == 'sats' ? 'sats' : 'BTC'}',
       onDone: () => navigator.pop(),
     );
   }

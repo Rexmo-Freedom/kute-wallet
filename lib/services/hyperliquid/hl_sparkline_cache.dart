@@ -243,8 +243,11 @@ class HlSparklineStore {
     if (box == null) return;
     try {
       unawaited(box.put(wire, encode(s)).then((_) {
+        // The box can close while the write lands (sign-out, a test's
+        // teardown): nothing left to prune then.
+        if (!box.isOpen) return;
         if (box.length > maxEntries) prune(box);
-      }, onError: (Object e) {
+      }).catchError((Object e) {
         if (kDebugMode) debugPrint('[hl-spark] $wire not saved: $e');
       }));
     } catch (e) {

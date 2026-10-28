@@ -4,7 +4,6 @@ import 'package:kute/providers/bitcoin_labels_provider.dart';
 import 'package:kute/providers/bitcoin_coins_display_provider.dart';
 import 'package:kute/screens/shared/bitcoin_labels.dart';
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -50,11 +49,6 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shimmer/shimmer.dart'; // REQUIRED: Add shimmer to pubspec.yaml
 
 enum AnalyticsTab {
-  /// What a balance has PAID over time. Only the Dollars tab offers it,
-  /// via [HomeAnalyticsWidget.earnChild]: the dollar rewards programme
-  /// pays on the whole balance, so Earn is a view of this same money and
-  /// not a destination of its own.
-  earn,
   activity,
   balance,
   valuation,
@@ -109,16 +103,10 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// wrong money entirely.
   final Widget? valuationChild;
 
-  /// When non-null, an "Earn" tab LEADS the strip and renders this.
-  /// Only the Dollars tab passes it, and only alongside
-  /// [activityAndBalanceOnly]: the earnings series is a sibling of the
-  /// balance series, drawn in the same card by the same chart engine.
-  final Widget? earnChild;
-
-  /// When non-null, a "Breakdown" tab follows Balance and renders this:
-  /// the money in and out of the account by kind, all time. Home passes
-  /// it for the spending wallet and Dollars for the dollar account; no
-  /// hardware, Ledger, watch-only or on-chain wallet ever does.
+  /// When non-null, an "In & out" tab follows Balance and renders this:
+  /// the money in and out of the account by month or year. Home passes it
+  /// for the spending wallet; no hardware, Ledger, watch-only or on-chain
+  /// wallet ever does.
   final Widget? breakdownChild;
 
   /// When false the Price tab is left out. Home passes false (owner
@@ -127,7 +115,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   final bool showPrice;
 
   /// When true the strip is the caller's own short strip — Activity and
-  /// Balance, led by Earn when [earnChild] is passed — whatever the
+  /// Balance (and In & out when passed) — whatever the
   /// scope filters would otherwise allow. The Dollars tab passes it: a
   /// cash account has no price chart and no coins map, so Price / Coins
   /// Tapping Activity while Activity is already showing. The pill
@@ -162,7 +150,6 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.includeFees = false,
     this.activityChild,
     this.valuationChild,
-    this.earnChild,
     this.breakdownChild,
     this.showPrice = true,
     this.activityAndBalanceOnly = false,
@@ -180,12 +167,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   @override
   void initState() {
     super.initState();
-    // Earn leads where it is offered (owner decision): on the dollar
-    // balance the programme is what the screen is for, so the strip
-    // opens on it rather than on the ledger.
-    if (widget.earnChild != null) {
-      _selectedTab = AnalyticsTab.earn;
-    } else if (widget.activityChild != null) {
+    if (widget.activityChild != null) {
       // Activity is the landing tab everywhere else — the list is the
       // primary content, the charts are the drill-down.
       _selectedTab = AnalyticsTab.activity;
@@ -255,11 +237,9 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
     if (widget.onlySplit) {
       tabs = const [AnalyticsTab.allocation];
     } else if (widget.activityAndBalanceOnly && widget.activityChild != null) {
-      // The short strip: what the balance has earned, then the list the
-      // caller passed, then the balance over time. Same pills, same
-      // switching, no scope filtering. Earn leads when it is offered.
+      // The short strip: the list the caller passed, then the balance
+      // over time. Same pills, same switching, no scope filtering.
       tabs = [
-        if (widget.earnChild != null) AnalyticsTab.earn,
         AnalyticsTab.activity,
         AnalyticsTab.valuation,
         if (widget.breakdownChild != null) AnalyticsTab.breakdown,
@@ -269,10 +249,8 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
     } else {
       tabs = AnalyticsTab.values.where((t) {
         if (t == AnalyticsTab.activity) return widget.activityChild != null;
-        // Earn only ever rides the short strip above.
-        if (t == AnalyticsTab.earn) return false;
         if (t == AnalyticsTab.balance) return false; // legacy
-        // Breakdown is the caller's own child; Price is opt-out.
+        // In & out is the caller's own child; Price is opt-out.
         if (t == AnalyticsTab.breakdown) return widget.breakdownChild != null;
         if (t == AnalyticsTab.price && !widget.showPrice) return false;
         // Split is opt-in via the `showSplit` constructor flag. Home
@@ -342,8 +320,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
         _selectedTab == AnalyticsTab.activity && widget.activityChild != null;
     final showingValuationChild =
         _selectedTab == AnalyticsTab.valuation && widget.valuationChild != null;
-    final showingEarnChild =
-        _selectedTab == AnalyticsTab.earn && widget.earnChild != null;
     final showingBreakdownChild =
         _selectedTab == AnalyticsTab.breakdown && widget.breakdownChild != null;
     return Padding(
@@ -369,17 +345,15 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           else
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: showingEarnChild
-                  ? widget.earnChild!
-                  : showingBreakdownChild
-                      ? widget.breakdownChild!
-                      : showingValuationChild
-                          ? widget.valuationChild!
-                          : _InternalAnalyticsView(
-                              currentTab: _selectedTab,
-                              surface: _surface,
-                              showBalanceHeadline: widget.showBalanceHeadline,
-                            ),
+              child: showingBreakdownChild
+                  ? widget.breakdownChild!
+                  : showingValuationChild
+                      ? widget.valuationChild!
+                      : _InternalAnalyticsView(
+                          currentTab: _selectedTab,
+                          surface: _surface,
+                          showBalanceHeadline: widget.showBalanceHeadline,
+                        ),
             ),
         ],
       ),
@@ -388,7 +362,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
 
   /// The tab strip is the shared [KutePillTabs] row (same chrome as
   /// the category pills on the Predictions and Investing screens, user
-  /// decision). Three tabs (Home: Activity/Balance/Breakdown) share the
+  /// decision). Three tabs (Home: Activity/Balance/In & out) share the
   /// width; hardware wallets add Coins and the strip side-scrolls.
   Widget _buildTypeSelector(List<AnalyticsTab> tabs) {
     return KutePillTabs(
@@ -410,11 +384,6 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
 
   KutePillItem _pillItem(AnalyticsTab tab) {
     switch (tab) {
-      case AnalyticsTab.earn:
-        return KutePillItem(
-          label: context.l10n.usdEarnTitle,
-          icon: Icons.auto_graph_rounded,
-        );
       case AnalyticsTab.activity:
         // Already showing it: the pill stops naming the tab and starts
         // naming what a second tap does.
@@ -436,9 +405,12 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           icon: Icons.savings_rounded,
         );
       case AnalyticsTab.breakdown:
+        // "In & out" (founder, 2026-10-28): the bitcoin that came in and
+        // went out, by month or year. The enum keeps its name, so the
+        // tab event still reports `breakdown`.
         return KutePillItem(
-          label: context.l10n.analyticsBreakdownTab,
-          icon: Icons.donut_large_rounded,
+          label: context.l10n.analyticsInOutTab,
+          icon: Icons.swap_vert_rounded,
         );
       case AnalyticsTab.price:
         return KutePillItem(
@@ -795,8 +767,8 @@ class _InternalAnalyticsViewState
                     ),
                   ),
                   // The range row is the Price tab's (and the legacy
-                  // views'). The Balance tab shows the whole history, so
-                  // it has no row and its chart takes the room.
+                  // views'). The Balance tab carries its own range row
+                  // under its plot, so this one is left out.
                   if (tab != AnalyticsTab.utxo &&
                       tab != AnalyticsTab.allocation &&
                       tab != AnalyticsTab.valuation) ...[
@@ -1062,13 +1034,9 @@ class _InternalAnalyticsViewState
       case AnalyticsTab.fees:
         return const FeeChart();
       case AnalyticsTab.valuation:
-        // The Balance tab: the wallet's whole history, no range (the
-        // range row and LIVE are the Price tab's).
-        return _BitcoinBalanceHistory(
-          currency: currency,
-          btcFormat: btcFormat,
-          onError: (e) => _reportErrorState('analytics_chart', e),
-        );
+        // The Balance tab: its own range row under the plot (the range
+        // row above and LIVE are the Price tab's).
+        return _BitcoinBalanceHistory(btcFormat: btcFormat);
       default:
         break;
     }
@@ -1207,97 +1175,25 @@ class _InternalAnalyticsViewState
 
 /// The Balance tab of a Bitcoin wallet (spending, hardware, watch-only,
 /// Ledger): the viewed wallet's sats as the moments they changed, over
-/// the whole history, in the unit the headline leads with. The scrub
-/// card adds what the touched balance was worth that day.
+/// the range picked under the plot, written as the app writes a bitcoin
+/// amount in the unit the headline leads with.
 class _BitcoinBalanceHistory extends ConsumerWidget {
-  final String currency;
   final String btcFormat;
-  final void Function(Object error) onError;
 
-  const _BitcoinBalanceHistory({
-    required this.currency,
-    required this.btcFormat,
-    required this.onError,
-  });
+  const _BitcoinBalanceHistory({required this.btcFormat});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final history = ref.watch(bitcoinBalanceStepsProvider);
-    final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
-    return ref.watch(bitcoinMarketDataProvider).when(
-          loading: () => const SkeletonLineChart(padding: EdgeInsets.zero),
-          error: (e, s) {
-            onError(e);
-            return Center(
-                child: Text(context.l10n.errorLoadingData,
-                    style: TextStyle(color: c.textTertiary)));
-          },
-          data: (market) {
-            // Daily prices, oldest first, already in the display
-            // currency. A day before the feed starts takes its first
-            // price, as the day-keyed chart did; with no feed at all the
-            // live price stands in.
-            final days = <DateTime>[];
-            final prices = <double>[];
-            final sorted = market.where((d) => d.price != null).toList()
-              ..sort((a, b) => a.date.compareTo(b.date));
-            for (final d in sorted) {
-              final day = _dateOnly(d.date.toLocal());
-              if (days.isNotEmpty && days.last == day) {
-                prices[prices.length - 1] = d.price!.toDouble();
-              } else {
-                days.add(day);
-                prices.add(d.price!.toDouble());
-              }
-            }
-            double priceOn(DateTime t) {
-              if (days.isEmpty) return fiatPerBtc;
-              final day = _dateOnly(t);
-              var lo = 0, hi = days.length - 1, found = 0;
-              while (lo <= hi) {
-                final mid = (lo + hi) >> 1;
-                if (!days[mid].isAfter(day)) {
-                  found = mid;
-                  lo = mid + 1;
-                } else {
-                  hi = mid - 1;
-                }
-              }
-              return prices[found];
-            }
-
-            final fiat = NumberFormat.simpleCurrency(name: currency);
-            final unit = btcFormat == 'sats' ? 'sats' : 'BTC';
-            return BalanceHistoryChart(
-              history: history,
-              format: (sats) =>
-                  '${sats.round().toFormattedString(btcFormat)} $unit',
-              scaleLabel: (level, step) =>
-                  bitcoinScaleLabel(level, step, btcFormat),
-              // What the balance was worth that day, as the header's
-              // fiat line says it for now.
-              detailText: (t, sats) =>
-                  sats <= 0 ? null : fiat.format(sats / 1e8 * priceOn(t)),
-              trackingChart: 'valuation',
-            );
-          },
-        );
+    return BalanceHistoryChart(
+      history: history,
+      // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
+      format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
+      emptyMessage: context.l10n.balanceChartEmptyBitcoin,
+      rangeKey: 'bitcoin',
+      trackingChart: 'valuation',
+    );
   }
-}
-
-/// A level of a bitcoin Balance chart's scale ([level] and [step] in
-/// sats), in the app's unit: "10K sats", "0.0001 BTC", "0 sats".
-String bitcoinScaleLabel(double level, double step, String btcFormat) {
-  if (btcFormat == 'sats') {
-    return '${NumberFormat.compact(locale: 'en_US').format(level)} sats';
-  }
-  if (level == 0) return '0 BTC';
-  final btcStep = step / 1e8;
-  final decimals = btcStep >= 1
-      ? 0
-      : (-(math.log(btcStep) / math.ln10).floor()).clamp(0, 8).toInt();
-  return '${(level / 1e8).toStringAsFixed(decimals)} BTC';
 }
 
 class _ValueHeader extends StatelessWidget {

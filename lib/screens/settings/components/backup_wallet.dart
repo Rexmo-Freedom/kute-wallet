@@ -42,7 +42,8 @@ class BackupWallet extends ConsumerStatefulWidget {
 
 enum _BackupStep { reveal, verify }
 
-/// Coarse time-in-flow bucket for `backup_abandoned` (no raw duration).
+/// Legacy time-in-flow bucket for `backup_abandoned`, sent beside the exact
+/// `time_in_flow_ms`.
 String _flowTimeBucket(Duration d) {
   final s = d.inSeconds;
   if (s < 10) return '<10s';
@@ -149,6 +150,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
     if (!_ended) {
       TrackingService.track('backup_abandoned', params: {
         'step': _step.name,
+        'time_in_flow_ms': _flowTimer.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_flowTimer.elapsed),
         'reason': _abandonReason ?? 'user_closed',
         'quiz_failed': _quizFailed,
@@ -354,26 +356,29 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
       TrackingService.track('backup_completed');
     }
     TrackingService.backupVerified();
-    // The same confirmation every money moment ends on: one check, one
-    // line, Done. Done tears down the routes under the overlay and lands
-    // where the quiz used to navigate directly.
+    // The shared result sheet. The routes under it are torn down first and
+    // the user lands where the quiz used to navigate directly; the sheet
+    // then slides up over that screen, so Done only closes it.
     final router = GoRouter.of(context);
     final rootNav = Navigator.of(context, rootNavigator: true);
-    pushKuteSuccessOverlay(
+    final message = context.l10n.confirmationWalletBackedUp;
+    pushKuteSuccessOverlayAfter(
       navigator: rootNav,
+      navigate: () {
+        while (rootNav.canPop()) {
+          rootNav.pop();
+        }
+        if (target.isBitcoinSoftware) {
+          router.goNamed('walletDetail',
+              pathParameters: {'walletId': target.id});
+        } else {
+          router.go('/home');
+        }
+      },
       overlay: KuteConfirmation(
-        message: context.l10n.confirmationWalletBackedUp,
-        onDone: () {
-          while (rootNav.canPop()) {
-            rootNav.pop();
-          }
-          if (target.isBitcoinSoftware) {
-            router.goNamed('walletDetail',
-                pathParameters: {'walletId': target.id});
-          } else {
-            router.go('/home');
-          }
-        },
+        message: message,
+        contextLine: target.name,
+        onDone: rootNav.pop,
       ),
     );
   }

@@ -94,10 +94,52 @@ void main() {
       ('lib/services/funding/ledger_polymarket_funding_service.dart',
           'recipient.address'): 1,
       ('lib/services/funding/spark_hypercore_funding_service.dart', 'eoa'): 1,
+      // The native HyperCore withdrawal (shared by withdrawToSpark and
+      // withdrawToPredictions): `recipient` is the own Spark address from
+      // sparkSelfAddressProvider, or the own Predictions deposit wallet from
+      // polymarketTradingProvider, checked to be a valid address that is not
+      // the Investing EOA; the runner's resolveOwnership re-derives it for
+      // the sparkHot / pmHot destination before the quote is paid.
       ('lib/services/funding/spark_hypercore_funding_service.dart',
-          'sparkAddress'): 1,
+          'recipient'): 1,
       ('lib/services/funding/ledger_hypercore_funding_service.dart',
           'ownership.recipient.address'): 1,
+      // The Predictions funder (one balance): `evm` is the wallet's own
+      // Predictions proxy wallet from the trading provider (or its
+      // depositAddress()), `sparkAddress` the Spark SDK's own address;
+      // both legs run under HotSettlement.plan, whose resolveOwnership
+      // re-derives the destination for the pmHot / sparkHot accounts.
+      ('lib/services/one_balance/predictions_venue_funder.dart', 'evm'): 1,
+      ('lib/services/one_balance/predictions_venue_funder.dart',
+          'sparkAddress'): 1,
+      // The direct Predictions leg (→ own Bitcoin or own Investing): `ownTo`
+      // is read from sparkSelfAddressProvider / hyperliquidAddressProvider,
+      // and the leg runs under HotSettlement.plan with a sparkHot / hlHot
+      // destination, which OwnedAddressResolver re-derives before paying.
+      ('lib/services/one_balance/predictions_venue_funder.dart', 'ownTo'): 1,
+      // The Bitcoin → Dollars leg of an order funded from bitcoin
+      // (BitcoinToDollarsLeg.quoteForTarget): `sparkAddress` is the Spark
+      // SDK's own address (sparkSelfAddressProvider), both the recipient
+      // and the refund of a spark:BTC → spark:USDB quote. The leg runs
+      // under HotSettlement.plan with sparkHot on both ends, whose
+      // resolveOwnership re-derives the address before paying, and its
+      // step-up (BitcoinLegGrants.take) refuses any quote whose route,
+      // recipient or refund is not that own address, or whose sats exceed
+      // what the order's one approval bound.
+      ('lib/services/one_balance/bitcoin_to_dollars_leg.dart',
+          'sparkAddress'): 1,
+      // The direct Bitcoin → Predictions leg of an order funded from bitcoin
+      // (BitcoinToVenueLeg._toPredictions): `evm` is the wallet's own
+      // Predictions deposit wallet, read from the trading provider (or its
+      // depositAddress()) by ownVenueDeposit, the same source the
+      // Predictions funder's Dollars leg uses. It is pinned into the
+      // order's one approval and read fresh again before paying; the leg
+      // runs under HotSettlement.plan with a pmHot destination, whose
+      // resolveOwnership re-derives it, and its step-up
+      // (BitcoinLegGrants.takeDirect) refuses any quote whose route,
+      // recipient (own Predictions wallet), refund (own Spark address) or
+      // sats are not what the approval bound.
+      ('lib/services/one_balance/bitcoin_to_venue_leg.dart', 'evm'): 1,
     };
     final recipientArg = RegExp(r'recipientAddress:\s*([^,\n]+),');
     final ownArg = RegExp(r'ownAddress:\s*([^,]+),');

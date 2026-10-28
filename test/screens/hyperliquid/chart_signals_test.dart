@@ -1,6 +1,8 @@
 // The chart's market-signals layer: absent unless the host hands signals
 // in, drawn through the chart's own geometry, and a tapped tag reports
-// its id.
+// its id. No signal label sits over the candles: the levels' tags are in
+// the tag column, the dates' names, the upcoming dates' tags and the
+// caption in the band under the plot; none is ever cut with "…".
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -63,6 +65,15 @@ Iterable<KuteChartSignalsPainter> _painters(WidgetTester tester) => tester
     .map((w) => w.painter)
     .whereType<KuteChartSignalsPainter>();
 
+KuteChartSignalBandPainter _band(WidgetTester tester) => tester
+    .widgetList<CustomPaint>(find.byType(CustomPaint))
+    .map((w) => w.painter)
+    .whereType<KuteChartSignalBandPainter>()
+    .single;
+
+Finder get _bandBox => find.byWidgetPredicate(
+    (w) => w is CustomPaint && w.painter is KuteChartSignalBandPainter);
+
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -101,9 +112,11 @@ void main() {
       ),
     );
     final painter = _painters(tester).single;
-    // The three levels and the pinned date are tappable; nothing else is.
+    // The three levels are tappable on the plot, the pinned date in the
+    // band under it; nothing else is.
     expect(painter.hits.map((h) => h.id),
-        unorderedEquals(['level:0', 'level:1', 'level:2', 'date:0']));
+        unorderedEquals(['level:0', 'level:1', 'level:2']));
+    expect(_band(tester).hits.map((h) => h.id), ['date:0']);
     final surface = find.descendant(
         of: find.byType(HlCandlestickChart),
         matching: find.byWidgetPredicate(
@@ -121,8 +134,19 @@ void main() {
     // The level's tag sits at its price on the chart's own scale.
     final geom = painter.resolveGeometry(size)!;
     expect(level.rect.center.dy, closeTo(geom.yForPrice(103), 1));
-    final date = painter.hits.firstWhere((h) => h.id == 'date:0');
-    await tester.tapAt(origin + date.rect.center);
+    // In the tag column, past the end of the candles.
+    for (final hit in painter.hits) {
+      expect(
+          hit.rect.left, greaterThanOrEqualTo(size.width - painter.tagColumn),
+          reason: '${hit.id} covers the candles');
+      expect(hit.rect.right, lessThanOrEqualTo(size.width + 0.01));
+    }
+    // The band is under the plot.
+    final band = tester.getRect(_bandBox);
+    expect(band.top, greaterThanOrEqualTo(origin.dy + size.height - 0.01));
+    final date = _band(tester).hits.single;
+    expect(date.rect.right, lessThanOrEqualTo(band.width + 0.01));
+    await tester.tapAt(band.topLeft + date.rect.center);
     await tester.pump(const Duration(milliseconds: 400));
     expect(tapped, ['level:0', 'date:0']);
   });
@@ -153,43 +177,64 @@ void main() {
             reason: '${hits[i].id} over ${hits[j].id}');
       }
     }
-    // The caption keeps the top line to itself.
+    // All in the tag column; the caption is in the band under the plot.
+    final layer = tester.getSize(find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is KuteChartSignalsPainter));
+    final column = _painters(tester).single.tagColumn;
     for (final h in hits) {
-      expect(h.rect.top, greaterThanOrEqualTo(4 + 14));
+      expect(h.rect.left, greaterThanOrEqualTo(layer.width - column));
     }
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is KuteChartSignalBandPainter),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   // BTC on 4h: funding flipped three times in two days, and "Funding −",
   // "Funding +", "Funding −" were written through each other.
-  group('the names of dates close together', () {
-    test('the latest keeps its name; one that would run into it does not',
-        () {
-      final kept = signalDateLabelsKept([
-        (left: 100, width: 52),
-        (left: 110, width: 52),
-        (left: 124, width: 52),
-      ]);
-      expect(kept, [2]);
-    });
+  testWidgets(
+      'dates close together: the latest keeps its name, none is '
+      'written through another', (tester) async {
+    await _pump(
+      tester,
+      signals: const ChartSignals(dates: [
+        ChartSignalDate(timeMs: _t0 + 40 * 60000, label: 'Funding −'),
+        ChartSignalDate(timeMs: _t0 + 41 * 60000, label: 'Funding +'),
+        ChartSignalDate(timeMs: _t0 + 42 * 60000, label: 'Funding −'),
+        ChartSignalDate(timeMs: _t0 + 10 * 60000, label: 'Funding +'),
+      ]),
+    );
+    final spans = <Rect>[];
+    expect(
+      tester.renderObject(_bandBox),
+      paints
+        ..everything((method, args) {
+          if (method == #drawParagraph) {
+            final p = args[0] as dynamic;
+            final o = args[1] as Offset;
+            spans.add(Rect.fromLTWH(
+                o.dx, o.dy, p.longestLine as double, p.height as double));
+            expect(p.didExceedMaxLines as bool, isFalse);
+          }
+          return true;
+        }),
+    );
+    // The far one and the latest of the three close together.
+    expect(spans, hasLength(2));
+    expect(spans[0].overlaps(spans[1]), isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
-    test('names with room are all written', () {
-      final kept = signalDateLabelsKept([
-        (left: 10, width: 52),
-        (left: 200, width: 52),
-        (left: 100, width: 52),
-      ]);
-      expect(kept.toSet(), {0, 1, 2});
-    });
-
-    test('of four, every other one fits', () {
-      final kept = signalDateLabelsKept([
-        (left: 0, width: 52),
-        (left: 40, width: 52),
-        (left: 80, width: 52),
-        (left: 120, width: 52),
-      ]);
-      expect(kept, [3, 1]);
-    });
+  test(
+      'a label that does not fit writes its shorter text, then a smaller '
+      'font, never an ellipsis', () {
+    final c = kuteSignalCandidates('Fed decision · Oct 28', 'Fed decision');
+    expect(c.first, (text: 'Fed decision · Oct 28', fontSize: 9.5));
+    expect(c[1], (text: 'Fed decision', fontSize: 9.5));
+    expect(c[2].fontSize, lessThan(9.5));
+    for (final x in c) {
+      expect(x.text, isNot(contains('…')));
+    }
   });
 }

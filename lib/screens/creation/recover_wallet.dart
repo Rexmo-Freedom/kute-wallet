@@ -1,9 +1,11 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/helpers/recovery_phrase_input.dart';
 import 'package:kute/helpers/seed_clipboard.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/services/secure/recovery_evm_format.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
 import 'package:kute/providers/bitcoin_wallet_creation_provider.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -15,6 +17,8 @@ import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/words_provider.dart';
+import 'package:kute/screens/creation/passkey_choice.dart'
+    show primeSparkConnect;
 import 'package:kute/screens/creation/recover_choice.dart'
     show RestoreFlowAnalytics;
 import 'package:kute/screens/creation/set_pin.dart';
@@ -179,6 +183,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     // Never the words or how many there were.
     TrackingService.track('recovery_phrase_pasted',
         params: {'source': 'keyboard'});
+    // A whole phrase came off the clipboard: it does not stay there.
+    if (input.words.length == input.wordCount) {
+      unawaited(SeedClipboard.clearAfterKeyboardPaste());
+    }
     _distributingPaste = true;
     _totalWords = input.wordCount;
     if (input.words.length == input.wordCount) {
@@ -252,7 +260,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
   }
 
   Future<void> _scanRecoveryQR() async {
-    final result = await context.pushNamed<String>('QrScanner');
+    // The camera only: a seed QR is never read from a screenshot in the
+    // photo library.
+    final result =
+        await showScannerSheet(context, multiPart: true, photos: false);
     if (result == null || result.isEmpty || !mounted) return;
 
     final RecoveryPhraseInput input;
@@ -360,6 +371,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         if (mounted && context.mounted) {
           _showRecovered(
             kind: 'bitcoin',
+            walletName: wallet.name,
             navigate: (router) => router.goNamed('walletDetail',
                 pathParameters: {'walletId': wallet.id}),
           );
@@ -386,12 +398,13 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     // derivation off the UI isolate); legacy wins when its account has
     // venue funds or history, Polygon or Arbitrum funds or a sent
     // transaction, else standard. A check that cannot finish
-    // falls back to standard and the next unlock retries it
-    // (RecoveryEvmFormat.retryPending). Existing wallet records keep their
-    // own version through RestoreSecrets.
+    // falls back to standard and is retried in this session
+    // (EvmFormatSettle) and on later unlocks. Existing wallet records keep
+    // their own version through RestoreSecrets.
     final evmChoice =
         await (widget.chooseEvmFormat ?? RecoveryEvmFormat.choose)(mnemonic);
     if (!mounted || !context.mounted) return;
+    final container = ProviderScope.containerOf(context, listen: false);
 
     var persisted = false;
     try {
@@ -411,6 +424,10 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
       final settingsNotifier = ref.read(settingsProvider.notifier);
       await settingsNotifier.addWallet(newWallet);
       persisted = true;
+      // Start the Spark connect now (same priming as the PIN unlock), so
+      // the 3–10 s connect + first sync overlaps the confirmation instead
+      // of starting when home first watches the provider.
+      primeSparkConnect(ref);
       RecoveryCheck.record(settingsNotifier, walletId, mnemonic);
       ref.invalidate(bitcoinConfigProvider);
       // Investing balances poll only for wallets marked enabled; one whose
@@ -419,9 +436,22 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         unawaited(HyperliquidOnboardingService.markEnabled(walletId));
       }
 
+      // Predictions builds again for the restored spending wallet (its
+      // identity watch does too; this also covers a build that ended on a
+      // placeholder for the same identity).
+      ref
+        ..invalidate(polymarketTradingProvider)
+        ..invalidate(polymarketBalanceProvider);
+      // A format check that could not finish is retried in this session;
+      // Predictions is set up once it settles, not before.
+      if (newWallet.evmFormatCheckPending) {
+        EvmFormatSettle.schedule(container);
+      }
+
       // Set up Polymarket account in background (Safe deploy + credentials)
       provisionPolymarketAccount(mnemonic: mnemonic, walletId: walletId,
-          evmDerivationVersion: newWallet.evmDerivationVersion);
+          evmDerivationVersion: newWallet.evmDerivationVersion,
+          evmFormatPending: newWallet.evmFormatCheckPending);
 
       TrackingService.recoverySeedEntered(
           evmFormat: evmChoice.analyticsValue,
@@ -448,6 +478,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         ref.read(recoveryModeProvider.notifier).state = false;
         _showRecovered(
           kind: 'spending',
+          walletName: newWallet.name,
           navigate: (router) => router.go('/home'),
         );
       }
@@ -475,27 +506,32 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
     }
   }
 
-  /// The same confirmation every money moment ends on: one check, one
-  /// line, Done. Done tears down the routes under the overlay and then
-  /// runs [navigate], which lands where recovery used to go directly.
+  /// The shared result sheet. The routes under it are torn down first and
+  /// [navigate] lands where recovery used to go directly; the sheet then
+  /// slides up over that screen, naming the wallet, so Done only closes
+  /// it.
   void _showRecovered({
     required String kind,
+    required String walletName,
     required void Function(GoRouter router) navigate,
   }) {
     final router = GoRouter.of(context);
     final rootNav = Navigator.of(context, rootNavigator: true);
+    final message = context.l10n.confirmationWalletRecovered;
     TrackingService.track('recovery_confirmation_shown',
         params: {'kind': kind});
-    pushKuteSuccessOverlay(
+    pushKuteSuccessOverlayAfter(
       navigator: rootNav,
+      navigate: () {
+        while (rootNav.canPop()) {
+          rootNav.pop();
+        }
+        navigate(router);
+      },
       overlay: KuteConfirmation(
-        message: context.l10n.confirmationWalletRecovered,
-        onDone: () {
-          while (rootNav.canPop()) {
-            rootNav.pop();
-          }
-          navigate(router);
-        },
+        message: message,
+        contextLine: walletName,
+        onDone: rootNav.pop,
       ),
     );
   }

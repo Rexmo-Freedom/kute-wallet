@@ -12,6 +12,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/services/icon_cache/icon_disk_cache.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _Cache extends Mock implements BaseCacheManager {}
@@ -200,5 +201,124 @@ void main() {
     expect(find.byType(PolyArtworkFallback), findsOneWidget);
     expect(find.text('PL'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  group('an SVG flutter_svg cannot parse', () {
+    // Both took 2.1.0/2.1.1 down: the parser throws from inside the
+    // picture's isolate, past `errorBuilder`.
+    const hslGradient = '<svg xmlns="http://www.w3.org/2000/svg" width="48" '
+        'height="48"><defs><linearGradient id="g"><stop offset="0" '
+        'stop-color="hsl(285deg 60% 50%)"/><stop offset="1" '
+        'stop-color="hsl(285deg 60% 20%)"/></linearGradient></defs>'
+        '<rect width="48" height="48" fill="url(#g)"/></svg>';
+    const transformNone = '<svg xmlns="http://www.w3.org/2000/svg" '
+        'width="48" height="48"><g transform="none"><rect width="48" '
+        'height="48" fill="#00a86b"/></g></svg>';
+
+    Future<void> pumpSvg(WidgetTester tester, _Cache cache, String url,
+        String svg) async {
+      final file = MemoryFileSystem().file('/crest-${url.hashCode}.svg')
+        ..writeAsBytesSync(utf8.encode(svg));
+      when(() => cache.getSingleFile(url)).thenAnswer((_) async => file);
+      await tester.pumpWidget(MaterialApp(
+          home: Center(
+              child: PolyCrestImage(
+        url: url,
+        size: 48,
+        radius: 8,
+        fallback: fallback,
+        cacheManager: cache,
+      ))));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an hsl() fill the parser rejects shows the fallback',
+        (tester) async {
+      await pumpSvg(tester, _Cache(), '$url/hsl', hslGradient);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a transform="none" the parser rejects shows the fallback',
+        (tester) async {
+      await pumpSvg(tester, _Cache(), '$url/none', transformNone);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      expect(find.byType(SvgPicture), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failed document is remembered: the next row never '
+        'reads it again', (tester) async {
+      final cache = _Cache();
+      await pumpSvg(tester, cache, '$url/again', transformNone);
+      await tester.pumpWidget(const SizedBox());
+      await pumpSvg(tester, cache, '$url/again', transformNone);
+      expect(find.byKey(const ValueKey('fallback')), findsOneWidget);
+      verify(() => cache.getSingleFile('$url/again')).called(1);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('resolved once, drawn at once', () {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" '
+        'height="48"><rect width="48" height="48" fill="#00a86b"/></svg>';
+
+    _Cache cacheWith(String u) {
+      final cache = _Cache();
+      final file = MemoryFileSystem().file('/memo-${u.hashCode}.svg')
+        ..writeAsBytesSync(utf8.encode(svg));
+      when(() => cache.getSingleFile(u)).thenAnswer((_) async => file);
+      return cache;
+    }
+
+    Widget card(String u, _Cache cache) => MaterialApp(
+        home: Center(
+            child: PolyCrestImage(
+                url: u,
+                size: 48,
+                radius: 8,
+                fallback: fallback,
+                cacheManager: cache)));
+
+    tearDown(() {
+      IconCaches.debugSet();
+      PolyCrestImage.debugResetPrefetch();
+    });
+
+    testWidgets('a card mounted again draws on its first frame, read once',
+        (tester) async {
+      const u = '$url/memo';
+      final cache = cacheWith(u);
+      await tester.pumpWidget(card(u, cache));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      // Scrolled back into view: no empty frame, no second read.
+      await tester.pumpWidget(card(u, cache));
+      expect(find.byType(SvgPicture), findsOneWidget);
+      verify(() => cache.getSingleFile(u)).called(1);
+    });
+
+    testWidgets('the feed prefetch resolves art before its card mounts',
+        (tester) async {
+      const u = '$url/prefetched';
+      final cache = cacheWith(u);
+      IconCaches.debugSet(prefetch: true);
+      await tester
+          .runAsync(() => PolyCrestImage.prefetch([u], cacheManager: cache));
+      await tester.pumpWidget(card(u, cache));
+      expect(find.byType(SvgPicture), findsOneWidget);
+      expect(find.byKey(const ValueKey('fallback')), findsNothing);
+      verify(() => cache.getSingleFile(u)).called(1);
+    });
+
+    testWidgets('nothing is prefetched where boot never opened the caches',
+        (tester) async {
+      const u = '$url/not-prefetched';
+      final cache = cacheWith(u);
+      await tester
+          .runAsync(() => PolyCrestImage.prefetch([u], cacheManager: cache));
+      verifyNever(() => cache.getSingleFile(u));
+    });
   });
 }

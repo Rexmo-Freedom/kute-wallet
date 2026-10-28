@@ -326,6 +326,19 @@ String polymarketRefusalClass(String reason) {
   return 'other';
 }
 
+/// A refusal that says the price moved: the fill-and-kill matched nothing
+/// at its worst price, a fill-or-kill could not fill whole, or the price
+/// was refused as outside the market's range. Nothing was placed, so the
+/// same approval may sign one re-priced order from a fresh book.
+bool isPolymarketPriceRefusal(String reason) {
+  final t = reason.toLowerCase();
+  return t.contains('no orders found to match') ||
+      t.contains("couldn't be fully filled") ||
+      t.contains('could not be fully filled') ||
+      t.contains('invalid price') ||
+      t.contains('price out of range');
+}
+
 /// The analytics properties for a venue refusal: its class and its text.
 /// For an allowance refusal, the spender it names, as a contract name
 /// ("neg_risk_adapter", or "unknown"), so a newly required spender shows

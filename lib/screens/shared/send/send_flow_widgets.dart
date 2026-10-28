@@ -16,6 +16,7 @@
 // Presentation only: no provider, no route table and no money call.
 
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,12 +27,13 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The send stepper's body under the app bar: the screen gradient, the
 /// step progress, the steps as pages the flow advances itself, and the
 /// shared bottom action.
-class SendStepperFrame extends StatelessWidget {
+class SendStepperFrame extends StatefulWidget {
   const SendStepperFrame({
     super.key,
     required this.progress,
@@ -52,14 +54,55 @@ class SendStepperFrame extends StatelessWidget {
   final ValueChanged<int>? onPageChanged;
 
   @override
+  State<SendStepperFrame> createState() => _SendStepperFrameState();
+}
+
+class _SendStepperFrameState extends State<SendStepperFrame> {
+  /// A text field (the recipient) has focus. The steps make room for the
+  /// keyboard only then: a step that has just taken over from the field
+  /// (Continue puts the keyboard away) lays out at its full height at
+  /// once instead of being squeezed while the keyboard slides down. The
+  /// amount step's keypad has no room to give.
+  bool _textFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onFocus);
+    _textFocus = _hasTextFocus();
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_onFocus);
+    super.dispose();
+  }
+
+  static bool _hasTextFocus() =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() !=
+      null;
+
+  void _onFocus() {
+    final next = _hasTextFocus();
+    if (next != _textFocus && mounted) setState(() => _textFocus = next);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final viewInsets =
+        _textFocus ? MediaQuery.viewInsetsOf(context).bottom : 0.0;
     // Bottom padding for the Continue CTA. iOS sits ~44dp above the
     // home indicator (was 32.h); Android adds the gesture-nav inset
     // on top of a 28.h baseline.
-    final bottomPad = Platform.isAndroid
-        ? 28.h + MediaQuery.of(context).padding.bottom
-        : 44.h;
+    // With the keyboard up the home indicator is under it, so the CTA
+    // rests a short, even gap above the keys (pinned there, frame for
+    // frame with the platform's keyboard animation).
+    final bottomPad = viewInsets > 0
+        ? 12.h
+        : Platform.isAndroid
+            ? 28.h + MediaQuery.of(context).padding.bottom
+            : 44.h;
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
@@ -68,27 +111,68 @@ class SendStepperFrame extends StatelessWidget {
           // 20.w horizontal padding so the Continue CTA sits inside
           // the standard screen gutter instead of stretching nearly
           // edge-to-edge.
-          padding: EdgeInsets.fromLTRB(
-              20.w, 12.h, 20.w, bottomPad + (viewInsets > 0 ? viewInsets : 0)),
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, bottomPad + viewInsets),
           child: Column(
             children: [
-              progress,
+              widget.progress,
               SizedBox(height: 12.h),
               Expanded(
                 child: PageView(
-                  controller: controller,
+                  controller: widget.controller,
                   // Steps advance only via the Continue/Next buttons.
                   // Swiping must NOT skip a step — it would bypass the
                   // per-step validation and completion tracking.
                   physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: onPageChanged,
-                  children: pages,
+                  onPageChanged: widget.onPageChanged,
+                  children: widget.pages,
                 ),
               ),
-              cta,
+              widget.cta,
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One step of a send sheet, with no visible heading (founder decision,
+/// 14 October 2026): the sheet's own header (close or back, the wallet
+/// pill) is all the chrome a step gets, and its content starts right
+/// under the progress bar. The step's name is still announced to screen
+/// readers as a header. [trailing] (Review's Ask Sal chip) sits on its
+/// own short row, right-aligned, above the content.
+class SendStepPage extends StatelessWidget {
+  const SendStepPage({
+    super.key,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  /// Read out as the step's header; never drawn.
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            label: title,
+            child: const SizedBox(height: 1),
+          ),
+          if (trailing != null) ...[
+            Align(alignment: Alignment.centerRight, child: trailing),
+            SizedBox(height: 8.h),
+          ],
+          Expanded(child: child),
+        ],
       ),
     );
   }
@@ -174,12 +258,18 @@ class SendAmountUnitPill extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             icon,
             SizedBox(width: 8.w),
-            Text(code,
-                style: TextStyle(
-                    color: c.textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
-                    letterSpacing: -0.2)),
+            // A longer label (the dollar send's coin · network) gives way
+            // with an ellipsis rather than overflowing at large text.
+            Flexible(
+              child: Text(code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16.sp,
+                      letterSpacing: -0.2)),
+            ),
             if (onTap != null) ...[
               SizedBox(width: 6.w),
               Icon(Icons.expand_more_rounded,
@@ -207,7 +297,7 @@ class SendRecipientField extends StatelessWidget {
   /// Inline Paste: reads the clipboard and runs the flow's commit path.
   final VoidCallback onPaste;
 
-  /// Inline Scan: opens the smart scanner in return-value mode.
+  /// Inline Scan: opens the scanner sheet in recipient mode.
   final VoidCallback onScan;
 
   /// Whether the current text is a recipient the flow recognises. Drives
@@ -265,6 +355,20 @@ class SendRecipientField extends StatelessWidget {
               cursorWidth: 2.0,
               maxLines: 2,
               minLines: 1,
+              // An address or invoice, never prose: a plain text
+              // keyboard with nothing that rewrites what is pasted or
+              // typed (autocorrect, suggestions, capitals, smart
+              // punctuation would all corrupt a recipient).
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
+              smartDashesType: SmartDashesType.disabled,
+              smartQuotesType: SmartQuotesType.disabled,
+              // Room under the field when the keyboard scrolls it into
+              // view, so the badge under it shows too.
+              scrollPadding: EdgeInsets.only(bottom: 120.h),
               onChanged: onChanged,
               decoration: InputDecoration(
                 hintText: hintText ??
@@ -491,6 +595,10 @@ class SendToListRow extends StatelessWidget {
   final String? subtitle;
   final String? trailingTitle;
   final String? trailingSubtitle;
+
+  /// An explicit action at the row's end (a compact button), drawn in
+  /// place of the chevron.
+  final Widget? trailing;
   final AppColorsExtension colors;
   final VoidCallback onTap;
 
@@ -503,6 +611,7 @@ class SendToListRow extends StatelessWidget {
     this.subtitle,
     this.trailingTitle,
     this.trailingSubtitle,
+    this.trailing,
   });
 
   @override
@@ -599,9 +708,14 @@ class SendToListRow extends StatelessWidget {
                 ),
               ),
             ],
-            SizedBox(width: 6.w),
-            Icon(Icons.chevron_right_rounded,
-                size: 20.sp, color: c.textTertiary),
+            if (trailing != null) ...[
+              SizedBox(width: 10.w),
+              trailing!,
+            ] else ...[
+              SizedBox(width: 6.w),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20.sp, color: c.textTertiary),
+            ],
           ],
         ),
       ),
@@ -1088,6 +1202,199 @@ class SendReviewAction extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The phase a [SendRubberBand] reads from the screen's own flags.
+enum _SendBandPhase { idle, preparing, approving, finishing }
+
+/// The rubber band the Review step's [SendReviewAction] wears from the
+/// Send tap until the send is out or has stopped ([RubberBandProgress]).
+///
+/// It reads the flags the send screens already keep, nothing else:
+///   * [busy] up (the tap's readiness wait, the quote, the SDK prepare):
+///     the band takes the first pull at once
+///     ([RubberBandProgress.firstPull]) and eases on toward
+///     [preparingProgress] over [expected];
+///   * [authorising] up (the face scan or PIN): it holds at least
+///     [approvalProgress];
+///   * [authorising] down again while still [busy] (broadcasting and
+///     waiting for the SDK's answer): it eases on from
+///     [afterApprovalProgress] toward [ceiling] over [expected], so the
+///     pull grows the closer the money is to leaving;
+///   * [succeeded]: the spring snap and light tap, even while [busy] is
+///     still up, so the screen can let it play ([RubberBand.settle])
+///     before the success screen covers it; [busy] down without it (a
+///     failure, a declined scan, a stop for re-review): the soft
+///     release, with no tap of its own. The band cannot tell a failure
+///     from the person's own stop, so the screen plays the failure tap
+///     where the send really failed (`moneyFailureFeedbackAfterBand`),
+///     and a declined scan stays quiet.
+///
+/// Presentation only: it never decides anything about the send.
+/// Reduce Motion: no easing runs and the block sits still.
+class SendRubberBand extends StatefulWidget {
+  const SendRubberBand({
+    super.key,
+    required this.busy,
+    required this.child,
+    this.authorising = false,
+    this.succeeded = false,
+    this.expected = const Duration(seconds: 4),
+  });
+
+  /// The send is under way (from the tap until it is out or stopped).
+  final bool busy;
+
+  /// The approval prompt is up.
+  final bool authorising;
+
+  /// The send went out. Read only once a wait has begun.
+  final bool succeeded;
+
+  /// How long each eased stretch (before and after approval) usually
+  /// takes.
+  final Duration expected;
+
+  final Widget child;
+
+  /// Where the wait before approval eases to.
+  static const double preparingProgress = 0.6;
+
+  /// The least the band holds while the person approves.
+  static const double approvalProgress = 0.62;
+
+  /// Where the wait after approval starts from, at least.
+  static const double afterApprovalProgress = 0.68;
+
+  /// Where the waits ease to; the answer does the rest.
+  static const double ceiling = 0.85;
+
+  @override
+  State<SendRubberBand> createState() => SendRubberBandState();
+}
+
+/// Public so tests can read the eased [progress] and whether the easing
+/// is [easing].
+class SendRubberBandState extends State<SendRubberBand>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ease = AnimationController(vsync: this)
+    ..addListener(_onEase);
+
+  _SendBandPhase _phase = _SendBandPhase.idle;
+  RubberBandOutcome _outcome = RubberBandOutcome.none;
+  double _progress = 0;
+  double _from = 0;
+  double _to = 0;
+
+  /// The progress the band is given now.
+  @visibleForTesting
+  double get progress => _progress;
+
+  /// The band's outcome now.
+  @visibleForTesting
+  RubberBandOutcome get outcome => _outcome;
+
+  /// Whether the eased progress is ticking.
+  @visibleForTesting
+  bool get easing => _ease.isAnimating;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_reduce && _ease.isAnimating) {
+      _ease.stop();
+      _progress = _to;
+    }
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(SendRubberBand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.busy != widget.busy ||
+        oldWidget.authorising != widget.authorising ||
+        oldWidget.succeeded != widget.succeeded) {
+      _sync();
+    }
+  }
+
+  bool get _reduce => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  void _sync() {
+    if (_phase == _SendBandPhase.idle) {
+      // A finished send stays at rest; only a fresh wait engages it.
+      if (!widget.busy || widget.succeeded) return;
+      _outcome = RubberBandOutcome.none;
+      _phase = _SendBandPhase.preparing;
+      _run(RubberBandProgress.firstPull, SendRubberBand.preparingProgress);
+    }
+    if (widget.succeeded) {
+      _finish(RubberBandOutcome.success);
+      return;
+    }
+    if (!widget.busy) {
+      _finish(RubberBandOutcome.failure);
+      return;
+    }
+    if (widget.authorising) {
+      if (_phase != _SendBandPhase.approving) {
+        _phase = _SendBandPhase.approving;
+        _ease.stop();
+        _progress = math.max(_progress, SendRubberBand.approvalProgress);
+        _to = _progress;
+      }
+      return;
+    }
+    if (_phase == _SendBandPhase.approving) {
+      _phase = _SendBandPhase.finishing;
+      _run(math.max(_progress, SendRubberBand.afterApprovalProgress),
+          SendRubberBand.ceiling);
+    }
+  }
+
+  void _run(double from, double to) {
+    _from = from;
+    _to = to;
+    _progress = from;
+    if (_reduce) {
+      // Nothing moves under Reduce Motion, so nothing needs to tick.
+      _ease.stop();
+      return;
+    }
+    _ease
+      ..duration = widget.expected
+      ..forward(from: 0);
+  }
+
+  void _finish(RubberBandOutcome outcome) {
+    _ease.stop();
+    _phase = _SendBandPhase.idle;
+    _outcome = outcome;
+  }
+
+  void _onEase() {
+    final p = _from + (_to - _from) * Curves.easeOut.transform(_ease.value);
+    // A step at a time: the band's spring smooths between them, and the
+    // block is not rebuilt every frame.
+    if ((p - _progress).abs() >= 0.01 || !_ease.isAnimating) {
+      setState(() => _progress = p);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ease.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RubberBandProgress(
+        progress: _progress,
+        outcome: _outcome,
+        // A stop may be the person's own: the screen taps on a failure.
+        failureTap: false,
+        child: widget.child,
+      );
 }
 
 /// Shortened destination for a one-line row: the first ten and last

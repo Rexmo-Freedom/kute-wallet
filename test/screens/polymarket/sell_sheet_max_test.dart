@@ -7,7 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:money2/money2.dart';
+import 'package:kute/providers/currency_conversions_provider.dart';
+import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/providers/polymarket_cost_basis_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/screens/polymarket/components/sell_sheet.dart';
@@ -21,6 +25,27 @@ class _FakeTrading extends PolymarketTradingNotifier {
   @override
   Future<PolymarketTradingState> build() async =>
       const PolymarketTradingState();
+}
+
+class _Currency extends StateNotifier<CurrencyState>
+    implements CurrencyNotifier {
+  _Currency() : super(CurrencyState({'USD': Fixed.fromInt(100)}));
+  @override
+  Future<void> updateRates() async {}
+}
+
+class _NoCostBasis extends StateNotifier<Map<String, double>>
+    implements PolymarketCostBasisNotifier {
+  _NoCostBasis() : super(const {});
+  @override
+  Future<void> addCost(String tokenId, double paidUsdc) async {}
+  @override
+  Future<void> reset(String tokenId) async {}
+  @override
+  Future<void> scaleByRemaining(
+      String tokenId, double fractionRemaining) async {}
+  @override
+  double? costFor(String tokenId) => null;
 }
 
 PolymarketPosition _position({double size = 18.6}) => PolymarketPosition(
@@ -41,7 +66,11 @@ Future<void> _pump(WidgetTester tester, PolymarketPosition position) async {
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
-    overrides: [polymarketTradingProvider.overrideWith(_FakeTrading.new)],
+    overrides: [
+      polymarketTradingProvider.overrideWith(_FakeTrading.new),
+      polymarketCostBasisProvider.overrideWith((ref) => _NoCostBasis()),
+      currencyProvider.overrideWith((_) => _Currency()),
+    ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
@@ -83,7 +112,8 @@ void main() {
     await tester.pump();
     // 18.6 shares at 15c.
     expect(_typed(tester), '2.79');
-    expect(find.textContaining('18.60'), findsWidgets);
+    expect(find.textContaining('18.60 shares'), findsWidgets);
+    expect(find.text('Sell · \$2.79'), findsOneWidget);
 
     // Edited down, Max brings the whole position back.
     final pad = find.byType(AmountKeypad);

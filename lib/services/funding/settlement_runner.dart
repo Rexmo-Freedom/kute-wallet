@@ -25,6 +25,11 @@
 
 import 'dart:async';
 
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show runSparkFlow;
+
+import 'package:kute/helpers/orchestra_legacy_status_rules.dart'
+    show OrchestraStatusReadKind, classifyOrchestraStatusRead;
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settlement_operation.dart';
 import 'package:kute/models/orchestra_model.dart' show OrchestraSubmitResponse;
@@ -180,6 +185,7 @@ class SettlementRunResult {
     required this.quote,
     required this.proof,
     required this.orderId,
+    this.registration,
   });
 
   /// The record after the last write.
@@ -190,6 +196,12 @@ class SettlementRunResult {
   /// The provider order id, or null while registration is still pending
   /// (the reconciler retries it with the same key).
   final String? orderId;
+
+  /// Set when the plan asked for [SettlementPlan.registerInBackground]: the
+  /// submit still running after the run returned. Completes with the
+  /// provider order id, or null when registration is left to the
+  /// reconciler. Never throws.
+  final Future<String?>? registration;
 
   bool get registered => orderId != null;
 }
@@ -233,6 +245,7 @@ class SettlementPlan {
     this.review,
     this.prepareFunding,
     this.stepUp,
+    this.registerInBackground = false,
   });
 
   final String walletId;
@@ -276,6 +289,58 @@ class SettlementPlan {
       VerifiedOrchestraQuote quote, Object? prepared) fund;
 
   final SettlementStepUpHook? stepUp;
+
+  /// Return as soon as the funding proof is persisted (`funded`) and run
+  /// the deposit submit in the background, reported through
+  /// [SettlementRunResult.registration]. The operation is held by this
+  /// runner while the submit runs, so the reconciler does not send a second
+  /// one. Off by default: the run returns after the submit.
+  final bool registerInBackground;
+}
+
+/// The id `submitDeposit` takes as `sparkTxHash` for a Spark payment id.
+///
+/// Breez SDK Spark (0.26) gives a bitcoin transfer the Spark transfer id as
+/// its payment id, which is what Orchestra matches. A token (dollar)
+/// transfer's payment id is `<token transaction hash>:<output index>`, and
+/// Orchestra matches the token transaction hash alone (the SDK's own
+/// Orchestra client submits `details.txHash` for token payments). The
+/// payment id itself stays the proof the reconciler matches against the
+/// SDK's payment list.
+String sparkSubmitTxHash(String paymentId) {
+  final match = _kTokenPaymentId.firstMatch(paymentId.trim());
+  return match == null ? paymentId : match.group(1)!;
+}
+
+final RegExp _kTokenPaymentId = RegExp(r'^([0-9a-fA-F]{32,}):\d+$');
+
+/// Waits before each fast resubmit after a definitive rejection. A Spark
+/// deposit submitted seconds after the send is often refused only because
+/// Orchestra has not indexed the transfer yet (`invalid_tx_hash`), so the
+/// next attempts follow quickly, each with a new idempotency key.
+const List<Duration> kSettlementSubmitRejectRetryDelays = [
+  Duration(milliseconds: 1500),
+  Duration(seconds: 3),
+  Duration(seconds: 6),
+];
+
+Future<void> _sleep(Duration d) => Future<void>.delayed(d);
+
+/// The provider order for [op]'s quote, when Orchestra already has one (it
+/// detects deposits on its own). Null when there is none or the read
+/// failed.
+typedef SettlementOrderLookup = Future<String?> Function(
+    SettlementOperation op);
+
+Future<String?> lookupSettlementOrder(SettlementOperation op) async {
+  final quoteId = op.quote?.quoteId;
+  if (quoteId == null || quoteId.isEmpty) return null;
+  final result = await OrchestraService.getStatus(quoteId);
+  if (classifyOrchestraStatusRead(result) != OrchestraStatusReadKind.order) {
+    return null;
+  }
+  final id = result.data?.id ?? '';
+  return id.isNotEmpty && id != quoteId && !id.startsWith('q_') ? id : null;
 }
 
 /// Submits the deposit for [op]. Shared by the runner and the reconciler
@@ -285,7 +350,8 @@ Map<String, Object?> settlementSubmitBody(SettlementOperation op) {
   final quote = op.quote;
   return {
     'quoteId': quote?.quoteId,
-    if (funding?.sparkPaymentId != null) 'sparkTxHash': funding!.sparkPaymentId,
+    if (funding?.sparkPaymentId != null)
+      'sparkTxHash': sparkSubmitTxHash(funding!.sparkPaymentId!),
     if (funding?.sparkPaymentId != null)
       'sourceSparkAddress': op.refund?.address,
     if (funding?.evmTxHash != null) 'txHash': funding!.evmTxHash,
@@ -297,6 +363,23 @@ Map<String, Object?> settlementSubmitBody(SettlementOperation op) {
 
 typedef SettlementSubmitCall = Future<Result<OrchestraSubmitResponse>> Function(
     SettlementOperation op, String idempotencyKey);
+
+/// How long a submit for an EVM-sourced proof (a Polygon relayer hash, a
+/// HyperCore `usdSend`, a Ledger EVM send) may take. Flashnet's submit
+/// blocks while it verifies the source transaction, and the backend's own
+/// upstream timeout is 30 s, so the app's default 15 s gave up on submits
+/// that were still being processed.
+const Duration kSettlementEvmSubmitTimeout = Duration(seconds: 45);
+
+/// Whether [op]'s proof is a source-chain transaction hash (not a Spark
+/// transfer or a Bitcoin txid): its submit is slow and always runs after
+/// the flow returned.
+bool settlementProofIsEvm(SettlementOperation op) {
+  final funding = op.funding;
+  return funding?.evmTxHash != null &&
+      funding?.sparkPaymentId == null &&
+      funding?.btcTxid == null;
+}
 
 /// Sends `submitDeposit` for [op] with [key] and the body
 /// [settlementSubmitBody] builds. The only submit call outside the gate
@@ -313,12 +396,28 @@ Future<Result<OrchestraSubmitResponse>> sendSettlementSubmit(
     bitcoinTxid: body['bitcoinTxid'] as String?,
     bitcoinVout: body['bitcoinVout'] as int?,
     idempotencyKey: key,
+    timeout: settlementProofIsEvm(op)
+        ? kSettlementEvmSubmitTimeout
+        : const Duration(seconds: 15),
   );
 }
 
-/// One submit attempt for [op] with its persisted keys, then the write of
-/// the attempt's outcome. Returns the record after the write and the order
-/// id when the provider accepted it.
+/// Submits [op]'s deposit with its persisted keys and writes each
+/// attempt's outcome. Returns the record after the last write and the
+/// order id when the provider accepted it.
+///
+/// A timeout, 5xx or 429 is retried inside one attempt with the same key
+/// ([policy]). A 409 `idempotency_in_progress` means the provider is still
+/// processing an earlier request with the key: the attempt ends as
+/// transient with the key kept, never retried with a new one. A definitive
+/// rejection (any other 4xx) rotates the key, and
+/// the deposit is submitted again after each of [rejectRetryDelays] with
+/// the new key. Before each resubmit [findOrder] asks whether Orchestra
+/// already detected the deposit; an order found there ends the retries.
+/// The retries also end on acceptance, on a transient outcome, or when
+/// another writer moved the record. The whole burst counts as one attempt
+/// in the record, so the reconciler's own schedule after it is unchanged
+/// (its first submit about 30 s after the burst).
 Future<
     ({
       SettlementOperation op,
@@ -330,6 +429,103 @@ Future<
   SettlementSubmitCall submit = sendSettlementSubmit,
   DateTime Function() clock = DateTime.now,
   IdempotentRetryPolicy policy = const IdempotentRetryPolicy(),
+  List<Duration> rejectRetryDelays = kSettlementSubmitRejectRetryDelays,
+  Future<void> Function(Duration delay) sleep = _sleep,
+  SettlementOrderLookup? findOrder = lookupSettlementOrder,
+}) async {
+  var current = op;
+  for (var retry = 0;; retry++) {
+    final (:attempt, :applied) = await _submitOnce(store, current,
+        submit: submit, clock: clock, policy: policy, burstIndex: retry);
+    if (!applied ||
+        attempt.outcome != SubmitAttemptOutcome.rejected ||
+        retry >= rejectRetryDelays.length) {
+      return attempt;
+    }
+    await sleep(rejectRetryDelays[retry]);
+    final latest = await store.get(current.operationId);
+    if (latest == null ||
+        latest.version != attempt.op.version ||
+        latest.stage != attempt.op.stage ||
+        (latest.orderId?.isNotEmpty ?? false)) {
+      // Another writer (the reconciler) moved the record: it owns it now.
+      final known = latest?.orderId;
+      return (
+        op: latest ?? attempt.op,
+        orderId: known,
+        outcome: known != null && known.isNotEmpty
+            ? SubmitAttemptOutcome.accepted
+            : attempt.outcome,
+      );
+    }
+    String? detected;
+    if (findOrder != null) {
+      try {
+        detected = await findOrder(latest);
+      } catch (_) {
+        detected = null;
+      }
+    }
+    if (detected != null) {
+      return _recordDetectedOrder(store, latest, detected);
+    }
+    current = latest;
+  }
+}
+
+/// Orchestra already has the order for [op]: record it as registered.
+Future<
+    ({
+      SettlementOperation op,
+      String? orderId,
+      SubmitAttemptOutcome outcome
+    })> _recordDetectedOrder(
+  SettlementStore store,
+  SettlementOperation op,
+  String orderId,
+) async {
+  final write = await store.transition(
+    op.operationId,
+    op.stage == SettlementStage.funded ? SettlementStage.submitted : op.stage,
+    from: op.stage,
+    expectedVersion: op.version,
+    patch: (current) => current.copyWith(
+      orderId: orderId,
+      submit: SettlementSubmitState(
+        attempts: current.submit.attempts,
+        lastAttemptAt: current.submit.lastAttemptAt,
+        lastErrorCode: current.submit.lastErrorCode,
+        acceptedAt: current.submit.acceptedAt,
+        providerDetected: true,
+      ),
+    ),
+  );
+  return (
+    op: write.operation ?? op,
+    orderId: orderId,
+    outcome: SubmitAttemptOutcome.accepted,
+  );
+}
+
+/// One submit attempt for [op] with its persisted keys, then the write of
+/// the attempt's outcome. [applied] is false when another writer moved the
+/// record first. [burstIndex] is the attempt's place in a quick resubmit
+/// burst: only the first one adds to the persisted attempt count.
+Future<
+    ({
+      ({
+        SettlementOperation op,
+        String? orderId,
+        SubmitAttemptOutcome outcome
+      }) attempt,
+      bool applied
+    })> _submitOnce(
+  SettlementStore store,
+  SettlementOperation op, {
+  required SettlementSubmitCall submit,
+  required DateTime Function() clock,
+  required IdempotentRetryPolicy policy,
+  int burstIndex = 0,
 }) async {
   final keys = op.submitKeys ?? SubmitIdempotencyKeys.create();
   final fingerprint = submitBodyFingerprint(settlementSubmitBody(op));
@@ -348,9 +544,11 @@ Future<
       : call.outcome == SettlementHttpOutcome.rejected
           ? SubmitAttemptOutcome.rejected
           : SubmitAttemptOutcome.transient;
+  final counted = burstIndex == 0 ? 1 : 0;
   TrackingService.settlementSubmitAttempt(
     flow: op.flow.code,
-    attempts: op.submit.attempts + 1,
+    // Every request is numbered, the burst's resubmits included.
+    attempts: op.submit.attempts + (burstIndex == 0 ? 1 : burstIndex),
     outcome: outcome.name,
   );
   final now = clock();
@@ -364,7 +562,7 @@ Future<
       keys: current.keysWithSubmit(attempt.keys),
       orderId: orderId,
       submit: SettlementSubmitState(
-        attempts: current.submit.attempts + 1,
+        attempts: current.submit.attempts + counted,
         lastAttemptAt: now,
         lastErrorCode: accepted ? null : call.result.statusCode?.toString(),
         acceptedAt: current.submit.acceptedAt ?? (accepted ? now : null),
@@ -372,7 +570,10 @@ Future<
       ),
     ),
   );
-  return (op: write.operation ?? op, orderId: orderId, outcome: outcome);
+  return (
+    attempt: (op: write.operation ?? op, orderId: orderId, outcome: outcome),
+    applied: write.applied,
+  );
 }
 
 class SettlementRunner {
@@ -381,14 +582,23 @@ class SettlementRunner {
     DateTime Function() clock = DateTime.now,
     String Function() generateId = OrchestraService.generateIdempotencyKey,
     SettlementSubmitCall submit = sendSettlementSubmit,
+    List<Duration> submitRejectRetryDelays = kSettlementSubmitRejectRetryDelays,
+    Future<void> Function(Duration delay) sleep = _sleep,
+    SettlementOrderLookup? findOrder = lookupSettlementOrder,
   })  : _clock = clock,
         _generateId = generateId,
-        _submit = submit;
+        _submit = submit,
+        _rejectRetryDelays = submitRejectRetryDelays,
+        _sleepFor = sleep,
+        _findOrder = findOrder;
 
   final SettlementStore store;
   final DateTime Function() _clock;
   final String Function() _generateId;
   final SettlementSubmitCall _submit;
+  final List<Duration> _rejectRetryDelays;
+  final Future<void> Function(Duration delay) _sleepFor;
+  final SettlementOrderLookup? _findOrder;
 
   /// Skew per quote id, kept in memory; a quote whose skew is unknown
   /// gets the extra margin.
@@ -398,7 +608,14 @@ class SettlementRunner {
 
   /// Runs [plan] start to end. For flows whose review happens across a
   /// later tap, use [prepare] and [confirm] instead.
-  Future<SettlementRunResult> run(SettlementPlan plan) async {
+  ///
+  /// Every public step runs as a money flow ([runSparkFlow]): a
+  /// pull-to-refresh meanwhile syncs the SDK rather than reconnecting it
+  /// between quote, review, prepare and broadcast.
+  Future<SettlementRunResult> run(SettlementPlan plan) =>
+      runSparkFlow(() => _run(plan));
+
+  Future<SettlementRunResult> _run(SettlementPlan plan) async {
     final prepared = await prepare(plan);
     var current = prepared;
     var refreshed = false;
@@ -410,8 +627,9 @@ class SettlementRunner {
           await abandon(current.operationId);
           throw const SettlementStopped(SettlementStopReason.declined);
         }
-        if (refreshed)
+        if (refreshed) {
           TrackingService.settlementRereviewConfirmed(plan.flow.code);
+        }
       }
       final confirmed = await confirm(
         plan,
@@ -420,7 +638,9 @@ class SettlementRunner {
         amountBaseUnits: current.quote.amountIn,
       );
       final result = confirmed.result;
-      if (result != null) return result;
+      if (result != null) {
+        return result;
+      }
       final replaced = confirmed.rereview!;
       if (review == null) {
         // The user's confirm tap covered only the quote it started with.
@@ -443,6 +663,10 @@ class SettlementRunner {
   /// the same user attempt: the new operation is not a new start, so
   /// `settlement_operation_started` is not sent again.
   Future<SettlementPrepared> prepare(SettlementPlan plan,
+          {bool reReview = false}) =>
+      runSparkFlow(() => _prepare(plan, reReview: reReview));
+
+  Future<SettlementPrepared> _prepare(SettlementPlan plan,
       {bool reReview = false}) async {
     if (_rereviewPending.remove(_rereviewKey(plan))) {
       // The confirm tap after a return to review (user action).
@@ -510,12 +734,25 @@ class SettlementRunner {
     required String operationId,
     required String reviewedQuoteId,
     required BigInt amountBaseUnits,
+  }) =>
+      runSparkFlow(() => _confirm(plan,
+          operationId: operationId,
+          reviewedQuoteId: reviewedQuoteId,
+          amountBaseUnits: amountBaseUnits));
+
+  Future<SettlementConfirmResult> _confirm(
+    SettlementPlan plan, {
+    required String operationId,
+    required String reviewedQuoteId,
+    required BigInt amountBaseUnits,
   }) async {
     final lease = store.acquireLease(operationId);
     if (lease == null) {
       // Another confirm is running for this operation (a double tap).
       throw const SettlementStopped(SettlementStopReason.blockedPending);
     }
+    // Set when the lease passes to a background submit, which releases it.
+    var leaseHandedOff = false;
     try {
       final loaded = await store.get(operationId);
       if (loaded == null ||
@@ -689,10 +926,27 @@ class SettlementRunner {
             operation: op, quote: verified, proof: proof, orderId: op.orderId));
       }
 
+      // A source-chain proof always registers in the background: its
+      // submit can take most of a minute while Flashnet verifies it.
+      if (plan.registerInBackground ||
+          proof.kind == SettlementFundingKind.relayer ||
+          proof.kind == SettlementFundingKind.hyperliquid) {
+        // The funds moved and the proof is on disk: the flow can finish
+        // now. The submit keeps this operation's lease until it ends, so
+        // the reconciler does not submit it a second time meanwhile.
+        leaseHandedOff = true;
+        final registration = _registerHeld(op, lease);
+        return SettlementConfirmResult.funded(SettlementRunResult(
+            operation: op,
+            quote: verified,
+            proof: proof,
+            orderId: null,
+            registration: registration));
+      }
+
       String? orderId;
       try {
-        final submitted = await submitSettlementDeposit(store, op,
-            submit: _submit, clock: _clock);
+        final submitted = await _submitDeposit(op);
         op = submitted.op;
         orderId = submitted.orderId;
       } catch (_) {
@@ -708,7 +962,39 @@ class SettlementRunner {
       await abandon(operationId);
       rethrow;
     } finally {
-      store.releaseLease(operationId, lease);
+      if (!leaseHandedOff) store.releaseLease(operationId, lease);
+    }
+  }
+
+  Future<
+      ({
+        SettlementOperation op,
+        String? orderId,
+        SubmitAttemptOutcome outcome
+      })> _submitDeposit(SettlementOperation op) => submitSettlementDeposit(
+        store,
+        op,
+        submit: _submit,
+        clock: _clock,
+        rejectRetryDelays: _rejectRetryDelays,
+        sleep: _sleepFor,
+        findOrder: _findOrder,
+      );
+
+  /// The submit of a funded [op] run after its flow returned, holding
+  /// [lease] until it ends. Completes with the order id, or null when the
+  /// reconciler is left to register it. Never throws.
+  Future<String?> _registerHeld(SettlementOperation op, Object lease) async {
+    try {
+      // Let the caller's frame finish before the first request.
+      await Future<void>.delayed(Duration.zero);
+      final submitted = await _submitDeposit(op);
+      return submitted.orderId;
+    } catch (_) {
+      // Stays `funded`; the reconciler retries with the persisted key.
+      return null;
+    } finally {
+      store.releaseLease(op.operationId, lease);
     }
   }
 

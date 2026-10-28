@@ -261,34 +261,77 @@ class PolymarketSparkTxsService {
       : null;
 
   /// Tag a Spark receive as the delivery leg of a settled Orchestra
-  /// exchange. The home Activity feed hides it.
-  static void tagOrchestraDelivery(String txId) {
+  /// exchange: [orderId] (the row it settled) and its settlement
+  /// [operationId] are kept with it, so the Activity lists can fold the
+  /// receive into that row (or into the move the row is a leg of) on
+  /// every later read, a restart included.
+  ///
+  /// Stored as `ts|orderId|operationId`; a record written before the
+  /// link was kept holds the timestamp alone.
+  static void tagOrchestraDelivery(String txId,
+      {String? orderId, String? operationId}) {
     if (txId.isEmpty) return;
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final order = orderId ?? '';
+    final op = operationId ?? '';
     _deliveryBox?.put(
-        txId, DateTime.now().millisecondsSinceEpoch.toString());
+        txId, order.isEmpty && op.isEmpty ? '$ts' : '$ts|$order|$op');
   }
 
   /// Snapshot of tagged delivery-leg tx ids (post-GC, same 30-day
   /// retention as the outbound tags).
-  static Set<String> orchestraDeliverySnapshot() {
+  static Set<String> orchestraDeliverySnapshot() =>
+      _readDeliveries().keys.toSet();
+
+  /// The tagged delivery legs that name the row they settled, by receive
+  /// id (post-GC). A tag written before links were kept is left out: it
+  /// names no row to fold into.
+  static Map<String, OrchestraDeliveryLink> orchestraDeliveryLinks() => {
+        for (final MapEntry(:key, :value) in _readDeliveries().entries)
+          if (value != null) key: value,
+      };
+
+  static Map<String, OrchestraDeliveryLink?> _readDeliveries() {
     final box = _deliveryBox;
     if (box == null) return const {};
-    final result = <String>{};
+    final result = <String, OrchestraDeliveryLink?>{};
     final stale = <String>[];
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final key in box.keys) {
       final raw = box.get(key);
       if (raw == null) continue;
-      final ts = int.tryParse(raw);
+      final parts = raw.split('|');
+      final ts = int.tryParse(parts.first);
       if (ts == null || now - ts > retention.inMilliseconds) {
         stale.add(key as String);
         continue;
       }
-      result.add(key as String);
+      result[key as String] = OrchestraDeliveryLink.parse(parts);
     }
     for (final k in stale) {
       box.delete(k);
     }
     return result;
+  }
+}
+
+/// The Orchestra row a tagged delivery receive settled.
+class OrchestraDeliveryLink {
+  const OrchestraDeliveryLink({this.orderId, this.operationId});
+
+  /// The row's id when it was matched (a quote id may have become an
+  /// order id since).
+  final String? orderId;
+
+  /// The row's settlement operation, which survives that change.
+  final String? operationId;
+
+  static OrchestraDeliveryLink? parse(List<String> parts) {
+    String? at(int i) =>
+        parts.length > i && parts[i].isNotEmpty ? parts[i] : null;
+    final order = at(1);
+    final op = at(2);
+    if (order == null && op == null) return null;
+    return OrchestraDeliveryLink(orderId: order, operationId: op);
   }
 }

@@ -37,7 +37,10 @@ void main() {
     expect(params['venue_refusal'], 'maker address not allowed');
   });
 
-  test('a failed step carries its stage and error category', () {
+  test('a failed step carries its stage, error category, latency and link',
+      () {
+    NetworkTypeHint.debugOverride = 'cellular';
+    addTearDown(() => NetworkTypeHint.debugOverride = null);
     PolymarketPlacementDiagnostics.stepFailed(
         'order_book', TimeoutException('book'), const Duration(seconds: 5));
     final params = events.single.$2!;
@@ -45,6 +48,42 @@ void main() {
     expect(params['stage'], 'book');
     expect(params['timed_out'], true);
     expect(params['error_category'], 'timeout');
+    expect(params['latency_ms'], 5000);
+    expect(params['network_type'], 'cellular');
+  });
+
+  test('the builder code is its own stage, not a quote failure', () {
+    PolymarketPlacementDiagnostics.stepFailed('builder_code',
+        TimeoutException('builder'), const Duration(seconds: 5));
+    PolymarketPlacementDiagnostics.stepFailed(
+        'fee_terms', TimeoutException('fees'), const Duration(seconds: 1));
+    expect(events.map((e) => e.$2!['stage']), ['builder_code', 'quote']);
+  });
+
+  test('an order signed without a builder code is counted', () {
+    PolymarketPlacementDiagnostics.orderSignedWithBuilderCode(false);
+    expect(events.single.$1, 'polymarket_order_signed_without_builder_code');
+    events.clear();
+    PolymarketPlacementDiagnostics.orderOutcome(
+        rung: 0, price: 0.5, shares: 2, orderType: 'FAK',
+        response: {'success': true, 'status': 'matched'});
+    expect(events.single.$2!['builder_code'], 'none');
+    events.clear();
+    PolymarketPlacementDiagnostics.orderSignedWithBuilderCode(true);
+    expect(events, isEmpty);
+    PolymarketPlacementDiagnostics.orderOutcome(
+        rung: 0, price: 0.5, shares: 2, orderType: 'FAK',
+        response: {'success': true, 'status': 'matched'});
+    expect(events.single.$2!['builder_code'], 'kute');
+  });
+
+  test('the link is classed from interface names, never an address', () {
+    expect(NetworkTypeHint.classify(['wlan0', 'rmnet_data0']), 'wifi');
+    expect(NetworkTypeHint.classify(['rmnet_data0']), 'cellular');
+    expect(NetworkTypeHint.classify(['pdp_ip0']), 'cellular');
+    expect(NetworkTypeHint.classify(['en0']), 'wifi');
+    expect(NetworkTypeHint.classify([]), 'none');
+    expect(NetworkTypeHint.classify(['utun3']), 'unknown');
   });
 
   test('every decline reason the slip uses has a stage', () {

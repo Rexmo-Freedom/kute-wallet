@@ -13,6 +13,7 @@ const _btc = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 class _Sources implements OwnedAddressSources {
   String activeWallet = 'hot-1';
   bool switchWhileReading = false;
+  String pmWallet = _evm;
 
   @override
   String spendingWalletId() => activeWallet;
@@ -25,7 +26,7 @@ class _Sources implements OwnedAddressSources {
   }
 
   @override
-  Future<String> polymarketDepositWallet() async => _evm;
+  Future<String> polymarketDepositWallet() async => pmWallet;
 }
 
 void main() {
@@ -84,6 +85,103 @@ void main() {
         source: SettlementAccountKind.sparkHot,
         destination: SettlementAccountKind.hlLedger,
       ),
+      throwsA(isA<WalletGuardException>()
+          .having((e) => e.field, 'field', 'cross_account')),
+    );
+  });
+
+  test(
+      'Predictions cash straight into the Investing account resolves both '
+      'own accounts; the wrong chains stay refused', () async {
+    final pmToHl = RouteKey(
+        fromChain: 'polygon',
+        fromAsset: 'USDC.e',
+        toChain: 'hypercore',
+        toAsset: 'USDC');
+    // Refused here before (founder report 15 October 2026: the direct leg
+    // went via Dollars every time, before any quote).
+    final ownership = await OwnedAddressResolver(_Sources()).resolve(
+      walletId: 'hot-1',
+      route: pmToHl,
+      source: SettlementAccountKind.pmHot,
+      destination: SettlementAccountKind.hlHot,
+    );
+    expect(ownership.refund.address, _evm);
+    expect(ownership.recipient.address, _evm);
+    expect(
+      () => verifySettlementOwnership(
+        route: pmToHl,
+        ownership: ownership,
+        refundAddress: _evm,
+        recipientAddress: _other,
+      ),
+      throwsA(isA<WalletGuardException>().having(
+          (e) => e.reason, 'reason', WalletGuardReason.recipientNotOwn)),
+    );
+    expect(
+      () => checkSettlementAccountPair(
+          route: hotRoute,
+          source: SettlementAccountKind.pmHot,
+          destination: SettlementAccountKind.hlHot),
+      throwsA(isA<WalletGuardException>()
+          .having((e) => e.field, 'field', 'source_chain')),
+    );
+  });
+
+  test(
+      'Investing cash straight into the Predictions account (the native '
+      'HyperCore route) resolves the Investing refund on HyperCore and the '
+      'Predictions deposit wallet on Polygon', () async {
+    final hlToPm = RouteKey(
+        fromChain: 'hypercore',
+        fromAsset: 'USDC',
+        toChain: 'polygon',
+        toAsset: 'USDC.e');
+    final ownership = await OwnedAddressResolver(_Sources()..pmWallet = _other)
+        .resolve(
+      walletId: 'hot-1',
+      route: hlToPm,
+      source: SettlementAccountKind.hlHot,
+      destination: SettlementAccountKind.pmHot,
+    );
+    expect(ownership.refund.address, _evm);
+    expect(ownership.refund.kind, OwnedAddressKind.hyperliquidEoa);
+    expect(ownership.recipient.address, _other);
+    expect(ownership.recipient.kind, OwnedAddressKind.polymarketDepositWallet);
+    verifySettlementOwnership(
+      route: hlToPm,
+      ownership: ownership,
+      refundAddress: _evm,
+      recipientAddress: _other,
+    );
+    expect(
+      () => verifySettlementOwnership(
+        route: hlToPm,
+        ownership: ownership,
+        refundAddress: _evm,
+        recipientAddress: _evm,
+      ),
+      throwsA(isA<WalletGuardException>().having(
+          (e) => e.reason, 'reason', WalletGuardReason.recipientNotOwn)),
+    );
+    // The pair only on its own chains.
+    expect(
+      () => checkSettlementAccountPair(
+          route: RouteKey(
+              fromChain: 'hypercore',
+              fromAsset: 'USDC',
+              toChain: 'spark',
+              toAsset: 'BTC'),
+          source: SettlementAccountKind.hlHot,
+          destination: SettlementAccountKind.pmHot),
+      throwsA(isA<WalletGuardException>()
+          .having((e) => e.field, 'field', 'destination_chain')),
+    );
+    expect(
+      () => checkSettlementAccountPair(
+          route: hlToPm,
+          source: SettlementAccountKind.hlHot,
+          destination: SettlementAccountKind.pmLedger),
       throwsA(isA<WalletGuardException>()
           .having((e) => e.field, 'field', 'cross_account')),
     );

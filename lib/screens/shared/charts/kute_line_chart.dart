@@ -45,7 +45,35 @@
 //     height, never the chart's;
 //   * an optional one-time zoom nudge ([KuteLineChart.zoomHint],
 //     kute_chart_zoom_hint.dart): the first zoomable chart a person ever
-//     sees zooms in a little and back out, once.
+//     sees zooms in a little and back out, once;
+//   * an optional overlay over the line ([KuteLineChart.plotOverlay]),
+//     built for the window on screen, so a mark on the chart's scale
+//     follows every pan and pinch;
+//   * optional buckets ([KuteLineChart.buckets]) for a long series laid
+//     evenly in time (the Balance charts): only each bucket's close is
+//     drawn, scaled and scrubbed, the bucket sized for the window on
+//     screen, so a pinch re-buckets and a blip inside a bucket never
+//     reaches the line or the scale; and an optional opening window
+//     ([KuteLineChart.defaultSpan]) narrower than the whole series;
+//   * an optional header above the plot that also knows the point under
+//     the finger ([KuteLineChart.headerBuilder]), so a chart can write the
+//     scrubbed value there instead of on the floating card, and an
+//     optional dotted baseline at the first value on screen
+//     ([KuteLineChart.startBaseline]);
+//   * an optional fixed baseline ([KuteLineChart.baselineAt], the P&L
+//     chart's zero): dotted across the plot (a plain solid hairline with
+//     [KuteLineChart.solidBaseline]), always on the scale, and with
+//     [KuteLineChart.fillAboveColor] / [KuteLineChart.fillBelowColor] the
+//     fill runs between the line and it, tinted by the side it is on;
+//   * an optional straight line ([KuteLineChart.straight], the P&L chart):
+//     straight segments through the points drawn and nothing between them,
+//     so the line never shows a bump or a dip that did not happen; with
+//     [KuteLineChart.filledEndpoint] the end dot is solid in the line's
+//     colour;
+//   * an optional fixed plot height ([KuteLineChart.plotHeight]): the
+//     chart is then as tall as its header plus the plot, so a header of
+//     any height (the P&L card's lead row and venue rows) never squeezes
+//     the line.
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -106,6 +134,73 @@ class KuteLineTimeAxis {
   });
 }
 
+/// Buckets over a long series laid evenly in time: a window draws only
+/// the points that close a bucket ([strideFor] points apart, counted
+/// from [phase] before the first point) and the last point, so what
+/// moved inside a bucket never shows. Before the first close the line
+/// holds that close's level: the first bucket reads as its close too.
+class KuteLineBuckets {
+  /// The points per bucket for a window [span] points wide.
+  final int Function(double span) strideFor;
+
+  /// Points from a bucket boundary to the series' first point.
+  final int phase;
+
+  const KuteLineBuckets({required this.strideFor, this.phase = 0});
+
+  /// The points drawn for [window] over [n] points, in order: each bucket
+  /// close inside it, and the nearest drawn point beyond each edge so the
+  /// line runs off the plot instead of stopping short.
+  List<int> indicesFor(int n, KuteIndexWindow window) {
+    if (n <= 0) return const [];
+    if (n == 1) return const [0];
+    final k = math.max(1, strideFor(window.span));
+    // The last drawn point at or before [i] (none before the first
+    // close), and the first at or after it.
+    int? prev(int i) {
+      if (i >= n - 1) return n - 1;
+      final c = i - (i + phase) % k;
+      return c >= 0 ? c : null;
+    }
+
+    int next(int i) {
+      if (i >= n - 1) return n - 1;
+      final r = (i + phase) % k;
+      return math.min(n - 1, r == 0 ? i : i + k - r);
+    }
+
+    final out = <int>[];
+    var i = prev(window.start.floor().clamp(0, n - 1).toInt()) ?? next(0);
+    while (true) {
+      out.add(i);
+      if (i >= n - 1 || i >= window.end) break;
+      i = next(i + 1);
+    }
+    return out;
+  }
+}
+
+/// What a [KuteLineChart.headerBuilder] builds for: the first and last
+/// points on screen, the point under the finger (null when nobody is
+/// scrubbing), the window, and whether it is still the opening view (no
+/// pinch or pan since the chart opened or was reset).
+@immutable
+class KuteLineView {
+  final int first;
+  final int last;
+  final int? touched;
+  final KuteIndexWindow window;
+  final bool isDefault;
+
+  const KuteLineView({
+    required this.first,
+    required this.last,
+    required this.touched,
+    required this.window,
+    required this.isDefault,
+  });
+}
+
 class KuteLineChart extends StatefulWidget {
   /// The y series, in x order. Points are spread edge-to-edge across the
   /// canvas width (index space), matching the analytics charts.
@@ -125,6 +220,15 @@ class KuteLineChart extends StatefulWidget {
   /// instead of the monotone curve. For a balance, which only moves when
   /// money does. Off by default: every price series stays a curve.
   final bool stepped;
+
+  /// Draw the history as straight segments through the points drawn
+  /// ([kuteStraightPath]) instead of the monotone curve: nothing is drawn
+  /// between two points but the straight line joining them, so the line
+  /// never passes above or below what was there. Off by default.
+  final bool straight;
+
+  /// The end dot solid in [lineColor] (no hole). Off by default.
+  final bool filledEndpoint;
 
   /// Faint hairlines at two or three round levels of the scale on
   /// screen. For a series of amounts held: levels under zero are left
@@ -188,9 +292,75 @@ class KuteLineChart extends StatefulWidget {
   /// to its last visible index (the venue charts' change row).
   final Widget? Function(int start, int end)? summaryBuilder;
 
+  /// A row above the plot that also follows the finger (see
+  /// [KuteLineView]); takes the place of [summaryBuilder]. Rebuilt with
+  /// the chart on every scrub step, never through the host.
+  final Widget Function(KuteLineView view)? headerBuilder;
+
+  /// A faint dotted line across the plot at the first value on screen,
+  /// so the line reads as up or down from where the window starts.
+  final bool startBaseline;
+
+  /// A faint dotted line across the plot at this fixed value (a P&L's
+  /// zero), kept on the scale of every window so it always spans the
+  /// width; takes the place of [startBaseline]. Null draws none.
+  final double? baselineAt;
+
+  /// With [baselineAt], the fill runs between the line and the baseline
+  /// instead of down to the bottom of the plot: this colour (low alpha)
+  /// where the line is above it, [fillBelowColor] where it is below.
+  /// Null for both keeps the standard fill in [lineColor].
+  final Color? fillAboveColor;
+  final Color? fillBelowColor;
+
+  /// With [baselineAt], the baseline is a plain solid hairline instead of
+  /// the dotted line.
+  final bool solidBaseline;
+
+  /// The height of the plot (with its time axis) under the header: the
+  /// chart is then the header's height plus this, laid out from its
+  /// content rather than filling its parent. Null fills the parent, the
+  /// header taking its share.
+  final double? plotHeight;
+
   /// A new value puts the window back on the whole series (a range pill
-  /// tapped again). A series of another length always does.
+  /// tapped again). A series of another length also does, unless
+  /// [resetViewOnLengthChange] is off.
   final Object? viewResetKey;
+
+  /// Off, a series that grows (a balance gaining a point as time passes)
+  /// keeps the window where the user left it; only [viewResetKey] puts it
+  /// back.
+  final bool resetViewOnLengthChange;
+
+  /// The window the chart opens on, in points, ending on the newest one;
+  /// null opens on the whole series. Followed until the first pinch or
+  /// pan, so data landing late re-fits the opening view.
+  final double? defaultSpan;
+
+  /// The closest a pinch gets, in points; null keeps the shared rule
+  /// ([KuteIndexViewport.minSpanFor]).
+  final double? minSpan;
+
+  /// A pinch keeps what is under the fingers under them (see
+  /// [KuteChartGestures.zoomAroundFingers]).
+  final bool zoomAroundFingers;
+
+  /// Draw only each bucket's close (see [KuteLineBuckets]); null draws
+  /// every point.
+  final KuteLineBuckets? buckets;
+
+  /// The least the scale on screen spans, as a share of the largest value
+  /// on it: a balance that barely moved is drawn as barely moving, not
+  /// magnified into a cliff with labels a few sats apart. Null fits the
+  /// points exactly (prices).
+  final double? minScaleShare;
+
+  /// The least step between two levels of the scale, in the series' unit:
+  /// one sat for a bitcoin balance, so a balance of a few sats is never
+  /// labelled "0.5 sats" or a float artifact. Null steps freely (dollars
+  /// down to cents, prices).
+  final double? scaleMinStep;
 
   /// The time axis under the plot; null draws none.
   final KuteLineTimeAxis? timeAxis;
@@ -198,6 +368,11 @@ class KuteLineChart extends StatefulWidget {
   /// May play the one-time zoom nudge (kute_chart_zoom_hint.dart) when the
   /// chart zooms and has enough points.
   final bool zoomHint;
+
+  /// Drawn over the line (under the scrub crosshair, never taking touches)
+  /// for the window on screen, so a mark on the chart's scale (the P&L
+  /// chart's dashed baseline) follows every pan, pinch and the nudge.
+  final Widget Function(KuteIndexWindow window)? plotOverlay;
 
   const KuteLineChart({
     super.key,
@@ -208,6 +383,8 @@ class KuteLineChart extends StatefulWidget {
     this.showEndpointDot = true,
     this.strokeWidth = 2.0,
     this.stepped = false,
+    this.straight = false,
+    this.filledEndpoint = false,
     this.showScale = false,
     this.scaleLabel,
     this.projectedFrom,
@@ -224,9 +401,24 @@ class KuteLineChart extends StatefulWidget {
     this.changePercent = true,
     this.zoomable = true,
     this.summaryBuilder,
+    this.headerBuilder,
+    this.startBaseline = false,
+    this.baselineAt,
+    this.fillAboveColor,
+    this.fillBelowColor,
+    this.solidBaseline = false,
+    this.plotHeight,
     this.viewResetKey,
+    this.resetViewOnLengthChange = true,
+    this.defaultSpan,
+    this.minSpan,
+    this.zoomAroundFingers = false,
+    this.buckets,
+    this.minScaleShare,
+    this.scaleMinStep,
     this.timeAxis,
     this.zoomHint = false,
+    this.plotOverlay,
   });
 
   bool get interactive => onScrub != null || valueTextBuilder != null;
@@ -316,7 +508,8 @@ class _KuteLineChartState extends State<KuteLineChart>
     }
     // Another range (or the same range picked again) starts on the whole
     // series.
-    if (old.values.length != widget.values.length ||
+    if ((widget.resetViewOnLengthChange &&
+            old.values.length != widget.values.length) ||
         old.viewResetKey != widget.viewResetKey) {
       _viewport.reset();
     }
@@ -428,9 +621,20 @@ class _KuteLineChartState extends State<KuteLineChart>
     if (n == 0 || width <= 0) return;
     final window = _viewport.windowFor(_extent);
     final x = dx.clamp(0.0, width);
-    final idx = n == 1
-        ? 0
-        : window.indexAt(x, width).round().clamp(0, n - 1).toInt();
+    final at = window.indexAt(x, width);
+    final drawn = _drawn(window);
+    var idx = n == 1 ? 0 : at.round().clamp(0, n - 1).toInt();
+    if (drawn != null && n > 1) {
+      // On a bucketed line the finger lands on the nearest drawn point on
+      // screen: the card reads the line, never a blip between its points.
+      var best = -1;
+      for (final i in drawn) {
+        final onScreen = i >= window.start - 1e-6 && i <= window.end + 1e-6;
+        if (!onScreen) continue;
+        if (best < 0 || (i - at).abs() < (best - at).abs()) best = i;
+      }
+      if (best >= 0) idx = best;
+    }
     if (idx == _touchIndex) return;
     if (!_scrubStartReported) {
       _scrubStartReported = true;
@@ -454,10 +658,24 @@ class _KuteLineChartState extends State<KuteLineChart>
     widget.onScrubEnd?.call();
   }
 
+  /// The points drawn for [window]: the bucket closes with
+  /// [KuteLineChart.buckets], else null (every point).
+  List<int>? _drawn(KuteIndexWindow window) =>
+      widget.buckets?.indicesFor(widget.values.length, window);
+
   /// First and last index inside [window].
   (int, int) _visibleRange(KuteIndexWindow window) {
     final n = widget.values.length;
     if (n == 0) return (0, 0);
+    final drawn = _drawn(window);
+    if (drawn != null && drawn.isNotEmpty) {
+      final inside = [
+        for (final i in drawn)
+          if (i >= window.start - 1e-6 && i <= window.end + 1e-6) i
+      ];
+      if (inside.isEmpty) return (drawn.first, drawn.last);
+      return (inside.first, inside.last);
+    }
     final first = (window.start - 1e-6).ceil().clamp(0, n - 1).toInt();
     final last = (window.end + 1e-6).floor().clamp(first, n - 1).toInt();
     return (first, last);
@@ -470,7 +688,11 @@ class _KuteLineChartState extends State<KuteLineChart>
     final n = values.length;
     final x = n == 1 ? size.width : window.xOf(ti.toDouble(), size.width);
     final d = kuteLineDomain(values, window,
-        lockedMinY: widget.lockedMinY, lockedMaxY: widget.lockedMaxY);
+        lockedMinY: widget.lockedMinY,
+        lockedMaxY: widget.lockedMaxY,
+        indices: _drawn(window),
+        minShare: widget.minScaleShare,
+        include: widget.baselineAt);
     final y = kuteLineY(values[ti], size.height, d);
     return KuteCrosshairData(
       x: x,
@@ -513,7 +735,12 @@ class _KuteLineChartState extends State<KuteLineChart>
     final values = widget.values;
     if (values.isEmpty) return const SizedBox.shrink();
 
+    _viewport
+      ..defaultSpan = widget.defaultSpan
+      ..minSpan = widget.minSpan;
     final window = _nudged(_viewport.windowFor(_extent));
+    final drawn = _drawn(window);
+    final (firstOnScreen, lastOnScreen) = _visibleRange(window);
     final ti = _touchIndex;
     final scrubbing =
         widget.interactive && ti != null && ti >= 0 && ti < values.length;
@@ -545,14 +772,34 @@ class _KuteLineChartState extends State<KuteLineChart>
                     showEndpointDot: widget.showEndpointDot,
                     strokeWidth: widget.strokeWidth,
                     stepped: widget.stepped,
+                    straight: widget.straight,
+                    filledEndpoint: widget.filledEndpoint,
+                    solidBaseline:
+                        widget.baselineAt != null && widget.solidBaseline,
                     showScale: widget.showScale,
+                    baseline: widget.baselineAt ??
+                        (widget.startBaseline ? values[firstOnScreen] : null),
+                    includeBaseline: widget.baselineAt != null,
+                    fillAbove: widget.baselineAt == null
+                        ? null
+                        : widget.fillAboveColor,
+                    fillBelow: widget.baselineAt == null
+                        ? null
+                        : widget.fillBelowColor,
                     projectedFrom: widget.projectedFrom,
                     lockedMinY: widget.lockedMinY,
                     lockedMaxY: widget.lockedMaxY,
+                    indices: drawn,
+                    minScaleShare: widget.minScaleShare,
+                    scaleMinStep: widget.scaleMinStep,
                   ),
                 ),
               ),
             ),
+            if (widget.plotOverlay != null)
+              Positioned.fill(
+                child: IgnorePointer(child: widget.plotOverlay!(window)),
+              ),
             if (widget.interactive)
               Positioned.fill(
                 child: KuteChartCrosshair(
@@ -576,12 +823,18 @@ class _KuteLineChartState extends State<KuteLineChart>
       },
     );
 
-    final summary = widget.summaryBuilder == null
-        ? null
-        : (() {
-            final (first, last) = _visibleRange(window);
-            return widget.summaryBuilder!(first, last);
-          })();
+    final Widget? summary;
+    if (widget.headerBuilder != null) {
+      summary = widget.headerBuilder!(KuteLineView(
+        first: firstOnScreen,
+        last: lastOnScreen,
+        touched: scrubbing ? ti : null,
+        window: window,
+        isDefault: _viewport.isDefault,
+      ));
+    } else {
+      summary = widget.summaryBuilder?.call(firstOnScreen, lastOnScreen);
+    }
 
     final gestures = !widget.interactive
         ? chart
@@ -593,6 +846,7 @@ class _KuteLineChartState extends State<KuteLineChart>
               viewport: _viewport,
               extent: _extent,
               zoomable: widget.zoomable,
+              zoomAroundFingers: widget.zoomAroundFingers,
               onViewChanged: () => setState(() {}),
               onScrub: _scrubTo,
               onScrubEnd: _endScrub,
@@ -618,9 +872,15 @@ class _KuteLineChartState extends State<KuteLineChart>
     } else {
       // The strip is as wide as the labels of the whole series' scale, so
       // a pinch never moves the plot sideways.
-      final whole = kuteLineDomain(values, KuteIndexWindow(0, _extent),
-          lockedMinY: widget.lockedMinY, lockedMaxY: widget.lockedMaxY);
-      final levels = kuteScaleLevels(whole.minY, whole.maxY);
+      final all = KuteIndexWindow(0, _extent);
+      final whole = kuteLineDomain(values, all,
+          lockedMinY: widget.lockedMinY,
+          lockedMaxY: widget.lockedMaxY,
+          indices: _drawn(all),
+          minShare: widget.minScaleShare,
+          include: widget.baselineAt);
+      final levels = kuteScaleLevels(whole.minY, whole.maxY,
+          minStep: widget.scaleMinStep);
       final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
       var stripW = 0.0;
       for (final l in levels) {
@@ -650,9 +910,13 @@ class _KuteLineChartState extends State<KuteLineChart>
                     painter: _KuteScaleLabelsPainter(
                       domain: kuteLineDomain(series, view,
                           lockedMinY: widget.lockedMinY,
-                          lockedMaxY: widget.lockedMaxY),
+                          lockedMaxY: widget.lockedMaxY,
+                          indices: morphSeries != null ? null : drawn,
+                          minShare: widget.minScaleShare,
+                          include: widget.baselineAt),
                       label: label,
                       color: c.textTertiary,
+                      minStep: widget.scaleMinStep,
                     ),
                   );
                 },
@@ -664,16 +928,26 @@ class _KuteLineChartState extends State<KuteLineChart>
       );
     }
 
+    final plotHeight = widget.plotHeight;
     return FadeTransition(
       opacity: _fade,
-      child: summary == null
-          ? body
-          : Column(
+      child: plotHeight != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                summary,
-                Expanded(child: body),
+                if (summary != null) summary,
+                SizedBox(height: plotHeight, child: body),
               ],
-            ),
+            )
+          : summary == null
+              ? body
+              : Column(
+                  children: [
+                    summary,
+                    Expanded(child: body),
+                  ],
+                ),
     );
   }
 }
@@ -708,8 +982,10 @@ TextPainter _scaleTp(String text, Color color) {
 
 /// Two or three round levels (1, 2 or 5 times a power of ten apart)
 /// inside [lo]..[hi], lowest first, none under zero: the scale of a
-/// series of amounts held.
-List<double> kuteScaleLevels(double lo, double hi, {int maxLevels = 3}) {
+/// series of amounts held. With [minStep] the levels are never closer
+/// than that (one sat for a bitcoin balance).
+List<double> kuteScaleLevels(double lo, double hi,
+    {int maxLevels = 3, double? minStep}) {
   if (!(hi > lo) || !lo.isFinite || !hi.isFinite) return const [];
   double nice(double raw) {
     final mag = math
@@ -732,6 +1008,7 @@ List<double> kuteScaleLevels(double lo, double hi, {int maxLevels = 3}) {
   }
 
   var step = nice((hi - lo) / maxLevels);
+  if (minStep != null && step < minStep) step = minStep;
   var out = levelsFor(step);
   for (var guard = 0; out.length > maxLevels && guard < 8; guard++) {
     step = nice(step * 1.01);
@@ -746,16 +1023,19 @@ class _KuteScaleLabelsPainter extends CustomPainter {
   final KuteYDomain domain;
   final String Function(double level, double step) label;
   final Color color;
+  final double? minStep;
 
   _KuteScaleLabelsPainter({
     required this.domain,
     required this.label,
     required this.color,
+    this.minStep,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final levels = kuteScaleLevels(domain.minY, domain.maxY);
+    final levels =
+        kuteScaleLevels(domain.minY, domain.maxY, minStep: minStep);
     if (levels.isEmpty) return;
     final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
     for (final level in levels) {
@@ -771,35 +1051,82 @@ class _KuteScaleLabelsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KuteScaleLabelsPainter old) =>
-      old.domain != domain || old.color != color || old.label != label;
+      old.domain != domain ||
+      old.color != color ||
+      old.label != label ||
+      old.minStep != minStep;
 }
 
 /// The y-domain of a line over the points in [window]: the venue charts'
 /// autoscale ([kuteAutoScaleDomain]: a tenth of the plot free above and
 /// below the visible high and low, a flat line centred), unless the host
-/// locks it.
+/// locks it. With [indices] (a bucketed line) only those points count,
+/// and where the line crosses an edge of the window, so a point off
+/// screen never stretches the scale. With [minShare] the scale spans at
+/// least that share of its largest value (see
+/// [KuteLineChart.minScaleShare]). With [include] that value is always on
+/// the scale ([KuteLineChart.baselineAt]). A line flat at zero sits in the
+/// middle with a single level, zero.
 KuteYDomain kuteLineDomain(
   List<double> series,
   KuteIndexWindow window, {
   double? lockedMinY,
   double? lockedMaxY,
+  List<int>? indices,
+  double? minShare,
+  double? include,
 }) {
   if (lockedMinY != null && lockedMaxY != null) {
     return (minY: lockedMinY, maxY: lockedMaxY);
   }
   final n = series.length;
   if (n == 0) return (minY: 0, maxY: 1);
-  // The points on screen plus one either side, so the line entering and
-  // leaving the window is on the scale too.
-  final i0 = (window.start.floor()).clamp(0, n - 1).toInt();
-  final i1 = (window.end.ceil()).clamp(i0, n - 1).toInt();
-  var lo = series[i0], hi = series[i0];
-  for (var i = i0; i <= i1; i++) {
-    final v = series[i];
-    if (v < lo) lo = v;
-    if (v > hi) hi = v;
+  double? lo, hi;
+  void take(double v) {
+    if (lo == null || v < lo!) lo = v;
+    if (hi == null || v > hi!) hi = v;
   }
-  return kuteAutoScaleDomain(lo, hi);
+
+  if (indices != null && indices.isNotEmpty) {
+    for (var k = 0; k < indices.length; k++) {
+      final i = indices[k];
+      if (i < 0 || i >= n) continue;
+      if (i >= window.start - 1e-9 && i <= window.end + 1e-9) take(series[i]);
+      if (k == 0) continue;
+      final a = indices[k - 1];
+      if (a < 0 || a >= n || i <= a) continue;
+      for (final edge in [window.start, window.end]) {
+        if (a < edge && i > edge) {
+          final f = (edge - a) / (i - a);
+          take(series[a] + (series[i] - series[a]) * f);
+        }
+      }
+    }
+  }
+  if (lo == null || hi == null) {
+    // The points on screen plus one either side, so the line entering and
+    // leaving the window is on the scale too.
+    final i0 = (window.start.floor()).clamp(0, n - 1).toInt();
+    final i1 = (window.end.ceil()).clamp(i0, n - 1).toInt();
+    for (var i = i0; i <= i1; i++) {
+      take(series[i]);
+    }
+  }
+  if (include != null && include.isFinite) take(include);
+  if (lo == 0 && hi == 0) return (minY: -0.4, maxY: 0.4);
+  var l = lo!, u = hi!;
+  final least = (minShare ?? 0) * math.max(l.abs(), u.abs());
+  if (u - l < least) {
+    // Widened about the middle, never below zero for amounts held.
+    final mid = (l + u) / 2;
+    l = mid - least / 2;
+    u = mid + least / 2;
+    if (lo! >= 0 && l < 0) {
+      u -= l;
+      l = 0;
+    }
+  }
+  return kuteAutoScaleDomain(l, u);
 }
 
 /// Value → y inside a plot [h] px tall for domain [d]: the linear mapping
@@ -822,10 +1149,36 @@ class _KuteLinePainter extends CustomPainter {
   final bool showEndpointDot;
   final double strokeWidth;
   final bool stepped;
+  final bool straight;
+  final bool filledEndpoint;
+
+  /// The baseline is a solid hairline, not dotted.
+  final bool solidBaseline;
   final bool showScale;
   final int? projectedFrom;
   final double? lockedMinY;
   final double? lockedMaxY;
+
+  /// The points drawn (a bucketed line); null draws every point.
+  final List<int>? indices;
+
+  /// See [KuteLineChart.minScaleShare].
+  final double? minScaleShare;
+
+  /// The value the dotted baseline is drawn at; null draws none.
+  final double? baseline;
+
+  /// The baseline is a fixed value kept on the scale
+  /// ([KuteLineChart.baselineAt]).
+  final bool includeBaseline;
+
+  /// The fill between the line and [baseline], per side; null for both
+  /// fills down to the bottom in the line's colour.
+  final Color? fillAbove;
+  final Color? fillBelow;
+
+  /// See [KuteLineChart.scaleMinStep].
+  final double? scaleMinStep;
 
   _KuteLinePainter({
     required this.values,
@@ -838,10 +1191,20 @@ class _KuteLinePainter extends CustomPainter {
     required this.showEndpointDot,
     required this.strokeWidth,
     required this.stepped,
+    this.straight = false,
+    this.filledEndpoint = false,
+    this.solidBaseline = false,
     required this.showScale,
     required this.projectedFrom,
     required this.lockedMinY,
     required this.lockedMaxY,
+    this.indices,
+    this.minScaleShare,
+    this.scaleMinStep,
+    this.baseline,
+    this.includeBaseline = false,
+    this.fillAbove,
+    this.fillBelow,
   });
 
   @override
@@ -857,8 +1220,14 @@ class _KuteLinePainter extends CustomPainter {
         ? KuteIndexWindow(0, (n - 1).toDouble())
         : window;
 
+    // Mid-morph the series is resampled: every point is drawn.
+    final drawn = morphSeries != null ? null : indices;
     final d = kuteLineDomain(series, view,
-        lockedMinY: lockedMinY, lockedMaxY: lockedMaxY);
+        lockedMinY: lockedMinY,
+        lockedMaxY: lockedMaxY,
+        indices: drawn,
+        minShare: minScaleShare,
+        include: includeBaseline ? baseline : null);
     double toY(double v) => kuteLineY(v, h, d);
     double toX(int i) => n == 1 ? w : view.xOf(i.toDouble(), w);
 
@@ -867,26 +1236,59 @@ class _KuteLinePainter extends CustomPainter {
       final hairline = Paint()
         ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)
         ..strokeWidth = 1.0;
-      for (final level in kuteScaleLevels(d.minY, d.maxY)) {
+      for (final level
+          in kuteScaleLevels(d.minY, d.maxY, minStep: scaleMinStep)) {
         final y = toY(level);
         canvas.drawLine(Offset(0, y), Offset(w, y), hairline);
       }
     }
 
+    // The dotted baseline at the first value on screen, under the line.
+    // Mid-morph the window is the whole resampled series: none.
+    final base = morphSeries == null ? baseline : null;
+    if (base != null && base.isFinite && solidBaseline) {
+      // A plain hairline: the P&L's zero.
+      final y = toY(base);
+      canvas.drawLine(
+          Offset(0, y),
+          Offset(w, y),
+          Paint()
+            ..color =
+                (isDark ? Colors.white : Colors.black).withValues(alpha: 0.14)
+            ..strokeWidth = 1.0);
+    } else if (base != null && base.isFinite) {
+      final y = toY(base);
+      final dot = Paint()
+        ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.22);
+      for (var x = 1.0; x < w; x += 5) {
+        canvas.drawCircle(Offset(x, y), 0.75, dot);
+      }
+    }
+
     // Single point: just the endpoint dot — nothing to connect yet.
     if (n == 1) {
-      kuteDrawEndpointDot(canvas, Offset(w, toY(series.first)), lineColor,
-          isDark: isDark);
+      _endDot(canvas, Offset(w, toY(series.first)));
       return;
     }
 
     // The points on screen plus one either side, so the line runs off
     // the edges of a zoomed window instead of stopping short of them.
-    final i0 = view.start.floor().clamp(0, n - 1).toInt();
-    final i1 = view.end.ceil().clamp(i0, n - 1).toInt();
+    final idx = drawn != null && drawn.isNotEmpty
+        ? drawn
+        : (() {
+            final a = view.start.floor().clamp(0, n - 1).toInt();
+            final b = view.end.ceil().clamp(a, n - 1).toInt();
+            return List<int>.generate(b - a + 1, (k) => a + k);
+          })();
+    final i0 = idx.first;
+    final i1 = idx.last;
     final pts = List<Offset>.generate(
-        i1 - i0 + 1, (k) => Offset(toX(i0 + k), toY(series[i0 + k])),
-        growable: false);
+        idx.length, (k) => Offset(toX(idx[k]), toY(series[idx[k]])),
+        growable: true);
+    // A bucketed line holds its first close's level back to the start of
+    // the series (nothing is drawn before the first close).
+    final lead = drawn != null && drawn.isNotEmpty && drawn.first > view.start;
+    if (lead) pts.insert(0, Offset(toX(0), pts.first.dy));
 
     // Where history ends. Mid-morph the index space is resampled, so the
     // split rides along proportionally instead of pointing at the wrong
@@ -897,7 +1299,8 @@ class _KuteLinePainter extends CustomPainter {
     }
     final historyEnd = split == null ? n - 1 : split.clamp(0, n - 1).toInt();
     // The same split inside the visible points.
-    final localEnd = (historyEnd - i0).clamp(-1, pts.length - 1).toInt();
+    var localEnd = idx.lastIndexWhere((i) => i <= historyEnd);
+    if (lead && localEnd >= 0) localEnd++;
     final historyPts =
         localEnd < 0 ? const <Offset>[] : pts.sublist(0, localEnd + 1);
     final projectedPts = localEnd < pts.length - 1
@@ -907,9 +1310,55 @@ class _KuteLinePainter extends CustomPainter {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(-6, -6, w + 12, h + 12));
     if (historyPts.length >= 2) {
-      final path =
-          stepped ? kuteStepPath(historyPts) : kuteMonotonePath(historyPts);
-      if (showFill) {
+      final path = stepped
+          ? kuteStepPath(historyPts)
+          : straight
+              ? kuteStraightPath(historyPts)
+              : kuteMonotonePath(historyPts);
+      final fillBase = morphSeries == null ? baseline : null;
+      if (showFill &&
+          fillBase != null &&
+          fillBase.isFinite &&
+          (fillAbove != null || fillBelow != null)) {
+        // Between the line and the baseline, tinted by the side: the
+        // area above it in one colour, below it in the other, each
+        // fading towards the baseline.
+        final y0 = toY(fillBase);
+        final fill = Path.from(path)
+          ..lineTo(historyPts.last.dx, y0)
+          ..lineTo(historyPts.first.dx, y0)
+          ..close();
+        final bounds = fill.getBounds();
+        void side(Color? color, Rect rect, bool above) {
+          if (color == null || rect.height <= 0) return;
+          canvas.save();
+          // Inside the plot's width: the stroke may run off the edges of a
+          // zoomed window, the shading stops at them.
+          canvas.clipRect(Rect.fromLTRB(0, rect.top, w, rect.bottom));
+          canvas.drawPath(
+              fill,
+              Paint()
+                ..shader = LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: above
+                      ? [
+                          color.withValues(alpha: 0.18),
+                          color.withValues(alpha: 0.03),
+                        ]
+                      : [
+                          color.withValues(alpha: 0.03),
+                          color.withValues(alpha: 0.18),
+                        ],
+                ).createShader(rect));
+          canvas.restore();
+        }
+
+        side(fillAbove, Rect.fromLTRB(0, math.min(bounds.top, y0), w, y0),
+            true);
+        side(fillBelow,
+            Rect.fromLTRB(0, y0, w, math.max(bounds.bottom, y0)), false);
+      } else if (showFill) {
         // The fill stops where the history does: shading under a
         // forecast would give it the weight of money that arrived.
         final fill = Path.from(path)
@@ -924,7 +1373,9 @@ class _KuteLinePainter extends CustomPainter {
 
     if (projectedPts != null && projectedPts.length >= 2) {
       canvas.drawPath(
-        _dashPath(kuteMonotonePath(projectedPts)),
+        _dashPath(straight
+            ? kuteStraightPath(projectedPts)
+            : kuteMonotonePath(projectedPts)),
         kuteStrokePaint(lineColor.withValues(alpha: 0.55), width: strokeWidth),
       );
     }
@@ -949,8 +1400,7 @@ class _KuteLinePainter extends CustomPainter {
       // screen; the projected end gets a hollow ring, which reads as
       // "has not arrived".
       if (historyPts.isNotEmpty && historyEnd <= i1) {
-        kuteDrawEndpointDot(canvas, historyPts.last, lineColor,
-            isDark: isDark);
+        _endDot(canvas, historyPts.last);
       }
       if (projectedPts != null && projectedPts.length >= 2 && i1 == n - 1) {
         canvas.drawCircle(projectedPts.last, 4.0,
@@ -966,6 +1416,16 @@ class _KuteLinePainter extends CustomPainter {
       }
     }
     canvas.restore();
+  }
+
+  /// The end dot: the engine's ringed dot, or solid in the line's colour
+  /// ([filledEndpoint]).
+  void _endDot(Canvas canvas, Offset center) {
+    if (filledEndpoint) {
+      canvas.drawCircle(center, 4, Paint()..color = lineColor);
+    } else {
+      kuteDrawEndpointDot(canvas, center, lineColor, isDark: isDark);
+    }
   }
 
   /// Chop a path into even dashes. The projected tail only.
@@ -995,10 +1455,20 @@ class _KuteLinePainter extends CustomPainter {
       old.showEndpointDot != showEndpointDot ||
       old.strokeWidth != strokeWidth ||
       old.stepped != stepped ||
+      old.straight != straight ||
+      old.filledEndpoint != filledEndpoint ||
+      old.solidBaseline != solidBaseline ||
       old.showScale != showScale ||
       old.projectedFrom != projectedFrom ||
       old.lockedMinY != lockedMinY ||
       old.lockedMaxY != lockedMaxY ||
+      !listEquals(old.indices, indices) ||
+      old.minScaleShare != minScaleShare ||
+      old.baseline != baseline ||
+      old.includeBaseline != includeBaseline ||
+      old.fillAbove != fillAbove ||
+      old.fillBelow != fillBelow ||
+      old.scaleMinStep != scaleMinStep ||
       old.window != window;
 
   static bool _sameMorph(List<double>? a, List<double>? b) {
@@ -1006,6 +1476,19 @@ class _KuteLinePainter extends CustomPainter {
     if (a == null || b == null) return false;
     return kuteSameSeries(a, b);
   }
+}
+
+/// Straight segments through [pts], one point to the next, and nothing
+/// else: the line never leaves the box the points span, so it never shows
+/// a high or a low that was not there.
+Path kuteStraightPath(List<Offset> pts) {
+  final path = Path();
+  if (pts.isEmpty) return path;
+  path.moveTo(pts.first.dx, pts.first.dy);
+  for (var i = 1; i < pts.length; i++) {
+    path.lineTo(pts[i].dx, pts[i].dy);
+  }
+  return path;
 }
 
 /// A stepped line through [pts]: flat from each point to the next one's

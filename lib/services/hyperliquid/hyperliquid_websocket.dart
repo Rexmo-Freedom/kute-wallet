@@ -284,6 +284,56 @@ class HlUserFillsMessage extends HlWsMessage {
   const HlUserFillsMessage({required this.isSnapshot, required this.fills});
 }
 
+/// `userNonFundingLedgerUpdates` — the account's cash moving outside
+/// trading: a deposit or a transfer credited, a withdrawal or a send.
+/// [isSnapshot] is true on the history frame right after subscribing;
+/// consumers reacting to "the cash just moved" MUST ignore it. The number
+/// of updates is kept, and the USDC each one credited to the account
+/// ([credits]: a deposit, or a transfer or send whose destination is the
+/// account), so a move on its way can be matched to its credit; the
+/// account is read again for the figures.
+class HlLedgerUpdatesMessage extends HlWsMessage {
+  final bool isSnapshot;
+  final int count;
+
+  /// USD credited to the subscribed account, one per crediting update.
+  final List<double> credits;
+  const HlLedgerUpdatesMessage(
+      {required this.isSnapshot, required this.count, this.credits = const []});
+}
+
+/// The USD one `userNonFundingLedgerUpdates` entry credited to [user], or
+/// null when it credited nothing to it (a withdrawal, an outgoing send, a
+/// class transfer inside the account, a type not known here).
+@visibleForTesting
+double? hlLedgerCreditUsd(Object? update, String? user) {
+  if (update is! Map) return null;
+  final delta = update['delta'];
+  if (delta is! Map) return null;
+  double? num_(Object? v) {
+    final d = v is num ? v.toDouble() : double.tryParse('$v');
+    return d != null && d.isFinite && d > 0 ? d : null;
+  }
+
+  final type = delta['type'];
+  if (type == 'deposit') return num_(delta['usdc']);
+  const transfers = {
+    'internalTransfer',
+    'subAccountTransfer',
+    'spotTransfer',
+    'send',
+  };
+  if (!transfers.contains(type)) return null;
+  final to = delta['destination'];
+  if (user == null || to is! String || to.toLowerCase() != user.toLowerCase()) {
+    return null;
+  }
+  if (delta.containsKey('usdc')) return num_(delta['usdc']);
+  final token = '${delta['token'] ?? ''}'.split(':').first.toUpperCase();
+  if (token == 'USDC') return num_(delta['amount']);
+  return num_(delta['usdcValue']);
+}
+
 enum HlWsState { disconnected, connecting, connected, reconnecting }
 
 // ───────────────────────────── client ───────────────────────────────
@@ -443,11 +493,13 @@ class HyperliquidWebSocket {
   void subscribeUser(String address) {
     _subscribe({'type': 'orderUpdates', 'user': address});
     _subscribe({'type': 'userFills', 'user': address});
+    _subscribe({'type': 'userNonFundingLedgerUpdates', 'user': address});
   }
 
   void unsubscribeUser(String address) {
     _unsubscribe({'type': 'orderUpdates', 'user': address});
     _unsubscribe({'type': 'userFills', 'user': address});
+    _unsubscribe({'type': 'userNonFundingLedgerUpdates', 'user': address});
   }
 
   void _subscribe(Map<String, dynamic> sub) {
@@ -490,6 +542,10 @@ class HyperliquidWebSocket {
       _send(const {'method': 'ping'});
     });
   }
+
+  /// Tests: decodes [data] as if the socket had received it.
+  @visibleForTesting
+  void debugReceive(String data) => _handleFrame(data);
 
   void _handleFrame(dynamic data) {
     if (data is! String) return;
@@ -576,6 +632,22 @@ class HyperliquidWebSocket {
               .whereType<Map<String, dynamic>>()
               .map(HlFill.fromJson)
               .toList(),
+        );
+        break;
+      case 'userNonFundingLedgerUpdates':
+        if (data is! Map<String, dynamic>) return;
+        final updates = data['nonFundingLedgerUpdates'];
+        final user = data['user'];
+        msg = HlLedgerUpdatesMessage(
+          isSnapshot: data['isSnapshot'] == true,
+          count: updates is List ? updates.length : 0,
+          credits: [
+            if (updates is List)
+              for (final u in updates)
+                if (hlLedgerCreditUsd(u, user is String ? user : null)
+                    case final usd?)
+                  usd,
+          ],
         );
         break;
     }

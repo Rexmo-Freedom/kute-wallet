@@ -24,6 +24,11 @@ List<HyperliquidCandle> _candles({double scale = 1}) => [
         ),
     ];
 
+/// The plot the drawings are mapped across: the chart less its tag
+/// column at the right (the drawings layer spans exactly that).
+Size _plotSize(WidgetTester tester) => tester.getSize(find.byWidgetPredicate(
+    (w) => w is CustomPaint && w.painter is KuteChartDrawingsPainter));
+
 Finder get _surface => find.descendant(
     of: find.byType(HlCandlestickChart),
     matching: find.byWidgetPredicate(
@@ -91,7 +96,7 @@ void main() {
     await gesture.moveTo(origin + const Offset(190, 140));
     await tester.pump();
     final painter = _painter(tester);
-    final geom = painter.resolveGeometry(tester.getSize(_surface))!;
+    final geom = painter.resolveGeometry(_plotSize(tester))!;
     expect(geom.offsetFor(painter.draft!.points.first).dx, closeTo(60, 0.01));
     expect(geom.offsetFor(painter.draft!.points.first).dy, closeTo(80, 0.01));
     await gesture.up();
@@ -143,7 +148,7 @@ void main() {
     final gesture = await tester.startGesture(origin + const Offset(60, 80));
     await gesture.moveBy(const Offset(60, 20));
     await tester.pump();
-    final geom = _painter(tester).resolveGeometry(tester.getSize(_surface))!;
+    final geom = _painter(tester).resolveGeometry(_plotSize(tester))!;
     await _pumpChart(tester,
         candles: _candles(scale: 10), onPlaced: placed.add);
     await gesture.moveTo(origin + const Offset(210, 140));
@@ -171,7 +176,7 @@ void main() {
         selected: drawing.id,
         onUpdated: updated.add);
     final origin = tester.getTopLeft(_surface);
-    final geom = _painter(tester).resolveGeometry(tester.getSize(_surface))!;
+    final geom = _painter(tester).resolveGeometry(_plotSize(tester))!;
     final handle = geom.offsetFor(drawing.points.last);
     final gesture =
         await tester.startGesture(origin + handle + const Offset(5, 5));
@@ -205,7 +210,7 @@ void main() {
         selected: drawing.id,
         onUpdated: updated.add);
     final origin = tester.getTopLeft(_surface);
-    final geom = _painter(tester).resolveGeometry(tester.getSize(_surface))!;
+    final geom = _painter(tester).resolveGeometry(_plotSize(tester))!;
     final a = geom.offsetFor(drawing.points.first);
     final b = geom.offsetFor(drawing.points.last);
     final gesture = await tester.startGesture(origin + (a + b) / 2);
@@ -231,7 +236,7 @@ void main() {
     final gesture = await tester.startGesture(origin + const Offset(60, 80));
     await gesture.moveBy(const Offset(50, 40));
     await tester.pump();
-    final geom = _painter(tester).resolveGeometry(tester.getSize(_surface))!;
+    final geom = _painter(tester).resolveGeometry(_plotSize(tester))!;
     await gesture.up();
     await tester.pump();
     expect(placed, hasLength(1));

@@ -235,8 +235,10 @@ void main() {
   });
 
   group('donut engine', () {
-    test('the categorical palette: six colours per mode, none of them '
-        'the accent or the market pair, every one clear of the card', () {
+    test(
+        'the chart palette: five distinct muted hues per mode and a grey, '
+        'none of them the accent or the market pair, every one clear of '
+        'the card', () {
       double contrast(Color a, Color b) {
         final la = a.computeLuminance(), lb = b.computeLuminance();
         return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
@@ -252,49 +254,66 @@ void main() {
           expect(color, isNot(c.accent));
           expect(color, isNot(AppColors.marketUp));
           expect(color, isNot(AppColors.marketDown));
-          expect(contrast(color, c.surface), greaterThanOrEqualTo(3),
+          // Bright swatches on the light card (founder's pick: no browns);
+          // 3:1 on the dark card.
+          expect(contrast(color, c.surface),
+              greaterThanOrEqualTo(identical(c, light) ? 1.9 : 3),
               reason: '$color on ${c.surface}');
+        }
+        // Distinct hues (indigo, teal, amber, coral, violet): every pair of
+        // colours sits at least 25 degrees apart on the colour wheel, so
+        // neighbouring slices never read as one.
+        final hues = [
+          for (final color in palette.take(5)) HSLColor.fromColor(color).hue
+        ];
+        for (var i = 0; i < hues.length; i++) {
+          for (var j = i + 1; j < hues.length; j++) {
+            final d = (hues[i] - hues[j]).abs();
+            expect(math.min(d, 360 - d), greaterThanOrEqualTo(25),
+                reason: '${palette[i]} vs ${palette[j]}');
+          }
         }
         // Other's grey is the last slot: no hue to speak of.
         final grey = HSLColor.fromColor(palette.last);
         expect(grey.saturation, lessThan(0.15));
+        expect(c.chartOther, palette.last);
       }
       // Each mode is stepped for its own surface.
       expect(light.chartCategorical, isNot(dark.chartCategorical));
     });
 
-    test('slices take the palette in order, and keep their colour as '
-        'values move', () {
-      final palette = AppColorsExtension.light().chartCategorical;
-      final slots = KuteCategoryColorSlots();
-      Color colourOf(Map<Object, int> s, String key) =>
-          KuteCategoryColorSlots.colorOf(palette, slot: s[key]);
+    test('colours follow rank by size, slivers and the sixth are grey', () {
+      for (final c in [AppColorsExtension.light(), AppColorsExtension.dark()]) {
+        final ramp = c.chartCategorical;
+        // Given out of order: the largest takes the deepest step.
+        expect(c.chartColorsByShare([0.10, 0.58, 0.01, 0.23, 0.08]),
+            [ramp[2], ramp[0], c.chartOther, ramp[1], ramp[3]]);
+        // A sixth slice past the ramp wears the grey, as does "Other".
+        expect(c.chartColorsByShare([0.3, 0.2, 0.15, 0.12, 0.1, 0.08, -1]), [
+          ...ramp.take(5),
+          c.chartOther,
+          c.chartOther,
+        ]);
+        // Exactly 2% keeps its step.
+        expect(c.chartColorsByShare([0.98, 0.02]), [ramp[0], ramp[1]]);
+      }
+    });
 
-      // First draw: slot order is slice order.
-      var s = slots.assign(['a', 'b', 'c', 'd', 'e']);
-      expect([for (final k in 'abcde'.split('')) colourOf(s, k)],
-          palette.take(5).toList());
-      expect(KuteCategoryColorSlots.colorOf(palette, other: true),
-          palette.last);
-
-      // Values move and the ranking flips: every category keeps its hue.
-      s = slots.assign(['e', 'c', 'a', 'b', 'd']);
-      expect(colourOf(s, 'a'), palette[0]);
-      expect(colourOf(s, 'e'), palette[4]);
-
-      // One leaves, a newcomer takes its free slot.
-      s = slots.assign(['e', 'c', 'a', 'f', 'd']);
-      expect(colourOf(s, 'f'), palette[1]);
-      expect(colourOf(s, 'c'), palette[2]);
-
-      // A sixth kept category (no Other beside it) wears the grey.
-      s = slots.assign(['e', 'c', 'a', 'f', 'd', 'g']);
-      expect(colourOf(s, 'g'), palette.last);
-
-      slots.reset();
-      s = slots.assign(['z', 'y']);
-      expect(colourOf(s, 'z'), palette[0]);
-      expect(colourOf(s, 'y'), palette[1]);
+    test('a donut\'s slices by key: the ramp by rank, Other grey', () {
+      final c = AppColorsExtension.light();
+      final slices = categorySlices({
+        'spark': 58,
+        'investments': 23,
+        'onchain': 10,
+        'predictions': 8,
+        'lightning': 1
+      });
+      final colors = chartSliceColors(c, slices);
+      expect(colors['spark'], c.chartCategorical[0]);
+      expect(colors['investments'], c.chartCategorical[1]);
+      expect(colors['onchain'], c.chartCategorical[2]);
+      expect(colors['predictions'], c.chartCategorical[3]);
+      expect(colors['lightning'], c.chartOther);
     });
 
     test('an angle finds its slice, clockwise from twelve o\'clock', () {

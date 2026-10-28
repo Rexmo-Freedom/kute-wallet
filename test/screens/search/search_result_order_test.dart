@@ -1,4 +1,5 @@
-// The order search results show in: the market the person named first.
+// The order search results show in: the Investing market the person named
+// first; Predictions a game in play first, then the most traded.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -49,30 +50,24 @@ void main() {
     expect(ranked.first.coin, 'GLD');
   });
 
-  test('predictions: named title first, then in play, then most traded', () {
+  test('predictions: a game in play first, then the most traded', () {
     final ranked = rankPredictionResults(
-      'brazil',
       [
         _event('Who wins the Copa?', volume: 10),
         _event('Lula flips Bolsonaro for Brazil president?', volume: 900),
         _event('Brazil vs. Argentina', volume: 1),
         _event('Live game', volume: 5),
+        _event('Brazil Presidential Election', volume: 900),
       ],
       (e) => e,
       isLive: (e) => e.title == 'Live game',
     );
     expect([for (final e in ranked) e.title], [
-      'Brazil vs. Argentina',
       'Live game',
       'Lula flips Bolsonaro for Brazil president?',
+      'Brazil Presidential Election',
       'Who wins the Copa?',
+      'Brazil vs. Argentina',
     ]);
-  });
-
-  test('a query naming a market is known on the device', () {
-    expect(hlQueryNamesMarket('btc', const []), isTrue);
-    expect(hlQueryNamesMarket('tesla', const []), isTrue);
-    expect(hlQueryNamesMarket('bitc', const []), isTrue);
-    expect(hlQueryNamesMarket('coffee receipt', const []), isFalse);
   });
 }

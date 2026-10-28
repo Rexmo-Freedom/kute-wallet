@@ -229,8 +229,13 @@ class LedgerPmMarketRules {
       size: budgetUsd / bound,
       isBuy: true,
       isMarket: !isLimit,
+      // The stake to the cent, as the hot wallet signs it: flooring the
+      // shares first signed a \$5.00 buy as \$4.99.
+      spendUsd: isLimit ? null : budgetUsd,
     );
-    final budget = BigInt.from((budgetUsd * 1000000).floor());
+    final budget = isLimit
+        ? BigInt.from((budgetUsd * 1000000).floor())
+        : polymarketMarketBuyBudgetMicros(budgetUsd);
     if (amounts.maker > budget || amounts.taker < minShares) {
       throw const LedgerPmTradeRefused(LedgerPmTradeRefusal.marketChanged);
     }

@@ -15,7 +15,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -54,15 +53,12 @@ void _showCancellationReceipt(
               ? l10n.investingAllCancelled
               : l10n.investingCancelled,
       detail: l10n.investingCancellationDetails,
-      showCloseButton: true,
       onDone: () => navigator.pop(),
-      receipt: TradeReceipt(
-        title: coin ?? l10n.trading,
-        rows: {
-          if (reference != null) l10n.investingReference: reference,
-          if (count != null) l10n.investingOrderCount: '$count',
-        },
-      ),
+      contextLine: coin ?? l10n.trading,
+      rows: {
+        if (reference != null) l10n.investingReference: reference,
+        if (count != null) l10n.investingOrderCount: '$count',
+      },
     ),
   );
 }
@@ -224,10 +220,10 @@ class HlOpenOrdersSheet extends ConsumerWidget {
                     // now, resting orders are just waiting. Orders the
                     // venue ended come last, under their own heading.
                     itemBuilder: (_, i) {
-                      if (i < twaps.length) return _HlTwapRow(twap: twaps[i]);
+                      if (i < twaps.length) return HlTwapRow(twap: twaps[i]);
                       final o = i - twaps.length;
                       if (o < orders.length) {
-                        return _HlOrderRow(order: orders[o]);
+                        return HlOrderRow(order: orders[o]);
                       }
                       final e = o - orders.length;
                       if (e == 0) {
@@ -243,7 +239,7 @@ class HlOpenOrdersSheet extends ConsumerWidget {
                           ),
                         );
                       }
-                      return _HlEndedOrderRow(update: ended[e - 1]);
+                      return HlEndedOrderRow(update: ended[e - 1]);
                     },
                   ),
                 ),
@@ -252,6 +248,33 @@ class HlOpenOrdersSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Cancels EVERY resting Investing order in one batch action, with this
+/// sheet's own receipt and error wording. Shared with the Portfolio's
+/// merged Orders list (portfolio_orders.dart), whose one Cancel all runs
+/// each venue's routine in turn.
+Future<void> hlCancelAllOrders(BuildContext context, WidgetRef ref) async {
+  final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
+  try {
+    final count =
+        await ref.read(hyperliquidTradingProvider.notifier).cancelAllOrders();
+    if (context.mounted &&
+        count > 0 &&
+        pickSpendingWallet(ref.read(settingsProvider))?.id == walletId) {
+      _showCancellationReceipt(context, count: count);
+    }
+  } catch (error) {
+    if (context.mounted) {
+      showMessageSnackBar(
+        context: context,
+        message: error is HlCancellationIncompleteException
+            ? context.l10n.investingCancellationIncomplete
+            : context.l10n.investingCancelUnconfirmed,
+        error: true,
+      );
+    }
   }
 }
 
@@ -271,25 +294,8 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
     if (_busy) return;
     setState(() => _busy = true);
     HapticFeedback.lightImpact();
-    final walletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
     try {
-      final count =
-          await ref.read(hyperliquidTradingProvider.notifier).cancelAllOrders();
-      if (mounted &&
-          count > 0 &&
-          pickSpendingWallet(ref.read(settingsProvider))?.id == walletId) {
-        _showCancellationReceipt(context, count: count);
-      }
-    } catch (error) {
-      if (mounted) {
-        showMessageSnackBar(
-          context: context,
-          message: error is HlCancellationIncompleteException
-              ? context.l10n.investingCancellationIncomplete
-              : context.l10n.investingCancelUnconfirmed,
-          error: true,
-        );
-      }
+      await hlCancelAllOrders(context, ref);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -310,19 +316,20 @@ class _CancelAllButtonState extends ConsumerState<_CancelAllButton> {
   }
 }
 
-/// A running TWAP — same card chrome as _HlOrderRow, with a Stop button
+/// A running TWAP — same card chrome as [HlOrderRow], with a Stop button
 /// (twapCancel) and an elapsed-time bar instead of a fill bar. Client-
 /// tracked: HL never lists running TWAPs, so this row exists only
-/// because the twapId was captured at placement.
-class _HlTwapRow extends ConsumerStatefulWidget {
+/// because the twapId was captured at placement. Public: the Portfolio's
+/// merged Orders list draws the same row.
+class HlTwapRow extends ConsumerStatefulWidget {
   final HlRunningTwap twap;
-  const _HlTwapRow({required this.twap});
+  const HlTwapRow({super.key, required this.twap});
 
   @override
-  ConsumerState<_HlTwapRow> createState() => _HlTwapRowState();
+  ConsumerState<HlTwapRow> createState() => _HlTwapRowState();
 }
 
-class _HlTwapRowState extends ConsumerState<_HlTwapRow> {
+class _HlTwapRowState extends ConsumerState<HlTwapRow> {
   bool _stopping = false;
 
   Future<void> _stop() async {
@@ -404,15 +411,17 @@ class _HlTwapRowState extends ConsumerState<_HlTwapRow> {
   }
 }
 
-class _HlOrderRow extends ConsumerStatefulWidget {
+/// A resting order with its Cancel. Public: the Portfolio's merged
+/// Orders list draws the same row.
+class HlOrderRow extends ConsumerStatefulWidget {
   final HlOpenOrder order;
-  const _HlOrderRow({required this.order});
+  const HlOrderRow({super.key, required this.order});
 
   @override
-  ConsumerState<_HlOrderRow> createState() => _HlOrderRowState();
+  ConsumerState<HlOrderRow> createState() => _HlOrderRowState();
 }
 
-class _HlOrderRowState extends ConsumerState<_HlOrderRow> {
+class _HlOrderRowState extends ConsumerState<HlOrderRow> {
   bool _cancelling = false;
 
   Future<void> _cancel() async {
@@ -536,10 +545,11 @@ class _HlOrderRowState extends ConsumerState<_HlOrderRow> {
 
 /// An order Hyperliquid ended or fired on its own (orderUpdates), with
 /// the reason in plain words: no margin left, open-interest cap, its TP/SL
-/// partner filled, the trigger price reached, and so on.
-class _HlEndedOrderRow extends ConsumerWidget {
+/// partner filled, the trigger price reached, and so on. Public: the
+/// Portfolio's merged Orders list draws the same row.
+class HlEndedOrderRow extends ConsumerWidget {
   final HlOrderUpdate update;
-  const _HlEndedOrderRow({required this.update});
+  const HlEndedOrderRow({super.key, required this.update});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

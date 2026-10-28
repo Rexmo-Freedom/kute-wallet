@@ -5,6 +5,7 @@ import 'package:kute/l10n/l10n.dart' show languageNativeNames;
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
 import 'package:kute/models/settings_model.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
 import 'package:kute/services/secure_storage.dart' as ss;
 import 'package:kute/services/tracking_service.dart';
 
@@ -114,6 +115,36 @@ final initialSettingsProvider = FutureProvider<Settings>((ref) async {
         .toList();
   }
 
+  // Backfill (idempotent, every start until nothing is left): a passkey
+  // record with no stored label derives its seed from the device-wide
+  // cached label, which the next create or restore overwrites. Pin the
+  // label on the record now, before any screen can write the cache
+  // (PasskeyService.cacheLabel also refuses to overwrite it while such
+  // a record exists). See backfillLegacyPasskeyLabels for the rule.
+  final cachedPasskeyLabel = box.get('passkey_cached_label') as String?;
+  final backfilled =
+      backfillLegacyPasskeyLabels(wallets, cachedLabel: cachedPasskeyLabel);
+  if (!identical(backfilled, wallets)) {
+    var count = 0;
+    String? assigned;
+    for (var i = 0; i < wallets.length; i++) {
+      if (wallets[i].isPasskey && wallets[i].passkeyLabel == null) {
+        count++;
+        assigned = backfilled[i].passkeyLabel;
+      }
+    }
+    wallets = backfilled;
+    await box.put('wallets', wallets.map((w) => w.toMap()).toList());
+    // Categorical only: how many records, and whether the cached label
+    // or the historical default was used. Never the label.
+    TrackingService.track('legacy_passkey_label_backfilled', params: {
+      'count': count,
+      'source': assigned == kLegacyPasskeyDefaultLabel
+          ? 'default'
+          : 'cached_label',
+    });
+  }
+
   // One-shot migration (2026-08): LEGACY (pre-2.x, passkeyProvider
   // null) passkey wallets depend on a single OS credential on the
   // shared Breez RP, and a second credential minted later can hide
@@ -208,7 +239,7 @@ final initialSettingsProvider = FutureProvider<Settings>((ref) async {
 final settingsProvider = StateNotifierProvider<SettingsModel, Settings>((ref) {
   final initialSettings = ref.watch(initialSettingsProvider);
 
-  return SettingsModel(
+  final model = SettingsModel(
     initialSettings.when(
       data: (settings) => settings,
       loading: () {
@@ -251,6 +282,17 @@ final settingsProvider = StateNotifierProvider<SettingsModel, Settings>((ref) {
       },
     ),
   );
+  // A passkey wallet is backed up once its label is on the relay: the
+  // publish loop reports here when a label landed and its pending flag
+  // cleared, and the model flips that wallet's `backedUp`.
+  PasskeyService.labelPublishedHandler = model.markPasskeyLabelPublished;
+  ref.onDispose(() {
+    if (PasskeyService.labelPublishedHandler ==
+        model.markPasskeyLabelPublished) {
+      PasskeyService.labelPublishedHandler = null;
+    }
+  });
+  return model;
 });
 
 final onlineProvider = StateProvider<bool>((ref) => true);

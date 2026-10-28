@@ -16,14 +16,14 @@
 // reads or asks the venue.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_trade_alerts_provider.dart'
     show kHlLiquidationRiskDistance, kHlLiquidationRiskUrgent;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
+    show hlPositionMargin;
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/position_rows_card.dart';
@@ -34,6 +34,19 @@ import 'package:kute/theme/app_theme.dart';
 double? hlLiquidationPrice(HlPerpPosition p) {
   final liq = p.liquidationPx;
   return liq != null && liq.isFinite && liq > 0 ? liq : null;
+}
+
+/// What [p] loses if the price reaches its liquidation price and the
+/// position closes there, for the position screen's risk line: an
+/// isolated position's whole margin (what is at stake in it), a cross
+/// position's loss at that price against its entry ((entry − liquidation)
+/// × size, the size signed). Null when the venue reports no liquidation
+/// price or the figure is not a loss: the line is then not written.
+double? hlLossAtLiquidation(HlPerpPosition p) {
+  final liq = hlLiquidationPrice(p);
+  if (liq == null || p.szi == 0 || !(p.entryPx > 0)) return null;
+  final loss = p.isCross ? (p.entryPx - liq) * p.szi : hlPositionMargin(p);
+  return loss.isFinite && loss > 0 ? loss : null;
 }
 
 /// The mark the distance is measured from: the live mid when there is
@@ -125,43 +138,46 @@ class HlLiquidationText extends StatelessWidget {
   }
 }
 
-/// The position screen's Liquidation row: "Liquidation" on the left,
-/// "$78,400 · 12% away" on the right ("No liquidation price" in the
-/// caption style when the venue reports none), and, when [onAddMargin]
-/// is given (an isolated position the app can move margin on), the small
-/// "Add margin" pill right beside it.
-PositionRow hlLiquidationRow(
-  BuildContext context, {
-  required double? liquidation,
-  required double mark,
-  int? decimalCap,
-  VoidCallback? onAddMargin,
-}) {
-  final c = context.colors;
-  final l10n = context.l10n;
-  return PositionRow(
-    l10n.hlLiquidation,
-    '',
-    child: HlLiquidationText(
-      liquidation: liquidation,
-      mark: mark,
-      decimalCap: decimalCap,
-      textAlign: TextAlign.right,
-      style: positionRowValueStyle(c),
-      noLiquidation: true,
-      quietStyle: portfolioCardCaptionStyle(c),
-    ),
-    action: onAddMargin == null
-        ? null
-        : KutePill(
-            key: const ValueKey('hl-add-margin'),
-            label: l10n.hlMarginAdd,
-            icon: Icons.add_rounded,
-            selected: true,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onAddMargin();
-            },
-          ),
-  );
+/// The position screen's Liquidation tile: "Liquidation", the price large
+/// and "12% away" under it, the distance alone coloured
+/// ([hlLiqDistanceColor]); "No liquidation price" quietly when the venue
+/// reports none.
+class HlLiquidationTile extends StatelessWidget {
+  const HlLiquidationTile({
+    super.key,
+    required this.liquidation,
+    required this.mark,
+    this.decimalCap,
+  });
+
+  final double? liquidation;
+  final double mark;
+  final int? decimalCap;
+
+  static const tileKey = ValueKey('hl-position-liquidation');
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final liq = liquidation;
+    final distance = hlLiquidationDistance(mark: mark, liq: liq);
+    return PositionStatTile(
+      key: tileKey,
+      label: l10n.hlLiquidation,
+      value: liq == null || liq <= 0
+          ? Text(l10n.hlNoLiquidationPrice,
+              maxLines: 1, style: portfolioCardCaptionStyle(c))
+          : Text(formatHlPrice(liq, decimalCap: decimalCap),
+              maxLines: 1, style: positionTileValueStyle(c)),
+      caption: distance == null
+          ? null
+          : Text(
+              l10n.hlLiqAway(formatHlLiqDistance(distance)),
+              maxLines: 1,
+              style: positionTileCaptionStyle(c,
+                  color: hlLiqDistanceColor(distance, c)),
+            ),
+    );
+  }
 }

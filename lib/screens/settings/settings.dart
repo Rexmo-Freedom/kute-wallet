@@ -1408,6 +1408,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     if (!_flowEnded) {
       TrackingService.track('pin_change_abandoned', params: {
         'step': _stepName,
+        'time_in_flow_ms': _flowTimer.elapsed.inMilliseconds,
         'time_in_flow_bucket': _flowTimeBucket(_flowTimer.elapsed),
         if (_lastErrorCategory != null)
           'last_error_category': _lastErrorCategory!,
@@ -1729,9 +1730,8 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
             dependency: dependency);
 
         if (mounted) {
-          // The same confirmation every money moment ends on: one check,
-          // one line, Done. The keypad sheet closes first so Done only
-          // pops the overlay and lands back on Settings.
+          // The shared result sheet. The keypad sheet closes first, so
+          // the sheet slides up over Settings and Done only closes it.
           final message = context.l10n.confirmationPinUpdated;
           final rootNav = Navigator.of(context, rootNavigator: true);
           context.pop();

@@ -4,12 +4,15 @@ import 'package:kute/l10n/l10n.dart';
 // The Investing browse lists' market card (Home and the Ledger tab).
 //
 // Layout: ONE row, about 72 px tall, on the app's card surface
-// (AppDecorations.card):
+// (AppDecorations.card); with [HlMarketCard.inGroup] a row of a grouped
+// list card instead (market_groups.dart), the Investments lists' form:
 //   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
 //   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
-//     known) over a caption "TICKER · 40x" (a perp's max leverage) or
-//     "TICKER · Spot"; the ticker is left out when the name already is
-//     the ticker ("40x", "Spot");
+//     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
+//     Spot" for a spot token. The ticker is left out when the name
+//     already is the ticker: a spot token then reads "Spot", and a perp
+//     has no caption at all (its name sits centred in the row). Never a
+//     max leverage: leverage is blocked in the app, so no row hints at it;
 //   * a small LINE sparkline (HlLineSparkline) of the daily closes, in the
 //     up / down colour of the 24h change (neutral when flat or unknown),
 //     from the device cache (one request per coin per UTC day; see
@@ -49,6 +52,13 @@ import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
+/// The row's logo.
+const double kHlMarketRowIcon = 36;
+
+/// Where a grouped row's text starts, for the group's hairline: the row's
+/// 16 inset, the logo and the 12 gap after it.
+double hlGroupRowIndent() => 16.w + kHlMarketRowIcon.w + 12.w;
+
 /// Browse card for one Hyperliquid market (perp or spot). Consumer-stateful
 /// so it can watch this coin's live mid + tick direction and register the
 /// coin with the live-prices watch-set on mount.
@@ -59,7 +69,13 @@ class HlMarketCard extends ConsumerStatefulWidget {
   /// opens the spending account's market detail screen.
   final VoidCallback? onTap;
 
-  const HlMarketCard({super.key, required this.market, this.onTap});
+  /// A row of a grouped list card (Home Activity's group, see
+  /// market_groups.dart): no card of its own, the row padding of the
+  /// group's rows. The list draws the card and the hairlines.
+  final bool inGroup;
+
+  const HlMarketCard(
+      {super.key, required this.market, this.onTap, this.inGroup = false});
 
   @override
   ConsumerState<HlMarketCard> createState() => _HlMarketCardState();
@@ -117,15 +133,16 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // token reads as the asset it holds (UBTC: Bitcoin), the way
     // Hyperliquid's own app names it. The ticker when no name is known.
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    // What the market is: how far a perp can be geared, or that a spot
-    // token is held outright. A spot market and a perp for the same
-    // underlying can share a list, and this line tells them apart. The
-    // ticker leads it, unless the title already is the ticker (a market
-    // with no name of its own): it is not said twice.
-    final kind = m.isSpot
-        ? context.l10n.investingSpot
-        : '${m.offeredMaxLeverage}x';
-    final caption = name == m.coin ? kind : '${m.coin} · $kind';
+    // The ticker, and for a spot token that it is held outright: a spot
+    // market and a perp for the same underlying can share a list, and
+    // this line tells them apart. Never the perp's max leverage
+    // (leverage is blocked in the app: no row hints at it). The ticker is
+    // not said twice when the title already is the ticker (a market with
+    // no name of its own), so such a perp has no caption: empty.
+    final caption = [
+      if (name != m.coin) m.coin,
+      if (m.isSpot) context.l10n.investingSpot,
+    ].join(' · ');
     // A thinly traded market says so, and draws no sparkline: its line is
     // a few carried-forward steps, and the room goes to the caption.
     final thin = m.isLowLiquidity;
@@ -158,16 +175,20 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
       letterSpacing: -0.1,
     );
 
+    // In a group the list draws the card; the row keeps its ink.
+    final grouped = widget.inGroup;
+    final radius = grouped ? null : BorderRadius.circular(AppRadius.lg);
     return Container(
-      decoration: AppDecorations.card(context),
+      decoration: grouped ? null : AppDecorations.card(context),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: radius,
         child: InkWell(
           onTap: _openDetail,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          borderRadius: radius,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            padding: EdgeInsets.symmetric(
+                horizontal: 16.w, vertical: grouped ? 14.h : 16.h),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -179,7 +200,7 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                     wireCoin: m.wireCoin,
                     category: m.category,
                     iconUrl: m.iconUrl,
-                    size: 36,
+                    size: kHlMarketRowIcon,
                   ),
                 ),
                 SizedBox(width: 12.w),
@@ -194,18 +215,20 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                         overflow: TextOverflow.ellipsis,
                         style: titleStyle,
                       ),
-                      SizedBox(height: 2.h),
-                      if (!thin)
+                      // No caption: the name alone, centred in the row.
+                      if (thin || caption.isNotEmpty)
+                        SizedBox(height: 2.h),
+                      if (thin)
+                        _ThinCaption(
+                          caption: caption,
+                          note: context.l10n.investingLowLiquidity,
+                          style: captionStyle,
+                        )
+                      else if (caption.isNotEmpty)
                         Text(
                           caption,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: captionStyle,
-                        )
-                      else
-                        _ThinCaption(
-                          caption: caption,
-                          note: context.l10n.investingLowLiquidity,
                           style: captionStyle,
                         ),
                     ],
@@ -278,6 +301,11 @@ class _ThinCaption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A perp titled by its ticker has no caption: the note alone.
+    if (caption.isEmpty) {
+      return Text(note,
+          maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    }
     final whole = '$caption · $note';
     return LayoutBuilder(builder: (context, box) {
       final painter = TextPainter(

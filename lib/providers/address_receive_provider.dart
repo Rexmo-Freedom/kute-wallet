@@ -33,5 +33,20 @@ final defaultDropdownValueProvider = StateProvider.autoDispose<String>((ref) {
   }
 });
 
-final inputCurrencyProvider = StateProvider.autoDispose<String>((ref) => ref.watch(defaultDropdownValueProvider));
+/// The Bitcoin unit an amount entry opens in: BTC when Settings →
+/// Bitcoin unit is BTC, sats otherwise.
+String bitcoinEntryUnit(String btcFormat) =>
+    btcFormat == 'BTC' ? 'BTC' : 'Sats';
+
+/// Entry unit on the Send amount step. Every open starts in the Bitcoin
+/// unit from Settings — never fiat, never the unit remembered on Receive,
+/// never the unit flipped to on a previous send (autoDispose forgets it
+/// when the send closes). The user can still pick fiat within the flow.
+final inputCurrencyProvider = StateProvider.autoDispose<String>((ref) =>
+    bitcoinEntryUnit(ref.watch(settingsProvider.select((s) => s.btcFormat))));
+
+/// Entry unit on the Receive amount field: the last unit picked there
+/// (see [kReceiveUnitPrefKey]), else the Bitcoin unit from Settings.
+final receiveInputCurrencyProvider = StateProvider.autoDispose<String>(
+    (ref) => ref.watch(defaultDropdownValueProvider));
 final inputAmountProvider = StateProvider<String>((ref) => '0.0');

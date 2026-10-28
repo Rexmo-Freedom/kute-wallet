@@ -7,7 +7,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show polymarketActivePositionsProvider, PolyPriceHistoryCache;
+    show
+        polymarketActivePositionsProvider,
+        PolymarketPosition,
+        PolyPriceHistoryCache;
 import 'package:kute/providers/polymarket_cost_basis_provider.dart'
     show polymarketPositionCostBasis;
 import 'package:kute/providers/polymarket_sports_provider.dart'
@@ -24,6 +27,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_livestream_host.dart';
 import 'package:kute/providers/polymarket_game_lines_provider.dart';
 import 'package:kute/services/polymarket/crypto_round.dart';
+import 'package:kute/services/polymarket/event_trading_over.dart';
 import 'package:kute/screens/polymarket/components/fast_bet_scope.dart';
 import 'package:kute/services/polymarket/fast_bet_window.dart';
 import 'package:kute/services/polymarket/live_game/game_market_groups.dart';
@@ -50,6 +54,7 @@ import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -173,27 +178,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     String? ledgerWalletId,
     String source = 'unknown',
   }) {
-    // Single market-view event (consolidated). Enriched with category +
-    // liquidity bucket + outcome-count bucket so the predictions funnel
-    // and cohort dashboards can split market traffic by vertical and
-    // depth — previously this was a second raw `prediction_market_viewed`
-    // event firing alongside the bare one, splitting the metric.
-    VenueAnalytics.rememberPolymarketEvent(event);
-    TrackingService.polymarketViewed(
-      marketId: event.id,
-      category: event.category,
-      liquidityUsd: event.liquidity,
-      outcomeCount: event.outcomes.length,
-      source: source,
-      eventSlug: event.slug,
-      // One outcome opened as its own screen is titled by the outcome:
-      // the parent event's title is the one on record for it.
-      eventTitle: event.isSyntheticBinary ? null : event.title,
-      extra: {
-        'entry_source': source,
-        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
-      },
-    );
+    trackViewed(event, source: source, ledgerWalletId: ledgerWalletId);
     // Drop the active focus before we push the detail route. The
     // predictions search field stays focused when the route pushes,
     // so when the user closes the detail sheet the keyboard
@@ -256,6 +241,50 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     );
   }
 
+  /// The one market-view event, polymarket_viewed: fired by [show], and
+  /// by a surface that brings an [event]'s sheet already open back into
+  /// view (a position's "View market" popping back to it).
+  static void trackViewed(PolymarketEvent event,
+      {required String source, String? ledgerWalletId}) {
+    // Single market-view event (consolidated). Enriched with category +
+    // liquidity bucket + outcome-count bucket so the predictions funnel
+    // and cohort dashboards can split market traffic by vertical and
+    // depth — previously this was a second raw `prediction_market_viewed`
+    // event firing alongside the bare one, splitting the metric.
+    VenueAnalytics.rememberPolymarketEvent(event);
+    TrackingService.polymarketViewed(
+      marketId: event.id,
+      category: event.category,
+      liquidityUsd: event.liquidity,
+      outcomeCount: event.outcomes.length,
+      source: source,
+      eventSlug: event.slug,
+      // One outcome opened as its own screen is titled by the outcome:
+      // the parent event's title is the one on record for it.
+      eventTitle: event.isSyntheticBinary ? null : event.title,
+      extra: {
+        'entry_source': source,
+        'wallet_kind': ledgerWalletId == null ? 'hot' : 'ledger',
+      },
+    );
+  }
+
+  /// The event sheets on screen, the newest last: each one's event slug
+  /// and route. A single outcome drilled into as its own Yes / No screen
+  /// is left out: it is not the event's sheet.
+  static final List<({String slug, Route<dynamic> route})> _onScreen = [];
+
+  /// The newest sheet of the event [slug] still on screen, or null: a
+  /// position of that event opening "View market" pops back to it rather
+  /// than stacking a second copy.
+  static Route<dynamic>? openRouteFor(String slug) {
+    if (slug.isEmpty) return null;
+    for (final open in _onScreen.reversed) {
+      if (open.slug == slug && open.route.isActive) return open.route;
+    }
+    return null;
+  }
+
   /// Starts the history read of the chart [event]'s sheet opens on, for a
   /// card a finger has just come down on (before the tap is known): the
   /// read the sheet makes anyway, started up to a press-timeout earlier.
@@ -299,7 +328,6 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
           if (o.tokenId != null && o.tokenId!.isNotEmpty) o.tokenId
       ];
     }
-    final end = event.endDate;
     if (tokens.isEmpty) return;
     // A young market is read straight at a grain that can draw it.
     final opened = polyChartOpenedAt(event);
@@ -312,10 +340,7 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
       inPlay: event.isInPlay,
       openedAt: opened,
       shortMarket: RegExp(r'-(5|15)m-').hasMatch(event.slug),
-      resolved: event.closed ||
-          !event.active ||
-          event.ended ||
-          (end != null && end.isBefore(DateTime.now())),
+      resolved: polyTradingOver(event, inPlay: event.isInPlay),
     );
   }
 
@@ -340,10 +365,66 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   List<PolymarketTeam> _fetchedTeams = const [];
 
   /// Fits one screen above the sticky outcome bar and Buy buttons on a
-  /// standard iPhone.
+  /// standard iPhone. With [_chartFill] added when the screen has room.
   static const double _chartHeight = 380;
 
-  PolymarketEvent get event => widget.event;
+  /// Height added to the chart so a short list (a Yes / No market, two or
+  /// three outcomes) leaves no empty room under it ([polyChartFillExtra]).
+  /// Worked out once, the first time the sheet is laid out with its chart
+  /// at its own height, from the room left in the scroll area; never
+  /// changed again for that height, so nothing moves as prices and the
+  /// chart's history load.
+  double _chartFill = 0;
+
+  /// The scroll area's height [_chartFill] was worked out for.
+  double? _chartFillViewport;
+
+  /// The chart's own height (without [_chartFill]) as last built; null
+  /// when the sheet has no chart.
+  double? _chartBase;
+
+  /// Works out [_chartFill] from [constraints], the constraints of a sliver
+  /// laid out after everything else in the scroll area.
+  void _fitChartToScreen(SliverConstraints constraints) {
+    final base = _chartBase;
+    if (base == null || watchingStream) return;
+    final viewport = constraints.viewportMainAxisExtent;
+    if (_chartFillViewport == viewport) return;
+    _chartFillViewport = viewport;
+    final content = constraints.precedingScrollExtent - _chartFill;
+    final fill = polyChartFillExtra(
+        leftover: viewport - content, base: base, viewport: viewport);
+    if ((fill - _chartFill).abs() < 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _chartFill = fill);
+    });
+  }
+
+  /// The event as this sheet lists it: [MarketDetailSheet.event], with any
+  /// placeholder outcome the user holds listed again
+  /// ([PolymarketEvent.withHeldOutcomes]); an outcome held is never hidden.
+  PolymarketEvent get event {
+    final base = widget.event;
+    if (base.hiddenOutcomes.isEmpty) return base;
+    // The positions are kept in a field by a listener (initState), never
+    // read here: this getter also runs inside live-price selectors, where
+    // Riverpod forbids touching another provider.
+    final held = _heldPositions;
+    if (!identical(base, _heldMemoBase) || !identical(held, _heldMemoHeld)) {
+      _heldMemoBase = base;
+      _heldMemoHeld = held;
+      _heldMemo = base.withHeldOutcomes({
+        for (final p in held)
+          if (p.tokenId != null && p.tokenId!.isNotEmpty) p.tokenId!,
+      });
+    }
+    return _heldMemo!;
+  }
+
+  PolymarketEvent? _heldMemoBase;
+  List<PolymarketPosition>? _heldMemoHeld;
+  PolymarketEvent? _heldMemo;
+  List<PolymarketPosition> _heldPositions = const [];
 
   List<String> _subscribedTokenIds = [];
 
@@ -355,6 +436,18 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   @override
   void initState() {
     super.initState();
+    // The held positions for [event], followed here so the getter never
+    // reads a provider (it runs inside selectors too).
+    var listening = false;
+    ref.listenManual<List<PolymarketPosition>>(
+        polymarketActivePositionsProvider, (_, next) {
+      if (!listening || !mounted) {
+        _heldPositions = next;
+        return;
+      }
+      setState(() => _heldPositions = next);
+    }, fireImmediately: true);
+    listening = true;
     // acquire() BEFORE addTokens so the tokens subscribe on the revived
     // socket; paired release() in dispose.
     _livePrices = ref.read(livePriceProvider.notifier);
@@ -413,8 +506,27 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
+  /// This sheet's place in [MarketDetailSheet._onScreen], once its route
+  /// is known.
+  ({String slug, Route<dynamic> route})? _onScreenEntry;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (_onScreenEntry == null &&
+        route != null &&
+        !widget.event.isSyntheticBinary &&
+        widget.event.slug.isNotEmpty) {
+      _onScreenEntry = (slug: widget.event.slug, route: route);
+      MarketDetailSheet._onScreen.add(_onScreenEntry!);
+    }
+  }
+
   @override
   void dispose() {
+    final entry = _onScreenEntry;
+    if (entry != null) MarketDetailSheet._onScreen.remove(entry);
     // Release the live-feed hold exactly once (nulled to guard a double
     // dispose from decrementing another surface's hold).
     _livePrices?.release();
@@ -490,6 +602,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // toggle slide) on it. Essential motion (chart price updates, loading
     // spinners, live LIVE chip) stays untouched.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // A holding in a placeholder outcome lists it again ([event]).
+    if (widget.event.hiddenOutcomes.isNotEmpty) {
+      ref.watch(polymarketActivePositionsProvider);
+    }
     // Backfill team crests for events that arrived without them (the search
     // path drops `teams`) so the vs-header logos work everywhere, not just on
     // browse-opened events. Gate on `gameId != null` (an actual match) so
@@ -552,6 +668,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 // chart and nothing else.
                                 Consumer(builder: (context, chartRef, _) {
                                   final chartWidget = _buildChartBody(chartRef);
+                                  _chartBase = chartWidget == null
+                                      ? null
+                                      : chartWidget.height - _chartFill;
                                   if (chartWidget == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -569,6 +688,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                     ),
                                   );
                                 }),
+                              // Sal's one quiet door on this screen, under
+                              // the chart and its window: "Why is it
+                              // moving?", only for a game in play or a big
+                              // move in the odds (calm, nothing). Rules and
+                              // resolution keep their own row below. Own
+                              // Consumer: the live score feed is read for
+                              // this alone.
+                              Consumer(
+                                builder: (context, salRef, _) =>
+                                    SalWhyMovingRow(
+                                  advisorContext: _salContext,
+                                  question: salWhyMovingPm(context.l10n,
+                                      oddsChange1d: event.oneDayPriceChange,
+                                      liveGame: _isGameLive(
+                                          _liveMatchUpdate(salRef))),
+                                  chipSignals: salSignalsForPolyEvent(event),
+                                  padding: EdgeInsets.only(bottom: 8.h),
+                                ),
+                              ),
                               // Count markets: the running tally, refreshed
                               // while open.
                               if (event.tweetCount != null)
@@ -605,6 +743,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                         ),
                       ]),
                     ),
+                    // Laid out last, it reads how much room the content
+                    // leaves, for the chart to take ([_fitChartToScreen]).
+                    SliverLayoutBuilder(builder: (context, constraints) {
+                      _fitChartToScreen(constraints);
+                      return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    }),
                   ],
                 ),
               ),
@@ -628,7 +772,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               : null);
 
   /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the question capsule under the hero.
+  /// watchlist star. Sal's door is the "Why is it moving?" row under the
+  /// chart, when there is a move worth explaining.
   Widget _buildHeader(AppColorsExtension c) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
@@ -686,22 +831,17 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         .toList();
   }
 
-  /// STATUS-based "resolved" determination — mirrors the card's `_isResolved`
-  /// (closed / not-active / ended / past endDate). A live market (closed:false,
-  /// future endDate) must NEVER read as resolved, even when one outcome sits at
-  /// ~99% and the rest near ~0 — a lopsided price is a heavy favourite, not a
-  /// settled market. This killed the img64 bug where "Fed Decision in June?"
-  /// ("Ends in 1d", not closed) wrongly showed a green "Resolved · No change".
-  /// No price threshold is consulted here — the old `p >= 0.97 || p <= 0.03`
+  /// STATUS-based "resolved" determination — the lists' rule
+  /// ([polyTradingOver]: closed / not-active / ended / every market closed
+  /// or not accepting orders). A past end date never counts: a market
+  /// stays open past it until it resolves. A live market must NEVER read
+  /// as resolved, even when one outcome sits at ~99% and the rest near ~0
+  /// — a lopsided price is a heavy favourite, not a settled market. This
+  /// killed the img64 bug where "Fed Decision in June?" ("Ends in 1d", not
+  /// closed) wrongly showed a green "Resolved · No change". No price
+  /// threshold is consulted here — the old `p >= 0.97 || p <= 0.03`
   /// heuristic is gone.
-  bool get _isResolvedByStatus {
-    if (event.closed) return true;
-    if (!event.active) return true;
-    if (event.ended) return true;
-    final end = event.endDate;
-    if (end != null && end.isBefore(DateTime.now())) return true;
-    return false;
-  }
+  bool get _isResolvedByStatus => polyTradingOver(event, inPlay: false);
 
   /// [_isResolvedByStatus] for the chart and the Stats, which a game still
   /// being played must not read as over ([polyEventIsOver], [polyGameIsLive]).
@@ -1450,12 +1590,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               builder: (context, heroRef, _) => _buildHeroHeadline(heroRef, c),
             ),
           ],
-          // Sal's question for this market, right under the figure.
-          SalQuestionCapsule(
-            advisorContext: _salContext,
-            chipSignals: salSignalsForPolyEvent(event),
-            padding: EdgeInsets.only(top: 16.h),
-          ),
         ],
       ),
     );
@@ -2095,7 +2229,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         if (tokenId == null || tokenId.isEmpty) return null;
         return MarketChart(
           tokenId: tokenId,
-          height: _chartHeight,
+          height: _chartHeight + _chartFill,
           accentColor: _kPolyGreen,
           bought: _chartBought(ref, [tokenId]),
           shortMarket: _isShortRound,
@@ -2108,7 +2242,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       }
       return MarketChart(
         lines: lines,
-        height: _chartHeight,
+        height: _chartHeight + _chartFill,
         // Match the charted line: green for Yes, red for the No-only
         // fallback.
         accentColor: lines.first.color,
@@ -2138,7 +2272,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               livePrice: _livePriceFor(ref, line.tokenId, line.price),
             ),
         ],
-        height: _chartHeight,
+        height: _chartHeight + _chartFill,
         accentColor: winner.first.color,
         bought: _chartBought(ref, [for (final l in winner) l.tokenId]),
         shortMarket: _isShortRound,
@@ -2176,7 +2310,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       if (wdlLines.length >= 2) {
         return MarketChart(
           lines: wdlLines,
-          height: _chartHeight,
+          height: _chartHeight + _chartFill,
           accentColor: colors.teamA,
           bought: _chartBought(ref, [for (final l in wdlLines) l.tokenId]),
           shortMarket: _isShortRound,
@@ -2206,7 +2340,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
 
     return MarketChart(
       lines: lines,
-      height: polyChartHeightFor(lines.length),
+      height: polyChartHeightFor(lines.length) + _chartFill,
       accentColor: lines.first.color,
       bought: _chartBought(ref, [for (final l in lines) l.tokenId]),
       shortMarket: _isShortRound,

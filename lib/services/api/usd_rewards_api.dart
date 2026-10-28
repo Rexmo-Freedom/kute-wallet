@@ -28,6 +28,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/models/usd_rewards_model.dart';
 
 const _rewardsBaseUrl = 'https://rewards.flashnet.xyz/v1';
@@ -35,7 +36,8 @@ const _rewardsBaseUrl = 'https://rewards.flashnet.xyz/v1';
 class UsdRewardsApi {
   final http.Client _http;
 
-  UsdRewardsApi({http.Client? client}) : _http = client ?? http.Client();
+  UsdRewardsApi({http.Client? client})
+      : _http = client ?? SharedHttpClient.forUri(Uri.parse(_rewardsBaseUrl));
 
   /// `GET /rewards/:pubkey` — balance, today's volume, bracket, rate and the
   /// server's own estimate of today's sats. Prefer `estimatedSatsToday` over

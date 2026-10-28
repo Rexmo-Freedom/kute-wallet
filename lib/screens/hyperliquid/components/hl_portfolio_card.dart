@@ -62,6 +62,10 @@ class HlPortfolioCard extends StatelessWidget {
   /// The gap under the card; a list that spaces its own rows passes zero.
   final EdgeInsetsGeometry? margin;
 
+  /// A mark in the logo's place, for a row that is not a market (the
+  /// Portfolio's bitcoin and dollar balances). Null draws [coin]'s logo.
+  final Widget? leading;
+
   const HlPortfolioCard({
     super.key,
     required this.coin,
@@ -78,6 +82,7 @@ class HlPortfolioCard extends StatelessWidget {
     this.onTap,
     this.action,
     this.margin,
+    this.leading,
   });
 
   @override
@@ -108,15 +113,16 @@ class HlPortfolioCard extends StatelessWidget {
               children: [
                 // The REAL coin/token logo (category glyph or letter badge
                 // on a miss), cut round as on the list card.
-                ClipOval(
-                  child: HlCoinIcon(
-                    coin: coin,
-                    wireCoin: wireCoin,
-                    iconUrl: iconUrl,
-                    category: category,
-                    size: 36,
-                  ),
-                ),
+                leading ??
+                    ClipOval(
+                      child: HlCoinIcon(
+                        coin: coin,
+                        wireCoin: wireCoin,
+                        iconUrl: iconUrl,
+                        category: category,
+                        size: 36,
+                      ),
+                    ),
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
@@ -129,33 +135,33 @@ class HlPortfolioCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.settingsTitle(context),
                       ),
-                      SizedBox(height: 2.h),
-                      Text.rich(
-                        TextSpan(children: [
-                          TextSpan(text: caption),
-                          if (distance != null) ...[
-                            TextSpan(
-                                text: ' · ${context.l10n.hlChartLiq} '),
-                            TextSpan(
-                              text: context.l10n
-                                  .hlLiqAway(formatHlLiqDistance(distance)),
-                              style: TextStyle(
-                                  color: hlLiqDistanceColor(distance, c)),
-                            ),
-                          ],
-                        ]),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: captionStyle,
-                      ),
+                      if (caption.isNotEmpty || distance != null) ...[
+                        SizedBox(height: 2.h),
+                        Text.rich(
+                          TextSpan(children: [
+                            TextSpan(text: caption),
+                            if (distance != null) ...[
+                              TextSpan(text: ' · ${context.l10n.hlChartLiq} '),
+                              TextSpan(
+                                text: context.l10n
+                                    .hlLiqAway(formatHlLiqDistance(distance)),
+                                style: TextStyle(
+                                    color: hlLiqDistanceColor(distance, c)),
+                              ),
+                            ],
+                          ]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: captionStyle,
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 if (trailing != null) ...[
                   SizedBox(width: 12.w),
                   ConstrainedBox(
-                    constraints:
-                        BoxConstraints(maxWidth: box.maxWidth * 0.45),
+                    constraints: BoxConstraints(maxWidth: box.maxWidth * 0.45),
                     child: trailing,
                   ),
                 ],

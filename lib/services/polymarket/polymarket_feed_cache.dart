@@ -34,7 +34,9 @@ class PolymarketFeedCache {
   static const maxEventEntries = 48;
   static const maxEventBytes = 4 * 1024 * 1024;
 
-  static const _version = 1;
+  /// 2: snapshots saved before placeholder seats ("Person O") left the
+  /// outcomes are not painted.
+  static const _version = 2;
   static const _indexKey = '_events_index';
 
   /// What was read or written this session, so a screen can ask on every

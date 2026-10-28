@@ -4,7 +4,8 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' show Wallet;
+import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,16 +14,20 @@ import 'package:go_router/go_router.dart';
 
 import 'package:kute/services/secure/recovery_check.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/services/passkey_prf_service.dart';
 import 'package:kute/providers/bitcoin_config_provider.dart';
+import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart' show trackOnboardingStep;
+import 'package:kute/screens/shared/custom_alert_dialog.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
+import 'package:kute/screens/shared/receive_surface.dart' show ReceiveCaption;
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/helpers/passkey_account_name.dart';
 import 'package:kute/services/passkey_service.dart';
@@ -49,7 +54,19 @@ import 'package:kute/theme/app_theme.dart';
 class PasskeyChoice extends ConsumerStatefulWidget {
   final String nextRoute;
 
-  const PasskeyChoice({super.key, required this.nextRoute});
+  /// Test seams: the OS ceremonies and side effects behind passkey
+  /// creation, and the biometrics probe. Production leaves both null.
+  @visibleForTesting
+  final PasskeyCeremonies? ceremonies;
+  @visibleForTesting
+  final LocalAuthentication? localAuth;
+
+  const PasskeyChoice({
+    super.key,
+    required this.nextRoute,
+    this.ceremonies,
+    this.localAuth,
+  });
 
   @override
   ConsumerState<PasskeyChoice> createState() => _PasskeyChoiceState();
@@ -112,7 +129,7 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
   String get _walletLabel => _labelController.text.trim();
 
   Future<void> _probeBiometrics() async {
-    final auth = LocalAuthentication();
+    final auth = widget.localAuth ?? LocalAuthentication();
     bool available = false;
     var hasFace = false;
     var hasFingerprint = false;
@@ -151,46 +168,9 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
 
     try {
       if (_useBiometrics) {
-        try {
-          await _createPasskeyWallet();
-          TrackingService.track('passkey_choice_passkey_selected');
-        } catch (e) {
-          // User backed out of the OS passkey sheet → create NOTHING.
-          // Previously every error (cancel included) silently fell back
-          // to a BIP39 wallet, so cancelling still produced a wallet
-          // (and the spinner hung). Stop here: reset and let the user
-          // retry or flip the toggle off themselves.
-          if (_isUserCancelled(e)) {
-            TrackingService.track('passkey_choice_cancelled');
-            if (mounted) {
-              setState(() => _isProcessing = false);
-              showMessageSnackBar(
-                context: context,
-                message: context.l10n.passkeyChoiceCancelled,
-                error: false,
-                info: true,
-              );
-            }
-            return;
-          }
-          // Genuine failure / platform unsupported (no PRF, no native
-          // handler, broken RP association). Don't trap the user: fall
-          // back to BIP39 and tell them via a snackbar. The typed mint
-          // gate inside _createPasskeyWallet already ran, so a failure
-          // lands here as a recovery-phrase wallet, never as a second
-          // minted credential on the shared RP.
-          TrackingService.track('passkey_choice_fallback_bip');
-          await _createBip39Wallet();
-          if (mounted) {
-            showMessageSnackBar(
-              context: context,
-              message:
-                  context.l10n.passkeyChoiceFallbackWords(_methodName(context)),
-              error: false,
-              info: true,
-            );
-          }
-        }
+        final created = await _attemptPasskey(skipSignIn: false);
+        // Cancelled: nothing was created and the screen already reset.
+        if (!created) return;
       } else {
         await _createBip39Wallet();
         TrackingService.track('passkey_choice_bip_selected');
@@ -230,33 +210,113 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     context.go(widget.nextRoute);
   }
 
-  /// True when the error is the user dismissing the OS passkey ceremony
-  /// (as opposed to a real failure or an unsupported platform). Typed
-  /// check first (`PasskeyError.prf(userCancelled)` on the 0.23 SDK),
-  /// then the legacy channel's `USER_CANCELLED` / message fallback.
-  bool _isUserCancelled(Object e) {
-    if (e is PlatformException && e.code == 'USER_CANCELLED') return true;
-    return PasskeyService.isUserCancelledError(e);
+  PasskeyCeremonies get _ceremonies =>
+      widget.ceremonies ?? const PasskeyCeremonies();
+
+  /// One passkey creation attempt, cancel handling included. Returns true
+  /// when a wallet was created (passkey or, after a non-cancel failure,
+  /// the recovery-phrase fallback) and false when the user cancelled and
+  /// nothing was created (the screen is already reset for a retry).
+  ///
+  /// A cancel on the SIGN-IN sheet on a device that knows no passkey is
+  /// not the end: the user is offered a fresh passkey (still minted with
+  /// `excludeCredentials`), and accepting re-runs the attempt straight
+  /// into the create sheet. A cancel on the CREATE sheet stops here.
+  Future<bool> _attemptPasskey({required bool skipSignIn}) async {
+    try {
+      final result = await _createPasskeyWallet(skipSignIn: skipSignIn);
+      TrackingService.track('passkey_choice_passkey_selected',
+          params: result.analyticsParams);
+      return true;
+    } on PasskeySheetCancelled catch (e) {
+      // User backed out of an OS passkey sheet → create NOTHING.
+      // Previously every error (cancel included) silently fell back
+      // to a BIP39 wallet, so cancelling still produced a wallet
+      // (and the spinner hung). Stop here: reset and let the user
+      // retry or flip the toggle off themselves.
+      TrackingService.track('passkey_choice_cancelled', params: {
+        'sheet': e.sheet.analyticsValue,
+        'elapsed_ms': e.elapsedMs,
+      });
+      if (e.sheet == PasskeySheet.signIn &&
+          !await _ceremonies.hasKnownCredentialOrDefault()) {
+        if (!mounted) return false;
+        final accepted = await _offerCreateNewPasskey();
+        TrackingService.track('passkey_choice_create_new_offered',
+            params: {'accepted': accepted});
+        if (accepted) return _attemptPasskey(skipSignIn: true);
+      }
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        showMessageSnackBar(
+          context: context,
+          message: context.l10n.passkeyChoiceCancelled,
+          error: false,
+          info: true,
+        );
+      }
+      return false;
+    } on PasskeyStepFailed catch (e) {
+      // Genuine failure / platform unsupported (no PRF, no native
+      // handler, broken RP association). Don't trap the user: fall
+      // back to BIP39 and tell them via a snackbar. The typed mint
+      // gate inside PasskeyWalletCreation already ran, so a failure
+      // lands here as a recovery-phrase wallet, never as a second
+      // minted credential on the shared RP.
+      TrackingService.track('passkey_choice_fallback_bip', params: {
+        'stage': e.stage,
+        'error_category': TrackingService.errorCategory(e.cause),
+      });
+      await _createBip39Wallet();
+      if (mounted) {
+        showMessageSnackBar(
+          context: context,
+          message:
+              context.l10n.passkeyChoiceFallbackWords(_methodName(context)),
+          error: false,
+          info: true,
+        );
+      }
+      return true;
+    }
   }
 
-  Future<void> _createPasskeyWallet() async {
-    // ONE passkey, MANY wallets. Breez derives a DISTINCT deterministic
-    // seed per label off the same passkey (seed = f(PRF, label)), so we
-    // register a credential only ONCE per device and derive every new
-    // wallet under a fresh, unique label on it. That way a single
-    // recover-side discovery sign-in returns ALL of the user's wallets in
-    // one picker to choose from — instead of one indistinguishable passkey
-    // per wallet.
-    //
-    // 1. Every wallet gets a UNIQUE label (`Spending Wallet · <epochMs>`), so
-    //    creating a wallet ALWAYS produces a fresh seed — deleting and
-    //    recreating never reuses an old wallet. (We dropped the deterministic
-    //    'Default' label precisely because it made "create new" reproduce the
-    //    old wallet.) The timestamp also encodes the creation date the recover
-    //    picker renders.
-    //    The user-chosen label rides in front of the timestamp
-    //    (`<label> · <epochMs>`), so custom names stay unique per creation
-    //    and flow into the recover picker via displayNameForLabel.
+  /// "No passkey found" → Create a new passkey / Cancel. Resolves to
+  /// whether the user chose to create one.
+  Future<bool> _offerCreateNewPasskey() async {
+    final l10n = context.l10n;
+    var accepted = false;
+    await showCustomAlertDialog(
+      context: context,
+      title: l10n.passkeyCreateNewTitle,
+      content: l10n.passkeyCreateNewBody(_methodName(context)),
+      buttons: [
+        CustomAlertAction(
+          text: l10n.passkeyCreateNewAction,
+          onPressed: () {
+            accepted = true;
+            Navigator.of(context, rootNavigator: true).pop();
+          },
+        ),
+        CustomAlertAction.secondary(
+          text: l10n.cancel,
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+        ),
+      ],
+    );
+    return accepted;
+  }
+
+  /// Runs the passkey ceremonies and saves the wallet (see
+  /// [PasskeyWalletCreation] for the step order), then schedules the
+  /// post-save work that is not part of creation: the recovery check
+  /// record and the Polymarket provisioning.
+  Future<PasskeyCreationResult> _createPasskeyWallet(
+      {required bool skipSignIn}) async {
+    // Every wallet gets a UNIQUE label (`<name> · <epochMs>`), so creating
+    // a wallet ALWAYS produces a fresh seed — deleting and recreating
+    // never reuses an old wallet. The timestamp also encodes the creation
+    // date the recover picker renders (displayNameForLabel strips it).
     final createdAtMs = DateTime.now().millisecondsSinceEpoch;
     final walletId = '$createdAtMs-${Random().nextInt(1000)}';
     final label = standardEvmPasskeyLabel(PasskeyService.newWalletLabel(
@@ -265,113 +325,60 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
     ));
     final name = PasskeyService.displayNameForLabel(label);
 
-    // 2 & 3. Reuse an existing passkey if there is one — even across app
-    //    reinstalls/wipes, because the passkey lives in iCloud Keychain /
-    //    Google, not in our local state. We try getWallet(label) FIRST: it
-    //    asserts WHATEVER passkey exists (so it only prompts "sign in") and
-    //    derives this label's seed. ONLY if no passkey resolves do we register
-    //    one. This stops "create new wallet" from adding a SECOND passkey
-    //    every time local state is fresh — the cause of the "add a passkey"
-    //    prompt on every create. Keeps it to ONE passkey per Apple/Google
-    //    account without depending on a local flag we can't trust after a wipe.
-    final pkWallet = await () async {
-      try {
-        // Existing passkey → derive this label's seed (breez signIn()).
-        // legacy: false — this is the CREATE flow on the new-SDK client
-        // (v0.23.0; the persisted vintage tag stays 'breez-0.17'); the
-        // config below is stamped 'breez-0.17' to match. getWallet
-        // pins to the stored 0.17 credential when one exists, retries
-        // with the hybrid (cross-device) flow enabled before concluding
-        // "no passkey", and persists whatever resolved so future signIns
-        // pin to that exact credential.
-        return await PasskeyService.getWallet(label: label, legacy: false);
-      } catch (e) {
-        // A cancelled ceremony bubbles up (handled by _continue's catch).
-        if (_isUserCancelled(e)) rethrow;
-        // ONLY the typed "no credential resolved" verdict may mint. The
-        // old string gate ('does not contain cancel') let timeouts, auth
-        // failures, and ceremony collisions fall through to register(),
-        // silently minting a SECOND credential on the shared RP — which
-        // forks the Nostr label identity and hides every wallet created
-        // under the first credential (the recovery regression).
-        if (!PasskeyService.isCredentialNotFoundError(e)) rethrow;
-        // Even then: a device that provably holds the old (0.15.1-era)
-        // credential must never mint. Reaching this point with legacy
-        // signals present means the ceremony route failed abnormally;
-        // rethrow, which lands on _continue's BIP39 fallback — the user
-        // gets a recovery-phrase wallet instead of a second credential
-        // that would fork the account's identity.
-        final legacyPin = await PasskeyPrfService.pinnedCredentialId();
-        final hasLegacy = legacyPin != null ||
-            await PasskeyPrfService.hasRegisteredCredential();
-        if (hasLegacy) {
-          TrackingService.track('passkey_create_mint_blocked');
-          rethrow;
-        }
-        // No passkey anywhere on this account — mint one AND derive the
-        // seed in a single register() ceremony (breez register(), with
-        // excludeCredentials populated from every known id). The user's
-        // label becomes the credential's OS-visible display name so the
-        // Keychain / Password Manager entry matches the in-app wallet.
-        return await PasskeyService.createWallet(
-          label: label,
-          userDisplayName: name,
-        );
-      }
-    }();
-
-    // 4. Cache the label locally for fast SDK reconnects, then publish it to
-    //    Nostr (awaited + retried) so the wallet is discoverable in the
-    //    recover picker on the user's other devices. Every wallet is
-    //    Nostr-discovered now (no deterministic 'Default' shortcut), so this
-    //    landing reliably is what makes recovery work.
-    await PasskeyService.cacheLabel(label);
-    await PasskeyService.storeLabel(label);
-
-    // 5. Persist the WalletConfig with its unique passkey label.
-    //    `backedUp: true` because the passkey IS the backup; there
-    //    is no seed to write down.
-    final config = WalletConfig(
-      id: walletId,
+    final settings = ref.read(settingsProvider.notifier);
+    final creation = PasskeyWalletCreation(
+      ceremonies: _ceremonies,
+      addWallet: settings.addWallet,
+      primeSpark: () => primeSparkConnect(ref),
+    );
+    final result = await creation.create(
+      walletId: walletId,
+      label: label,
       name: name,
-      sparkEnabled: true,
-      evmDerivationVersion: EvmDerivationVersion.standardBip39,
-      backedUp: true,
-      isPasskey: true,
-      passkeyLabel: label,
-      // VINTAGE STAMP: created through the 0.17.1 PasskeyClient, so
-      // every future seed resolution routes through the new SDK path.
-      // (Legacy pre-2.x wallets carry null here and reconstruct via
-      // PasskeyService.getLegacySeed instead.)
-      passkeyProvider: 'breez-0.17',
+      skipSignIn: skipSignIn,
     );
-    await ref.read(settingsProvider.notifier).addWallet(config);
-    TrackingService.walletCreated(type: 'hot', authMode: 'passkey');
-    TrackingService.walletAdded(
-      walletKind: 'hot',
-      importMethod: 'passkey',
-      network: 'spark',
-      source: 'onboarding',
-    );
+    // The wallet is saved: nothing below may fail creation (a "failed"
+    // creation would be retried as a SECOND wallet under a new label).
+    // Each step is reported by kind only.
+    try {
+      TrackingService.walletCreated(type: 'hot', authMode: 'passkey');
+      TrackingService.walletAdded(
+        walletKind: 'hot',
+        importMethod: 'passkey',
+        network: 'spark',
+        source: 'onboarding',
+      );
+    } catch (e) {
+      _trackPostSaveFailed('track', e);
+    }
 
-    // 6. Provision Polymarket in the background. The passkey-derived
-    //    seed plugs into the same Safe derivation as BIP39. The REAL
-    //    mnemonic string is required: `seed.toString()` is a debug
-    //    representation and silently broke provisioning at creation
-    //    (it self-healed later from the Polymarket screen).
-    final polymarketMnemonic =
-        await PasskeyService.mnemonicOfSeed(pkWallet.seed);
-    if (polymarketMnemonic != null) {
-      RecoveryCheck.record(
-          ref.read(settingsProvider.notifier), walletId, polymarketMnemonic);
-      Future.delayed(const Duration(seconds: 5), () {
-        provisionPolymarketAccount(
+    // Provision Polymarket in the background. The passkey-derived
+    // seed plugs into the same Safe derivation as BIP39. The REAL
+    // mnemonic string is required: `seed.toString()` is a debug
+    // representation and silently broke provisioning at creation
+    // (it self-healed later from the Polymarket screen).
+    try {
+      final polymarketMnemonic =
+          await PasskeyService.mnemonicOfSeed(result.wallet.seed);
+      if (polymarketMnemonic != null) {
+        RecoveryCheck.record(settings, walletId, polymarketMnemonic);
+        _ceremonies.scheduleProvisioningOrDefault(
           mnemonic: polymarketMnemonic,
           walletId: walletId,
-          evmDerivationVersion: config.evmDerivationVersion,
+          evmDerivationVersion: result.config.evmDerivationVersion,
         );
-      });
+      }
+    } catch (e) {
+      _trackPostSaveFailed('provision', e);
     }
+    return result;
+  }
+
+  static void _trackPostSaveFailed(String stage, Object e) {
+    TrackingService.track('passkey_create_post_save_failed', params: {
+      'stage': stage,
+      'error_category': TrackingService.errorCategory(e),
+    });
   }
 
   Future<void> _createBip39Wallet() async {
@@ -394,8 +401,13 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
       sparkEnabled: true,
       evmDerivationVersion: EvmDerivationVersion.standardBip39,
       backedUp: false,
+      // Brand new: its balance is known to be 0 before any sync.
+      createdEmpty: true,
     );
     await ref.read(settingsProvider.notifier).addWallet(config);
+    // Start the Spark connect now so it runs while the user is on the
+    // survey and referral screens instead of when home first watches it.
+    primeSparkConnect(ref);
     RecoveryCheck.record(
         ref.read(settingsProvider.notifier), walletId, mnemonic);
     TrackingService.walletCreated(type: 'hot', authMode: 'mnemonic');
@@ -678,5 +690,417 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
         ),
       ),
     );
+  }
+}
+
+/// Start the Bitcoin (Spark) connection for the wallet that was just
+/// saved, the same way `completeUnlock` (lib/helpers/session_unlock.dart)
+/// primes it after a PIN unlock: heal a poisoned resolution (an error
+/// cached while no wallet existed, or a null instance) and read the
+/// provider's future so the 3–10 s connect + first sync runs while the
+/// user is still on the survey and referral screens, instead of starting
+/// when the home card first watches it. Never awaited, never throws.
+void primeSparkConnect(WidgetRef ref) {
+  final current = ref.read(breezSDKProvider);
+  final asData = current is AsyncData<BreezSdkSpark> ? current : null;
+  final shouldReconnect = current is AsyncError ||
+      (asData != null && asData.value.instance == null);
+  if (shouldReconnect) ref.invalidate(breezSDKProvider);
+  ref.read(breezSDKProvider.future).then((_) {}, onError: (_) {});
+}
+
+/// The quiet "Syncing your backup…" line shown while a passkey label this
+/// device created is still waiting to be published. Renders nothing when
+/// nothing is pending, so it costs no layout on the ordinary path. Reuses
+/// the Receive screen's caption style; no new chrome.
+class PasskeyBackupSyncingNote extends StatelessWidget {
+  const PasskeyBackupSyncingNote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: PasskeyService.pendingLabels,
+      builder: (context, pending, _) {
+        if (pending.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: EdgeInsets.only(bottom: 8.h),
+          child: ReceiveCaption(text: context.l10n.passkeyBackupSyncing),
+        );
+      },
+    );
+  }
+}
+
+/// Which OS passkey sheet a ceremony ran. Carried on the cancel analytics
+/// so a dismissed "sign in" sheet (a brand-new user who had no passkey)
+/// is told apart from a dismissed "create" sheet.
+enum PasskeySheet {
+  signIn('sign_in'),
+  create('create');
+
+  const PasskeySheet(this.analyticsValue);
+  final String analyticsValue;
+}
+
+/// The user dismissed the OS sheet named by [sheet]; nothing was created.
+class PasskeySheetCancelled implements Exception {
+  const PasskeySheetCancelled(this.sheet, this.cause, {required this.elapsedMs});
+  final PasskeySheet sheet;
+  final Object cause;
+
+  /// How long the sheet was up before the cancel.
+  final int elapsedMs;
+
+  @override
+  String toString() => 'PasskeySheetCancelled(${sheet.analyticsValue})';
+}
+
+/// A passkey step failed for a reason other than a cancel; [stage] names
+/// it (`sign_in`, `create`, `mint_blocked`, `save`) for the fallback
+/// analytics and the console.
+class PasskeyStepFailed implements Exception {
+  const PasskeyStepFailed(this.stage, this.cause);
+  final String stage;
+  final Object cause;
+
+  @override
+  String toString() => 'PasskeyStepFailed($stage): $cause';
+}
+
+/// What one creation produced, plus the per-step timings that ride on
+/// `passkey_choice_passkey_selected`.
+class PasskeyCreationResult {
+  const PasskeyCreationResult({
+    required this.wallet,
+    required this.config,
+    required this.path,
+    required this.signInMs,
+    required this.createMs,
+    required this.saveMs,
+    required this.totalMs,
+    this.pendingFlagged = true,
+  });
+
+  final Wallet wallet;
+  final WalletConfig config;
+
+  /// Whether the label's pending-publish flag was stored before the save.
+  final bool pendingFlagged;
+
+  /// `sign_in` (an existing passkey derived the seed), `create` (none
+  /// resolved, one was minted) or `create_after_cancel` (the user
+  /// dismissed the sign-in sheet and accepted a fresh passkey).
+  final String path;
+  final int? signInMs;
+  final int? createMs;
+  final int saveMs;
+  final int totalMs;
+
+  Map<String, Object> get analyticsParams => {
+        'path': path,
+        if (signInMs != null) 'sign_in_ms': signInMs!,
+        if (createMs != null) 'create_ms': createMs!,
+        'save_ms': saveMs,
+        'total_ms': totalMs,
+        'pending_flagged': pendingFlagged,
+      };
+}
+
+/// The platform-facing pieces of passkey creation, each replaceable in
+/// tests. Null fields fall through to the real services.
+class PasskeyCeremonies {
+  const PasskeyCeremonies({
+    this.signIn,
+    this.register,
+    this.hasLegacyCredential,
+    this.hasKnownCredential,
+    this.cacheLabel,
+    this.markPending,
+    this.publishLabel,
+    this.scheduleProvisioning,
+  });
+
+  /// Derive [label] from an existing passkey (OS sign-in sheet). Must
+  /// throw the SDK's typed errors: a cancel, or `CredentialNotFound`.
+  final Future<Wallet> Function(String label)? signIn;
+
+  /// Mint a passkey named [displayName] and derive [label] from it (OS
+  /// create sheet), with `excludeCredentials` from every known id.
+  final Future<Wallet> Function(String label, String displayName)? register;
+
+  /// Whether this device holds a legacy (pre-2.x) credential, which blocks
+  /// minting.
+  final Future<bool> Function()? hasLegacyCredential;
+
+  /// Whether this device knows any passkey credential at all (0.17 pin or
+  /// legacy signals).
+  final Future<bool> Function()? hasKnownCredential;
+  final Future<void> Function(String label)? cacheLabel;
+
+  /// Store the label as pending publish, BEFORE the wallet record is
+  /// written. Must throw when the flag could not be stored.
+  final Future<void> Function(String label)? markPending;
+
+  /// Start the background label publish. Never awaited by creation.
+  final void Function(String label)? publishLabel;
+  final void Function({
+    required String mnemonic,
+    required String walletId,
+    required EvmDerivationVersion evmDerivationVersion,
+  })? scheduleProvisioning;
+
+  Future<Wallet> signInOrDefault(String label) => signIn != null
+      ? signIn!(label)
+      // Existing passkey → derive this label's seed (breez signIn()).
+      // legacy: false — the CREATE flow on the new-SDK client; the config
+      // is stamped 'breez-0.17' to match. getWallet pins to the stored
+      // 0.17 credential when one exists and persists whatever resolved.
+      // Prefer immediately available credentials: a device with no local
+      // passkey fails fast with CredentialNotFound instead of showing a
+      // sign-in sheet (see PasskeyService.getWallet).
+      : PasskeyService.getWallet(
+          label: label, legacy: false, preferImmediatelyAvailable: true);
+
+  Future<Wallet> registerOrDefault(String label, String displayName) =>
+      register != null
+          ? register!(label, displayName)
+          : PasskeyService.createWallet(
+              label: label, userDisplayName: displayName);
+
+  Future<bool> hasLegacyCredentialOrDefault() async {
+    if (hasLegacyCredential != null) return hasLegacyCredential!();
+    final legacyPin = await PasskeyPrfService.pinnedCredentialId();
+    return legacyPin != null ||
+        await PasskeyPrfService.hasRegisteredCredential();
+  }
+
+  Future<bool> hasKnownCredentialOrDefault() => hasKnownCredential != null
+      ? hasKnownCredential!()
+      : PasskeyService.hasKnownCredential();
+
+  Future<void> cacheLabelOrDefault(String label) =>
+      cacheLabel != null ? cacheLabel!(label) : PasskeyService.cacheLabel(label);
+
+  Future<void> markPendingOrDefault(String label) => markPending != null
+      ? markPending!(label)
+      : PasskeyService.markLabelPendingForIdentity(label);
+
+  void publishLabelOrDefault(String label) {
+    if (publishLabel != null) {
+      publishLabel!(label);
+    } else {
+      unawaited(
+          PasskeyService.publishLabelInBackground(label, trigger: 'create'));
+    }
+  }
+
+  void scheduleProvisioningOrDefault({
+    required String mnemonic,
+    required String walletId,
+    required EvmDerivationVersion evmDerivationVersion,
+  }) {
+    if (scheduleProvisioning != null) {
+      scheduleProvisioning!(
+        mnemonic: mnemonic,
+        walletId: walletId,
+        evmDerivationVersion: evmDerivationVersion,
+      );
+      return;
+    }
+    Future.delayed(const Duration(seconds: 5), () {
+      provisionPolymarketAccount(
+        mnemonic: mnemonic,
+        walletId: walletId,
+        evmDerivationVersion: evmDerivationVersion,
+      );
+    });
+  }
+}
+
+/// Passkey wallet creation, step by step, with no network on the path:
+///
+/// 1. Sign in first (unless [create] is told to skip it): derive the new
+///    label from WHATEVER passkey the account already has, so one
+///    Apple / Google account never gets a second credential, even across
+///    reinstalls (the passkey lives in iCloud Keychain / Google, not in
+///    local state). Asked with "prefer immediately available credentials",
+///    so a device with no passkey fails fast instead of showing a sheet.
+/// 2. Only the typed `CredentialNotFound` may mint; every other failure
+///    surfaces (it lands on the recovery-phrase fallback). A device that
+///    holds a legacy (0.15.1-era) credential never mints either
+///    (`passkey_create_mint_blocked`).
+/// 3. Mint + derive in one `register()` ceremony, with `excludeCredentials`
+///    from every known id; the user's name becomes the credential's
+///    OS-visible display name.
+/// 4. Cache the label locally, flag it pending publish, then SAVE the
+///    wallet with `backedUp: false`: it is backed up once its label is on
+///    the relay (the settings model flips it when the publish lands), and
+///    the existing reminder shows until then.
+/// 5. Prime the Spark connect, then publish the label in the background:
+///    creation returns while the publish is still in flight, so a slow
+///    link no longer holds the spinner (`PasskeyService.publishLabel…`).
+///    A label that did not land is retried after the next ceremony and
+///    on app resume / unlock while the identity is primed; on a warm
+///    device that runs no ceremony, the reminder's passkey confirmation
+///    publishes it.
+///
+/// ONE passkey, MANY wallets: Breez derives a DISTINCT seed per label off
+/// the same passkey (seed = f(PRF, label)), so a single recover-side
+/// discovery sign-in lists all of the user's wallets.
+class PasskeyWalletCreation {
+  PasskeyWalletCreation({
+    required this.ceremonies,
+    required this.addWallet,
+    required this.primeSpark,
+  });
+
+  final PasskeyCeremonies ceremonies;
+  final Future<void> Function(WalletConfig config) addWallet;
+  final void Function() primeSpark;
+
+  /// True when the error is the user dismissing the OS passkey ceremony
+  /// (as opposed to a real failure or an unsupported platform). Typed
+  /// check first (`PasskeyError.prf(userCancelled)` on the 0.23 SDK),
+  /// then the legacy channel's `USER_CANCELLED` / message fallback.
+  static bool isUserCancelled(Object e) {
+    if (e is PlatformException && e.code == 'USER_CANCELLED') return true;
+    return PasskeyService.isUserCancelledError(e);
+  }
+
+  Future<PasskeyCreationResult> create({
+    required String walletId,
+    required String label,
+    required String name,
+    bool skipSignIn = false,
+  }) async {
+    final total = Stopwatch()..start();
+    Wallet wallet;
+    String path;
+    int? signInMs;
+    int? createMs;
+
+    if (skipSignIn) {
+      wallet = await _register(label, name, total);
+      createMs = total.elapsedMilliseconds;
+      path = 'create_after_cancel';
+    } else {
+      final signIn = Stopwatch()..start();
+      try {
+        wallet = await ceremonies.signInOrDefault(label);
+        signInMs = signIn.elapsedMilliseconds;
+        path = 'sign_in';
+      } catch (e) {
+        signInMs = signIn.elapsedMilliseconds;
+        if (isUserCancelled(e)) {
+          throw PasskeySheetCancelled(PasskeySheet.signIn, e,
+              elapsedMs: signInMs);
+        }
+        // ONLY the typed "no credential resolved" verdict may mint. A
+        // string gate once let timeouts, auth failures and ceremony
+        // collisions fall through to register(), silently minting a
+        // SECOND credential on the shared RP — which forks the Nostr
+        // label identity and hides every wallet created under the first
+        // credential (the recovery regression).
+        if (!PasskeyService.isCredentialNotFoundError(e)) {
+          throw PasskeyStepFailed('sign_in', e);
+        }
+        if (await ceremonies.hasLegacyCredentialOrDefault()) {
+          TrackingService.track('passkey_create_mint_blocked');
+          throw PasskeyStepFailed('mint_blocked', e);
+        }
+        final create = Stopwatch()..start();
+        wallet = await _register(label, name, create);
+        createMs = create.elapsedMilliseconds;
+        path = 'create';
+      }
+    }
+
+    try {
+      await ceremonies.cacheLabelOrDefault(label);
+    } catch (e) {
+      throw PasskeyStepFailed('save', e);
+    }
+    // The label is flagged pending BEFORE the record exists, so a kill
+    // between the save and the publish still leaves it to be retried. A
+    // flag that could not be stored is reported (by kind) and creation
+    // goes on: the wallet works locally either way.
+    var pendingFlagged = true;
+    try {
+      await ceremonies.markPendingOrDefault(label);
+    } catch (e) {
+      pendingFlagged = false;
+      TrackingService.track('passkey_label_pending_flag_failed', params: {
+        'error_category': TrackingService.errorReason(e),
+      });
+    }
+    final config = WalletConfig(
+      id: walletId,
+      name: name,
+      sparkEnabled: true,
+      evmDerivationVersion: EvmDerivationVersion.standardBip39,
+      // Not backed up until the label is on the relay: without it the
+      // wallet never appears in passkey recovery on another device. The
+      // settings model flips this when the publish lands
+      // (PasskeyService.labelPublishedHandler); meanwhile the existing
+      // backup reminder shows, and its one passkey confirmation publishes
+      // the label (PasskeyService.finishLabelBackup).
+      backedUp: false,
+      isPasskey: true,
+      passkeyLabel: label,
+      // VINTAGE STAMP: created through the 0.17.1 PasskeyClient, so
+      // every future seed resolution routes through the new SDK path.
+      // (Legacy pre-2.x wallets carry null here and reconstruct via
+      // PasskeyService.getLegacySeed instead.)
+      passkeyProvider: 'breez-0.17',
+      // Brand new: its balance is known to be 0 before any sync.
+      createdEmpty: true,
+    );
+    final save = Stopwatch()..start();
+    try {
+      await addWallet(config);
+    } catch (e) {
+      throw PasskeyStepFailed('save', e);
+    }
+    final saveMs = save.elapsedMilliseconds;
+    // Saved: from here nothing may fail creation (the caller would retry
+    // it as a SECOND wallet under a new label). Reported by kind only.
+    try {
+      primeSpark();
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'prime_spark',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
+    try {
+      ceremonies.publishLabelOrDefault(label);
+    } catch (e) {
+      TrackingService.track('passkey_create_post_save_failed', params: {
+        'stage': 'publish',
+        'error_category': TrackingService.errorCategory(e),
+      });
+    }
+    return PasskeyCreationResult(
+      wallet: wallet,
+      config: config,
+      path: path,
+      signInMs: signInMs,
+      createMs: createMs,
+      saveMs: saveMs,
+      totalMs: total.elapsedMilliseconds,
+      pendingFlagged: pendingFlagged,
+    );
+  }
+
+  Future<Wallet> _register(String label, String name, Stopwatch sw) async {
+    try {
+      return await ceremonies.registerOrDefault(label, name);
+    } catch (e) {
+      if (isUserCancelled(e)) {
+        throw PasskeySheetCancelled(PasskeySheet.create, e,
+            elapsedMs: sw.elapsedMilliseconds);
+      }
+      throw PasskeyStepFailed('create', e);
+    }
   }
 }

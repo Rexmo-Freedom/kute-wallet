@@ -277,6 +277,35 @@ const String kL2BookFixture = '''
 ''';
 
 void main() {
+  test(
+      'saved search descriptor retains HIP-3 clearinghouse without legacy dex fields',
+      () {
+    final market = HlMarket.fromCacheJson({
+      'coin': 'TSLA',
+      'wireCoin': 'xyz:TSLA',
+      'assetId': 110001,
+      'kind': 'perp',
+      'szDecimals': 3,
+      'markPx': 240,
+    })!;
+    expect(market.dex, 'xyz');
+    expect(market.isHip3, isTrue);
+    expect(market.copyWith(category: 'stocks').dex, 'xyz');
+    expect(market.assetId, 110001);
+    expect(HlMarket.fromCacheJson(market.toCacheJson())!.dex, 'xyz');
+  });
+  test(
+      'spot instruments do not infer a perp clearinghouse from display metadata',
+      () {
+    final market = HlMarket.fromCacheJson({
+      'coin': 'TSLA',
+      'wireCoin': '@107',
+      'assetId': 10107,
+      'kind': 'spot',
+    })!;
+    expect(market.dex, isEmpty);
+    expect(market.isHip3, isFalse);
+  });
   group('HlMarket.parsePerpList', () {
     final markets = HlMarket.parsePerpList(jsonDecode(kMetaAndAssetCtxsFixture));
 

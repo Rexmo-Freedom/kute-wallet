@@ -1,13 +1,17 @@
 import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
-import 'package:kute/services/orchestra/standing_deposit_activity.dart';
+import 'package:kute/services/orchestra/standing_deposit_sweep.dart';
 import 'dart:async';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/balance_model.dart';
+import 'package:kute/models/breez/deposit_update.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/breez_config_provider.dart'
+    show breezSDKProvider;
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/helpers/orchestra_router.dart';
@@ -17,6 +21,8 @@ import 'package:kute/helpers/cash_app_destination.dart';
 import 'package:kute/helpers/predictions_deposit_wrap.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/services/orchestra/onetime_receive.dart'
+    show isOneTimeReceiveQuoteRow, kOneTimeReceiveLateDepositWatch;
 import 'package:kute/models/orchestra_model.dart' show OrchestraOrder;
 import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/providers/settings_provider.dart';
@@ -45,6 +51,8 @@ import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show OrchestraOrderIds;
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -170,6 +178,24 @@ void _reportPolymarketOrderCompleted(
   }
 }
 
+/// One look of the receive-quote sweep at a pending one-time quote
+/// [pastExpiry] past its quote's expiry: how long after the last look it
+/// is read again ([interval]), and whether this look is its last ([last]:
+/// [kOneTimeReceiveLateDepositWatch] past expiry, the quote is retired
+/// after it whether or not a deposit was found). A quote not yet expired
+/// has a negative [pastExpiry] and the fastest cadence.
+({Duration interval, bool last}) receiveQuoteSweepStep(Duration pastExpiry) {
+  if (pastExpiry > kOneTimeReceiveLateDepositWatch) {
+    return (interval: Duration.zero, last: true);
+  }
+  return (
+    interval: pastExpiry > const Duration(hours: 1)
+        ? const Duration(minutes: 5)
+        : const Duration(seconds: 30),
+    last: false,
+  );
+}
+
 class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   final _legacyExpiredQuoteChecks = LegacyExpiredQuoteSchedule();
 
@@ -189,6 +215,14 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
 
   bool _receiveQuoteSweepRunning = false;
   final Map<String, DateTime> _receiveQuoteChecks = {};
+
+  /// The receive-quote sweep's clock. Tests pin it.
+  @visibleForTesting
+  static DateTime Function() receiveQuoteClock = DateTime.now;
+
+  /// Tests only: the receive-quote sweep alone, awaited to its end.
+  @visibleForTesting
+  Future<void> debugSweepReceiveQuotes() => _sweepOrchestraReceiveQuotes();
 
   /// Recent Spark BTC deposit addresses (latest first). `getSparkBitcoinAddressProvider`
   /// is invalidated on every `claimedDeposits` event, so each
@@ -338,7 +372,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       }
     }
 
-    Future<List<breez.Payment>> getUsdbTokenPayments() async {
+    // Token history has the same unknown-vs-empty contract as Bitcoin:
+    // a failed read must not erase the USD ledger or its arrival baseline.
+    Future<List<breez.Payment>?> getUsdbTokenPayments() async {
       if (!isSpark) return <breez.Payment>[];
       try {
         return await ref
@@ -350,7 +386,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
             ).future)
             .timeout(const Duration(seconds: 15));
       } catch (e) {
-        return <breez.Payment>[];
+        return null;
       }
     }
 
@@ -510,9 +546,12 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
 
             // Compute confirmation count. mempool.space marks
             // `confirmed == false` while in mempool; once mined,
-            // `blockHeight` is set. Anything at 3+ confs is owned
-            // by the SDK history list — drop it here to avoid
-            // double-counting.
+            // `blockHeight` is set. From 3 confs the SDK owns the
+            // deposit, but it only lists it after its next deposit
+            // sync: the row stays (as "Adding to your balance") until
+            // the SDK lists the outpoint, which the feed checks at
+            // display time. Past a day the SDK has long had its say,
+            // so older deposits are left to the SDK lists alone.
             final int confirmations;
             if (!tx.confirmed || tx.blockHeight == null) {
               confirmations = 0;
@@ -520,7 +559,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               final c = tipHeight - tx.blockHeight! + 1;
               confirmations = c < 0 ? 0 : c;
             }
-            if (confirmations >= 3) continue;
+            if (confirmations > kSparkDepositBridgeMaxConfirmations) continue;
 
             final timestamp = tx.blockTime != null
                 ? DateTime.fromMillisecondsSinceEpoch(tx.blockTime! * 1000)
@@ -591,7 +630,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     final sparkMixedPayments = transactionFutures[1] as List<breez.Payment>?;
     final unclaimedDepositsRaw =
         transactionFutures[2] as List<breez.DepositInfo>?;
-    final usdbTokenPayments = transactionFutures[3] as List<breez.Payment>;
+    final usdbTokenPaymentsRaw = transactionFutures[3] as List<breez.Payment>?;
+    final usdbPaymentsFetchFailed = usdbTokenPaymentsRaw == null;
+    final usdbTokenPayments = usdbTokenPaymentsRaw ?? const <breez.Payment>[];
     final polymarketActivity = transactionFutures[4] as List<Activity>;
     final sparkPendingDeposits =
         transactionFutures[5] as List<SparkPendingDeposit>;
@@ -652,6 +693,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       polymarketUsdcReceives: polymarketUsdcReceives,
       outlogicOrders: outlogicOrders,
       sparkPaymentsFetchFailed: sparkPaymentsFetchFailed,
+      usdbPaymentsFetchFailed: usdbPaymentsFetchFailed,
       unclaimedDepositsFetchFailed: unclaimedDepositsFetchFailed,
     );
 
@@ -764,54 +806,35 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     await _gatherAndUpdateTransactions(forceRefresh: false);
   }
 
-  /// Writes, updates or retires the Activity row of one standing deposit
-  /// that never became an order (see standing_deposit_activity.dart).
-  /// Once the deposit has an order and that order's row exists, the
-  /// stuck row goes: the order row and its refund take over.
-  Future<void> _syncStuckStandingDeposit({
-    required Map<String, dynamic> deposit,
-    required StandingDepositRecord record,
-    required String walletId,
-    required String recipient,
-  }) async {
-    final rowId = stuckStandingDepositRowId(deposit);
-    if (rowId == null) return;
-    final rows = ref.read(swapOrdersProvider);
-    final existing = rows.where((r) => r.id == rowId).firstOrNull;
-    final row = stuckStandingDepositRow(
-        deposit: deposit,
-        record: record,
-        walletId: walletId,
-        recipient: recipient,
-        existing: existing);
-    if (row == null) {
-      final orderId = deposit['orderId'];
-      if (existing != null &&
-          standingDepositHasOrder(deposit) &&
-          rows.any((r) => r.id == orderId)) {
-        await ref.read(swapOrdersProvider.notifier).deleteExchange(rowId);
-        ref.read(walletTransactionCacheProvider.notifier).removeSwapOrder(rowId);
-      }
-      return;
-    }
-    if (existing != null &&
-        existing.status == row.status &&
-        existing.depositAmount == row.depositAmount) {
-      return;
-    }
-    await ref.read(swapOrdersProvider.notifier).updateExchange(row);
-    ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(row);
-  }
-
   DateTime? _lastStandingSweep;
   DateTime? _lastStandingRestore;
   static const _standingRestoreInterval = Duration(minutes: 30);
   bool _standingSweepRunning = false;
-  Future<void> _sweepStandingDeposits() async {
+
+  /// The deposit-address sweeps alone (standing and legacy), for the
+  /// screens the full sync does not run on while a receive address was
+  /// just shown (`ReceiveAddressWatch`), on resume and on a pull.
+  /// [force] skips their cadence.
+  Future<void> pollReceiveAddresses({bool force = false}) async {
+    if (force) _lastAccumulationSweep = null;
+    await _sweepOrchestraAccumulationAddresses();
+    await _sweepOrchestraReceiveQuotes();
+    await _sweepStandingDeposits(force: force);
+  }
+
+  /// Every deposit on every standing reference this wallet holds reaches
+  /// Activity: see standing_deposit_sweep.dart.
+  Future<void> _sweepStandingDeposits({bool force = false}) async {
+    final last = _lastStandingSweep;
+    final interval = standingSweepInterval(
+        watching: ReceiveAddressWatch.watching,
+        inFlight: ref
+            .read(swapOrdersProvider)
+            .any((r) => r.isStuckStandingDeposit && r.isPending));
     if (_standingSweepRunning ||
-        (_lastStandingSweep != null &&
-            DateTime.now().difference(_lastStandingSweep!) <
-                const Duration(minutes: 1))) {
+        (!force &&
+            last != null &&
+            DateTime.now().difference(last) < interval)) {
       return;
     }
     _standingSweepRunning = true;
@@ -840,90 +863,32 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       }
       final records = await StandingDepositStore.records(walletId);
       if (records.isEmpty || !current()) return;
+      final sweep = StandingDepositSweep(
+        rows: _RiverpodStandingDepositRows(ref),
+        deposits: StandingDepositStore.deposits,
+        order: (id) async => (await OrchestraService.getStatus(id)).data,
+        discovered: reportDiscoveredOrchestraOrder,
+      );
       for (final saved in records) {
         if (!current()) return;
-        // Order discovery matches today's recipient. A stuck deposit is
-        // returned to its payer, so every reference this wallet holds is
-        // swept for those, whichever recipient it names.
-        final ownRecipient = sameSparkAddress(recipient, saved.recipient);
         try {
           var record = saved;
           if (record.response['addresses'] is! Map) {
             final state = await OrchestraService.standingRequest(
                 operation: 'read', label: record.label, current: current);
-            if (state['standingAddressId'] == null || state['enabled'] is! bool) {
+            if (state['standingAddressId'] == null ||
+                state['enabled'] is! bool) {
               continue;
             }
             record = record.copy(response: {...record.response, ...state});
             await StandingDepositStore.saveResponse(
                 record, record.response, scope);
           }
-          final deposits = await StandingDepositStore.deposits(record, current);
-          for (final deposit in deposits) {
-            // A deposit that never became an order gets its own row in
-            // that asset's Activity, with the refund in its details.
-            await _syncStuckStandingDeposit(
-                deposit: deposit,
-                record: record,
-                walletId: walletId,
-                recipient: record.recipient);
-            if (!current()) return;
-            if (!ownRecipient) continue;
-            final id = deposit['orderId'];
-            if (id is! String ||
-                !id.startsWith('ord_') ||
-                ref.read(swapOrdersProvider).any((r) => r.id == id)) {
-              continue;
-            }
-            final chain = deposit['chain'] as String?;
-            final asset = deposit['asset'] as String?;
-            if (chain == null || asset == null) continue;
-            final address = record.addressFor(chain);
-            if (address == null) continue;
-            final order = (await OrchestraService.getStatus(id)).data;
-            if (!current()) return;
-            if (order == null ||
-                order.id != id ||
-                !orchestraHistoryMatchesDeposit(order,
-                    sourceChain: chain,
-                    sourceAsset: asset,
-                    destinationAsset: record.asset,
-                    depositAddress: address,
-                    recipientSparkAddress: recipient)) {
-              continue;
-            }
-            final row = SwapOrder(
-                id: id,
-                activityDirection: 'receive',
-                coinFrom: asset,
-                networkFrom: chain,
-                coinTo: record.asset,
-                networkTo: 'SPARK',
-                depositAddress: address,
-                depositAmount: orchestraAmountToDecimalString(
-                    order.amountIn ?? '0', asset, chain: chain),
-                withdrawalAmount: orchestraAmountToDecimalString(
-                    order.amountOut ?? '0', record.asset, chain: 'spark'),
-                status: orchestraExchangeStatus(order.status),
-                timestamp: DateTime.tryParse(order.createdAt)
-                        ?.millisecondsSinceEpoch ??
-                    DateTime.now().millisecondsSinceEpoch,
-                withdrawalAddress: recipient,
-                depositMin: '0',
-                depositMax: '0',
-                rate: '0',
-                refundAddress: '',
-                provider: 'Orchestra',
-                walletId: walletId,
-                purchaseSource: 'crypto_receive');
-            if (!current()) return;
-            await ref.read(swapOrdersProvider.notifier).addExchange(row);
-            if (!current()) return;
-            ref
-                .read(walletTransactionCacheProvider.notifier)
-                .mergeSwapOrder(row);
-            reportDiscoveredOrchestraOrder(row);
-          }
+          await sweep.syncRecord(
+              record: record,
+              walletId: walletId,
+              recipient: recipient,
+              current: current);
         } catch (_) {
           /* Every reference remains available for the next sweep. */
         }
@@ -935,7 +900,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     }
   }
 
-  /// A quote is watched until its real order takes over, even after expiry.
+  /// A quote is watched until its real order takes over, even after
+  /// expiry, for [kOneTimeReceiveLateDepositWatch] past it: a late deposit
+  /// is repriced and still lands. After that it is retired on its last
+  /// look ([receiveQuoteSweepStep]), so the cache and the checks never
+  /// grow without end.
   Future<void> _sweepOrchestraReceiveQuotes() async {
     if (_receiveQuoteSweepRunning) return;
     _receiveQuoteSweepRunning = true;
@@ -952,7 +921,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           PendingReceiveQuoteCache.isCurrent(scope) &&
           _spendingWalletId(ref.read(settingsProvider).wallets) == walletId;
       if (!current()) return;
-      final now = DateTime.now();
+      final now = receiveQuoteClock();
       pending.sort((a, b) =>
           (_receiveQuoteChecks[a.id]?.millisecondsSinceEpoch ?? 0).compareTo(
               _receiveQuoteChecks[b.id]?.millisecondsSinceEpoch ?? 0));
@@ -962,23 +931,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       for (final quote in pending) {
         if (!current()) return;
         if (!sameSparkAddress(recipient, quote.withdrawalAddress)) continue;
-        final age = now
-            .difference(DateTime.fromMillisecondsSinceEpoch(quote.expiresAt!));
-        final interval = age > const Duration(days: 7)
-            ? const Duration(hours: 6)
-            : age > const Duration(days: 1)
-                ? const Duration(hours: 1)
-                : age > const Duration(hours: 1)
-                    ? const Duration(minutes: 5)
-                    : const Duration(seconds: 30);
+        final step = receiveQuoteSweepStep(now
+            .difference(DateTime.fromMillisecondsSinceEpoch(quote.expiresAt!)));
         final checked = _receiveQuoteChecks[quote.id];
-        if (checked != null && now.difference(checked) < interval) continue;
+        if (checked != null && now.difference(checked) < step.interval) {
+          continue;
+        }
         if (reads++ >= 4) break;
         _receiveQuoteChecks[quote.id] = now;
         try {
           final result = await OrchestraService.getStatus(quote.id);
           if (!current()) return;
           var order = result.data;
+          // Whether a rail answered at all: only an answer with no order
+          // in it may retire the quote, never a failed read.
+          var answered = order != null;
           if (order == null ||
               !_receiveQuoteMatchesOrder(quote, order, fromQuoteStatus: true)) {
             if (!historyRead) {
@@ -986,6 +953,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               history = (await OrchestraService.getHistory(recipient)).data;
               if (!current()) return;
             }
+            answered = answered || history != null;
             order = null;
             for (final candidate in history ?? <OrchestraOrder>[]) {
               if (_receiveQuoteMatchesOrder(quote, candidate)) {
@@ -994,9 +962,15 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
               }
             }
           }
-          if (order == null) continue;
-          final exchangeBox =
-              await Hive.openBox<SwapOrder>(kSwapOrdersBoxName);
+          if (order == null) {
+            if (!step.last || !answered) continue;
+            // Its watch is over and no deposit ever came: nothing to
+            // track. A quote whose order was found is retired below.
+            await PendingReceiveQuoteCache.complete(quote.id);
+            _receiveQuoteChecks.remove(quote.id);
+            continue;
+          }
+          final exchangeBox = await Hive.openBox<SwapOrder>(kSwapOrdersBoxName);
           if (!current()) return;
           final existing = exchangeBox.get(order.id);
           if (existing != null && existing.walletId != walletId) continue;
@@ -1028,6 +1002,19 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
             reportDiscoveredOrchestraOrder(exchange);
           } else {
             await exchangeBox.flush();
+          }
+          // The real order (written above) is the receive's first Activity
+          // row: a quote has none until its deposit is detected. A quote row
+          // an earlier build wrote goes once the order is tracked.
+          final quoteRow = exchangeBox.get(quote.id);
+          if (quoteRow != null && quoteRow.walletId == walletId) {
+            await ref
+                .read(swapOrdersProvider.notifier)
+                .deleteExchange(quote.id);
+            ref
+                .read(walletTransactionCacheProvider.notifier)
+                .removeSwapOrder(quote.id);
+            if (!current()) return;
           }
           await PendingReceiveQuoteCache.complete(quote.id);
           _receiveQuoteChecks.remove(quote.id);
@@ -1104,7 +1091,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // No cached addresses → no requests. This is the common case for
       // most users, so the sweep stays free until the first Orchestra
       // receive address is ever created on this device.
-      final addresses = AccumulationAddressCache.getAll();
+      // Retired entries included (late deposits), HyperCore-source
+      // entries excluded: see AccumulationAddressCache.sweepTargets.
+      final addresses = AccumulationAddressCache.sweepTargets();
       if (addresses.isEmpty) return;
       _lastAccumulationSweep = now;
       // Accumulation deliveries always land on the Spark spending
@@ -1313,9 +1302,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       )) {
         return;
       }
-      final notifier = ref.read(polymarketTradingProvider.notifier);
-      notifier.invalidateBalanceCache();
-      notifier.wrapIncomingUsdcEToPusd();
+      // One "money arrived" path: convert now, read the balance once, tell
+      // the autofire. Timing from the order's creation is recorded there.
+      unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
+            orderId: row.id,
+            createdAt: row.createdAt,
+            route: 'cashapp',
+          ));
     } catch (_) {
       // Delivery remains recorded. The trading flow can wrap USDC.e on
       // demand if this best-effort refresh cannot initialize the account.
@@ -1344,9 +1337,21 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       )) {
         return;
       }
-      final notifier = ref.read(polymarketTradingProvider.notifier);
-      notifier.invalidateBalanceCache();
-      notifier.wrapIncomingUsdcEToPusd();
+      // One "money arrived" path (see PolymarketTradingNotifier
+      // .onDepositDelivered): convert now rather than on the next watch
+      // tick, read the balance once, refresh the venue's count, fire the
+      // queued bet. Timing created → delivered → wrapped → bettable is
+      // recorded there as durations.
+      final from = row.coinFrom.toUpperCase();
+      unawaited(ref.read(polymarketTradingProvider.notifier).onDepositDelivered(
+            orderId: row.id,
+            createdAt: row.createdAt,
+            route: from == 'BTC'
+                ? 'btc_spending'
+                : isOrchestraUsdLikeCoin(from)
+                    ? 'usd'
+                    : null,
+          ));
     } catch (_) {
       // Delivery remains recorded. The order path converts USDC.e itself
       // when pUSD alone is short.
@@ -1380,16 +1385,18 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // getStatus lags actual delivery. The receive itself is the
       // authoritative completion signal for all of them; the status
       // poller still reconciles amounts later if it disagrees.
+      final links = PolymarketSparkTxsService.orchestraDeliveryLinks();
+      final linkedRows = <String>{
+        for (final l in links.values) ...[
+          if (l.orderId != null) l.orderId!,
+          if (l.operationId != null) l.operationId!,
+        ],
+      };
+      final now = DateTime.now();
       final synthetic = ref
           .read(swapOrdersProvider)
           .where((e) =>
-              (e.id.startsWith('acu-') ||
-                  e.id.startsWith('ord_') ||
-                  e.id.startsWith('q_')) &&
-              e.providerName == 'Orchestra' &&
-              !e.isCashAppPurchase &&
-              e.networkTo == 'SPARK' &&
-              e.isPending)
+              orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
           .toList();
       final alreadyHidden =
           PolymarketSparkTxsService.orchestraDeliverySnapshot();
@@ -1412,8 +1419,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       }
       for (final ex in synthetic) {
         if (receives.isEmpty) break;
-        final estSats =
-            ((double.tryParse(ex.withdrawalAmount) ?? 0) * 1e8).round();
+        // The row's figure is a BTC decimal once polled, or Flashnet's
+        // sats as the quote wrote it: read either the way the Activity
+        // matcher does, never sats as bitcoin (which matched nothing).
+        final rawOut = double.tryParse(ex.withdrawalAmount) ?? 0;
+        final estSats = rawOut >= 1 && rawOut == rawOut.roundToDouble()
+            ? rawOut.round()
+            : (rawOut * 1e8).round();
         SparkTransaction? best;
         int? bestDeltaMs;
         for (final rx in receives) {
@@ -1434,12 +1446,17 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         // One receive settles one exchange.
         receives.remove(best);
         final actualBtc = (best.amountSats / 1e8).toStringAsFixed(8);
+        // A row Orchestra already reported done keeps its status and
+        // takes the delivered figure it never reported.
         final settled = ex.copyWith(
-          status: 'settled',
+          status: ex.isComplete ? ex.status : 'settled',
           withdrawalAmount: actualBtc,
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id);
+        // The link names the row, so Activity folds this receive into it
+        // (or into the move it is a leg of) on every read from now on.
+        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
+            orderId: ex.id, operationId: ex.operationId);
         // Surface the settled row without waiting for the next full
         // gather pass — same propagation the sweep's inserts use.
         ref
@@ -1499,7 +1516,8 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: best.amount.toStringAsFixed(2),
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id);
+        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
+            orderId: ex.id, operationId: ex.operationId);
         ref
             .read(walletTransactionCacheProvider.notifier)
             .mergeSwapOrder(settled);
@@ -1682,6 +1700,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                   // non-empty id that isn't the quote itself is the real one.
                   final replacementId = legacyReplacementOrderId(eid, order);
                   if (replacementId != null) {
+                    OrchestraOrderIds.record(eid, replacementId);
                     // The new row keeps every field the quote row carried
                     // (purchase marker, fiat paid, provider token,
                     // expiry) so a Cash App purchase does not degrade
@@ -1753,6 +1772,9 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                       (exchange.status == 'success' ||
                           exchange.status == 'refunded' ||
                           exchange.status == 'expired');
+                  // A completed delivery to Spark refreshes the wallet from
+                  // the swap order store itself (OwnSparkArrivals), for
+                  // this poller and every other writer alike.
                   if (updated.isCashAppPurchase) {
                     if (!wasTerminal &&
                         orchestraExchangeStatusIsTerminal(mappedStatus)) {
@@ -1808,8 +1830,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     // single completion for every Orchestra order into or
                     // out of Polygon USDC (route-detected; guarded by the
                     // terminal claim above).
-                    _reportPolymarketOrderCompleted(
-                        exchange, order.id, usdLeg);
+                    _reportPolymarketOrderCompleted(exchange, order.id, usdLeg);
                   } else if (!wasTerminal &&
                       (mappedStatus == 'expired' ||
                           mappedStatus == 'refunded') &&
@@ -1935,8 +1956,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           Future(() async {
             if (!isSpark) return true;
             try {
-              final balance =
-                  await ref.refresh(sparkBitcoinBalanceProvider.future);
+              // Bounded: a getInfo that never answers must not hold the
+              // whole sync (and the status polls beside it).
+              final balance = await ref
+                  .refresh(sparkBitcoinBalanceProvider.future)
+                  .timeout(const Duration(seconds: 20));
               final sNotifier = ref.read(walletBalanceCacheProvider.notifier);
               // Resolve the spending wallet now (Spark SDK is bound
               // to that wallet regardless of which wallet the
@@ -2043,6 +2067,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     // order id, not just an `ord_`-prefixed one.
                     final replacementId = legacyReplacementOrderId(eid, order);
                     if (replacementId != null) {
+                      OrchestraOrderIds.record(eid, replacementId);
                       // Same as the primary block: the purchase marker and
                       // fiat paid survive the id swap, and the new row is
                       // written before the quote row is deleted.
@@ -2085,6 +2110,8 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                         (ex.status == 'success' ||
                             ex.status == 'refunded' ||
                             ex.status == 'expired');
+                    // A completed delivery to Spark refreshes the wallet
+                    // from the swap order store (OwnSparkArrivals).
                     if (updated.isCashAppPurchase) {
                       if (!wasTerminal2 &&
                           orchestraExchangeStatusIsTerminal(mappedStatus)) {
@@ -2137,8 +2164,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                     } else if (!wasTerminal2 &&
                         (mappedStatus == 'expired' ||
                             mappedStatus == 'refunded') &&
-                        claimOrderTerminalAnalytics(order.id,
-                            success: false)) {
+                        claimOrderTerminalAnalytics(order.id, success: false)) {
                       final usdLegFail2 = _resolveUsdLegForOrchestra(
                         coinFrom: ex.coinFrom,
                         coinTo: ex.coinTo,
@@ -2284,9 +2310,49 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   /// only from the wallet-detail screen now (see `scanBdkScope`).
   Future<void> performFullUpdate({bool force = true}) async {
     if (ref.read(backgroundSyncInProgressProvider)) return;
+    await _fullUpdate(refreshPredictions: true);
+  }
+
+  /// How long a pull-to-refresh waits for a background sync already
+  /// running before it runs its own anyway.
+  @visibleForTesting
+  static Duration userRefreshWaitLimit = const Duration(seconds: 20);
+
+  /// A pull-to-refresh's full update (`refresh_everything_provider.dart`).
+  /// [performFullUpdate] returns at once while another sync is running,
+  /// so a pull that landed during the 2 s loop's sync did nothing at all,
+  /// not even its Predictions refresh. This one waits for that sync to
+  /// end (at most [userRefreshWaitLimit]) and then runs a fresh one, so
+  /// everything it reads was read after the pull. Predictions are left to
+  /// the caller, which refreshes them beside this.
+  Future<void> performUserRefresh() async {
+    // A pull reads every receive address's deposits now, not on their
+    // cadence.
+    _lastStandingSweep = null;
+    _lastAccumulationSweep = null;
+    final deadline = DateTime.now().add(userRefreshWaitLimit);
+    while (ref.read(backgroundSyncInProgressProvider) &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    await _fullUpdate(refreshPredictions: false);
+  }
+
+  /// The longest one full sync may hold the sync loop. A wallet read that
+  /// never answers (the Spark SDK mid-reconnect after a stalled sync) once
+  /// held `backgroundSyncInProgress` and the service's single-flight for
+  /// good: every later tick, `syncNow` and status poll was skipped, so an
+  /// Orchestra row stayed on its quote id and "Processing" until the app
+  /// restarted. Past this the loop moves on; the late read only finishes
+  /// in the background.
+  @visibleForTesting
+  static Duration fullSyncWatchdog = const Duration(seconds: 90);
+
+  Future<void> _fullUpdate({required bool refreshPredictions}) async {
+    await holdForBoot();
     try {
       setBackgroundSyncInProgress(true);
-      await performSync();
+      await performSync().timeout(fullSyncWatchdog);
     } catch (e) {
       // ignore
     } finally {
@@ -2297,10 +2363,75 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
     } catch (e) {
       // ignore
     }
+    if (!refreshPredictions) return;
     try {
       final pmNotifier = ref.read(polymarketTradingProvider.notifier);
       await pmNotifier.refresh();
     } catch (_) {}
+  }
+
+  /// Whether the boot hold has been released in this process.
+  bool _bootHoldReleased = false;
+  Future<void>? _bootHold;
+
+  /// How long at most the first background sync waits for the boot loads.
+  /// A deposit's status poll depends on the sync, so the hold is bounded.
+  @visibleForTesting
+  static Duration bootHoldLimit = const Duration(seconds: 15);
+
+  /// Test seam: the policy service the hold watches.
+  @visibleForTesting
+  static RuntimeCapabilitiesService Function() policyService =
+      () => RuntimeCapabilitiesService.instance;
+
+  /// The first background sync of the process waits until the first
+  /// balance and the policy are in (the cached balance on screen or the
+  /// Spark connect settled, and a policy snapshot loaded), bounded by
+  /// [bootHoldLimit], so its fan-out of fetches does not compete with the
+  /// boot loads on a weak link. Later syncs never wait.
+  Future<void> holdForBoot() {
+    if (_bootHoldReleased) return Future.value();
+    return _bootHold ??= _awaitBootInputs().whenComplete(() {
+      _bootHoldReleased = true;
+      _bootHold = null;
+    });
+  }
+
+  @visibleForTesting
+  static bool bootInputsReady({
+    required bool balanceShown,
+    required bool policyLoaded,
+  }) =>
+      balanceShown && policyLoaded;
+
+  Future<void> _awaitBootInputs() async {
+    final deadline = DateTime.now().add(bootHoldLimit);
+    bool balanceShown() {
+      try {
+        // A cached balance is on screen, or the Spark connect has settled
+        // (with a balance or not), so the hero card is no longer waiting.
+        if (!ref.read(balanceNotifierProvider).isEmpty) return true;
+        return !ref.read(breezSDKProvider).isLoading;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    bool policyLoaded() {
+      try {
+        return policyService().snapshot != null;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (bootInputsReady(
+          balanceShown: balanceShown(), policyLoaded: policyLoaded())) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 
   void setBackgroundSyncInProgress(bool inProgress) {
@@ -2362,3 +2493,71 @@ final backgroundSyncInProgressProvider = StateProvider<bool>((ref) => false);
 /// while an id is in here — native BDK holds one slot per wallet.
 final bdkScanningWalletsProvider =
     StateProvider<Set<String>>((ref) => const <String>{});
+
+/// [StandingDepositRows] over the swap-order store and the Activity cache.
+class _RiverpodStandingDepositRows implements StandingDepositRows {
+  _RiverpodStandingDepositRows(this._ref);
+  final Ref _ref;
+
+  @override
+  SwapOrder? find(String id) =>
+      _ref.read(swapOrdersProvider).where((r) => r.id == id).firstOrNull;
+
+  @override
+  Future<void> put(SwapOrder row) async {
+    await _ref.read(swapOrdersProvider.notifier).updateExchange(row);
+    _ref.read(walletTransactionCacheProvider.notifier).mergeSwapOrder(row);
+  }
+
+  @override
+  Future<void> remove(String id) async {
+    await _ref.read(swapOrdersProvider.notifier).deleteExchange(id);
+    _ref.read(walletTransactionCacheProvider.notifier).removeSwapOrder(id);
+  }
+}
+
+/// Whether the delivery reconciler should settle [e] on the bitcoin receive
+/// that delivered it: an Orchestra order (or its quote or placeholder)
+/// delivering bitcoin to Spark that is still pending, or that Orchestra
+/// reported done without the bitcoin figure (a CCTP leg out of Investing
+/// before its order reports one) and no receive is linked to yet.
+///
+/// The second case is why "Withdraw · from Investments" and a "Received"
+/// Spark row stood side by side: Orchestra marks the order done as it
+/// sends, so the row was never pending when the reconciler looked, its
+/// figure stayed 0, and nothing could tie the receive to it. Only rows
+/// created within [kOwnDeliveryLinkWindow] of [now] qualify: older history
+/// is never rematched.
+@visibleForTesting
+bool orchestraRowAwaitsDelivery(SwapOrder e,
+    {required Set<String> linked, required DateTime now}) {
+  if (!(e.id.startsWith('acu-') ||
+          e.id.startsWith('ord_') ||
+          e.id.startsWith('q_')) ||
+      e.providerName != 'Orchestra' ||
+      e.isCashAppPurchase ||
+      e.networkTo != 'SPARK' ||
+      // Only bitcoin deliveries: the candidates are bitcoin receives, and a
+      // USDB row (often with no amount to check) would otherwise claim any
+      // of them.
+      e.coinTo.toUpperCase() != 'BTC' ||
+      // A one-time receive still waiting for its deposit has delivered
+      // nothing: an unrelated receive must not close it.
+      (isOneTimeReceiveQuoteRow(e) && e.status == 'wait')) {
+    return false;
+  }
+  if (e.isPending) return true;
+  if (!e.isComplete) return false;
+  if (linked.contains(e.id) ||
+      (e.operationId != null && linked.contains(e.operationId))) {
+    return false;
+  }
+  final raw = double.tryParse(e.withdrawalAmount) ?? 0;
+  if (raw.isFinite && raw > 0) return false;
+  return now.difference(DateTime.fromMillisecondsSinceEpoch(e.timestamp)) <=
+      kOwnDeliveryLinkWindow;
+}
+
+/// How long after it was created a done order with no bitcoin figure may
+/// still be settled on its receive.
+const Duration kOwnDeliveryLinkWindow = Duration(hours: 6);

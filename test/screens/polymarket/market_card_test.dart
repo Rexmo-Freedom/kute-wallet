@@ -214,4 +214,61 @@ void main() {
     expect(find.text('+2 more'), findsOneWidget);
     expect(find.textContaining('outcomes'), findsNothing);
   });
+
+  testWidgets(
+      'in a group a market has no card of its own and keeps its ink; alone '
+      'it is the card', (tester) async {
+    MarketCard yesNo({required bool inGroup}) => MarketCard(
+          title: 'Will it rain?',
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.4),
+            PolymarketOutcome(name: 'No', price: 0.6),
+          ],
+          volume: 1000,
+          category: 'weather',
+          onTap: () {},
+          inGroup: inGroup,
+        );
+    final block = find.byType(MarketCard);
+    bool hasCard() {
+      final card = AppDecorations.card(tester.element(block));
+      return tester
+          .widgetList<Container>(
+              find.descendant(of: block, matching: find.byType(Container)))
+          .any((c) => c.decoration == card);
+    }
+
+    await _pump(tester, yesNo(inGroup: false));
+    expect(hasCard(), isTrue);
+    await _pump(tester, yesNo(inGroup: true));
+    expect(hasCard(), isFalse);
+    final ink = find.descendant(of: block, matching: find.byType(InkWell));
+    expect(tester.getSize(ink.first), tester.getSize(block));
+    // The title starts where the group's hairline does (the test frame
+    // adds its own 16 side padding).
+    expect(
+        tester.getTopLeft(find.text('Will it rain?')).dx -
+            tester.getTopLeft(block).dx,
+        moreOrLessEquals(polyGroupRowIndent(), epsilon: 0.5));
+  });
+
+  test('only a plain Yes/No market is grouped', () {
+    const yesNo = [
+      PolymarketOutcome(name: 'Yes', price: 0.4),
+      PolymarketOutcome(name: 'No', price: 0.6),
+    ];
+    expect(polyCardGroups('Will it rain?', yesNo), isTrue);
+    expect(polyCardGroups('Broncos vs. 49ers', _teams), isFalse);
+    expect(
+        polyCardGroups('Who wins?', const [
+          PolymarketOutcome(
+              name: 'A', price: 0.5, conditionId: 'a', tokenId: 'a'),
+          PolymarketOutcome(
+              name: 'B', price: 0.3, conditionId: 'b', tokenId: 'b'),
+          PolymarketOutcome(
+              name: 'C', price: 0.2, conditionId: 'c', tokenId: 'c'),
+        ]),
+        isFalse);
+  });
 }
+

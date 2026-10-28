@@ -13,6 +13,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
+import 'package:kute/screens/shared/slip_stat_tiles.dart';
+import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
@@ -95,7 +97,8 @@ void main() {
         overrides: [
           currencyProvider.overrideWith((ref) => _CurrencyNotifier(
               {'BTC': Fixed.parse('0.00001', decimalDigits: 8)})),
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     // The headline is what does not arrive, not the declared fees.
@@ -138,7 +141,8 @@ void main() {
     await tester.pumpWidget(_host(
         const OrchestraFeeSummary(route: route, bitcoinFirst: false),
         overrides: [
-          orchestraFeeEstimateProvider(route).overrideWith((_) async => quote),
+          orchestraFeeEstimateProvider(feeEstimateKey(route))
+              .overrideWith((_) async => quote),
         ]));
     await tester.pumpAndSettle();
     expect(find.text('Shown before you confirm'), findsOneWidget);
@@ -220,6 +224,97 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a move fee is folded into the venue fee row, one detail',
+      (tester) async {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    await tester.pumpWidget(_host(
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          // 40 shares at 50c: $0.30 to Polymarket, $0.04 to Kute, plus
+          // the $1.03 move = $1.37 in the one row.
+          PolymarketFeeSummary(
+              tokenId: 'yes',
+              shares: 40,
+              price: 0.5,
+              bitcoinFirst: false,
+              showNote: false,
+              moveFeeUsd: 1.03),
+          // No Kute fee on this one and no account to price the exchange
+          // fee: the move is the whole figure.
+          HyperliquidFeeSummary(
+              notional: 20,
+              spot: false,
+              buy: true,
+              builder: false,
+              useHotAccount: false,
+              moveFeeUsd: 1.03),
+        ]),
+        overrides: [
+          polymarketFeeTermsProvider.overrideWith((ref, _) async => terms),
+        ]));
+    await tester.pumpAndSettle();
+    expect(find.text('Estimated fee'), findsNWidgets(2));
+    expect(find.text(r'$1.37'), findsOneWidget);
+    expect(find.text(r'$1.03'), findsOneWidget);
+    expect(find.text('Move fee'), findsNothing);
+    // Each breakdown opens in its own bottom sheet, one line per part.
+    final sheet = find.byKey(const ValueKey('money-fee-breakdown-sheet'));
+    await tester.tap(find.text(r'$1.37'));
+    await tester.pumpAndSettle();
+    expect(sheet, findsOneWidget);
+    for (final part in ['Polymarket fee', 'Kute fee', 'Move fee']) {
+      expect(find.descendant(of: sheet, matching: find.text(part)),
+          findsOneWidget);
+    }
+    expect(find.descendant(of: sheet, matching: find.text(r'$1.03')),
+        findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    await tester.tap(find.text(r'$1.03'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: sheet, matching: find.text('Move fee')),
+        findsOneWidget);
+    expect(
+        find.descendant(of: sheet, matching: find.text('Exchange fee estimate')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a move whose cost is still being read holds the fee row',
+      (tester) async {
+    const terms = PolymarketFeeTerms(
+        rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);
+    await tester.pumpWidget(_host(
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          PolymarketFeeSummary(
+              tokenId: 'yes',
+              shares: 40,
+              price: 0.5,
+              bitcoinFirst: false,
+              showNote: false,
+              moveFeePending: true),
+          HyperliquidFeeSummary(
+              notional: 20,
+              spot: false,
+              buy: true,
+              builder: false,
+              useHotAccount: false,
+              moveFeePending: true),
+        ]),
+        overrides: [
+          polymarketFeeTermsProvider.overrideWith((ref, _) async => terms),
+        ]));
+    // "Calculating…" spins, so settle by hand: the terms arrive on the
+    // next frame.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Calculating…'), findsNWidgets(2));
+    expect(find.text(r'$0.34'), findsNothing);
+    expect(find.text(r'$0.00'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'failed estimate offers a separate working retry on a narrow screen',
       (tester) async {
@@ -266,10 +361,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(r'$0.12'), findsOneWidget);
     expect(find.text('Kute fee'), findsNothing);
+    final before = tester.getSize(find.byType(RepaintBoundary).first);
     await tester.tap(find.text(r'$0.12'));
     await tester.pumpAndSettle();
-    expect(find.text('Kute fee'), findsOneWidget);
-    expect(find.text('Final fee depends on the fill price.'), findsOneWidget);
+    // In a bottom sheet: the summary under it did not grow.
+    final sheet = find.byKey(const ValueKey('money-fee-breakdown-sheet'));
+    expect(find.descendant(of: sheet, matching: find.text('Kute fee')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: sheet,
+            matching: find.text('Final fee depends on the fill price.')),
+        findsOneWidget);
+    expect(tester.getSize(find.byType(RepaintBoundary).first), before);
     expect(tester.takeException(), isNull);
   });
 
@@ -304,12 +408,148 @@ void main() {
     expect(find.text('Insufficient balance'), findsNothing);
     await tester.tap(find.text('Retry'));
     expect(retries, 1);
-    // The breakdown opens as ordinary rows, not as captions.
+    // The breakdown opens as ordinary rows in a sheet, not as captions.
     expect(find.text('Kute fee'), findsNothing);
     await tester.tap(find.text(r'Fee about $0.12'));
     await tester.pumpAndSettle();
-    expect(find.text('Kute fee'), findsOneWidget);
-    expect(find.text(r'$0.10'), findsOneWidget);
+    final sheet = find.byKey(const ValueKey('money-fee-breakdown-sheet'));
+    expect(find.descendant(of: sheet, matching: find.text('Kute fee')),
+        findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text(r'$0.10')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  group('the fee figure on a slip', () {
+    const parts = [
+      MoneyFeeSummary(
+          label: 'Polymarket fee', usd: 0.30, bitcoinFirst: false),
+      MoneyFeeSummary(label: 'Kute fee', usd: 0.04, bitcoinFirst: false),
+      MoneyFeeSummary(label: 'Move fee', usd: 1.03, bitcoinFirst: false),
+    ];
+    // The slip's two figures at the founder's phone width: the fee in
+    // the right half.
+    Widget slip(MoneyFeeSummary fee) => SizedBox(
+          width: 370,
+          child: SlipFigures(
+            left: const SlipFigure(label: 'Payout', value: r'$20.68'),
+            right: KeyedSubtree(
+              key: const ValueKey('fee'),
+              child: MoneyFeeFigure(child: fee),
+            ),
+          ),
+        );
+    final figure = find.byKey(const ValueKey('fee'));
+
+    testWidgets('a tap opens the breakdown in a sheet; the figure never grows',
+        (tester) async {
+      tester.view.physicalSize = const Size(402, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_host(slip(const MoneyFeeSummary(
+          usd: 1.37, bitcoinFirst: false, details: parts))));
+      await tester.pumpAndSettle();
+      final height = tester.getSize(figure).height;
+      // A title and one number: no box, no line under it, no parts.
+      expect(find.descendant(of: figure, matching: find.text(r'$1.37')),
+          findsOneWidget);
+      expect(find.text('Polymarket fee'), findsNothing);
+
+      await tester.tap(figure);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(figure).height, height);
+      expect(find.descendant(of: figure, matching: find.text('Kute fee')),
+          findsNothing);
+      final sheet = find.byKey(const ValueKey('money-fee-breakdown-sheet'));
+      expect(sheet, findsOneWidget);
+      // One line per part: the longest label is no taller than the
+      // shortest, and each sits on the amount's line.
+      final one = tester.getSize(find.text('Kute fee')).height;
+      for (final part in ['Polymarket fee', 'Move fee']) {
+        final label = find.descendant(of: sheet, matching: find.text(part));
+        expect(tester.getSize(label).height, one, reason: part);
+      }
+      expect(
+          tester.getCenter(find.text('Polymarket fee')).dy,
+          closeTo(
+              tester
+                  .getCenter(find.descendant(
+                      of: sheet, matching: find.text(r'$0.30')))
+                  .dy,
+              1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'zero before there is a fee, never a dash; the last fee stays, '
+        'dimmed, while the next is worked out', (tester) async {
+      await tester.pumpWidget(_host(slip(const MoneyFeeSummary(
+          bitcoinFirst: false, state: 'Enter an amount'))));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: figure, matching: find.text(r'$0')),
+          findsOneWidget);
+      expect(find.text('—'), findsNothing);
+      // Nothing to open yet.
+      await tester.tap(figure, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('money-fee-breakdown-sheet')),
+          findsNothing);
+
+      // The first fee is still being read: zero, dimmed, no dash and no
+      // "Calculating…" line.
+      await tester.pumpWidget(_host(slip(const MoneyFeeSummary(
+          bitcoinFirst: false, state: 'Calculating…'))));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: figure, matching: find.text(r'$0')),
+          findsOneWidget);
+      expect(find.text('Calculating…'), findsNothing);
+      expect(find.text('—'), findsNothing);
+
+      await tester.pumpWidget(_host(slip(
+          const MoneyFeeSummary(usd: 0.43, bitcoinFirst: false))));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$0.43'), findsOneWidget);
+      double opacity() => tester
+          .widget<AnimatedOpacity>(find.descendant(
+              of: figure, matching: find.byType(AnimatedOpacity)))
+          .opacity;
+      expect(opacity(), 1);
+
+      // A new amount: the fee is worked out again, the last one stays.
+      await tester.pumpWidget(_host(slip(const MoneyFeeSummary(
+          bitcoinFirst: false, state: 'Calculating…'))));
+      await tester.pump();
+      expect(find.text(r'$0.43'), findsOneWidget);
+      expect(find.text('—'), findsNothing);
+      expect(find.text('Calculating…'), findsNothing);
+      expect(opacity(), lessThan(1));
+
+      // The amount cleared: zero again.
+      await tester.pumpWidget(_host(slip(const MoneyFeeSummary(
+          bitcoinFirst: false, state: 'Enter an amount'))));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$0.43'), findsNothing);
+      expect(find.descendant(of: figure, matching: find.text(r'$0')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a failed estimate keeps the figure and offers Retry in the '
+        'sheet', (tester) async {
+      var retries = 0;
+      await tester.pumpWidget(_host(slip(MoneyFeeSummary(
+          bitcoinFirst: false,
+          state: 'Estimate unavailable',
+          onRetry: () => retries++))));
+      await tester.pumpAndSettle();
+      expect(find.text('Estimate unavailable'), findsNothing);
+      await tester.tap(figure);
+      await tester.pumpAndSettle();
+      expect(find.text('Estimate unavailable'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      expect(retries, 1);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

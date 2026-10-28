@@ -1,19 +1,26 @@
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
 import 'package:kute/services/onchain/native_onchain_service.dart';
+import 'package:kute/services/orchestra/onetime_refund_address_store.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
 import 'package:kute/models/auth_model.dart';
 import 'package:kute/models/evm_derivation_version.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/tracking_service.dart' show TrackingService;
 import 'package:kute/services/secure/flutter_secret_store.dart';
-import 'package:kute/services/secure_storage.dart';
+import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/services/hardware/ledger/ledger_venue_descriptor_store.dart'
     show wipeLedgerWalletLocalData;
 import 'package:hive_ce/hive.dart';
 import 'package:kute/services/venue_total_cache_service.dart';
+import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:kute/services/orchestra/bitcoin_receive_marks.dart'
+    show BitcoinReceiveMarks;
 
 class WalletConfig {
   final String id;
@@ -105,6 +112,14 @@ class WalletConfig {
   /// retries the check (`RecoveryEvmFormat.retryPending`) and clears it.
   final bool evmFormatCheckPending;
 
+  /// True for a wallet created fresh on this device, whose balance is
+  /// known to be 0 before any sync: Home renders $0.00 at once instead
+  /// of the loading skeleton. Restored and imported wallets (a balance
+  /// may exist) and every wallet persisted before this field (absent
+  /// key) are false. Never cleared: once a sync has run the balance
+  /// cache decides, so the flag only matters before the first one.
+  final bool createdEmpty;
+
   WalletConfig({
     required this.id,
     required this.name,
@@ -130,6 +145,7 @@ class WalletConfig {
     this.recoveryCheckAddress,
     this.evmDerivationVersion = EvmDerivationVersion.legacySha256,
     this.evmFormatCheckPending = false,
+    this.createdEmpty = false,
   });
 
   /// The one spending account backed by the Spark SDK.
@@ -183,6 +199,7 @@ class WalletConfig {
       'recoveryCheckAddress': recoveryCheckAddress,
       'evmDerivationVersion': evmDerivationVersion.storageValue,
       'evmFormatCheckPending': evmFormatCheckPending,
+      'createdEmpty': createdEmpty,
     };
   }
 
@@ -228,6 +245,7 @@ class WalletConfig {
       evmDerivationVersion:
           EvmDerivationVersion.fromStorage(map['evmDerivationVersion']),
       evmFormatCheckPending: map['evmFormatCheckPending'] == true,
+      createdEmpty: map['createdEmpty'] == true,
     );
   }
 
@@ -255,6 +273,7 @@ class WalletConfig {
     bool clearEvmIdentity = false,
     String? recoveryCheckAddress,
     bool? evmFormatCheckPending,
+    bool? createdEmpty,
   }) {
     return WalletConfig(
       id: id,
@@ -285,8 +304,48 @@ class WalletConfig {
       evmDerivationVersion: evmDerivationVersion,
       evmFormatCheckPending:
           evmFormatCheckPending ?? this.evmFormatCheckPending,
+      createdEmpty: createdEmpty ?? this.createdEmpty,
     );
   }
+}
+
+/// The label every passkey wallet created before per-wallet labels used
+/// (`passkey_choice.dart` passed this constant to `getWallet`). Also the
+/// salt `PasskeyService.getLegacySeed` falls back to.
+const String kLegacyPasskeyDefaultLabel = 'Default';
+
+/// Gives every passkey record that still has no `passkeyLabel` the label
+/// its seed was derived with, so it stops depending on the device-wide
+/// `passkey_cached_label`, which any later create or restore overwrites
+/// (a wrong label connects an empty wallet and reveals the wrong words).
+///
+/// Such records were all created with [kLegacyPasskeyDefaultLabel]; the
+/// cached label is used only when it is not already carried by another
+/// passkey record (then it belongs to that wallet, not this one). A
+/// non-null label is never overwritten. Returns the same list when
+/// nothing changed, so a caller can tell whether to persist.
+List<WalletConfig> backfillLegacyPasskeyLabels(
+  List<WalletConfig> wallets, {
+  required String? cachedLabel,
+}) {
+  final needsLabel =
+      wallets.any((w) => w.isPasskey && w.passkeyLabel == null);
+  if (!needsLabel) return wallets;
+  final taken = {
+    for (final w in wallets)
+      if (w.isPasskey && w.passkeyLabel != null) w.passkeyLabel!,
+  };
+  final fromCache = cachedLabel != null &&
+      cachedLabel.isNotEmpty &&
+      !taken.contains(cachedLabel);
+  final label = fromCache ? cachedLabel : kLegacyPasskeyDefaultLabel;
+  return [
+    for (final w in wallets)
+      if (w.isPasskey && w.passkeyLabel == null)
+        w.copyWith(passkeyLabel: label)
+      else
+        w,
+  ];
 }
 
 class Settings {
@@ -501,9 +560,23 @@ class SettingsModel extends StateNotifier<Settings> {
   WalletConfig? walletById(String id) =>
       state.wallets.where((wallet) => wallet.id == id).firstOrNull;
 
-  final _secureStorage = secureStorage;
 
-  Future<void> addWallet(WalletConfig newWallet) async {
+  /// Adds [newWallet] and returns the record now stored for it. A passkey
+  /// wallet is one record per label (the label IS the seed), so adding a
+  /// label that is already listed returns the existing record and stores
+  /// nothing: a retried create or restore after a failure past the save
+  /// must not list the same wallet twice.
+  Future<WalletConfig> addWallet(WalletConfig newWallet) async {
+    final label = newWallet.passkeyLabel;
+    if (newWallet.isPasskey && label != null) {
+      final existing = state.wallets
+          .where((w) => w.isPasskey && w.passkeyLabel == label)
+          .firstOrNull;
+      if (existing != null) {
+        TrackingService.track('wallet_add_deduped', params: {'kind': 'passkey'});
+        return existing;
+      }
+    }
     final box = await Hive.openBox('settings');
     final List<WalletConfig> updatedList = [...state.wallets, newWallet];
     final walletsMap = updatedList.map((w) => w.toMap()).toList();
@@ -515,6 +588,7 @@ class SettingsModel extends StateNotifier<Settings> {
     }
 
     state = state.copyWith(wallets: updatedList);
+    return newWallet;
   }
 
   Future<void> removeWallet(String walletId) async {
@@ -540,35 +614,9 @@ class SettingsModel extends StateNotifier<Settings> {
     // Release the native owner before deleting a wallet the user removed.
     await NativeOnchainService.instance.retireWallet(walletId);
 
-    try {
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
-      if (await dbFile.exists()) await dbFile.delete();
-
-      final breezDir = Directory('${appDocDir.path}/breez_$walletId');
-      if (await breezDir.exists()) await breezDir.delete(recursive: true);
-    } catch (e) {
-      // Silently ignored
-    }
-
-    await AuthModel().deleteWalletMnemonic(walletId);
-
-    // Clean up Polymarket credentials and proxy wallet
-    await SecretStores.local
-        .deleteLocalOnly(key: 'pm_api_credentials_$walletId');
-    await SecretStores.local.deleteLocalOnly(key: 'pm_proxy_wallet_$walletId');
-
-    // Ledger venue descriptors and submitted-action records (Phase 3).
-    await wipeLedgerWalletLocalData(walletId);
-
-    // Per-wallet Hive entries scattered across other services. A
-    // forgotten wallet must leave nothing behind that would rehydrate
-    // on re-import of a recycled id. Each block is best-effort —
-    // missing box / not-open is fine, we just skip it.
-    await _wipePerWalletHiveData(walletId);
-    await PendingReceiveQuoteCache.deleteForWallet(walletId);
-    await StandingDepositStore.deleteWallet(walletId);
-
+    // The record goes first: once the user confirmed, a failure deleting
+    // a secret must never leave the wallet listed with half its secrets
+    // gone. Everything after this is best-effort and never throws.
     final box = await Hive.openBox('settings');
     final updatedList = state.wallets.where((w) => w.id != walletId).toList();
     final walletsMap = updatedList.map((w) => w.toMap()).toList();
@@ -577,10 +625,79 @@ class SettingsModel extends StateNotifier<Settings> {
     String? newActiveId = state.activeWalletId;
     if (state.activeWalletId == walletId) {
       newActiveId = updatedList.isNotEmpty ? updatedList.first.id : null;
-      await box.put('activeWalletId', newActiveId);
+      await _bestEffort('active_wallet',
+          () => box.put('activeWalletId', newActiveId));
     }
 
     state = state.copyWith(wallets: updatedList, activeWalletId: newActiveId);
+
+    await _deleteWalletData(walletToDelete);
+  }
+
+  /// Deletes [wallet]'s secrets and local data after its record is gone.
+  /// Only keys named by this wallet's id (or, for a passkey wallet, its
+  /// label) are touched. Each step is best-effort: a failure is logged by
+  /// kind and the next step still runs.
+  Future<void> _deleteWalletData(WalletConfig wallet) async {
+    final walletId = wallet.id;
+    await _bestEffort('local_files', () async {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final dbFile = File('${appDocDir.path}/bdk_wallet_$walletId.sqlite');
+      if (await dbFile.exists()) await dbFile.delete();
+
+      final breezDir = Directory('${appDocDir.path}/breez_$walletId');
+      if (await breezDir.exists()) await breezDir.delete(recursive: true);
+    });
+
+    await _bestEffort(
+        'seed', () => AuthModel().deleteWalletMnemonic(walletId));
+
+    // A passkey wallet's derived seed is cached on this device under its
+    // label; the record is gone, so the cache goes too. Only entries keyed
+    // by this label: pins and the registry stay (see forgetWallet).
+    final label = wallet.passkeyLabel;
+    if (wallet.isPasskey && label != null) {
+      await _bestEffort(
+          'passkey_seed_cache', () => PasskeyService.forgetWallet(label));
+    }
+
+    // Polymarket credentials and proxy wallet.
+    await _bestEffort(
+        'polymarket_credentials',
+        () => SecretStores.local
+            .deleteLocalOnly(key: 'pm_api_credentials_$walletId'));
+    await _bestEffort(
+        'polymarket_proxy',
+        () => SecretStores.local
+            .deleteLocalOnly(key: 'pm_proxy_wallet_$walletId'));
+
+    // Ledger venue descriptors and submitted-action records (Phase 3).
+    await _bestEffort('ledger', () => wipeLedgerWalletLocalData(walletId));
+
+    // Per-wallet Hive entries scattered across other services. A
+    // forgotten wallet must leave nothing behind that would rehydrate
+    // on re-import of a recycled id.
+    await _bestEffort('hive', () => _wipePerWalletHiveData(walletId));
+    await _bestEffort('pending_receive_quotes',
+        () => PendingReceiveQuoteCache.deleteForWallet(walletId));
+    await _bestEffort('refund_addresses',
+        () => OneTimeRefundAddressStore.deleteForWallet(walletId));
+    await _bestEffort(
+        'standing_deposits', () => StandingDepositStore.deleteWallet(walletId));
+    await _bestEffort(
+        'receive_marks', () => BitcoinReceiveMarks.deleteWallet(walletId));
+  }
+
+  /// Runs one cleanup step; a failure is logged by step and error kind
+  /// only (never the message, which could name a key).
+  static Future<void> _bestEffort(
+      String step, Future<void> Function() body) async {
+    try {
+      await body();
+    } catch (e) {
+      debugPrint('[removeWallet] $step cleanup failed: '
+          '${classifySecretError(e).name}');
+    }
   }
 
   /// Per-wallet Hive cleanup. Called from [removeWallet]. Each box is
@@ -667,6 +784,7 @@ class SettingsModel extends StateNotifier<Settings> {
     // `venue_total_cache` box — the wallet's last Predictions and
     // Investing totals; a deleted wallet's must not outlive it.
     await VenueTotalCacheService.deleteWallet(walletId);
+    await HyperliquidAccountCache.deleteWallet(walletId);
 
     // `wallet_transaction_cache` box — per-wallet `Transaction`
     // snapshot used by the activity feed. Same rehydrate-on-boot
@@ -779,6 +897,17 @@ class SettingsModel extends StateNotifier<Settings> {
         orElse: () => throw Exception("Wallet not found"));
     final updatedWallet = wallet.copyWith(backedUp: backedUp);
     await updateWalletConfig(updatedWallet);
+  }
+
+  /// The passkey wallet(s) carrying [label] are backed up now that the
+  /// label is on the relay (`PasskeyService.labelPublishedHandler`). A
+  /// wallet already marked, or a label no record carries, changes nothing.
+  Future<void> markPasskeyLabelPublished(String label) async {
+    for (final wallet in state.wallets) {
+      if (wallet.isPasskey && wallet.passkeyLabel == label && !wallet.backedUp) {
+        await updateWalletConfig(wallet.copyWith(backedUp: true));
+      }
+    }
   }
 
   /// Persist that [walletId] has finished its one-time first full
@@ -914,12 +1043,22 @@ class SettingsModel extends StateNotifier<Settings> {
     state = state.copyWith(signerEnabled: enabled);
   }
 
+  /// A review flag, not a secret: a write that fails never surfaces. On
+  /// iOS a 1.x build may have stored `reviewDone` under another Keychain
+  /// accessibility, which the plugin's add collides with
+  /// (`errSecDuplicateItem`); that case is retried as an in-place
+  /// local-only update, and anything else is left for the next prompt.
   Future<void> setReviewDone(bool hasBeenReviewed) async {
-    await _secureStorage.write(
-      key: 'reviewDone',
-      value: hasBeenReviewed.toString(),
-    );
     state = state.copyWith(reviewDone: hasBeenReviewed);
+    final value = hasBeenReviewed.toString();
+    try {
+      await SecretStores.local.write(key: 'reviewDone', value: value);
+    } catch (error) {
+      if (!isDuplicateItemError(error)) return;
+      try {
+        await SecretStores.local.writeLocalOnly(key: 'reviewDone', value: value);
+      } catch (_) {}
+    }
   }
 
   Future<void> setAffiliateCode(String code) async {

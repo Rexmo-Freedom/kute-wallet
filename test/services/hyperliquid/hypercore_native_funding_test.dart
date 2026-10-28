@@ -8,6 +8,9 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/settlement_operation.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart'
+    show hyperliquidAddressProvider;
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/services/funding/owned_address_resolver.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
@@ -79,6 +82,102 @@ void main() {
             source: SettlementAccountKind.sparkHot,
             destination: SettlementAccountKind.hlHot),
         returnsNormally);
+  });
+
+  test(
+      'native Investing → Predictions: route, account pair and the flag '
+      'stop before a wallet is read', () async {
+    expect(kHypercoreToPredictionsRoute.label, 'hypercore_usdc>polygon_usdc.e');
+    expect(
+        () => checkSettlementAccountPair(
+            route: kHypercoreToPredictionsRoute,
+            source: SettlementAccountKind.hlHot,
+            destination: SettlementAccountKind.pmHot),
+        returnsNormally);
+    Future<bool> approve(_) async => true;
+    final disabled = SparkHypercoreFundingService(noRead, enabled: false);
+    await expectLater(
+        disabled.withdrawToPredictions(usd: 5, stepUp: approve),
+        throwsA(isA<HypercoreFundingUnavailable>().having((e) => e.reason,
+            'reason', HypercoreFundingUnavailableReason.flagOff)));
+  });
+
+  for (final (name, wallet) in <(String, String?)>[
+    ('the Investing account itself', _source),
+    ('no deposit wallet', null),
+    ('a malformed deposit wallet', '0x1234'),
+  ]) {
+    test(
+        'native Investing → Predictions refuses $name as the recipient '
+        'before the runner', () async {
+      var runnerAsked = false;
+      final container = ProviderContainer(overrides: [
+        settingsProvider.overrideWith((_) => SettingsModel(Settings(
+              currency: 'USD',
+              language: 'en',
+              btcFormat: 'sats',
+              backup: true,
+              biometricsEnabled: true,
+              bitcoinElectrumNode: '',
+              nodeType: 'Blockstream',
+              reviewDone: true,
+              wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+              activeWalletId: 'spending',
+            ))),
+        hyperliquidAddressProvider.overrideWith((_) async => _source),
+        polymarketTradingProvider.overrideWith(() => _Trading(wallet)),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(polymarketTradingProvider, (_, __) {});
+      final service = SparkHypercoreFundingService(container.read,
+          reverseSource: _ReadySource(),
+          pausePolicy: RoutePausePolicy(readFlag: (_) async => false),
+          runner: () async {
+        runnerAsked = true;
+        throw StateError('must not reach the runner');
+      });
+      await expectLater(
+          service.withdrawToPredictions(usd: 5, stepUp: (_) async => true),
+          throwsA(isA<HypercoreFundingUnavailable>().having((e) => e.reason,
+              'reason', HypercoreFundingUnavailableReason.accountUnavailable)));
+      expect(runnerAsked, isFalse);
+    });
+  }
+
+  test(
+      'native Investing → Predictions with its own deposit wallet reaches '
+      'the runner', () async {
+    var runnerAsked = false;
+    final container = ProviderContainer(overrides: [
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+            currency: 'USD',
+            language: 'en',
+            btcFormat: 'sats',
+            backup: true,
+            biometricsEnabled: true,
+            bitcoinElectrumNode: '',
+            nodeType: 'Blockstream',
+            reviewDone: true,
+            wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+            activeWalletId: 'spending',
+          ))),
+      hyperliquidAddressProvider.overrideWith((_) async => _source),
+      polymarketTradingProvider.overrideWith(() => _Trading(_target)),
+    ]);
+    addTearDown(container.dispose);
+    container.listen(polymarketTradingProvider, (_, __) {});
+    final service = SparkHypercoreFundingService(container.read,
+        reverseSource: _ReadySource(),
+        pausePolicy: RoutePausePolicy(readFlag: (_) async => false),
+        runner: () async {
+      runnerAsked = true;
+      throw StateError('runner reached');
+    });
+    await expectLater(
+        service.withdrawToPredictions(usd: 5, stepUp: (_) async => true),
+        throwsA(isA<StateError>()
+            .having((e) => e.message, 'message', 'runner reached')));
+    expect(runnerAsked, isTrue);
   });
 
   test('native route flag and pause block before a wallet or funds are touched',
@@ -168,6 +267,9 @@ void main() {
     expect(() => hypercorePerpUsdcWire(BigInt.from(1605000001)),
         throwsArgumentError);
     expect(usesHypercorePerpFunding('hypercore_to_spark_perps_v2'), isTrue);
+    expect(usesHypercorePerpFunding(kHypercoreToPredictionsRouteVersion),
+        isTrue,
+        reason: 'the native Predictions withdrawal is a perpetuals usdSend');
     expect(usesHypercorePerpFunding('hypercore_to_spark_v1'), isFalse);
     expect(usesHypercorePerpFunding(null), isFalse);
   });
@@ -564,4 +666,28 @@ void main() {
       expect(posts, 0);
     });
   }
+}
+
+/// A native source sender that is ready and must never send.
+class _ReadySource implements HypercoreHotSourceSend {
+  @override
+  bool get isReady => true;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('must not send');
+}
+
+/// The Predictions account with [wallet] as its deposit wallet.
+class _Trading extends PolymarketTradingNotifier {
+  _Trading(this.wallet);
+  final String? wallet;
+
+  @override
+  Future<PolymarketTradingState> build() async =>
+      PolymarketTradingState(proxyWalletAddress: wallet);
+
+  @override
+  Future<String?> depositAddress({Duration timeout = Duration.zero}) async =>
+      wallet;
 }

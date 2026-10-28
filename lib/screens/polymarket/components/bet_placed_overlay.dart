@@ -1,14 +1,15 @@
-import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 // lib/screens/polymarket/components/bet_placed_overlay.dart
 //
-// Confirmation shown after a prediction is placed. The layout lives in
-// the shared `KuteSuccessOverlay` / `KuteConfirmation`.
+// Result sheet shown after a prediction is placed: the cost on the side
+// as the hero, the market under it, shares and payout as rows. Done
+// closes it; "View prediction" opens the position. The layout lives in
+// the shared `KuteConfirmation`.
 
 import 'package:flutter/material.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart' show PolymarketPosition;
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
-import 'package:kute/screens/shared/trade_receipt.dart';
-import 'package:kute/screens/portfolio/open_investments_screen.dart';
+import 'package:kute/screens/usd/usd_account_screen.dart'
+    show openInvestmentsPositions;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -27,6 +28,7 @@ void pushBetPlacedOverlay({
   required double avgPrice,
   required double potentialPayout,
   bool estimated = false,
+  double? feeUsd,
   String? note,
   PolymarketPosition? position,
 }) {
@@ -41,6 +43,7 @@ void pushBetPlacedOverlay({
       avgPrice: avgPrice,
       potentialPayout: potentialPayout,
       estimated: estimated,
+      feeUsd: feeUsd,
       note: note,
       position: position,
     ),
@@ -56,6 +59,11 @@ class BetPlacedOverlay extends StatelessWidget {
   final double avgPrice;
   final double potentialPayout;
   final bool estimated;
+
+  /// Every fee the bet cost: the venue's, Kute's and its funding legs'.
+  /// The venue reports none with the fill, so it is always an estimate
+  /// and labelled one. Null leaves the row out.
+  final double? feeUsd;
 
   /// What else happened, under the check (a part fill: how much was
   /// bought, and that the rest was not).
@@ -76,17 +84,34 @@ class BetPlacedOverlay extends StatelessWidget {
     required this.avgPrice,
     required this.potentialPayout,
     this.estimated = false,
+    this.feeUsd,
     this.note,
     this.position,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final approx = estimated ? '≈ ' : '';
+    final cost = '\$${total.toStringAsFixed(2)}';
     return KuteConfirmation(
-      message: context.l10n.betPredictionPlaced,
-      showCloseButton: true,
-      buttonText: context.l10n.betViewPrediction,
-      onDone: () {
+      message: l10n.betPredictionPlaced,
+      amount: approx +
+          (outcome.isEmpty ? cost : l10n.betAmountOnSide(cost, outcome)),
+      contextLine: marketQuestion,
+      rows: {
+        l10n.betShares: '$approx${shares.toStringAsFixed(2)}',
+        l10n.betReceiptPayout:
+            '$approx\$${potentialPayout.toStringAsFixed(2)}',
+        if (feeUsd case final fee?)
+          // To the cent up: a fee never reads less than it cost.
+          l10n.feeUiEstimatedFee:
+              '\$${(((fee * 100) - 1e-6).ceil() / 100).toStringAsFixed(2)}',
+      },
+      detail: note ?? (estimated ? l10n.betReceiptUpdating : null),
+      onDone: () => Navigator.of(context).pop(),
+      secondaryButtonText: l10n.betViewPrediction,
+      onSecondary: () {
         final nav = Navigator.of(context);
         final placed = position;
         nav.pop();
@@ -94,23 +119,9 @@ class BetPlacedOverlay extends StatelessWidget {
           PositionDetailSheet.show(nav.context, position: placed);
           return;
         }
-        nav.push(MaterialPageRoute(
-            builder: (_) => const OpenInvestmentsScreen(
-                product: InvestmentsProduct.predictions)));
+        // What the account holds now: the Investments tab's Positions.
+        openInvestmentsPositions(nav.context);
       },
-      detail: note ?? (estimated ? context.l10n.betReceiptUpdating : null),
-      receipt: TradeReceipt(
-          leading: PolyReceiptArtwork(url: marketImage),
-          title: marketQuestion,
-          subtitle: outcome,
-          rows: {
-            context.l10n.betReceiptCost:
-                '${estimated ? "≈ " : ""}\$${total.toStringAsFixed(2)}',
-            context.l10n.betShares:
-                '${estimated ? "≈ " : ""}${shares.toStringAsFixed(2)}',
-            context.l10n.betReceiptPayout:
-                '${estimated ? "≈ " : ""}\$${potentialPayout.toStringAsFixed(2)}',
-          }),
     );
   }
 }

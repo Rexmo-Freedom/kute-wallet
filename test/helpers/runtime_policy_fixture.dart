@@ -4,15 +4,30 @@ import 'package:http/testing.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
+/// [also] names capabilities the answer carries beyond the default set
+/// (e.g. the venues' `….browse`), each allowed unless [blocked] names it.
+/// [revisionOf], when given, answers the revision on every fetch (a
+/// backend that publishes a new one meanwhile). [reasons] names a blocked
+/// capability's reason (`country_blocked` for a region refusal); the
+/// default is `disabled`. [blocked] is read on every fetch, so a test may
+/// change it between fetches. [decorations] adds fields to a blocked
+/// capability's decision (`blockedBy`, `regions`), as a backend with the
+/// region cascade sends them.
 RuntimeCapabilitiesService runtimePolicyFixture(
-        {Set<String> blocked = const {}, int revision = 1, int? maxLeverage}) =>
+        {Set<String> blocked = const {},
+        Map<String, String> reasons = const {},
+        Map<String, Map<String, Object?>> decorations = const {},
+        Set<String> also = const {},
+        int revision = 1,
+        int Function()? revisionOf,
+        int? maxLeverage}) =>
     RuntimeCapabilitiesService.forTesting(
       client: MockClient((request) async {
         final now = DateTime.now().toUtc();
         return http.Response(
             jsonEncode({
               'schemaVersion': 1,
-              'revision': revision,
+              'revision': revisionOf?.call() ?? revision,
               'evaluatedAt': now.toIso8601String(),
               'expiresAt':
                   now.add(const Duration(minutes: 2)).toIso8601String(),
@@ -37,11 +52,15 @@ RuntimeCapabilitiesService runtimePolicyFixture(
                   'polymarket.politics',
                   'polymarket.withdraw',
                   'trading.advanced',
+                  ...also,
                 ])
                   id: {
                     'allowed': !blocked.contains(id),
-                    'reason': blocked.contains(id) ? 'disabled' : '',
-                    'comingSoon': false
+                    'reason': blocked.contains(id)
+                        ? (reasons[id] ?? 'disabled')
+                        : '',
+                    'comingSoon': false,
+                    if (blocked.contains(id)) ...?decorations[id],
                   },
               },
               'fees': {

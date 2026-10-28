@@ -42,6 +42,44 @@ SettlementOperation operation(SettlementFlow flow,
         updatedAt: DateTime.utc(2026));
 
 void main() {
+  test('dollar-only proof needs two known assets, independent of provider', () {
+    for (final asset in [
+      'USDC',
+      'USDC.e',
+      'USDT',
+      'DAI',
+      'USD',
+      'USDB',
+      'pUSD'
+    ]) {
+      expect(
+          swapTouchesOnlyDollars(receiveRow().copyWith(
+              coinFrom: ' $asset ', coinTo: 'usdb', provider: 'SideShift')),
+          isTrue,
+          reason: asset);
+    }
+    for (final asset in [
+      'BTC',
+      'btc',
+      'sparkBTC',
+      'LIGHTNING',
+      'XBT',
+      '',
+      'NEW'
+    ]) {
+      expect(
+          swapTouchesOnlyDollars(
+              receiveRow().copyWith(coinFrom: asset, coinTo: 'USDB')),
+          isFalse,
+          reason: asset);
+      expect(
+          swapTouchesOnlyDollars(
+              receiveRow().copyWith(coinFrom: 'USDB', coinTo: asset)),
+          isFalse,
+          reason: 'reverse $asset');
+    }
+  });
+
   test('Polygon USDC received externally is not a Predictions withdrawal', () {
     expect(classifySwapActivity(receiveRow()), SwapActivityKind.receive);
   });
@@ -76,5 +114,21 @@ void main() {
     expect(
         classifySwapActivity(receiveRow().copyWith(purchaseSource: 'cashapp')),
         SwapActivityKind.purchase);
+  });
+  test(
+      'Investing cash straight to Predictions by the native route reads as '
+      'an Investing withdrawal, with or without its operation', () {
+    final row = receiveRow().copyWith(
+        operationId: 'operation',
+        coinFrom: 'USDC',
+        networkFrom: 'HYPERCORE',
+        coinTo: 'USDC.e',
+        networkTo: 'POLYGON',
+        routeVersion: 'hypercore_to_polygon_usdce_perps_v1');
+    expect(
+        classifySwapActivity(row,
+            operation: operation(SettlementFlow.investingToPredictionsDirect)),
+        SwapActivityKind.investingWithdrawal);
+    expect(classifySwapActivity(row), SwapActivityKind.investingWithdrawal);
   });
 }

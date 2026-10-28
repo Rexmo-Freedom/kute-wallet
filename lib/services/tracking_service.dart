@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/helpers/auth_grant.dart' show ReauthRequired;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/once_flags_service.dart';
@@ -16,6 +17,8 @@ import 'package:kute/services/advisor/sal_chip_templates.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/secure_storage.dart';
+import 'package:local_auth/local_auth.dart'
+    show LocalAuthException, LocalAuthExceptionCode;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
@@ -589,6 +592,13 @@ class TrackingService {
   /// 1-10, 10-100, 100-1k, 1k-10k, 10k+`.
   static String usdBucket(double usd) => _usdBucket(usd);
 
+  /// The exact USD figure that goes beside a legacy `*_bucket`, as
+  /// `{key: usd}` to the cent (sign kept), or nothing when [usd] is null or
+  /// not finite. PostHog gets exact values; the bucket stays only for the
+  /// dashboards already built on it.
+  static Map<String, Object> exactUsd(String key, double? usd) =>
+      usd != null && usd.isFinite ? {key: _round(usd, 2)} : const {};
+
   /// Public wrapper around [_safeReason] so ad-hoc `track()` call sites
   /// outside this file can scrub freeform error/reason strings (raw
   /// `e.toString()` can inline addresses, invoices, amounts) before they
@@ -602,12 +612,18 @@ class TrackingService {
     'user_cancelled', 'insufficient_funds', 'below_minimum', 'above_limit',
     'invalid_destination', 'expired', 'quote_rejected', 'fee_unavailable',
     'timeout', 'network', 'hardware_wallet', 'rate_limited', 'no_route',
-    'settlement', 'unknown',
+    'settlement', 'unsupported_source', 'unknown',
+    // A move or action the runtime policy (or a venue's own location
+    // answer) withholds: a restriction, not a failure.
+    'restricted',
   };
 
   static String errorCategory(Object? error) {
     if (error == null) return 'unknown';
-    final t = error.toString().toLowerCase();
+    // A grant drift is classified by its field classes only, never by
+    // the drifted key names its toString adds for debug logs.
+    final t = (error is ReauthRequired ? error.fieldSummary : error.toString())
+        .toLowerCase();
     // Idempotent: a value that already is a category (or a settlement_*
     // stop reason) passes through, so classifying twice never changes it.
     if (errorCategories.contains(t) || t.startsWith('settlement_')) return t;
@@ -623,6 +639,14 @@ class TrackingService {
     }
     if (has(['above maximum', 'maximum', 'too large', 'limit'])) {
       return 'above_limit';
+    }
+    // Orchestra's deposit-address mint refusing the (chain, asset) we
+    // offered: "Unsupported deposit source: tron:TRX", "Unsupported
+    // source: hyperevm:USDE", "Unsupported source chain: bitcoin". Our
+    // offering bug, not the person's; before 'invalid_destination' so
+    // the word "unsupported" is not read as an address problem.
+    if (has(['unsupported deposit source', 'unsupported source'])) {
+      return 'unsupported_source';
     }
     if (has(['invalid address', 'invalid invoice', 'invalid destination',
         'invalid recipient', 'bad address', 'unsupported address'])) {
@@ -641,6 +665,24 @@ class TrackingService {
     if (has(['route', 'no path', 'liquidity'])) return 'no_route';
     if (has(['settle', 'refund'])) return 'settlement';
     return 'unknown';
+  }
+
+  /// A fixed, text-free `reason` for a thrown [error]: its [errorCategory]
+  /// when one matches, otherwise the exception's class name
+  /// (`StateError`, `TimeoutException`, `PolymarketNothingToClaimException`),
+  /// so a failure no category covers still says what kind it was instead
+  /// of `unknown`. A bare `Exception(...)` reports as `exception`; a
+  /// String error reports as `string`, never its text. Never carries the
+  /// message, so no address or id can ride along.
+  static String errorReason(Object? error) {
+    final category = errorCategory(error);
+    if (category != 'unknown' || error == null) return category;
+    if (error is String) return 'string';
+    var type = error.runtimeType.toString();
+    final generic = type.indexOf('<');
+    if (generic > 0) type = type.substring(0, generic);
+    if (type == '_Exception') return 'exception';
+    return type.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
   }
 
   /// Public latency bucket ('<500ms' .. '5s+') for call sites.
@@ -700,7 +742,9 @@ class TrackingService {
   // Private keys and tx hashes in hex. Public market ids use the same
   // shape (Polymarket condition ids), so the keys that carry one are exempt
   // from this single rule and from nothing else.
-  static final RegExp _hex64 = RegExp(r'\b(?:0x)?[0-9a-fA-F]{64}\b');
+  // A 64-hex key or tx hash, or a 128-hex BIP39 seed.
+  static final RegExp _hex64 =
+      RegExp(r'\b(?:0x)?[0-9a-fA-F]{64}(?:[0-9a-fA-F]{64})?\b');
   static const Set<String> _publicHexKeys = {
     'market_id',
     'condition_id',
@@ -806,10 +850,12 @@ class TrackingService {
   // beside the legacy buckets (kept so dashboards do not break):
   // amount_usd (2 dp), amount (native units) + asset, currency/amount_fiat
   // for fiat-entered flows, and the fee the USER SAW before confirming as
-  // fee_shown_usd + fee_shown_basis (shown_at_quote | network_fee). These
-  // are UX analytics, never Kute revenue: revenue reaches PostHog only from
-  // the database through the warehouse sync, and no app event carries it
-  // or an estimate of it. Never balances, addresses, txids, order ids or
+  // fee_shown_usd + fee_shown_basis (shown_at_quote | network_fee |
+  // estimate: the bet slip's fee curve at submit | fill: the fee the
+  // Investing fills paid, as the venue reported it). These are UX
+  // analytics, never Kute revenue: revenue reaches PostHog only from the
+  // database through the warehouse sync, and no app event carries it or
+  // an estimate of it. Never balances, addresses, txids, order ids or
   // keys.
 
   static double _round(double v, int dp) {
@@ -828,7 +874,8 @@ class TrackingService {
   }
 
   /// Exact money properties for an outcome event. Null/non-finite values
-  /// are dropped. [amountUsd] also emits the legacy `amount_bucket`.
+  /// are dropped. [amountUsd] also emits the legacy `amount_bucket` unless
+  /// [legacyBucket] is false (events that carry exact amounts only).
   /// [feeUsd] is the fee shown to the user (`fee_shown_usd`); [feeBasis]
   /// becomes `fee_shown_basis`.
   static Map<String, Object> moneyParams({
@@ -843,11 +890,13 @@ class TrackingService {
     int? feeSats,
     String? feeTier,
     String feeBasis = 'shown_at_quote',
+    bool legacyBucket = true,
   }) {
     bool ok(double? v) => v != null && v.isFinite;
     return {
       if (ok(amountUsd)) 'amount_usd': _round(amountUsd!, 2),
-      if (ok(amountUsd)) 'amount_bucket': _usdBucket(amountUsd!),
+      if (ok(amountUsd) && legacyBucket)
+        'amount_bucket': _usdBucket(amountUsd!),
       if (ok(amount)) 'amount': _round(amount!, _assetDecimals(asset)),
       if (asset != null) 'asset': asset.toLowerCase(),
       if (amountSats != null) 'amount_sats': amountSats,
@@ -898,8 +947,36 @@ class TrackingService {
   /// payload stays on the device.
   static Object sanitizedErrorEnvelope(Object error) {
     final type = error.runtimeType.toString();
+    if (isPasskeySdkError(error)) {
+      // The SDK's passkey errors inline the provider's message, which
+      // names the WebAuthn user (the wallet label) on some platforms.
+      // Only the union variant names go out, never the message.
+      return _SanitizedError(type, passkeyErrorVariants(error));
+    }
     final scrubbed = _safeReason(error.toString()) ?? '';
     return _SanitizedError(type, scrubbed);
+  }
+
+  /// A Breez SDK passkey error (`PasskeyError` / `PrfProviderError` and
+  /// their freezed variants), matched by type name so this file stays
+  /// free of the SDK.
+  @visibleForTesting
+  static bool isPasskeySdkError(Object error) {
+    final type = error.runtimeType.toString();
+    return type.startsWith('PasskeyError') ||
+        type.startsWith('PrfProviderError');
+  }
+
+  /// The variant chain of a passkey error, e.g.
+  /// `PasskeyError.prf > PrfProviderError.credentialNotFound`: the names
+  /// freezed prints before each payload, and nothing from the payload.
+  @visibleForTesting
+  static String passkeyErrorVariants(Object error) {
+    final text = error.toString();
+    return RegExp(r'\b(PasskeyError|PrfProviderError)\.([A-Za-z]\w*)')
+        .allMatches(text)
+        .map((m) => '${m[1]}.${m[2]}')
+        .join(' > ');
   }
 
   /// Record a crash to Firebase Crashlytics (the single crash backend —
@@ -984,6 +1061,9 @@ class TrackingService {
     'hardware_wallet',
     'no_route',
     'quote_rejected',
+    // A source the app offered and the provider refused: an offering bug
+    // to fix in kOrchestraAccumulationDeniedPairs, so it keeps its issue.
+    'unsupported_source',
   };
   static const int _handledMax = 20;
   static final Set<String> _handledSeen = <String>{};
@@ -1416,10 +1496,72 @@ class TrackingService {
     _crashlyticsBreadcrumb(event, params);
     if (_muted) return;
     if (isCompletedMoneyAction(event, params)) _recordMoneyAction();
-    try {
-      Posthog().capture(eventName: event, properties: params);
-    } catch (_) {/* never crash on tracking */}
+    final properties = params;
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().capture(eventName: event, properties: properties);
+      } catch (_) {/* never crash on tracking */}
+    });
   }
+
+  // ─── Analytics SDK readiness ─────────────────────────────────────
+
+  /// False while `main.dart` has PostHog's Dart `setup` in flight off the
+  /// first-frame path ([holdAnalyticsUntilReady]). Captures made meanwhile
+  /// wait in [_heldUntilReady], in order, and go out together the moment
+  /// [markAnalyticsReady] runs, so nothing fired during boot is lost and
+  /// nothing reaches the SDK before its config (host, `beforeSend`
+  /// scrubbers, replay off) is in place. True by default: a process that
+  /// never holds (tests, tools) behaves exactly as before.
+  static bool _analyticsReady = true;
+  static final List<void Function()> _heldUntilReady = [];
+  static Completer<void> _analyticsReadyCompleter = Completer<void>()
+    ..complete();
+
+  /// A boot that keeps far more than this many captures waiting is broken
+  /// in some other way; the oldest go rather than memory.
+  static const int _heldUntilReadyCap = 500;
+
+  /// Completes once [markAnalyticsReady] has run (at once when nothing is
+  /// held). Boot steps that must follow the SDK setup (identify) await it.
+  static Future<void> get analyticsReady => _analyticsReadyCompleter.future;
+
+  /// Hold every capture until [markAnalyticsReady]. Called by `main.dart`
+  /// right before it starts PostHog's setup.
+  static void holdAnalyticsUntilReady() {
+    if (!_analyticsReady) return;
+    _analyticsReady = false;
+    _analyticsReadyCompleter = Completer<void>();
+  }
+
+  /// The SDK is set up (or its setup gave up): release the held captures in
+  /// the order they were made. Idempotent.
+  static void markAnalyticsReady() {
+    if (_analyticsReady) return;
+    _analyticsReady = true;
+    final held = List<void Function()>.of(_heldUntilReady);
+    _heldUntilReady.clear();
+    for (final op in held) {
+      try {
+        op();
+      } catch (_) {/* never crash on tracking */}
+    }
+    if (!_analyticsReadyCompleter.isCompleted) _analyticsReadyCompleter.complete();
+  }
+
+  /// Runs [op] now, or once the SDK is ready.
+  static void _whenAnalyticsReady(void Function() op) {
+    if (_analyticsReady) {
+      op();
+      return;
+    }
+    if (_heldUntilReady.length >= _heldUntilReadyCap) _heldUntilReady.removeAt(0);
+    _heldUntilReady.add(op);
+  }
+
+  /// Test-only: the number of captures waiting for the SDK.
+  @visibleForTesting
+  static int get debugHeldUntilReadyCount => _heldUntilReady.length;
 
   /// Property keys whose raw value identifies an order, payment or claim.
   /// A provider order id, quote id or claim id is joinable to a person's
@@ -1493,14 +1635,16 @@ class TrackingService {
   /// these, but call this manually for non-routed surfaces).
   static void screenView(String screenName, {String? screenClass}) {
     if (_muted) return;
-    try {
-      Posthog().screen(
-        screenName: scrubString(screenName),
-        properties: {
-          if (screenClass != null) 'screen_class': screenClass,
-        },
-      );
-    } catch (_) {/* never crash on tracking */}
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().screen(
+          screenName: scrubString(screenName),
+          properties: {
+            if (screenClass != null) 'screen_class': screenClass,
+          },
+        );
+      } catch (_) {/* never crash on tracking */}
+    });
   }
 
   // Person-property writes are coalesced: at startup ~20 of these fire
@@ -1535,12 +1679,14 @@ class TrackingService {
     if (_pendingUserProps.isEmpty || _muted) return;
     final batch = scrubProperties(Map<String, Object>.from(_pendingUserProps));
     _pendingUserProps.clear();
-    try {
-      Posthog().capture(
-        eventName: r'$set',
-        properties: {r'$set': batch},
-      );
-    } catch (_) {/* never crash on tracking */}
+    _whenAnalyticsReady(() {
+      try {
+        Posthog().capture(
+          eventName: r'$set',
+          properties: {r'$set': batch},
+        );
+      } catch (_) {/* never crash on tracking */}
+    });
   }
 
   /// Identify a user. Prefer [identifyWithAffiliate] — this overload
@@ -1654,6 +1800,19 @@ class TrackingService {
     track('backup_prompt_shown', params: {'surface': surface});
   }
 
+  /// The passkey variant of the backup reminder ("Finish your passkey
+  /// backup": the wallet's label is not on the relay yet) rendered on
+  /// [surface]. Deduped like [backupPromptShownOnce]; its funnel goes on
+  /// in `PasskeyService.finishLabelBackup` (`passkey_label_backup_started`
+  /// → `_succeeded` | `_failed`).
+  static void passkeyLabelBackupShownOnce({
+    required String surface,
+    required String walletKey,
+  }) {
+    if (!_backupPromptSeen.add('passkey:$surface:$walletKey')) return;
+    track('passkey_label_backup_shown', params: {'surface': surface});
+  }
+
   /// The user tapped the backup reminder on [surface].
   static void backupPromptTapped({required String surface}) =>
       track('backup_prompt_tapped', params: {'surface': surface});
@@ -1743,6 +1902,46 @@ class TrackingService {
     });
   }
 
+  /// Exception codes with which `local_auth` 3 reports a prompt that was
+  /// dismissed rather than failed: the person tapped Cancel (or chose the
+  /// device PIN), or the system took the prompt down (app backgrounded,
+  /// another prompt shown). Neither is a biometric failure.
+  static const Set<LocalAuthExceptionCode> biometricCancelCodes = {
+    LocalAuthExceptionCode.userCanceled,
+    LocalAuthExceptionCode.systemCanceled,
+  };
+
+  /// The fixed code of a biometric prompt failure, for the `reason`
+  /// property: a [LocalAuthException]'s code name (`userCanceled`,
+  /// `temporaryLockout`, …), a [PlatformException]'s code, or the class
+  /// name of anything else. Never the message.
+  static String biometricErrorCode(Object error) => switch (error) {
+        LocalAuthException(:final code) => code.name,
+        PlatformException(:final code) => code,
+        _ => error.runtimeType.toString(),
+      };
+
+  /// The end of a biometric prompt that THREW. `local_auth` 3 throws a
+  /// [LocalAuthException] instead of returning false, so a dismissed
+  /// prompt (one of [biometricCancelCodes]) is `biometric_prompt_cancelled`
+  /// with the code as `reason`, and every other error is
+  /// `biometric_failed` with the code as `reason`. [surface] is the screen
+  /// that showed the prompt (`cold_start`, `lock_overlay`).
+  static void biometricPromptThrew(Object error, {required String surface}) {
+    final code = biometricErrorCode(error);
+    if (error is LocalAuthException && biometricCancelCodes.contains(error.code)) {
+      track('biometric_prompt_cancelled', params: {
+        'surface': surface,
+        'reason': code,
+      });
+      return;
+    }
+    track('biometric_failed', params: {
+      'reason': _safeReason(code) ?? 'unknown',
+      'surface': surface,
+    });
+  }
+
   /// A wrong PIN in a confirmation sheet. [surface] names the sheet
   /// ('step_up', 'seed_words', 'wallets', 'change_pin').
   static void pinGateFailed({required String surface, required int attempt}) {
@@ -1760,6 +1959,7 @@ class TrackingService {
   /// could not be read.
   static void changePinBlocked({required int walletCount}) {
     track('change_pin_blocked', params: {
+      'wallet_count': walletCount,
       'wallet_count_bucket': walletCount <= 1
           ? '1'
           : walletCount <= 3
@@ -1796,6 +1996,51 @@ class TrackingService {
 
   static void seedRestoreStartFresh() => track('seed_restore_start_fresh');
 
+  /// The lookup for wallet copies an older build stored under the legacy
+  /// Keychain accessibility ran. [source]: startup | sheet | start_over |
+  /// pin (a typed PIN verified) | biometric (the stored `biometric_pin`
+  /// verified after a biometric unlock); [outcome]: found | none | failed.
+  /// Counts of copies by era only. The `pin` and `biometric` lookups run
+  /// only when some stored-seed wallet has no readable copy.
+  static void seedRescueLookupCompleted({
+    required String source,
+    required String outcome,
+    int plain = 0,
+    int encrypted = 0,
+    int icloud = 0,
+  }) =>
+      track('seed_rescue_lookup_completed', params: {
+        'source': source,
+        'outcome': outcome,
+        'plain_count': plain,
+        'encrypted_count': encrypted,
+        'icloud_count': icloud,
+      });
+
+  /// One old copy was validated and re-saved (or added as a wallet).
+  /// [source]: startup | sheet | start_over | pin | biometric | read (a
+  /// seed read that found the copy only through the legacy lookup);
+  /// [era]: a (PIN-encrypted) | b (plain) | icloud; [check]: address |
+  /// proxy | none (what public data the phrase was compared against).
+  static void seedRescueRestored({
+    required String source,
+    required String era,
+    required String check,
+  }) =>
+      track('seed_rescue_restored',
+          params: {'source': source, 'era': era, 'check': check});
+
+  /// One old copy could not be restored. [source] as for
+  /// [seedRescueRestored]; [reason]: invalidPhrase | mismatch | wrongPin |
+  /// readFailed | writeFailed | cancelled.
+  static void seedRescueFailed({
+    required String source,
+    required String era,
+    required String reason,
+  }) =>
+      track('seed_rescue_failed',
+          params: {'source': source, 'era': era, 'reason': reason});
+
   /// The home banner for a spending wallet whose seed this phone can't
   /// read.
   static void seedUnavailableBannerShown() =>
@@ -1814,10 +2059,6 @@ class TrackingService {
   static void seedScreenshotWarningShown({required String surface}) {
     track('seed_screenshot_warning_shown', params: {'surface': surface});
   }
-
-  /// The Wallets screen recovery phrase sheet showed its QR code after an
-  /// explicit tap.
-  static void walletsQrRevealed() => track('wallets_qr_revealed');
 
   /// The note that phone backups and transfers don't carry the wallet key
   /// was shown on [surface].
@@ -1913,10 +2154,13 @@ class TrackingService {
     });
   }
 
-  /// The search category-filter chip changed (All / Transactions /
-  /// Predictions / Support). [category] is the newly-selected section.
-  static void searchCategoryChanged(String category) {
-    track('search_category_changed', params: {'category': category});
+  /// The search category-filter chip changed (All / Predictions /
+  /// Investing / Transactions). [category] is the newly-selected section;
+  /// [source] what switched it: `pill` (a filter pill) or `see_all` (a
+  /// group's "See all" row under All).
+  static void searchCategoryChanged(String category, {String source = 'pill'}) {
+    track('search_category_changed',
+        params: {'category': category, 'source': source});
   }
 
   /// A search result row was tapped. [resultType] is the categorical row
@@ -1953,7 +2197,7 @@ class TrackingService {
   // -- Cash App bitcoin purchase (Flashnet Lightning onramp) --
 
   /// A Cash App onramp order was created (invoice minted, handoff shown).
-  /// Amount is BUCKETED, matching the move/deposit funnels. Completion
+  /// Exact `amount_usd`, with the legacy `amount_bucket` beside it. Completion
   /// analytics stay with background sync's Orchestra pending→terminal
   /// transition — this is the intent step.
   /// [destination] distinguishes where the purchased bitcoin lands:
@@ -1964,6 +2208,7 @@ class TrackingService {
       {required double amountUsd, String destination = 'spending'}) {
     track('cashapp_purchase_created', params: {
       'amount_bucket': usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
       'destination': destination,
     });
   }
@@ -2221,11 +2466,13 @@ class TrackingService {
     double? amountUsd,
     int? feeSats,
     String? trigger, // manual | auto
+    String? path, // auto_percent | auto_stale_early_claim
   }) {
     track('spark_deposit_claimed', params: {
       'outcome': outcome,
       if (status != null) 'status': status,
       if (trigger != null) 'trigger': trigger,
+      if (path != null) 'path': path,
       'network': 'bitcoin',
       ...moneyParams(
         amountUsd: amountUsd,
@@ -2238,6 +2485,68 @@ class TrackingService {
     });
   }
 
+  /// The pending-deposit sheet opened on a deposit waiting on the person:
+  /// [reason] is fee_exceeded or failed, [requiredFeeSats] the provider's
+  /// quote when it refused the automatic claim. Exact sats, no ids.
+  static void depositClaimWaitingShown({
+    required int amountSats,
+    required String reason,
+    int? requiredFeeSats,
+  }) {
+    track('deposit_claim_waiting_shown', params: {
+      'amount_sats': amountSats,
+      'reason': reason,
+      if (requiredFeeSats != null) 'required_fee_sats': requiredFeeSats,
+    });
+  }
+
+  /// Claim now was approved and is about to run. [stage] is waiting_for_fee,
+  /// failed or confirming (an early claim); [feeSats] the quote shown on the
+  /// button, [maxFeeSats] the ceiling sent to the SDK.
+  static void depositQuickClaimStarted({
+    required int amountSats,
+    required int feeSats,
+    required int maxFeeSats,
+    required String stage,
+  }) {
+    track('deposit_quick_claim_started', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'max_fee_sats': maxFeeSats,
+      'stage': stage,
+    });
+  }
+
+  static void depositQuickClaimSucceeded({
+    required int amountSats,
+    required int feeSats,
+    required String stage,
+    required String outcome,
+  }) {
+    track('deposit_quick_claim_succeeded', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'stage': stage,
+      'outcome': outcome,
+    });
+  }
+
+  /// [errorCategory] is a fixed reason (a SparkDepositActionReason name or
+  /// sdk_error), never SDK text.
+  static void depositQuickClaimFailed({
+    required int amountSats,
+    required int feeSats,
+    required String stage,
+    required String errorCategory,
+  }) {
+    track('deposit_quick_claim_failed', params: {
+      'amount_sats': amountSats,
+      'fee_sats': feeSats,
+      'stage': stage,
+      'error_category': _safeReason(errorCategory) ?? '',
+    });
+  }
+
   static void sparkDepositClaimFailed({required String reason}) {
     track('spark_deposit_claim_failed', params: {
       'reason': _safeReason(reason) ?? '',
@@ -2246,14 +2555,6 @@ class TrackingService {
 
   static void sparkDepositClaimFeeConfirmed() =>
       track('spark_deposit_claim_fee_confirmed');
-
-  static void sparkDepositRefunded() => track('spark_deposit_refunded');
-
-  static void sparkDepositRefundFailed({required String reason}) {
-    track('spark_deposit_refund_failed', params: {
-      'reason': _safeReason(reason) ?? '',
-    });
-  }
 
   // -- Swaps / Exchange --
 
@@ -2368,6 +2669,7 @@ class TrackingService {
         'to_coin': toCoin,
         'provider': provider,
         if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       });
     }
     // Referee conversion signal — only fires the first time after the
@@ -2526,6 +2828,8 @@ class TrackingService {
       if (category != null && category.isNotEmpty)
         'category': category.toLowerCase(),
       if (liquidityUsd != null) 'liquidity_bucket': _usdBucket(liquidityUsd),
+      ...exactUsd('liquidity_usd', liquidityUsd),
+      if (outcomeCount != null) 'outcome_count': outcomeCount,
       if (outcomeCount != null)
         'outcome_count_bucket': outcomeCount <= 2
             ? 'binary'
@@ -2807,6 +3111,7 @@ class TrackingService {
     track('polymarket_funding_action', params: {
       'action': action,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -2830,6 +3135,7 @@ class TrackingService {
     track('sell_initiated', params: {
       'currency': currency,
       'amount_bucket': _usdBucket(amount),
+      ...exactUsd('amount_fiat', amount),
       if (provider != null) 'provider': provider,
     });
   }
@@ -2844,6 +3150,7 @@ class TrackingService {
     track('sell_completed', params: {
       'currency': currency,
       'amount_bucket': _usdBucket(fiatAmount),
+      ...exactUsd('amount_fiat', fiatAmount),
       if (provider != null) 'provider': provider,
     });
   }
@@ -2874,6 +3181,7 @@ class TrackingService {
       'destination_asset': destinationAsset,
       if (quoteId != null) 'quote_id': quoteId,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -2931,60 +3239,13 @@ class TrackingService {
     });
   }
 
-  // -- Accumulation Addresses (Receive) --
-
-  static void reusableDepositAddressCreated({
-    required String sourceChain,
-    required String sourceAsset,
-    required String destinationAsset,
-  }) {
-    track('reusable_deposit_address_created', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-      'destination_asset': destinationAsset,
-    });
-  }
-
-  static void reusableDepositAddressReused({
-    required String sourceChain,
-    required String sourceAsset,
-  }) {
-    track('reusable_deposit_address_reused', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-    });
-  }
-
-  /// A cached accumulation address was parked under the retired prefix
-  /// because its (chain, asset) pair fell off Orchestra's receive
-  /// catalog.
-  static void reusableDepositAddressRetired({
-    required String sourceChain,
-    required String sourceAsset,
-  }) {
-    track('reusable_deposit_address_retired', params: {
-      'source_chain': sourceChain,
-      'source_asset': sourceAsset,
-    });
-  }
-
-  /// User tapped the supported-asset picker button on the
-  /// "receiving this asset is temporarily unavailable" notice.
-  static void receiveUnsupportedAssetPickerOpened({
-    required String asset,
-    required String network,
-  }) {
-    track('receive_unsupported_asset_picker_opened', params: {
-      'asset': asset,
-      'network': network,
-    });
-  }
-
   // -- Cash App Buy --
 
   static void cashAppBuyInitiated({required double amountUsd}) {
-    track('cashapp_buy_initiated',
-        params: {'amount_bucket': _usdBucket(amountUsd)});
+    track('cashapp_buy_initiated', params: {
+      'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   static void cashAppBuyCompleted({
@@ -3029,8 +3290,10 @@ class TrackingService {
   }
 
   static void cashAppLimitReached({required double remaining}) {
-    track('cashapp_limit_reached',
-        params: {'remaining_bucket': _usdBucket(remaining)});
+    track('cashapp_limit_reached', params: {
+      'remaining_bucket': _usdBucket(remaining),
+      ...exactUsd('remaining_usd', remaining),
+    });
   }
 
   // The USDB External Deposit and Flashnet USDB Earn screen event
@@ -3041,6 +3304,7 @@ class TrackingService {
   static void paymentLinkCreated({double? amountUsd}) {
     track('payment_link_created', params: {
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -3114,8 +3378,8 @@ class TrackingService {
   /// sheet's watch saw it land), 'open' (Predictions opened or the account
   /// started), 'resume' (the app came back), 'order' (a buy needed it
   /// before signing) or 'refusal' (the order book refused a buy for it).
-  /// A coarse bucket only: the figure is the wallet's USDC.e at that
-  /// moment.
+  /// `amount_usd` is the wallet's USDC.e at that moment (with the legacy
+  /// `amount_bucket` beside it).
   static void polymarketDepositConverted({
     required double amountUsd,
     required String trigger,
@@ -3124,6 +3388,7 @@ class TrackingService {
         'venue': 'polymarket',
         'trigger': trigger,
         'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       });
 
   /// Withdraw handed to Orchestra; see [polymarketDepositSubmitted].
@@ -3141,8 +3406,11 @@ class TrackingService {
       });
 
   static void polymarketWithdrawInitiated({required double amountUsdc}) {
-    track('polymarket_withdraw_initiated',
-        params: {'amount_bucket': _usdBucket(amountUsdc), 'venue': 'polymarket'});
+    track('polymarket_withdraw_initiated', params: {
+      'amount_bucket': _usdBucket(amountUsdc),
+      ...exactUsd('amount_usd', amountUsdc),
+      'venue': 'polymarket',
+    });
   }
 
   static void polymarketWithdrawCompleted({
@@ -3384,9 +3652,11 @@ class TrackingService {
 
   static void errorDisplayed(
       {required String screen, required String message}) {
+    // Free text: the strict error-text rules (seed words in runs of three,
+    // keys, addresses, amounts), not only the property backstop.
     track('error_displayed', params: {
       'screen': screen,
-      'message': message.length > 100 ? message.substring(0, 100) : message,
+      'message': _safeReason(message) ?? '',
     });
   }
 
@@ -3681,10 +3951,10 @@ class TrackingService {
       track('ledger_approval_result',
           params: {'action': action, 'outcome': outcome});
 
-  /// Plan B10: `ledger_action_submitted{action, amount_bucket}`. Pass
-  /// [amountUsd] (bucketed here) or an already bucketed [amountBucket];
-  /// never an exact amount. Funding [action]s: `btc_to_hypercore`,
-  /// `hypercore_to_btc`.
+  /// Plan B10: `ledger_action_submitted{action, amount_usd, amount_bucket}`.
+  /// Pass [amountUsd] (sent exact, and bucketed for the legacy property);
+  /// [amountBucket] is only for a caller with no USD figure. Funding
+  /// [action]s: `btc_to_hypercore`, `hypercore_to_btc`.
   static void ledgerActionSubmitted({
     required String action,
     double? amountUsd,
@@ -3696,6 +3966,7 @@ class TrackingService {
           'amount_bucket': usdBucket(amountUsd)
         else if (amountBucket != null)
           'amount_bucket': amountBucket,
+        ...exactUsd('amount_usd', amountUsd),
       });
 
   /// A Ledger action sheet opened: pm_sell, pm_claim, pm_withdraw,
@@ -3778,14 +4049,15 @@ class TrackingService {
 
   static void appBackgrounded() => track('app_backgrounded');
 
-  /// Coarse foreground-session-length bucket emitted when the app goes
-  /// to background. Pairs with `app_backgrounded` to chart how long
-  /// users actually stay in a session without shipping a raw
-  /// fingerprintable duration. Buckets: '<10s' | '10-30s' | '30s-2m' |
-  /// '2-10m' | '10m+'.
+  /// Foreground-session length emitted when the app goes to background:
+  /// exact `duration_seconds`, plus the legacy `duration_bucket` ('<10s' |
+  /// '10-30s' | '30s-2m' | '2-10m' | '10m+'). Pairs with
+  /// `app_backgrounded`.
   static void appSession({required int durationSeconds}) {
-    track('app_session',
-        params: {'duration_bucket': _sessionBucket(durationSeconds)});
+    track('app_session', params: {
+      'duration_seconds': durationSeconds,
+      'duration_bucket': _sessionBucket(durationSeconds),
+    });
   }
 
   static String _sessionBucket(int seconds) {
@@ -3972,7 +4244,8 @@ class TrackingService {
 
   /// The unlock-time retry of a recovery EVM format check that did not
   /// finish. [result]: switched_legacy | kept_standard | standard_active |
-  /// incomplete; [legacySignal] as on `recovery_seed_entered`, with
+  /// incomplete | error (the attempt threw; the flag stays for the next
+  /// launch); [legacySignal] as on `recovery_seed_entered`, with
   /// switched_legacy only.
   static void recoveryEvmFormatRechecked(
           {required String result, String? legacySignal}) =>
@@ -4037,6 +4310,7 @@ class TrackingService {
   static void paymentLinkPaid({double? amountUsd}) {
     track('payment_link_paid', params: {
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -4154,6 +4428,7 @@ class TrackingService {
     track('affiliate_referee_converted', params: {
       'provider': provider,
       if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -4186,9 +4461,8 @@ class TrackingService {
   }
 
   /// Browse-depth engagement on the Predictions list. [depthPct] is the
-  /// scroll progress 0-100; we bucket it to a coarse [depth_bucket]
-  /// ('25' | '50' | '75' | '100') so a raw pixel/percent offset tied to
-  /// the pseudonymous id never leaves the device. Callers fire once per
+  /// scroll progress 0-100, sent exact as `depth_pct` beside the legacy
+  /// `depth_bucket` ('25' | '50' | '75' | '100'). Callers fire once per
   /// threshold crossed.
   static void polymarketListScrolled({required int depthPct}) {
     final String bucket = depthPct >= 100
@@ -4198,7 +4472,8 @@ class TrackingService {
             : depthPct >= 50
                 ? '50'
                 : '25';
-    track('polymarket_list_scrolled', params: {'depth_bucket': bucket});
+    track('polymarket_list_scrolled',
+        params: {'depth_pct': depthPct, 'depth_bucket': bucket});
   }
 
   static void polymarketOutcomeChipTapped({
@@ -4221,6 +4496,7 @@ class TrackingService {
     track('polymarket_bet_confirmation_shown', params: {
       'market_id': marketId,
       'amount_bucket': _usdBucket(amountUsdc),
+      ...exactUsd('amount_usd', amountUsdc),
     });
   }
 
@@ -4288,6 +4564,28 @@ class TrackingService {
   static void polymarketGeoblockedShown() =>
       track('polymarket_geoblocked_shown');
 
+  /// One live venue location check (Polymarket's geoblock, Hyperliquid's
+  /// legal check; cache hits are not sent). `trigger`: resume |
+  /// network_change | tap | startup | timer | pull | manual ("Check
+  /// connection" on a region restriction). `changed`: the answer differs
+  /// from this venue's previous live answer this session. `result`:
+  /// allowed | restricted | unknown. No address, IP or country is sent.
+  static void regionChecked({
+    required String venue,
+    required String trigger,
+    required bool changed,
+    required String result,
+  }) =>
+      track(
+          venue == 'hyperliquid'
+              ? 'investments_region_checked'
+              : 'predictions_region_checked',
+          params: {
+            'trigger': trigger,
+            'changed': changed,
+            'result': result,
+          });
+
   static void polymarketSellInitiated({
     required String marketId,
     String? category,
@@ -4323,10 +4621,10 @@ class TrackingService {
 
   static void polymarketFirstProfitableRedeem({required double pnl}) {
     if (OnceFlagsService.claimOnce('polymarket_first_profitable_redeem')) {
-      // Bucket the P&L — an exact profit value tied to the pseudonymous
-      // distinct_id builds a financial profile. Mirrors the
-      // polymarketPositionSold pattern (pnl_bucket + pnl_direction).
+      // Exact P&L (signed) beside the legacy bucket and direction, as on
+      // polymarket_position_sold.
       track('polymarket_first_profitable_redeem', params: {
+        ...exactUsd('pnl_usd', pnl),
         'pnl_bucket': _usdBucket(pnl.abs()),
         'pnl_direction': pnl >= 0 ? 'profit' : 'loss',
       });
@@ -4338,11 +4636,11 @@ class TrackingService {
     required double pnl,
     required String outcome,
   }) {
-    // Bucket the P&L rather than sending the exact profit/loss value
-    // alongside market_id (no-exact-amount rule). `outcome` already
-    // carries the win/loss direction.
+    // Exact P&L (signed) beside the legacy bucket; `outcome` carries the
+    // win/loss direction.
     track('polymarket_position_win_loss', params: {
       'market_id': marketId,
+      ...exactUsd('pnl_usd', pnl),
       'pnl_bucket': _usdBucket(pnl.abs()),
       'outcome': outcome,
     });
@@ -4581,6 +4879,20 @@ class TrackingService {
   static void hyperliquidGeoblockedShown() =>
       track('hyperliquid_geoblocked_shown');
 
+  /// Kute's runtime policy refused [capability] for a region, and the
+  /// person saw it on [surface] (a sheet, a ticket, a picker row). Fixed
+  /// ids only: the capability, the capability whose block it inherits
+  /// ([blockedBy], `none` for its own) and the surface. Never a country,
+  /// a region label or anything about the connection: the backend's
+  /// decision already holds that.
+  static void capabilityRegionBlocked(String capability,
+          {String blockedBy = '', required String surface}) =>
+      track('capability_region_blocked', params: {
+        'capability': capability,
+        'blocked_by': blockedBy.isEmpty ? 'none' : blockedBy,
+        'surface': surface,
+      });
+
   // The old vault "Earn" helpers were removed with that integration, and
   // the Flashnet USDB Earn funnel that replaced them was removed with the
   // Earn product itself. Retire both sets of event names (earn_*, usdb_*,
@@ -4639,41 +4951,165 @@ class TrackingService {
         ...moneyParams(amountUsd: amountUsd),
       });
 
+  // ─── Investing withdrawal funnel ───
+  // One attempt (the Move sheet's Investing cash-out, or a sweep bringing
+  // Investing cash home to Dollars) reports exactly one
+  // `hyperliquid_withdraw_initiated`, at most one
+  // `hyperliquid_withdraw_submitted` and one terminal
+  // `hyperliquid_withdraw_completed` / `hyperliquid_withdraw_failed`.
+  // Exact amounts only (`amount_usd`, no `amount_bucket`); never an
+  // address, id or key. Shared properties:
+  //  - `route`: `direct` (the HyperCore route through Orchestra) or
+  //    `cctp` (the Circle CCTP fallback). Every attempt starts direct, so
+  //    `initiated` says `direct`; the switch to CCTP is the
+  //    `hyperliquid_withdraw_step` `cctp_fallback` (initiated is not sent
+  //    again), and submitted, completed and failed carry the route the
+  //    money actually took.
+  //  - `purpose`: who started it: `manual_move` (the Move sheet), `sweep`
+  //    or `rollout_sweep` (the one-balance sweeper), the same values
+  //    `polymarket_withdraw_submitted` / `_failed` carry for a
+  //    Predictions sweep. Absent on completed/failed from the settlement
+  //    watchers, which do not know who started the move.
+  //  - `destination`: `btc` | `usd`; `wallet_kind`: `hot`.
+
+  /// The attempt started. [route] is `direct` (see above); [purpose]:
+  /// `manual_move` | `sweep` | `rollout_sweep`.
   static void hyperliquidWithdrawInitiated({
     double? amountUsd,
     String? destination, // btc | usd
     String? walletKind,
+    String route = 'direct',
+    String? purpose,
   }) =>
       track('hyperliquid_withdraw_initiated', params: {
         'venue': 'hyperliquid',
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        ...moneyParams(amountUsd: amountUsd),
+        'route': route,
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
 
-  /// [orderId] / [quoteId]: as on [hyperliquidDepositCompleted].
+  /// Handed to the settlement runner (direct) or the CCTP watcher; the
+  /// outcome is `hyperliquid_withdraw_completed` / `_failed`. [route] is
+  /// the route the money took; [amountUsd] what was sent, exactly.
+  ///
+  /// [cctpTarget] (route `cctp` only): `onetime`, the move's one-time
+  /// Orchestra quote (the default on the CCTP route since 19 October 2026),
+  /// or `standing`, a record an older build paid onto the standing
+  /// Investing-withdrawal address.
+  static void hyperliquidWithdrawSubmitted({
+    required double amountUsd,
+    required String route, // direct | cctp
+    String? destination,
+    String? walletKind,
+    String? purpose,
+    String? cctpTarget,
+  }) =>
+      track('hyperliquid_withdraw_submitted', params: {
+        'venue': 'hyperliquid',
+        if (destination != null) 'destination': destination,
+        if (walletKind != null) 'wallet_kind': walletKind,
+        'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
+      });
+
+  /// One real transition of an Investing withdrawal. [step]:
+  /// `cctp_fallback` (Orchestra refused the direct route before anything
+  /// was signed and the attempt switched to CCTP; [durationMs] since the
+  /// attempt was initiated), then, on the CCTP route, `cctp_sent` (the
+  /// exchange accepted the burn), `core_confirmed` (the HyperCore ledger
+  /// shows it), `arbitrum_minted` (Circle minted on Arbitrum) and
+  /// `orchestra_submitted` (Orchestra accepted the mint's `/submit`) and
+  /// `orchestra_detected` (the order exists), each with [durationMs] since
+  /// the send was signed. [cctpTarget] as on [hyperliquidWithdrawSubmitted].
+  static void hyperliquidWithdrawStep({
+    required String step,
+    required int durationMs,
+    double? amountUsd,
+    String route = 'cctp',
+    String? cctpTarget,
+  }) =>
+      track('hyperliquid_withdraw_step', params: {
+        'venue': 'hyperliquid',
+        'step': step,
+        'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        'duration_ms': durationMs,
+        if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
+      });
+
+  /// `cctp_target` on an Investing withdrawal event of the CCTP route:
+  /// [cctpTarget], or `onetime` (every new CCTP move pays a one-time quote).
+  /// Nothing on the direct route.
+  static Map<String, Object> _cctpTargetParam(
+      String route, String? cctpTarget) {
+    if (route != 'cctp') return const {};
+    return {'cctp_target': cctpTarget ?? 'onetime'};
+  }
+
+  /// The CCTP fallback could not run, before anything was posted.
+  /// [reason]: `paused` | `below_minimum` | `fee_read_failed` |
+  /// `rpc_failed` | `in_flight` | `capability` (the runtime policy
+  /// withholds `hyperliquid.withdraw`) | `quote_unavailable` (no one-time
+  /// quote could be had) | `quote_expired` (none with enough validity
+  /// left). `fee_terms_unavailable` was the standing instruction's.
+  static void hyperliquidCctpUnavailable({
+    required String reason,
+    double? amountUsd,
+  }) =>
+      track('hyperliquid_cctp_unavailable', params: {
+        'venue': 'hyperliquid',
+        'reason': reason,
+        if (amountUsd != null && amountUsd.isFinite) 'amount_usd': amountUsd,
+      });
+
+  /// [route]: `direct` | `cctp`, always sent. [orderId] / [quoteId]: as
+  /// on [hyperliquidDepositCompleted]. [cctpTarget] as on
+  /// [hyperliquidWithdrawSubmitted]. [submitResult] (a one-time CCTP move):
+  /// `submitted` (Orchestra accepted the app's `/submit` of the mint),
+  /// `detected` (Orchestra made the order on its own first) or `pending`
+  /// (neither had happened).
   static void hyperliquidWithdrawCompleted({
     double? amountUsd,
     String? destination,
     String? walletKind,
-    String? route,
+    required String route,
     String? orderId,
     String? quoteId,
+    String? cctpTarget,
+    String? submitResult,
   }) =>
       track('hyperliquid_withdraw_completed', params: {
         'venue': 'hyperliquid',
         ...orchestraJoinParams(orderId, quoteId: quoteId),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        if (route != null) 'route': route,
-        ...moneyParams(amountUsd: amountUsd, asset: 'usdc', amount: amountUsd),
+        'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        if (submitResult != null) 'submit_result': submitResult,
+        ...moneyParams(
+            amountUsd: amountUsd,
+            asset: 'usdc',
+            amount: amountUsd,
+            legacyBucket: false),
       });
 
+  /// [route]: `direct` | `cctp`, always sent: the route the attempt was
+  /// on when it failed. [purpose] as on [hyperliquidWithdrawInitiated],
+  /// sent when the attempt itself stopped before submission; the
+  /// settlement watchers' terminal failure has none.
   static void hyperliquidWithdrawFailed({
     required String reason,
+    required String route,
     double? amountUsd,
     String? destination,
     String? walletKind,
+    String? purpose,
+    String? cctpTarget,
+    String? submitResult,
   }) =>
       track('hyperliquid_withdraw_failed', params: {
         'venue': 'hyperliquid',
@@ -4681,7 +5117,11 @@ class TrackingService {
         'error_category': errorCategory(reason),
         if (destination != null) 'destination': destination,
         if (walletKind != null) 'wallet_kind': walletKind,
-        ...moneyParams(amountUsd: amountUsd),
+        'route': route,
+        ..._cctpTargetParam(route, cctpTarget),
+        if (submitResult != null) 'submit_result': submitResult,
+        if (purpose != null) 'purpose': purpose,
+        ...moneyParams(amountUsd: amountUsd, legacyBucket: false),
       });
 
   // ─── Predictions (Phase 5 engagement) ────────────────────────────
@@ -4691,8 +5131,12 @@ class TrackingService {
   /// `prediction_market_viewed` (a market in the browse list) — this is
   /// a user inspecting one of their own held positions. No market id /
   /// amount: a coarse engagement signal only.
-  static void predictionsPositionDetailViewed() =>
-      track('predictions_position_detail_viewed');
+  /// [dialHintShown]: the open position's speedometer shows "Drag the
+  /// needle to see what it'd be worth" (never dragged on this device).
+  static void predictionsPositionDetailViewed({bool? dialHintShown}) =>
+      track('predictions_position_detail_viewed', params: {
+        if (dialHintShown != null) 'dial_hint_shown': dialHintShown,
+      });
 
   /// Fired when the user triggers the "Claim winnings → convert to BTC"
   /// flow from the claim sheet. [result] is the coarse outcome:
@@ -4965,8 +5409,20 @@ class TrackingService {
         'granted': status == 'granted' || status == 'provisional' ? 1 : 0,
       });
 
-  static void pullToRefreshExecuted({required String screen}) =>
-      track('pull_to_refresh_executed', params: {'screen': screen});
+  /// A pull-to-refresh on [screen] (`home`, `usd` for Investments,
+  /// `hyperliquid`, `polymarket`, `affiliate`), with the Investments pill on
+  /// screen as [tab]. [refreshMode] is how the spending wallet's balances
+  /// were refreshed: `reconnect` (the Breez SDK connected again, as a hot
+  /// restart does) or `sync` (one wallet sync on the live connection: a
+  /// money flow was between its steps, the connection was younger than
+  /// the 25 s cooldown, or there was no connection to replace).
+  static void pullToRefreshExecuted(
+          {required String screen, String? tab, String? refreshMode}) =>
+      track('pull_to_refresh_executed', params: {
+        'screen': screen,
+        if (tab != null) 'tab': tab,
+        if (refreshMode != null) 'refresh_mode': refreshMode,
+      });
 
   static void homeActivityRowTapped({required String activityType}) =>
       track('home_activity_row_tapped',
@@ -4979,10 +5435,12 @@ class TrackingService {
 
   /// Cold-start latency from the first line of `main()` to the first
   /// home render. Fired once per process from the first home route push.
-  /// Only the coarse [_latencyBucket] is emitted — never the raw ms.
+  /// Exact `latency_ms`, with the legacy [_latencyBucket] beside it.
   static void appColdStart({required int latencyMs}) {
-    track('app_cold_start',
-        params: {'latency_bucket': _latencyBucket(latencyMs)});
+    track('app_cold_start', params: {
+      'latency_ms': latencyMs,
+      'latency_bucket': _latencyBucket(latencyMs),
+    });
   }
 
   /// Spark SDK (`BreezSdkSparkLib.init`) connect outcome + latency. The
@@ -4993,6 +5451,7 @@ class TrackingService {
       {required String result, required int latencyMs}) {
     track('spark_sdk_connect', params: {
       'result': result,
+      'latency_ms': latencyMs,
       'latency_bucket': _latencyBucket(latencyMs),
     });
   }
@@ -5007,6 +5466,7 @@ class TrackingService {
   }) {
     track('bdk_scan', params: {
       'result': result,
+      'latency_ms': latencyMs,
       'latency_bucket': _latencyBucket(latencyMs),
       'source': source,
     });
@@ -5493,7 +5953,8 @@ class TrackingService {
 
   // ─── Sal (AI advisor) ───────────────────────────────────────────
   //
-  // Never the question or answer text: lengths and counts are bucketed.
+  // Never the question or answer text: only its length and counts (exact,
+  // with the legacy buckets beside them).
   // The backend separately emits ai_question_accepted / ai_daily_limit_reached
   // (server truth for quota); these are the product funnel.
 
@@ -5513,15 +5974,17 @@ class TrackingService {
               ? '61-200'
               : '200+';
 
-  /// Sal sheet/chat opened. [entry]: chip (the round dog button) |
-  /// header_button (the round dog widening into a capsule; no screen
-  /// sends it any more, see Legacy) | market_capsule (the question capsule
-  /// under a market screen's headline figure, Predictions and Investing,
-  /// asking it on open) | position_capsule (the same capsule under an
-  /// open-position screen's value, Predictions and Investing, asking the
-  /// position's market its top question on open) | full_chat | search |
-  /// bottom_bar.
-  /// Legacy, no longer sent: insight_row (the market question row the
+  /// Sal sheet/chat opened. [entry]: chip (the round dog button on send
+  /// review, transaction details and backup) | market_why_moving (the
+  /// "Why is it moving?" row under a market screen's chart, Predictions
+  /// and Investing, shown only on a big move or a live game and asking
+  /// the why-moving question on open) | full_chat | search | bottom_bar.
+  /// Legacy, no longer sent: market_capsule (the question capsule under a
+  /// market screen's headline figure) and position_capsule (the same
+  /// capsule on an open-position screen), replaced by market_why_moving
+  /// and by the position's risk line and "Protect it" row; chip from the
+  /// order and bet slips, whose Sal button was removed (October 2026);
+  /// header_button (the round dog widening into a capsule); insight_row (the market question row the
   /// header button replaced, October 2026); market_row (the Investing
   /// market screen's question row above About) and header_button from
   /// either market screen, both replaced by market_capsule, and
@@ -5545,6 +6008,11 @@ class TrackingService {
   /// for dashboards that still group on it.
   /// [template] (an allowlisted chip template id) and [chipIndex] (the
   /// chip's 0-based position) are sent only for a chip ('suggested').
+  /// [interrupted] is sent (true) only when this question stopped an
+  /// answer that was still streaming; that answer reports
+  /// `sal_answer_failed` `cancelled` as any stop does.
+  /// [entrySource] is the door the conversation was opened from, the
+  /// `sal_opened` entry (market_why_moving, search, chip, full_chat, ...).
   static void salQuestionAsked({
     required String input,
     String? surface,
@@ -5553,17 +6021,23 @@ class TrackingService {
     String? venue,
     String? template,
     int? chipIndex,
+    bool interrupted = false,
+    String? entrySource,
   }) =>
       track('sal_question_asked', params: {
         'input': input,
         if (surface != null) 'surface': surface,
+        'query_length': queryLength,
         'query_length_bucket': _lengthBucket(queryLength),
+        'turn_index': turnIndex,
         'turn': turnIndex == 0 ? '1' : (turnIndex < 3 ? '2-3' : '4+'),
         if (venue != null) 'venue': venue,
         if (input == 'suggested' && kSalChipTemplates.contains(template))
           'template': template!,
         if (input == 'suggested' && chipIndex != null && chipIndex >= 0)
           'chip_index': chipIndex,
+        if (interrupted) 'interrupted': true,
+        if (entrySource != null) 'entry_source': entrySource,
       });
 
   /// Exactly one per answered turn (never per stream chunk).
@@ -5577,6 +6051,7 @@ class TrackingService {
         if (surface != null) 'surface': surface,
         'block_count': blockCount,
         'market_cards': marketCards,
+        'latency_ms': latencyMs,
         'latency_bucket': _llmLatencyBucket(latencyMs),
       });
 
@@ -5591,6 +6066,7 @@ class TrackingService {
       track('sal_answer_failed', params: {
         if (surface != null) 'surface': surface,
         'error_category': category,
+        if (latencyMs != null) 'latency_ms': latencyMs,
         if (latencyMs != null) 'latency_bucket': _llmLatencyBucket(latencyMs),
       });
 
@@ -5673,8 +6149,8 @@ class TrackingService {
   }
 
   // ─── Settlement operations (Phase 5 plan B15) ───
-  // Flow, route and stage labels plus buckets only. Never ids, addresses,
-  // txids or exact amounts.
+  // Flow, route and stage labels, exact amounts, counts and durations (with
+  // the legacy buckets beside them). Never ids, addresses or txids.
 
   @visibleForTesting
   static String settlementAttemptBucket(int attempts) {
@@ -5703,6 +6179,7 @@ class TrackingService {
         'flow': flow,
         'route_version': routeVersion ?? 'none',
         if (amountUsd != null) 'amount_bucket': _usdBucket(amountUsd),
+        ...exactUsd('amount_usd', amountUsd),
       };
 
   static void settlementOperationStarted({
@@ -5793,6 +6270,7 @@ class TrackingService {
   }) =>
       {
         'flow': flow,
+        'attempts': attempts,
         'attempt_bucket': settlementAttemptBucket(attempts),
         'outcome': outcome,
       };
@@ -5832,6 +6310,7 @@ class TrackingService {
       {
         'route': route,
         'outcome': outcome,
+        'duration_ms': duration.inMilliseconds,
         'duration_bucket': settlementDurationBucket(duration),
       };
 
@@ -5864,7 +6343,8 @@ class TrackingService {
   }
 
   // ─── Phase 5b: hot signing guard, compromise tools, pause switches ───
-  // Fixed labels and buckets only. Never ids, addresses or amounts.
+  // Fixed labels, counts (exact, with the legacy buckets beside them).
+  // Never ids, addresses or amounts.
 
   /// A hot signing or seed entry point was refused inside a Ledger
   /// operation (plan B12). [action] is a fixed label.
@@ -5916,6 +6396,7 @@ class TrackingService {
   static void compromiseAddressesRetired(int? count) {
     track('compromise_addresses_retired', params: {
       'outcome': count == null ? 'failed' : 'success',
+      if (count != null) 'count': count,
       if (count != null) 'count_bucket': compromiseCountBucket(count),
     });
   }
@@ -5975,18 +6456,6 @@ class TrackingService {
         params: orchestraQuoteRequotedParams(flow: flow));
   }
 
-  /// [reason] names the failed check (`destination_asset`, `recipient`,
-  /// `recipient_format`, `deposit_format`).
-  @visibleForTesting
-  static Map<String, Object> accumulationAddressReverifyFailedParams(
-          {required String reason}) =>
-      {'reason': reason};
-
-  static void accumulationAddressReverifyFailed({required String reason}) {
-    track('accumulation_address_reverify_failed',
-        params: accumulationAddressReverifyFailedParams(reason: reason));
-  }
-
   /// [mode] is `v2`, the only challenge the app signs.
   @visibleForTesting
   static Map<String, Object> walletAuthChallengeParams(
@@ -6015,8 +6484,8 @@ class TrackingService {
 
   // ---------------------------------------------------------------------------
   // Phase 4b: Ledger funding routes (P4.10 HyperCore, P4.11 Polymarket).
-  // No addresses, txids, quote ids or exact amounts: amounts only as
-  // `amount_bucket` via [usdBucket].
+  // No addresses, txids or quote ids. Amounts go exact as `amount_usd`
+  // ([amountUsd]) with the legacy `amount_bucket` beside them.
   // ---------------------------------------------------------------------------
 
   /// A Ledger funding route started. [route] is a route version id, e.g.
@@ -6035,10 +6504,12 @@ class TrackingService {
   static void ledgerFundingBroadcast({
     required String route,
     required String amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_funding_broadcast', params: {
       'route': route,
       'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6050,11 +6521,13 @@ class TrackingService {
     required String route,
     required String outcome,
     String? amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_funding_result', params: {
       'route': route,
       'outcome': outcome,
       if (amountBucket != null) 'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6079,15 +6552,21 @@ class TrackingService {
   }
 
   /// The "make funds available" batch (approve plus wrap) was accepted.
-  static void ledgerPmFundsMadeAvailable({required String amountBucket}) {
-    track('ledger_pm_funds_made_available',
-        params: {'amount_bucket': amountBucket});
+  static void ledgerPmFundsMadeAvailable(
+      {required String amountBucket, double? amountUsd}) {
+    track('ledger_pm_funds_made_available', params: {
+      'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   /// pUSD was unwrapped to USDC.e before a withdrawal.
-  static void ledgerPmCollateralUnwrapped({required String amountBucket}) {
-    track('ledger_pm_collateral_unwrapped',
-        params: {'amount_bucket': amountBucket});
+  static void ledgerPmCollateralUnwrapped(
+      {required String amountBucket, double? amountUsd}) {
+    track('ledger_pm_collateral_unwrapped', params: {
+      'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
+    });
   }
 
   /// The Polymarket funding explainer opened. [direction]: to_predictions |
@@ -6126,14 +6605,17 @@ class TrackingService {
   }
 
   /// Result of a "Make funds available" attempt. [outcome]: submitted,
-  /// pending, cancelled, failed or a refusal name. Amounts only bucketed.
+  /// pending, cancelled, failed or a refusal name. Exact `amount_usd`
+  /// ([amountUsd]) beside the legacy `amount_bucket`.
   static void ledgerPmMakeAvailableResult({
     required String outcome,
     String? amountBucket,
+    double? amountUsd,
   }) {
     track('ledger_pm_make_available_result', params: {
       'outcome': outcome,
       if (amountBucket != null) 'amount_bucket': amountBucket,
+      ...exactUsd('amount_usd', amountUsd),
     });
   }
 
@@ -6305,6 +6787,7 @@ class TrackingService {
     track(event, params: {
       'step': step,
       'reason': reason ?? abandonReasonFor(lastError),
+      'time_in_flow_ms': DateTime.now().difference(started).inMilliseconds,
       'time_in_flow_bucket':
           timeInFlowBucket(DateTime.now().difference(started)),
       if (lastError != null) 'last_error_category': lastError,

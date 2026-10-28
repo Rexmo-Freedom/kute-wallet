@@ -14,6 +14,7 @@ import 'package:kute/providers/pending_polymarket_bet_provider.dart';
 import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show Order, OrderSide, OrderType;
 
@@ -31,6 +32,19 @@ Order _buy(String size, String price, {String matched = '0'}) => Order(
     outcome: 'Yes');
 
 class _Trading extends PolymarketTradingNotifier {
+  _Trading({this.reads, this.changeAccountOnRead = false});
+  final PolyBuyReads? reads;
+  final bool changeAccountOnRead;
+  int generation = 0;
+  @override
+  int get accountGeneration => generation;
+  @override
+  Future<PolyBuyReads?> readBuyReadiness({bool refreshVenue = false}) async {
+    expect(refreshVenue, isTrue);
+    if (changeAccountOnRead) generation++;
+    return reads;
+  }
+
   final orders = <double>[];
 
   @override
@@ -61,6 +75,7 @@ class _Trading extends PolymarketTradingNotifier {
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
     String? marketTitle,
     String? marketImage,
     String? marketOutcome,
@@ -74,7 +89,7 @@ class _Trading extends PolymarketTradingNotifier {
     required AuthGrant grant,
     void Function(String step)? onStep,
   }) async {
-    orders.add(size * price);
+    orders.add(spendUsd ?? size * price);
     throw StateError('stopped by the test');
   }
 }
@@ -104,8 +119,12 @@ void main() {
   });
 
   Future<(PendingBetIntent?, PendingBetIntent, _Trading)> run(
-      PendingBetIntent intent) async {
-    final trading = _Trading();
+      PendingBetIntent intent,
+      {bool fresh = false,
+      PolyBuyReads? reads,
+      bool changeAccountOnRead = false}) async {
+    final trading =
+        _Trading(reads: reads, changeAccountOnRead: changeAccountOnRead);
     final container = ProviderContainer(overrides: [
       polymarketTradingProvider.overrideWith(() => trading),
     ]);
@@ -115,11 +134,13 @@ void main() {
     final controller = container.read(polymarketBetControllerProvider);
     late PendingBetIntent prepared;
     await http.runWithClient(() async {
-      prepared = await controller.prepareIntent(intent);
+      prepared =
+          await controller.prepareIntent(intent, requireFreshCollateral: fresh);
       container.read(pendingPolymarketBetProvider.notifier).setIntent(prepared);
       final review = controller.reviewIntent(prepared)!;
       final grant = AuthGrants.issue(review, method: AuthGrantMethod.allowance);
-      await controller.place('usdc', grant: grant);
+      await controller.place('usdc',
+          grant: grant, requireFreshCollateral: fresh);
     },
         () => MockClient((req) async => req.url.path == '/book'
             ? http.Response(jsonEncode(_book()), 200)
@@ -127,7 +148,8 @@ void main() {
     return (container.read(pendingPolymarketBetProvider), prepared, trading);
   }
 
-  test('a typed stake that fits the balance but not what is available stops '
+  test(
+      'a typed stake that fits the balance but not what is available stops '
       'before signing', () async {
     // $5.13 available; $5 plus its fee reserve does not fit.
     final (pending, _, trading) = await run(const PendingBetIntent(
@@ -157,5 +179,61 @@ void main() {
     // Signed, and never above the fitted stake plus the rounding cent.
     expect(trading.orders.single,
         lessThanOrEqualTo(prepared.amount + 0.01 + 1e-9));
+  });
+  PolyBuyReads cash(double pusd, {double? venue, double usdce = 0}) => (
+        pusd: BigInt.from((pusd * 1e6).round()),
+        usdce: BigInt.from((usdce * 1e6).round()),
+        setupDone: true,
+        venue: PolyVenueCount(
+            balance: BigInt.from(((venue ?? pusd) * 1e6).round())),
+      );
+  const prefunded = PendingBetIntent(
+      tokenId: _token,
+      amount: 5,
+      slippagePct: 5,
+      marketQuestion: 'Bitcoin Up or Down',
+      outcomeName: 'Up',
+      expectedPrice: 0.61);
+
+  test('prefunded bet reaches placement using fresh cash despite stale display',
+      () async {
+    final (_, _, trading) = await run(prefunded, fresh: true, reads: cash(20));
+    expect(trading.orders, hasLength(1));
+  });
+
+  test(
+      'prefunded bet cannot use unconverted cash, stale venue count or reservations',
+      () async {
+    for (final reads in [
+      cash(0, usdce: 20),
+      cash(20, venue: 2),
+      cash(8.13),
+      null
+    ]) {
+      final (pending, _, trading) =
+          await run(prefunded, fresh: true, reads: reads);
+      expect(trading.orders, isEmpty);
+      expect(pending?.status, PendingBetStatus.failed);
+    }
+  });
+
+  test('prefunded Max sizes against fresh spendable cash', () async {
+    final (_, prepared, trading) = await run(
+        const PendingBetIntent(tokenId: _token, amount: 20, spendAllBudgetUsd: 20,
+            slippagePct: 5, marketQuestion: 'Bitcoin Up or Down',
+            outcomeName: 'Up', expectedPrice: 0.61),
+        fresh: true,
+        reads: cash(20));
+    expect(prepared.marketQuote!.allInMax, lessThanOrEqualTo(17 + 1e-9));
+    expect(prepared.amount, greaterThan(15));
+    expect(trading.orders, hasLength(1));
+  });
+
+  test('account generation change during fresh read refuses before placement',
+      () async {
+    final (pending, _, trading) = await run(prefunded,
+        fresh: true, reads: cash(20), changeAccountOnRead: true);
+    expect(trading.orders, isEmpty);
+    expect(pending?.status, PendingBetStatus.failed);
   });
 }

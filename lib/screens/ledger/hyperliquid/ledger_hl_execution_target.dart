@@ -600,7 +600,12 @@ Future<bool> runLedgerHlCancel(
   }
   if (outcome.isSuccess && context.mounted) {
     showLedgerConfirmation(Navigator.of(context, rootNavigator: true),
-        message: l10n.ledgerOrderCancelled);
+        message: l10n.ledgerOrderCancelled,
+        contextLine: shown,
+        rows: {
+          l10n.ledgerSummarySide: order.isBuy ? l10n.buy : l10n.sell,
+          l10n.ledgerSummarySize: '${order.sz} $shown',
+        });
   }
   return outcome.isSuccess;
 }

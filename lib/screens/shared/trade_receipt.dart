@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 class TradeReceiptTransaction {
   final String hash;
 
-  /// `polygon` (Polymarket) or `hyperliquid`.
+  /// `polygon` (Polymarket), `hyperliquid` or `bitcoin`.
   final String chain;
   const TradeReceiptTransaction._(this.hash, this.chain);
 
@@ -31,11 +31,28 @@ class TradeReceiptTransaction {
           ? TradeReceiptTransaction._(hash, 'hyperliquid')
           : null;
 
-  String get explorer => chain == 'hyperliquid' ? 'hyperliquid' : 'polygonscan';
+  static final _btcTxid = RegExp(r'^[0-9a-fA-F]{64}$');
 
-  Uri get explorerUri => chain == 'hyperliquid'
-      ? Uri.parse('https://app.hyperliquid.xyz/explorer/tx/$hash')
-      : Uri.parse('https://polygonscan.com/tx/$hash');
+  /// An on-chain Bitcoin send, opened on mempool.space (the explorer the
+  /// Activity sheets use). Null unless [txid] is a transaction id; Spark
+  /// and Lightning payments have none.
+  static TradeReceiptTransaction? bitcoin(String? txid) =>
+      txid != null && _btcTxid.hasMatch(txid)
+          ? TradeReceiptTransaction._(txid, 'bitcoin')
+          : null;
+
+  String get explorer => switch (chain) {
+        'hyperliquid' => 'hyperliquid',
+        'bitcoin' => 'mempool',
+        _ => 'polygonscan',
+      };
+
+  Uri get explorerUri => switch (chain) {
+        'hyperliquid' =>
+          Uri.parse('https://app.hyperliquid.xyz/explorer/tx/$hash'),
+        'bitcoin' => Uri.parse('https://mempool.space/tx/$hash'),
+        _ => Uri.parse('https://polygonscan.com/tx/$hash'),
+      };
 
   /// Test seam: widget tests record the opened link instead of launching.
   @visibleForTesting

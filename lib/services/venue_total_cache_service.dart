@@ -85,3 +85,33 @@ VenueTotal resolveVenueTotal(
       walletId == null ? null : VenueTotalCacheService.read(walletId, venue);
   return VenueTotal(cached, stale: cached != null);
 }
+
+/// The main Investments header's last complete picture. Display-only: callers
+/// must continue using live balance/readiness providers to authorize spending.
+/// Partial refreshes cannot overwrite the complete total with missing sources.
+({double total, double invested, bool stale}) resolveInvestmentsDisplay({
+  required String? walletId,
+  required double total,
+  required double invested,
+  required bool known,
+}) {
+  const totalKey = 'investments_total';
+  const investedKey = 'investments_invested';
+  if (known && total.isFinite && invested.isFinite) {
+    if (walletId != null) {
+      VenueTotalCacheService.write(walletId, totalKey, total);
+      VenueTotalCacheService.write(walletId, investedKey, invested);
+    }
+    return (total: total, invested: invested, stale: false);
+  }
+  final savedTotal =
+      walletId == null ? null : VenueTotalCacheService.read(walletId, totalKey);
+  final savedInvested = walletId == null
+      ? null
+      : VenueTotalCacheService.read(walletId, investedKey);
+  return (
+    total: savedTotal ?? total,
+    invested: savedInvested ?? invested,
+    stale: true,
+  );
+}

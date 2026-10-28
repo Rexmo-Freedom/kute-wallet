@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, visibleForTesting;
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/settings_model.dart' as settings_model;
 import 'package:kute/providers/background_sync_provider.dart';
@@ -17,6 +18,8 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/wallet_scope_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/services/mempool_address_service.dart';
+import 'package:kute/services/orchestra/standing_deposit_sweep.dart'
+    show ReceiveAddressWatch;
 import 'package:kute/services/onchain/native_onchain_service.dart';
 import 'package:kute/services/sync/onchain_pipeline.dart';
 import 'package:kute/services/sync/polymarket_poll_pipeline.dart';
@@ -24,6 +27,18 @@ import 'package:kute/services/sync/push_pipeline.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// What one tick of the continuous sync loop runs.
+enum SyncTick {
+  /// The full active-wallet sync.
+  full,
+
+  /// Only the deposit-address sweeps.
+  receiveAddresses,
+
+  /// Nothing.
+  idle,
+}
 
 class BackgroundSyncService {
   static final BackgroundSyncService _instance = BackgroundSyncService._internal();
@@ -34,6 +49,10 @@ class BackgroundSyncService {
 
   Timer? _timer;
   bool _isSyncing = false;
+
+  /// Set when [syncNow] is asked for while a sync runs: one more runs as
+  /// soon as it ends.
+  bool _syncNowPending = false;
   ProviderContainer? _container;
 
   int _generation = 0;
@@ -182,9 +201,16 @@ class BackgroundSyncService {
     _startForCurrentWallet();
   }
 
-  /// Force an immediate sync (e.g. after a payment succeeds).
-  /// Skips if a sync is already running.
+  /// Force an immediate sync (e.g. after a payment succeeds or an order
+  /// is placed). When a sync is already running, one more runs as soon as
+  /// it ends instead of waiting for the loop's next tick: the running one
+  /// may have read the order's status before it moved. Requests made
+  /// meanwhile share that one run.
   void syncNow() {
+    if (_isSyncing) {
+      _syncNowPending = true;
+      return;
+    }
     _runSync();
   }
 
@@ -393,8 +419,12 @@ class BackgroundSyncService {
       // BDK / Electrum failures stay quiet in the UI — the detail screen
       // keeps showing whatever the cache had on entry, and the user can
       // re-trigger via pull-to-refresh. The log line is the only trace.
-      debugPrint('[onchain-sync] failed source=$source '
-          'wallet=${_shortId(walletId)} after ${scanSw.elapsedMilliseconds}ms: $e');
+      // Debug builds only: the raw error can carry the Electrum server's
+      // URL (credentials included when a custom node has them).
+      if (kDebugMode) {
+        debugPrint('[onchain-sync] failed source=$source '
+            'wallet=${_shortId(walletId)} after ${scanSw.elapsedMilliseconds}ms: $e');
+      }
     }
   }
 
@@ -483,6 +513,9 @@ class BackgroundSyncService {
     } catch (_) {}
     // Re-attach the Spark stream in case it dropped during background.
     _listenToWalletInfoStream();
+    // Deposits to receive addresses may have moved while the app was
+    // away: read them now, whichever screen it resumed on.
+    unawaited(_pollReceiveAddresses(force: true));
     // Kick the active-wallet sync — but respect the per-wallet
     // freshness window. forceRefreshAll fires from biometric resume;
     // a brief biometric prompt (< 30s) on top of a wallet that was
@@ -559,23 +592,63 @@ class BackgroundSyncService {
   /// gate while there's something pending and fall back to it once
   /// everything has settled.
   ///
-  /// Spark `walletInfoStream` and `paymentsStream` stay subscribed
-  /// regardless (push-based, debounced) so an incoming Lightning
-  /// payment still updates the cache immediately. Send/Receive/etc.
-  /// pull a one-shot fresh balance on screen entry where they need
-  /// to.
+  /// The spending wallet's bitcoin balance never depends on this loop
+  /// or on the push pipeline: `walletBalanceCacheProvider` follows the
+  /// SDK wrapper's `walletInfoStream` itself, so an incoming payment
+  /// updates it immediately on any screen, whichever wallet is active.
+  /// The push pipeline's `paymentsStream` keeps the Activity rows
+  /// current.
+  ///
+  /// Off those routes, with nothing pending, a receive address the person
+  /// was just given ([ReceiveAddressWatch]) still has its deposits read
+  /// (the deposit-address sweeps alone, on their own 30 s cadence): the
+  /// money is sent while they sit on the receive sheet or anywhere else,
+  /// and the deposit's row must appear there, not on the next visit Home.
   void _startContinuousSync() {
     final gen = _generation;
     Future<void> loop() async {
       while (_container != null && _generation == gen) {
-        if (_isOnActiveSyncRoute() || _hasPendingActivity()) {
-          await _runSync();
+        switch (syncTickFor(
+            onSyncRoute: _isOnActiveSyncRoute(),
+            pendingActivity: _hasPendingActivity(),
+            watchingReceiveAddresses: ReceiveAddressWatch.watching)) {
+          case SyncTick.full:
+            await _runSync();
+          case SyncTick.receiveAddresses:
+            await _pollReceiveAddresses();
+          case SyncTick.idle:
+            break;
         }
         if (_container == null || _generation != gen) break;
         await Future.delayed(const Duration(seconds: 2));
       }
     }
     loop();
+  }
+
+  /// What one tick of the continuous loop runs (see
+  /// [_startContinuousSync]).
+  @visibleForTesting
+  static SyncTick syncTickFor({
+    required bool onSyncRoute,
+    required bool pendingActivity,
+    required bool watchingReceiveAddresses,
+  }) {
+    if (onSyncRoute || pendingActivity) return SyncTick.full;
+    if (watchingReceiveAddresses) return SyncTick.receiveAddresses;
+    return SyncTick.idle;
+  }
+
+  /// The deposit-address sweeps alone, never beside a running sync (which
+  /// runs them itself). [force] skips their cadence.
+  Future<void> _pollReceiveAddresses({bool force = false}) async {
+    final container = _container;
+    if (container == null || _isSyncing) return;
+    try {
+      await container
+          .read(backgroundSyncNotifierProvider.notifier)
+          .pollReceiveAddresses(force: force);
+    } catch (_) {}
   }
 
   /// True when the active wallet has at least one row whose status
@@ -688,6 +761,7 @@ class BackgroundSyncService {
     _polymarketPipeline.stop();
     _stopExternalAddressSync();
     _isSyncing = false;
+    _syncNowPending = false;
     _lastRestSync = null;
   }
 
@@ -787,6 +861,10 @@ class BackgroundSyncService {
     } finally {
       if (_generation == gen) {
         _isSyncing = false;
+        if (_syncNowPending) {
+          _syncNowPending = false;
+          unawaited(_runSync());
+        }
       }
     }
   }

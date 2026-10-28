@@ -1,4 +1,3 @@
-import 'package:kute/services/runtime_capabilities_service.dart';
 // lib/services/polymarket_backend_service.dart
 //
 // Non-custodial Polymarket order service.
@@ -24,8 +23,11 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:kute/constants/polymarket_constants.dart';
 import 'package:kute/services/polymarket/builder_code_resolver.dart';
+import 'package:kute/services/polymarket/builder_code_store.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking/order_ack_latency.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/services/polymarket/market_protocol.dart';
@@ -68,8 +70,7 @@ const String kPolymarketBalanceRefusal = 'not enough balance / allowance';
 /// Whether [message] is the CLOB's balance refusal, with or without the
 /// figures it appends. The order was not accepted.
 bool isPolymarketBalanceRefusal(Object? message) {
-  if (message is! String ||
-      !message.startsWith(kPolymarketBalanceRefusal)) {
+  if (message is! String || !message.startsWith(kPolymarketBalanceRefusal)) {
     return false;
   }
   final rest = message.substring(kPolymarketBalanceRefusal.length);
@@ -217,7 +218,36 @@ class PolymarketBackendService {
     // order can carry the code for the current revision.
     onRevisionMismatch: (_) =>
         unawaited(RuntimeCapabilitiesService.instance.refresh()),
+    loadPersisted: PolymarketBuilderCodeStore.read,
+    persist: PolymarketBuilderCodeStore.write,
+    // The policy the app already holds carries the code
+    // (`polymarket.builderCode` on /config/capabilities and /config/policy)
+    // and wins over the device copy; the backend read is background only.
+    policyCode: () => RuntimeCapabilitiesService.instance.polymarketBuilderCode,
   );
+
+  /// The builder code an order signs with now, with no wait: the backend's
+  /// code for this run, else the copy kept on the device from an earlier
+  /// run, else null (the zero builder). The sign path reads this instead of
+  /// awaiting [getBuilderCode]; [refreshBuilderCode] keeps it current.
+  static String? get cachedBuilderCode => _builderCodes.cachedCode;
+
+  /// [cachedBuilderCode] as the bytes32 an order carries, the zero builder
+  /// when none is held. Records whether the order was attributed, which
+  /// the order's outcome event then carries (`builder_code`).
+  static String signingBuilderCode() {
+    final code = cachedBuilderCode;
+    PolymarketPlacementDiagnostics.orderSignedWithBuilderCode(code != null);
+    if (code == null) {
+      PolymarketPlacementDiagnostics.note('builder_code', {'source': 'none'});
+      unawaited(refreshBuilderCode());
+    }
+    return code ?? PolymarketConstants.bytes32Zero;
+  }
+
+  /// Asks the backend for the code in the background. Never throws; a call
+  /// inside the failure backoff or with a current code held does nothing.
+  static Future<void> refreshBuilderCode() => _builderCodes.refresh();
 
   /// One connection for the builder-code reads. A fresh client per call
   /// pays a new TLS handshake each time, which over a VPN is most of the
@@ -232,13 +262,16 @@ class PolymarketBackendService {
     _builderClient = null;
   }
 
-  /// Warms the in-memory code so the order path reads it instantly.
-  static Future<void> prefetchBuilderCode() async {
-    await getBuilderCode();
-  }
+  /// Warms the code so the order path reads it instantly: the device copy
+  /// is loaded and the backend asked in the background. Never waits on a
+  /// backoff and never throws.
+  static Future<void> prefetchBuilderCode() => refreshBuilderCode();
 
-  /// The code to sign with now: the backend's, or the zero builder when
-  /// there is none to be had. Never throws.
+  /// The code to sign with now: the backend's, the device copy, or the zero
+  /// builder when there is none to be had. Answers at once when a copy is
+  /// held; only a phone that never read one waits on the backend. Never
+  /// throws. Order signing uses [signingBuilderCode] instead so it never
+  /// waits at all.
   static Future<String> getBuilderCode() async {
     final resolved = await _builderCodes.resolve();
     if (!resolved.attributed) {
@@ -724,7 +757,8 @@ class PolymarketBackendService {
     if (response.statusCode == 401) throw InvalidApiKeyException();
     if (response.statusCode == 404) return null;
     if (response.statusCode != 200) {
-      throw StateError('Could not read the trade (HTTP ${response.statusCode}).');
+      throw StateError(
+          'Could not read the trade (HTTP ${response.statusCode}).');
     }
     final decoded = jsonDecode(response.body);
     final list = decoded is Map ? decoded['data'] : decoded;

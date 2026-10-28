@@ -1,8 +1,8 @@
 import 'package:kute/screens/shared/money_fee_summary.dart';
-import 'dart:math' show max, min;
+import 'package:kute/services/spark_deposit_actions.dart'
+    show suggestedClaimFeeSats;
 
 import 'package:kute/helpers/extension.dart';
-import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -12,7 +12,6 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_paste_chip.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
@@ -26,6 +25,9 @@ import 'package:intl/intl.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+export 'package:kute/services/spark_deposit_actions.dart'
+    show suggestedClaimFeeSats;
 
 final selectedSparkTransactionProvider =
     StateProvider<BaseTransaction?>((ref) => null);
@@ -617,149 +619,6 @@ class TransactionDetailRow extends StatelessWidget {
       ),
     );
   }
-}
-
-class RefundAddressModalSheet extends StatefulWidget {
-  const RefundAddressModalSheet({super.key});
-  @override
-  State<RefundAddressModalSheet> createState() =>
-      _RefundAddressModalSheetState();
-}
-
-class _RefundAddressModalSheetState extends State<RefundAddressModalSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _addressController = TextEditingController();
-  final _rateController = TextEditingController();
-
-  @override
-  void dispose() {
-    _addressController.dispose();
-    _rateController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      final rate = int.tryParse(_rateController.text);
-      if (rate != null) {
-        context.pop((address: _addressController.text, rate: rate));
-      }
-    }
-  }
-
-  Future<void> _paste() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text?.trim();
-    if (text == null || text.isEmpty || !mounted) return;
-    _fillAddress(text);
-  }
-
-  /// The bitcoin send's smart scanner, in return-value mode.
-  Future<void> _scan() async {
-    final scanned = await scanRecipientRaw(context);
-    if (scanned == null || !mounted) return;
-    _fillAddress(scanned);
-  }
-
-  /// A `bitcoin:` URI is reduced to its bare address, the way the send
-  /// flow does it. The SDK still refuses a non-bitcoin address when it
-  /// builds the refund.
-  void _fillAddress(String raw) {
-    final address = bareRecipientAddress(raw);
-    if (address.isEmpty) return;
-    setState(() => _addressController.text = address);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return AppBottomSheetContainer(
-      child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          AppBottomSheetHeader(
-              title: context.l10n.refundDeposit,
-              subtitle: context.l10n.enterTheBitcoinAddressAndFeeRateToRefund),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _addressController,
-                    style: TextStyle(color: c.textPrimary),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: c.surfaceLight,
-                      labelText: context.l10n.bitcoinAddress,
-                      labelStyle: TextStyle(color: c.textTertiary),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                          borderSide: BorderSide.none),
-                    ),
-                    validator: (value) => value == null || value.isEmpty
-                        ? context.l10n.pleaseEnterAnAddress
-                        : null,
-                  ),
-                  SizedBox(height: 10.h),
-                  // Paste and Scan, as on every other recipient field.
-                  Row(
-                    children: [
-                      KutePasteChip(onPressed: _paste),
-                      SizedBox(width: 8.w),
-                      KuteScanChip(onPressed: _scan),
-                    ],
-                  ),
-                  SizedBox(height: 16.h),
-                  TextFormField(
-                    controller: _rateController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: TextStyle(color: c.textPrimary),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: c.surfaceLight,
-                      labelText: context.l10n.feeRateSatsVbyte,
-                      labelStyle: TextStyle(color: c.textTertiary),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                          borderSide: BorderSide.none),
-                    ),
-                    validator: (value) => (value == null ||
-                            value.isEmpty ||
-                            int.parse(value) <= 0)
-                        ? context.l10n.invalidRate
-                        : null,
-                  ),
-                  SizedBox(height: 32.h),
-                  AppButton(
-                    text: context.l10n.confirmRefund,
-                    onPressed: _submit,
-                    color: context.ctaFill,
-                    textColor: Colors.white,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-/// A claim quote can rise before the claim runs. Suggest the last quote plus
-/// max(10%, 100 sats), kept below the deposit; null when no cap below the
-/// deposit covers the quote.
-int? suggestedClaimFeeSats(
-    {required int lastQuoteSats, required int depositAmountSats}) {
-  if (lastQuoteSats >= depositAmountSats - 1) {
-    return null;
-  }
-  final headroom = max((lastQuoteSats + 9) ~/ 10, 100);
-  return min(lastQuoteSats + headroom, depositAmountSats - 1);
 }
 
 /// The Spark claim fee is a quoted total fee, not a mining-speed selection.

@@ -116,6 +116,9 @@ void main() {
             .allMatches(code)
             .length,
         2);
-    expect(code, contains('notifier.wrapIncomingUsdcEToPusd();'));
+    // ...which is the one "money arrived" path: convert now, read the
+    // balance once, fire the queued bet.
+    expect(
+        RegExp(r'\.onDepositDelivered\(').allMatches(code).length, 2);
   });
 }

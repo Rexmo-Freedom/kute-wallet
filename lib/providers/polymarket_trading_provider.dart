@@ -1,7 +1,14 @@
+import 'package:kute/services/hardware/ledger/ledger_failure.dart'
+    show LedgerFailure, LedgerFailureCode;
+import 'package:kute/services/polymarket/relayer_wallet_queue.dart'
+    show isTransientRelayerRefusal;
 import 'package:kute/services/polymarket/market_buy_quote.dart';
+import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/placement_diagnostics.dart';
+import 'package:kute/services/polymarket/warm_connections.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
+import 'package:kute/services/polymarket/pending_fills.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
 import 'package:kute/services/polymarket/combos/combo_transport.dart';
 import 'package:kute/services/polymarket/credential_identity.dart';
@@ -13,6 +20,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/trade_notification_store.dart';
 import 'dart:async';
 import 'package:kute/helpers/polymarket_account_readiness.dart';
+import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -30,6 +38,25 @@ import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
+import 'package:kute/services/one_balance/venue_activity.dart';
+import 'package:kute/services/one_balance/venue_cash_released.dart';
+import 'package:kute/services/one_balance/venue_funder.dart'
+    show
+        ApprovedLegAuthorization,
+        MoveAuthorization,
+        SweepAuthorization,
+        UserGrantAuthorization,
+        VenueCashDestination;
+import 'package:kute/services/orchestra/orchestra_quote_guard.dart'
+    show RecipientKind, VerifiedOrchestraQuote;
+import 'package:kute/services/orchestra/venue_arrivals.dart'
+    show VenueArrivals;
+import 'package:kute/providers/swap_orders_provider.dart'
+    show swapOrdersProvider;
+import 'package:kute/services/orchestra_routes.dart'
+    show kOrchestraUsdAssetCode, kOrchestraUsdChain;
 import 'package:kute/services/security/wallet_guard_exception.dart';
 import 'package:kute/services/usdc_balance_history_service.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -50,7 +77,9 @@ import 'package:kute/services/polymarket/market_protocol.dart';
 import 'package:kute/services/polymarket/order_amounts.dart';
 import 'package:kute/services/polymarket/order_refusal.dart';
 import 'package:kute/services/polymarket/usdce_wrap_gate.dart';
+import 'package:kute/services/polymarket/venue_collateral.dart';
 import 'package:kute/services/polymarket/placement_waits.dart';
+import 'package:kute/services/polymarket/deposit_timings_reporter.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/providers/transactions_provider.dart'
     show transactionNotifierProvider;
@@ -60,7 +89,6 @@ import 'package:kute/services/polymarket_suppression_service.dart';
 import 'package:kute/services/polymarket_usdc_cache_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/services/secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     hide PolymarketConstants, InsufficientFundsException;
 import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
@@ -75,6 +103,14 @@ import 'package:kute/services/hardware/ledger/ledger_operation_scope.dart';
 void _devLog(Object? msg) {
   if (kDebugMode) debugPrint(msg?.toString());
 }
+
+/// [PolymarketTradingNotifier.readBuyReadiness]'s reads, in micro-units.
+typedef PolyBuyReads = ({
+  BigInt pusd,
+  BigInt usdce,
+  PolyVenueCount? venue,
+  bool setupDone,
+});
 
 class PolymarketTradingState {
   final bool isAuthenticated;
@@ -117,6 +153,18 @@ class PolymarketTradingState {
   /// for "unknown": the slip waits instead of offering a deposit on it.
   final bool balanceKnown;
 
+  /// True while the figures shown are the last ones the device knew (the
+  /// account cache, or a brand-new wallet's known $0.00) or the account is
+  /// still finishing its start (credentials, open orders): a fresh read is
+  /// on its way. Surfaces may mark the figures as updating.
+  final bool refreshing;
+
+  /// Buys the venue matched that the positions read or the cash read has
+  /// not caught up with yet (pending_fills.dart): counted at their fill
+  /// price until the positions read lists them; their cost is already off
+  /// [usdcBalance] until a cash read shows it.
+  final List<PolymarketPendingFill> pendingFills;
+
   const PolymarketTradingState({
     this.isAuthenticated = false,
     this.usdcBalance = 0,
@@ -132,6 +180,8 @@ class PolymarketTradingState {
     this.pendingSaleTokens = const {},
     this.clearingConditionIds = const {},
     this.balanceKnown = true,
+    this.refreshing = false,
+    this.pendingFills = const [],
   });
 
   PolymarketTradingState copyWith({
@@ -149,6 +199,8 @@ class PolymarketTradingState {
     Set<String>? pendingSaleTokens,
     Set<String>? clearingConditionIds,
     bool? balanceKnown,
+    bool? refreshing,
+    List<PolymarketPendingFill>? pendingFills,
   }) {
     return PolymarketTradingState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -165,6 +217,8 @@ class PolymarketTradingState {
       pendingSaleTokens: pendingSaleTokens ?? this.pendingSaleTokens,
       clearingConditionIds: clearingConditionIds ?? this.clearingConditionIds,
       balanceKnown: balanceKnown ?? this.balanceKnown,
+      refreshing: refreshing ?? this.refreshing,
+      pendingFills: pendingFills ?? this.pendingFills,
     );
   }
 
@@ -192,9 +246,11 @@ class PolymarketTradingState {
         proxyWalletAddress == other.proxyWalletAddress &&
         error == other.error &&
         isPlacingOrder == other.isPlacingOrder &&
+        refreshing == other.refreshing &&
         setEquals(pendingSaleTokens, other.pendingSaleTokens) &&
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
+        listEquals(pendingFills, other.pendingFills) &&
         listEquals(closedPositions, other.closedPositions) &&
         listEquals(openOrders, other.openOrders);
   }
@@ -209,11 +265,13 @@ class PolymarketTradingState {
         proxyWalletAddress,
         error,
         isPlacingOrder,
+        refreshing,
         Object.hashAll(openPositions),
         Object.hashAll(closedPositions),
         Object.hashAll(openOrders),
         Object.hashAll(pendingSaleTokens),
         Object.hashAll(clearingConditionIds),
+        Object.hashAll(pendingFills),
       );
 }
 
@@ -243,6 +301,69 @@ Future<void> forgetPolymarketAccountCache(String walletId) async {
       await secureStorage.delete(key: key);
     } catch (_) {}
   }
+  await PolymarketAccountCache.forget(walletId);
+}
+
+/// The spending wallet and its EVM format: what selects the Predictions
+/// account. The trading notifier rebuilds when it changes (a wallet
+/// created, restored, switched or removed, or a recovered wallet's format
+/// settling), the same identity Hyperliquid's address provider watches.
+(String?, EvmDerivationVersion?) _predictionsSpendingIdentity(Settings s) {
+  final wallet = pickSpendingWallet(s);
+  return (wallet?.id, wallet?.evmDerivationVersion);
+}
+
+/// Whether [walletId]'s EVM format check, from a phrase recovery, has not
+/// settled yet. Nothing is deployed or approved on its account until it
+/// has: the account may still move to the legacy format.
+bool polymarketEvmFormatPending(Settings settings, String walletId) =>
+    settings.wallets
+        .where((w) => w.id == walletId)
+        .firstOrNull
+        ?.evmFormatCheckPending ??
+    false;
+
+/// Setup refused because the wallet's EVM format check has not settled.
+/// Predictions waits; the account is set up once the check settles.
+class PolymarketEvmFormatPendingException implements Exception {
+  const PolymarketEvmFormatPendingException();
+
+  @override
+  String toString() => 'The wallet\'s account format is still being checked.';
+}
+
+/// Folds one refresh read into the live state, or null when the read must
+/// be dropped. A refresh captures the account before a read that can take
+/// seconds; meanwhile the account start may have found the deposit address
+/// and authenticated. The read never takes those back:
+///
+/// * a read for another owner (the account changed) is dropped;
+/// * a read made without the deposit address, or for another one, while
+///   the live state knows it, is dropped (its figures are for no account);
+/// * [PolymarketTradingState.isAuthenticated], the order in flight and the
+///   refreshing mark are always the live ones (a refresh never decides
+///   them);
+/// * a known address is never replaced with null, and a balance that could
+///   not be read keeps the last one that was.
+@visibleForTesting
+PolymarketTradingState? mergePolymarketRefresh({
+  required PolymarketTradingState live,
+  required PolymarketTradingState read,
+}) {
+  String? norm(String? a) => a == null || a.isEmpty ? null : a.toLowerCase();
+  if (norm(read.walletAddress) != norm(live.walletAddress)) return null;
+  final liveProxy = norm(live.proxyWalletAddress);
+  final readProxy = norm(read.proxyWalletAddress);
+  if (liveProxy != null && readProxy != liveProxy) return null;
+  final keepBalance = !read.balanceKnown && live.balanceKnown;
+  return read.copyWith(
+    isAuthenticated: live.isAuthenticated,
+    isPlacingOrder: live.isPlacingOrder,
+    refreshing: live.refreshing,
+    proxyWalletAddress: read.proxyWalletAddress ?? live.proxyWalletAddress,
+    usdcBalance: keepBalance ? live.usdcBalance : null,
+    balanceKnown: keepBalance ? true : null,
+  );
 }
 
 /// The hot wallet's Polymarket deposit wallet, for display in Settings.
@@ -333,40 +454,99 @@ Future<void> provisionPolymarketCredentials({
   }
 }
 
-/// Full Polymarket account setup: deploy Safe proxy wallet, set token
-/// approvals, and provision CLOB API credentials. Idempotent — skips
-/// steps that are already done. Called at wallet creation/login so the
-/// account is ready before the user opens Polymarket.
+/// Full Polymarket account setup: deploy the deposit wallet, set token
+/// approvals, and provision CLOB API credentials. Idempotent. Called at
+/// wallet creation and unlock so the account is ready before the person
+/// opens Predictions.
+///
+/// It is one piece of work with the home screen's account start and the
+/// first bet: when the trading notifier for [walletId] is alive (or comes
+/// alive within [liveNotifierWait]), setup runs through its readiness
+/// tracker (`enableTrading`), so the three callers share one deployment,
+/// one approvals batch and one set of credentials. Only when no notifier
+/// appears (a flow that never reaches home) does it run on its own through
+/// the onboarding service, whose own join still dedupes the on-chain part.
+///
+/// Nothing is swallowed silently any more: the outcome, its duration, the
+/// stage it stopped at and the path it took are recorded
+/// (`polymarket_provisioning_outcome`, no ids), and a failure is retried by
+/// the next app start and the next Predictions visit, which call this or
+/// `enableTrading` again.
+///
+/// [evmFormatPending]: the wallet was recovered and its EVM format check
+/// has not settled ([WalletConfig.evmFormatCheckPending]). Nothing is set
+/// up then (outcome `deferred`, stage `evm_format`): the account may still
+/// move to the legacy format, and the trading notifier sets it up once the
+/// check settles.
 Future<void> provisionPolymarketAccount({
   required String mnemonic,
   required String walletId,
   required EvmDerivationVersion evmDerivationVersion,
+  bool evmFormatPending = false,
 }) async {
   const storage = secureStorage;
+  final clock = Stopwatch()..start();
+  var stage = 'derive';
+  var path = 'provider';
+  if (evmFormatPending) {
+    _trackProvisioningOutcome('deferred', clock.elapsed,
+        stage: 'evm_format', path: path);
+    return;
+  }
   try {
     final wallet = await EvmWalletDerivation.deriveWalletAsync(
         mnemonic: mnemonic, version: evmDerivationVersion, index: 0);
-    final onboarding = PolymarketOnboardingService();
 
-    // Step 1: Deploy Safe + set token approvals (skips if already done).
-    final proxyWallet = await onboarding.enableTrading(
-      eoaAddress: wallet.address,
-      privateKey: wallet.privateKey,
-    );
+    stage = 'wait';
+    final notifier = await PolymarketTradingNotifier.liveNotifierFor(walletId,
+        wait: PolymarketTradingNotifier.liveNotifierWait);
+    if (notifier != null) {
+      stage = 'setup';
+      await notifier.enableTrading();
+    } else {
+      path = 'standalone';
+      final onboarding = PolymarketOnboardingService();
 
-    // Persist proxy wallet address
-    await storage.write(key: _proxyKey(walletId), value: proxyWallet);
+      // Step 1: Deploy the deposit wallet + set token approvals (skips if
+      // already done). The onboarding service shares a running setup for
+      // the same owner, so a notifier starting meanwhile joins it.
+      stage = 'setup';
+      final proxyWallet = await onboarding.enableTrading(
+        eoaAddress: wallet.address,
+        privateKey: wallet.privateKey,
+      );
+      await storage.write(key: _proxyKey(walletId), value: proxyWallet);
 
-    // Step 2: Provision CLOB API credentials
-    await provisionPolymarketCredentials(
-      mnemonic: mnemonic,
-      walletId: walletId,
-      evmDerivationVersion: evmDerivationVersion,
-    );
-  } catch (_) {
-    // Silent — network may be unavailable. Will be retried when user opens
-    // Polymarket screen via _autoEnableTrading.
+      // Step 2: Provision CLOB API credentials
+      stage = 'credentials';
+      await provisionPolymarketCredentials(
+        mnemonic: mnemonic,
+        walletId: walletId,
+        evmDerivationVersion: evmDerivationVersion,
+      );
+    }
+    _trackProvisioningOutcome('completed', clock.elapsed,
+        stage: stage, path: path);
+  } on PolymarketEvmFormatPendingException {
+    _trackProvisioningOutcome('deferred', clock.elapsed,
+        stage: 'evm_format', path: path);
+  } catch (e) {
+    _trackProvisioningOutcome('failed', clock.elapsed,
+        stage: stage, path: path, error: e);
   }
+}
+
+void _trackProvisioningOutcome(String outcome, Duration elapsed,
+    {required String stage, required String path, Object? error}) {
+  TrackingService.track('polymarket_provisioning_outcome', params: {
+    'outcome': outcome,
+    'stage': stage,
+    'path': path,
+    'duration_ms': elapsed.inMilliseconds,
+    'duration_bucket': TrackingService.latencyBucket(elapsed.inMilliseconds),
+    if (error != null) 'error_category': TrackingService.errorCategory(error),
+    if (error != null) 'offline': _isOfflineError(error),
+  });
 }
 
 /// Emitted when a position transitions to resolved (redeemable).
@@ -578,6 +758,132 @@ class PolymarketTradingNotifier
     }
   }
 
+  /// Buys the venue matched that the reads have not caught up with, for the
+  /// deposit wallet [_pendingFillsWallet] (pending_fills.dart).
+  List<PolymarketPendingFill> _pendingFills = const [];
+  String? _pendingFillsWallet;
+
+  List<PolymarketPendingFill> _fillsFor(String? wallet) =>
+      wallet != null &&
+              _pendingFillsWallet != null &&
+              wallet.toLowerCase() == _pendingFillsWallet
+          ? _pendingFills
+          : const [];
+
+  /// The pending fills against a fresh read of [wallet]: [rawCashUsd] (a
+  /// cash read, or null when none was made) and [positions] (a positions
+  /// read, or null). Returns the cash net of the unsettled fills (null
+  /// without a cash read) and the fills left.
+  (double?, List<PolymarketPendingFill>) _settlePendingFills(
+    String? wallet, {
+    double? rawCashUsd,
+    List<Position>? positions,
+  }) {
+    var fills = _fillsFor(wallet);
+    if (fills.isEmpty) return (rawCashUsd, const []);
+    final now = DateTime.now();
+    final listed = <String, double>{};
+    if (positions != null) {
+      for (final p in positions) {
+        if (p.asset.isEmpty || !p.size.isFinite) continue;
+        listed[p.asset] = (listed[p.asset] ?? 0) + p.size;
+      }
+    } else {
+      // No positions read: what is indexed stays indexed.
+      for (final f in fills) {
+        if (f.indexed) listed[f.tokenId] = f.expectedShares;
+      }
+    }
+    fills = reconcilePendingFills(fills, listed, now);
+    double? net = rawCashUsd;
+    if (rawCashUsd != null) {
+      final (cash, next) = netCashOfPendingFills(rawCashUsd, fills);
+      net = cash;
+      fills = [
+        for (final f in next)
+          if (!(f.indexed && f.cashSettled)) f,
+      ];
+    }
+    _pendingFills = List.unmodifiable(fills);
+    return (net, _pendingFills);
+  }
+
+  /// The venue matched a buy of [shares] of [tokenId] for [costUsd]
+  /// (pUSD), order [key]. Until the reads catch up the cost is off the cash
+  /// at once (Available drops on the fill, not on the next read) and the
+  /// shares count at the fill price (the total never drops to cash only
+  /// while the positions read lags). Once per [key]; never throws.
+  void notePendingFill({
+    required String key,
+    required String tokenId,
+    required double shares,
+    required double costUsd,
+  }) {
+    try {
+      final current = state.valueOrNull;
+      final wallet = current?.proxyWalletAddress?.toLowerCase();
+      if (current == null || wallet == null || wallet.isEmpty) return;
+      if (_pendingFillsWallet != wallet) {
+        _pendingFills = const [];
+        _pendingFillsWallet = wallet;
+      }
+      if (_pendingFills.any((f) => f.key == key)) return;
+      var listed = 0.0;
+      for (final p in current.openPositions) {
+        if (p.asset == tokenId && p.size.isFinite) listed += p.size;
+      }
+      final fill = newPendingFill(
+        key: key,
+        tokenId: tokenId,
+        shares: shares,
+        costUsd: costUsd,
+        listedShares: listed,
+        stateCashUsd: current.usdcBalance,
+        pending: _pendingFills,
+        now: DateTime.now(),
+      );
+      if (fill == null) return;
+      _pendingFills = List.unmodifiable([..._pendingFills, fill]);
+      invalidateBalanceCache();
+      _setData(current.copyWith(
+        usdcBalance:
+            (current.usdcBalance - costUsd).clamp(0.0, double.infinity),
+        pendingFills: _pendingFills,
+      ));
+    } catch (_) {}
+  }
+
+  /// A buy just matched: one targeted read of the account's cash, so the
+  /// balance moves at once instead of on the next 5 s tick. Positions
+  /// follow through [refreshAfterSale]. Never throws.
+  Future<void> refreshBalanceAfterMatch() async {
+    final current = state.valueOrNull;
+    final wallet = current?.proxyWalletAddress;
+    final model = _publicModel;
+    if (current == null || wallet == null || wallet.isEmpty || model == null) {
+      return;
+    }
+    try {
+      model.invalidateBalanceCache();
+      final cash = await model
+          .getOnChainUsdcBalance(wallet)
+          .timeout(const Duration(seconds: 8));
+      final latest = state.valueOrNull;
+      if (_disposed ||
+          latest == null ||
+          latest.proxyWalletAddress?.toLowerCase() != wallet.toLowerCase()) {
+        return;
+      }
+      final settled = _settlePendingFills(wallet, rawCashUsd: cash);
+      // A read that succeeded: the balance is known (a failed one throws
+      // and leaves the state as it was).
+      _setData(latest.copyWith(
+          usdcBalance: settled.$1 ?? cash,
+          balanceKnown: true,
+          pendingFills: settled.$2));
+    } catch (_) {}
+  }
+
   bool wasRecentlySold(String tokenId) {
     final t = _recentlySoldTokens[tokenId];
     if (t == null) return false;
@@ -719,7 +1025,203 @@ class PolymarketTradingNotifier
   /// The Predictions account's one-time setup (wallet deployment and
   /// approvals) is done and nothing is setting it up now.
   bool get tradingReady => _accountReadiness.isReady;
+
+  /// Bumped by every build: a wallet created, restored, switched or
+  /// removed, a lock to unlock, an explicit invalidation. Every refresh and
+  /// every step of the account start carries the generation it began in
+  /// and drops its result once it no longer matches.
   int _accountGeneration = 0;
+
+  /// Runs the rest of this generation's account start again with a deposit
+  /// address found later (the self-heal) or once a pending EVM format check
+  /// settles. Null on the placeholder builds.
+  Future<void> Function(String? address)? _resumeAccountStart;
+
+  /// The account start (or a resumed one) is running for this generation.
+  bool _accountStartRunning = false;
+
+  /// When the running account start began, for [pullRefresh]'s stuck check.
+  DateTime? _accountStartBeganAt;
+
+  /// An account start still running this long after it began, with no
+  /// deposit address found, is taken as stuck by a pull-to-refresh.
+  @visibleForTesting
+  static Duration accountStartStuckAfter = const Duration(seconds: 45);
+
+  /// This generation's account start left the one-time setup for later
+  /// because the wallet's EVM format check was pending.
+  bool _setupDeferred = false;
+
+  /// The deposit address lookup may skip the legacy (UUPS) checks.
+  bool _skipLegacyChecks = false;
+
+  /// The EVM format this generation's account was derived with.
+  EvmDerivationVersion? _builtEvmVersion;
+
+  /// The self-heal's address lookup: one at a time, backing off on failure.
+  bool _healInFlight = false;
+  DateTime? _nextHealAt;
+  int _healFailures = 0;
+
+  /// The self-heal's first wait after a failed lookup; it doubles per
+  /// failure up to a minute.
+  @visibleForTesting
+  static Duration healBackoffUnit = const Duration(seconds: 5);
+
+  /// Rebuilds a refresh asked for after a placeholder build that failed
+  /// (no phrase readable, setup threw), bounded and spaced out.
+  DateTime? _lastSelfRebuildAt;
+  int _selfRebuilds = 0;
+  static const _selfRebuildSpacing = Duration(seconds: 30);
+  static const _maxSelfRebuilds = 10;
+
+  /// `polymarket_account_start_unauthenticated` is sent once per
+  /// generation, and not again by a rebuild a refresh asked for.
+  bool _stuckTracked = false;
+  bool _stuckTrackedCarry = false;
+
+  /// Whether the deposit wallet is a legacy (UUPS) one, once known. False
+  /// is final for the owner (see resolveDepositWallet).
+  bool? _legacyWallet;
+
+  /// Completed with the deposit address once this account start knows it
+  /// (from the cache at once, else after the resolve), with null when it
+  /// could not be found. One per account generation.
+  Completer<String?>? _addressReady;
+
+  /// Completed when this build has published its first state.
+  Completer<void> _firstState = Completer<void>();
+
+  /// Resolves once this notifier has published a state (the account's
+  /// first figures). Never throws.
+  Future<void> get firstState => _firstState.future;
+
+  /// The last state written to the account cache, to skip equal writes.
+  PolymarketTradingState? _lastPersisted;
+
+  /// Notifiers alive now, by spending wallet id, and who is waiting for one.
+  /// `provisionPolymarketAccount` joins the live notifier's readiness so
+  /// wallet creation, the home-screen start and the first bet run one setup.
+  static final Map<String, PolymarketTradingNotifier> _liveNotifiers = {};
+  static final Map<String, List<Completer<PolymarketTradingNotifier?>>>
+      _liveWaiters = {};
+
+  /// How long provisioning waits for the home screen's notifier to appear
+  /// before setting the account up on its own.
+  static Duration liveNotifierWait = const Duration(seconds: 20);
+
+  /// The notifier built for [walletId], now or within [wait]; null when none
+  /// appears in time.
+  static Future<PolymarketTradingNotifier?> liveNotifierFor(String walletId,
+      {Duration wait = Duration.zero}) {
+    final live = _liveNotifiers[walletId];
+    if (live != null) return Future.value(live);
+    if (wait <= Duration.zero) return Future.value(null);
+    final waiter = Completer<PolymarketTradingNotifier?>();
+    (_liveWaiters[walletId] ??= []).add(waiter);
+    return waiter.future.timeout(wait, onTimeout: () {
+      _liveWaiters[walletId]?.remove(waiter);
+      return null;
+    });
+  }
+
+  void _registerLive(String walletId) {
+    _liveNotifiers[walletId] = this;
+    final waiters = _liveWaiters.remove(walletId);
+    if (waiters == null) return;
+    for (final w in waiters) {
+      if (!w.isCompleted) w.complete(this);
+    }
+  }
+
+  void _unregisterLive() {
+    _liveNotifiers.removeWhere((_, n) => identical(n, this));
+  }
+
+  /// The deposit address, as soon as this account start knows it: the live
+  /// state's, else the one the resolve is finding (bounded by [timeout]).
+  /// Null when it is not known in time. Never throws, never waits on
+  /// credentials or data reads.
+  Future<String?> depositAddress(
+      {Duration timeout = const Duration(seconds: 20)}) async {
+    final live = state.valueOrNull?.proxyWalletAddress;
+    if (live != null && live.isNotEmpty) return live;
+    final ready = _addressReady;
+    try {
+      if (ready == null) {
+        // A build that did not go through the account start (the
+        // placeholder states): its state is all there is to wait for.
+        final built = await future.timeout(timeout);
+        final address = built.proxyWalletAddress;
+        return address != null && address.isNotEmpty ? address : null;
+      }
+      final resolved = await ready.future.timeout(timeout);
+      if (resolved != null && resolved.isNotEmpty) return resolved;
+    } catch (_) {}
+    final later = state.valueOrNull?.proxyWalletAddress;
+    return later != null && later.isNotEmpty ? later : null;
+  }
+
+  void _completeAddress(String? address) {
+    final ready = _addressReady;
+    if (ready != null && !ready.isCompleted) ready.complete(address);
+  }
+
+  void _publishFirstState() {
+    if (!_firstState.isCompleted) _firstState.complete();
+  }
+
+  /// Writes the account's figures to the per-wallet cache when they are
+  /// known and changed, so the next start shows them at once.
+  void _persistSnapshot(PolymarketTradingState data) {
+    final walletId = _spendingWalletId;
+    final address = data.proxyWalletAddress;
+    if (walletId == null ||
+        address == null ||
+        address.isEmpty ||
+        !data.balanceKnown ||
+        data.walletAddress == null) {
+      return;
+    }
+    final comparable = data.copyWith(
+        isPlacingOrder: false, refreshing: false, error: null);
+    if (_lastPersisted == comparable) return;
+    _lastPersisted = comparable;
+    unawaited(PolymarketAccountCache.write(
+      walletId,
+      PolymarketAccountSnapshot(
+        depositAddress: address,
+        legacyWallet: _legacyWallet ?? false,
+        usdcBalance: data.usdcBalance,
+        openPositions: data.openPositions,
+        openOrders: data.openOrders,
+        closedPositions: data.closedPositions,
+        totalPnl: data.totalPnl,
+        totalPnlPercent: data.totalPnlPercent,
+        updatedAt: DateTime.now(),
+      ),
+    ));
+  }
+
+  PolymarketTradingState _stateFromSnapshot(
+      PolymarketAccountSnapshot cached, String eoa,
+      {required bool authenticated}) {
+    return PolymarketTradingState(
+      isAuthenticated: authenticated,
+      usdcBalance: cached.usdcBalance,
+      totalPnl: cached.totalPnl,
+      totalPnlPercent: cached.totalPnlPercent,
+      openPositions: cached.openPositions,
+      closedPositions: cached.closedPositions,
+      openOrders: cached.openOrders,
+      walletAddress: eoa,
+      proxyWalletAddress: cached.depositAddress,
+      pendingSaleTokens: _pendingSaleTokens.keys.toSet(),
+      clearingConditionIds: _clearingIdsSnapshot(),
+      balanceKnown: cached.balanceKnown,
+      refreshing: true,
+    );
+  }
 
   /// Stream of newly resolved positions (for UI notifications).
   final _resolvedController =
@@ -741,12 +1243,36 @@ class PolymarketTradingNotifier
     } catch (_) {
       // Riverpod threw after disposal — nothing to update, ignore.
     }
+    _wakeAccountWaiters();
   }
 
   @override
   Future<PolymarketTradingState> build() async {
+    // Rebuild on the spending wallet's identity (id + EVM format) and on
+    // the session starting or ending, before any early return below: the
+    // placeholder states (no spending wallet yet, locked, no phrase) must
+    // not stick for the rest of the process under keepAlive. A restore, a
+    // created or removed wallet, a switch and a settled format check all
+    // land here. Only the presence of a session is watched: a PIN gate
+    // mid-flow writes a new SessionAuth and must not restart the account
+    // under an order. Lock → unlock is `watchSessionUnlock` below.
+    ref.watch(settingsProvider.select(_predictionsSpendingIdentity));
+    ref.watch(sessionAuthProvider.select((s) => s != null));
+
     final generation = ++_accountGeneration;
     _disposed = false;
+    _addressReady = Completer<String?>();
+    _firstState = Completer<void>();
+    _resumeAccountStart = null;
+    _accountStartRunning = false;
+    _accountStartBeganAt = null;
+    _setupDeferred = false;
+    _healInFlight = false;
+    _nextHealAt = null;
+    _healFailures = 0;
+    _stuckTracked = _stuckTrackedCarry;
+    _stuckTrackedCarry = false;
+    final boot = _AccountBoot();
     unawaited(VenueAnalytics.warmUp());
     // keepAlive prevents the autoDispose tear-down when the only
     // widget reading this provider unmounts — without it, scrolling
@@ -759,10 +1285,18 @@ class PolymarketTradingNotifier
     ref.keepAlive();
     ref.onDispose(() {
       _disposed = true;
+      _unregisterLive();
+      _completeAddress(null);
+      _publishFirstState();
       _refreshTimer?.cancel();
+      _refreshTimer = null;
       _client?.close();
       _publicModel?.dispose();
-      _resolvedController.close();
+      _publicModel = null;
+      // The resolved-position and deposit-settled streams stay open: this
+      // runs on every rebuild too (the notifier instance outlives it), and
+      // closing them cut the sweeper's and the autofire's one subscription
+      // for the rest of the process.
     });
 
     // Hydrate "recently sold/redeemed" suppression from disk so positions
@@ -782,6 +1316,9 @@ class PolymarketTradingNotifier
     final spending = pickSpendingWallet(settings);
 
     if (spending == null) {
+      _forgetAccountKeys();
+      _completeAddress(null);
+      _publishFirstState();
       return const PolymarketTradingState(balanceKnown: false);
     }
     // Nothing derives while the session is locked, passkey wallets
@@ -789,7 +1326,26 @@ class PolymarketTradingNotifier
     // builds again once the session unlocks, so the USDC balance and
     // proxy address fill in right after unlock.
     if (!watchSessionUnlock(ref)) {
+      _forgetAccountKeys();
+      _completeAddress(null);
+      _publishFirstState();
       return const PolymarketTradingState(balanceKnown: false);
+    }
+    // A recovered wallet whose EVM format check has not settled: settle it
+    // in this session (bounded retries, while unlocked and online) rather
+    // than on the next PIN unlock. Its account is read meanwhile but not
+    // set up; when the check keeps the standard format the setup resumes
+    // here, and when it moves to legacy the identity changes and this
+    // provider builds again for the legacy account.
+    if (spending.evmFormatCheckPending) {
+      EvmFormatSettle.schedule(ref.container);
+      final pendingWalletId = spending.id;
+      ref.listen<bool>(
+          settingsProvider
+              .select((s) => polymarketEvmFormatPending(s, pendingWalletId)),
+          (previous, next) {
+        if (previous == true && !next) _resumeDeferredSetup(generation);
+      });
     }
 
     try {
@@ -797,9 +1353,22 @@ class PolymarketTradingNotifier
       // SDK (`Passkey.getWallet` → entropy → BIP39) and stored
       // wallets through `AuthModel.readMnemonic`. Both return real
       // BIP39 words for the wallet’s versioned EVM derivation.
-      final mnemonic = await resolveBip39MnemonicFor(spending,
-          access: SeedAccess.automatic, session: ref.read(seedSessionProvider));
+      final mnemonic = await boot.time(
+          'mnemonic',
+          () => resolveBip39MnemonicFor(spending,
+              access: SeedAccess.automatic,
+              session: ref.read(seedSessionProvider)));
+      if (generation != _accountGeneration) {
+        throw StateError('Predictions account changed');
+      }
       if (mnemonic == null) {
+        _forgetAccountKeys();
+        _completeAddress(null);
+        _publishFirstState();
+        _trackAccountStartUnauthenticated(
+            stage: 'mnemonic',
+            reason: 'unreadable',
+            restore: spending.isRestore);
         return const PolymarketTradingState(
           balanceKnown: false,
           error: 'Could not decrypt spending wallet mnemonic',
@@ -807,157 +1376,146 @@ class PolymarketTradingNotifier
       }
       final walletId = spending.id;
       _spendingWalletId = walletId;
+      _builtEvmVersion = spending.evmDerivationVersion;
+      _registerLive(walletId);
 
       // Preserve the wallet’s seed format at m/44'/60'/0'/0/0.
-      final wallet = await EvmWalletDerivation.deriveWalletAsync(
-          mnemonic: mnemonic, version: spending.evmDerivationVersion, index: 0);
+      final wallet = await boot.time(
+          'derive',
+          () => EvmWalletDerivation.deriveWalletAsync(
+              mnemonic: mnemonic,
+              version: spending.evmDerivationVersion,
+              index: 0));
       _privateKey = wallet.privateKey;
+      final eoa = wallet.address;
 
       // Create initial client with EOA for credential operations
       _client = PolymarketClient.withPrivateKey(
         privateKey: wallet.privateKey,
-        walletAddress: wallet.address,
+        walletAddress: eoa,
       );
 
       // Public model for positions/portfolio (Data API, no auth needed)
       _publicModel = PolymarketModel();
 
-      // V2 deposit-wallet address — pure offline derivation from the EOA
-      // (Solady ERC-1967 CREATE2 via the deposit-wallet factory). No RPC,
-      // no profile API, no storage lookup needed: the address is fully
-      // determined by the EOA + the known factory + the known impl.
-      //
-      // We deliberately do NOT use the profile API or storage for the V2
-      // path: the profile API returns the user's V1 Gnosis Safe address
-      // for accounts that pre-date the V2 cutover, and storage caches
-      // whichever address was derived in the previous session — both of
-      // which can be the WRONG (V1) address, which would make every
-      // order's `maker` mismatch the deposit wallet we actually deployed.
-      // Re-derive from EOA → deterministic V2 wallet, every session.
-      String? proxyWallet;
+      // What the device already knows, all local: the account cache (the
+      // last figures shown), the deposit address confirmed on an earlier
+      // start, and saved CLOB credentials. None of this touches the
+      // network, so it is on screen before any request is made.
+      final cached = await PolymarketAccountCache.open(walletId);
       final onboarding = PolymarketOnboardingService();
-      try {
-        proxyWallet =
-            await onboarding.resolveDepositWalletAddress(wallet.address);
-        // A confirmed answer: overwrite any cached V1 Safe (or wrongly
-        // guessed) address so the rest of the provider reads it too.
-        await _storage.write(key: _proxyKey(walletId), value: proxyWallet);
-      } catch (_) {
-        // Polygon gave no answer. Keep the last confirmed wallet. Older
-        // builds stored the never-used UUPS guess on exactly this failure,
-        // so a cached UUPS address is dropped rather than trusted (a real
-        // UUPS trader is confirmed again by the relayer on the next resolve).
-        final cached = await _storage.read(key: _proxyKey(walletId));
-        final uups = onboarding.deriveDepositWalletAddress(wallet.address);
-        if (cached != null &&
-            cached.isNotEmpty &&
-            cached.toLowerCase() != uups.toLowerCase()) {
-          proxyWallet = cached;
-        } else if (cached != null) {
-          await _storage.delete(key: _proxyKey(walletId));
-        }
-      }
-      // Prove, once per account, that this hot wallet owns its Polymarket
-      // signer and trading wallet so builder-fee trades are credited to
-      // the user (VenueOwnerLinkService). Silent, never blocks, hot only.
-      if (!spending.isHardware) {
+      final uups = onboarding.deriveDepositWalletAddress(eoa);
+      String? knownAddress = cached?.depositAddress;
+      // Any stored address, even a dropped UUPS one, means this device has
+      // seen a Predictions account: never "new", so the re-check keeps the
+      // legacy (UUPS) lookup and cannot settle on the newer-style address.
+      var hadStoredAddress = false;
+      if (knownAddress == null) {
+        // Older builds stored the never-used UUPS guess on a failed
+        // resolve, so a cached UUPS address is dropped rather than trusted
+        // (a real UUPS trader is confirmed again by the resolve).
         try {
-          unawaited(VenueOwnerLinkService.ensureLinked(
-            venue: VenueOwnerLinkService.polymarket,
-            key: _hotPolymarketCredentials(wallet.privateKey),
-            tradingAddress: (proxyWallet != null && proxyWallet.isNotEmpty
-                    ? proxyWallet
-                    : wallet.address)
-                .toLowerCase(),
-          ));
-        } catch (_) {
-          // Best-effort only.
-        }
+          final stored = await _storage.read(key: _proxyKey(walletId));
+          hadStoredAddress = stored != null && stored.isNotEmpty;
+          if (stored != null &&
+              stored.isNotEmpty &&
+              stored.toLowerCase() != uups.toLowerCase()) {
+            knownAddress = stored;
+          } else if (stored != null) {
+            await _storage.delete(key: _proxyKey(walletId));
+          }
+        } catch (_) {}
       }
-      // Load or create API credentials (with nonce for POLY_NONCE header)
-      _CredentialsWithNonce? credsWithNonce = await _loadCredentials(walletId,
-          ownerAddress: wallet.address,
+      _legacyWallet = cached?.legacyWallet ??
+          (knownAddress == null
+              ? null
+              : knownAddress.toLowerCase() == uups.toLowerCase());
+      final credsWithNonce = await _loadCredentials(walletId,
+          ownerAddress: eoa,
           version: spending.evmDerivationVersion,
-          depositWallet: proxyWallet);
+          depositWallet: knownAddress);
+      final hasCredentials = credsWithNonce != null;
 
-      if (credsWithNonce == null) {
+      // A wallet created on this device that this app has never seen with
+      // an account, an address or credentials holds nothing on Polymarket:
+      // its balance is $0.00 and no network is needed to know that.
+      final isNewWallet = !spending.isRestore &&
+          cached == null &&
+          knownAddress == null &&
+          !hadStoredAddress &&
+          !hasCredentials;
+      final bootKind = cached == null ? 'first' : 'later';
+
+      PolymarketTradingState first;
+      String? resolvedAddress;
+      var addressResolved = false;
+      if (cached != null) {
+        // Stage 0: the last figures shown, at once, marked as refreshing.
+        _completeAddress(cached.depositAddress);
+        first = _stateFromSnapshot(cached, eoa, authenticated: true);
+        boot.firstBalance(source: 'cache', bootKind: bootKind);
+      } else if (isNewWallet) {
+        _completeAddress(null);
+        first = PolymarketTradingState(
+          walletAddress: eoa,
+          usdcBalance: 0,
+          balanceKnown: true,
+          refreshing: true,
+          pendingSaleTokens: _pendingSaleTokens.keys.toSet(),
+          clearingConditionIds: _clearingIdsSnapshot(),
+        );
+        boot.firstBalance(source: 'new_wallet', bootKind: bootKind);
+      } else {
+        // Stage A: the deposit address (one round trip; the saved one
+        // answers at once), then cash and positions, the public reads.
+        // Credentials and open orders wait for nothing here: Stage B.
+        resolvedAddress = knownAddress;
+        if (resolvedAddress == null) {
+          try {
+            final resolved = await boot.time(
+                'resolve', () => onboarding.resolveDepositWallet(eoa));
+            if (generation != _accountGeneration) {
+              throw StateError('Predictions account changed');
+            }
+            resolvedAddress = resolved.address;
+            _legacyWallet = resolved.legacy;
+            await _storage.write(key: _proxyKey(walletId), value: resolvedAddress);
+          } catch (_) {
+            // Polygon gave no answer and nothing is known: the balance
+            // shows as unknown until a later refresh resolves it.
+          }
+        }
+        addressResolved = resolvedAddress != null;
+        _completeAddress(resolvedAddress);
         try {
-          credsWithNonce = await _deriveOrCreateApiKey(funder: proxyWallet);
-          if (credsWithNonce != null) {
-            await _saveCredentials(walletId, credsWithNonce.credentials,
-                nonce: credsWithNonce.nonce);
-          }
-        } catch (e) {
-          // Credentials stay null and trading degrades gracefully. Offline /
-          // timeout failures are EXPECTED (no internet, stalled network) —
-          // they're not bugs and would spam Error Tracking on every retry, so
-          // only report genuinely unexpected provisioning failures.
-          if (!_isOfflineError(e)) {
-            TrackingService.recordCrash(e, null,
-                reason: 'polymarket_credential_provisioning');
-          }
+          first = await boot.time(
+              'data',
+              () => _fetchAllData(eoa,
+                  proxyWallet: resolvedAddress, scope: PolymarketRefreshScope.cash));
+        } catch (_) {
+          first = PolymarketTradingState(
+            walletAddress: eoa,
+            proxyWalletAddress: resolvedAddress,
+            balanceKnown: false,
+          );
         }
-      }
-
-      final credentials = credsWithNonce?.credentials;
-      if (credsWithNonce != null) {
-        _apiNonce = credsWithNonce.nonce;
-      }
-
-      if (credentials != null) {
-        _client!.clob.auth?.setCredentials(credentials);
-        _backendService = _createBackendService(credentials, wallet.address,
-            funder: proxyWallet);
-
-        // One-shot CLOB allowance cache refresh per session. The CLOB
-        // caches each wallet's balance/allowance snapshot — without an
-        // explicit `/balance-allowance/update` call the cache can be
-        // hours stale, blocking orders even when on-chain approvals are
-        // set. signature_type=3 (POLY_1271) matches the V2 deposit-wallet
-        // order sigType we sign.
-        if (proxyWallet != null && proxyWallet.isNotEmpty) {
-          // ignore: discarded_futures
-          _backendService!
-              .updateBalanceAllowance(assetType: 'COLLATERAL', signatureType: 3)
-              .then((_) => _devLog('[pm-init] balance-allowance/update OK'))
-              .catchError((Object e) =>
-                  _devLog('[pm-init] balance-allowance/update threw: $e'));
+        first = first.copyWith(
+          isAuthenticated: hasCredentials ||
+              (resolvedAddress != null && resolvedAddress.isNotEmpty),
+          refreshing: true,
+        );
+        if (first.balanceKnown) {
+          boot.firstBalance(source: 'network', bootKind: bootKind);
         }
-      }
-
-      // Recreate client with funder (proxy wallet) for Safe order signing
-      if (proxyWallet != null &&
-          proxyWallet.isNotEmpty &&
-          credentials != null) {
-        _client?.close();
-        _client = PolymarketClient.authenticated(
-          credentials: credentials,
-          funder: proxyWallet,
-          privateKey: wallet.privateKey,
-        );
-      }
-
-      final isAuth = credentials != null ||
-          (proxyWallet != null && proxyWallet.isNotEmpty);
-
-      // Fetch data — don't let a network failure hide valid credentials
-      PolymarketTradingState data;
-      try {
-        data = await _fetchAllData(
-          wallet.address,
-          proxyWallet: proxyWallet,
-        );
-      } catch (_) {
-        // Data fetch failed but credentials are valid — still authenticated
-        data = PolymarketTradingState(
-          walletAddress: wallet.address,
-          proxyWalletAddress: proxyWallet,
-          balanceKnown: false,
-        );
+        _persistSnapshot(first);
       }
 
       // Auto-refresh every 5s by default so open positions feel live;
-      // _adjustRefreshRate drops this to 3s for near-expiry markets.
+      // _adjustRefreshRate drops this to 3s for near-expiry markets. Every
+      // build starts on 5 s: an earlier account's "no polling" (0) would
+      // make this timer fire continuously.
+      _currentRefreshInterval = 5;
+      _refreshTimer?.cancel();
       _refreshTimer = Timer.periodic(
         Duration(seconds: _currentRefreshInterval),
         (_) => _silentRefresh(),
@@ -972,31 +1530,474 @@ class PolymarketTradingNotifier
       // USDC.e + native USDC (see `getOnChainUsdcBalance`) so any
       // mid-flow split is invisible to the user.
 
-      // A predicted address exists before the wallet is deployed. Always
-      // verify deployment and approvals once per account session; the
-      // onboarding service skips operations already complete on-chain.
-      // Use the event queue so build's account state is published first.
-      Future<void>(() async {
-        if (_disposed || generation != _accountGeneration) return;
-        try {
-          await enableTrading();
-        } catch (_) {
-          // The next explicit deposit/setup call retries a failed setup.
-        }
-        if (_disposed || generation != _accountGeneration) return;
-        // A deposit that landed while the app was closed is still USDC.e.
-        await wrapIdleUsdcE(trigger: 'open');
-        if (_disposed || generation != _accountGeneration) return;
-        // A prediction an earlier session left unanswered is looked up now,
-        // not on the person's next tap.
-        await reconcilePendingOrders();
-      });
+      // Everything else runs after this first state is on screen: the
+      // address re-check, fresh cash and positions, then Stage B
+      // (credentials, open orders, the allowance refresh, the one-time
+      // setup). Use the event queue so build's state is published first.
+      _skipLegacyChecks = isNewWallet || _legacyWallet == false;
+      _resumeAccountStart = (address) async {
+        final stored = await _loadCredentials(walletId,
+            ownerAddress: eoa,
+            version: spending.evmDerivationVersion,
+            depositWallet: address);
+        await _runAccountStart(
+          generation: generation,
+          eoa: eoa,
+          walletId: walletId,
+          spending: spending,
+          privateKey: wallet.privateKey,
+          knownAddress: address,
+          addressResolved: address != null,
+          skipLegacyChecks: _skipLegacyChecks,
+          credentials: stored,
+          boot: boot,
+          bootKind: bootKind,
+        );
+      };
+      _accountStartRunning = true;
+      _accountStartBeganAt = DateTime.now();
+      Future<void>(() => _runAccountStart(
+            generation: generation,
+            eoa: eoa,
+            walletId: walletId,
+            spending: spending,
+            privateKey: wallet.privateKey,
+            knownAddress: resolvedAddress ?? knownAddress,
+            addressResolved: addressResolved,
+            skipLegacyChecks: _skipLegacyChecks,
+            credentials: credsWithNonce,
+            boot: boot,
+            bootKind: bootKind,
+          ));
 
-      return data.copyWith(isAuthenticated: isAuth);
+      _selfRebuilds = 0;
+      _publishFirstState();
+      return first;
     } catch (e) {
+      _completeAddress(null);
+      _publishFirstState();
+      if (generation == _accountGeneration) {
+        _forgetAccountKeys();
+        _trackAccountStartUnauthenticated(
+            stage: 'build',
+            reason: TrackingService.errorCategory(e),
+            offline: _isOfflineError(e),
+            restore: spending.isRestore);
+      }
       return PolymarketTradingState(
           balanceKnown: false, error: 'Authentication failed: $e');
     }
+  }
+
+  /// A placeholder build holds no key of an earlier account: a removed or
+  /// switched-away wallet's signing key is dropped with its account.
+  void _forgetAccountKeys() {
+    _privateKey = null;
+    _spendingWalletId = null;
+    _builtEvmVersion = null;
+    _backendService = null;
+    _legacyWallet = null;
+    _apiKeyBoundAddress = null;
+  }
+
+  /// `polymarket_account_start_unauthenticated`: an account start that
+  /// ended without authentication, so Predictions would read "—" until it
+  /// heals. Categorical fields only, never ids, addresses or keys. Once per
+  /// generation.
+  void _trackAccountStartUnauthenticated({
+    required String stage,
+    required String reason,
+    required bool restore,
+    bool? offline,
+    String? bootKind,
+  }) {
+    if (_stuckTracked) return;
+    _stuckTracked = true;
+    TrackingService.track('polymarket_account_start_unauthenticated',
+        params: {
+          'stage': stage,
+          'reason': reason,
+          'restore': restore,
+          if (offline != null) 'offline': offline,
+          if (bootKind != null) 'boot': bootKind,
+        });
+  }
+
+  /// [_finishAccountStart], marked as running for [generation]; then the
+  /// one-time setup, if the format check settled while it ran.
+  Future<void> _runAccountStart({
+    required int generation,
+    required String eoa,
+    required String walletId,
+    required dynamic spending,
+    required String privateKey,
+    required String? knownAddress,
+    required bool addressResolved,
+    required bool skipLegacyChecks,
+    required _CredentialsWithNonce? credentials,
+    required _AccountBoot boot,
+    required String bootKind,
+  }) async {
+    if (_disposed || generation != _accountGeneration) return;
+    _accountStartRunning = true;
+    _accountStartBeganAt = DateTime.now();
+    try {
+      await _finishAccountStart(
+        generation: generation,
+        eoa: eoa,
+        walletId: walletId,
+        spending: spending,
+        privateKey: privateKey,
+        knownAddress: knownAddress,
+        addressResolved: addressResolved,
+        skipLegacyChecks: skipLegacyChecks,
+        credentials: credentials,
+        boot: boot,
+        bootKind: bootKind,
+      );
+    } catch (_) {
+      // Every step guards itself; nothing here may surface.
+    } finally {
+      if (generation == _accountGeneration) _accountStartRunning = false;
+    }
+    if (_disposed || generation != _accountGeneration) return;
+    // The format check settled while the start ran past its setup step.
+    if (_setupDeferred && !_formatPending(walletId)) {
+      _resumeDeferredSetup(generation);
+    }
+  }
+
+  bool _formatPending(String walletId) =>
+      polymarketEvmFormatPending(ref.read(settingsProvider), walletId);
+
+  /// The account start holds its setup: the format check is pending, or
+  /// the spending wallet's identity already moved on (a format settling on
+  /// legacy) and this provider is about to build again for it.
+  bool _setupHeld(String walletId) {
+    final settings = ref.read(settingsProvider);
+    final wallet = pickSpendingWallet(settings);
+    return polymarketEvmFormatPending(settings, walletId) ||
+        wallet?.id != walletId ||
+        wallet?.evmDerivationVersion != _builtEvmVersion;
+  }
+
+  /// The EVM format check settled on the standard format: the account start
+  /// that left its setup for later runs it now (credentials, the one-time
+  /// setup, the idle USDC.e conversion).
+  void _resumeDeferredSetup(int generation) {
+    if (_disposed || generation != _accountGeneration) return;
+    if (_accountStartRunning || !_setupDeferred) return;
+    // The check moved the wallet to legacy: the identity changed and this
+    // provider builds again for the legacy account; nothing resumes on the
+    // standard one (its rebuild is only scheduled when this runs).
+    final wallet = pickSpendingWallet(ref.read(settingsProvider));
+    if (wallet == null ||
+        wallet.id != _spendingWalletId ||
+        wallet.evmDerivationVersion != _builtEvmVersion ||
+        wallet.evmFormatCheckPending) {
+      return;
+    }
+    final resume = _resumeAccountStart;
+    if (resume == null) return;
+    _setupDeferred = false;
+    final address = state.valueOrNull?.proxyWalletAddress;
+    _accountStartRunning = true;
+    unawaited(resume(address != null && address.isNotEmpty ? address : null));
+  }
+
+  /// The self-heal: the account start ended without a deposit address
+  /// (Polygon gave no answer on a restore with nothing cached). Looks it up
+  /// again, spaced out on failure, and on an answer finishes the account
+  /// start with it: cash, positions, credentials, setup. True when an
+  /// address was found.
+  Future<bool> _healAddress() async {
+    final resume = _resumeAccountStart;
+    final walletId = _spendingWalletId;
+    final eoa = state.valueOrNull?.walletAddress;
+    if (resume == null ||
+        walletId == null ||
+        eoa == null ||
+        _accountStartRunning ||
+        _healInFlight) {
+      return false;
+    }
+    final next = _nextHealAt;
+    if (next != null && DateTime.now().isBefore(next)) return false;
+    final generation = _accountGeneration;
+    bool current() =>
+        !_disposed &&
+        generation == _accountGeneration &&
+        state.valueOrNull?.walletAddress?.toLowerCase() == eoa.toLowerCase();
+    _healInFlight = true;
+    try {
+      final resolved = await PolymarketOnboardingService()
+          .resolveDepositWallet(eoa, skipLegacyChecks: _skipLegacyChecks);
+      if (!current()) return false;
+      final address = resolved.address;
+      _legacyWallet = resolved.legacy;
+      _healFailures = 0;
+      _nextHealAt = null;
+      try {
+        await _storage.write(key: _proxyKey(walletId), value: address);
+      } catch (_) {}
+      if (!current()) return false;
+      _completeAddress(address);
+      final live = state.valueOrNull;
+      if (live != null && (live.proxyWalletAddress ?? '').isEmpty) {
+        // A known deposit address is what authenticates the account start.
+        _setData(
+            live.copyWith(proxyWalletAddress: address, isAuthenticated: true));
+      }
+      _accountStartRunning = true;
+      unawaited(resume(address));
+      return true;
+    } catch (_) {
+      if (generation == _accountGeneration) {
+        _healFailures++;
+        const cap = Duration(minutes: 1);
+        final wait = healBackoffUnit * (1 << min(_healFailures - 1, 4));
+        _nextHealAt = DateTime.now().add(wait > cap ? cap : wait);
+      }
+      return false;
+    } finally {
+      if (generation == _accountGeneration) _healInFlight = false;
+    }
+  }
+
+  /// Stage A's re-check and Stage B, in the background after the first
+  /// state: confirm (or find) the deposit address, read cash and positions
+  /// fresh, then credentials, the allowance refresh, open orders and the
+  /// rest of the figures, then the one-time setup. Every step is guarded
+  /// by [generation] so a wallet switch mid-way touches nothing.
+  Future<void> _finishAccountStart({
+    required int generation,
+    required String eoa,
+    required String walletId,
+    required dynamic spending,
+    required String privateKey,
+    required String? knownAddress,
+    required bool addressResolved,
+    required bool skipLegacyChecks,
+    required _CredentialsWithNonce? credentials,
+    required _AccountBoot boot,
+    required String bootKind,
+  }) async {
+    bool current() => !_disposed && generation == _accountGeneration;
+    if (!current()) return;
+    final onboarding = PolymarketOnboardingService();
+    String? address = knownAddress;
+    Object? addressError;
+
+    // 1. The deposit address: the known one is already on screen; confirm
+    //    it (or find it for a new wallet) without holding anything up.
+    if (!addressResolved) {
+      try {
+        final resolved = await boot.time(
+            'resolve',
+            () => onboarding.resolveDepositWallet(eoa,
+                skipLegacyChecks: skipLegacyChecks));
+        if (!current()) return;
+        address = resolved.address;
+        _legacyWallet = resolved.legacy;
+        await _storage.write(key: _proxyKey(walletId), value: address);
+        if (!current()) return;
+        final live = state.valueOrNull;
+        if (live != null &&
+            live.proxyWalletAddress?.toLowerCase() != address.toLowerCase()) {
+          _setData(live.copyWith(proxyWalletAddress: address));
+        }
+      } catch (e) {
+        // Polygon gave no answer. The known address (if any) stands; a
+        // new wallet keeps its $0.00 and the next refresh resolves again
+        // (the self-heal in `refresh`).
+        addressError = e;
+      }
+    }
+    _completeAddress(address);
+    if (!current()) return;
+
+    // A recovered wallet whose EVM format check has not settled is read,
+    // never set up: no owner link, no new credentials, no deployment or
+    // approvals until the check settles (it may move to legacy).
+    final formatPending = _setupHeld(walletId);
+
+    // Prove, once per account, that this hot wallet owns its Polymarket
+    // signer and trading wallet so builder-fee trades are credited to the
+    // user (VenueOwnerLinkService). Silent, never blocks, hot only.
+    if (!(spending.isHardware as bool) && !formatPending) {
+      try {
+        unawaited(VenueOwnerLinkService.ensureLinked(
+          venue: VenueOwnerLinkService.polymarket,
+          key: _hotPolymarketCredentials(privateKey),
+          tradingAddress:
+              (address != null && address.isNotEmpty ? address : eoa)
+                  .toLowerCase(),
+        ));
+      } catch (_) {
+        // Best-effort only.
+      }
+    }
+
+    // 2. Fresh cash and positions (public reads).
+    if (address != null) {
+      try {
+        final data = await boot.time(
+            'data',
+            () => _fetchAllData(eoa,
+                proxyWallet: address, scope: PolymarketRefreshScope.cash));
+        if (!current()) return;
+        final live = state.valueOrNull;
+        final keepBalance =
+            !data.balanceKnown && (live?.balanceKnown ?? false);
+        _setData(data.copyWith(
+          isAuthenticated: live?.isAuthenticated ?? true,
+          isPlacingOrder: live?.isPlacingOrder ?? false,
+          usdcBalance: keepBalance ? live!.usdcBalance : null,
+          balanceKnown: keepBalance ? true : null,
+          refreshing: true,
+        ));
+        if (data.balanceKnown) {
+          boot.firstBalance(source: 'network', bootKind: bootKind);
+          _persistSnapshot(state.valueOrNull ?? data);
+        }
+      } catch (_) {
+        // The periodic refresh retries; the figures shown stand.
+      }
+    }
+    if (!current()) return;
+
+    // 3. Stage B: credentials (load or create), never in front of the
+    //    balance.
+    var credsWithNonce = credentials;
+    var credentialsSource = credsWithNonce != null ? 'stored' : 'none';
+    if (credsWithNonce == null && formatPending) {
+      credentialsSource = 'deferred';
+      _setupDeferred = true;
+    } else if (credsWithNonce == null) {
+      try {
+        credsWithNonce = await boot.time('credentials',
+            () => _deriveOrCreateApiKey(funder: address, isCurrent: current));
+        if (!current()) return;
+        if (credsWithNonce != null) {
+          credentialsSource = 'created';
+          await _saveCredentials(walletId, credsWithNonce.credentials,
+              nonce: credsWithNonce.nonce);
+        }
+      } catch (e) {
+        // Credentials stay null and trading degrades gracefully. Offline /
+        // timeout failures are EXPECTED (no internet, stalled network) —
+        // they're not bugs and would spam Error Tracking on every retry, so
+        // only report genuinely unexpected provisioning failures.
+        if (!current()) return;
+        if (!_isOfflineError(e)) {
+          TrackingService.recordCrash(e, null,
+              reason: 'polymarket_credential_provisioning');
+        }
+      }
+    }
+    if (!current()) return;
+
+    final creds = credsWithNonce?.credentials;
+    if (credsWithNonce != null) _apiNonce = credsWithNonce.nonce;
+    if (creds != null) {
+      _client?.clob.auth?.setCredentials(creds);
+      _backendService = _createBackendService(creds, eoa, funder: address);
+
+      // One-shot CLOB allowance cache refresh per session. The CLOB caches
+      // each wallet's balance/allowance snapshot — without an explicit
+      // `/balance-allowance/update` call the cache can be hours stale,
+      // blocking orders even when on-chain approvals are set.
+      // signature_type=3 (POLY_1271) matches the V2 deposit-wallet order
+      // sigType we sign.
+      if (address != null && address.isNotEmpty) {
+        // ignore: discarded_futures
+        _backendService!
+            .updateBalanceAllowance(assetType: 'COLLATERAL', signatureType: 3)
+            .then((_) => _devLog('[pm-init] balance-allowance/update OK'))
+            .catchError((Object e) =>
+                _devLog('[pm-init] balance-allowance/update threw: $e'));
+      }
+      // Recreate client with funder (deposit wallet) for order signing
+      if (address != null && address.isNotEmpty) {
+        _client?.close();
+        _client = PolymarketClient.authenticated(
+          credentials: creds,
+          funder: address,
+          privateKey: privateKey,
+        );
+      }
+    }
+    final live = state.valueOrNull;
+    // Never taken back: a setup that ran meanwhile (the first bet, a
+    // deposit) may have authenticated the account already.
+    final isAuth = creds != null ||
+        (address != null && address.isNotEmpty) ||
+        (live?.isAuthenticated ?? false);
+    if (live != null) _setData(live.copyWith(isAuthenticated: isAuth));
+    if (isAuth) {
+      boot.accountReady(credentials: credentialsSource, bootKind: bootKind);
+    } else {
+      // Stuck: no deposit address and no credentials. Predictions reads
+      // "—" until the self-heal in `refresh` finds the address; the
+      // account-ready event follows then, from the resumed start.
+      _trackAccountStartUnauthenticated(
+        stage: 'account_start',
+        reason: addressError != null
+            ? TrackingService.errorCategory(addressError)
+            : 'no_address',
+        offline: addressError != null ? _isOfflineError(addressError) : null,
+        restore: spending.isRestore as bool,
+        bootKind: bootKind,
+      );
+    }
+
+    // 4. Open orders, settled positions and the rest of the figures.
+    if (address != null) {
+      try {
+        final data = await _fetchAllData(eoa, proxyWallet: address);
+        if (!current()) return;
+        final now = state.valueOrNull;
+        final keepBalance = !data.balanceKnown && (now?.balanceKnown ?? false);
+        _setData(data.copyWith(
+          isAuthenticated: isAuth || (now?.isAuthenticated ?? false),
+          isPlacingOrder: now?.isPlacingOrder ?? false,
+          usdcBalance: keepBalance ? now!.usdcBalance : null,
+          balanceKnown: keepBalance ? true : null,
+          refreshing: false,
+        ));
+        _persistSnapshot(state.valueOrNull ?? data);
+      } catch (_) {
+        final now = state.valueOrNull;
+        if (now != null) _setData(now.copyWith(refreshing: false));
+      }
+    } else {
+      final now = state.valueOrNull;
+      if (now != null) _setData(now.copyWith(refreshing: false));
+    }
+    if (!current()) return;
+
+    // 5. A predicted address exists before the wallet is deployed. Always
+    //    verify deployment and approvals once per account session; the
+    //    onboarding service skips operations already complete on-chain.
+    //    Creation's provisioning and the first bet join this same work.
+    //    Not while the wallet's EVM format check is pending: the setup
+    //    resumes once it settles (`_resumeDeferredSetup`).
+    if (_setupHeld(walletId)) {
+      _setupDeferred = true;
+      return;
+    }
+    try {
+      await enableTrading();
+    } catch (_) {
+      // The next explicit deposit/setup call retries a failed setup.
+    }
+    if (!current()) return;
+    // A deposit that landed while the app was closed is still USDC.e.
+    await wrapIdleUsdcE(trigger: 'open');
+    if (!current()) return;
+    // A prediction an earlier session left unanswered is looked up now,
+    // not on the person's next tap.
+    await reconcilePendingOrders();
   }
 
   Future<_CredentialsWithNonce?> _loadCredentials(
@@ -1076,6 +2077,10 @@ class PolymarketTradingNotifier
   /// (Wallet Hardening Phase 1b.4).
   String? get signingWalletId => _credentialsWalletId();
 
+  /// Changes on account rebuild, including the same wallet's key format
+  /// or signing session. Async readers use it to reject retired results.
+  int get accountGeneration => _accountGeneration;
+
   /// L2 authentication uses the address that provisioned the API key.
   /// New credentials belong to the owner EOA; the deposit wallet remains
   /// the order's maker/signer under the separate POLY_1271 order protocol.
@@ -1130,40 +2135,61 @@ class PolymarketTradingNotifier
     return _CredentialsWithNonce(credentials: result, nonce: 0);
   }
 
+  /// Reads of one refresh. [cash] is the balance and positions only (what
+  /// changes tick to tick); [full] adds open orders, portfolio value and
+  /// settled positions, read every third tick and on an explicit refresh.
   Future<PolymarketTradingState> _fetchAllData(
     String eoaAddress, {
     String? proxyWallet,
+    PolymarketRefreshScope scope = PolymarketRefreshScope.full,
   }) async {
     final model = _publicModel!;
 
     // All Polymarket data is indexed by the proxy wallet (Safe), not EOA.
     // EOA is only used for signing — never for data queries.
     final addr = proxyWallet;
+    final full = scope == PolymarketRefreshScope.full;
+    final previous = state.valueOrNull;
+
+    // A buy still settling: its spend shows only on a fresh read, never on
+    // the 30 s cached balance from before it settled.
+    if (_fillsFor(addr).any((f) => !f.cashSettled)) {
+      model.invalidateBalanceCache();
+    }
 
     // Fetch each independently — don't let one failure kill the others.
     // A balance that could not be read stays 0 but is marked unknown.
     var balanceRead = addr != null;
     final results = await Future.wait([
       addr != null
-          ? model.getPositions(addr).catchError((_) => <Position>[])
+          ? model.getPositionsOrNull(addr)
           : Future.value(<Position>[]),
-      (_backendService?.getOpenOrders() ?? Future.value(<Order>[]))
-          .catchError((_) => <Order>[]),
+      full
+          ? (_backendService?.getOpenOrders() ?? Future.value(<Order>[]))
+              .catchError((_) => <Order>[])
+          : Future.value(previous?.openOrders ?? <Order>[]),
       addr != null
           ? model.getOnChainUsdcBalance(addr).catchError((_) {
               balanceRead = false;
               return 0.0;
             })
           : Future.value(0.0),
-      addr != null
+      addr != null && full
           ? model.getPortfolioTotalValue(addr).catchError((_) => 0.0)
           : Future.value(0.0),
-      addr != null
+      addr != null && full
           ? model.getClosedPositions(addr).catchError((_) => <ClosedPosition>[])
-          : Future.value(<ClosedPosition>[]),
+          : Future.value(previous?.closedPositions ?? <ClosedPosition>[]),
     ]);
 
-    var positions = results[0] as List<Position>;
+    // A positions read that failed keeps this account's last list: an
+    // empty list for a failed read dropped every position from the
+    // Investments total (and the Portfolio) until the next read.
+    final samePreviousAccount = previous != null &&
+        addr != null &&
+        previous.proxyWalletAddress?.toLowerCase() == addr.toLowerCase();
+    var positions = (results[0] as List<Position>?) ??
+        (samePreviousAccount ? previous.openPositions : const <Position>[]);
     final orders = results[1] as List<Order>;
     final onChainUsdc = results[2] as double;
     // The settled rows held to their result (the state's closedPositions,
@@ -1389,8 +2415,19 @@ class PolymarketTradingNotifier
         nowSale.difference(at) > const Duration(seconds: 120) ||
         !positions.any((p) => p.asset == tok));
 
+    // Buys the reads have not caught up with (pending_fills.dart): the
+    // shares count until the positions read lists them, the cost comes off
+    // the cash until a read shows it. Read last, after every await, so a
+    // fill recorded while this read ran is netted too.
+    final settled = _settlePendingFills(
+      addr,
+      rawCashUsd: balanceRead ? onChainUsdc : null,
+      positions: positions,
+    );
+
     return PolymarketTradingState(
-      usdcBalance: onChainUsdc,
+      usdcBalance: settled.$1 ?? onChainUsdc,
+      pendingFills: settled.$2,
       totalPnl: totalPnl,
       totalPnlPercent: totalPnlPercent,
       openPositions: positions,
@@ -1441,7 +2478,15 @@ class PolymarketTradingNotifier
         _publicModel == null) {
       return;
     }
+    // No deposit address yet (the account start's lookup failed): a read
+    // without it has nothing to show. Look the address up again instead.
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      unawaited(_healAddress());
+      return;
+    }
+    final generation = _accountGeneration;
     _refreshInFlight = true;
+    _tick++;
     try {
       // The proxy address is resolved ONCE in build() and never
       // re-pointed here. This block used to overwrite the in-memory AND
@@ -1456,7 +2501,17 @@ class PolymarketTradingNotifier
       final data = await _fetchAllData(
         current.walletAddress!,
         proxyWallet: proxy,
+        scope: polymarketRefreshScopeForTick(_tick),
       );
+
+      // The account changed or moved on while the read ran: merge into the
+      // live state, never over it (mergePolymarketRefresh).
+      final live = state.valueOrNull;
+      if (_disposed || generation != _accountGeneration || live == null) {
+        return;
+      }
+      final merged = mergePolymarketRefresh(live: live, read: data);
+      if (merged == null) return;
 
       // Detect newly resolved positions (was not redeemable, now is).
       final prevIds = current.openPositions
@@ -1485,13 +2540,8 @@ class PolymarketTradingNotifier
 
       // A refresh whose balance read failed keeps the last balance that
       // was read, rather than reading as 0 until the next tick.
-      final keepBalance = !data.balanceKnown && current.balanceKnown;
-      _setData(data.copyWith(
-        isAuthenticated: current.isAuthenticated,
-        isPlacingOrder: current.isPlacingOrder,
-        usdcBalance: keepBalance ? current.usdcBalance : null,
-        balanceKnown: keepBalance ? true : null,
-      ));
+      _setData(merged);
+      _persistSnapshot(state.valueOrNull ?? merged);
 
       // Record USDC balance snapshot for analytics charts
       if (data.usdcBalance > 0) {
@@ -1521,6 +2571,9 @@ class PolymarketTradingNotifier
 
   /// Overlap guard for [_silentRefresh] — see comment at its top.
   bool _refreshInFlight = false;
+
+  /// Periodic refreshes so far; every third one reads everything.
+  int _tick = 0;
 
   /// Less than this many outcome-token units (6 decimals: 0.01 share)
   /// is dust worth under a cent whatever the result, such as what a
@@ -1739,35 +2792,145 @@ class PolymarketTradingNotifier
     // turns claimable on the refresh that sees `redeemable`, so off the
     // Predictions surface it is polled every 20 s instead of 30.
     final awaitingResult = positions.any((p) => awaitingResolution(p, now));
-    final int targetInterval;
-    if (_awaitingDeposit) {
-      // Receive-screen accelerator outranks the visibility backoff —
-      // the user is staring at the receive address on a different
-      // surface, so `_polymarketVisible` may well be false while a
-      // deposit is inbound.
-      targetInterval = 3;
-    } else if (!_polymarketVisible) {
-      // Predictions surface off-screen: nothing animates, so the fast
-      // tier is pure network/battery burn. Back off hard — 30s with
-      // open bets (positions still track loosely for the home tile),
-      // 60s when the user holds nothing open.
-      targetInterval = awaitingResult ? 20 : (hasOpenBet ? 30 : 60);
-    } else if (minMinutesToExpiry != null && minMinutesToExpiry < 60) {
-      targetInterval = 3;
-    } else if (hasOpenBet) {
-      targetInterval = 3;
-    } else {
-      targetInterval = 5;
-    }
+    final targetInterval = polymarketRefreshIntervalSeconds(
+      pendingBetWaiting: _pendingBetWaiting,
+      awaitingDeposit: _awaitingDeposit,
+      visible: _polymarketVisible,
+      hasOpenBet: hasOpenBet,
+      awaitingResult: awaitingResult,
+      minMinutesToExpiry: minMinutesToExpiry,
+    );
 
-    // Only recreate timer if interval changed
-    if (_currentRefreshInterval != targetInterval) {
-      _currentRefreshInterval = targetInterval;
+    // Only recreate timer if interval changed. Null: nothing held, no
+    // periodic read at all (0 here) — events refresh the account.
+    final seconds = targetInterval ?? 0;
+    if (_currentRefreshInterval != seconds) {
+      _currentRefreshInterval = seconds;
       _refreshTimer?.cancel();
-      _refreshTimer = Timer.periodic(
-        Duration(seconds: targetInterval),
-        (_) => _silentRefresh(),
-      );
+      _refreshTimer = seconds <= 0
+          ? null
+          : Timer.periodic(
+              Duration(seconds: seconds),
+              (_) => _silentRefresh(),
+            );
+    }
+  }
+
+  /// Set by the pending-bet autofire while a queued bet waits for its
+  /// deposit. The deposit's own path ([onDepositDelivered]) reads the
+  /// balance the moment the money lands and tells the autofire, so the
+  /// periodic refresh backs off to 30 s instead of overlapping the 5 s
+  /// order-status poll and the autofire's own reads.
+  bool _pendingBetWaiting = false;
+  void setPendingBetWaiting(bool waiting) {
+    if (_pendingBetWaiting == waiting) return;
+    _pendingBetWaiting = waiting;
+    final current = state.valueOrNull;
+    if (current != null) _adjustRefreshRate(current.openPositions);
+  }
+
+  /// Fires once a delivered deposit is bettable: converted to pUSD, the
+  /// balance re-read and the venue's allowance count refreshed. The
+  /// pending-bet autofire listens and places the queued bet at once.
+  final _depositSettledController = StreamController<void>.broadcast();
+  Stream<void> get depositSettled => _depositSettledController.stream;
+
+  /// One "money arrived" path. Called when Orchestra reports a Predictions
+  /// deposit delivered ([orderId] is its order or quote id, [createdAt]
+  /// when it was made): waits for the account's one-time setup (joined,
+  /// never run twice), converts the delivered USDC.e to pUSD right away
+  /// (reading the wallet every second for the first 20 s, then every 2 s,
+  /// until it is there), updates the venue's allowance count, reads the
+  /// balance once right after, and tells the autofire. Timing is recorded
+  /// as durations only (`polymarket_deposit_bettable`) and reported to the
+  /// backend for the order. Never throws.
+  Future<void> onDepositDelivered({
+    required String orderId,
+    required DateTime createdAt,
+    String? route,
+    Duration patience = const Duration(minutes: 3),
+  }) async {
+    final deliveredAt = DateTime.now();
+    final generation = _accountGeneration;
+    bool current() => !_disposed && generation == _accountGeneration;
+    try {
+      invalidateBalanceCache();
+      try {
+        await enableTrading();
+      } catch (_) {
+        // Setup could not finish now: the long watch below keeps trying
+        // once it does, as before.
+      }
+      if (!current()) return;
+      if (FundedConversionHold.held) {
+        // A funded bet's legs are still landing: this delivery is not
+        // converted on its own. Read the balance now and tell the bet's
+        // autofire, which converts everything at once when the wallet
+        // shows all of it; the long watch keeps an eye on it meanwhile.
+        await refresh();
+        if (!current()) return;
+        if (!_depositSettledController.isClosed) {
+          _depositSettledController.add(null);
+        }
+        wrapIncomingUsdcEToPusd();
+        return;
+      }
+      final until = deliveredAt.add(patience);
+      var wrapped = BigInt.zero;
+      while (current() && DateTime.now().isBefore(until)) {
+        final live = state.valueOrNull;
+        final eoa = live?.walletAddress;
+        final wallet = live?.proxyWalletAddress;
+        final key = _privateKey;
+        if (eoa == null || wallet == null || wallet.isEmpty || key == null) {
+          break;
+        }
+        if (tradingReady) {
+          try {
+            wrapped = await _wrapHeldUsdcE(
+                eoa: eoa, privateKey: key, wallet: wallet, trigger: 'arrival');
+          } catch (e) {
+            _devLog('[deposit] wrap attempt threw: $e — retrying');
+          }
+          if (wrapped > BigInt.zero) break;
+        }
+        await Future<void>.delayed(PolymarketOnboardingService
+            .receiptPollInterval(DateTime.now().difference(deliveredAt)));
+      }
+      if (!current()) return;
+      if (wrapped <= BigInt.zero) {
+        // The money is not visible yet (or setup is still running): hand
+        // over to the long watch, which converts it when it shows.
+        wrapIncomingUsdcEToPusd();
+        return;
+      }
+      final wrappedAt = DateTime.now();
+      // The allowance count was refreshed inside the conversion; read the
+      // balance once now rather than on the next tick.
+      invalidateBalanceCache();
+      await refresh();
+      if (!current()) return;
+      final bettableAt = DateTime.now();
+      if (!_depositSettledController.isClosed) {
+        _depositSettledController.add(null);
+      }
+      TrackingService.track('polymarket_deposit_bettable', params: {
+        'venue': 'polymarket',
+        if (route != null) 'route': route,
+        'ms_created_to_delivered':
+            deliveredAt.difference(createdAt).inMilliseconds,
+        'ms_delivered_to_wrapped':
+            wrappedAt.difference(deliveredAt).inMilliseconds,
+        'ms_wrapped_to_bettable':
+            bettableAt.difference(wrappedAt).inMilliseconds,
+        'duration_ms': bettableAt.difference(createdAt).inMilliseconds,
+        'duration_bucket': TrackingService.latencyBucket(
+            bettableAt.difference(createdAt).inMilliseconds),
+      });
+      unawaited(PolymarketDepositTimingsReporter.report(
+          orderId: orderId, wrappedAt: wrappedAt, bettableAt: bettableAt));
+    } catch (e) {
+      _devLog('[deposit] delivery path threw: $e');
     }
   }
 
@@ -1815,22 +2978,147 @@ class PolymarketTradingNotifier
     if (current == null ||
         current.walletAddress == null ||
         _publicModel == null) {
+      _rebuildFailedStart(current);
       return;
     }
+    // No deposit address yet: look it up again (the self-heal) rather than
+    // read nothing on every poll. On an answer the account start finishes
+    // with it and reads the figures itself.
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      await _healAddress();
+      return;
+    }
+    final generation = _accountGeneration;
     try {
       final data = await _fetchAllData(
         current.walletAddress!,
         proxyWallet: current.proxyWalletAddress,
       );
 
-      _setData(data.copyWith(
-        isAuthenticated: current.isAuthenticated,
-      ));
+      final live = state.valueOrNull;
+      if (_disposed || generation != _accountGeneration || live == null) {
+        return;
+      }
+      final merged = mergePolymarketRefresh(live: live, read: data);
+      if (merged == null) return;
+      _setData(merged);
+      _persistSnapshot(state.valueOrNull ?? merged);
 
       // Auto-claim is OFF — claims are user-initiated only.
     } catch (e) {
-      _setData(current.copyWith(error: 'Refresh failed: $e'));
+      if (_disposed || generation != _accountGeneration) return;
+      final live = state.valueOrNull ?? current;
+      _setData(live.copyWith(error: 'Refresh failed: $e'));
     }
+  }
+
+  /// A refresh after a placeholder build that failed (the phrase could not
+  /// be read, setup threw) while a spending wallet exists and the session
+  /// is unlocked: builds the account again, at most every 30 s and ten
+  /// times a process, instead of staying on "—" until a restart.
+  void _rebuildFailedStart(PolymarketTradingState? current) {
+    if (current == null || current.error == null) return;
+    if (_selfRebuilds >= _maxSelfRebuilds) return;
+    final last = _lastSelfRebuildAt;
+    final now = DateTime.now();
+    if (last != null && now.difference(last) < _selfRebuildSpacing) return;
+    try {
+      if (pickSpendingWallet(ref.read(settingsProvider)) == null ||
+          !ref.read(sessionUnlockedProvider)) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    _lastSelfRebuildAt = now;
+    _selfRebuilds++;
+    // The same stuck episode: its event was sent by the build that failed.
+    _stuckTrackedCarry = true;
+    ref.invalidateSelf();
+  }
+
+  /// A pull-to-refresh ("update everything", see
+  /// `refresh_everything_provider.dart`): what a cold start would do for
+  /// this account, without asking for anything again.
+  ///
+  /// [refresh] alone could not get an account out of the states only a
+  /// restart used to fix: a failed placeholder build is rebuilt at most
+  /// every 30 s and ten times a process ([_rebuildFailedStart]); the
+  /// address self-heal backs off and does nothing while an account start
+  /// is still marked running; and CLOB credentials that failed in the
+  /// start are never asked for again (open orders, and with them
+  /// Available, stay unknown). So:
+  ///
+  /// * a placeholder build (no phrase readable, setup threw) builds again
+  ///   now, while a spending wallet exists and the session is unlocked;
+  /// * no deposit address yet: it is looked up again now, past the
+  ///   backoff, and an account start running for [accountStartStuckAfter]
+  ///   without one starts over;
+  /// * an account that ended its start without credentials (and is not
+  ///   waiting on its EVM format check) runs the rest of the start again
+  ///   with its known address: figures, credentials, open orders, setup;
+  /// * otherwise one full read ([refresh]), past the model's 30 s balance
+  ///   cache.
+  ///
+  /// Never clears what is on screen: reads merge into the live state, and
+  /// a rebuild keeps the last figures until it publishes. A rebuild is
+  /// left to the caller to await (`polymarketTradingProvider.future`).
+  Future<void> pullRefresh() async {
+    if (_disposed) return;
+    final current = state.valueOrNull;
+    if (current == null) {
+      // The first build is still running: it is the cold start.
+      if (state.isLoading) return;
+      _rebuildForPull(current);
+      return;
+    }
+    if (current.walletAddress == null || _publicModel == null) {
+      _rebuildForPull(current);
+      return;
+    }
+    if ((current.proxyWalletAddress ?? '').isEmpty) {
+      if (_accountStartRunning) {
+        final began = _accountStartBeganAt;
+        if (began != null &&
+            DateTime.now().difference(began) >= accountStartStuckAfter) {
+          _rebuildForPull(current);
+        }
+        return;
+      }
+      _nextHealAt = null;
+      await _healAddress();
+      return;
+    }
+    // The model answers a balance read inside 30 s from its cache: a pull
+    // reads the chain.
+    _publicModel?.invalidateBalanceCache();
+    final resume = _resumeAccountStart;
+    if (_backendService == null &&
+        resume != null &&
+        !_accountStartRunning &&
+        !_setupDeferred &&
+        !current.isPlacingOrder) {
+      _accountStartRunning = true;
+      await resume(current.proxyWalletAddress);
+      return;
+    }
+    await refresh();
+  }
+
+  /// [pullRefresh]'s rebuild: the account starts over, as on a cold start.
+  void _rebuildForPull(PolymarketTradingState? current) {
+    if (current?.isPlacingOrder ?? false) return;
+    try {
+      if (pickSpendingWallet(ref.read(settingsProvider)) == null ||
+          !ref.read(sessionUnlockedProvider)) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    // The same stuck episode: its event was sent by the start that failed.
+    _stuckTrackedCarry = true;
+    ref.invalidateSelf();
   }
 
   /// Resolves only the recorded order. This never signs or submits an order.
@@ -1892,6 +3180,9 @@ class PolymarketTradingNotifier
     bool negRisk = false,
     PolymarketMarketBuyQuote? marketQuote,
     OrderType orderType = OrderType.fok,
+    // A market buy's stake: the order spends exactly this, to the cent,
+    // not [size] × [price] floored (PolymarketOrderAmounts.encode).
+    double? spendUsd,
     // Optional metadata for optimistic position display
     String? marketTitle,
     String? marketImage,
@@ -1917,6 +3208,9 @@ class PolymarketTradingNotifier
     // Progress only; it changes nothing about the order.
     void Function(String step)? onStep,
   }) async {
+    // Any order attempt is Predictions activity: its cash stays there,
+    // available, for the next day at least (VenueActivity).
+    VenueActivity.note(OneBalanceVenue.predictions);
     final orderWalletId = _credentialsWalletId();
     final orderEoa = state.valueOrNull?.walletAddress;
     final orderPrivateKey = _privateKey;
@@ -1971,6 +3265,10 @@ class PolymarketTradingNotifier
     // the order are signed, so drift throws `ReauthRequired` and nothing is
     // sent. The in-order self-heal below re-checks it on every retry.
     final grantIsBuy = side == OrderSide.buy;
+    final marketSpend = grantIsBuy &&
+            (orderType == OrderType.fok || orderType == OrderType.fak)
+        ? spendUsd
+        : null;
     SensitiveIntent executedOrder() => PmGrants.executedOrder(
           grant,
           walletId: _credentialsWalletId() ?? '',
@@ -1979,17 +3277,33 @@ class PolymarketTradingNotifier
           size: size,
           price: price,
           orderType: orderType.name,
+          spendUsd: marketSpend,
         );
-    GrantGuard.consume(
+    PmGrants.consumeOrder(
       grant,
-      executedOrder(),
-      allowed: PmGrants.orderActions(grantIsBuy),
+      walletId: _credentialsWalletId() ?? '',
+      tokenId: tokenId,
+      isBuy: grantIsBuy,
+      size: size,
+      price: price,
+      orderType: orderType.name,
+      spendUsd: marketSpend,
     );
 
     // The derived deposit address alone does not mean the contract or its
     // approvals exist. Share the same setup already started by account boot
-    // and deposits before signing an order against it.
-    await enableTrading();
+    // and deposits before signing an order against it. A setup that only
+    // met a busy relayer or a moved nonce (another action on the wallet
+    // still confirming) is "not ready yet": the queued bet waits for it
+    // and sends again under its approval, never a final failure.
+    try {
+      await enableTrading();
+    } catch (e) {
+      if (polySetupFailureIsTransient(e)) {
+        throw PolymarketSetupIncomplete(cause: e);
+      }
+      rethrow;
+    }
     PolymarketPlacementTimeline.trace('account_ready');
     checkAccount();
     PmGrants.checkRetry(grant, executedOrder());
@@ -2054,64 +3368,64 @@ class PolymarketTradingNotifier
     }
 
     ensureCurrent();
-    // Ready pUSD goes directly to the order book. A deposit that landed
-    // while the app was closed (or a moment ago) is still USDC.e, which the
-    // order book does not count: when pUSD alone is short and pUSD + USDC.e
-    // covers this buy, convert it before signing instead of waiting for the
-    // refusal. The refusal path inside the guard stays as the fallback.
+    // A buy goes to the order book only once the book counts the money
+    // for it (venue_collateral.dart): a deposit that landed a moment ago
+    // is still USDC.e, which the book does not count, and a conversion
+    // the book has not re-read yet is still counted as the old pUSD. That
+    // refused the first prediction after money arrived, and the refusal's
+    // immediate retry hit the same stale count. Held USDC.e is converted,
+    // a missing exchange allowance set, and the book's count re-read until
+    // it covers this buy, then the order is signed. Unknown or short
+    // collateral leaves the funded order waiting under its existing
+    // approval; nothing is posted without confirmation.
     //
     // This runs before the order guard takes the account, not inside it:
     // the conversion joins one already running for the wallet and can take
     // a relayer round trip, and while the guard is held every other tap
     // (and the status check) is refused as "a previous prediction is still
     // being confirmed" although nothing was sent.
+    final buySpenders = side == OrderSide.buy
+        ? polyBuySpenders(tokenId,
+            negRisk: marketQuote?.tokenId == tokenId
+                ? marketQuote!.negRisk
+                : PolymarketMarketTermsStore.read(tokenId)?.negRisk ?? negRisk)
+        : const <String>[];
+    // The venue counts the fees against pUSD too: a buy whose notional
+    // fits pUSD but not its fees is refused all the same.
+    final buyCostMicros = side == OrderSide.buy
+        ? (marketSpend != null
+                ? polymarketMarketBuyBudgetMicros(marketSpend)
+                : polyBuyCostMicros(size: size, price: price)) +
+            BigInt.from(((marketQuote?.tokenId == tokenId
+                        ? marketQuote!.feeCeiling +
+                            PolymarketMarketBuyQuote.roundingHeadroom
+                        : 0.0) *
+                    1e6)
+                .ceil())
+        : BigInt.zero;
+    PolyVenueCollateralOps venueOps({required bool prefetched}) =>
+        _venueCollateralOps(
+          eoa: orderEoa,
+          privateKey: orderPrivateKey,
+          wallet: orderAccount,
+          ensureCurrent: ensureCurrent,
+          onStep: onStep,
+          prefetched: prefetched,
+        );
     if (side == OrderSide.buy) {
       PolymarketPlacementTimeline.trace('collateral_wait');
-      final split = await _collateralSplitForOrder(orderAccount);
+      final readiness = await polyReadyVenueCollateral(
+        costMicros: buyCostMicros,
+        spenders: buySpenders,
+        ops: venueOps(prefetched: true),
+      );
+      PolymarketPlacementTimeline.tag('venue_count', readiness.name);
       PolymarketPlacementTimeline.trace('collateral');
+      PolymarketPlacementDiagnostics.note(
+          'venue_count', {'readiness': readiness.name});
       ensureCurrent();
-      if (split != null &&
-          polyShouldWrapBeforeBuy(
-            pusd: split.pusd,
-            usdce: split.usdce,
-            // The venue counts the fees against pUSD too: a buy whose
-            // notional fits pUSD but not its fees is refused all the same.
-            costMicros: polyBuyCostMicros(size: size, price: price) +
-                BigInt.from(((marketQuote?.tokenId == tokenId
-                                ? marketQuote!.feeCeiling
-                                : 0.0) *
-                            1e6)
-                        .ceil()),
-          )) {
-        onStep?.call('approving');
-        try {
-          final wrapped = await _wrapHeldUsdcE(
-            eoa: orderEoa,
-            privateKey: orderPrivateKey,
-            wallet: orderAccount,
-            trigger: 'order',
-            ensureCurrent: ensureCurrent,
-          ).timeout(PolymarketPlacementWaits.conversion);
-          ensureCurrent();
-          if (wrapped > BigInt.zero) {
-            await _backendService?.updateBalanceAllowance(
-              assetType: 'COLLATERAL',
-              signatureType: 3,
-            );
-          }
-        } on TimeoutException {
-          // The conversion keeps going; nothing has been signed. Saying so
-          // beats an order the book would refuse for want of pUSD.
-          ensureCurrent();
-          throw const PolymarketFundsConverting();
-        } catch (e) {
-          // A changed account or grant still stops the order here;
-          // a failed conversion leaves it to the refusal path.
-          ensureCurrent();
-          _devLog('[wrap] before-order conversion failed: $e');
-        }
-      }
-      ensureCurrent();
+      polyRequireConfirmedCollateral(readiness);
+      onStep?.call('ready');
     }
     return HotPolymarketOrderGuard().run(
       walletId: orderWalletId,
@@ -2133,14 +3447,24 @@ class PolymarketTradingNotifier
                   marketQuote.hasFreshTerms
               ? marketQuote
               : null;
-          bool detectedNegRisk = terms?.negRisk ?? negRisk;
-          PolymarketPlacementTimeline.trace(
-              terms == null ? 'terms_stale_refetch' : 'terms_fresh');
-          if (terms == null) {
+          // Neg-risk never changes for a market: once read (a book, this
+          // probe) it is saved and never asked again, however long the
+          // approval took.
+          final savedNegRisk =
+              PolymarketMarketTermsStore.read(tokenId)?.negRisk;
+          bool detectedNegRisk = terms?.negRisk ?? savedNegRisk ?? negRisk;
+          PolymarketPlacementTimeline.trace(terms != null
+              ? 'terms_fresh'
+              : savedNegRisk != null
+                  ? 'terms_saved'
+                  : 'terms_stale_refetch');
+          if (terms == null && savedNegRisk == null) {
             try {
               detectedNegRisk = await _client!.clob.markets
                   .getNegRisk(tokenId)
                   .timeout(const Duration(seconds: 8));
+              PolymarketMarketTermsStore.save(tokenId,
+                  negRisk: detectedNegRisk);
             } catch (_) {}
           }
           ensureCurrent();
@@ -2166,6 +3490,7 @@ class PolymarketTradingNotifier
               eoaAddress: live.walletAddress ?? current.walletAddress!,
               orderType: orderType,
               preparedTerms: terms,
+              spendUsd: marketSpend,
             );
           }
 
@@ -2265,21 +3590,35 @@ class PolymarketTradingNotifier
                   onStep?.call('approving');
                   ensureCurrent();
                   if (side == OrderSide.buy) {
-                    await _wrapHeldUsdcE(
-                      eoa: orderEoa,
-                      privateKey: orderPrivateKey,
-                      wallet: orderAccount,
-                      trigger: 'refusal',
-                      ensureCurrent: ensureCurrent,
+                    // The one refresh: the wallet re-read on chain, its
+                    // USDC.e converted, and the book's count re-read until
+                    // it covers the buy (briefly) before signing again.
+                    // Signing at once used to meet the same stale count.
+                    final readiness = await polyReadyVenueCollateral(
+                      costMicros: buyCostMicros,
+                      spenders: buySpenders,
+                      ops: venueOps(prefetched: false),
+                      afterRefusal: true,
                     );
+                    PolymarketPlacementTimeline.tag(
+                        'venue_count_after_refusal', readiness.name);
                     ensureCurrent();
+                    polyRequireConfirmedCollateral(readiness);
+                    onStep?.call('ready');
+                    continue;
                   }
-                  await _backendService!.updateBalanceAllowance(
-                    assetType:
-                        side == OrderSide.buy ? 'COLLATERAL' : 'CONDITIONAL',
-                    signatureType: 3,
-                    tokenId: side == OrderSide.sell ? tokenId : null,
-                  );
+                  try {
+                    await _backendService!.updateBalanceAllowance(
+                      assetType: 'CONDITIONAL',
+                      signatureType: 3,
+                      tokenId: tokenId,
+                    );
+                  } catch (e) {
+                    // The book answers 404 for a wallet it has not indexed
+                    // yet: the signed retry decides.
+                    if (e is InvalidApiKeyException) rethrow;
+                    _devLog('[pm-heal] balance-allowance/update threw: $e');
+                  }
                   ensureCurrent();
                   continue;
                 }
@@ -2390,10 +3729,25 @@ class PolymarketTradingNotifier
                     throw PolymarketSetupIncomplete(cause: error);
                   }
                   ensureCurrent();
-                  await _backendService!.updateBalanceAllowance(
-                    assetType: 'COLLATERAL',
-                    signatureType: 3,
-                  );
+                  // Have the book re-read it, and wait (briefly) until it
+                  // counts the buy before signing again.
+                  if (side == OrderSide.buy) {
+                    await polyAwaitVenueCount(
+                      costMicros: buyCostMicros,
+                      spenders: buySpenders,
+                      ops: venueOps(prefetched: false),
+                    );
+                  } else {
+                    try {
+                      await _backendService!.updateBalanceAllowance(
+                        assetType: 'COLLATERAL',
+                        signatureType: 3,
+                      );
+                    } catch (e) {
+                      if (e is InvalidApiKeyException) rethrow;
+                      _devLog('[pm-heal] balance-allowance/update threw: $e');
+                    }
+                  }
                   ensureCurrent();
                   continue;
                 }
@@ -2450,6 +3804,17 @@ class PolymarketTradingNotifier
                   taking != null &&
                   taking.isFinite &&
                   taking > 0;
+          // The buy matched: its cost leaves the cash and its shares count
+          // now, not when the chain settles and the Data API lists them.
+          if (side == OrderSide.buy && hasFill && isCurrentAccount()) {
+            notePendingFill(
+              key: responseOrderId ??
+                  '$tokenId@${DateTime.now().microsecondsSinceEpoch}',
+              tokenId: tokenId,
+              shares: taking,
+              costUsd: making,
+            );
+          }
           // Submitted orders are not filled activity. Indexing supplies the final
           // amounts when the acknowledgement does not contain a verified fill.
           // Keyed by the trade id (never a CLOB id posing as a chain hash);
@@ -2499,6 +3864,13 @@ class PolymarketTradingNotifier
             });
           }
 
+          // A sale that filled freed venue cash: the sweeper brings it
+          // home.
+          if (side == OrderSide.sell && hasFill) {
+            VenueActivity.note(OneBalanceVenue.predictions);
+            VenueCashReleased.emit(
+                OneBalanceVenue.predictions, 'position_closed');
+          }
           if (hasFill) {
             TrackingService.polymarketBetPlaced(
               // SELLs are reported by polymarket_position_sold (market) or
@@ -2548,6 +3920,20 @@ class PolymarketTradingNotifier
                   side == OrderSide.buy || orderType == OrderType.gtc,
               extra: {
                 ...?analytics,
+                // The price the fill came at (pUSD per share, exact), next
+                // to the `quoted_price` the caller priced it from.
+                'fill_price':
+                    side == OrderSide.buy ? making / taking : taking / making,
+                // A market buy sized by its stake: the stake typed (what
+                // the order signed, to the cent) beside what the venue
+                // filled (`amount_usd` is the filled cost) and the exact
+                // shares, so a stake that filled short is visible.
+                if (marketSpend != null)
+                  ...TrackingService.exactUsd('stake_usd', marketSpend),
+                if (side == OrderSide.buy) ...{
+                  ...TrackingService.exactUsd('filled_usd', making),
+                  'filled_shares': (taking * 100).round() / 100,
+                },
                 // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
                 'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
                 // biometric | fast_window | allowance: how this order
@@ -2709,6 +4095,7 @@ class PolymarketTradingNotifier
     String? proxyWallet,
     PolymarketMarketBuyQuote? preparedTerms,
     OrderType orderType = OrderType.fok,
+    double? spendUsd,
   }) async {
     ensureCurrent();
     final hasWallet = proxyWallet != null && proxyWallet.isNotEmpty;
@@ -2727,19 +4114,24 @@ class PolymarketTradingNotifier
     // POLY_1271 requires `signer == maker == DepositWallet`.
     final signerForOrder = maker;
 
-    // Fetch current terms before signing. A failed or unrecognized response
-    // must not silently substitute a different price increment.
+    // The price increment the order is signed with: the prepared quote's
+    // while it is fresh, else the saved one while it is current (confirmed
+    // lately, or the market feed is live and would have announced a
+    // change), else read from the venue on the warm connection. A failed
+    // or unrecognized response must not silently substitute a different
+    // increment.
     String? rawTick =
         preparedTerms?.tokenId == tokenId && preparedTerms!.hasFreshTerms
             ? preparedTerms.tickSize
-            : null;
+            : PolymarketMarketTermsStore.currentTickSize(tokenId,
+                referencePrice: price);
     if (rawTick == null) {
-      final tickResp = await http
+      final tickResp = await PolymarketWarmConnections.withClob((c) => c
           .get(
-            Uri.https(
-                'clob.polymarket.com', '/tick-size', {'token_id': tokenId}),
+            Uri.https(PolymarketWarmConnections.clobHost, '/tick-size',
+                {'token_id': tokenId}),
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 8)));
       if (tickResp.statusCode != 200) {
         throw StateError('Could not verify the current market price increment');
       }
@@ -2748,6 +4140,7 @@ class PolymarketTradingNotifier
           ? parsedTick['minimum_tick_size'] ?? parsedTick['tick_size']
           : parsedTick;
       rawTick = '$responseTick';
+      PolymarketMarketTermsStore.save(tokenId, tickSize: rawTick);
     }
     final amounts = PolymarketOrderAmounts.encode(
       tickSize: rawTick,
@@ -2755,6 +4148,7 @@ class PolymarketTradingNotifier
       size: size,
       isBuy: side == OrderSide.buy,
       isMarket: orderType == OrderType.fok || orderType == OrderType.fak,
+      spendUsd: side == OrderSide.buy ? spendUsd : null,
     );
     final makerAmount = amounts.maker;
     final takerAmount = amounts.taker;
@@ -2765,7 +4159,11 @@ class PolymarketTradingNotifier
     final nowSec = nowMs / 1000;
     final salt = BigInt.from((nowSec * Random.secure().nextDouble()).round());
 
-    final builderCode = await PolymarketBackendService.getBuilderCode();
+    // The builder code held now (the policy's, the backend's for this run,
+    // or the device copy), never a wait on the backend: the slip's warm-up
+    // refreshed it as it opened. With none held the order carries the zero
+    // builder (no attribution, no builder fee) and a refresh is started.
+    final builderCode = PolymarketBackendService.signingBuilderCode();
 
     final order = OrderStructV2(
       salt: salt,
@@ -2865,6 +4263,10 @@ class PolymarketTradingNotifier
       throw StateError('Polymarket account is not connected.');
     }
     await _backendService!.cancelOrder(orderId);
+    // The cash the order reserved is idle again: the sweeper may bring it
+    // home.
+    VenueActivity.note(OneBalanceVenue.predictions);
+    VenueCashReleased.emit(OneBalanceVenue.predictions, 'order_cancelled');
     await refresh();
   }
 
@@ -2921,8 +4323,10 @@ class PolymarketTradingNotifier
           TrackingService.polymarketRedeemFailed(
             marketId: conditionId,
             // Fixed code only — the raw exception text can carry the
-            // conditionId, balances or relayer bodies.
-            reason: _redeemFailureCode[e] ?? TrackingService.errorCategory(e),
+            // conditionId, balances or relayer bodies. errorReason is the
+            // category when one matches, else the exception's class name,
+            // so a claim failure is never a bare `unknown`.
+            reason: _redeemFailureCode[e] ?? TrackingService.errorReason(e),
             trigger: trigger,
             surface: surface,
           );
@@ -2976,6 +4380,8 @@ class PolymarketTradingNotifier
     String? surface,
   }) async {
     await RuntimeCapabilitiesService.instance.ensureAllowed('polymarket.close');
+    // A claim is Predictions activity: its proceeds stay there, available.
+    VenueActivity.note(OneBalanceVenue.predictions);
     final current = state.valueOrNull;
     if (current == null || current.walletAddress == null) {
       throw Exception('No wallet address');
@@ -3490,6 +4896,12 @@ class PolymarketTradingNotifier
     }
     _devLog(
         '[redeem] credited: pUSD=+$finalPusdDelta USDC.e=+$finalUsdceDelta');
+    // A resolved market paid out into venue cash: the sweeper brings it
+    // home. A lost position credited nothing and releases nothing.
+    if (finalPusdDelta > BigInt.zero || finalUsdceDelta > BigInt.zero) {
+      VenueActivity.note(OneBalanceVenue.predictions);
+      VenueCashReleased.emit(OneBalanceVenue.predictions, 'market_resolved');
+    }
 
     // Task #170: redemption lands as pUSD in the Safe — that's the
     // canonical resting state now, so we don't sweep to USDC.e.
@@ -3525,8 +4937,11 @@ class PolymarketTradingNotifier
     // The receipt isolates this claim even when other wallet operations ran
     // concurrently. Refresh absolute cash instead of adding proceeds twice.
     final credited = onboarding.confirmedClaimCredit(txHash, proxyWallet);
-    final refreshedCash =
-        await _publicModel?.getOnChainUsdcBalance(proxyWallet);
+    // A read that failed keeps the balance shown (null below).
+    double? refreshedCash;
+    try {
+      refreshedCash = await _publicModel?.getOnChainUsdcBalance(proxyWallet);
+    } catch (_) {}
     final latestState = state.valueOrNull;
     final payoutUsdc = credited ?? 0.0;
     String outcome = 'unknown';
@@ -3539,7 +4954,10 @@ class PolymarketTradingNotifier
         openPositions: latestState.openPositions
             .where((p) => p.conditionId != conditionId)
             .toList(),
-        usdcBalance: refreshedCash ?? latestState.usdcBalance,
+        usdcBalance: refreshedCash == null
+            ? latestState.usdcBalance
+            : _settlePendingFills(proxyWallet, rawCashUsd: refreshedCash).$1,
+        pendingFills: _fillsFor(proxyWallet),
         // If the lagging Data API resurrects this row on the next
         // refresh, it comes back LOCKED as "Clearing…" (see
         // clearingConditionIds) instead of a tappable Claim/Clear the
@@ -3670,7 +5088,8 @@ class PolymarketTradingNotifier
   ///
   /// Polls every [interval] for up to [timeout]. First non-zero USDC.e
   /// read triggers a single wrap call via the deposit-wallet relayer
-  /// batch, then exits. The in-flight mutex in
+  /// batch, then exits (unless another deposit is still on its way). The
+  /// in-flight mutex in
   /// [PolymarketOnboardingService.executeDepositWalletBatch] coalesces
   /// against any other batched action so we don't double-up with the
   /// approvals tick.
@@ -3686,59 +5105,104 @@ class PolymarketTradingNotifier
   /// out, so a deposit sent from the Move sheet and the same deposit's
   /// order completing in the background sync never start two. Every
   /// conversion goes through [_wrapHeldUsdcE].
+  ///
+  /// The watch never ends early because the account is not loaded yet (a
+  /// cold start, the unlock, a rebuild): it waits for the account's state,
+  /// deposit wallet and key ([_waitForAccount], woken the moment they are
+  /// published) and converts in the same session. It keeps watching past
+  /// [timeout], every [lateInterval], while a deposit into the wallet is
+  /// still on its way by its row ([VenueArrivals.predictionsOnTheWay],
+  /// bounded by its 90-minute match window), and after a conversion while
+  /// another one still is.
   void wrapIncomingUsdcEToPusd({
     Duration timeout = const Duration(minutes: 8),
     Duration interval = const Duration(seconds: 4),
+    Duration lateInterval = const Duration(seconds: 15),
   }) {
-    final until = DateTime.now().add(timeout);
-    final running = _wrapWatchUntil;
-    if (running == null || until.isAfter(running)) _wrapWatchUntil = until;
-    if (running != null) return;
-    Future.microtask(() async {
-      try {
-        while (!_disposed && DateTime.now().isBefore(_wrapWatchUntil!)) {
-          try {
-            final current = state.valueOrNull;
-            final eoa = current?.walletAddress;
-            final wallet = current?.proxyWalletAddress;
-            final key = _privateKey;
-            if (current == null ||
-                eoa == null ||
-                wallet == null ||
-                wallet.isEmpty ||
-                key == null) {
-              return;
-            }
-            // A first deposit can land while the wallet's one-time setup
-            // (deployment, approvals) is still running. A conversion then
-            // fails without the onramp approval and, while its batch runs,
-            // refuses the setup's own approvals batch. Keep watching and
-            // convert once setup is done.
-            if (!tradingReady) {
-              await Future<void>.delayed(interval);
-              continue;
-            }
-            final wrapped = await _wrapHeldUsdcE(
-              eoa: eoa,
-              privateKey: key,
-              wallet: wallet,
-              trigger: 'arrival',
-            );
-            if (wrapped > BigInt.zero) return;
-          } catch (e) {
-            _devLog('[wrap] poll threw: $e — retrying');
-          }
-          await Future<void>.delayed(interval);
-        }
-      } finally {
-        _wrapWatchUntil = null;
+    unawaited(_arrivalWatch.start(
+        timeout: timeout, interval: interval, lateInterval: lateInterval));
+  }
+
+  /// The running [wrapIncomingUsdcEToPusd] watch (usdce_wrap_gate.dart).
+  late final UsdceArrivalWatch _arrivalWatch = UsdceArrivalWatch(
+    account: () {
+      final current = state.valueOrNull;
+      final eoa = current?.walletAddress;
+      final wallet = current?.proxyWalletAddress;
+      final key = _privateKey;
+      if (eoa == null || wallet == null || wallet.isEmpty || key == null) {
+        return null;
       }
+      return (eoa: eoa, wallet: wallet, key: key);
+    },
+    ready: () => tradingReady,
+    wrap: (a) => _wrapHeldUsdcE(
+        eoa: a.eoa, privateKey: a.key, wallet: a.wallet, trigger: 'arrival'),
+    onItsWay: _depositOnItsWay,
+    waitForAccount: _waitForAccount,
+    gone: () => _disposed,
+    // A setup that failed earlier (and is not running or held now) is
+    // asked again, as a delivered deposit asks it.
+    askSetup: () {
+      final walletId = _spendingWalletId;
+      if (_accountStartRunning || walletId == null || _setupHeld(walletId)) {
+        return;
+      }
+      unawaited(enableTrading().then((_) {}, onError: (Object _) {}));
+    },
+    log: _devLog,
+  );
+
+  /// A Predictions deposit into [wallet] is still on its way by its row.
+  bool _depositOnItsWay(String wallet) {
+    try {
+      return VenueArrivals.predictionsOnTheWay(ref.read(swapOrdersProvider),
+              wallet: wallet)
+          .isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Woken whenever the account publishes a state or its setup completes.
+  final List<Completer<void>> _accountWaiters = [];
+
+  /// Waits until the account publishes a state or finishes its setup, at
+  /// most [max]. Never throws.
+  Future<void> _waitForAccount(Duration max) {
+    final waiter = Completer<void>();
+    _accountWaiters.add(waiter);
+    final timer = Timer(max, () {
+      if (!waiter.isCompleted) waiter.complete();
+    });
+    return waiter.future.whenComplete(() {
+      timer.cancel();
+      _accountWaiters.remove(waiter);
     });
   }
 
-  /// When the running [wrapIncomingUsdcEToPusd] watch stops; null when
-  /// none runs.
-  DateTime? _wrapWatchUntil;
+  void _wakeAccountWaiters() {
+    if (_accountWaiters.isEmpty) return;
+    for (final waiter in List.of(_accountWaiters)) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+  }
+
+  /// The account's one-time setup just completed (from any caller: the
+  /// account start, a delivered deposit, a placement). USDC.e already in
+  /// the deposit wallet is converted now ([wrapIdleUsdcE], one balance
+  /// read), and a deposit still on its way gets the arrival watch, so
+  /// neither waits for the next app start.
+  void _onTradingReady() {
+    _wakeAccountWaiters();
+    if (_disposed) return;
+    final wallet = state.valueOrNull?.proxyWalletAddress;
+    if (wallet == null || wallet.isEmpty) return;
+    if (_depositOnItsWay(wallet)) wrapIncomingUsdcEToPusd();
+    if (_arrivalWatch.until == null) {
+      unawaited(wrapIdleUsdcE(trigger: 'open'));
+    }
+  }
 
   /// One conversion at a time per deposit wallet (usdce_wrap_gate.dart).
   final UsdceWrapGate _wrapGate = UsdceWrapGate();
@@ -3766,6 +5230,10 @@ class PolymarketTradingNotifier
     required String trigger,
     void Function()? ensureCurrent,
   }) {
+    // A funded bet's legs still landing: nothing converts until the
+    // wallet's balances show all of them (FundedConversionHold); then one
+    // conversion takes the whole delivered amount.
+    if (FundedConversionHold.held) return Future.value(BigInt.zero);
     return _wrapGate.run(wallet, () async {
       final wrapped = await PolymarketOnboardingService()
           .wrapHeldUsdceToPusdInDepositWallet(
@@ -3776,6 +5244,12 @@ class PolymarketTradingNotifier
       );
       if (wrapped > BigInt.zero) {
         invalidateBalanceCache();
+        // The deposit this USDC.e came with has arrived, whatever its
+        // Orchestra status still says: its journey shows the arrival.
+        try {
+          VenueArrivals.predictionsArrived(ref.read(swapOrdersProvider),
+              wallet: wallet, usd: wrapped.toDouble() / 1e6);
+        } catch (_) {}
         // The order book keeps its own count of the wallet's pUSD and only
         // re-reads it on request. A deposit converted in the background
         // was otherwise still counted as 0 by the venue, which refused the
@@ -3867,6 +5341,8 @@ class PolymarketTradingNotifier
             _privateKey == null) {
           return;
         }
+        // Never while a funded bet's legs are still landing.
+        if (FundedConversionHold.held) return;
         final wrapped =
             await PolymarketOnboardingService().wrapUsdceToPusdInDepositWallet(
           eoaAddress: eoa,
@@ -3956,6 +5432,7 @@ class PolymarketTradingNotifier
     );
     TrackingService.track('polymarket_native_usdc_converted', params: {
       'amount_bucket': TrackingService.usdBucket(usdcBal.toDouble() / 1e6),
+      ...TrackingService.exactUsd('amount_usd', usdcBal.toDouble() / 1e6),
     });
 
     // The breakdown provider re-reads on trading-state ticks; nudge a
@@ -3992,13 +5469,47 @@ class PolymarketTradingNotifier
   /// [exactMicroUsdc] paid to the Orchestra quote's deposit address. It is
   /// checked before the seed is read and consumed right before the batch is
   /// signed.
+  ///
+  /// Without a grant, the one-balance layer may pass the verified quote it
+  /// pays ([sweepQuote]) with [sweep]: accepted only for a bridged,
+  /// quote-bound send of the quote's exact amount to the quote's deposit
+  /// address (the quote gate's rule 7 checked its recipient against the
+  /// wallet's own address), and only as [sweepAllowedFor] says:
+  ///
+  ///  * [SweepAuthorization.automatic] (the sweeper, a pull home): only a
+  ///    quote that delivers Dollars (`spark:USDB`) to this wallet's own
+  ///    Spark address. Money can only ever come home under it, at the
+  ///    same trust level as auto-claim (`SeedAccess.automatic`).
+  ///  * [ApprovedLegAuthorization] (a leg straight to an action's
+  ///    destination, after its one approval): Bitcoin on the own Spark
+  ///    address or the own Investing account, and only while the action's
+  ///    approval is live and binds a Predictions leg to that destination.
+  ///
+  /// The session must be unlocked as for any signing.
   Future<String> withdrawUsdc({
     required String toAddress,
     required double amount,
     bool bridged = false,
     BigInt? exactMicroUsdc,
-    required AuthGrant grant,
+    AuthGrant? grant,
+    MoveAuthorization? sweep,
+    VerifiedOrchestraQuote? sweepQuote,
   }) async {
+    final sweeping = grant == null;
+    if (sweeping) {
+      if (sweepQuote == null ||
+          !sweepAllowedFor(sweep, sweepQuote) ||
+          !PmGrants.sweepCoversWithdrawal(
+            recipientKind: sweepQuote.request.recipientKind,
+            quoteDepositAddress: sweepQuote.depositAddress,
+            quoteAmountIn: sweepQuote.amountIn,
+            toAddress: toAddress,
+            exactMicroUsdc: exactMicroUsdc,
+            bridged: bridged,
+          )) {
+        throw StateError('Withdrawal not authorized. Nothing was sent.');
+      }
+    }
     // A quote-bound withdrawal was gated on this same capability by its
     // Orchestra quote moments ago; a policy fetched within the last
     // minute is read, not fetched again, the way an order post re-checks
@@ -4031,17 +5542,20 @@ class PolymarketTradingNotifier
     // figure is the most this call can send.
     SensitiveIntent executedWithdraw(BigInt micros) =>
         PmGrants.executedWithdraw(
-          grant,
+          grant!,
           account: proxyWallet,
           amountMicros: micros,
           bridged: bridged,
           quoteBound: exactMicroUsdc != null,
         );
-    GrantGuard.check(
-      grant,
-      executedWithdraw(exactMicroUsdc ?? BigInt.from((amount * 1e6).round())),
-      allowed: PmGrants.withdrawActions,
-    );
+    if (!sweeping) {
+      GrantGuard.check(
+        grant,
+        executedWithdraw(
+            exactMicroUsdc ?? BigInt.from((amount * 1e6).round())),
+        allowed: PmGrants.withdrawActions,
+      );
+    }
 
     final settings = ref.read(settingsProvider);
     final spending = pickSpendingWallet(settings);
@@ -4121,10 +5635,13 @@ class PolymarketTradingNotifier
                 BigInt.from((amount * 1e6).round()), spendable);
 
         // Phase 1b.4: consume against exactly what the batch sends, before it is
-        // signed.
+        // signed. A sweep has no grant: its exact quote amount was checked
+        // above and `checkExactWithdrawMicroUsdc` held the batch to it.
         checkAccount();
-        GrantGuard.consume(grant, executedWithdraw(amountAtomic),
-            allowed: PmGrants.withdrawActions);
+        if (!sweeping) {
+          GrantGuard.consume(grant, executedWithdraw(amountAtomic),
+              allowed: PmGrants.withdrawActions);
+        }
 
         // How much pUSD we actually need to unwrap to top up USDC.e.
         final unwrapMicro =
@@ -4243,7 +5760,10 @@ class PolymarketTradingNotifier
               // Stale read — RPC hasn't seen the transfer. Ignore so we
               // don't unwind the optimistic deduction.
               if ((data.usdcBalance - preSendBalance).abs() < 0.000001) return;
-              _setData(data.copyWith(isAuthenticated: latest.isAuthenticated));
+              final live = state.valueOrNull;
+              if (_disposed || live == null) return;
+              final merged = mergePolymarketRefresh(live: live, read: data);
+              if (merged != null) _setData(merged);
             } catch (_) {}
           });
         }
@@ -4271,6 +5791,184 @@ class PolymarketTradingNotifier
         () => _readCollateralSplit(wallet),
         maxAge: const Duration(seconds: 20))
       ..start();
+    // What the order book counts for the wallet, read with it: when it
+    // already covers the buy, the order goes straight out.
+    _venueCountPrefetch?.cancel();
+    _venueCountPrefetch = null;
+    final backend = _backendService;
+    if (backend == null) return;
+    _venueCountPrefetch = PolymarketSendTimeRead<PolyVenueCount?>(
+        () => _readVenueCount(backend),
+        maxAge: const Duration(seconds: 20))
+      ..start();
+  }
+
+  PolymarketSendTimeRead<PolyVenueCount?>? _venueCountPrefetch;
+
+  static Future<PolyVenueCount?> _readVenueCount(
+          PolymarketBackendService backend) async =>
+      PolyVenueCount.fromClob(await backend.getCollateralBalanceAllowance());
+
+  /// The account operations a buy's collateral check runs
+  /// ([polyReadyVenueCollateral]). [prefetched] lets the first read of the
+  /// book's count take what [prefetchOrderReads] started while the
+  /// approval was on screen.
+  PolyVenueCollateralOps _venueCollateralOps({
+    required String eoa,
+    required String privateKey,
+    required String wallet,
+    required void Function() ensureCurrent,
+    void Function(String step)? onStep,
+    required bool prefetched,
+  }) {
+    var takePrefetch = prefetched;
+    return PolyVenueCollateralOps(
+      readVenue: () async {
+        final prefetch = _venueCountPrefetch;
+        if (takePrefetch && prefetch != null) {
+          takePrefetch = false;
+          _venueCountPrefetch = null;
+          return prefetch.take();
+        }
+        takePrefetch = false;
+        final backend = _backendService;
+        if (backend == null) return null;
+        return _readVenueCount(backend);
+      },
+      readSplit: ({required bool fresh}) => fresh
+          ? _readCollateralSplit(wallet)
+          : _collateralSplitForOrder(wallet),
+      wrap: () => _wrapHeldUsdcE(
+        eoa: eoa,
+        privateKey: privateKey,
+        wallet: wallet,
+        // polymarket_deposit_converted's trigger, as before: the refusal's
+        // own refresh says refusal.
+        trigger: prefetched ? 'order' : 'refusal',
+        ensureCurrent: ensureCurrent,
+      ),
+      refreshVenue: () async => _backendService?.updateBalanceAllowance(
+          assetType: 'COLLATERAL', signatureType: 3),
+      approveSpender: (spender) => PolymarketOnboardingService()
+          .approveRefusalSpender(
+              eoaAddress: eoa,
+              privateKey: privateKey,
+              walletAddress: wallet,
+              spender: spender,
+              ensureCurrent: ensureCurrent),
+      ensureCurrent: ensureCurrent,
+      onStep: onStep,
+    );
+  }
+
+  /// What a queued buy waits on before it is placed (the autofire's
+  /// readiness, pending_bet_autofire.dart): the deposit wallet's pUSD and
+  /// USDC.e read on chain now, what the order book counts for it (asked to
+  /// re-read first when [refreshVenue]; null when it cannot be read) and
+  /// whether the account's one-time setup is done. A delivered deposit is
+  /// USDC.e, which the book does not count, and a converted one is still
+  /// counted as the old pUSD until the book re-reads: the summed cash
+  /// ([PolymarketTradingState.usdcBalance]) says neither. Null when there
+  /// is no account to read yet or the wallet could not be read.
+  Future<PolyBuyReads?> readBuyReadiness({bool refreshVenue = false}) async {
+    final wallet = state.valueOrNull?.proxyWalletAddress;
+    if (_disposed || wallet == null || wallet.isEmpty || _privateKey == null) {
+      return null;
+    }
+    final split = await _readCollateralSplit(wallet);
+    if (split == null || _disposed) return null;
+    final backend = _backendService;
+    PolyVenueCount? venue;
+    if (backend != null) {
+      if (refreshVenue) {
+        try {
+          await backend
+              .updateBalanceAllowance(assetType: 'COLLATERAL', signatureType: 3)
+              .timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // The read below decides.
+        }
+      }
+      try {
+        venue =
+            await _readVenueCount(backend).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    return (
+      pusd: split.pusd,
+      usdce: split.usdce,
+      venue: venue,
+      setupDone: tradingReady,
+    );
+  }
+
+  /// A queued buy found its deposit still USDC.e: makes sure a conversion
+  /// is running (it joins the arrival watch, never starts a second one).
+  /// Before the account's setup is done nothing can convert yet; the
+  /// delivery path converts once it is.
+  void nudgeConversion() {
+    if (_disposed || !tradingReady) return;
+    wrapIncomingUsdcEToPusd();
+  }
+
+  /// Converts held USDC.e to pUSD when pUSD alone is short of a buy
+  /// costing [costUsd] (fees included) and the two together cover it,
+  /// the same check [placeOrder] makes before signing. A queued bet calls
+  /// it once its deposit has landed and BEFORE it reads the book it is
+  /// priced from, so the conversion (a relayer round trip) never sits
+  /// between that read and the signature. Never throws: anything left
+  /// over is [placeOrder]'s own pre-sign check and refusal path. The
+  /// account's reads for the order are prefetched again afterwards.
+  Future<void> readyCollateralForBuy(double costUsd) async {
+    final current = state.valueOrNull;
+    final eoa = current?.walletAddress;
+    final wallet = current?.proxyWalletAddress;
+    final key = _privateKey;
+    if (_disposed ||
+        eoa == null ||
+        wallet == null ||
+        wallet.isEmpty ||
+        key == null ||
+        !costUsd.isFinite ||
+        costUsd <= 0) {
+      return;
+    }
+    void ensureCurrent() {
+      if (_disposed ||
+          state.valueOrNull?.proxyWalletAddress?.toLowerCase() !=
+              wallet.toLowerCase()) {
+        throw StateError('The selected Predictions account changed.');
+      }
+    }
+
+    try {
+      final split = await _collateralSplitForOrder(wallet);
+      if (split == null ||
+          !polyShouldWrapBeforeBuy(
+            pusd: split.pusd,
+            usdce: split.usdce,
+            costMicros: BigInt.from((costUsd * 1e6).ceil()),
+          )) {
+        return;
+      }
+      final wrapped = await _wrapHeldUsdcE(
+        eoa: eoa,
+        privateKey: key,
+        wallet: wallet,
+        trigger: 'order',
+        ensureCurrent: ensureCurrent,
+      ).timeout(PolymarketPlacementWaits.conversion);
+      if (wrapped > BigInt.zero) {
+        await _backendService?.updateBalanceAllowance(
+          assetType: 'COLLATERAL',
+          signatureType: 3,
+        );
+      }
+    } catch (e) {
+      _devLog('[wrap] ready-for-buy conversion: $e');
+    } finally {
+      prefetchOrderReads();
+    }
   }
 
   /// The pUSD / USDC.e split for a buy: the prefetched read for [wallet]
@@ -4306,6 +6004,40 @@ class PolymarketTradingNotifier
   /// The micro-USDC [withdrawUsdc] would send for [amount] from the
   /// deposit wallet's current pUSD + USDC.e balance. Quote-bound flows
   /// quote this figure, then pass the quoted amount as `exactMicroUsdc`.
+  /// Who may pay [quote] from Predictions without a grant (see
+  /// [withdrawUsdc]): the automatic authorization only home to Dollars on
+  /// the own Spark address; a leg of an approved action only to Bitcoin on
+  /// the own Spark address or to the own Investing account, while that
+  /// approval binds the leg. Pure.
+  @visibleForTesting
+  static bool sweepAllowedFor(
+      MoveAuthorization? sweep, VerifiedOrchestraQuote quote) {
+    final request = quote.request;
+    switch (sweep) {
+      case SweepAuthorization():
+        return request.recipientKind == RecipientKind.ownSpark &&
+            request.destinationChain == kOrchestraUsdChain &&
+            request.destinationAsset == kOrchestraUsdAssetCode;
+      case ApprovedLegAuthorization(:final grant):
+        final VenueCashDestination destination;
+        if (request.recipientKind == RecipientKind.ownSpark &&
+            request.destinationChain == 'spark' &&
+            request.destinationAsset == 'BTC') {
+          destination = VenueCashDestination.bitcoin;
+        } else if (request.recipientKind == RecipientKind.ownEvm &&
+            request.destinationChain == 'hypercore') {
+          destination = VenueCashDestination.investing;
+        } else {
+          return false;
+        }
+        return DirectLegGrants.binds(grant,
+            venue: 'predictions', destination: destination.code);
+      case UserGrantAuthorization():
+      case null:
+        return false;
+    }
+  }
+
   Future<BigInt> payableMicroUsdc(double amount) async {
     return clampWithdrawMicroUsdc(
         BigInt.from((amount * 1e6).round()), await spendableMicroUsdc());
@@ -4387,6 +6119,11 @@ class PolymarketTradingNotifier
     if (walletId == null) {
       return Future.error(StateError('No spending wallet'));
     }
+    // Nothing is deployed or approved on an account whose EVM format may
+    // still move to legacy.
+    if (_formatPending(walletId)) {
+      return Future.error(const PolymarketEvmFormatPendingException());
+    }
     final eoa = current.walletAddress!;
     final generation = _accountGeneration;
     final session = ref.read(sessionAuthProvider);
@@ -4400,7 +6137,8 @@ class PolymarketTradingNotifier
         identical(ref.read(sessionAuthProvider), session) &&
         ref.read(seedSessionProvider).unlocked;
 
-    return _accountReadiness.ensure(
+    final wasReady = tradingReady;
+    final ready = _accountReadiness.ensure(
       scope: '$generation:$walletId:${eoa.toLowerCase()}',
       isCurrent: isCurrent,
       force: force,
@@ -4411,6 +6149,14 @@ class PolymarketTradingNotifier
         onProgress: onProgress,
       ),
     );
+    // Setup just completed: what is sitting in the deposit wallet (or on
+    // its way to it) converts now, not on the next app start.
+    if (!wasReady) {
+      unawaited(ready.then((_) {
+        if (tradingReady) _onTradingReady();
+      }, onError: (Object _) {}));
+    }
+    return ready;
   }
 
   Future<void> _enableTradingAccount({
@@ -4433,6 +6179,9 @@ class PolymarketTradingNotifier
     final spending = pickSpendingWallet(settings);
     if (spending == null) {
       throw Exception('No spending wallet');
+    }
+    if (spending.evmFormatCheckPending) {
+      throw const PolymarketEvmFormatPendingException();
     }
     final session = ref.read(seedSessionProvider);
     if (!session.unlocked) {
@@ -4465,6 +6214,9 @@ class PolymarketTradingNotifier
     // Persist proxy wallet so it survives app restarts
     await _storage.write(key: _proxyKey(walletId), value: proxyWallet);
     checkAccount();
+    _legacyWallet = proxyWallet.toLowerCase() ==
+        onboarding.deriveDepositWalletAddress(eoa).toLowerCase();
+    _completeAddress(proxyWallet);
 
     // Keep the deposit-wallet identity current for order signing.
     final preCredsState = state.valueOrNull;
@@ -4548,7 +6300,8 @@ class PolymarketTradingNotifier
     final ready = state.valueOrNull;
     if (ready != null) {
       _setData(ready.copyWith(
-        isAuthenticated: _client?.clob.auth?.credentials != null,
+        isAuthenticated:
+            ready.isAuthenticated || _client?.clob.auth?.credentials != null,
       ));
     }
     unawaited(() async {
@@ -4557,7 +6310,8 @@ class PolymarketTradingNotifier
         if (!isCurrent()) return;
         final live = state.valueOrNull;
         _setData(data.copyWith(
-          isAuthenticated: _client?.clob.auth?.credentials != null,
+          isAuthenticated: (live?.isAuthenticated ?? false) ||
+              _client?.clob.auth?.credentials != null,
           isPlacingOrder: live?.isPlacingOrder ?? false,
         ));
       } catch (_) {
@@ -4571,6 +6325,101 @@ final polymarketTradingProvider = AsyncNotifierProvider.autoDispose<
     PolymarketTradingNotifier, PolymarketTradingState>(
   PolymarketTradingNotifier.new,
 );
+
+/// What one refresh reads; see PolymarketTradingNotifier._fetchAllData.
+enum PolymarketRefreshScope { cash, full }
+
+/// The reads of the [tick]th periodic refresh (1-based): cash and
+/// positions every tick, open orders, portfolio value and settled positions
+/// every third tick (fills already trigger a refresh of their own).
+@visibleForTesting
+PolymarketRefreshScope polymarketRefreshScopeForTick(int tick) =>
+    tick % 3 == 0 ? PolymarketRefreshScope.full : PolymarketRefreshScope.cash;
+
+/// The periodic refresh interval, in seconds, for one account state. A bet
+/// waiting for its deposit ([pendingBetWaiting]) outranks everything: the
+/// deposit's own path reads the balance when the money lands, so the tick
+/// only backs it up and stops overlapping the order-status poll.
+///
+/// Null: no periodic read at all. An account holding nothing open (no
+/// open bet, none awaiting its result) and waiting for nothing changes
+/// only through events, which read it themselves: a fill (the user
+/// channel), a funding move or sweep landing and a claim or sale (the
+/// one-balance live refresh, `one_balance_live_provider.dart`). Founder,
+/// 2026-10-13: "no open positions on a venue → no polling for it".
+@visibleForTesting
+int? polymarketRefreshIntervalSeconds({
+  required bool pendingBetWaiting,
+  required bool awaitingDeposit,
+  required bool visible,
+  required bool hasOpenBet,
+  required bool awaitingResult,
+  int? minMinutesToExpiry,
+}) {
+  if (pendingBetWaiting) return 30;
+  if (awaitingDeposit) {
+    // Receive-screen accelerator outranks the visibility backoff —
+    // the user is staring at the receive address on a different
+    // surface, so `_polymarketVisible` may well be false while a
+    // deposit is inbound.
+    return 3;
+  }
+  if (!hasOpenBet && !awaitingResult) return null;
+  if (!visible) {
+    // Predictions surface off-screen: nothing animates, so the fast
+    // tier is pure network/battery burn. Back off hard — 30s with
+    // open bets (positions still track loosely for the home tile).
+    return awaitingResult ? 20 : 30;
+  }
+  // Something open on screen: 3 s (near expiry or not).
+  return 3;
+}
+
+/// Timing of one account start, by step, for `polymarket_balance_loaded`
+/// (the first balance on screen: from the cache, a new wallet's $0.00 or
+/// the network) and `polymarket_account_ready` (credentials done). Steps:
+/// mnemonic, derive, resolve, data, credentials. Durations only.
+class _AccountBoot {
+  final Stopwatch _since = Stopwatch()..start();
+  final Map<String, int> _ms = {};
+  bool _balanceSent = false;
+  bool _readySent = false;
+
+  Future<T> time<T>(String step, Future<T> Function() run) async {
+    final clock = Stopwatch()..start();
+    try {
+      return await run();
+    } finally {
+      _ms['ms_$step'] = clock.elapsedMilliseconds;
+    }
+  }
+
+  void firstBalance({required String source, required String bootKind}) {
+    if (_balanceSent) return;
+    _balanceSent = true;
+    final ms = _since.elapsedMilliseconds;
+    TrackingService.track('polymarket_balance_loaded', params: {
+      'boot': bootKind,
+      'source': source,
+      'duration_ms': ms,
+      'duration_bucket': TrackingService.latencyBucket(ms),
+      ..._ms,
+    });
+  }
+
+  void accountReady({required String credentials, required String bootKind}) {
+    if (_readySent) return;
+    _readySent = true;
+    final ms = _since.elapsedMilliseconds;
+    TrackingService.track('polymarket_account_ready', params: {
+      'boot': bootKind,
+      'credentials': credentials,
+      'duration_ms': ms,
+      'duration_bucket': TrackingService.latencyBucket(ms),
+      ..._ms,
+    });
+  }
+}
 
 /// Lazy-initialised in-memory mirror of the Hive cache so we don't hit
 /// disk on every provider rebuild. Populated on first access from
@@ -4590,7 +6439,11 @@ final polymarketBalanceProvider = Provider.autoDispose<double>((ref) {
   // Lazy-hydrate the in-memory mirror from disk on first access.
   _lastKnownPolymarketUsdc ??= PolymarketUsdcCacheService.read();
   final state = ref.watch(polymarketTradingProvider);
-  final fresh = state.valueOrNull?.usdcBalance;
+  // Only a balance that was actually read: an unread one is 0 in the
+  // state (`balanceKnown` false), and taking it here showed $0.00 and
+  // wrote that 0 over the last known figure on disk.
+  final value = state.valueOrNull;
+  final fresh = value != null && value.balanceKnown ? value.usdcBalance : null;
   if (fresh != null) {
     // Fresh value — even if it's 0, that's a real read. Trust it,
     // update the in-memory mirror, and write through to Hive so the
@@ -4601,7 +6454,12 @@ final polymarketBalanceProvider = Provider.autoDispose<double>((ref) {
     }
     return fresh;
   }
-  // Loading or error — return the last value we successfully read.
+  // A placeholder with no account behind it (no spending wallet, locked,
+  // the phrase unreadable): nothing to show and nothing to keep; the
+  // figure on disk is left alone.
+  if (value != null && value.walletAddress == null) return 0;
+  // Loading, error, or this account's cash read failed — return the last
+  // value we successfully read.
   // Better to show a slightly stale balance than to flash 0 mid-swap
   // or while polymarketTradingProvider is hydrating after a wallet
   // switch.
@@ -4676,3 +6534,12 @@ EthPrivateKey _hotPolymarketCredentials(String privateKey) {
       HotSigningAction.polymarketHotCredentials);
   return EthPrivateKey.fromHex(privateKey);
 }
+
+/// Whether a setup failure before an order only met the deposit wallet
+/// busy with another action (the relayer refusing it busy or on a moved
+/// nonce, this app's own batch still running) or a network hiccup:
+/// nothing was signed for the order, so it may wait and go again.
+bool polySetupFailureIsTransient(Object e) =>
+    isTransientRelayerRefusal(e) ||
+    (e is LedgerFailure && e.code == LedgerFailureCode.busy) ||
+    e is TimeoutException;

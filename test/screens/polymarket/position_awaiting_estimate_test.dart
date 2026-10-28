@@ -98,7 +98,7 @@ void main() {
       expect(caption(PolyAwaitingResult.pending, const Duration(minutes: 11,
           seconds: 10)), 'Ended · Result in about 12 min');
       expect(caption(PolyAwaitingResult.won, const Duration(minutes: 3)),
-          'You won · Ready to claim in about 3 min');
+          'You won');
       expect(caption(PolyAwaitingResult.pending, const Duration(seconds: 61)),
           'Ended · Result in about 2 min');
     });
@@ -107,14 +107,14 @@ void main() {
       expect(caption(PolyAwaitingResult.pending, const Duration(seconds: 40)),
           'Ended · Result in under a minute');
       expect(caption(PolyAwaitingResult.won, const Duration(seconds: 1)),
-          'You won · Ready to claim in under a minute');
+          'You won');
     });
 
     test('an hour or more, in hours', () {
       expect(caption(PolyAwaitingResult.pending, const Duration(minutes: 59,
           seconds: 30)), 'Ended · Result in about 1 h');
       expect(caption(PolyAwaitingResult.won, const Duration(minutes: 110)),
-          'You won · Ready to claim in about 2 h');
+          'You won');
     });
 
     test('unknown or already past: the generic caption', () {
@@ -125,9 +125,26 @@ void main() {
       expect(caption(PolyAwaitingResult.pending, null),
           l10n.polyAwaitingResultSoon);
       expect(caption(PolyAwaitingResult.won, const Duration(minutes: -2)),
-          l10n.polyAwaitingWonSoon);
+          l10n.polyAwaitingWon);
       expect(caption(PolyAwaitingResult.pending, Duration.zero),
           l10n.polyAwaitingResultSoon);
+    });
+
+    test('a won side says only that it won: no claim, no timing', () {
+      // The win is claimed automatically (claim_auto_fire.dart).
+      for (final left in [
+        null,
+        const Duration(seconds: 1),
+        const Duration(minutes: 3),
+        const Duration(minutes: 110),
+      ]) {
+        for (final shortRound in [true, false]) {
+          final text =
+              caption(PolyAwaitingResult.won, left, shortRound: shortRound);
+          expect(text, 'You won', reason: '$left $shortRound');
+          expect(text.toLowerCase(), isNot(contains('claim')));
+        }
+      }
     });
 
     test('a lost side says lost whatever the estimate', () {
@@ -177,11 +194,11 @@ void main() {
       expect(caption(PolyAwaitingResult.pending, Duration.zero),
           'Ended · Result in about 1 min');
       expect(caption(PolyAwaitingResult.won, const Duration(seconds: 44)),
-          'You won · Ready to claim in about 1 min');
+          'You won');
       expect(caption(PolyAwaitingResult.pending, const Duration(seconds: 45)),
           'Ended · Result in under a minute');
       expect(caption(PolyAwaitingResult.won, const Duration(seconds: 149)),
-          'You won · Ready to claim in under a minute');
+          'You won');
       expect(polyShortRoundEstimating(end, end.add(const Duration(seconds: 90))),
           isTrue);
     });

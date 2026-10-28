@@ -30,6 +30,22 @@ class HlStat {
 String formatHlFundingRate(double rate) =>
     '${rate >= 0 ? '+' : ''}${(rate * 100).toStringAsFixed(4)}%';
 
+/// A perp's funding line: who pays whom, the hourly rate and that rate
+/// over a year ('Longs pay shorts 0.0013%/hr (≈ 11.0% annualized)').
+///
+/// [hourly] is the venue's `funding` (metaAndAssetCtxs, activeAssetCtx,
+/// on every dex alike): the CURRENT HOURLY rate as a fraction, settled
+/// every hour, so a year is 24 × 365 of them, simple, with no
+/// compounding, the way app.hyperliquid.xyz writes it. Positive: longs
+/// pay shorts. Hyperliquid caps it at 4 % an hour, so on a volatile
+/// small cap 100 %+ a year is real.
+String formatHlFundingLine(AppLocalizations l10n, double hourly) =>
+    l10n.hlFundingRateLine(
+      hourly >= 0 ? l10n.hlLongsPayShorts : l10n.hlShortsPayLongs,
+      '${(hourly.abs() * 100).toStringAsFixed(4)}%',
+      '${(hourly.abs() * 24 * 365 * 100).toStringAsFixed(1)}%',
+    );
+
 /// The pairs of [m], in order. A perp: 24h volume, open interest,
 /// funding, maximum leverage, mark. A spot token: 24h volume, mark. A
 /// value the venue has not given is left out, never shown as a zero the

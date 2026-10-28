@@ -41,16 +41,20 @@ bool isPolymarketFastRound({
 }
 
 /// The slippage a market order on this market starts with (percent).
+/// [live] is a game in play (the venue holds its orders for an in-play
+/// delay): its prices jump the way a short round's do, so it starts at
+/// the short round's tolerance too.
 double polymarketDefaultSlippagePct({
   String? slug,
   String? question,
   DateTime? endAt,
   DateTime? now,
+  bool live = false,
 }) {
   final at = now ?? DateTime.now();
   if (!isPolymarketFastRound(
       slug: slug, question: question, endAt: endAt, now: at)) {
-    return kPolymarketDefaultSlippagePct;
+    return live ? kPolymarketFastRoundSlippagePct : kPolymarketDefaultSlippagePct;
   }
   if (endAt != null && endAt.difference(at) <= const Duration(seconds: 60)) {
     return kPolymarketFastRoundFinalMinuteSlippagePct;

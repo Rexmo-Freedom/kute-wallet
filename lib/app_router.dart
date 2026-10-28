@@ -2,7 +2,6 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/screens/bank/bank_screen.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
-import 'package:kute/screens/creation/qr_scanner_screen.dart';
 import 'package:kute/screens/creation/beta_survey_screen.dart';
 import 'package:kute/screens/creation/referrer_code_screen.dart';
 import 'package:kute/screens/creation/share_code_screen.dart';
@@ -11,14 +10,14 @@ import 'package:kute/screens/creation/passkey_choice.dart';
 import 'package:kute/screens/creation/confirm_pin.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
 import 'package:kute/screens/creation/start.dart';
 import 'package:kute/screens/settings/components/seed_words.dart';
 import 'package:kute/screens/settings/settings.dart';
-import 'package:kute/screens/receive/receive.dart';
-import 'package:kute/screens/usd/usd_receive_screen.dart';
+import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/login/open_pin.dart';
 import 'package:kute/screens/creation/recover_choice.dart';
@@ -31,6 +30,8 @@ import 'package:kute/screens/settings/components/backup_wallet.dart';
 import 'package:kute/screens/ledger/ledger_investing_setup_screen.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart'
+    show PortfolioSection;
 import 'package:kute/screens/settings/wallets_screen.dart';
 
 import 'package:flutter/material.dart';
@@ -41,7 +42,7 @@ import 'screens/creation/xpub_import_screen.dart';
 import 'screens/creation/external_address_import_screen.dart';
 import 'screens/shared/spark_transaction_details.dart';
 import 'screens/shared/coming_soon_screen.dart';
-import 'screens/scanner/smart_scanner_screen.dart';
+import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
 import 'screens/app_shell.dart';
 import 'services/appsflyer_service.dart';
@@ -177,12 +178,76 @@ class AppRouter {
         uri.queryParameters['af_sub2']);
   }
 
-  static GoRouter createRouter(String initialRoute,
-      {List<NavigatorObserver> extraObservers = const []}) {
-    _firstRouterAt ??= DateTime.now();
+  /// The routes reachable while no session is unlocked: the cold-start
+  /// chain (splash → start | restore_secrets | storage_unavailable |
+  /// open_pin, and storage_unavailable back to splash) and PIN setup,
+  /// which onboarding and the restore flow reach before a session
+  /// exists (confirm_pin unlocks the session before going anywhere
+  /// else). Everything else (money, seeds, settings) needs the session.
+  @visibleForTesting
+  static const Set<String> lockedAllowlist = {
+    '/splash',
+    '/start',
+    '/open_pin',
+    '/set_pin',
+    '/confirm_pin',
+    '/restore_secrets',
+    '/storage_unavailable',
+  };
+
+  /// Where a navigation to [location] goes while [locked]: nowhere else
+  /// when the location is allowed, splash otherwise (splash re-runs the
+  /// cold-start classification and lands on the PIN screen). Never
+  /// redirects an unlocked session.
+  @visibleForTesting
+  static String? lockRedirect({required bool locked, required String location}) {
+    if (!locked) return null;
+    return lockedAllowlist.contains(Uri.parse(location).path) ? null : '/splash';
+  }
+
+  /// The top-level redirect. [sessionLocked] reads the session (null
+  /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
+  ///
+  /// Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
+  /// (kute://open?deep_link_value=CODE) on Android and either that or the
+  /// AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
+  /// on iOS. go_router has no route for them, so without this it renders a
+  /// "Page Not Found". We instead register the referral code app-side (works
+  /// in debug + release, both platforms — no SDK round-trip needed) and send
+  /// the user right back to where they were. Regular in-app navigation uses
+  /// relative paths (no scheme), so it's untouched.
+  ///
+  /// While locked, any location off [lockedAllowlist] (a deep link into a
+  /// money or seed route, a stale stack after a wipe) goes to splash.
+  @visibleForTesting
+  static GoRouterRedirect redirectFor({
+    required bool Function() sessionLocked,
+    required String initialRoute,
+  }) {
     // Last in-app location we sat on, so an incoming deep link can register its
     // referral code without yanking the user off their current screen.
     var lastGood = initialRoute;
+    return (context, state) {
+      final uri = state.uri;
+      if (uri.hasScheme) {
+        handleIncomingLink(uri);
+        return lockRedirect(locked: sessionLocked(), location: lastGood) ??
+            lastGood;
+      }
+      final guard = lockRedirect(
+          locked: sessionLocked(), location: state.matchedLocation);
+      if (guard != null) return guard;
+      lastGood = state.matchedLocation;
+      return null;
+    };
+  }
+
+  static GoRouter createRouter(
+    String initialRoute, {
+    required bool Function() sessionLocked,
+    List<NavigatorObserver> extraObservers = const [],
+  }) {
+    _firstRouterAt ??= DateTime.now();
     return GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: initialRoute,
@@ -190,23 +255,8 @@ class AppRouter {
       // `extraObservers`. Firebase Analytics' routeObserver is gone;
       // legacy `TrackingService.routeObserver` is now a no-op.
       observers: [...extraObservers],
-      // Affiliate deep links arrive as ABSOLUTE URIs — the custom scheme
-      // (kute://open?deep_link_value=CODE) on Android and either that or the
-      // AppsFlyer Universal Link (https://kute.onelink.me/...?deep_link_value=CODE)
-      // on iOS. go_router has no route for them, so without this it renders a
-      // "Page Not Found". We instead register the referral code app-side (works
-      // in debug + release, both platforms — no SDK round-trip needed) and send
-      // the user right back to where they were. Regular in-app navigation uses
-      // relative paths (no scheme), so it's untouched.
-      redirect: (context, state) {
-        final uri = state.uri;
-        if (uri.hasScheme) {
-          handleIncomingLink(uri);
-          return lastGood;
-        }
-        lastGood = state.matchedLocation;
-        return null;
-      },
+      redirect:
+          redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
       routes: [
         GoRoute(
           path: '/splash',
@@ -429,9 +479,14 @@ class AppRouter {
                           path: 'confirm_send',
                           name: 'pay_send',
                           parentNavigatorKey: _rootNavigatorKey,
-                          pageBuilder: (context, state) => _buildFadeScalePage(
+                          // The send sheet (send_sheet.dart): every way
+                          // in (the dock, the scanner hand-off, payment
+                          // links) opens it over the screen it came
+                          // from; a preset recipient opens it full.
+                          pageBuilder: (context, state) => SendSheetPage<void>(
+                            key: state.pageKey,
+                            name: state.name,
                             child: const ConfirmSend(),
-                            state: state,
                           ),
                         ),
                         // Legacy aliases — keep `pay_bitcoin` and
@@ -452,29 +507,37 @@ class AppRouter {
                         ),
                       ],
                     ),
+                    // The Bitcoin receive. The dock opens it as a sheet
+                    // (receive_sheet.dart); this route stays for deep
+                    // links and opens that same sheet over the current
+                    // screen.
                     GoRoute(
                       path: '/receive',
-                      name: 'receive',
+                      name: kBitcoinReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const Receive(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: false,
                       ),
                     ),
-                    // The Dollars tab's own Receive. Its OWN screen
+                    // The Dollars tab's own Receive
                     // (usd_receive_screen.dart), the twin of the dollar
                     // send: the coin the user picks is converted on the
-                    // way in, and it is the dollars that land. Its own
-                    // route so the destination is carried by the URL
-                    // rather than by a one-shot provider a deep link
-                    // could miss.
+                    // way in, and it is the dollars that land. Like the
+                    // Bitcoin one it opens as a sheet; this route stays
+                    // for deep links (and the Investments deposit's
+                    // Receive row) and opens that same sheet. Every way
+                    // in opens its coin step; an old `?coin=auto` link
+                    // is accepted and ignored.
                     GoRoute(
                       path: '/receive_dollars',
-                      name: 'receiveDollars',
+                      name: kUsdReceiveRouteName,
                       parentNavigatorKey: _rootNavigatorKey,
-                      pageBuilder: (context, state) => _buildFadeScalePage(
-                        child: const UsdReceiveScreen(),
-                        state: state,
+                      pageBuilder: (context, state) => ReceiveSheetPage(
+                        key: state.pageKey,
+                        name: state.name,
+                        usd: true,
                       ),
                     ),
                     GoRoute(
@@ -524,11 +587,18 @@ class AppRouter {
                             state.uri.queryParameters['from'] == 'import',
                       ),
                     ),
+                    // The scanner opens as a sheet (scanner_sheet.dart);
+                    // this route stays as a thin wrapper for links and
+                    // opens that same sheet, joining animated codes.
                     GoRoute(
                       path: '/qr-scanner',
                       name: 'QrScanner',
                       parentNavigatorKey: _rootNavigatorKey,
-                      builder: (context, state) => const QRScannerScreen(),
+                      pageBuilder: (context, state) => ScannerSheetPage<String>(
+                        key: state.pageKey,
+                        name: state.name,
+                        mode: ScannerMode.multiPart,
+                      ),
                     ),
                     GoRoute(
                       path: 'settings',
@@ -564,10 +634,25 @@ class AppRouter {
                 GoRoute(
                   path: '/usd',
                   name: 'usd',
-                  pageBuilder: (context, state) => NoTransitionPage<void>(
-                    key: state.pageKey,
-                    child: const UsdAccountScreen(),
-                  ),
+                  // `?tab=investing|predictions|positions` (what the venue
+                  // routes redirect to) or `extra: {'tab': …}` picks the
+                  // Investments pill (an old `earn` link opens the default
+                  // pill: Earn is shown nowhere; a Portfolio section's or
+                  // an old Portfolio tab's key opens the Portfolio pill on
+                  // that section, see PortfolioSection.forLink); nothing
+                  // keeps the pill where it was. The page updates in place on a new
+                  // link (same pageKey), and the screen applies it then.
+                  pageBuilder: (context, state) {
+                    final extra = state.extra;
+                    final tab = state.uri.queryParameters['tab'] ??
+                        (extra is Map ? extra['tab'] as String? : null);
+                    return NoTransitionPage<void>(
+                      key: state.pageKey,
+                      child: UsdAccountScreen(
+                          initialTab: InvestmentsTab.fromKey(tab),
+                          initialSection: PortfolioSection.forLink(tab)),
+                    );
+                  },
                 ),
               ],
             ),
@@ -578,18 +663,18 @@ class AppRouter {
                 GoRoute(
                   path: '/hyperliquid',
                   name: 'hyperliquid',
-                  // Bottom-nav tab destination. `extra` (deep link /
-                  // context.go('/hyperliquid', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // For the spending account Investing is a pill of the
+                  // Investments tab: the link lands on /usd with that
+                  // pill (one balance; no venue deposit exists, so the
+                  // old `extra: 'deposit'` auto-open is gone). A Ledger
+                  // owner keeps its own branch.
+                  redirect: (context, _) =>
+                      spendingVenueRedirect(context, InvestmentsTab.investing),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Hyperliquid
-                    // screen, or the Ledger's own Hyperliquid tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellTradingTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Hyperliquid tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellTradingTab(),
                   ),
                 ),
               ],
@@ -601,18 +686,15 @@ class AppRouter {
                 GoRoute(
                   path: '/polymarket',
                   name: 'polymarket',
-                  // Bottom-nav tab destination. `extra` (deep link
-                  // context.go('/polymarket', extra:'deposit')) still reaches
-                  // the branch's initial screen and auto-opens the sheet.
+                  // See /hyperliquid: the spending account's Predictions
+                  // is a pill of the Investments tab.
+                  redirect: (context, _) => spendingVenueRedirect(
+                      context, InvestmentsTab.predictions),
                   pageBuilder: (context, state) => NoTransitionPage<void>(
                     key: state.pageKey,
-                    // Wallet-aware: the spending account's Polymarket
-                    // screen, or the Ledger's own Polymarket tab when a
-                    // Ledger wallet owns the first tab.
-                    child: ShellPredictionsTab(
-                      autoShowDeposit: state.extra == 'deposit',
-                      autoShowWithdraw: state.extra == 'withdraw',
-                    ),
+                    // The Ledger's own Polymarket tab when a Ledger
+                    // wallet owns the first tab; empty otherwise.
+                    child: const ShellPredictionsTab(),
                   ),
                 ),
               ],
@@ -622,16 +704,18 @@ class AppRouter {
         GoRoute(
           path: '/smart-scanner',
           name: 'smartScanner',
+          // Every Scan in the app opens the scanner sheet directly
+          // (showRoutingScannerSheet / showScannerSheet); this route stays
+          // as a thin wrapper for links and opens that same sheet over
+          // the current screen. `extra: {'returnRaw': true}` closes with
+          // the scanned string instead of routing it.
           pageBuilder: (context, state) {
-            // `extra: {'returnRaw': true}` flips the scanner into
-            // return-value mode (pops with the raw scanned string)
-            // instead of routing the payload itself. Used by the
-            // in-flow Send "Scan" button.
             final extra = state.extra;
             final returnRaw = extra is Map && extra['returnRaw'] == true;
-            return _buildFadeScalePage(
-              child: SmartScannerScreen(returnRawValue: returnRaw),
-              state: state,
+            return ScannerSheetPage<String>(
+              key: state.pageKey,
+              name: state.name,
+              mode: returnRaw ? ScannerMode.recipient : ScannerMode.route,
             );
           },
         ),

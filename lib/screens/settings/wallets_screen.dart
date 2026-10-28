@@ -370,6 +370,7 @@ Future<void> _showRecoveryPhrase(
     builder: (ctx) => RecoveryPhraseSheet(
       phrase: read.mnemonic,
       onCopy: keyClipboard.copy,
+      isSpark: w.isSparkWallet,
     ),
   );
 }
@@ -627,16 +628,23 @@ class _RevealSheetState extends State<_RevealSheet> {
 /// Recovery phrase reveal (D-16). The words are plain text with no text
 /// selection; the one way to the clipboard is Copy, which goes through
 /// [onCopy] (a [SeedClipboard]: sensitive, local-only, cleared after 60 s).
-/// The QR code appears only after an explicit tap. The sheet is a
-/// [SecureScreen]. A null [phrase] shows the "no recovery phrase" note.
+/// The QR code and the words show at once (founder, 2026-10-20). The
+/// sheet is a [SecureScreen]. A null [phrase] shows the "no recovery
+/// phrase" note. A Spark wallet says what Spark is and where its 12 words
+/// restore the balance, under the never-share line.
 class RecoveryPhraseSheet extends StatefulWidget {
   const RecoveryPhraseSheet({
     super.key,
     required this.phrase,
     required this.onCopy,
+    this.isSpark = false,
   });
 
   final String? phrase;
+
+  /// The wallet is a Spark wallet: its balance restores only in a wallet
+  /// that supports Spark.
+  final bool isSpark;
 
   /// Puts the phrase on the clipboard, which clears itself later.
   final Future<void> Function(String phrase) onCopy;
@@ -646,8 +654,6 @@ class RecoveryPhraseSheet extends StatefulWidget {
 }
 
 class _RecoveryPhraseSheetState extends State<RecoveryPhraseSheet> {
-  bool _qrRevealed = false;
-
   Future<void> _copy() async {
     final phrase = widget.phrase;
     if (phrase == null) return;
@@ -662,12 +668,6 @@ class _RecoveryPhraseSheetState extends State<RecoveryPhraseSheet> {
       message: l10n.recoveryPhraseCopied,
       error: false,
     );
-  }
-
-  void _revealQr() {
-    HapticFeedback.lightImpact();
-    TrackingService.walletsQrRevealed();
-    setState(() => _qrRevealed = true);
   }
 
   @override
@@ -689,9 +689,10 @@ class _RecoveryPhraseSheetState extends State<RecoveryPhraseSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (phrase != null && _qrRevealed) ...[
+                  if (phrase != null) ...[
                     SecureContent(
                       child: Center(
+                        key: const ValueKey('wallets-recovery-phrase-qr'),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                           child: buildQrCode(phrase, context),
@@ -741,26 +742,29 @@ class _RecoveryPhraseSheetState extends State<RecoveryPhraseSheet> {
                       height: 1.4,
                     ),
                   ),
-                  SizedBox(height: 20.h),
-                  if (phrase != null) ...[
-                    AppButton(
-                      key: const ValueKey('wallets-copy-phrase'),
-                      text: l10n.copy,
-                      icon: Icons.copy_rounded,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: _copy,
+                  if (widget.isSpark) ...[
+                    SizedBox(height: 10.h),
+                    Text(
+                      l10n.sparkRecoveryNote,
+                      key: const ValueKey('spark-recovery-note'),
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 13.sp,
+                        height: 1.4,
+                      ),
                     ),
-                    SizedBox(height: 12.h),
                   ],
+                  SizedBox(height: 20.h),
                   Row(
                     children: [
-                      if (phrase != null && !_qrRevealed) ...[
+                      if (phrase != null) ...[
                         Expanded(
                           child: AppButton(
-                            key: const ValueKey('wallets-show-qr'),
-                            text: l10n.walletsShowQr,
+                            key: const ValueKey('wallets-copy-phrase'),
+                            text: l10n.copy,
+                            icon: Icons.copy_rounded,
                             variant: AppButtonVariant.secondary,
-                            onPressed: _revealQr,
+                            onPressed: _copy,
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -1039,10 +1043,11 @@ Future<String?> _revealEvmPrivateKey(
 
 /// Private key reveal for the spending wallet's EVM account. Hidden until
 /// the user taps Show key and passes the seed reveal gate; the warning is
-/// on screen before that. The key lives only in this sheet's state and is
-/// dropped when the sheet closes. The sheet is a [SecureScreen] and the
-/// key a [SecureContent], like the recovery phrase. Once revealed, a tap
-/// on Show QR code adds the key's QR, also inside a [SecureContent].
+/// on screen before that. The gate runs as the sheet opens, so the key and
+/// its QR show at once (founder, 2026-10-20); Show key stays for a gate
+/// that was declined or failed. The key lives only in this sheet's state
+/// and is dropped when the sheet closes. The sheet is a [SecureScreen] and
+/// the key and its QR [SecureContent]s, like the recovery phrase.
 class PrivateKeySheet extends StatefulWidget {
   const PrivateKeySheet({
     super.key,
@@ -1065,23 +1070,19 @@ class _PrivateKeySheetState extends State<PrivateKeySheet> {
   String? _key;
   bool _busy = false;
   bool _failed = false;
-  bool _qrRevealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reveal();
+    });
+  }
 
   @override
   void dispose() {
     _key = null;
-    _qrRevealed = false;
     super.dispose();
-  }
-
-  /// The QR of the revealed key, only after an explicit tap, like the
-  /// recovery phrase's. It encodes exactly the key on screen, which
-  /// MetaMask's Import account scanner accepts. No event: the reveal is
-  /// already tracked and the key never goes anywhere.
-  void _revealQr() {
-    if (_key == null) return;
-    HapticFeedback.lightImpact();
-    setState(() => _qrRevealed = true);
   }
 
   Future<void> _reveal() async {
@@ -1150,7 +1151,9 @@ class _PrivateKeySheetState extends State<PrivateKeySheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (key != null && _qrRevealed) ...[
+                  // The key's QR encodes exactly the key on screen, which
+                  // MetaMask's Import account scanner accepts.
+                  if (key != null) ...[
                     SecureContent(
                       child: Center(
                         key: const ValueKey('wallets-private-key-qr'),
@@ -1206,15 +1209,6 @@ class _PrivateKeySheetState extends State<PrivateKeySheet> {
                     ),
                   ),
                   SizedBox(height: 20.h),
-                  if (key != null && !_qrRevealed) ...[
-                    AppButton(
-                      key: const ValueKey('wallets-show-private-key-qr'),
-                      text: l10n.walletsShowQr,
-                      variant: AppButtonVariant.secondary,
-                      onPressed: _revealQr,
-                    ),
-                    SizedBox(height: 12.h),
-                  ],
                   Row(
                     children: [
                       Expanded(
@@ -1229,6 +1223,7 @@ class _PrivateKeySheetState extends State<PrivateKeySheet> {
                             : AppButton(
                                 key: const ValueKey('wallets-copy-private-key'),
                                 text: l10n.copy,
+                                icon: Icons.copy_rounded,
                                 variant: AppButtonVariant.secondary,
                                 onPressed: _copy,
                               ),

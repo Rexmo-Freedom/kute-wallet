@@ -11,6 +11,7 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -131,13 +132,23 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                     message: context.l10n.betNoOpenMarketsInTopic,
                   );
                 }
-                return ListView.separated(
-                  padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 96.h),
+                // Plain Yes/No markets share one grouped card, as on the
+                // Predictions lists; others keep their own card.
+                return CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics()),
-                  itemCount: events.length,
-                  separatorBuilder: (_, __) => SizedBox(height: 10.h),
-                  itemBuilder: (_, i) => _GroupFeedCard(market: events[i]),
+                  slivers: [
+                    SliverToBoxAdapter(child: SizedBox(height: 12.h)),
+                    ...marketGroupSlivers<PolymarketEvent>(
+                      context,
+                      items: events,
+                      groups: (e) => polyCardGroups(e.title, e.outcomes),
+                      dividerIndent: polyGroupRowIndent(),
+                      build: (market, inGroup) =>
+                          _GroupFeedCard(market: market, inGroup: inGroup),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: 96.h)),
+                  ],
                 );
               },
             ),
@@ -231,7 +242,10 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
 /// repaints just the rows it touches instead of the whole page.
 class _GroupFeedCard extends ConsumerWidget {
   final PolymarketEvent market;
-  const _GroupFeedCard({required this.market});
+
+  /// A row of a grouped list card ([MarketCard.inGroup]).
+  final bool inGroup;
+  const _GroupFeedCard({required this.market, this.inGroup = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -251,6 +265,7 @@ class _GroupFeedCard extends ConsumerWidget {
     return LiveTokenScope(
       tokens: tokenIds,
       child: MarketCard(
+        inGroup: inGroup,
         title: market.title,
         imageUrl: market.imageUrl,
         outcomes: market.outcomes,

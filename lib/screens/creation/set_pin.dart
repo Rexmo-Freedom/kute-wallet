@@ -83,6 +83,7 @@ class _SetPinState extends ConsumerState<SetPin> {
         'step': 'create',
         'path': _path,
         'had_digits': pin.isNotEmpty,
+        'time_in_flow_ms': _elapsed.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeBucket(_elapsed.elapsed),
       });
     }

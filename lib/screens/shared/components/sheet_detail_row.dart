@@ -118,9 +118,9 @@ class SheetAnimatedSize extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (reduceMotion) return child;
     return AnimatedSize(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       alignment: Alignment.topCenter,
       child: child,
@@ -128,18 +128,19 @@ class SheetAnimatedSize extends StatelessWidget {
   }
 }
 
-/// The scroll body of a detail sheet: a [SingleChildScrollView] whose
-/// content sits in a [SheetAnimatedSize], so the modal glides to its new
-/// height when a disclosure opens or a graph finishes loading, and scrolls
-/// as usual once the content passes the sheet's maximum height.
+/// Animates the bounded viewport, so short sheets glide to their new
+/// height while a capped sheet scrolls against the real content extent.
+/// Animating the content inside the viewport leaves a stale scroll extent
+/// during shrink animations: a reader near the bottom sees blank space
+/// and repeated offset corrections until the animation catches up.
 class SheetScrollView extends StatelessWidget {
   const SheetScrollView({super.key, this.padding, required this.child});
   final EdgeInsetsGeometry? padding;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-      padding: padding, child: SheetAnimatedSize(child: child));
+  Widget build(BuildContext context) => SheetAnimatedSize(
+      child: SingleChildScrollView(padding: padding, child: child));
 }
 
 /// Collapsed technical block: the transaction sheet's "Nerd data" pattern.

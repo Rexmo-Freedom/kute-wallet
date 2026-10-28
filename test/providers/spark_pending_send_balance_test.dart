@@ -13,6 +13,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/breez/sdk_instance.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/breez_config_provider.dart';
@@ -528,6 +529,28 @@ void main() {
       sync.complete(const SyncWalletResponse());
       await expectLater(sendMaxPending(fails: true), throwsException);
       expect(shown(), _balance);
+    });
+
+    test('a retired SDK read cannot overwrite the replacement balance', () async {
+      sync.complete(const SyncWalletResponse());
+      await sendMaxPending();
+      final delayed = Completer<GetInfoResponse>();
+      var reading = false;
+      when(() => sdk.getInfo(request: any(named: 'request'))).thenAnswer((_) {
+        reading = true;
+        return delayed.future;
+      });
+      sync.complete(const SyncWalletResponse());
+      await pumpEventQueue();
+      expect(reading, isTrue);
+      final recovery = reserveSparkRecovery(sdk)!;
+      recovery.retire();
+      recovery.release();
+      final cache = container.read(walletBalanceCacheProvider.notifier);
+      cache.settleOutgoingSparkSend(_wallet, 'exit', 777);
+      delayed.complete(_info(0));
+      await pumpEventQueue();
+      expect(shown(), 777);
     });
   });
 }

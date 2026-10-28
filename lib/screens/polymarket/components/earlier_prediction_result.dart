@@ -86,11 +86,13 @@ class _EarlierPredictionResultState extends State<EarlierPredictionResult> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // Settled: a check. Not settled yet: the pending clock, never the
+    // failure mark, since nothing is known to have gone wrong.
     return KuteConfirmation(
       message: _message,
-      success: _success,
-      showCloseButton: true,
-      buttonText: l10n.done,
+      tone: _success
+          ? KuteConfirmationTone.success
+          : KuteConfirmationTone.pending,
       onDone: widget.onDone,
       secondaryButtonText: _success
           ? null

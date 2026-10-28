@@ -27,9 +27,116 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetContainer;
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/fee_copy.dart' show feeRateText;
 import 'package:kute/theme/app_theme.dart';
+
+/// How tall the receive sheet stands, as a share of the screen.
+const double kReceiveSheetMaxHeight = 0.9;
+
+/// The receive sheet's frame, the same for both receives: the app's sheet
+/// container and drag handle, then the header row the full-screen
+/// receives had in their app bar ([leading] on the left, [title] centred),
+/// then the body filling the rest. Swipe down closes it like every sheet.
+///
+/// The sheet itself says "receive", so a receive passes no visible
+/// [title] unless the slot carries something to act on (the bitcoin
+/// receive's "Receive into" pill). Without one, [semanticTitle] still
+/// names the sheet to a screen reader, as a header, from the same slot.
+class ReceiveSheetFrame extends StatelessWidget {
+  const ReceiveSheetFrame({
+    super.key,
+    required this.leading,
+    this.title,
+    this.semanticTitle,
+    required this.child,
+  });
+
+  final Widget leading;
+  final Widget? title;
+
+  /// What a screen reader calls the sheet when [title] is null.
+  final String? semanticTitle;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBottomSheetContainer(
+      maxHeight: kReceiveSheetMaxHeight,
+      // Pure white in light mode, the same white as the QR plate, so the
+      // plate has no visible edge on the sheet (founder decision). Dark
+      // mode keeps the theme's sheet surface.
+      color: context.isDark ? null : Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ReceiveSheetHeader(
+              leading: leading, title: title, semanticTitle: semanticTitle),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+/// The receive sheets' header: the drag handle, then the row with
+/// [leading] (the close X) on the left and [title] centred. Every receive
+/// sheet wears it, so the X sits in the same top-left place on all of
+/// them: [ReceiveSheetFrame] draws it, and the receive's content-sized
+/// sheets (the return address, Request amount) put it over their own
+/// heading. Without a [title], [semanticTitle] names the sheet to a
+/// screen reader; with neither, the slot is empty room.
+class ReceiveSheetHeader extends StatelessWidget {
+  const ReceiveSheetHeader({
+    super.key,
+    required this.leading,
+    this.title,
+    this.semanticTitle,
+  });
+
+  final Widget leading;
+  final Widget? title;
+  final String? semanticTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleTitle = title;
+    final label = semanticTitle;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 12.h),
+          child: AppDecorations.dragHandle(context),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+          child: Row(
+            children: [
+              SizedBox(width: 44.w, child: Center(child: leading)),
+              Expanded(
+                child: visibleTitle != null
+                    ? Center(child: visibleTitle)
+                    : label != null
+                        ? Semantics(
+                            container: true,
+                            header: true,
+                            label: label,
+                            child: SizedBox(height: 44.w),
+                          )
+                        : SizedBox(height: 44.w),
+              ),
+              SizedBox(width: 44.w),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 /// The receive surface's vertical rhythm, so the two screens cannot
 /// disagree about how far apart their own parts sit.
@@ -40,7 +147,7 @@ abstract final class ReceiveGaps {
   /// QR plate to the address under it.
   static double get qrToAddress => 24.h;
 
-  /// Address to the Share/Copy row.
+  /// Address to the Share button.
   static double get addressToActions => 14.h;
 
   /// Between any two blocks below the actions.
@@ -50,9 +157,19 @@ abstract final class ReceiveGaps {
   static double get tail => 16.h;
 }
 
-/// The white plate the QR sits on. Fixed square, generous radius, and a
-/// small inner padding so the code dominates the frame instead of
-/// floating in a bed of whitespace. White is not a themed colour here on
+/// The QR plate's side: as large as the receive sheet allows, 87% of
+/// its width, never under 260 nor over 380 points. The sheet spans the
+/// screen, so the screen's width is the sheet's. At 390pt that is about
+/// 339pt, which still leaves the address and the Share button above
+/// the fold on a 390x844 phone, and still fits inside both screens'
+/// side padding.
+double receiveQrSide(BuildContext context) =>
+    (MediaQuery.sizeOf(context).width * 0.87).clamp(260.0, 380.0);
+
+/// The white plate the QR sits on. A square [receiveQrSide] wide,
+/// generous radius, and a small inner padding so the code dominates the
+/// frame instead of floating in a bed of whitespace (the code keeps its
+/// own quiet zone inside it). White is not a themed colour here on
 /// purpose: a QR needs the contrast in both themes.
 class ReceiveQrPlate extends StatelessWidget {
   const ReceiveQrPlate({super.key, required this.child});
@@ -61,10 +178,11 @@ class ReceiveQrPlate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final side = receiveQrSide(context);
     return Center(
       child: Container(
-        width: 280.w,
-        height: 280.w,
+        width: side,
+        height: side,
         padding: EdgeInsets.all(8.w),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -102,9 +220,17 @@ class ReceiveQrShimmer extends StatelessWidget {
 /// The quiet line under the plate that says why it is still shimmering,
 /// or what the code on it is for.
 class ReceiveCaption extends StatelessWidget {
-  const ReceiveCaption({super.key, required this.text});
+  const ReceiveCaption({
+    super.key,
+    required this.text,
+    this.emphasised = false,
+  });
 
   final String text;
+
+  /// The one line that reads louder than the rest (a one-time address's
+  /// countdown): the same size, a stronger colour and weight.
+  final bool emphasised;
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +241,9 @@ class ReceiveCaption extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: c.textTertiary,
+          color: emphasised ? c.textSecondary : c.textTertiary,
           fontSize: 13.sp,
+          fontWeight: emphasised ? FontWeight.w700 : null,
           height: 1.4,
         ),
       ),
@@ -124,24 +251,23 @@ class ReceiveCaption extends StatelessWidget {
   }
 }
 
-/// The one fee line beside a reusable deposit address: the Kute rate the
-/// address's own terms charge, taken from what arrives. [bps] is the rate
-/// the screen read from those terms; null (unknown or no fee) renders
-/// nothing, never a guess. A gap above it is included so a screen adds
-/// the line in one place.
-class ReceiveKuteFeeCaption extends StatelessWidget {
-  const ReceiveKuteFeeCaption({super.key, required this.bps});
+/// The smallest deposit the address above takes ("Minimum $1.00"), in
+/// the caption style. Null [amount] renders nothing. A gap above it is
+/// included so a screen adds the line in one place.
+class ReceiveMinimumCaption extends StatelessWidget {
+  const ReceiveMinimumCaption({super.key, required this.amount});
 
-  final int? bps;
+  /// The formatted minimum ("$1.00").
+  final String? amount;
 
   @override
   Widget build(BuildContext context) {
-    final rate = bps;
-    if (rate == null || rate <= 0) return const SizedBox.shrink();
+    final value = amount;
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: EdgeInsets.only(top: ReceiveGaps.block),
-      child: ReceiveCaption(
-          text: context.l10n.receiveKuteFeeOnArrival(feeRateText(rate))),
+      key: const ValueKey('receive-minimum'),
+      padding: EdgeInsets.only(top: 8.h),
+      child: ReceiveCaption(text: context.l10n.amountMinimumInline(value)),
     );
   }
 }
@@ -201,9 +327,8 @@ class ReceiveAddressLine extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 4.w),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final iconsWidth = 8.w +
-                iconButtonSize +
-                (showEdit ? 8.w + iconButtonSize : 0);
+            final iconsWidth =
+                8.w + iconButtonSize + (showEdit ? 8.w + iconButtonSize : 0);
             final availableWidth = constraints.maxWidth - iconsWidth;
 
             final style = TextStyle(
@@ -369,61 +494,35 @@ class ReceiveAddressIconButton extends StatelessWidget {
   }
 }
 
-/// Share and Copy, side by side, directly under the address.
+/// Share, full width, directly under the address. Copy lives on the
+/// address line itself (the row and its copy button), so the row under
+/// it is Share alone (founder decision October 2026: a second Copy was
+/// redundant).
 ///
-/// They sit in the page rather than pinned to the floor because they
-/// act on the thing above them: the exact payload the QR encodes. A
-/// pinned pair reads as "finish the flow", which is the wrong promise
-/// on a screen where the job is done the moment the code is on screen.
+/// It sits in the page rather than pinned to the floor because it acts
+/// on the thing above it: the exact payload the QR encodes. A pinned
+/// button reads as "finish the flow", which is the wrong promise on a
+/// screen where the job is done the moment the code is on screen.
 ///
-/// [trailing] takes a third pill (the bitcoin screen's request-amount
-/// control). With one present the row is tight, so the labels lose
-/// their icons and drop a point.
+/// Anything else the receive can do with that code (the bitcoin
+/// screen's request amount) sits under it as a quiet text action, never
+/// as a second button beside it.
 class ReceiveActionPills extends StatelessWidget {
   const ReceiveActionPills({
     super.key,
     required this.onShare,
-    required this.onCopy,
-    this.trailing,
   });
 
   final VoidCallback? onShare;
-  final VoidCallback? onCopy;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final extra = trailing;
-    final dense = extra != null;
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: AppButton(
-            onPressed: onShare,
-            text: context.l10n.share,
-            icon: dense ? null : Icons.ios_share_rounded,
-            compact: true,
-            fontSize: dense ? 14.sp : 15.sp,
-          ),
-        ),
-        SizedBox(width: 8.w),
-        Expanded(
-          flex: 3,
-          child: AppButton(
-            onPressed: onCopy,
-            text: context.l10n.copy,
-            icon: dense ? null : Icons.copy_rounded,
-            variant: AppButtonVariant.secondary,
-            compact: true,
-            fontSize: dense ? 14.sp : 15.sp,
-          ),
-        ),
-        if (extra != null) ...[
-          SizedBox(width: 8.w),
-          Expanded(flex: 4, child: extra),
-        ],
-      ],
+    return AppButton(
+      onPressed: onShare,
+      text: context.l10n.share,
+      icon: Icons.ios_share_rounded,
+      compact: true,
+      fontSize: 15.sp,
     );
   }
 }

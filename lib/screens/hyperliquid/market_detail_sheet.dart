@@ -1,5 +1,6 @@
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/open_once.dart';
+import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
@@ -19,7 +20,6 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
-import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -63,7 +63,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -97,7 +96,6 @@ import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart'
     show HlTrade;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/ledger/ledger_actions.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -363,83 +361,94 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                       SizedBox(width: 8.w),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // The ticker alone: the kind (Own / Leveraged)
-                            // is the Instrument row under Stats, so the
-                            // header keeps its room for the title.
-                            // Smaller rather than cut, on its one line.
-                            FittedTitle(
-                              m.coin,
-                              key: const ValueKey('hl-detail-title'),
-                              maxLines: 1,
-                              style: TextStyle(
-                                color: c.textPrimary,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            // Wrap (not Row) so the price + change + the
-                            // optional 'up to Nx' chip NEVER overflow — on a
-                            // wide price (e.g. $29,466.50) the leverage chip
-                            // flows to a new line instead of clipping. Only
-                            // shown when it fits.
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8.w,
-                              runSpacing: 2.h,
-                              children: [
-                                // The primary text colour at rest; a
-                                // tick flashes green or red and fades
-                                // back, so the price never sits in a
-                                // colour that argues with the change.
-                                HlTickPrice(
-                                  price: price,
-                                  text: formatHlPrice(price,
-                                      decimalCap: m.pxDecimalCap),
-                                  style: TextStyle(
-                                    color: c.textPrimary,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                // The change of the price shown beside
-                                // it, not of a minutes-old snapshot.
-                                Text(
-                                  formatHlPct(m.dayChangeAt(price)),
-                                  style: TextStyle(
-                                    color: m.dayChangeAt(price) >= 0
-                                        ? greenColor
-                                        : redColor,
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                // The price feed gave up reconnecting:
-                                // say so instead of painting a frozen
-                                // number as if it were live.
-                                if (!pricesLive)
-                                  HlMetaChip(
-                                      text: context.l10n.chartPriceDelayed),
-                                // A thinly traded market says so, in
-                                // the kind badge's own neutral chip. It
-                                // sits on this wrapping line, not beside
-                                // the badge: the name row has no room
-                                // for it and would cut the ticker.
-                                if (m.isLowLiquidity)
-                                  const HlLowLiquidityBadge(),
-                              ],
-                            ),
-                          ],
+                        // The ticker alone: the kind (Own / Leveraged) is
+                        // the Instrument row under Stats, so the header
+                        // keeps its room for the title. Smaller rather
+                        // than cut, on its one line.
+                        child: FittedTitle(
+                          m.coin,
+                          key: const ValueKey('hl-detail-title'),
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
-                      // is the question capsule under this header.
+                      // is the "Why is it moving?" row under the chart.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
+                    ],
+                  ),
+                ),
+
+              // ── The price, large ──────────────────────────────────
+              // The figure the screen is about, as on Robinhood and
+              // Revolut: the live price over its change today. The chart
+              // under it writes no price of its own (its scrub card names
+              // a scrubbed bar).
+              if (!_advancedChart)
+                Container(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Smaller rather than cut on a long price. The
+                      // primary text colour at rest; a tick flashes green
+                      // or red and fades back, so the price never sits in
+                      // a colour that argues with the change.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: HlTickPrice(
+                          key: const ValueKey('hl-detail-price'),
+                          price: price,
+                          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 38.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.0,
+                            height: 1.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      // Wrap (not Row) so the change and the optional
+                      // chips never overflow: a chip flows to a new line.
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8.w,
+                        runSpacing: 4.h,
+                        children: [
+                          // The change of the price shown above it, not
+                          // of a minutes-old snapshot.
+                          Text(
+                            formatHlPct(m.dayChangeAt(price)),
+                            key: const ValueKey('hl-detail-change'),
+                            style: TextStyle(
+                              color: m.dayChangeAt(price) >= 0
+                                  ? greenColor
+                                  : redColor,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          // The price feed gave up reconnecting: say so
+                          // instead of painting a frozen number as if it
+                          // were live.
+                          if (!pricesLive)
+                            HlMetaChip(text: context.l10n.chartPriceDelayed),
+                          // A thinly traded market says so, in the kind
+                          // badge's own neutral chip.
+                          if (m.isLowLiquidity) const HlLowLiquidityBadge(),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -470,15 +479,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     );
                   }
                   final target = 540.h;
-                  // Sal's question sits above the chart: leave it its
-                  // room so the pills still land on screen.
-                  final salRoom =
-                      ref.watch(aiEnabledProvider).asData?.value == false
-                          ? 0.0
-                          : 72.h;
-                  final chartHeight = math.min(
-                          target, bodyCons.maxHeight * 0.78 - salRoom) /
-                      1.h;
+                  final chartHeight =
+                      math.min(target, bodyCons.maxHeight * 0.78) / 1.h;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -501,13 +503,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Sal's question for this market, right under the
-                        // header's price: the one Sal door on this screen.
-                        SalQuestionCapsule(
-                          advisorContext: _salContext(m),
-                          chipSignals: salSignalsForHlMarket(m),
-                          padding: EdgeInsets.only(bottom: 14.h),
-                        ),
                         // Bounded chart (see chartHeight above); Advanced
                         // mode expands it (animated inside the chart).
                         HlCandleChart(
@@ -522,45 +517,31 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                               setState(() => _advancedChart = on),
                         ),
                         SizedBox(height: 20.h),
-                        // The user's own exposure stays ABOVE the Details
-                        // expander — it's the one thing worth surfacing at a
-                        // glance. Its money amounts (PnL / holding value) honour
-                        // the Bitcoin denomination setting; the market quote
-                        // prices below stay in USD.
-                        if (!_advancedChart && position != null) ...[
-                          _PositionSummaryCard(
-                              position: position, funding: m.funding),
-                          SizedBox(height: 16.h),
-                        ] else if (!_advancedChart &&
-                            m.isSpot &&
-                            spotHeld > 0) ...[
-                          Container(
-                            padding: EdgeInsets.all(14.w),
-                            decoration: BoxDecoration(
-                              color: c.surface.withValues(alpha: 0.96),
-                              borderRadius: BorderRadius.circular(14.r),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.account_balance_wallet_outlined,
-                                    color: kHlAccent, size: 18.sp),
-                                SizedBox(width: 10.w),
-                                Expanded(
-                                  child: Text(
-                                    '${context.l10n.chartYouHold} ${formatHlSize(spotHeld)} ${m.coin} ≈ ${formatPolyAmount(ref, spotHeld * price)}',
-                                    style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        // No "Your investment" card here (founder,
+                        // 2026-10-20): the position has its own screen,
+                        // and the chart already marks entry and
+                        // liquidation.
+                        // The chart's editing mode (drawing tools,
+                        // indicators), first under the intervals, in
+                        // About's own row style.
+                        if (!_advancedChart)
+                          PositionLinkRow(
+                            key: const ValueKey('hl-advanced-chart'),
+                            label: context.l10n.hlAdvancedChart,
+                            icon: Icons.candlestick_chart_rounded,
+                            onTap: () =>
+                                HlCandleChart.openAdvanced(_chartHostKey),
                           ),
-                          SizedBox(height: 16.h),
-                        ],
-
+                        // Sal's one quiet door on this screen, under the
+                        // Advanced chart row: "Why is it moving?",
+                        // on every market (perp, spot, HIP-3), calm or not.
+                        if (!_advancedChart)
+                          SalWhyMovingRow(
+                            advisorContext: _salContext(m),
+                            question: salWhyMovingHl(context.l10n,
+                                label: m.coin),
+                            chipSignals: salSignalsForHlMarket(m),
+                          ),
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -729,6 +710,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
         ),
         child: Row(
           children: [
+            // The same leading icon as the Advanced chart row above.
+            Icon(Icons.info_outline_rounded,
+                color: c.textSecondary, size: 20.sp),
+            SizedBox(width: 10.w),
             Expanded(
               child: Text(
                 context.l10n.investingAboutMarket(name),
@@ -861,9 +846,7 @@ class _HlAboutSheet extends ConsumerWidget {
                         // Who pays whom, and when: funding settles on
                         // the hour.
                         Text(
-                          '${m.funding! >= 0 ? context.l10n.hlLongsPayShorts : context.l10n.hlShortsPayLongs} '
-                          '${(m.funding!.abs() * 100).toStringAsFixed(4)}%/hr '
-                          '(≈ ${(m.funding!.abs() * 24 * 365 * 100).toStringAsFixed(1)}% annualized) · '
+                          '${formatHlFundingLine(context.l10n, m.funding!)} · '
                           '${context.l10n.hlFundingIn(60 - DateTime.now().minute)}',
                           style: TextStyle(
                             color: c.textTertiary,
@@ -921,137 +904,6 @@ class _HlAboutSheet extends ConsumerWidget {
 
 // ───────────────────────── position summary ─────────────────────────
 
-class _PositionSummaryCard extends ConsumerWidget {
-  final HlPerpPosition position;
-
-  /// The market's current hourly funding rate, when known: adds the
-  /// "next funding" line.
-  final double? funding;
-  const _PositionSummaryCard({required this.position, this.funding});
-
-  /// "Next funding in 23 min: you pay about $0.12": the countdown to the
-  /// top of the hour and what this position pays or receives there at
-  /// the current rate. Null when the rate is unknown or zero.
-  String? _fundingLine(BuildContext context, WidgetRef ref) {
-    final rate = funding;
-    if (rate == null || rate == 0 || position.szi == 0) return null;
-    final now = DateTime.now();
-    final minutes =
-        hlNextFundingTime(now).difference(now).inMinutes.clamp(1, 60);
-    final estimate = hlFundingEstimate(
-      positionValue: position.positionValue,
-      isLong: position.isLong,
-      rate: rate,
-    );
-    final time = context.l10n.hlMinutesShort(minutes);
-    // The person's own money: the Bitcoin denomination setting applies.
-    final amount = estimate.amount < 0.01
-        ? '<${formatPolyAmount(ref, 0.01)}'
-        : formatPolyAmount(ref, estimate.amount);
-    return estimate.pays
-        ? context.l10n.hlNextFundingPay(time, amount)
-        : context.l10n.hlNextFundingReceive(time, amount);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final pos = position;
-    final sideColor = pos.isLong ? greenColor : redColor;
-    final liveMid = ref.watch(hyperliquidLiveMidProvider(pos.coin));
-    final pnl =
-        liveMid != null ? (liveMid - pos.entryPx) * pos.szi : pos.unrealizedPnl;
-    final pnlColor = pnl >= 0 ? greenColor : redColor;
-    final fundingLine = _fundingLine(context, ref);
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        HlPositionDetailSheet.show(
-          context,
-          position: pos,
-          market: ref.read(hyperliquidAccountMarketProvider(pos.coin)),
-        );
-      },
-      child: Container(
-        padding: EdgeInsets.all(14.w),
-        decoration: AppDecorations.card(context),
-        child: Row(
-          children: [
-            HlSideChip(
-                text: pos.isLong
-                    ? context.l10n.longLabel
-                    : context.l10n.shortLabel,
-                color: sideColor),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.chartYourInvestment,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    '${pos.isLong ? context.l10n.chartBoughtAt : context.l10n.chartSoldAt} ${formatHlPrice(pos.entryPx, decimalCap: ref.watch(hyperliquidAccountMarketProvider(pos.coin))?.pxDecimalCap)}',
-                    style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (fundingLine != null) ...[
-                    SizedBox(height: 2.h),
-                    Text(
-                      fundingLine,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                RollingNumberText(
-                  // The user's PnL is their money — honour the Bitcoin
-                  // denomination setting (fiat OR sats/BTC), like Predictions.
-                  // The sign stays explicit so gains read `+…`.
-                  text:
-                      '${pnl >= 0 ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
-                  style: TextStyle(
-                    color: pnlColor,
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  context.l10n.chartManage,
-                  style: TextStyle(
-                    color: kHlAccent,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ───────────────────────────── chart ─────────────────────────────
 
 class HlCandleChart extends ConsumerStatefulWidget {
@@ -1088,6 +940,12 @@ class HlCandleChart extends ConsumerStatefulWidget {
   /// scrub card still names a scrubbed bar.
   final bool showSummary;
 
+  /// The open position's screen: outside Advanced the chart reads like
+  /// the Predictions position's, with a "Your entry" caption on the entry
+  /// line, no liquidation line (its tile is under the chart) and no
+  /// volume. Advanced brings everything back.
+  final bool positionView;
+
   const HlCandleChart({
     super.key,
     required this.market,
@@ -1099,11 +957,28 @@ class HlCandleChart extends ConsumerStatefulWidget {
     this.showSignals = false,
     this.positionTagOpensPosition = true,
     this.showSummary = true,
+    this.positionView = false,
   });
+
+  /// Opens the chart under [key] in Advanced (editing) mode, as its old
+  /// pencil did: the host screen's "Advanced chart" row. Nothing while it
+  /// is already open. [source] is the host screen for
+  /// `advanced_chart_opened` (`market`, `position`).
+  static void openAdvanced(GlobalKey key, {String source = 'market'}) {
+    final state = key.currentState;
+    if (state is _HlCandleChartState && !state._drawingMode) {
+      state._toggleDrawingMode(source: source);
+    }
+  }
 
   @override
   ConsumerState<HlCandleChart> createState() => _HlCandleChartState();
 }
+
+/// Tests: the next Advanced opens as on a fresh launch, the tool rail
+/// out.
+@visibleForTesting
+void debugResetHlChartRail() => _HlCandleChartState._railShownThisSession = true;
 
 class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   String get _marketKey => hlChartDrawingMarketKey(widget.market);
@@ -1286,6 +1161,18 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   int? _armedColorValue;
 
   String? _selectedDrawingId;
+
+  /// Whether the edit mode's tool rail is out. Out on the first
+  /// Advanced of a session, so the tools are in sight; after that it
+  /// stays as the user last left it, on every chart, until the app
+  /// restarts.
+  static bool _railShownThisSession = true;
+  bool _railShown = _railShownThisSession;
+
+  void _toggleRail() {
+    HapticFeedback.selectionClick();
+    setState(() => _railShownThisSession = _railShown = !_railShown);
+  }
 
   /// Last non-empty candle set actually shown. While a newly-picked
   /// timeframe's window is still loading, the chart keeps painting these
@@ -1581,7 +1468,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             .notifier,
       );
 
-  void _toggleDrawingMode() {
+  void _toggleDrawingMode({String source = 'market'}) {
     HapticFeedback.selectionClick();
     final entering = !_drawingMode;
     setState(() {
@@ -1596,7 +1483,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     if (entering) {
       TrackingService.track(
         'advanced_chart_opened',
-        params: {'coin': widget.market.coin},
+        params: {'coin': widget.market.coin, 'source': source},
       );
     }
     widget.onAdvancedChanged?.call(entering);
@@ -1744,11 +1631,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final l = crowd.levels[i];
         final id = 'level:$i';
         targets[id] = (l.event, l.kind.name);
+        final arrow = l.kind == HlCrowdKind.reach ? '↑' : '↓';
         levels.add(ChartSignalLevel(
           id: id,
           price: l.strike,
-          label: '${l.kind == HlCrowdKind.reach ? '↑' : '↓'} '
+          label: '$arrow '
               '${l10n.hlChartCrowdLevel(_crowdPercent(l.chance), _crowdDay(l.day))}',
+          // Where the tag column cannot hold the day: the chance alone.
+          shortLabel: '$arrow ${_crowdPercent(l.chance)}',
         ));
       }
     }
@@ -1767,10 +1657,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         final fed = d.kind == HlMacroKind.fedDecision;
         final id = 'date:$i';
         targets[id] = (d.event, fed ? 'fed_date' : 'inflation_date');
+        final name = fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation;
         dates.add(ChartSignalDate(
           timeMs: d.day.millisecondsSinceEpoch,
-          label: '${fed ? l10n.hlChartFedDecision : l10n.hlChartUsInflation}'
-              ' · ${_crowdDay(d.day)}',
+          label: '$name · ${_crowdDay(d.day)}',
+          // Where the band cannot hold the day: the event alone.
+          shortLabel: name,
           id: id,
           pinWhenAhead: true,
         ));
@@ -2552,6 +2444,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final groups = _railGroups;
     final l10n = context.l10n;
     return Container(
+      key: const ValueKey('hl-chart-tool-rail'),
       width: 44,
       decoration: BoxDecoration(
         color: c.textPrimary.withValues(alpha: 0.04),
@@ -2561,6 +2454,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(
           children: [
+            // Tucks the rail away; the plot takes its width.
+            KeyedSubtree(
+              key: const ValueKey('hl-chart-rail-hide'),
+              child: _editIconButton(
+                c,
+                icon: Icons.chevron_left_rounded,
+                tip: l10n.chartToolsButton,
+                onTap: _toggleRail,
+              ),
+            ),
             _editIconButton(
               c,
               icon: Icons.touch_app_rounded,
@@ -2688,16 +2591,19 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     required Set<String> indicators,
     required bool magnet,
   }) {
+    final railShown = _railShown;
     final body = Row(
       crossAxisAlignment: widget.fillHeight
           ? CrossAxisAlignment.stretch
           : CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: widget.fillHeight ? null : widget.height.h,
-          child: _toolRail(c, drawings, magnet),
-        ),
-        SizedBox(width: 6.w),
+        if (railShown) ...[
+          SizedBox(
+            height: widget.fillHeight ? null : widget.height.h,
+            child: _toolRail(c, drawings, magnet),
+          ),
+          SizedBox(width: 6.w),
+        ],
         Expanded(
           child: Stack(
             fit: widget.fillHeight ? StackFit.expand : StackFit.loose,
@@ -2709,6 +2615,25 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   left: 0,
                   right: 0,
                   child: Center(child: _contextBar(c, drawings, selectedId)),
+                ),
+              // The rail tucked away: one small tab at the plot's top
+              // left brings it back.
+              if (!railShown)
+                Positioned(
+                  top: 6,
+                  left: 0,
+                  child: AppCard(
+                    key: const ValueKey('hl-chart-rail-show'),
+                    padding: EdgeInsets.zero,
+                    radius: 12.r,
+                    color: context.isDark ? c.surfaceElevated : Colors.white,
+                    child: _editIconButton(
+                      c,
+                      icon: Icons.chevron_right_rounded,
+                      tip: context.l10n.chartToolsButton,
+                      onTap: _toggleRail,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -2727,7 +2652,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           SizedBox(height: 6.h),
           _flexed(body),
           Padding(
-            padding: EdgeInsets.only(top: 4.h, left: 44 + 6.w),
+            padding:
+                EdgeInsets.only(top: 4.h, left: railShown ? 44 + 6.w : 0),
             child: Text(
               _toolbarHint(selectedId),
               style: TextStyle(color: c.textTertiary, fontSize: 11.5.sp),
@@ -2915,14 +2841,17 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final signals = _signalsFor(indicators, displayPx);
     final showPressure =
         widget.showSignals && !indicators.contains(kHlLayerPressureOff);
+    // The position screen's clean reading chart (see positionView).
+    final positionView = widget.positionView && !_drawingMode;
 
-    // Candle sizes or ranges, then the chart-type and Advanced buttons.
+    // Candle sizes or ranges, then the chart-type button. Advanced (the
+    // editing mode) opens from the host screen's "Advanced chart" row.
     final pillRow =
         Row(
           children: [
             // Candle sizes (candle charts) or ranges (line charts) scroll
-            // horizontally while the chart-type and Advanced buttons stay
-            // pinned on the right.
+            // horizontally while the chart-type button stays pinned on
+            // the right.
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -2965,33 +2894,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 ),
               ),
             ),
-            SizedBox(width: 6.w),
-            // ── "Advanced" pill: toggles the drawing tools (trendlines,
-            // levels, rays, rectangles) on the chart above. Drawings stay
-            // visible when the mode is off.
-            Tooltip(
-              message: context.l10n.advanced,
-              child: GestureDetector(
-                onTap: _toggleDrawingMode,
-                child: Container(
-                  padding: EdgeInsets.all(7.w),
-                  decoration: BoxDecoration(
-                    color: _drawingMode
-                        ? c.textPrimary.withValues(alpha: 0.10)
-                        : c.textPrimary.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(9.r),
-                  ),
-                  child: Icon(
-                    Icons.draw_rounded,
-                    size: 18.sp,
-                    color: _drawingMode ? c.textPrimary : c.textTertiary,
-                  ),
-                ),
-              ),
-            ),
-            // The old fullscreen icon is gone — the Advanced pill above
-            // is the ONE mode toggle (exit via the pill or the toolbar's
-            // Done button).
           ],
         );
 
@@ -3032,7 +2934,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             // The summary is the change over the visible span, named by
             // that span, as on TradingView.
             timeframeLabel: null,
-            showVolume: indicators.contains('vol'),
+            showVolume: indicators.contains('vol') && !positionView,
             renderAsLine: false,
             style: style,
             onMoreHistoryWanted: () => unawaited(_loadMoreHistory()),
@@ -3059,6 +2961,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onTradeLineTapped: (id) => _onTradeLineTapped(id, myPosition),
             signals: signals,
             onSignalTapped: _onSignalTapped,
+            // The header has the price: outside Advanced the reading
+            // chart has no live price pill, line or tag column, its levels
+            // inside the plot and the position's lines as captions.
+            cleanView: !_drawingMode,
+            positionView: positionView,
             // The interval's identity: a new one opens on its newest
             // bars.
             morphKey: 'interval:${candleIv.interval}',

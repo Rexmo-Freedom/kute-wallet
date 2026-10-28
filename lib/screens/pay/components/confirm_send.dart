@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
@@ -28,11 +29,15 @@ import 'package:kute/providers/bitcoin_software_send_provider.dart';
 import 'package:kute/models/onchain_types.dart' as onchain;
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:kute/services/sound_service.dart';
+import 'package:kute/services/success_feedback.dart'
+    show moneyFailureFeedbackAfterBand;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/scanned_address.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/models/breez/error_handling.dart';
+import 'package:kute/models/breez/sdk_operation_guard.dart'
+    show runSparkFlow;
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/helpers/orchestra_router.dart'
@@ -84,13 +89,15 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
-    show SafeSvgNetwork, kUsdMarkAsset;
+    show SafeSvgNetwork, kInvestmentsIcon;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -674,15 +681,34 @@ class _DestAsset {
   final String name;
   final String? iconUrl;
   final String? svgAsset;
+
+  /// Glyph mark: the Investments arrow on the dollar balance's row,
+  /// drawn the way the Move route card draws its glyph endpoints.
+  final IconData? icon;
   final Color color;
   _DestAsset(
       {required this.code,
       required this.name,
       required this.color,
       this.iconUrl,
-      this.svgAsset});
+      this.svgAsset,
+      this.icon});
 
   Widget iconWidget({required double size}) {
+    if (icon != null) {
+      return Builder(builder: (context) {
+        final c = context.colors;
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 0.3),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 0.56),
+        );
+      });
+    }
     if (svgAsset != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.3),
@@ -1289,16 +1315,30 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// pinned to this ID while the active account remains the spending wallet.
   String? _selectedWalletId;
 
-  /// Active step in the progressive-disclosure stepper.
-  ///   0 — Pay with (source pool)
+  /// Active page of the stepper. Recipient first (the send sheet's
+  /// medium-height step, founder decision October 2026), then the
+  /// amount on the keypad, then Review, then Sign for an external
+  /// signer:
+  ///   0 — Send to (address, paste, scan, recents, network)
   ///   1 — Amount (and Max)
-  ///   2 — Send to (network + address)
-  ///   3 — Review (sticky; Send button enabled)
-  /// Steps "lock" past their currently active value: tapping a
-  /// previously-completed step re-opens it for editing and resets
-  /// `_step` to that index, leaving downstream entries intact but
-  /// re-confirmable.
-  int _step = 0;
+  ///   2 — Review (Send button enabled)
+  ///   3 — Sign (hardware / watch-only only)
+  /// Going back re-opens the previous step for editing, leaving later
+  /// entries intact but re-confirmable.
+  int _step = _kSendToPage;
+
+  static const int _kSendToPage = 0;
+  static const int _kAmountPage = 1;
+  static const int _kReviewPage = 2;
+
+  /// The first page this send shows: Send to, or past what a preset
+  /// address (and its own amount) already answered. Its leading control
+  /// closes the sheet, and only on it may a drag close the sheet.
+  int get _firstVisiblePage => _skipAmountStep
+      ? _kReviewPage
+      : _skipSendToStep
+          ? _kAmountPage
+          : _kSendToPage;
 
   /// True once each step has been confirmed at least once. Used to
   /// render the collapsed summary line on completed sections.
@@ -1307,13 +1347,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// True when the address was preloaded into `sendTxProvider` before
   /// this screen mounted (scanner / contact entry) AND the detected
   /// rail is a native BTC one — Bitcoin on-chain, Lightning, Spark.
-  /// The Send-to step (index 1) is then hidden from the stepper and
-  /// the Amount Continue jumps straight to Review.
+  /// The Send-to step (page 0) is then hidden from the stepper and the
+  /// send opens on Amount, whose Continue goes to Review.
   bool _skipSendToStep = false;
 
   /// True when the preloaded address already carries a fixed amount
   /// (Bolt11/12 invoice with amount, Spark invoice with amount). The
-  /// Amount step (index 0) is then hidden too and the user lands
+  /// Amount step (page 1) is then hidden too and the user lands
   /// directly on Review.
   bool _skipAmountStep = false;
 
@@ -1387,19 +1427,22 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     btcFormat = settings.btcFormat;
     currency = settings.currency;
     final sendTxState = ref.read(sendTxProvider);
-    // The amount opens in the currency chosen in Settings when it is one
-    // the keypad can price (owner decision); bitcoin stays one flip away.
-    // Written after the first frame so an autoDispose default is not
-    // fought during build.
-    final settingsFiat = settings.currency.toUpperCase();
-    if (const {'USD', 'EUR', 'GBP', 'BRL', 'CHF'}.contains(settingsFiat)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (ref.read(sendTxProvider).amount > 0) return;
-        ref.read(inputCurrencyProvider.notifier).state = settingsFiat;
-        _lastFiatUnit = settingsFiat;
-      });
-    }
+    // The amount always opens in Bitcoin: sats, or BTC when that is the
+    // Bitcoin unit in Settings (founder decision) — never fiat, whatever
+    // the display currency or the unit a previous send flipped to. Fiat
+    // stays one flip away. `inputCurrencyProvider` already defaults to
+    // this; the post-frame write only matters when another listener kept
+    // an older unit alive, and runs after the first frame so the
+    // autoDispose default is not fought during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final entryUnit =
+          bitcoinEntryUnit(ref.read(settingsProvider).btcFormat);
+      if (ref.read(inputCurrencyProvider) == entryUnit) return;
+      ref.read(inputCurrencyProvider.notifier).state = entryUnit;
+      final sats = ref.read(sendTxProvider).amount;
+      if (sats > 0) updateControllerText(sats);
+    });
 
     // Capture the entry account once. The header identifies this wallet;
     // changing wallets happens before entering Send. Step 0 is Amount.
@@ -1417,7 +1460,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Default initial step. Overridden below when the address is
     // preset (scanner / contact / external-entry) so the stepper
     // collapses past steps the user has effectively already answered.
-    _step = 0;
+    _step = _kSendToPage;
 
     // Pre-filled state shortcut. The smart scanner and any other
     // upstream entry writes `address` (and optionally `amount`) into
@@ -1443,7 +1486,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (isNativeBtcRail && hasFixedAmount) {
         _skipSendToStep = true;
         _skipAmountStep = true;
-        _step = 2;
+        _step = _kReviewPage;
         // Both Amount and Send-to are answered by the preset address +
         // embedded amount, so the user lands straight on Review without
         // tapping Continue on either. Pre-mark them complete or the
@@ -1465,12 +1508,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         TrackingService.track('send_invoice_fastpath',
             params: {'entry': 'mount'});
       } else if (isNativeBtcRail) {
-        _skipSendToStep = true; // Amount → Review, skip Send-to
-        _step = 0;
+        // Opens on Amount, whose Continue goes to Review. The preset
+        // address answers Send-to, so it counts as done (the Review
+        // "Send" button gates on {0, 1}).
+        _skipSendToStep = true;
+        _step = _kAmountPage;
+        _completedSteps.add(_kSendToPage);
       }
-      // Non-native rails fall through: _step stays 0, no auto-skip;
-      // the user advances through Amount → Send-to and the
-      // attention-flagged tile on Send-to forces a chain pick.
+      // Non-native rails fall through: the send opens on Send-to with
+      // the address in, and the attention-flagged tile there forces a
+      // chain pick before Amount.
     }
     _pageCtrl = PageController(initialPage: _step);
 
@@ -1478,8 +1525,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // outer `pay_send` route, so each stepper page needs its own emit.
     // Fires once on mount + on every swipe/animate to a new page.
     const stepNames = [
-      'pay_send_amount',
       'pay_send_send_to',
+      'pay_send_amount',
       'pay_send_review',
       'pay_send_sign',
     ];
@@ -1530,6 +1577,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         'source_asset': 'btc',
         'address_prefilled': preAddress.isNotEmpty,
         'amount_prefilled': sendTxState.amount > 0,
+        'presentation': SendSheetScope.presented(context) ? 'sheet' : 'screen',
       },
     );
     if (_step > 0) {
@@ -1539,6 +1587,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Opening on Send to: offer a recognisable address or invoice
+      // already sitting in the clipboard, as arriving on it always has.
+      if (_step == _kSendToPage) unawaited(_checkClipboardForAddress());
       // The PSBT is built from the send wallet's own BDK state, so that
       // state has to be loaded before the user can draft one. Sync it
       // here and keep it fresh for as long as the flow is open.
@@ -2081,6 +2132,25 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     return _formatFeeError(preview.error!);
   }
 
+  /// The send went out ([_sendCompleted] is set): the Send block's
+  /// rubber band snaps (a light tap) and the success screen waits the
+  /// bounded moment the snap takes ([RubberBand.settle]) before it
+  /// covers the block. Nothing waits under Reduce Motion or when the
+  /// block is not on screen.
+  Future<void> _letSendBandSnap(BuildContext context) async {
+    if (!mounted || !context.mounted) return;
+    setState(() {});
+    await RubberBand.settle(context);
+  }
+
+  /// The send failed (an error is shown): the soft release every money
+  /// action ends with, played once the Send block's band has let go
+  /// ([moneyFailureFeedbackAfterBand]; the band itself stays quiet, as
+  /// its stop may be the person's own). Never called for a declined
+  /// scan, a cancel or a stop for re-review.
+  void _sendFailedFeedback() => moneyFailureFeedbackAfterBand(
+      () => mounted && (isProcessing || _sendAwaitingReady));
+
   /// Send tap. The button is live as soon as the Review step itself
   /// is valid, so this is where the waiting happens: dispatch at once
   /// when the draft is ready, otherwise spin, poll, and dispatch the
@@ -2134,6 +2204,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         'reason': failure == null ? 'timeout' : 'dead_end',
       });
       if (!context.mounted) return;
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: failure ?? context.l10n.sendWaitForFee,
         error: true,
@@ -2296,9 +2367,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                     // the dollar row.
                     : (top?.name ?? row.displayName),
                 color: _getCoinColor(normCode),
-                // The dollar balance has a local mark; the catalogue
-                // ships no artwork for it.
-                svgAsset: isDollars ? kUsdMarkAsset : top?.svgAsset,
+                // The dollar balance as a destination wears the
+                // Investments arrow, never the USDB coin; the catalogue
+                // ships no artwork for it either way.
+                svgAsset: isDollars ? null : top?.svgAsset,
+                icon: isDollars ? kInvestmentsIcon : null,
                 // No local brand SVG → the same remote mark the picker
                 // row showed, so the selection summary and the
                 // transaction modal stay visually consistent.
@@ -2371,12 +2444,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (_hasSource && _isSparkHotWalletSource()) {
         final orchChain = orchestraSendChainFor(asset.code, network.network);
         if (orchChain != null) {
+          // The address the send's quote pays, once it reads as a valid
+          // address: a half-typed one would only fail the estimate.
+          final typed = addressController.text.trim();
           final est = await OrchestraService.getEstimate(
             sourceChain: 'spark',
             sourceAsset: 'BTC',
             destinationChain: orchChain,
             destinationAsset: orchestraAssetCodeFor(asset.code),
             amount: amount.toString(), // sats — source smallest units
+            recipientAddress:
+                _detectAddressType(typed).valid ? typed : null,
           );
           final grossOut = est.data == null
               ? 0.0
@@ -2442,8 +2520,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   static String _sendStepName(int page) => switch (page) {
-        0 => 'amount',
-        1 => 'send_to',
+        0 => 'send_to',
+        1 => 'amount',
         2 => 'review',
         3 => 'sign',
         _ => 'page_$page',
@@ -2503,6 +2581,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               },
         'custom_fee': customFee != null,
         'coin_control': utxos > 0,
+        if (utxos > 0) 'utxo_count': utxos,
         if (utxos > 0) 'utxo_count_bucket': _utxoCountBucket(utxos),
       };
       _lastSendInputs = inputs;
@@ -2826,6 +2905,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final amount = ref.read(sendTxProvider).amount;
 
     if (withdrawalAddress.isEmpty) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.enterAAssetCodeAddress(asset.code),
           error: true,
@@ -2844,6 +2924,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         !_isSparkHotWalletSource() ||
         _swapQuote?.provider != 'Orchestra' ||
         orchestraSendChainFor(asset.code, network.network) == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -2852,7 +2933,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       return;
     }
     // Spark hot wallet with a live Orchestra quote. 100% resolves
-    // here, when the quote is requested: the freshly synced Spark
+    // here, when the quote is requested: the SDK's cached Spark
     // balance, not the figure the chip seeded on the Amount step. A
     // Spark-to-Spark deposit has no fee on top, so the whole balance
     // is what the quote asks for and the SDK sends.
@@ -3074,6 +3155,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _signPageError = _humanizeSignError(e);
           _signPageErrorDetail = errorDetailText(e);
         });
+        _sendFailedFeedback();
         // Still animate the user onto the Sign page so the error is
         // visible alongside the inline retry CTA — staying on Review
         // would just dump a snackbar on a screen with no visible
@@ -3166,19 +3248,27 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// said in full by that sentence; only an unrecognised one adds a
   /// Details disclosure holding the raw engine message. Nothing is
   /// retried from here; the user re-reviews and taps Send again.
-  void _showSendFailed(Object error, {String? message}) {
+  ///
+  /// [amountSats] is the amount that did not go, shown as the sheet's
+  /// hero when the path knows it.
+  void _showSendFailed(Object error, {String? message, int? amountSats}) {
     if (!mounted) return;
+    _sendFailedFeedback();
     final known = message == null ? _knownSendErrorCopy(error) : null;
     final copy = message ??
         known ??
         userErrorCopy(context, error, fallback: context.l10n.sendCouldNotSend);
     final raw = error.toString().trim();
     final nav = Navigator.of(context);
+    final btcFormat = ref.read(settingsProvider).btcFormat;
     pushKuteSuccessOverlay(
       navigator: nav,
       overlay: KuteConfirmation(
-        success: false,
+        tone: KuteConfirmationTone.failure,
         message: context.l10n.sendFailedTitle,
+        amount: amountSats != null && amountSats > 0
+            ? '${amountSats.toFormattedString(btcFormat)} $btcFormat'
+            : null,
         detail: copy,
         receipt: known != null || raw.isEmpty || raw == copy
             ? null
@@ -3255,6 +3345,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (chain == null) {
       // Shouldn't happen — the dispatch gate checks the table — but a
       // missing route must never dead-end a send silently.
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -3384,6 +3475,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       failOrchestraSend('quote_rejected', 'quote');
       if (!mounted || !context.mounted) return;
       setState(() => isProcessing = false);
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: e.messageFor(context.l10n),
         error: true,
@@ -3407,6 +3499,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         failOrchestraSend('settlement_blocked_pending', 'quote');
         if (!mounted || !context.mounted) return;
         setState(() => isProcessing = false);
+        _sendFailedFeedback();
         showMessageSnackBar(
           message: context.l10n.settlementBlockedPending,
           error: true,
@@ -3440,6 +3533,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // moved, so bailing is safe.
       if (!mounted || !context.mounted) return;
       setState(() => isProcessing = false);
+      // A declined prompt is the person's own stop: no failure tap.
+      if (quoteError != 'settlement_declined') _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.swapRouteTemporarilyUnavailable,
         error: true,
@@ -3561,12 +3656,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // (background_sync_provider.dart) — same rule as move_sheet's
       // convert path. Firing here too double-counted every send.
 
-      if (mounted) {
+      if (context.mounted) await _letSendBandSnap(context);
+      if (mounted && context.mounted) {
         showFullscreenTransactionSendModal(
           context: context,
           asset: 'BTC → ${asset.code}',
-          amount:
-              '${_formatSmartDecimals(estOut > 0 ? estOut : btcAmount)} ${asset.code}',
+          // What arrives is the quote's estimate until the order settles;
+          // without one, what left is the bitcoin, in bitcoin.
+          amount: estOut > 0
+              ? '≈ ${_formatSmartDecimals(estOut)} ${asset.code}'
+              : '${_formatSmartDecimals(btcAmount)} BTC',
           fiat: false,
           receiveAddress: toAddress,
           isSwap: true,
@@ -4102,7 +4201,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           mounted &&
           isProcessing &&
           _hardwareBuildGeneration <= hardwareGeneration + 1,
-      dispatch: () => _dispatchSend(context, ref),
+      // A money flow until it ends (prepare, review, biometric prompt,
+      // broadcast): a pull-to-refresh meanwhile never reconnects the SDK.
+      dispatch: () => runSparkFlow(() => _dispatchSend(context, ref)),
     );
   }
 
@@ -4115,6 +4216,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // read the context across an async gap.
     final confirmedWallet = _resolveSourceWallet();
     if (confirmedWallet == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.sendChooseAccountFirst,
           error: true,
@@ -4128,6 +4230,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     final confirmedDestination = _selectedDestNetwork;
 
     if (address.isEmpty || amount <= 0) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.invalidAddressOrAmount,
           error: true,
@@ -4188,6 +4291,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       if (hwInputType == AnalyzedPaymentType.lightning ||
           hwInputType == AnalyzedPaymentType.lnurl) {
         if (mounted) {
+          _sendFailedFeedback();
           showMessageSnackBar(
             message: context.l10n.sendWalletCantSignLightningDestinationPicker,
             error: true,
@@ -4627,7 +4731,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       );
       TrackingService.moneyFlowFinished('send');
 
-      if (mounted) {
+      if (context.mounted) await _letSendBandSnap(context);
+      if (mounted && context.mounted) {
         SoundService.playSend();
         BackgroundSyncService().syncNow();
         // Asset label reflects the *resolved* rail (bip21 → lightning
@@ -4673,6 +4778,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         try {
           successFiat = ref.read(conversionToFiatProvider(actualSentAmount));
         } catch (_) {}
+        // The fee row only when the fee is the one charged: a Lightning
+        // payment's figure is the routing cap, not what it cost.
+        final exactFeeSats = resolvedType == AnalyzedPaymentType.lightning ||
+                resolvedType == AnalyzedPaymentType.lnurl
+            ? null
+            : sentFeeSats;
         showFullscreenTransactionSendModal(
           context: context,
           asset: successAsset,
@@ -4680,6 +4791,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           fiat: false,
           fiatAmount: successFiat,
           receiveAddress: successReceiveAddress,
+          fees: [
+            if (exactFeeSats != null)
+              SendFeeDetail(
+                  label: context.l10n.fee,
+                  value: '${exactFeeSats.toFormattedString(btcFormat)} $btcFormat'),
+          ],
         );
 
         final network = sendNetwork;
@@ -4738,7 +4855,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ref.invalidate(prepareGenericPaymentProvider);
         ref.invalidate(prepareLightningPaymentProvider);
       }
-      if (mounted) _showSendFailed(e);
+      if (mounted) _showSendFailed(e, amountSats: actualSentAmount);
     } finally {
       if (mounted) setState(() => isProcessing = false);
     }
@@ -4749,6 +4866,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     if (_selectedDestAsset != null ||
         _selectedDestNetwork != null ||
         _detectAddressType(address).label != 'Bitcoin on-chain') {
+      _sendFailedFeedback();
       showMessageSnackBar(
         message: context.l10n.sendThisWalletCanOnlySendBitcoin,
         error: true,
@@ -4764,6 +4882,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         : previewState.valueOrNull;
     final feeRate = ref.read(getCustomFeeRateProvider).valueOrNull;
     if (!_softwareReviewReady(reviewedPsbt, amount) || feeRate == null) {
+      _sendFailedFeedback();
       showMessageSnackBar(
           message: context.l10n.sendWaitForFee, error: true, context: context);
       return;
@@ -4878,6 +4997,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           .scanBdkScope(source: 'bitcoin_send')
           .catchError((_) {}));
       if (!context.mounted) return;
+      await _letSendBandSnap(context);
+      if (!mounted || !context.mounted) return;
       final btcFormat = ref.read(settingsProvider).btcFormat;
       showFullscreenTransactionSendModal(
         context: context,
@@ -4886,6 +5007,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             '${result.recipientSats.toFormattedString(btcFormat)} $btcFormat',
         fiat: false,
         receiveAddress: request.address,
+        txid: result.txid,
+        fees: [
+          SendFeeDetail(
+              label: context.l10n.networkFee2,
+              value: '${result.feeSats.toFormattedString(btcFormat)} $btcFormat'),
+        ],
       );
       ref.read(sendTxProvider.notifier).resetToDefault();
     } catch (error) {
@@ -4919,7 +5046,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           await showStepUpReviewAgain(context,
               action: SensitiveAction.send, field: DriftField.other);
         } else {
-          _showSendFailed(error);
+          _showSendFailed(error, amountSats: amount);
         }
       }
     } finally {
@@ -4944,7 +5071,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// auto-advance.
   void _onLeadingTap() {
     if (_signerBusy) return;
-    if (_step <= 0) {
+    // The first page this send shows closes it; a page a preset address
+    // already answered (hidden from the progress bar) is never stepped
+    // back into.
+    if (_step <= _firstVisiblePage) {
       _closeAndReset();
       return;
     }
@@ -5062,8 +5192,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Rebuild on BTC/USD moves: Review's quote fee note reads it.
     ref.watch(selectedCurrencyProvider('USD')).toDouble();
 
+    // The send sheet: medium on the recipient step until one is in,
+    // full from there on (and from the start when a scan or deep link
+    // brought the recipient). A drag or a scrim tap may close it only
+    // on the first step and never while a send, an approval or a
+    // signer is busy.
+    final busy = isProcessing || _signerBusy || _paymentAuthInFlight;
+    final onFirstPage = _step <= _firstVisiblePage;
+    SendSheetScope.sync(
+      context,
+      expanded: _step != _kSendToPage || addressController.text.isNotEmpty,
+      dismissible: onFirstPage && !busy,
+    );
+
     return PopScope(
-      canPop: !isProcessing && !_signerBusy,
+      // Past the first step, system back steps back inside the send
+      // (onPopInvoked below) instead of dropping it.
+      canPop: !busy && onFirstPage,
       // Reset send-tx state when this route is popped — but DO NOT
       // call context.pop() again here. onPopInvoked fires *during*
       // the pop already in progress; calling pop again from inside
@@ -5071,7 +5216,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // close-button branch still calls _closeAndReset (which
       // triggers the pop that lands here), so resetting once is
       // enough.
-      onPopInvoked: (bool didPop) {
+      onPopInvokedWithResult: (bool didPop, Object? _) {
         // Defer the provider mutation. `onPopInvoked` runs
         // inside the navigator's build/route-update phase —
         // when the resume handler routes to `/home` and pops
@@ -5083,6 +5228,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             if (!mounted) return;
             _resetSendState();
           });
+        } else if (!busy && !onFirstPage) {
+          _onLeadingTap();
         }
       },
       child: KeyboardDismissOnTap(
@@ -5114,9 +5261,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             // gesture cheap to undo a mis-click without
             // losing the whole address/amount they typed.
             // Back uses the same thin chevron as KuteBackButton
-            // everywhere else; step 0 keeps a close glyph since
-            // there's nothing to go back to.
-            leading: _step == 0
+            // everywhere else; the first page keeps a close glyph
+            // since there's nothing to go back to.
+            leading: onFirstPage
                 ? KuteBareCloseButton(
                     onPressed: () {
                       if (!isProcessing) _onLeadingTap();
@@ -5184,8 +5331,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // completed get re-indexed to the visible positions.
         final internalTotal = isExternalSigner ? 4 : 3;
         final hidden = <int>{};
-        if (_skipAmountStep) hidden.add(0);
-        if (_skipSendToStep) hidden.add(1);
+        if (_skipSendToStep) hidden.add(_kSendToPage);
+        if (_skipAmountStep) hidden.add(_kAmountPage);
         final visiblePages = <int>[
           for (var i = 0; i < internalTotal; i++)
             if (!hidden.contains(i)) i
@@ -5222,30 +5369,25 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         setState(() => _step = i);
         // Arriving on Send to: offer a recognisable address
         // or invoice already sitting in the clipboard.
-        if (i == 1) _checkClipboardForAddress();
+        if (i == _kSendToPage) _checkClipboardForAddress();
       },
+      // No visible step headings (founder decision, 14 October 2026):
+      // each page is announced to screen readers by name and its content
+      // starts right under the progress bar.
       pages: [
-        StepPageWrapper(
-          title: context.l10n.amount,
-          subtitle: _hasSource
-              ? context.l10n.sendHowMuchBitcoin
-              : context.l10n.sendHowMuch,
-          colors: c,
-          child: _amountPage(c, currentInputCurrency, btcFormat, btcSats),
-        ),
-        StepPageWrapper(
+        SendStepPage(
           title: context.l10n.sendTo,
-          subtitle: context.l10n.sendWhereShouldItLand,
-          colors: c,
           child: _sendToPage(c),
         ),
-        StepPageWrapper(
+        SendStepPage(
+          title: context.l10n.amount,
+          child: _amountPage(c, currentInputCurrency, btcFormat, btcSats),
+        ),
+        SendStepPage(
           title: context.l10n.sendReview,
-          subtitle: context.l10n.sendConfirmTheDetails,
           trailing: const AskSalChip(
             advisorContext: AdvisorContext(surface: 'send_review'),
           ),
-          colors: c,
           child: _reviewPage(c, btcFormat),
         ),
         // Step 3 (Sign) — only meaningful for hardware /
@@ -5264,35 +5406,42 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               : settings.activeWallet;
           return w != null && (w.isHardware || w.isWatchOnly);
         })())
-          StepPageWrapper(
+          SendStepPage(
             title: context.l10n.sendSign,
-            subtitle: context.l10n.sendSignTheTransactionOnYourDevice,
-            colors: c,
-            // Keep the same display typography as the
-            // earlier steps so the user doesn't jump from
-            // 32sp titles on Amount / Send to / Review
-            // into a noticeably smaller Sign step. The
-            // padding inside `_SignPageContainer` is
-            // already trimmed enough to fit the device
-            // picker without making the title small.
-            child: _signPage(c, btcFormat),
+            // The one line a hardware signer needs before the device
+            // picker, kept as plain text now that the heading is gone.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  context.l10n.sendSignTheTransactionOnYourDevice,
+                  style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Expanded(child: _signPage(c, btcFormat)),
+              ],
+            ),
           ),
       ],
-      // Shared bottom CTA — single Continue button that
-      // adapts per step. Hidden on Step 0 (auto-advance on
-      // tile tap) and Step 3 (slide-to-send lives in the
-      // page itself).
+      // Shared bottom CTA — single Continue button on Send to
+      // and Amount. Review and Sign own their primary action in
+      // the page itself.
       cta: SharedStepCta(
         step: _step,
         colors: c,
-        visibleSteps: const {0, 1},
+        visibleSteps: const {_kSendToPage, _kAmountPage},
         enabled: () {
-          if (_step == 0) {
+          if (_step == _kAmountPage) {
             final amount = ref.watch(sendTxProvider).amount;
             return amount > 0 &&
                 !_amountExceedsPool(amount, _selectedPoolSats(btcSats));
           }
-          if (_step == 1) {
+          if (_step == _kSendToPage) {
             final addr = addressController.text;
             if (addr.isEmpty) return false;
             final detected = _detectAddressType(addr);
@@ -5347,8 +5496,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           return false;
         }(),
         onContinue: () {
-          if (_step == 0) _confirmStep(0);
-          if (_step == 1) _confirmStep(1);
+          if (_step == _kSendToPage || _step == _kAmountPage) {
+            _confirmStep(_step);
+          }
         },
       ),
     );
@@ -7333,32 +7483,23 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     FocusManager.instance.primaryFocus?.unfocus();
     _completedSteps.add(step);
     if (then != null) then();
-    // Phase 3 send funnel: confirming the Amount step (index 0) is the
+    // Phase 3 send funnel: confirming the Amount step (page 1) is the
     // amount-entered milestone. One-shot via a State flag.
-    if (step == 0 && !_amountEnteredTracked) {
+    if (step == _kAmountPage && !_amountEnteredTracked) {
       _amountEnteredTracked = true;
       final type = ref.read(sendTxProvider).type;
       TrackingService.sendAmountEntered(network: _networkLabel(type));
     }
-    if (_step == step && step < 2) {
-      // Address-preset shortcut: when the user landed on Amount
-      // with the address already filled by the scanner / contact
-      // entry AND the address is a native BTC rail, the Send-to
-      // step has nothing to ask. Jump straight to Review. Non-native
-      // rails still need Send-to so the user picks a chain.
-      int targetPage = step + 1;
-      if (step == 0 && _skipSendToStep) {
-        targetPage = 2;
-        // The Send-to step is hidden for address-preset native BTC rails
-        // (scanner / contact entry), so the user never taps Continue on
-        // it. Mark it complete anyway — the Review "Send" button gates on
-        // `_completedSteps.containsAll({0, 1})`, and without this the
-        // button stays disabled forever on the LNURL-via-scanner path.
-        _completedSteps.add(1);
-      }
+    if (_step == step && step < _kReviewPage) {
+      // Send to → Amount → Review. A preset native address opens the
+      // send on Amount (Send to hidden, and marked done at mount so the
+      // Review "Send" button, which gates on {0, 1}, is live on the
+      // LNURL-via-scanner path), so its Continue lands on Review the
+      // same way.
+      final int targetPage = step + 1;
       // Phase 3 send funnel: arriving at the Review page (index 2).
       // One-shot via a State flag so swiping back/forward doesn't dupe.
-      if (targetPage == 2 && !_reviewShownTracked) {
+      if (targetPage == _kReviewPage && !_reviewShownTracked) {
         _reviewShownTracked = true;
         final type = ref.read(sendTxProvider).type;
         TrackingService.sendReviewShown(network: _networkLabel(type));
@@ -7378,14 +7519,13 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // debounce and force a fresh quote so the user doesn't sit on
       // a perpetual "Calculating…" if they advanced before the
       // debounce timer fired.
-      if (step == 1 && _selectedDestAsset != null) {
+      if (targetPage == _kReviewPage && _selectedDestAsset != null) {
         _rateDebounce?.cancel();
         _fetchRate();
       }
-      // Send-to → Review transition: if the user tapped MAX before
-      // we knew the destination address, the value we stored was the
-      // raw balance (no fee deduction). Now that the address is set,
-      // recompute the real sendable amount so Review/Sign show what
+      // Amount → Review transition: a MAX stored on Amount can be the
+      // raw balance (no fee deduction). With the address set and the
+      // amount final, recompute the real sendable amount so Review/Sign show what
       // will actually hit the recipient (balance − network fee at the
       // currently-selected fee rate). Without this, on small balances
       // the displayed MAX exceeds the drainable amount and broadcast
@@ -7395,7 +7535,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // from the SDK's own send-all preparation.
       // BDK (hot, hardware, watch-only): build a probe drain PSBT and
       // read what its single output pays.
-      if (step == 1 &&
+      if (targetPage == _kReviewPage &&
           _isDraining &&
           _hasSource &&
           _selectedDestAsset == null) {
@@ -7563,18 +7703,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     }
   }
 
-  /// Inline Scan on the recipient field. Unified on the smart scanner
-  /// (camera, Gallery and Paste live there, plus cross-chain
-  /// detection) in return-value mode so it hands the raw payload back
-  /// here instead of pushing a fresh confirm_send.
+  /// Inline Scan on the recipient field: the scanner sheet over the send
+  /// sheet, in recipient mode, so it hands the payload back here instead
+  /// of pushing a fresh confirm_send. Closing it leaves Send as it was.
   Future<void> _scanAddress() async {
-    final result = await context.pushNamed<String>(
-      'smartScanner',
-      extra: const {'returnRaw': true},
-    );
-    if (!mounted) return;
-    final scanned = result?.trim() ?? '';
-    if (scanned.isEmpty) return;
+    final scanned = await showScannerSheet(context);
+    if (!mounted || scanned == null) return;
     _commitPastedAddress(scanned, method: 'scanned');
   }
 
@@ -7978,30 +8112,42 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         // Hardware / watch-only — primary action says "Continue"
         // and advances to the Sign step. Hot wallets dispatch
         // straight away, so the button reads "Send".
-        SendReviewAction(
-          // Hardware → "Continue" builds the PSBT and advances to the
-          // Sign step (handled inside `_handleSend` →
-          // `_handleHardwareSigning`). Hot wallets dispatch directly.
-          label: (isProcessing || _sendAwaitingReady)
-              ? (isExternalSigner
-                  ? context.l10n.sendBuildingUnsignedTransaction
-                  : context.l10n.sendSendingEllipsis)
-              : (isExternalSigner
-                  ? context.l10n.continueLabel
-                  : context.l10n.send),
-          // Spins for the whole send, as the dollar send's button does —
-          // not only for the post-tap readiness wait. A send in flight
-          // used to read as a greyed-out button with nothing moving.
-          loading: isProcessing || _sendAwaitingReady,
-          onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
-          // While the draft is still resolving the footnote says the
-          // fee is being worked out rather than promising an instant
-          // debit the tap cannot yet honour.
-          footnote: !sendReadyNow
-              ? context.l10n.sendWaitForFee
-              : isExternalSigner
-                  ? context.l10n.sendApproveOnYourDeviceNext
-                  : context.l10n.sendFundsLeaveYourWalletImmediately,
+        //
+        // From the Send tap until the money is out, the block under the
+        // thumb wears the rubber band: it eases up while the send is
+        // readied, holds through the face scan, pulls harder while the
+        // SDK broadcasts, then snaps back on success or lets go softly
+        // on a failure or a declined scan. A hardware "Continue" only
+        // builds the PSBT, so it never pulls.
+        SendRubberBand(
+          busy: !isExternalSigner && (isProcessing || _sendAwaitingReady),
+          authorising: _paymentAuthInFlight,
+          succeeded: _sendCompleted,
+          child: SendReviewAction(
+            // Hardware → "Continue" builds the PSBT and advances to the
+            // Sign step (handled inside `_handleSend` →
+            // `_handleHardwareSigning`). Hot wallets dispatch directly.
+            label: (isProcessing || _sendAwaitingReady)
+                ? (isExternalSigner
+                    ? context.l10n.sendBuildingUnsignedTransaction
+                    : context.l10n.sendSendingEllipsis)
+                : (isExternalSigner
+                    ? context.l10n.continueLabel
+                    : context.l10n.send),
+            // Spins for the whole send, as the dollar send's button does —
+            // not only for the post-tap readiness wait. A send in flight
+            // used to read as a greyed-out button with nothing moving.
+            loading: isProcessing || _sendAwaitingReady,
+            onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
+            // While the draft is still resolving the footnote says the
+            // fee is being worked out rather than promising an instant
+            // debit the tap cannot yet honour.
+            footnote: !sendReadyNow
+                ? context.l10n.sendWaitForFee
+                : isExternalSigner
+                    ? context.l10n.sendApproveOnYourDeviceNext
+                    : context.l10n.sendFundsLeaveYourWalletImmediately,
+          ),
         ),
       ],
     );
@@ -8601,17 +8747,8 @@ class _SwapConfirmationPageState extends State<_SwapConfirmationPage> {
                                     _OverallProgressBar(
                                       progress: _overallProgress(ctrl),
                                       isFailed: isFailed,
-                                      // Shimmer runs while we're actively
-                                      // executing AND not paused mid-flight
-                                      // (awaiting Send tap), and not in the
-                                      // celebratory done state — those are
-                                      // calm moments, the bar should rest.
-                                      isActive: isExecuting &&
-                                          !isAwaitingNext &&
-                                          !isDone &&
-                                          !isFailed,
                                       trackColor: c.surfaceLight,
-                                      accent: c.accent,
+                                      accent: _kStepProgressAccent,
                                     ),
                                     SizedBox(height: 14.h),
                                     for (var i = 0; i < ctrl.steps.length; i++)
@@ -9194,12 +9331,27 @@ class _HeadlineIconState extends State<_HeadlineIcon>
   }
 }
 
-/// Animated progress row used in the swap confirmation page. Three
-/// pieces of motion:
-///   1. Icon badge pulses softly while in-progress (scale + alpha).
-///   2. Indeterminate progress bar slides L→R until the step lands.
-///   3. Bar snaps to 100 % full and stays green when the step is done.
-/// Failed states freeze the bar mid-progress and tint everything red.
+/// The progress orange of the calm money language: connector fills and
+/// progress-bar fills on the send steps, the same hue in light and dark
+/// (the theme accent is blue in light mode).
+const Color _kStepProgressAccent = Color(0xFFF29B2D);
+
+/// Where a working step's bar creeps to: it never reads as finished
+/// until the step really lands.
+const double _kStepCreepTarget = 0.9;
+
+/// The static fill a working step's bar rests at under Reduce Motion.
+const double _kStepRestFill = 0.5;
+
+/// Progress row used in the swap confirmation page, in the calm money
+/// language. Only quiet motion:
+///   1. The working step's bar creeps slowly (ease-out) toward 90 %,
+///      and a single small dot beside its label softly breathes.
+///   2. When the step lands, the bar runs to 100 %, the connector below
+///      fills top to bottom once, and the check fades/scales in
+///      (≤200 ms, no overshoot).
+/// Failed states freeze the bar where it stopped and tint it red.
+/// Reduce Motion draws every state at rest.
 class _AnimatedStepRow extends StatefulWidget {
   final _SwapStep step;
   final bool isLast;
@@ -9217,52 +9369,30 @@ class _AnimatedStepRow extends StatefulWidget {
 
 class _AnimatedStepRowState extends State<_AnimatedStepRow>
     with TickerProviderStateMixin {
-  /// Continuous soft pulse on the badge while in-progress.
-  late AnimationController _pulseCtrl;
-
-  /// Continuous slide for the indeterminate progress bar.
+  /// Width of the step's bar (0..1): a slow creep toward
+  /// [_kStepCreepTarget] while working, a short run to 1.0 when done.
   late AnimationController _barCtrl;
 
-  /// Faster overlay shimmer that runs alongside the slide.
-  late AnimationController _shimmerCtrl;
-
-  /// One-shot "wake" pop when a step transitions pending → inProgress —
-  /// the badge pinches down then springs up so the eye lands on it.
-  late AnimationController _wakeCtrl;
-
-  /// One-shot "fill" when a step transitions inProgress → done — drives
-  /// the connector line drawing top-to-bottom AND the bar collapsing
-  /// into its final solid green state.
+  /// One-shot fill of the connector below this step, top to bottom,
+  /// when the step lands in done.
   late AnimationController _fillCtrl;
+
+  /// Soft breathing of the current-step dot beside the label.
+  late AnimationController _breathCtrl;
 
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    );
-    _barCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _shimmerCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _wakeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 520),
-    );
+    _barCtrl = AnimationController(vsync: this);
     _fillCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 720),
+      duration: const Duration(milliseconds: 500),
     );
-    // If we mount already in done state (e.g. rebuild), skip the
-    // animation so the connector renders fully drawn immediately.
-    if (widget.step.state == _StepState.done) {
-      _fillCtrl.value = 1.0;
-    }
+    _breathCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+      value: 1.0,
+    );
     // Defer the motion-starting sync to didChangeDependencies so it can
     // read MediaQuery (Reduce Motion).
   }
@@ -9287,50 +9417,56 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
   }
 
   void _syncAnimations({_StepState? prev}) {
-    final state = widget.step.state;
-    // Reduce Motion: the badge pulse, overlay shimmer, "wake" pop and
-    // connector "fill" are decorative — suppress them. The bar slide
-    // (`_barCtrl`) is the indeterminate PROGRESS indicator for an
-    // in-flight step, so it's essential motion and stays running.
+    // Reduce Motion: no creep, no breath, no connector fill — the bar
+    // rests at a static partial fill while working and full once done.
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (state == _StepState.inProgress) {
-      if (!reduceMotion) {
-        _pulseCtrl.repeat(reverse: true);
-        _shimmerCtrl.repeat();
-      } else {
-        _pulseCtrl.stop();
-        _shimmerCtrl.stop();
-      }
-      _barCtrl.repeat(); // essential: indeterminate progress
-      if ((prev == null || prev == _StepState.pending) && !reduceMotion) {
-        _wakeCtrl.forward(from: 0.0);
-      }
-    } else {
-      _pulseCtrl.stop();
-      _barCtrl.stop();
-      _shimmerCtrl.stop();
-    }
-    if (state == _StepState.done) {
-      if (prev != _StepState.done) {
+    switch (widget.step.state) {
+      case _StepState.pending:
+        _breathCtrl.stop();
+        _barCtrl.value = 0.0;
+        _fillCtrl.value = 0.0;
+      case _StepState.inProgress:
+        _fillCtrl.value = 0.0;
         if (reduceMotion) {
+          _breathCtrl.value = 1.0;
+          _barCtrl.value = _kStepRestFill;
+        } else {
+          _breathCtrl.repeat(reverse: true);
+          _barCtrl.animateTo(
+            _kStepCreepTarget,
+            duration: const Duration(seconds: 12),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      case _StepState.done:
+        _breathCtrl.value = 1.0;
+        // Mounting already done (a rebuild) draws it at rest too.
+        if (reduceMotion || prev == null) {
+          _barCtrl.value = 1.0;
           _fillCtrl.value = 1.0;
         } else {
+          _barCtrl.animateTo(
+            1.0,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOutCubic,
+          );
           _fillCtrl.forward(from: 0.0);
         }
-      }
-    } else {
-      _fillCtrl.value = 0.0;
+      case _StepState.failed:
+        _breathCtrl.value = 1.0;
+        _barCtrl.stop();
+        _fillCtrl.value = 0.0;
+        // Failed before it ever ran: show the whole track in red.
+        if (_barCtrl.value == 0.0) _barCtrl.value = 1.0;
     }
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
     _barCtrl.dispose();
-    _shimmerCtrl.dispose();
-    _wakeCtrl.dispose();
     _fillCtrl.dispose();
+    _breathCtrl.dispose();
     super.dispose();
   }
 
@@ -9341,7 +9477,7 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
       case _StepState.failed:
         return const Color(0xFFFF6565);
       case _StepState.inProgress:
-        return widget.colors.accent;
+        return _kStepProgressAccent;
       case _StepState.pending:
         return widget.colors.textTertiary;
     }
@@ -9352,6 +9488,9 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
     final c = widget.colors;
     final state = widget.step.state;
     final accent = _accent;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    const badgeDuration = Duration(milliseconds: 180);
 
     Widget badgeContent;
     switch (state) {
@@ -9370,58 +9509,33 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
         break;
     }
 
-    final badge = AnimatedBuilder(
-      animation: Listenable.merge([_pulseCtrl, _wakeCtrl, _fillCtrl]),
-      builder: (_, child) {
-        // Continuous breathing pulse while in-progress.
-        final pulseT = state == _StepState.inProgress
-            ? Curves.easeInOut.transform(_pulseCtrl.value)
-            : 0.0;
-        // One-shot wake-pop when the step starts: 0.86 → 1.18 → 1.0,
-        // split into two halves so the springy attack reads clearly
-        // before the gentle settle.
-        double wakeScale = 1.0;
-        if (_wakeCtrl.isAnimating || _wakeCtrl.value > 0) {
-          final wt = _wakeCtrl.value;
-          if (wt < 0.45) {
-            final s = Curves.easeOutBack.transform(wt / 0.45);
-            wakeScale = 0.86 + (1.18 - 0.86) * s;
-          } else {
-            final s = Curves.easeOutCubic.transform((wt - 0.45) / 0.55);
-            wakeScale = 1.18 + (1.0 - 1.18) * s;
-          }
-        }
-        // Brief swell when transitioning to done.
-        final fillBump = state == _StepState.done && _fillCtrl.value < 1.0
-            ? 0.12 * Curves.easeOut.transform(_fillCtrl.value)
-            : 0.0;
-        final scale = wakeScale * (1.0 + 0.10 * pulseT + fillBump);
-        final glowAlpha =
-            state == _StepState.pending ? 0.0 : 0.20 + 0.22 * pulseT;
-        return Transform.scale(
-          scale: scale,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (state == _StepState.done && _fillCtrl.value < 1.0)
-                _DoneBurst(progress: _fillCtrl.value, accent: accent),
-              Container(
-                width: 26.sp,
-                height: 26.sp,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: state == _StepState.pending
-                      ? c.surfaceLight
-                      : accent.withValues(alpha: glowAlpha),
-                ),
-                child: child,
-              ),
-            ],
+    // Static tinted disc; only the icon changes, with a short fade and
+    // a small ease-out scale (no overshoot, no ring, no pulse).
+    final badge = AnimatedContainer(
+      duration: reduceMotion ? Duration.zero : badgeDuration,
+      curve: Curves.easeOut,
+      width: 26.sp,
+      height: 26.sp,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: state == _StepState.pending
+            ? c.surfaceLight
+            : accent.withValues(alpha: 0.16),
+      ),
+      child: AnimatedSwitcher(
+        duration: reduceMotion ? Duration.zero : badgeDuration,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeOut,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
+            child: child,
           ),
-        );
-      },
-      child: badgeContent,
+        ),
+        child: KeyedSubtree(key: ValueKey(state), child: badgeContent),
+      ),
     );
 
     return Padding(
@@ -9439,9 +9553,8 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
                   _AnimatedConnector(
                     height: 28.h,
                     fill: _fillCtrl,
-                    activeColor: const Color(0xFF47C97A),
-                    idleColor: c.borderSubtle,
-                    isDone: state == _StepState.done,
+                    activeColor: _kStepProgressAccent,
+                    idleColor: c.border,
                   ),
               ],
             ),
@@ -9465,7 +9578,7 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
                       ),
                     ),
                     if (state == _StepState.inProgress)
-                      _LiveDots(controller: _barCtrl, accent: accent)
+                      _BreathingDot(controller: _breathCtrl, color: accent)
                     else if (state == _StepState.done)
                       Text(
                         context.l10n.done,
@@ -9490,11 +9603,10 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
                 ),
                 SizedBox(height: 8.h),
                 _StepProgressBar(
-                  state: state,
                   controller: _barCtrl,
-                  shimmerController: _shimmerCtrl,
-                  fillController: _fillCtrl,
-                  accent: accent,
+                  fillColor: state == _StepState.failed
+                      ? const Color(0xFFFF6565).withValues(alpha: 0.6)
+                      : _kStepProgressAccent,
                   trackColor: c.surfaceLight,
                 ),
               ],
@@ -9506,24 +9618,21 @@ class _AnimatedStepRowState extends State<_AnimatedStepRow>
   }
 }
 
-/// Vertical connector between two steps. While the upper step is
-/// pending/in-progress it renders as a flat idle line; when that step
-/// transitions to done we drive a top-to-bottom fill animation in the
-/// active color (driven by the row's `_fillCtrl`) with a soft glow head
-/// so it reads as "drawing" rather than just growing.
+/// Vertical connector between two steps: a plain straight hairline
+/// (1.5 px, round caps) in a quiet border grey. When the upper step
+/// lands in done it fills top to bottom in the progress orange once,
+/// driven by the row's `_fillCtrl` (ease-out). No glow head, no blur.
 class _AnimatedConnector extends StatelessWidget {
   final double height;
   final AnimationController fill;
   final Color activeColor;
   final Color idleColor;
-  final bool isDone;
 
   const _AnimatedConnector({
     required this.height,
     required this.fill,
     required this.activeColor,
     required this.idleColor,
-    required this.isDone,
   });
 
   @override
@@ -9531,7 +9640,6 @@ class _AnimatedConnector extends StatelessWidget {
     return AnimatedBuilder(
       animation: fill,
       builder: (_, __) {
-        final t = isDone ? Curves.easeOutCubic.transform(fill.value) : 0.0;
         return SizedBox(
           width: 2,
           height: height,
@@ -9539,7 +9647,7 @@ class _AnimatedConnector extends StatelessWidget {
             padding: EdgeInsets.only(top: 4.h),
             child: CustomPaint(
               painter: _ConnectorPainter(
-                progress: t,
+                progress: Curves.easeOut.transform(fill.value),
                 idle: idleColor,
                 active: activeColor,
               ),
@@ -9562,41 +9670,23 @@ class _ConnectorPainter extends CustomPainter {
     required this.active,
   });
 
+  static const double _stroke = 1.5;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final idlePaint = Paint()..color = idle;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Offset.zero & size,
-        const Radius.circular(1),
-      ),
-      idlePaint,
-    );
+    // Inset by half the stroke so the round caps stay inside the box.
+    final x = size.width / 2;
+    const top = _stroke / 2;
+    final bottom = size.height - _stroke / 2;
+    if (bottom <= top) return;
+    final line = Paint()
+      ..strokeWidth = _stroke
+      ..strokeCap = StrokeCap.round
+      ..color = idle;
+    canvas.drawLine(Offset(x, top), Offset(x, bottom), line);
     if (progress <= 0) return;
-    final fillHeight = size.height * progress;
-    final activePaint = Paint()..color = active;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, fillHeight),
-        const Radius.circular(1),
-      ),
-      activePaint,
-    );
-    if (progress < 1.0) {
-      final headRect = Rect.fromLTWH(
-        -1.5,
-        (fillHeight - 3).clamp(0.0, size.height),
-        size.width + 3,
-        6,
-      );
-      final headPaint = Paint()
-        ..color = active.withValues(alpha: 0.55)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(headRect, const Radius.circular(2)),
-        headPaint,
-      );
-    }
+    final end = top + (bottom - top) * progress.clamp(0.0, 1.0);
+    canvas.drawLine(Offset(x, top), Offset(x, end), line..color = active);
   }
 
   @override
@@ -9604,151 +9694,62 @@ class _ConnectorPainter extends CustomPainter {
       old.progress != progress || old.idle != idle || old.active != active;
 }
 
-/// Three-dot bouncing indicator that replaces the static "Working…"
-/// label during in-progress. Each dot rises on a staggered phase off
-/// the same controller so motion reads as continuous rather than
-/// repetitive.
-class _LiveDots extends StatelessWidget {
+/// The current-step marker beside a working step's label: one small dot
+/// that softly breathes (opacity only, no movement). Under Reduce Motion
+/// the row leaves the controller at rest, so the dot sits at full colour.
+class _BreathingDot extends StatelessWidget {
   final AnimationController controller;
-  final Color accent;
-  const _LiveDots({required this.controller, required this.accent});
+  final Color color;
+  const _BreathingDot({required this.controller, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (_, __) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (i) {
-            final phase = (controller.value + i * 0.18) % 1.0;
-            final eased = (1 - (phase * 2 - 1).abs()).clamp(0.0, 1.0);
-            final alpha = 0.30 + 0.70 * eased;
-            return Padding(
-              padding: EdgeInsets.only(left: i == 0 ? 0 : 4.w),
-              child: Transform.translate(
-                offset: Offset(0, -2 * eased),
-                child: Container(
-                  width: 5.sp,
-                  height: 5.sp,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: accent.withValues(alpha: alpha),
-                  ),
-                ),
-              ),
-            );
-          }),
+        final t = Curves.easeInOut.transform(controller.value);
+        return Container(
+          width: 6.sp,
+          height: 6.sp,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.35 + 0.65 * t),
+          ),
         );
       },
     );
   }
 }
 
-/// One-shot ring that expands outward when a step lands in done so the
-/// completion gets a visible "tap" rather than a silent state swap.
-class _DoneBurst extends StatelessWidget {
-  final double progress;
-  final Color accent;
-  const _DoneBurst({required this.progress, required this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    final eased = Curves.easeOut.transform(progress);
-    final size = 26.sp + 22.sp * eased;
-    final alpha = (1.0 - eased) * 0.55;
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: accent.withValues(alpha: alpha),
-            width: 1.5,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// A step's bar: a rounded 5 px track with a solid fill whose width
+/// follows the row's `_barCtrl` (slow ease-out creep toward 90 % while
+/// working, ease-out run to 100 % when done). No sheen, no shimmer.
 class _StepProgressBar extends StatelessWidget {
-  final _StepState state;
   final AnimationController controller;
-  final AnimationController shimmerController;
-  final AnimationController fillController;
-  final Color accent;
+  final Color fillColor;
   final Color trackColor;
 
   const _StepProgressBar({
-    required this.state,
     required this.controller,
-    required this.shimmerController,
-    required this.fillController,
-    required this.accent,
+    required this.fillColor,
     required this.trackColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final h = 6.h;
-    if (state == _StepState.pending) {
-      return Container(
-        height: h,
-        decoration: BoxDecoration(
-          color: trackColor,
-          borderRadius: BorderRadius.circular(3.r),
-        ),
-      );
-    }
-    if (state == _StepState.done) {
-      // Animate the done bar in: sweep a 100 %-fill across the track
-      // L→R using fillController, then settle into the solid green.
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(3.r),
-        child: SizedBox(
-          height: h,
-          child: AnimatedBuilder(
-            animation: fillController,
-            builder: (_, __) {
-              final t = Curves.easeOutCubic.transform(fillController.value);
-              return CustomPaint(
-                painter: _DoneBarPainter(
-                  progress: t,
-                  trackColor: trackColor,
-                  accent: accent,
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    }
-    if (state == _StepState.failed) {
-      return Container(
-        height: h,
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(3.r),
-        ),
-      );
-    }
-    // In-progress — two layered slides + a faster shimmer overlay so the
-    // bar reads as actively working rather than a single repeating beat.
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3.r),
-      child: SizedBox(
-        height: h,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([controller, shimmerController]),
-          builder: (_, __) => CustomPaint(
-            painter: _SlidingBarPainter(
-              progress: controller.value,
-              shimmerProgress: shimmerController.value,
-              trackColor: trackColor,
-              accent: accent,
-            ),
+    final h = 5.h;
+    final radius = BorderRadius.circular(h / 2);
+    return Container(
+      height: h,
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(color: trackColor, borderRadius: radius),
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (_, __) => FractionallySizedBox(
+          widthFactor: controller.value.clamp(0.0, 1.0),
+          heightFactor: 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: fillColor, borderRadius: radius),
           ),
         ),
       ),
@@ -9756,345 +9757,49 @@ class _StepProgressBar extends StatelessWidget {
   }
 }
 
-class _SlidingBarPainter extends CustomPainter {
-  final double progress;
-  final double shimmerProgress;
-  final Color trackColor;
-  final Color accent;
-
-  _SlidingBarPainter({
-    required this.progress,
-    required this.shimmerProgress,
-    required this.trackColor,
-    required this.accent,
-  });
-
-  void _drawSlide(Canvas canvas, Size size, double t, double widthFraction,
-      double maxAlpha) {
-    final segWidth = size.width * widthFraction;
-    final travel = size.width + segWidth;
-    final x = -segWidth + (t * travel);
-    final rect = Rect.fromLTWH(x, 0, segWidth, size.height);
-    final shader = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [
-        accent.withValues(alpha: 0.0),
-        accent.withValues(alpha: maxAlpha),
-        accent.withValues(alpha: 0.0),
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    ).createShader(rect);
-    canvas.drawRect(rect, Paint()..shader = shader);
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final trackPaint = Paint()..color = trackColor;
-    canvas.drawRect(Offset.zero & size, trackPaint);
-
-    // Soft underlying tint so the track doesn't sit dead between slides.
-    final basePaint = Paint()..color = accent.withValues(alpha: 0.10);
-    canvas.drawRect(Offset.zero & size, basePaint);
-
-    // Primary sliding lozenge — wide and bright.
-    _drawSlide(canvas, size, progress, 0.42, 1.0);
-
-    // Trailing companion slide — narrower, half-phase offset, dimmer —
-    // so two lights chase across the track instead of one.
-    final t2 = (progress + 0.55) % 1.0;
-    _drawSlide(canvas, size, t2, 0.22, 0.55);
-
-    // Faster shimmer slice on its own controller — adds a third
-    // rhythm so the motion reads as layered rather than mechanical.
-    _drawSlide(canvas, size, shimmerProgress, 0.12, 0.85);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SlidingBarPainter old) =>
-      old.progress != progress ||
-      old.shimmerProgress != shimmerProgress ||
-      old.accent != accent ||
-      old.trackColor != trackColor;
-}
-
-/// Bar painter for the done state — animates a bright accent fill
-/// sweeping L→R across the track, leaving solid green behind. Used
-/// once per step transition into done, then settles to the solid bar.
-class _DoneBarPainter extends CustomPainter {
-  final double progress;
-  final Color trackColor;
-  final Color accent;
-
-  _DoneBarPainter({
-    required this.progress,
-    required this.trackColor,
-    required this.accent,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = trackColor);
-    final filled = Rect.fromLTWH(0, 0, size.width * progress, size.height);
-    canvas.drawRect(filled, Paint()..color = accent);
-    // Bright leading-edge highlight while the sweep is still in motion.
-    if (progress > 0 && progress < 1.0) {
-      final headWidth = (size.width * 0.18).clamp(8.0, 40.0);
-      final headX = (size.width * progress) - headWidth;
-      final rect = Rect.fromLTWH(headX, 0, headWidth, size.height);
-      final shader = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          accent.withValues(alpha: 0.0),
-          Colors.white.withValues(alpha: 0.65),
-        ],
-      ).createShader(rect);
-      canvas.drawRect(rect, Paint()..shader = shader);
-    }
-    // Settled state — solid accent at slightly reduced alpha to match
-    // the "completed" calmness of the rest of the row.
-    if (progress >= 1.0) {
-      canvas.drawRect(
-        Offset.zero & size,
-        Paint()..color = accent.withValues(alpha: 0.6),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DoneBarPainter old) =>
-      old.progress != progress ||
-      old.accent != accent ||
-      old.trackColor != trackColor;
-}
-
-/// Top-of-card overall progress bar that animates between fractional
-/// values as steps land AND runs a continuous shimmer along the filled
-/// portion while the orchestrator is mid-flight. Two concurrent
-/// motions:
-///   - **Fill**: `TweenAnimationBuilder` glides between fractional
-///     values (e.g. step 0 done → 0.5 → step 1 in-progress → 0.75)
-///     over 600ms easeOutCubic so the bar morphs smoothly between
-///     beats.
-///   - **Shimmer**: while `isActive` is true, an `AnimationController`
-///     drives a moving highlight across the filled segment so the
-///     bar reads as actively working rather than a static slab.
-class _OverallProgressBar extends StatefulWidget {
+/// Top-of-card overall progress bar: a rounded 5 px track with a solid
+/// fill whose width glides (600 ms ease-out) between the fractional
+/// values the steps report (e.g. step 0 done → 0.5 → step 1 in-progress
+/// → 0.75). No sheen or stripes; a failed send turns the fill red.
+/// Reduce Motion snaps to the new fraction.
+class _OverallProgressBar extends StatelessWidget {
   final double progress;
   final bool isFailed;
-  final bool isActive;
   final Color trackColor;
   final Color accent;
 
   const _OverallProgressBar({
     required this.progress,
     required this.isFailed,
-    required this.isActive,
     required this.trackColor,
     required this.accent,
   });
 
   @override
-  State<_OverallProgressBar> createState() => _OverallProgressBarState();
-}
-
-class _OverallProgressBarState extends State<_OverallProgressBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _shimmerCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerCtrl = AnimationController(
-      vsync: this,
-      // ~1100 ms feels lively without strobing; the stripes phase by a
-      // single period per loop so the motion is continuous rather than
-      // jumpy at the wrap.
-      duration: const Duration(milliseconds: 1100),
-    );
-    // The shimmer is a decorative "actively working" highlight on top
-    // of the progress fill; start it in didChangeDependencies so it can
-    // honour Reduce Motion (MediaQuery isn't ready here).
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncShimmer();
-  }
-
-  /// Start/stop the decorative shimmer based on `isActive` AND the OS
-  /// Reduce Motion preference. The bar's fill fraction (the actual
-  /// progress data) is unaffected.
-  void _syncShimmer() {
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (widget.isActive && !reduceMotion) {
-      if (!_shimmerCtrl.isAnimating) _shimmerCtrl.repeat();
-    } else if (_shimmerCtrl.isAnimating) {
-      _shimmerCtrl.stop();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _OverallProgressBar old) {
-    super.didUpdateWidget(old);
-    _syncShimmer();
-  }
-
-  @override
-  void dispose() {
-    _shimmerCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final color = widget.isFailed ? const Color(0xFFFF6565) : widget.accent;
-    // Bumped from 8 → 12 px so the barber-pole stripes have room to
-    // read; the bar still looks restrained inside the steps card.
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6.r),
-      child: SizedBox(
-        height: 12.h,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: widget.progress),
-          // Snap to the new fill instantly under Reduce Motion — the
-          // bar still shows the correct progress fraction, just without
-          // the gliding transition between beats.
-          duration: MediaQuery.of(context).disableAnimations
-              ? Duration.zero
-              : const Duration(milliseconds: 600),
-          curve: Curves.easeOutCubic,
-          builder: (_, fillT, __) {
-            return AnimatedBuilder(
-              animation: _shimmerCtrl,
-              builder: (_, __) {
-                return CustomPaint(
-                  painter: _OverallProgressPainter(
-                    fill: fillT.clamp(0.0, 1.0),
-                    shimmerProgress: _shimmerCtrl.value,
-                    isActive: widget.isActive,
-                    trackColor: widget.trackColor,
-                    accent: color,
-                  ),
-                );
-              },
-            );
-          },
+    final color = isFailed ? const Color(0xFFFF6565) : accent;
+    final h = 5.h;
+    final radius = BorderRadius.circular(h / 2);
+    return Container(
+      height: h,
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(color: trackColor, borderRadius: radius),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: progress),
+        duration: MediaQuery.of(context).disableAnimations
+            ? Duration.zero
+            : const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+        builder: (_, fillT, __) => FractionallySizedBox(
+          widthFactor: fillT.clamp(0.0, 1.0),
+          heightFactor: 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: color, borderRadius: radius),
+          ),
         ),
       ),
     );
   }
-}
-
-class _OverallProgressPainter extends CustomPainter {
-  final double fill;
-  final double shimmerProgress;
-  final bool isActive;
-  final Color trackColor;
-  final Color accent;
-
-  _OverallProgressPainter({
-    required this.fill,
-    required this.shimmerProgress,
-    required this.isActive,
-    required this.trackColor,
-    required this.accent,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Track.
-    canvas.drawRect(Offset.zero & size, Paint()..color = trackColor);
-
-    if (fill <= 0) return;
-    final filledWidth = size.width * fill;
-    final filledRect = Rect.fromLTWH(0, 0, filledWidth, size.height);
-
-    // Base fill — soft gradient so the bar has a hint of depth.
-    final basePaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          accent.withValues(alpha: 0.75),
-          accent,
-        ],
-      ).createShader(filledRect);
-    canvas.drawRect(filledRect, basePaint);
-
-    // Skip overlays when the filled segment is too narrow to render
-    // them — also dodges clamp's `min <= max` precondition during the
-    // fill tween's brief 0 → target interpolation.
-    if (!isActive || filledWidth < 8.0) return;
-
-    canvas.save();
-    canvas.clipRect(filledRect);
-
-    // Layer 1 — barber-pole stripes. Diagonal white slashes that slide
-    // left-to-right at a constant rate. The classic "this is doing
-    // something" affordance: impossible to read as static.
-    _drawStripes(canvas, filledWidth, size.height);
-
-    // Layer 2 — bright sweeping highlight. Wider, brighter than before
-    // (alpha 0.75 vs the previous 0.55) so the bar reads as actively
-    // working even at a glance.
-    final segWidth = (filledWidth * 0.42).clamp(8.0, filledWidth);
-    final travel = filledWidth + segWidth;
-    final x = -segWidth + (shimmerProgress * travel);
-    final shimmerRect = Rect.fromLTWH(x, 0, segWidth, size.height);
-    final shimmerShader = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [
-        Colors.white.withValues(alpha: 0.0),
-        Colors.white.withValues(alpha: 0.75),
-        Colors.white.withValues(alpha: 0.0),
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    ).createShader(shimmerRect);
-    canvas.drawRect(shimmerRect, Paint()..shader = shimmerShader);
-
-    canvas.restore();
-  }
-
-  /// Draws diagonal white slashes that slide L→R across the filled
-  /// portion. Stripe period = ~22 px, angle = ~30°, alpha 0.22 so the
-  /// motion reads as texture rather than a competing pattern. We use
-  /// `shimmerProgress` to phase-shift the entire pattern each frame.
-  void _drawStripes(Canvas canvas, double width, double height) {
-    const stripePeriod = 22.0;
-    const stripeWidth = 8.0;
-    // Skew Y for the diagonal — moving up-right as we go right.
-    const skew = 0.55;
-    final phaseShift = shimmerProgress * stripePeriod;
-    final stripePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22)
-      ..style = PaintingStyle.fill;
-    // Start a bit before the visible region so the leading stripe
-    // enters cleanly; iterate until well past the right edge.
-    var x = -stripePeriod * 2 + phaseShift;
-    while (x < width + stripePeriod) {
-      final path = Path()
-        ..moveTo(x, height)
-        ..lineTo(x + stripeWidth, height)
-        ..lineTo(x + stripeWidth + height * skew, 0)
-        ..lineTo(x + height * skew, 0)
-        ..close();
-      canvas.drawPath(path, stripePaint);
-      x += stripePeriod;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _OverallProgressPainter old) =>
-      old.fill != fill ||
-      old.shimmerProgress != shimmerProgress ||
-      old.isActive != isActive ||
-      old.accent != accent ||
-      old.trackColor != trackColor;
 }
 
 /// The unit selector beside the send amount, in the Move sheet's currency

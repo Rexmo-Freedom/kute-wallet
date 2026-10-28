@@ -599,6 +599,16 @@ class HlMarket {
         ? HlMarketKind.spot
         : HlMarketKind.perp;
     final wire = (j['wireCoin'] as String?)?.trim();
+    final wireCoin = (wire != null && wire.isNotEmpty) ? wire : coin;
+    // Older saved descriptors did not persist dex. The wire identifier is
+    // authoritative for a builder perp; treating xyz:TSLA as the main dex
+    // funds the wrong clearinghouse even though the order asset id is right.
+    final wireDex = kind == HlMarketKind.perp &&
+            RegExp(r'^[a-zA-Z0-9_-]+:[^:]+$').hasMatch(wireCoin)
+        ? wireCoin.substring(0, wireCoin.indexOf(':'))
+        : '';
+    final dex =
+        wireDex.isNotEmpty ? wireDex : ((j['dex'] as String?)?.trim() ?? '');
 
     final markPx = _toDouble(j['markPx']) ?? 0;
     // Prefer the explicit prev-day price; otherwise back it out of the
@@ -620,7 +630,7 @@ class HlMarket {
 
     return HlMarket(
       coin: coin,
-      wireCoin: (wire != null && wire.isNotEmpty) ? wire : coin,
+      wireCoin: wireCoin,
       assetId: _toInt(j['assetId']) ?? 0,
       kind: kind,
       szDecimals: _toInt(j['szDecimals']) ?? 0,
@@ -634,8 +644,9 @@ class HlMarket {
       funding: _toDouble(j['funding']),
       openInterest: _toDouble(j['openInterest']),
       category: category,
-      dex: (j['dex'] as String?)?.trim() ?? '',
-      isHip3: j['isHip3'] == true,
+      dex: dex,
+      isHip3:
+          kind == HlMarketKind.perp && (dex.isNotEmpty || j['isHip3'] == true),
       iconUrl: (iconUrl != null && iconUrl.isNotEmpty) ? iconUrl : null,
       unitAssetName: (j['unitAssetName'] as String?)?.trim().isNotEmpty == true
           ? (j['unitAssetName'] as String).trim()

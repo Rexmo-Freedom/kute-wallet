@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -97,6 +98,75 @@ void main() {
     // One network left is picked straight away, and it is the venue one.
     await tester.tap(find.text('USDC'));
     await tester.pumpAndSettle();
+    expect(picked?.chain, 'hypercore');
+    policy.dispose();
+  });
+
+  testWidgets(
+      'swaps blocked for a named region: every coin stays listed; the tap '
+      'says why and opens nothing', (tester) async {
+    const regions = {'label': 'the European Union, the UK and Switzerland'};
+    final policy = runtimePolicyFixture(blocked: {
+      'orchestra.swap',
+      'orchestra.swap.stablecoins',
+      'orchestra.swap.altcoins',
+    }, reasons: {
+      'orchestra.swap': 'country_blocked',
+      'orchestra.swap.stablecoins': 'country_blocked',
+      'orchestra.swap.altcoins': 'country_blocked',
+    }, decorations: {
+      'orchestra.swap': {'regions': regions},
+      'orchestra.swap.stablecoins': {
+        'blockedBy': 'orchestra.swap',
+        'regions': regions
+      },
+      'orchestra.swap.altcoins': {
+        'blockedBy': 'orchestra.swap',
+        'regions': regions
+      },
+    });
+    RuntimeCapabilitiesService.debugInstance = policy;
+    expect(await policy.refresh(), isTrue);
+    // A phone, not the test's landscape default: the sheet over the
+    // sheet needs a phone's height.
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+    // Shown exactly as today: no notice, no shorter grid.
+    expect(find.text('USDC'), findsOneWidget);
+    expect(find.text('ETH'), findsOneWidget);
+    expect(find.textContaining('Not available'), findsNothing);
+
+    // A one-network coin: the named sheet, nothing picked.
+    await tester.tap(find.text('ETH'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(
+        find.text(
+            'Not available in the European Union, the UK and Switzerland'),
+        findsOneWidget);
+    expect(find.text("If this isn't where you are, check your VPN settings."),
+        findsOneWidget);
+    expect(find.text('Check connection'), findsOneWidget);
+    expect(picked, isNull);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsNothing);
+
+    // A coin on several networks: its pane opens; the blocked network
+    // says why, the venue network is picked.
+    await tester.tap(find.text('USDC'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('base'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(picked, isNull);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('hypercore'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsNothing);
     expect(picked?.chain, 'hypercore');
     policy.dispose();
   });

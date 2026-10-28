@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/polymarket_artwork.dart';
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
+import 'package:kute/services/icon_cache/icon_disk_cache.dart' show IconCaches, runBounded;
 
 /// The one widget every Polymarket image goes through: market and event
 /// art, outcome and candidate images, team crests, flags, league logos.
@@ -46,6 +48,11 @@ class PolyCrestImage extends StatelessWidget {
     this.cacheManager,
   });
 
+  /// Render harnesses only: the cache every artwork without its own
+  /// [cacheManager] reads from (local files, no network or database).
+  @visibleForTesting
+  static BaseCacheManager? debugCacheManager;
+
   static bool isSvgUrl(String url) =>
       Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') ?? false;
 
@@ -63,11 +70,71 @@ class PolyCrestImage extends StatelessWidget {
               size: size,
               fit: fit,
               fallback: fb,
-              cacheManager: cacheManager ?? DefaultCacheManager(),
+              cacheManager:
+                  cacheManager ?? debugCacheManager ?? polyArtworkCacheManager,
             ),
     );
   }
+
+  static final Set<String> _requested = {};
+
+  /// Artwork resolved at once by [prefetch].
+  static const int prefetchConcurrency = 6;
+
+  /// Downloads (or reads from disk) and resolves [urls] in the background,
+  /// [prefetchConcurrency] at a time, so the cards that show them draw
+  /// the image on their first frame instead of an empty box. URLs already
+  /// requested this session are skipped, so calling this whenever a list
+  /// changes is cheap.
+  static Future<void> prefetch(Iterable<String?> urls,
+      {BaseCacheManager? cacheManager}) {
+    if (!IconCaches.prefetchEnabled) return Future.value();
+    final cm = cacheManager ?? debugCacheManager ?? polyArtworkCacheManager;
+    final todo = <String>[];
+    for (final raw in urls) {
+      if (raw == null || raw.trim().isEmpty) continue;
+      final u = polymarketArtworkUrl(raw);
+      if (u != null && _requested.add(u)) todo.add(u);
+    }
+    return runBounded(todo, prefetchConcurrency,
+        (u) => _CachedArtworkState._resolve(cm, u));
+  }
+
+  @visibleForTesting
+  static void debugResetPrefetch() => _requested.clear();
 }
+
+/// The artwork the first [events] of a feed draw, best guess first: the
+/// event image, its first outcomes' images and its teams' crests (the
+/// card picks one of these). Feeds repeat crests, so repeats go.
+List<String> polyFeedArtworkUrls(Iterable<PolymarketEvent> events,
+    {int limit = 12}) {
+  final out = <String>{};
+  void add(String? u) {
+    if (u != null && u.trim().isNotEmpty) out.add(u);
+  }
+
+  for (final e in events.take(limit)) {
+    add(e.imageUrl);
+    for (final o in e.outcomes.take(3)) {
+      add(o.imageUrl);
+    }
+    for (final t in e.teams.take(2)) {
+      add(t.logo);
+    }
+  }
+  return out.toList();
+}
+
+/// The disk cache Polymarket artwork lives in: its own, so the feed's
+/// many crests and portraits do not push each other (and every other
+/// cached image) out of the shared default cache's 200 files. Images
+/// rarely change; a month before one is checked again.
+final BaseCacheManager polyArtworkCacheManager = CacheManager(Config(
+  'polyArtwork',
+  stalePeriod: const Duration(days: 30),
+  maxNrOfCacheObjects: 1000,
+));
 
 /// The stand-in for a missing or broken Polymarket image: the initials of
 /// [label] on a tint, or the category glyph when there is no label.
@@ -138,25 +205,68 @@ class _CachedArtwork extends StatefulWidget {
   State<_CachedArtwork> createState() => _CachedArtworkState();
 }
 
+typedef _Artwork = ({File file, Uint8List? svg});
+
 class _CachedArtworkState extends State<_CachedArtwork> {
-  late Future<({File file, Uint8List? svg})> _artwork;
+  /// URLs whose SVG flutter_svg cannot parse this session. The parser
+  /// throws (an `hsl(285de…)` fill, a `transform="none"`) from inside the
+  /// picture's isolate, past `errorBuilder`, so a document is proven to
+  /// parse once before it is ever handed to [SvgPicture]; a failure is
+  /// remembered so the next row shows the fallback without parsing again.
+  static final Set<String> _unparseableSvg = {};
+
+  /// Resolutions per cache, by URL: in flight, or done. A card that
+  /// mounts after its artwork resolved (a scroll back, the prefetch got
+  /// there first) draws it on its first frame, with no empty box and no
+  /// second file read or parse. A failure is not kept, so the next mount
+  /// tries again, as it always did.
+  static final Expando<Map<String, Future<_Artwork>>> _pending = Expando();
+  static final Expando<Map<String, _Artwork>> _resolved = Expando();
+
+  late Future<_Artwork> _artwork;
+  _Artwork? _initial;
 
   @override
   void initState() {
     super.initState();
-    _artwork = _load();
+    _start();
   }
 
   @override
   void didUpdateWidget(_CachedArtwork old) {
     super.didUpdateWidget(old);
     if (old.url != widget.url || old.cacheManager != widget.cacheManager) {
-      _artwork = _load();
+      _start();
     }
   }
 
-  Future<({File file, Uint8List? svg})> _load() async {
-    final file = await widget.cacheManager.getSingleFile(widget.url);
+  void _start() {
+    _initial = (_resolved[widget.cacheManager] ??= {})[widget.url];
+    _artwork = _initial != null
+        ? Future.value(_initial!)
+        : _resolve(widget.cacheManager, widget.url);
+  }
+
+  static Future<_Artwork> _resolve(BaseCacheManager cm, String url) {
+    final done = (_resolved[cm] ??= {})[url];
+    if (done != null) return Future.value(done);
+    final pending = _pending[cm] ??= {};
+    return pending.putIfAbsent(url, () async {
+      try {
+        final art = await _load(cm, url);
+        _resolved[cm]![url] = art;
+        return art;
+      } finally {
+        pending.remove(url);
+      }
+    });
+  }
+
+  static Future<_Artwork> _load(BaseCacheManager cm, String url) async {
+    if (_unparseableSvg.contains(url)) {
+      throw const FormatException('Artwork SVG does not parse');
+    }
+    final file = await cm.getSingleFile(url);
     final length = await file.length();
     final prefix = BytesBuilder(copy: false);
     await for (final bytes in file.openRead(0, length.clamp(0, 4096))) {
@@ -175,9 +285,26 @@ class _CachedArtworkState extends State<_CachedArtwork> {
       if (length > 2 * 1024 * 1024) {
         throw const FormatException('Artwork exceeds SVG size limit');
       }
-      return (file: file, svg: await file.readAsBytes());
+      final bytes = await file.readAsBytes();
+      if (!await _svgParses(bytes)) {
+        _unparseableSvg.add(url);
+        throw const FormatException('Artwork SVG does not parse');
+      }
+      return (file: file, svg: bytes);
     }
     return (file: file, svg: null);
+  }
+
+  /// True when flutter_svg can parse [bytes]. Parsed here, where a throw
+  /// is caught, rather than inside the picture, where it is not.
+  static Future<bool> _svgParses(Uint8List bytes) async {
+    try {
+      final info = await vg.loadPicture(SvgBytesLoader(bytes), null);
+      info.picture.dispose();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// PNG, JPEG, GIF or WebP magic bytes.
@@ -199,12 +326,17 @@ class _CachedArtworkState extends State<_CachedArtwork> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<({File file, Uint8List? svg})>(
+    return FutureBuilder<_Artwork>(
       future: _artwork,
+      initialData: _initial,
       builder: (context, snap) {
         if (snap.hasError) return widget.fallback;
-        final artwork = snap.data;
-        if (snap.connectionState != ConnectionState.done || artwork == null) {
+        // Until the future lands, only what is already resolved for THIS
+        // url draws (the builder keeps the previous url's data meanwhile).
+        final artwork = snap.connectionState == ConnectionState.done
+            ? snap.data
+            : _initial;
+        if (artwork == null) {
           return SizedBox(width: widget.size, height: widget.size);
         }
         final data = artwork.svg;

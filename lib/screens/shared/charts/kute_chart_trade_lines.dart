@@ -19,6 +19,12 @@
 // (kute_chart_tag_layout.dart): they never cover each other, nor the
 // latest price's own tag and point ([KuteChartTradeLinesPainter.latestTags]);
 // an entry at the latest price is written "Entry ≈" beside it.
+//
+// A chart that keeps a tag column of its own past the end of its data
+// (the Investing chart, [KuteChartTradeLinesPainter.tagColumn]) has its
+// lines stop where the column starts and its tags sit in the column, so
+// no tag covers a candle or the line. There a tag writes the longest of
+// [kuteTradeTagTexts] the column holds and is never cut.
 
 import 'dart:math' as math;
 
@@ -106,6 +112,93 @@ List<double> spreadTradeTags(
 /// it).
 typedef KuteLatestTag = ({double y, double top, double height});
 
+/// The room between the end of a chart's data and its tag column's tags.
+const double kuteTradeTagLead = 8;
+
+/// A trade tag's text, laid out in the tags' own style.
+TextPainter kuteTradeTagPainter(String text, Color color) => TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontFamily: kuteChartFontFamily,
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    );
+
+/// How wide [l]'s tag is when it writes a text [textWidth] wide: the
+/// text, its padding and, on an editable line, the grip.
+double kuteTradeTagWidth(ChartTradeLine l, double textWidth) =>
+    textWidth + 10 + (l.editable ? kuteTradeTagGrip : 0);
+
+/// What [l]'s tag may write, longest first: its label and detail ("Buy ·
+/// 0.5 @ $64,000"), its label and [price] ("Buy · $64,000"), its label
+/// alone. [arrow] is the off-scale arrow ("▲ "); [atLatest] an entry at
+/// the latest price ("Entry ≈"); [isDrag] the line under the finger, at
+/// [price] ("Buy $64,010", then "$64,010"). Never cut: a tag column
+/// takes the first of these it holds.
+List<String> kuteTradeTagTexts(
+  ChartTradeLine l, {
+  required String price,
+  String arrow = '',
+  bool atLatest = false,
+  bool isDrag = false,
+}) {
+  if (isDrag) return ['$arrow${l.label} $price', '$arrow$price'];
+  if (atLatest) return ['${l.label} ≈', l.label];
+  final detail = l.detail;
+  return [
+    '$arrow${l.label}${detail != null ? ' · $detail' : ''}',
+    if (detail != null && detail != price) '$arrow${l.label} · $price',
+    if (detail != null) '$arrow${l.label}',
+  ];
+}
+
+/// How wide a tag column must be for [lines]' tags ([kuteTradeTagTexts]),
+/// lead included, when it may be at most [maxWidth]: each tag writes the
+/// longest text that fits in [maxWidth] (its shortest when none does).
+/// Measured with the off-scale arrow, so the column does not change as
+/// lines scroll off and back; an editable line also holds its drag tag.
+double kuteTradeTagColumnWidth(
+  List<ChartTradeLine> lines, {
+  required String Function(double price) formatPrice,
+  required double maxWidth,
+  double lead = kuteTradeTagLead,
+}) {
+  var widest = 0.0;
+  double need(ChartTradeLine l, List<String> texts) {
+    double? fit;
+    var last = 0.0;
+    for (final t in texts) {
+      final tp = kuteTradeTagPainter(t, const Color(0xFF000000))..layout();
+      last = kuteTradeTagWidth(l, tp.width);
+      tp.dispose();
+      if (last + lead <= maxWidth) {
+        fit = last;
+        break;
+      }
+    }
+    return fit ?? last;
+  }
+
+  for (final l in lines) {
+    final price = formatPrice(l.price);
+    widest = math.max(
+        widest, need(l, kuteTradeTagTexts(l, price: price, arrow: '▲ ')));
+    if (l.editable) {
+      widest = math.max(
+          widest,
+          need(l,
+              kuteTradeTagTexts(l, price: price, arrow: '▲ ', isDrag: true)));
+    }
+  }
+  return widest == 0 ? 0 : widest + lead;
+}
+
 class KuteChartTradeLinesPainter extends CustomPainter {
   KuteChartTradeLinesPainter({
     required this.lines,
@@ -116,7 +209,19 @@ class KuteChartTradeLinesPainter extends CustomPainter {
     required this.hits,
     this.formatPrice,
     this.latestTags,
+    this.tagColumn,
+    this.tagLead = kuteTradeTagLead,
   });
+
+  /// The width of the chart's tag column at its right ([kuteTradeTagColumnWidth]),
+  /// or null when the chart keeps none. With one, the lines stop at the
+  /// column ([tagLead] past the end of the data) and each tag sits in it,
+  /// writing the longest of [kuteTradeTagTexts] it holds; without, the
+  /// tags sit at the right edge over the lines.
+  final double? tagColumn;
+
+  /// The room between the end of the data and the tags in [tagColumn].
+  final double tagLead;
 
   final List<ChartTradeLine> lines;
 
@@ -163,6 +268,11 @@ class KuteChartTradeLinesPainter extends CustomPainter {
     if (geom == null) return;
     final w = size.width;
     final priceH = geom.priceH;
+    final column = tagColumn;
+    // With a tag column, where the tags start; the lines run up to it.
+    final tagsLeft =
+        column == null ? null : math.max(0.0, w - column + tagLead);
+    final lineEnd = tagsLeft ?? w;
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, w, priceH));
 
@@ -201,12 +311,12 @@ class KuteChartTradeLinesPainter extends CustomPainter {
         // Dashed for the position references, solid for working orders.
         if (l.kind == ChartTradeLineKind.entry ||
             l.kind == ChartTradeLineKind.liquidation) {
-          for (double x = 0; x < w; x += 9) {
+          for (double x = 0; x < lineEnd; x += 9) {
             canvas.drawLine(
-                Offset(x, y), Offset(math.min(x + 4.5, w), y), linePaint);
+                Offset(x, y), Offset(math.min(x + 4.5, lineEnd), y), linePaint);
           }
         } else {
-          canvas.drawLine(Offset(0, y), Offset(w, y), linePaint);
+          canvas.drawLine(Offset(0, y), Offset(lineEnd, y), linePaint);
         }
       }
 
@@ -222,26 +332,26 @@ class KuteChartTradeLinesPainter extends CustomPainter {
           !offscreen &&
           l.kind == ChartTradeLineKind.entry &&
           latest.any((t) => (t.y - y).abs() <= kuteTagMergePx);
-      final text = isDrag
-          ? '$arrow${l.label} $priceText'
-          : atLatest
-              ? '${l.label} ≈'
-              : '$arrow${l.label}${l.detail != null ? ' · ${l.detail}' : ''}';
-      final tp = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            fontFamily: kuteChartFontFamily,
-            color: isDrag ? palette.tagText : color,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-      )..layout(maxWidth: w * 0.6);
-      final grip = l.editable ? kuteTradeTagGrip : 0.0;
-      final tagW = tp.width + 10 + grip;
+      final texts = kuteTradeTagTexts(l,
+          price: priceText, arrow: arrow, atLatest: atLatest, isDrag: isDrag);
+      final textColor = isDrag ? palette.tagText : color;
+      final TextPainter tp;
+      if (column == null) {
+        tp = kuteTradeTagPainter(texts.first, textColor)
+          ..layout(maxWidth: w * 0.6);
+      } else {
+        // The longest text the column holds, whole.
+        final room = column - tagLead;
+        var chosen = kuteTradeTagPainter(texts.first, textColor)..layout();
+        for (var k = 1;
+            k < texts.length && kuteTradeTagWidth(l, chosen.width) > room;
+            k++) {
+          chosen.dispose();
+          chosen = kuteTradeTagPainter(texts[k], textColor)..layout();
+        }
+        tp = chosen;
+      }
+      final tagW = kuteTradeTagWidth(l, tp.width);
       // Editable tags are tall enough to grab with a thumb.
       final tagH = math.max(tp.height + 5, l.editable ? 24.0 : 0.0);
       final tagY =
@@ -275,7 +385,11 @@ class KuteChartTradeLinesPainter extends CustomPainter {
       final tp = t.text;
       final tagH = t.height;
       final tagY = tops[i];
-      final rect = Rect.fromLTWH(w - t.width, tagY, t.width, tagH);
+      // In the column (never past the chart's edge), else at the edge.
+      final left = tagsLeft == null
+          ? w - t.width
+          : math.min(tagsLeft, math.max(0.0, w - t.width));
+      final rect = Rect.fromLTWH(left, tagY, t.width, tagH);
       final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
       canvas.drawRRect(
           rrect,
@@ -318,7 +432,8 @@ class KuteChartTradeLinesPainter extends CustomPainter {
     return !identical(old.lines, lines) ||
         !identical(old.dragging, dragging) ||
         old.repaintKey != repaintKey ||
-        old.palette != palette;
+        old.palette != palette ||
+        old.tagColumn != tagColumn;
   }
 }
 

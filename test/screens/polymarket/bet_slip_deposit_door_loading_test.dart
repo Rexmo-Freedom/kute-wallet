@@ -1,6 +1,14 @@
 // The bet slip's bottom button while it cannot know yet what it should be:
 // the Predictions balance not read yet ("Loading your account..."), and the
-// Deposit door working out its top-up ("Calculating…").
+// Dollars door working out its prefill ("Calculating…").
+//
+// One balance: a bet short of venue cash funds itself from Dollars at the
+// tap. Only when the whole Investments balance cannot cover that move is
+// the button that door, still named after the bet ("Place $10.00 on Yes"),
+// whose tap decides on the spending bitcoin read at the tap: the
+// Bitcoin-funded chain when it covers X, the Investments Receive sheet
+// (never the Bitcoin Move sheet) when it does not. The line under the
+// figure names only the minimum.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -16,15 +24,38 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/pending_polymarket_bet_provider.dart';
+import 'package:kute/providers/polymarket_bet_controller.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
+import 'package:kute/screens/shared/money_fee_summary.dart';
+import 'package:kute/screens/shared/polymarket_fee_summary.dart';
+import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
+import 'package:kute/screens/shared/side_tint_palette.dart'
+    show slipCtaLabelColor;
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
+import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
+    show
+        fundedOrderGraph,
+        SlipFundingDecision,
+        SlipFundingRoute,
+        SpendingBitcoin,
+        debugBitcoinLegEstimate,
+        debugFreshSpendingBitcoin,
+        debugStartSlipBitcoinChain;
+import 'package:kute/services/one_balance/predictions_venue_funder.dart';
+import 'package:kute/services/one_balance/funded_orders.dart';
+import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart'
+    show OneBalanceVenue;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -32,6 +63,9 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+
+/// The Dollars door: what is added, then the order placed right after it
+/// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -52,6 +86,19 @@ class _Trading extends PolymarketTradingNotifier {
   Future<PolymarketTradingState> build() => answer;
 }
 
+/// Records the stake each placement reaches the price read with, then
+/// stops it there, before anything is approved or signed.
+class _RecordingController extends PolymarketBetController {
+  _RecordingController(super.ref);
+  final amounts = <double>[];
+  @override
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
+    amounts.add(intent.amount);
+    throw StateError('stopped by the test');
+  }
+}
+
 /// The top-up reads the bitcoin price through [currencyProvider], whose
 /// real notifier opens Hive. Tests never open Hive.
 class _Currency extends StateNotifier<CurrencyState>
@@ -66,8 +113,127 @@ const _outcomes = [
   PolymarketOutcome(name: 'No', price: 0.5, tokenId: 'no-token'),
 ];
 
+class _Funded extends FundedOrdersNotifier {
+  _Funded(this.records);
+  final List<FundedOrderRecord> records;
+  @override
+  List<FundedOrderRecord> build() => records;
+
+  /// The run moves on (or stops) while the slip is open.
+  void put(List<FundedOrderRecord> next) => state = next;
+}
+
+/// A $20 bet whose $12 come from Bitcoin through Dollars (Predictions
+/// holding the rest): the Bitcoin leg landed in Dollars, the move on into
+/// Predictions running, landed ([landed]), or [stopped] there with the
+/// money in Investments.
+FundedOrderRecord _secondLeg({bool landed = false, bool stopped = false}) {
+  var g = fundedOrderGraph(
+    venue: OneBalanceVenue.predictions,
+    orderUsd: 20,
+    legs: const [
+      MoneyStep(
+          id: 'leg:bitcoin>dollars',
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.bitcoin,
+          to: MoneyPlace.dollars,
+          usd: 12),
+      MoneyStep(
+          id: 'leg:dollars:onward',
+          kind: MoneyStepKind.leg,
+          from: MoneyPlace.dollars,
+          usd: 12,
+          after: ['leg:bitcoin>dollars']),
+    ],
+  );
+  g = MoneyStepGraph([
+    for (final s in g.steps)
+      s.copyWith(
+          status: switch (s.id) {
+        'leg:bitcoin>dollars' => MoneyStepStatus.done,
+        'leg:dollars:onward' => stopped
+            ? MoneyStepStatus.failed
+            : landed
+                ? MoneyStepStatus.done
+                : MoneyStepStatus.running,
+        _ => s.status,
+      }),
+  ]);
+  return FundedOrderRecord(
+    id: 'fo_legs',
+    label: const FundedOrderLabel(
+      venue: OneBalanceVenue.predictions,
+      orderUsd: 20,
+      side: 'Yes',
+      market: 'Will it rain?',
+      marketKey: 'yes-token',
+    ),
+    stage: stopped ? FundedOrderStage.failed : FundedOrderStage.preparing,
+    createdAt: DateTime.now(),
+    updatedAt: DateTime.now(),
+    addUsd: 12,
+    btcRowIds: const {'q_btc'},
+    stoppedAt: stopped ? FundedOrderStage.preparing : null,
+    moneyAt: stopped ? FundedMoneyAt.investments : null,
+    reason: stopped ? 'timeout' : null,
+    steps: g,
+  );
+}
+
+FundedOrderRecord _btcBet(FundedOrderStage stage,
+        {String marketKey = 'yes-token', bool slow = false}) =>
+    FundedOrderRecord(
+      id: 'fo_bet',
+      label: FundedOrderLabel(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 10,
+        side: 'Yes',
+        market: 'Will it rain?',
+        marketKey: marketKey,
+      ),
+      stage: stage,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      addUsd: 6,
+      btcRowIds: const {'q_btc'},
+      slow: slow,
+    );
+
+/// A bet funded from Dollars or the Investing cash (no Bitcoin leg).
+FundedOrderRecord _fundedBet(FundedOrderStage stage,
+        {FundedOrderStage? stoppedAt,
+        FundedMoneyAt? moneyAt,
+        String? reason,
+        String? message}) =>
+    FundedOrderRecord(
+      id: 'fo_dollars',
+      label: const FundedOrderLabel(
+        venue: OneBalanceVenue.predictions,
+        orderUsd: 10,
+        side: 'Yes',
+        market: 'Will it rain?',
+        marketKey: 'yes-token',
+      ),
+      stage: stage,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      venueRowIds: const {'q_move'},
+      stoppedAt: stoppedAt,
+      moneyAt: moneyAt,
+      reason: reason,
+      message: message,
+    );
+
 Future<void> _pumpSlip(WidgetTester tester,
-    Future<PolymarketTradingState> account) async {
+    Future<PolymarketTradingState> account,
+    {double dollars = 0,
+    double? initialAmountUsd = 10,
+    bool dark = false,
+    List<FundedOrderRecord>? funded,
+    String? slug,
+    DateTime? endAt,
+    bool reduceMotion = false,
+    List<Override> overrides = const []}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -91,24 +257,44 @@ Future<void> _pumpSlip(WidgetTester tester,
           .overrideWith((ref) => Stream.value(const <Order>[])),
       aiEnabledProvider.overrideWith((ref) async => false),
       currencyProvider.overrideWith((ref) => _Currency()),
+      usdBalanceProvider.overrideWithValue(dollars),
+      // The venue's fee curve, answered at once: the fee row prices the
+      // bet (and the move folded into it) instead of waiting on the
+      // network.
+      polymarketFeeTermsProvider
+          .overrideWith((ref, _) async => PolymarketFeeTerms.worstCase),
+      if (funded != null)
+        fundedOrdersProvider.overrideWith(() => _Funded(funded)),
+      ...overrides,
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         theme: ThemeData(
+            brightness: dark ? Brightness.dark : Brightness.light,
             splashFactory: NoSplash.splashFactory,
             fontFamily: 'Inter',
-            extensions: [AppColorsExtension.light()]),
+            extensions: [
+              dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+            ]),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(disableAnimations: reduceMotion),
+            child: child!),
+        home: Scaffold(
           resizeToAvoidBottomInset: false,
           body: Align(
             alignment: Alignment.bottomCenter,
             child: BetSlipSheet(
-                marketQuestion: 'Will it rain?',
+                marketQuestion: slug == null
+                    ? 'Will it rain?'
+                    : 'Bitcoin Up or Down - 5 minutes',
+                marketSlug: slug,
+                marketEndAt: endAt,
                 outcomes: _outcomes,
-                initialAmountUsd: 10),
+                initialAmountUsd: initialAmountUsd),
           ),
         ),
       ),
@@ -129,12 +315,25 @@ PolySlipCta _cta(WidgetTester tester) =>
 
 Finder get _door => find.byKey(const ValueKey('bet-slip-deposit-door'));
 
+/// The colour the slip's one button letters its label in.
+Color? _ctaLabelColor(WidgetTester tester) => tester
+    .widget<Text>(find.descendant(
+        of: find.byType(PolySlipCta), matching: find.byType(Text)))
+    .style
+    ?.color;
+
 PendingBetIntent? _queued(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)))
         .read(pendingPolymarketBetProvider);
 
 void main() {
-  setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
+  setUp(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    // The venue's estimate for the move: a route keeping nothing,
+    // answered at once (never the network).
+    PredictionsVenueFunder.debugRouteShare = (_) async => 0;
+  });
+  tearDown(() => PredictionsVenueFunder.debugRouteShare = null);
 
   group('before the Predictions balance is read', () {
     // Bets and deposits allowed, so the button is only about the balance.
@@ -153,7 +352,7 @@ void main() {
       policy.dispose();
     }
 
-    testWidgets('waits, disabled, and never shows the Deposit door',
+    testWidgets('waits, disabled, and never shows the Dollars door',
         (tester) async {
       final events = <String>[];
       TrackingService.debugTrackObserver = (e, _) => events.add(e);
@@ -171,7 +370,6 @@ void main() {
       // A tap while it waits does nothing.
       await tester.tap(find.byType(PolySlipCta));
       await _frames(tester, 2);
-      expect(events, isNot(contains('bet_slip_deposit_to_trade_tapped')));
       expect(events, isNot(contains('prediction_place_cta_tapped')));
 
       // The balance arrives and covers the bet: the bet, never the door.
@@ -185,7 +383,7 @@ void main() {
       await release(tester);
     });
 
-    testWidgets('an empty balance, once read, is the Deposit door',
+    testWidgets('an empty balance and no Dollars, once read, is the door',
         (tester) async {
       expect(await policy.refresh(), isTrue);
       final account = Completer<PolymarketTradingState>();
@@ -194,7 +392,39 @@ void main() {
       account.complete(const PolymarketTradingState(usdcBalance: 0));
       await _frames(tester);
       expect(_door, findsOneWidget);
+      // Only the bet, never the top-up it needs.
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
+      await release(tester);
+    });
+
+    testWidgets('an empty balance with Dollars that cover the move is the bet',
+        (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100);
+      await _frames(tester);
+      expect(_door, findsNothing);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
+      expect(_cta(tester).enabled, isTrue);
+      // The move's own cost is folded into the venue fee row: part of the
+      // total, one "Move fee" detail when the row is opened, never a row
+      // of its own.
+      final summary = tester
+          .widget<PolymarketFeeSummary>(find.byType(PolymarketFeeSummary));
+      expect(summary.moveFeeLabel, 'Move fee');
+      expect(summary.moveFeeUsd, isNotNull);
+      expect(summary.moveFeePending, isFalse);
+      expect(find.text('Move fee'), findsNothing);
+      final feeRow = find.descendant(
+          of: find.byType(PolymarketFeeSummary),
+          matching: find.byType(MoneyFeeSummary));
+      expect(feeRow, findsOneWidget);
+      await tester.ensureVisible(feeRow);
+      await tester.tap(feeRow);
+      await _frames(tester);
+      expect(find.text('Move fee'), findsOneWidget);
       await release(tester);
     });
 
@@ -211,12 +441,12 @@ void main() {
     });
   });
 
-  group('the Deposit door while it works out the top-up', () {
+  group('the "Add" door with no bitcoin to cover X', () {
     late RuntimeCapabilitiesService policy;
     late List<String> events;
-    late int estimates;
+    late Map<String, Map<String, Object>?> lastParams;
     late List<double?> sheets;
-    Completer<SlipRouteFee>? estimate;
+    late List<double> receives;
     Completer<void>? sheet;
 
     setUp(() async {
@@ -224,22 +454,30 @@ void main() {
       policy = runtimePolicyFixture();
       RuntimeCapabilitiesService.debugInstance = policy;
       events = [];
-      TrackingService.debugTrackObserver = (e, _) => events.add(e);
-      estimates = 0;
-      sheets = [];
-      debugSlipRouteFee = (venue, source, amountUsd) {
-        estimates++;
-        return estimate!.future;
+      lastParams = {};
+      TrackingService.debugTrackObserver = (e, p) {
+        events.add(e);
+        lastParams[e] = p;
       };
+      sheets = [];
       debugShowSlipTopUpSheet = (venue, target) {
         sheets.add(target);
+        return sheet!.future;
+      };
+      // No spending bitcoin in these tests: X is never covered, so the
+      // tap opens the Investments Receive sheet, never the Move sheet.
+      receives = [];
+      debugShowSlipReceiveSheet = (venue, addUsd) {
+        expect(venue, SlipVenue.predictions);
+        receives.add(addUsd);
         return sheet!.future;
       };
     });
 
     tearDown(() {
-      debugSlipRouteFee = null;
+      expect(sheets, isEmpty);
       debugShowSlipTopUpSheet = null;
+      debugShowSlipReceiveSheet = null;
       TrackingService.debugTrackObserver = null;
       RuntimeCapabilitiesService.debugInstance = null;
       AffiliateService.debugSessionToken = null;
@@ -250,41 +488,49 @@ void main() {
       policy.dispose();
     }
 
-    // Made inside each test, so they complete in the test's fake time.
-    void waitOnEstimateAndSheet() {
-      estimate = Completer<SlipRouteFee>();
-      sheet = Completer<void>();
-    }
-
     testWidgets(
-        'calculates once, ignores repeat taps and keeps the bet of the tap',
-        (tester) async {
-      waitOnEstimateAndSheet();
+        'opens the Investments Receive sheet once for what is missing, and '
+        'queues nothing', (tester) async {
+      sheet = Completer<void>();
       expect(await policy.refresh(), isTrue);
-      // $5 cannot cover the $10 bet.
+      // $5 of venue cash cannot cover the $10 bet; only the rest moves
+      // (about $5.70 with fees, tolerance and the engine buffer), and $2 of Dollars
+      // cannot cover that move.
       await _pumpSlip(tester,
-          Future.value(const PolymarketTradingState(usdcBalance: 5)));
-      expect(_cta(tester).label, 'Deposit to predict');
+          Future.value(const PolymarketTradingState(usdcBalance: 5)),
+          dollars: 2);
+      await _frames(tester);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
 
       await tester.tap(_door);
       await _frames(tester, 3);
-      expect(_cta(tester).isBusy, isTrue);
+      // One Receive sheet for the $3.70 missing, never the Bitcoin Move
+      // sheet, nothing queued behind it: the person places the bet
+      // themselves after.
+      expect(receives, [3.70]);
+      expect(_queued(tester), isNull);
+      expect(events, isNot(contains('prediction_place_cta_tapped')));
+      expect(events, isNot(contains('bet_slip_deposit_to_trade_tapped')));
+      // The Receive sheet reports itself once, as the Investing ticket's
+      // does: this venue, the exact figures, the rule and the source.
+      expect(events.where((e) => e == 'slip_top_up_opened').length, 1);
+      final topUp = lastParams['slip_top_up_opened']!;
+      expect(topUp['venue'], 'polymarket');
+      expect(topUp['prefill_rule'], 'investments_shortfall');
+      expect(topUp['suggested_source'], 'receive');
+      expect(topUp['top_up_usd'], 3.70);
+      expect(topUp['shortfall_usd'], greaterThan(0));
+      expect(topUp.keys, containsAll(['shortfall_bucket', 'top_up_bucket']));
+      // The door is open: shut until it closes.
+      expect(_cta(tester).isBusy, isFalse);
       expect(_cta(tester).enabled, isFalse);
-      expect(find.text('Calculating…'), findsOneWidget);
-      expect(estimates, 1);
-
-      // Repeat taps while it calculates: nothing more starts.
       await tester.tap(_door);
-      await tester.tap(_door);
-      await _frames(tester, 3);
-      expect(estimates, 1);
-      expect(
-          events.where((e) => e == 'bet_slip_deposit_to_trade_tapped').length,
-          1);
+      await _frames(tester, 2);
+      expect(receives.length, 1);
 
-      // The slip is frozen while it calculates: the side and the amount
-      // stay what was tapped.
+      // The slip is frozen while the door is open: the side and the
+      // amount stay what was tapped.
       await tester.tap(find.text('NO'), warnIfMissed: false);
       final pad = find.byType(AmountKeypad);
       await tester.tap(find.descendant(of: pad, matching: find.text('9')),
@@ -292,56 +538,787 @@ void main() {
       await _frames(tester, 3);
       expect(find.text(r'$10'), findsOneWidget);
 
-      estimate!.complete((fee: 0.0, kuteBps: 0));
-      await _frames(tester, 3);
-      // One sheet, prefilled for the $10 bet, and the bet queued behind it
-      // is the one on the slip at the tap.
-      expect(sheets.length, 1);
-      expect(sheets.single, greaterThanOrEqualTo(10));
-      final queued = _queued(tester);
-      expect(queued?.amount, 10);
-      expect(queued?.outcomeName, 'Yes');
-      expect(queued?.tokenId, 'yes-token');
-      // The sheet is open: no longer calculating, still shut.
-      expect(find.text('Calculating…'), findsNothing);
-      expect(_cta(tester).isBusy, isFalse);
-      expect(_cta(tester).enabled, isFalse);
-      await tester.tap(_door);
-      await _frames(tester, 2);
-      expect(sheets.length, 1);
-
-      // The sheet closes without a deposit: the door again, amount kept.
+      // The door closes without a deposit: the door again, amount kept.
       sheet!.complete();
       await _frames(tester, 3);
-      expect(_cta(tester).label, 'Deposit to predict');
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       expect(find.text(r'$10'), findsOneWidget);
       await release(tester);
     });
 
-    testWidgets('a failure while calculating restores the door, nothing queued',
+    testWidgets('X counts the route fee the move will pay',
         (tester) async {
-      waitOnEstimateAndSheet();
+      sheet = Completer<void>();
+      // A route keeping 1%: the $10 move must send more so $10 lands.
+      PredictionsVenueFunder.debugRouteShare = (_) async => 0.01;
       expect(await policy.refresh(), isTrue);
       await _pumpSlip(tester,
-          Future.value(const PolymarketTradingState(usdcBalance: 5)));
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 0);
+      await _frames(tester);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       await tester.tap(_door);
       await _frames(tester, 3);
-      expect(find.text('Calculating…'), findsOneWidget);
-
-      estimate!.completeError(StateError('estimate failed'));
-      await _frames(tester, 3);
-      expect(sheets, isEmpty);
+      expect(receives, hasLength(1));
+      // $10 plus the venue's fee ceiling, grossed up by 1%: over $10.10.
+      expect(receives.single, greaterThan(10.1));
       expect(_queued(tester), isNull);
-      expect(find.text('Something went wrong. Please try again.'),
+      sheet!.complete();
+      await _frames(tester, 3);
+      await release(tester);
+    });
+
+    testWidgets(
+        'nothing typed and Investments short of the minimum: the one button '
+        'says "Add \$X · the order", the bet named after it', (tester) async {
+      sheet = Completer<void>();
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 0,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(_door, findsOneWidget);
+      // Nothing typed: the one action is the bet's short name, no
+      // amounts; its tap still tops up first.
+      expect(_cta(tester).label, 'Place minimum on Yes');
+      expect(_cta(tester).enabled, isTrue);
+      // One action: no second Add or Deposit beside it.
+      expect(find.byType(PolySlipCta), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
+      final label = _cta(tester).label;
+
+      // The tap opens the Receive sheet for what is missing, queues
+      // nothing, and the button keeps saying the same thing.
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      expect(receives, hasLength(1));
+      expect(receives.single, greaterThan(0));
+      expect(_queued(tester), isNull);
+      expect(events, isNot(contains('prediction_place_cta_tapped')));
+      sheet!.complete();
+      await _frames(tester, 3);
+      expect(_cta(tester).label, label);
+      await release(tester);
+    });
+
+    testWidgets(
+        'nothing typed and Dollars that cover the minimum: the bet at the '
+        'minimum', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(_door, findsNothing);
+      expect(_cta(tester).label, startsWith('Place '));
+      expect(_cta(tester).enabled, isTrue);
+      await release(tester);
+    });
+  });
+
+  group('button label colour', () {
+    // The order slip letters its button the same way (see
+    // order_slip_funding_test): on the sheet's white ink the trade and
+    // the funding door are both lettered dark, never in the side
+    // colour (founder decision).
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    for (final dark in [false, true]) {
+      final mode = dark ? 'dark' : 'light';
+      testWidgets('$mode: the door contrasts with its fill, the bet is '
+          'dark too', (tester) async {
+        expect(await policy.refresh(), isTrue);
+        await _pumpSlip(tester,
+            Future.value(const PolymarketTradingState(usdcBalance: 0)),
+            dollars: 0,
+            dark: dark);
+        await _frames(tester);
+        expect(_door, findsOneWidget);
+        expect(_ctaLabelColor(tester), Colors.black);
+        expect(_ctaLabelColor(tester),
+            slipCtaLabelColor(
+                fill: Colors.white, side: AppColors.marketUp, neutral: true));
+        await tester.pumpWidget(const SizedBox.shrink());
+
+        await _pumpSlip(tester,
+            Future.value(const PolymarketTradingState(usdcBalance: 100)),
+            dark: dark);
+        await _frames(tester);
+        expect(_cta(tester).label, r'Place $10.00 on Yes');
+        // Dark on the white button, never the side colour (founder).
+        expect(_ctaLabelColor(tester), Colors.black);
+        await tester.pumpWidget(const SizedBox.shrink());
+        policy.dispose();
+      });
+    }
+  });
+
+  group('a bet funded from bitcoin shows its steps', () {
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    Future<void> release(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    }
+
+    Future<void> pumpAt(WidgetTester tester, FundedOrderStage stage,
+        {bool slow = false}) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          funded: [_btcBet(stage, slow: slow)]);
+      await _frames(tester);
+    }
+
+    testWidgets('adding: the first step runs, one busy button',
+        (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding);
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
           findsOneWidget);
-      expect(_cta(tester).label, 'Deposit to predict');
+      expect(_cta(tester).isBusy, isTrue);
+      expect(_cta(tester).enabled, isFalse);
+      expect(_cta(tester).busyLabel, r'Adding $6.00 to Investments');
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
+      // Never a second "Add" while it runs.
+      expect(_door, findsNothing);
+      expect(find.textContaining('Moving'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets('slow: taking longer than usual', (tester) async {
+      await pumpAt(tester, FundedOrderStage.adding, slow: true);
+      expect(find.text('Taking longer than expected. Hang tight, almost done.'), findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('preparing, then placing', (tester) async {
+      await pumpAt(tester, FundedOrderStage.preparing);
+      expect(_cta(tester).busyLabel, 'Getting your prediction ready');
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('placing: the bet itself', (tester) async {
+      await pumpAt(tester, FundedOrderStage.placing);
+      expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
+      expect(find.byKey(const ValueKey('slip-funding-step-active-2')),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('an old ready record adds no message above the bet button',
+        (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100, funded: [_btcBet(FundedOrderStage.ready)]);
+      await _frames(tester);
+      expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
+          findsNothing);
+      expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
+      expect(_cta(tester).enabled, isTrue);
+      await release(tester);
+    });
+  });
+
+  group('every funded bet shows its steps, whatever funds it', () {
+    // Founder, 14 October 2026: "regardless of what is happening on the
+    // prediction we should always show that progress there".
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    Future<void> release(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    }
+
+    Future<void> pumpWith(WidgetTester tester, List<FundedOrderRecord> funded,
+        {String? slug, DateTime? endAt, bool reduceMotion = false}) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 100,
+          funded: funded,
+          slug: slug,
+          endAt: endAt,
+          reduceMotion: reduceMotion);
+      await _frames(tester);
+    }
+
+    RubberBandProgressState band(WidgetTester tester) =>
+        tester.state<RubberBandProgressState>(find.descendant(
+            of: find.byKey(const ValueKey('bet-slip-funded-progress')),
+            matching: find.byType(RubberBandProgress),
+            matchRoot: true));
+
+    testWidgets('from Dollars: the move, then the bet, one busy button',
+        (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)]);
+      expect(find.byKey(const ValueKey('bet-slip-funded-progress')),
+          findsOneWidget);
+      expect(_cta(tester).isBusy, isTrue);
+      expect(_cta(tester).enabled, isFalse);
+      expect(_cta(tester).busyLabel, 'Getting your prediction ready');
+      // Said once, in the steps: the busy button only spins (and pulls),
+      // and a screen reader still hears the step on it.
+      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byType(PolySlipCta),
+              matching: find.text('Getting your prediction ready')),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: find.byType(PolySlipCta),
+              matching: find.byKey(const ValueKey('poly-slip-cta-busy-quiet'))),
+          findsOneWidget);
+      final quiet = tester.widget<Semantics>(
+          find.byKey(const ValueKey('poly-slip-cta-busy-quiet')));
+      expect(quiet.properties.label, 'Getting your prediction ready');
+      expect(quiet.properties.liveRegion, isTrue);
+      expect(find.bySemanticsLabel(RegExp('Getting your prediction ready')),
+          findsWidgets);
+      semantics.dispose();
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
+      // No Bitcoin step without a Bitcoin leg.
+      expect(find.textContaining('to Investments'), findsNothing);
+      // The band is pulled.
+      expect(band(tester).stretch, greaterThan(0));
+      await release(tester);
+    });
+
+    testWidgets('from the Investing cash: the same steps, then the bet itself',
+        (tester) async {
+      final records = [_fundedBet(FundedOrderStage.placing)];
+      await pumpWith(tester, records);
+      expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
+      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets('the tension builds as the steps advance', (tester) async {
+      final stretches = <double>[];
+      for (final stage in [
+        FundedOrderStage.preparing,
+        FundedOrderStage.placing,
+      ]) {
+        await pumpWith(tester, [_fundedBet(stage)]);
+        await _frames(tester, 20);
+        stretches.add(band(tester).stretch);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+      expect(stretches[1], greaterThan(stretches[0]));
+      policy.dispose();
+    });
+
+    testWidgets(
+        'the venue refused once the money landed: the slip as it was, what '
+        'happened and that the money is in Predictions', (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.placing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'price_moved',
+            message: 'The price moved to 84¢, past your limit of 81¢.')
+      ]);
+      // The slip comes back as it was typed: no journey, the stop said
+      // once in the notice over it, the figures and the keypad there.
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-payout-tile')),
+          findsOneWidget);
+      expect(find.byType(AmountKeypad), findsOneWidget);
+      expect(
+          find.text(r'Price moved too fast. Your $10.00 is in Predictions. '
+              'Tap to try again.'),
+          findsOneWidget);
+      // The button is the bet again, said so, never a silent reset.
       expect(_cta(tester).isBusy, isFalse);
       expect(_cta(tester).enabled, isTrue);
-      expect(find.text(r'$10'), findsOneWidget);
-      // The message's own timer runs out.
-      await tester.pump(const Duration(seconds: 5));
+      expect(_cta(tester).label, r'Try again · Place $10.00 on Yes');
+      // Let go softly: at rest, never past it.
+      await _frames(tester, 20);
+      expect(band(tester).stretch, 0);
+      expect(band(tester).ticking, isFalse);
       await release(tester);
+    });
+
+    testWidgets(
+        'nothing in Predictions: the figure is the bet itself through every '
+        'step and a rebuild, never \$0.00', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
+          dollars: 0, initialAmountUsd: 20, funded: const []);
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(BetSlipSheet)));
+      final funded = container.read(fundedOrdersProvider.notifier) as _Funded;
+      // The whole order moves from Bitcoin, Dollars then on to
+      // Predictions: nothing there to start from.
+      FundedOrderRecord record(MoneyStepStatus first, MoneyStepStatus second) {
+        final g = fundedOrderGraph(
+          venue: OneBalanceVenue.predictions,
+          orderUsd: 20,
+          legs: const [
+            MoneyStep(
+                id: 'leg:bitcoin>dollars',
+                kind: MoneyStepKind.leg,
+                from: MoneyPlace.bitcoin,
+                to: MoneyPlace.dollars,
+                usd: 20.06),
+            MoneyStep(
+                id: 'leg:dollars:onward',
+                kind: MoneyStepKind.leg,
+                from: MoneyPlace.dollars,
+                usd: 20.06,
+                after: ['leg:bitcoin>dollars']),
+          ],
+        );
+        return _secondLeg().copyWith(
+          steps: MoneyStepGraph([
+            for (final s in g.steps)
+              s.copyWith(
+                  status: switch (s.id) {
+                'leg:bitcoin>dollars' => first,
+                'leg:dollars:onward' => second,
+                _ => s.status,
+              }),
+          ]),
+        );
+      }
+
+      const pending = MoneyStepStatus.waiting;
+      const running = MoneyStepStatus.running;
+      const done = MoneyStepStatus.done;
+      for (final (first, second) in [
+        (pending, pending),
+        (running, pending),
+        (done, pending),
+        (done, running),
+        (done, done),
+      ]) {
+        funded.put([record(first, second)]);
+        await _frames(tester);
+        expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+        expect(
+            find.descendant(
+                of: find.byKey(const ValueKey('slip-order-figure')),
+                matching: find.text(r'$20.00')),
+            findsOneWidget,
+            reason: '$first / $second');
+        expect(find.text(r'$0.00'), findsNothing, reason: '$first / $second');
+      }
+      // A rebuild from the account (its balance read again) changes
+      // nothing on top.
+      container.invalidate(polymarketTradingProvider);
+      funded.put([record(done, running)]);
+      await _frames(tester);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('slip-order-figure')),
+              matching: find.text(r'$20.00')),
+          findsOneWidget);
+      expect(find.text(r'$0.00'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets(
+        'while the money moves: the bet on top, '
+        'the journey under it; a stop mid second leg brings the typed slip '
+        'back', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 8)),
+          dollars: 0, initialAmountUsd: 20, funded: const []);
+      final funded = ProviderScope.containerOf(
+              tester.element(find.byType(BetSlipSheet)))
+          .read(fundedOrdersProvider.notifier) as _Funded;
+      funded.put([_secondLeg()]);
+      await _frames(tester);
+      // The top: the bet as one big number, the whole order, its line
+      // under it; the side and the figures fold away for the journey. No
+      // second line of where the money comes from: the journey's status
+      // says it.
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-order-figure-line')),
+          findsOneWidget);
+      expect(find.byType(SlipFundingSteps), findsOneWidget);
+      expect(find.textContaining(' + '), findsNothing);
+      expect(find.byType(AmountKeypad), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-payout-tile')), findsNothing);
+      expect(find.byKey(const ValueKey('slip-advanced-button')), findsNothing);
+
+      // The second leg lands: the figure stays the order.
+      funded.put([_secondLeg(landed: true)]);
+      await _frames(tester);
+      expect(find.text(r'$20.00'), findsOneWidget);
+
+      // Stopped mid second leg: the slip comes back exactly as typed.
+      funded.put([_secondLeg(stopped: true)]);
+      await _frames(tester);
+      expect(find.byKey(const ValueKey('slip-order-figure')), findsNothing);
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      expect(
+          tester
+              .widget<BigAmountDisplay>(find.byType(BigAmountDisplay))
+              .amountText,
+          '20');
+      expect(find.byKey(const ValueKey('bet-slip-payout-tile')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
+      expect(find.byType(AmountKeypad), findsOneWidget);
+      expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
+          findsOneWidget);
+      expect(find.textContaining('is in Investments'), findsOneWidget);
+      // The button is the same bet again, said so.
+      expect(_cta(tester).label, startsWith('Try again · '));
+      await release(tester);
+    });
+
+    testWidgets(
+        'after a stop with the money in Predictions: "Try again" places the '
+        'same bet on the money already there, nothing added or moved',
+        (tester) async {
+      expect(await policy.refresh(), isTrue);
+      final chains = <Object>[];
+      debugStartSlipBitcoinChain = (venue, decision) async {
+        chains.add(decision);
+      };
+      addTearDown(() => debugStartSlipBitcoinChain = null);
+      late _RecordingController controller;
+      await _pumpSlip(
+          tester, Future.value(const PolymarketTradingState(usdcBalance: 100)),
+          dollars: 0,
+          initialAmountUsd: 20,
+          funded: [
+            _fundedBet(FundedOrderStage.failed,
+                stoppedAt: FundedOrderStage.placing,
+                moneyAt: FundedMoneyAt.venue,
+                reason: 'placement',
+                message: 'Order rejected.')
+          ],
+          overrides: [
+            polymarketBetControllerProvider
+                .overrideWith((ref) => controller = _RecordingController(ref)),
+          ]);
+      expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
+          findsOneWidget);
+      expect(_cta(tester).label, r'Try again · Place $20.00 on Yes');
+      expect(_door, findsNothing);
+      await tester.tap(find.byType(PolySlipCta));
+      await _frames(tester);
+      // The bet itself, at the same stake, on the cash already there.
+      expect(controller.amounts, [20.0]);
+      expect(chains, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets('a 5-minute round with no Predictions cash shows the steps',
+        (tester) async {
+      await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      expect(find.byType(SlipFundingSteps), findsOneWidget);
+      expect(_cta(tester).busyLabel, 'Getting your prediction ready');
+      await release(tester);
+    });
+
+    testWidgets('the round closed before the money arrived: said so',
+        (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.preparing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'market_closed')
+      ],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      // The slip comes back as it was typed: no journey, the stop said
+      // once in the notice over it, the figures and the keypad there.
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
+          findsOneWidget);
+      expect(
+          find.text(r'This round closed before your money arrived. Your '
+              r'$10.00 is in Predictions. Tap to try again.'),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets(
+        'a 5-minute round whose price moved while the money was moving: '
+        'the price now, then where the money is', (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.placing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'round_price_moved',
+            message: 'Price changed to 84% while your money was moving.')
+      ],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      // The slip comes back as it was typed: no journey, the stop said
+      // once in the notice over it, the figures and the keypad there.
+      expect(find.byType(SlipFundingSteps), findsNothing);
+      expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
+          findsOneWidget);
+      expect(
+          find.text(r'Price changed to 84% while your money was moving. Your '
+              r'$10.00 is in Predictions. Tap to try again.'),
+          findsOneWidget);
+      await release(tester);
+    });
+
+    testWidgets(
+        'a 5-minute round that ended while the money was moving: said '
+        'plainly, no try again', (tester) async {
+      await pumpWith(tester, [
+        _fundedBet(FundedOrderStage.failed,
+            stoppedAt: FundedOrderStage.placing,
+            moneyAt: FundedMoneyAt.venue,
+            reason: 'round_ended')
+      ],
+          slug: 'btc-updown-5m-1760443200',
+          endAt: DateTime.now().add(const Duration(minutes: 4)));
+      expect(
+          find.text(r'This round ended while your money was moving. Your '
+              r'$10.00 is in Predictions.'),
+          findsOneWidget);
+      expect(find.textContaining('Tap to try again'), findsNothing);
+      await release(tester);
+    });
+
+    testWidgets('closed mid-way and reopened: the current step',
+        (tester) async {
+      await pumpWith(tester, [_fundedBet(FundedOrderStage.preparing)]);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
+          findsOneWidget);
+      // Closed: the chain carries on behind it.
+      await tester.pumpWidget(const SizedBox.shrink());
+      // Reopened once the money landed and the bet is going in.
+      await pumpWith(tester, [_fundedBet(FundedOrderStage.placing)]);
+      expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
+          findsOneWidget);
+      expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
+      await release(tester);
+    });
+
+    testWidgets('Reduce Motion: the steps, nothing moves', (tester) async {
+      await pumpWith(tester, [_fundedBet(FundedOrderStage.placing)],
+          reduceMotion: true);
+      expect(find.byType(SlipFundingSteps), findsOneWidget);
+      expect(band(tester).stretch, 0);
+      expect(band(tester).ticking, isFalse);
+      await release(tester);
+    });
+  });
+
+  group('the "Add" door decides on the spending bitcoin at the tap', () {
+    // The same decision and states as the order slip
+    // (order_slip_funding_test): parity.
+    late RuntimeCapabilitiesService policy;
+    late List<SlipFundingDecision> chains;
+    late List<double> receives;
+    late List<double?> sheets;
+
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+      chains = [];
+      receives = [];
+      sheets = [];
+      debugStartSlipBitcoinChain = (venue, decision) async {
+        expect(venue, OneBalanceVenue.predictions);
+        chains.add(decision);
+      };
+      debugShowSlipReceiveSheet = (venue, addUsd) async {
+        receives.add(addUsd);
+      };
+      debugShowSlipTopUpSheet = (venue, target) async {
+        sheets.add(target);
+      };
+      // The route keeps 0.5%.
+      debugBitcoinLegEstimate = (sats) async => sats / 1e8 * 60000 * 0.995;
+    });
+
+    tearDown(() {
+      debugStartSlipBitcoinChain = null;
+      debugShowSlipReceiveSheet = null;
+      debugShowSlipTopUpSheet = null;
+      debugBitcoinLegEstimate = null;
+      debugFreshSpendingBitcoin = null;
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    Future<void> release(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    }
+
+    testWidgets(
+        'a first tap while the bitcoin is still loading waits, busy, then '
+        'runs the chain once it is read: no sheet', (tester) async {
+      final fresh = Completer<SpendingBitcoin?>();
+      debugFreshSpendingBitcoin = () => fresh.future;
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 5)),
+          dollars: 2);
+      await _frames(tester);
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
+
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      // The balance is still being read: the door's own busy state, never
+      // a sheet.
+      expect(_cta(tester).isBusy, isTrue);
+      expect(_cta(tester).busyLabel, 'Calculating…');
+      expect(_cta(tester).enabled, isFalse);
+      expect(chains, isEmpty);
+      expect(receives, isEmpty);
+      expect(sheets, isEmpty);
+
+      fresh.complete((sats: 100000, usdPerBtc: 60000.0));
+      await _frames(tester, 3);
+      expect(chains, hasLength(1));
+      expect(chains.single.route, SlipFundingRoute.bitcoin);
+      expect(chains.single.addUsd, 3.70);
+      expect(chains.single.plan!.targetUsd, 3.70);
+      expect(chains.single.plan!.maxSats, lessThanOrEqualTo(100000));
+      expect(receives, isEmpty);
+      expect(sheets, isEmpty);
+      await release(tester);
+    });
+
+    testWidgets(
+        "bitcoin short of X once the route's spread is counted: the "
+        'Investments Receive sheet for X, never the chain or the Move sheet',
+        (tester) async {
+      // $3.70 of bitcoin for an X of $3.70: the route keeps 0.5%.
+      debugFreshSpendingBitcoin = () async =>
+          (sats: (3.70 / 60000 * 1e8).round(), usdPerBtc: 60000.0);
+      expect(await policy.refresh(), isTrue);
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 5)),
+          dollars: 2);
+      await _frames(tester);
+      await tester.tap(_door);
+      await _frames(tester, 3);
+      expect(receives, [3.70]);
+      expect(chains, isEmpty);
+      expect(sheets, isEmpty);
+      expect(_queued(tester), isNull);
+      await release(tester);
+    });
+  });
+
+  group('Available is the whole spendable Investments', () {
+    late RuntimeCapabilitiesService policy;
+    setUp(() async {
+      AffiliateService.debugSessionToken = 'test-session';
+      policy = runtimePolicyFixture();
+      RuntimeCapabilitiesService.debugInstance = policy;
+    });
+    tearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+
+    testWidgets(
+        "the venue's cash plus Dollars, and Max fills a bet the slip funds "
+        'itself', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      // $0.49 of Predictions cash and $8.10 in Dollars.
+      await _pumpSlip(tester,
+          Future.value(const PolymarketTradingState(usdcBalance: 0.49)),
+          dollars: 8.10,
+          initialAmountUsd: null);
+      await _frames(tester);
+      // Available is the whole wallet: the venue's cash plus Dollars.
+      expect(find.textContaining(r'Available $8.59'), findsOneWidget);
+      expect(find.textContaining(r'Available $0.49'), findsNothing);
+
+      await tester.tap(find.text('Max'));
+      await _frames(tester);
+      // A stake past the $0.49 here, that the move from Dollars covers:
+      // the button is the bet, never "Add".
+      final label = _cta(tester).label;
+      expect(label, startsWith('Place '));
+      final stake = double.parse(label.split(' ')[1].substring(1));
+      expect(stake, greaterThan(5));
+      expect(stake, lessThan(8.59));
+      expect(_door, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
+    });
+
+    testWidgets(
+        'a Predictions balance that could not be read is not added as 0: '
+        'the button waits', (tester) async {
+      expect(await policy.refresh(), isTrue);
+      // The cash read failed (0 in the state, not known); $8.10 in Dollars.
+      await _pumpSlip(
+          tester,
+          Future.value(const PolymarketTradingState(
+              isAuthenticated: true, balanceKnown: false)),
+          dollars: 8.10,
+          initialAmountUsd: null);
+      await _frames(tester);
+      expect(find.textContaining('Updating balance'), findsOneWidget);
+      expect(find.textContaining(r'Available $8.10'), findsNothing);
+      // The button waits rather than deciding a shortfall on the 0.
+      expect(find.byKey(const ValueKey('bet-slip-loading-account')),
+          findsOneWidget);
+      expect(_door, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      policy.dispose();
     });
   });
 }

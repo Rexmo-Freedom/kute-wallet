@@ -25,6 +25,13 @@ class WalletIdentityService {
   static String? _cachedPubkey;
   static spark.BreezSdk? _sdk;
 
+  /// A token-store recovery reconnects the same wallet. Keep its stable
+  /// identity cache, but never keep signing with the retired SDK handle.
+  static void rebindAfterReconnect(
+      spark.BreezSdk previous, spark.BreezSdk replacement) {
+    if (identical(_sdk, previous)) _sdk = replacement;
+  }
+
   /// Bind a Breez SDK instance and prime the pubkey cache by calling
   /// getInfo(). Retries on transient failures — first Earn-tab open used
   /// to fail because getInfo throws if Breez is still warming up, the

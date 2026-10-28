@@ -83,6 +83,17 @@ class SystemClipboardAccess implements ClipboardAccess {
 /// Kute is not in the foreground it waits for the next resume, because
 /// Android does not let a background app read the clipboard.
 class SeedClipboard {
+  /// A phrase was just pasted from the keyboard (long press, not the
+  /// Paste button): the clipboard holds it and nothing will expire it.
+  /// Overwritten without reading it first, since a read is what shows
+  /// iOS's paste prompt. Best effort.
+  static Future<void> clearAfterKeyboardPaste(
+      {ClipboardAccess access = const SystemClipboardAccess()}) async {
+    try {
+      await access.write('');
+    } catch (_) {}
+  }
+
   SeedClipboard({
     ClipboardAccess? access,
     this.clearAfter = const Duration(seconds: 60),

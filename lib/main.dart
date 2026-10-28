@@ -1,3 +1,4 @@
+import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'dart:async';
 import 'package:kute/app_widget.dart';
@@ -7,11 +8,15 @@ import 'package:kute/services/appsflyer_service.dart';
 import 'package:kute/services/exit_reason_service.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/services/tx_fiat_snapshot_service.dart';
+import 'package:kute/services/hive_boot.dart';
+import 'package:kute/services/icon_cache/icon_warmup.dart';
+import 'package:kute/services/hive_wipe.dart' show deleteOrphanedHiveBoxes;
 import 'package:kute/models/affiliate_model.dart';
+import 'package:kute/models/breez/sdk_instance.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:kute/firebase_options.dart';
+import 'package:kute/theme/app_theme.dart' show loadAppFonts;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -23,7 +28,6 @@ import 'package:overlay_support/overlay_support.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
-import 'package:kute/services/venue_total_cache_service.dart';
 
 /// Wall-clock stamp taken at the very first line of `main()`. Read once
 /// from the first home render to emit the `app_cold_start` latency
@@ -154,6 +158,10 @@ Future<void> _bootstrap() async {
 
   await _initializeApp();
 
+  // Icon disk caches open now; the logos of the last launch are read
+  // back into memory after the first frame (non-blocking).
+  startIconWarmup();
+
   runApp(
     const OverlaySupport.global(
       child: RestartWidget(
@@ -183,6 +191,21 @@ Future<void> _initFirebase() async {
   }
 }
 
+/// Awaits [step] and attaches how long it took, as `<name>_ms`, to the
+/// `app_time_to_first_frame` event the splash emits. The step's own
+/// error handling stays with the step: this never throws and never adds
+/// a wait of its own.
+Future<void> _timedBootStep(String name, Future<void> step) async {
+  final sw = Stopwatch()..start();
+  try {
+    await step;
+  } finally {
+    sw.stop();
+    LatencyTracker.addParams(
+        LatencyKeys.appTimeToFirstFrame, {'${name}_ms': sw.elapsedMilliseconds});
+  }
+}
+
 Future<void> _initializeApp() async {
   // Boot fan-out. Each leg is wrapped in its own try-catch so a single
   // failure (no internet, missing `.env`, Hive corruption, Firebase
@@ -192,21 +215,47 @@ Future<void> _initializeApp() async {
   // .env FIRST, not inside the fan-out: the PostHog + AppsFlyer client
   // keys live there now (no longer hardcoded in source), so _initPostHog
   // below must not race the load. It's a local asset read — milliseconds.
-  await dotenv.load(fileName: ".env").catchError((_) {
-    // .env missing in release/CI — fall back to platform-channel
-    // ints / build flavor; downstream services read with defaults.
-  });
+  // Every pre-frame step is timed onto `app_time_to_first_frame` so a slow
+  // first frame names the step that caused it.
+  await _timedBootStep(
+      'env',
+      dotenv.load(fileName: ".env").catchError((_) {
+        // .env missing in release/CI — fall back to platform-channel
+        // ints / build flavor; downstream services read with defaults.
+      }));
+  // PostHog's Dart setup is OFF the awaited path: it is started here, in
+  // parallel with the fan-out, and the first frame does not wait for it.
+  // Until it completes, TrackingService holds every capture in order and
+  // releases them all in `markAnalyticsReady`, so no boot event is lost
+  // and none reaches the SDK before its config. The hold is released
+  // whatever the outcome (success, failure, the 5 s bound inside), so a
+  // PostHog outage can never mute the app. `posthog_before_first_frame`
+  // on the first-frame event says whether setup had finished by then.
+  TrackingService.holdAnalyticsUntilReady();
+  LatencyTracker.addParams(
+      LatencyKeys.appTimeToFirstFrame, {'posthog_before_first_frame': 0});
+  final posthogSw = Stopwatch()..start();
+  unawaited(_initPostHog()
+      .catchError((_) {/* network/SDK init failed; events buffer */})
+      .whenComplete(() {
+    posthogSw.stop();
+    LatencyTracker.addParams(LatencyKeys.appTimeToFirstFrame, {
+      'posthog_ms': posthogSw.elapsedMilliseconds,
+      'posthog_before_first_frame': 1,
+    });
+    TrackingService.markAnalyticsReady();
+  }));
   await Future.wait([
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
         .catchError((_) {}),
-    _initFirebase(),
-    _initPostHog().catchError((_) {/* network/SDK init failed; buffer */}),
-    _initHive(),
+    _timedBootStep('firebase', _initFirebase()),
+    _timedBootStep('hive', _initHive()),
+    // Inter is in the engine before the first frame lays out any text (a
+    // local asset read, done well inside the legs above).
+    loadAppFonts(),
   ]);
-  // The analytics opt-out lives in Hive, so apply it the moment Hive is
-  // open, before anything below can fire an event. Synchronous; the SDK
-  // opt-out it may trigger is fire-and-forget.
-  TrackingService.applyStoredOptOut();
+  // The analytics opt-out was applied inside `_initHive` (hive_boot.dart)
+  // the moment the settings box opened, before anything below fires.
 
   // Firebase Crashlytics is the single crash backend. The native manifests
   // ship with collection OFF (AndroidManifest
@@ -230,7 +279,30 @@ Future<void> _initializeApp() async {
     TrackingService.setSessionKey('breez_connected', false);
   } catch (_) {}
 
-  RuntimeCapabilitiesService.instance.start();
+  // The runtime policy goes out FIRST, in parallel with the first frame:
+  // the policy service adopts the policies saved on disk and asks for the
+  // public policy (no session needed) at once; the stored session token is
+  // read from secure storage (a local read, no network, no AppsFlyer, no
+  // sign-in) and the session policy is layered on top as soon as it is.
+  // Nothing below waits for either. Never minted here: a session mint
+  // signs with the hot wallet and must stay behind AppsFlyer init (see the
+  // chain below), and the policy service has no container to mint with
+  // yet; a wallet without a stored session keeps the public policy until
+  // the background registration mints one.
+  final publicPolicyFetched = RuntimeCapabilitiesService.instance.start();
+  // Region answers follow the network: the venue checks and the policy's
+  // region denials are asked again on resume and on a network or VPN
+  // change (native path listener), so a stale "restricted" never sticks.
+  RegionFreshness.start();
+  final sessionRestored = AffiliateService.restore().catchError((_) {});
+  final sessionPolicyFetched = sessionRestored
+      .then((_) => RuntimeCapabilitiesService.instance.refreshAfterCurrent());
+  unawaited(Future.wait([publicPolicyFetched, sessionPolicyFetched]).then(
+      (landed) {
+    TrackingService.setSessionKey('backend_reachable', landed.any((ok) => ok));
+  }, onError: (Object _) {
+    TrackingService.setSessionKey('backend_reachable', false);
+  }));
   // Analytics must never delay first frame (offline, PostHog down).
   await TrackingService.initialize()
       .timeout(const Duration(seconds: 4), onTimeout: () {})
@@ -243,18 +315,19 @@ Future<void> _initializeApp() async {
   // report the abnormal ones now that Crashlytics + Hive are up.
   // Fire-and-forget — must never delay first frame.
   unawaited(ExitReasonService.reportLastExit());
-  // AppsFlyer (install attribution / ad ROAS) + AffiliateService +
-  // PostHog identify: DEFERRED as one fire-and-forget CHAIN. The chain
-  // preserves the required internal ordering — AppsFlyer after
-  // TrackingService.initialize (awaited above, so the device UUID
-  // exists for customerUserId) and BEFORE AffiliateService auth (so
-  // authWallet can hand the appsflyer_id to the backend for S2S
-  // revenue events); identify runs after restore so the next event
-  // lands under the stable identity. None of it is needed for first
-  // frame: attribution fires once per install and queues, the
-  // affiliate code is read lazily by the Earn screen, and pre-identify
-  // events sit under PostHog's anonymous id and are aliased on
-  // identify (the 'unknown' sentinel fallback still counts the user in
+  // AppsFlyer (install attribution / ad ROAS) + PostHog identify:
+  // DEFERRED as one fire-and-forget CHAIN. The chain preserves the
+  // required internal ordering — the PostHog setup first (so identify
+  // reaches a configured SDK), AppsFlyer after TrackingService.initialize
+  // (awaited above, so the device UUID exists for customerUserId) and
+  // BEFORE any AffiliateService auth (so authWallet can hand the
+  // appsflyer_id to the backend for S2S revenue events; the session
+  // restore above only reads storage); identify runs after that restore
+  // so the next event lands under the stable identity. None of it is
+  // needed for first frame: attribution fires once per install and
+  // queues, the affiliate code is read lazily by the Earn screen, and
+  // pre-identify events sit under PostHog's anonymous id and are aliased
+  // on identify (the 'unknown' sentinel fallback still counts the user in
   // MAU until a real code lands).
   //
   // Persist any deferred-deeplink referrer the moment AppsFlyer
@@ -266,15 +339,11 @@ Future<void> _initializeApp() async {
   AppsFlyerService.onInstallAttributionCaptured =
       AffiliateService.queueInstallAttribution;
   unawaited(() async {
+    await TrackingService.analyticsReady;
     await AppsFlyerService.init().catchError((_) {});
     // WalletIdentityService binds to Breez SDK lazily (in the Earn
     // screen's bootstrap) — no SDK wait here.
-    await AffiliateService.restore().catchError((_) {});
-    unawaited(RuntimeCapabilitiesService.instance.refresh().then((ok) {
-      TrackingService.setSessionKey('backend_reachable', ok);
-    }, onError: (Object _) {
-      TrackingService.setSessionKey('backend_reachable', false);
-    }));
+    await sessionRestored;
     try {
       final code = AffiliateService.affiliateCode ?? '';
       await TrackingService.identifyWithAffiliate(code);
@@ -293,6 +362,19 @@ Future<void> _initializeApp() async {
     sparkSw.stop();
     TrackingService.sparkSdkConnect(
         result: 'ok', latencyMs: sparkSw.elapsedMilliseconds);
+    if (kDebugMode) {
+      // Debug builds print the SDK's own wallet sync steps (`[sdk-sync]`),
+      // so a slow or failing sync step shows which one it is.
+      try {
+        BreezSdkSpark().initializeLogStream(
+            logFilter: kSdkSyncDebugLogFilter, printSyncSteps: true);
+      } catch (_) {
+        // Rust's process-global logger can still target the previous Dart
+        // isolate after a hot restart. Do not silently lose device diagnosis.
+        debugPrint('[sdk-sync] logging_unavailable: fully stop and relaunch '
+            'the app to restore native sync diagnostics.');
+      }
+    }
   } catch (e) {
     sparkSw.stop();
     // A TimeoutException means the 6s bound fired; anything else is a
@@ -349,9 +431,19 @@ Future<void> _initPostHog() async {
     ..captureApplicationLifecycleEvents = true
     ..debug = kDebugMode
     ..sessionReplay = false
+    // PostHog is collection only: nothing in the app reads a feature flag
+    // (see TrackingService.isDisabled), so the flag fetch the SDK would
+    // otherwise make at setup is a network round-trip for nothing, on the
+    // boot path of a weak link. Off, like the explicit reload was before.
+    ..preloadFeatureFlags = false
     // Surveys are never shown in Kute (founder decision, 2026-09-30).
     // Set explicitly so an SDK default flip can't render one.
     ..surveys = false
+    // No rage-click capture (on by default for iOS in the SDK). The
+    // native SDK builds those events itself, so they never pass the
+    // beforeSend scrubbers below, and three quick taps on one PIN keypad
+    // key would say where on screen they landed.
+    ..rageClickConfig = (PostHogRageClickConfig()..enabled = false)
     // Last line of defence before anything leaves the device. Exception
     // capture is off, so this should never have work to do; it is here so
     // that if a future flag or SDK default turns it back on, the message
@@ -366,9 +458,9 @@ Future<void> _initPostHog() async {
     // PostHog is PRODUCT ANALYTICS ONLY now. All crash / exception reporting
     // (Dart + native + ANR) goes to Firebase Crashlytics — so every PostHog
     // error-capture flag stays OFF and we no longer send `$exception` events.
-  // Timeout-guard the setup so a no-internet cold start can't hang boot on
-  // the SDK's init. PostHog is offline-safe (it queues events to disk and
-  // flushes when connectivity returns); the timeout just protects first frame.
+  // Bounded so a wedged SDK init can never keep the capture hold in
+  // `_initializeApp` closed for long. PostHog is offline-safe (it queues
+  // events to disk and flushes when connectivity returns).
   await Posthog().setup(config).timeout(
         const Duration(seconds: 5),
         onTimeout: () {},
@@ -382,91 +474,10 @@ Future<void> _initHive() async {
   final directory = await getApplicationDocumentsDirectory();
   Hive.init(directory.path);
   Hive.registerAdapter(SwapOrderAdapter());
-  // All box opens run in PARALLEL — they're independent file opens with
-  // no data dependencies, and sequential awaits put ~20 × ~40ms of I/O
-  // on the cold-start critical path (measured as one of the top splash
-  // costs). `_openHiveBoxSafe` still isolates per-box corruption.
-  //
-  // Box-by-box rationale (kept from the sequential version):
-  //  * TxFiatSnapshotService.boxName — at-the-time USD value of txs
-  //    (Outlogic / BTC receives+sends / Polymarket) for historical
-  //    value + gain/loss vs current price.
-  //  * once_flags — once-only milestone flags (first_swap, first_bet…).
-  //  * milestones_log — chronological log of unlocked milestones.
-  //  * polymarket_suppressed_positions — recently sold/redeemed
-  //    positions stay hidden across restarts while the Data API
-  //    catches up (epoch-ms per conditionId).
-  //  * polymarket_optimistic_activity — synthetic Sold/Bought entries
-  //    injected before the Data API confirms them.
-  //  * polymarket_spark_txs — Spark tx ids from bet/claim plumbing,
-  //    hidden from the Activity feed.
-  //  * polymarket_spark_claim_windows — expected-inbound windows for
-  //    Orchestra claim receives.
-  //  * polymarket_orchestra_orders — orderIds tagged as bet-flow
-  //    plumbing (hidden); user Convert exchanges stay visible.
-  //  * polymarket_bet_funding — per-bet funding-currency tag (BTC vs
-  //    USDC), read on resolve/sell to route proceeds back.
-  //  * polymarket_btc_route_queue — queued USDC.e → BTC routes drained
-  //    once the pUSD unwrap settles.
-  //  * fee_history — universal fee ledger for the analytics Fees tab.
-  //  * wallet_balance_cache — per-wallet balance snapshots so cards
-  //    never flash "0" on open.
-  //  * polymarket_usdc_cache — last-known Safe USDC.e balance.
-  //  * venue_total_cache — last-known Predictions / Investing total per
-  //    wallet, so the balance headers never show a bare dash.
-  //  * polymarket_activity_cache / polymarket_usdc_receives_cache /
-  //    mempool_address_tx_cache — API-response caches so cold start
-  //    renders the Activity feed without waiting on live APIs.
-  //  * wallet_transaction_cache — per-wallet Transaction snapshots
-  //    read synchronously at construction time.
-  //  * spark_address_ring — recent Spark deposit addresses (ring, max
-  //    5) so pending inbound txs survive address rotation + restarts.
-  //  * settings — pre-opened here (was opened lazily by
-  //    initialSettingsProvider on the splash critical path; opening it
-  //    in this parallel batch removes that sequential cost — openBox
-  //    on an already-open box is a fast no-op there).
-  await Future.wait([
-    _openHiveBoxSafe<String>('asset_icons'),
-    _openHiveBoxSafe<String>(TxFiatSnapshotService.boxName),
-    _openHiveBoxSafe<bool>('once_flags'),
-    _openHiveBoxSafe('milestones_log'),
-    _openHiveBoxSafe<String>('outlogicOrders'),
-    _openHiveBoxSafe<String>('accumulation_addresses'),
-    _openHiveBoxSafe<String>('usdc_balance_history'),
-    _openHiveBoxSafe<String>('polymarket_suppressed_positions'),
-    _openHiveBoxSafe<String>('polymarket_optimistic_activity'),
-    _openHiveBoxSafe<String>('polymarket_spark_txs'),
-    _openHiveBoxSafe<String>('polymarket_spark_claim_windows'),
-    _openHiveBoxSafe<String>('orchestra_delivery_spark_txs'),
-    _openHiveBoxSafe<String>('polymarket_orchestra_orders'),
-    _openHiveBoxSafe<String>('polymarket_bet_funding'),
-    _openHiveBoxSafe<String>('polymarket_btc_route_queue'),
-    _openHiveBoxSafe<String>('fee_history'),
-    _openHiveBoxSafe<String>('wallet_balance_cache'),
-    _openHiveBoxSafe<double>('polymarket_usdc_cache'),
-    _openHiveBoxSafe<double>(VenueTotalCacheService.boxName),
-    _openHiveBoxSafe<String>('polymarket_activity_cache'),
-    _openHiveBoxSafe<String>('polymarket_usdc_receives_cache'),
-    _openHiveBoxSafe<String>('mempool_address_tx_cache'),
-    _openHiveBoxSafe<String>('hyperliquid_markets_cache_v1'),
-    _openHiveBoxSafe<String>('hyperliquid_sparklines_v1'),
-    _openHiveBoxSafe<String>('polymarket_feed_cache_v1'),
-    _openHiveBoxSafe<String>('wallet_transaction_cache'),
-    _openHiveBoxSafe<String>('spark_address_ring'),
-    // Settings box: plain open, NOT _openHiveBoxSafe — the safe variant
-    // deletes a corrupt box from disk, which is right for cache-tier
-    // boxes but would silently wipe the WALLET LIST here. A failed open
-    // just falls through; initialSettingsProvider retries it and owns
-    // the error surface exactly as before.
-    Hive.openBox('settings').then((_) {}, onError: (_) {}),
-  ]);
-}
-
-Future<void> _openHiveBoxSafe<T>(String name) async {
-  try {
-    await Hive.openBox<T>(name);
-  } catch (e) {
-    await Hive.deleteBoxFromDisk(name);
-    await Hive.openBox<T>(name);
-  }
+  // Every startup box, the stored analytics opt-out and the once-per-
+  // launch reusable-deposit hygiene live in lib/services/hive_boot.dart
+  // so a test can run exactly this path.
+  await openStartupHiveBoxes();
+  // Boxes a retired build left behind that nothing reads (best-effort).
+  await deleteOrphanedHiveBoxes();
 }

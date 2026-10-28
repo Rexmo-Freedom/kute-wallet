@@ -140,6 +140,10 @@ class KuteDogPose {
   /// How far the tongue hangs out, 0 to 1.
   final double tongue;
 
+  /// Nose to the ground, 0 to 1: the head drops in front of the collar
+  /// until the nose is near the paws, and the shoulders show above it.
+  final double sniff;
+
   const KuteDogPose({
     this.headTilt = 0,
     this.headBob = 0,
@@ -156,10 +160,35 @@ class KuteDogPose {
     this.lookX = 0,
     this.lookY = 0,
     this.tongue = 0,
+    this.sniff = 0,
   });
 
   /// Exactly the pose the SVG is drawn in.
   static const KuteDogPose neutral = KuteDogPose();
+
+  /// Every value blended from [a] to [b] by [t] (0 is [a], 1 is [b]), so
+  /// one loop can hand over to another without a pop.
+  static KuteDogPose lerp(KuteDogPose a, KuteDogPose b, double t) {
+    double l(double x, double y) => x + (y - x) * t;
+    return KuteDogPose(
+      headTilt: l(a.headTilt, b.headTilt),
+      headBob: l(a.headBob, b.headBob),
+      headLean: l(a.headLean, b.headLean),
+      earLeft: l(a.earLeft, b.earLeft),
+      earRight: l(a.earRight, b.earRight),
+      tail: l(a.tail, b.tail),
+      blink: l(a.blink, b.blink),
+      squash: l(a.squash, b.squash),
+      bodyBob: l(a.bodyBob, b.bodyBob),
+      lift: l(a.lift, b.lift),
+      pawLeft: l(a.pawLeft, b.pawLeft),
+      pawRight: l(a.pawRight, b.pawRight),
+      lookX: l(a.lookX, b.lookX),
+      lookY: l(a.lookY, b.lookY),
+      tongue: l(a.tongue, b.tongue),
+      sniff: l(a.sniff, b.sniff),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -196,11 +225,6 @@ void paintKuteDog(
   final fur = Paint()..color = palette.fur;
   final furDark = Paint()..color = palette.furDark;
   final furLight = Paint()..color = palette.furLight;
-  final ink = Paint()..color = palette.ink;
-  final sclera = Paint()..color = palette.sclera;
-  final pupil = Paint()..color = palette.pupil;
-  final band = Paint()..color = palette.bandana;
-  final bandShade = Paint()..color = palette.bandanaShade;
 
   // Contact shadow first, on the ground, so a hop lifts away from it.
   if (shadow != null) {
@@ -240,24 +264,77 @@ void paintKuteDog(
   }
 
   // ── Torso, chest, paws ──
+  final sniff = pose.sniff.clamp(0.0, 1.0);
+  if (sniff > 0) {
+    // Nose down: the back rises behind the lowered head, a hump above it.
+    px(fur, 4.5, 10 - 5.6 * sniff, 7, 5.6 * sniff + 0.05);
+    px(furDark, 4.5, 10 - 5.6 * sniff, 7, 0.7);
+  }
   px(fur, 4, 10, 8, 4);
   px(furLight, 6, 10, 4, 3);
   px(furLight, 4, 14 + pose.pawLeft, 2, 1);
   px(furLight, 10, 14 + pose.pawRight, 2, 1);
 
-  // ── Head group ──
-  // Applied twice: once for the head itself and once for the tongue, which
-  // has to be painted after the collar to be visible but still has to ride
-  // along when the head tilts.
-  void headTransform() {
-    canvas.translate(pose.headLean * u, pose.headBob * u);
-    canvas.translate(origin.dx + 8 * u, origin.dy + 9 * u);
-    canvas.rotate(pose.headTilt);
-    canvas.translate(-(origin.dx + 8 * u), -(origin.dy + 9 * u));
+  if (sniff > 0) {
+    // The collar goes behind the lowered head, only its knot showing.
+    _paintKuteCollar(canvas, origin, u, pose, palette, 0);
+    _paintKuteHead(canvas, origin, u,
+        _withHeadBob(pose, pose.headBob + 4.0 * sniff), palette,
+        noseDown: sniff > 0.5);
+  } else {
+    _paintKuteHead(canvas, origin, u, pose, palette);
+    _paintKuteCollar(canvas, origin, u, pose, palette, 0);
+    _paintKuteTongue(canvas, origin, u, pose, palette);
   }
 
+  canvas.restore();
+}
+
+KuteDogPose _withHeadBob(KuteDogPose p, double bob) => KuteDogPose(
+      headTilt: p.headTilt,
+      headBob: bob,
+      headLean: p.headLean,
+      // Ears fall forward as the head goes down.
+      earLeft: p.earLeft + 0.35 * p.sniff,
+      earRight: p.earRight + 0.35 * p.sniff,
+      tail: p.tail,
+      blink: p.blink,
+      lookX: p.lookX,
+      lookY: p.lookY,
+    );
+
+/// The head group's transform: [KuteDogPose.headLean] and
+/// [KuteDogPose.headBob], then [KuteDogPose.headTilt] about the neck.
+void _headTransform(Canvas canvas, Offset origin, double u, KuteDogPose pose) {
+  canvas.translate(pose.headLean * u, pose.headBob * u);
+  canvas.translate(origin.dx + 8 * u, origin.dy + 9 * u);
+  canvas.rotate(pose.headTilt);
+  canvas.translate(-(origin.dx + 8 * u), -(origin.dy + 9 * u));
+}
+
+void _rect(Canvas canvas, Offset origin, double u, Paint paint, double x,
+    double y, double w, double h) {
+  canvas.drawRect(
+    Rect.fromLTWH(origin.dx + x * u, origin.dy + y * u, w * u, h * u),
+    paint,
+  );
+}
+
+/// Ears, skull, muzzle, eyes and nose, moved and tilted with the head.
+void _paintKuteHead(Canvas canvas, Offset origin, double u, KuteDogPose pose,
+    KuteDogPalette palette,
+    {bool noseDown = false}) {
+  void px(Paint paint, double x, double y, double w, double h) =>
+      _rect(canvas, origin, u, paint, x, y, w, h);
+  final fur = Paint()..color = palette.fur;
+  final furDark = Paint()..color = palette.furDark;
+  final furLight = Paint()..color = palette.furLight;
+  final ink = Paint()..color = palette.ink;
+  final sclera = Paint()..color = palette.sclera;
+  final pupil = Paint()..color = palette.pupil;
+
   canvas.save();
-  headTransform();
+  _headTransform(canvas, origin, u, pose);
 
   // Ears rotate about where they meet the skull. Positive flops outward,
   // which means clockwise on his right and anticlockwise on his left.
@@ -306,33 +383,106 @@ void paintKuteDog(
     }
   }
 
-  // Nose.
-  px(ink, 7, 7, 2, 1);
+  // Nose: at the muzzle's tip, its lowest point when he sniffs the ground.
+  px(ink, 7, noseDown ? 9 : 7, 2, 1);
   canvas.restore();
+}
 
-  // ── Bandana, worn over the jaw like a collar ──
-  canvas.save();
+/// The bandana, worn over the jaw like a collar, [dy] grid units down.
+void _paintKuteCollar(Canvas canvas, Offset origin, double u, KuteDogPose pose,
+    KuteDogPalette palette, double dy) {
+  void px(Paint paint, double x, double y, double w, double h) =>
+      _rect(canvas, origin, u, paint, x, y + dy, w, h);
+  final band = Paint()..color = palette.bandana;
+  final bandShade = Paint()..color = palette.bandanaShade;
   px(band, 3, 8, 10, 2);
   px(bandShade, 4, 9, 8, 1);
   canvas.save();
-  canvas.translate(origin.dx + 13 * u, origin.dy + 9.5 * u);
+  canvas.translate(origin.dx + 13 * u, origin.dy + (9.5 + dy) * u);
   canvas.rotate(pose.tail * 0.35);
-  canvas.translate(-(origin.dx + 13 * u), -(origin.dy + 9.5 * u));
+  canvas.translate(-(origin.dx + 13 * u), -(origin.dy + (9.5 + dy) * u));
   px(band, 13, 9, 2, 1);
   px(band, 14, 10, 1, 1);
   px(bandShade, 13, 10, 1, 1);
   canvas.restore();
-  canvas.restore();
+}
 
-  // ── Tongue, lolling over the collar ──
-  if (pose.tongue > 0) {
-    canvas.save();
-    headTransform();
-    px(Paint()..color = palette.tongue, 8.3, 7.9, 1.5, 1.7 * pose.tongue);
-    canvas.restore();
+/// The tongue, lolling over the collar, riding along with the head.
+void _paintKuteTongue(Canvas canvas, Offset origin, double u, KuteDogPose pose,
+    KuteDogPalette palette) {
+  if (pose.tongue <= 0) return;
+  canvas.save();
+  _headTransform(canvas, origin, u, pose);
+  _rect(canvas, origin, u, Paint()..color = palette.tongue, 8.3, 7.9, 1.5,
+      1.7 * pose.tongue);
+  canvas.restore();
+}
+
+/// Sal lying down, chin on his paws: the long body stretched out to his
+/// right (our left) with the tail flat behind, the head lowered onto the
+/// front paws at the same place as when he sits, so whatever lies beside
+/// him stays beside him. Same grid as [paintKuteDog] (the paws on y = 15);
+/// the body reaches about 5 grid units left of it.
+///
+/// [breath] (0 to 1) lifts the back a little; [ears] perks them (negative,
+/// as [KuteDogPose.earLeft]); [blink] is the lid (0 open, 1 shut).
+void paintKuteDogLying(
+  Canvas canvas, {
+  required Offset origin,
+  required double unit,
+  required KuteDogPalette palette,
+  double breath = 0,
+  double ears = 0,
+  double blink = 0.45,
+  Color? shadow,
+}) {
+  final u = unit;
+  void px(Paint paint, double x, double y, double w, double h) =>
+      _rect(canvas, origin, u, paint, x, y, w, h);
+  final fur = Paint()..color = palette.fur;
+  final furDark = Paint()..color = palette.furDark;
+  final furLight = Paint()..color = palette.furLight;
+
+  if (shadow != null) {
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(origin.dx + 4 * u, origin.dy + 15.1 * u),
+        width: 17 * u,
+        height: 1.0 * u,
+      ),
+      Paint()..color = shadow,
+    );
   }
+  final b = 0.5 * breath.clamp(0.0, 1.0);
+  // Tail flat on the ground, then the long body.
+  px(furDark, -5.6, 13.8, 2.4, 1.2);
+  px(fur, -3.6, 13.4, 1.2, 1.6);
+  px(fur, -3, 11 - b, 10, 4 + b);
+  px(furDark, -3, 11 - b, 6.5, 0.6);
+  px(furLight, -2.2, 14, 2.2, 1);
+  // The head, lowered onto the paws; the collar under the chin.
+  final head = KuteDogPose(
+      headBob: 4.4 - 0.25 * b,
+      earLeft: 0.30 + ears,
+      earRight: 0.30 + ears,
+      blink: blink);
+  _paintKuteHead(canvas, origin, u, head, palette);
+  _paintKuteCollar(canvas, origin, u, KuteDogPose.neutral, palette, 4.4);
+  // Front paws, stretched out under the chin.
+  px(furLight, 4, 14, 2.6, 1);
+  px(furLight, 9.4, 14, 2.6, 1);
+}
 
-  canvas.restore();
+/// A tiny pixel "!" (2 x 5 grid units) whose top-left is [at] grid units
+/// from [origin]: Sal's ears perking at news.
+void paintKuteExclaim(Canvas canvas,
+    {required Offset origin,
+    required double unit,
+    required Offset at,
+    required Color color}) {
+  final p = Paint()..color = color;
+  _rect(canvas, origin, unit, p, at.dx, at.dy, 1.6, 3.2);
+  _rect(canvas, origin, unit, p, at.dx, at.dy + 4.0, 1.6, 1.4);
 }
 
 /// A painter for Sal on his own, with no scene around him.
@@ -583,9 +733,10 @@ class KuteDogIdle extends StatelessWidget {
 // Cheer: a short celebratory bounce
 // ─────────────────────────────────────────────────────────────────────
 
-const int _kCheerMs = 1600;
+const int kKuteDogCheerMs = 1600;
 
-KuteDogPose _cheerPose(double ms) {
+/// Two hops with the tail going, then a beat of panting.
+KuteDogPose kuteDogCheerPose(double ms) {
   // Two hops, then a beat of panting so it never looks frantic.
   final hop = kutePulse(ms, 40, 400) + kutePulse(ms, 470, 830);
   final land = kutePulse(ms, 380, 500) + kutePulse(ms, 810, 930);
@@ -619,12 +770,63 @@ class KuteDogCheer extends StatelessWidget {
   @override
   Widget build(BuildContext context) => KuteDogLoop(
         size: size,
-        period: const Duration(milliseconds: _kCheerMs),
-        poseAt: _cheerPose,
+        period: const Duration(milliseconds: kKuteDogCheerMs),
+        poseAt: kuteDogCheerPose,
         restMs: 1450,
         shadowColor: shadowColor,
         cycles: cycles,
       );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Wag: the result sheet's happy burst
+// ─────────────────────────────────────────────────────────────────────
+
+const int kKuteDogWagMs = 1500;
+
+/// A fast, wide tail-wag burst with his ears perked, one small hop as it
+/// starts and his tongue out, easing back to [KuteDogPose.neutral] by the
+/// end (where the idle loop picks up). The swing is wide and quick on
+/// purpose: in a 40 px header the idle loop's wag barely reads. It is
+/// centred below the resting angle, out to his side, because a tail
+/// lifted much past rest disappears behind his body.
+KuteDogPose kuteDogWagPose(double ms) {
+  final rise = (ms / 120).clamp(0.0, 1.0);
+  final fall = 1 - ((ms - 1050) / 450).clamp(0.0, 1.0);
+  final e = Curves.easeInOut.transform(math.min(rise, fall));
+  final hop = kutePulse(ms, 40, 300);
+  final land = kutePulse(ms, 280, 400);
+  return KuteDogPose(
+    lift: 0.7 * hop,
+    squash: 1 + 0.05 * hop - 0.07 * land,
+    headBob: -0.25 * hop,
+    headTilt: 0.08 * e * kuteWave(ms, 760),
+    earLeft: -0.30 * e,
+    earRight: -0.36 * e,
+    tail: e * (-0.25 + 0.5 * kuteWave(ms, 190)),
+    tongue: 0.38 * e,
+    lookY: -0.5 * e,
+  );
+}
+
+/// Sal let down: ears flopped, head low, tail still and dropped, a slow
+/// breath and the odd blink. Eases in over its first 400 ms from neutral.
+const int kKuteDogSadMs = 7200;
+
+KuteDogPose kuteDogSadPose(double ms) {
+  final e = Curves.easeOut.transform((ms / 400).clamp(0.0, 1.0));
+  final breathe = kuteWave(ms, 3600);
+  return KuteDogPose(
+    squash: 1 + 0.016 * breathe,
+    bodyBob: -0.06 * breathe,
+    headBob: 0.45 * e,
+    headTilt: 0.10 * e,
+    earLeft: 0.55 * e,
+    earRight: 0.60 * e,
+    tail: -0.28 * e,
+    blink: kuteBlink(ms, 2200) + kuteBlink(ms, 5600),
+    lookX: -0.6 * e,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────

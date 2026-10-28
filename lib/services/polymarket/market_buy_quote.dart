@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:kute/services/polymarket/market_terms_store.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
+import 'package:kute/services/polymarket_clob_websocket.dart'
+    show PolymarketLiveBooks;
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart';
 
 /// CLOB REST books are not best-price-first. Normalize at the boundary so
@@ -264,6 +267,80 @@ class PolymarketMarketBuyQuote {
         fillableUsd: polymarketDepthWithin(book, maxPrice));
   }
 
-  bool get hasFreshTerms =>
-      DateTime.now().difference(fetchedAt) < const Duration(seconds: 15);
+  /// Whether the increment and neg-risk this quote carries can be signed
+  /// with now: read within the last 15 seconds, or still what the market
+  /// feed (current for the token, where an increment change would have
+  /// arrived) and the saved terms say. A slow approval no longer sends
+  /// the placement back to the venue for them.
+  bool get hasFreshTerms {
+    if (DateTime.now().difference(fetchedAt) < const Duration(seconds: 15)) {
+      return true;
+    }
+    if (!PolymarketLiveBooks.instance.isCurrent(tokenId)) return false;
+    return PolymarketMarketTermsStore.currentTickSize(tokenId,
+                referencePrice: bestAsk) ==
+            tickSize &&
+        PolymarketMarketTermsStore.read(tokenId)?.negRisk == negRisk;
+  }
+}
+
+/// A market buy as the approval covers it, built while the prompt is on
+/// screen: the shares for [amount] at the approved [price], the market's
+/// increment and neg-risk, and the builder code held then. After the
+/// approval only signing and the POST remain; a send-time price other
+/// than [price] builds a new plan.
+class PolymarketOrderPlan {
+  const PolymarketOrderPlan({
+    required this.amount,
+    required this.price,
+    required this.shares,
+    required this.tickSize,
+    required this.negRisk,
+    this.builderCode,
+  });
+
+  final double amount, price, shares;
+  final String tickSize;
+  final bool negRisk;
+
+  /// The code held when the plan was built; null means the order goes out
+  /// with the zero builder unless the refresh lands before signing.
+  final String? builderCode;
+
+  factory PolymarketOrderPlan.build({
+    required double amount,
+    required double price,
+    required String tickSize,
+    required bool negRisk,
+    String? builderCode,
+  }) =>
+      PolymarketOrderPlan(
+        amount: amount,
+        price: price,
+        shares: sharesFor(amount, price),
+        tickSize: tickSize,
+        negRisk: negRisk,
+        builderCode: builderCode,
+      );
+
+  /// What the market buy spends: the stake itself, signed to the cent
+  /// (PolymarketOrderAmounts.encode's `spendUsd`), or the venue's minimum
+  /// when [shares] were bumped up to it. Never the floored [shares] ×
+  /// [price], which signed a typed \$5.00 as \$4.99.
+  double get spendUsd => math.max(amount, shares * price);
+
+  /// Shares for [amount] at [price], floored to a hundredth; bumped up to
+  /// meet the venue's one-dollar floor only within the stake plus the
+  /// quote's rounding cent, never into the fee room.
+  static double sharesFor(double amount, double price) {
+    var shares = ((amount / price) * 100).floorToDouble() / 100;
+    if (shares * price < 1.0 && amount >= 1.0) {
+      final bumped = (1.0 / price * 100).ceilToDouble() / 100;
+      if (bumped * price <=
+          amount + PolymarketMarketBuyQuote.roundingHeadroom + 1e-9) {
+        shares = bumped;
+      }
+    }
+    return shares;
+  }
 }

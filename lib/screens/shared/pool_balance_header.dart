@@ -17,6 +17,7 @@ import 'package:kute/screens/home/components/home_action_row.dart'
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/stale_shimmer.dart';
 
 class PoolBalanceHeader extends StatelessWidget {
   /// The formatted hero figure. Since the invested-first flip (user
@@ -47,6 +48,19 @@ class PoolBalanceHeader extends StatelessWidget {
   /// "Available", so no screen shows them in English.
   final String? investedLabel;
   final String? availableLabel;
+
+  /// The split reads "Available $Y · Invested $X" (the Investments tab's
+  /// hero) instead of invested first.
+  final bool availableFirst;
+
+  /// Closes the split line. Null: nothing.
+  final Widget? splitTrailing;
+
+  /// Sits right after the hero number (the Investments hero's chevron, its
+  /// tap affordance). An empty box of [amountTrailingWidth] mirrors it on
+  /// the left so the number stays centred. Null: nothing.
+  final Widget? amountTrailing;
+  final double amountTrailingWidth;
   final String? totalLabel;
   final String? balanceDetail;
 
@@ -86,8 +100,8 @@ class PoolBalanceHeader extends StatelessWidget {
   final bool loading;
 
   /// The headline is the last known figure, not a fresh read (still on
-  /// its way, or the read failed): it reads in the secondary text colour
-  /// until the next sync brings a fresh one.
+  /// its way, or the read failed): it reads in the secondary text colour,
+  /// with a [StaleShimmer] sweep, until the next sync brings a fresh one.
   final bool stale;
 
   const PoolBalanceHeader({
@@ -102,6 +116,10 @@ class PoolBalanceHeader extends StatelessWidget {
     this.availableText,
     this.investedLabel,
     this.availableLabel,
+    this.availableFirst = false,
+    this.splitTrailing,
+    this.amountTrailing,
+    this.amountTrailingWidth = 0,
     this.totalLabel,
     this.balanceDetail,
     this.amountFontSize,
@@ -140,25 +158,32 @@ class PoolBalanceHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (amountTrailing != null)
+                  SizedBox(width: amountTrailingWidth),
                 if (loading)
                   KuteSkeleton(
                     child: SkeletonBar(150.w, (amountFontSize ?? 48.sp) * 0.9,
                         radius: 12.r),
                   )
                 else
-                  RollingNumberText(
-                    // The formatted amount carries its own currency
-                    // symbol ($ / € / ₿ per settings) — no icon, per
-                    // Joao. Rolls per digit like every live number
-                    // on these screens.
-                    text: amountText,
-                    style: TextStyle(
-                      color: stale ? c.textSecondary : c.textPrimary,
-                      fontSize: amountFontSize ?? 48.sp,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1.2,
-                      height: 1.0,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  // Still updating: dimmed, with the skeleton's sweep
+                  // running over the digits.
+                  StaleShimmer(
+                    stale: stale,
+                    child: RollingNumberText(
+                      // The formatted amount carries its own currency
+                      // symbol ($ / € / ₿ per settings) — no icon, per
+                      // Joao. Rolls per digit like every live number
+                      // on these screens.
+                      text: amountText,
+                      style: TextStyle(
+                        color: stale ? c.textSecondary : c.textPrimary,
+                        fontSize: amountFontSize ?? 48.sp,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1.2,
+                        height: 1.0,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 if (heroPctText != null)
@@ -175,6 +200,7 @@ class PoolBalanceHeader extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (amountTrailing != null) amountTrailing!,
               ],
             ),
           ),
@@ -184,7 +210,9 @@ class PoolBalanceHeader extends StatelessWidget {
                 investedText: investedText,
                 availableText: availableText,
                 investedLabel: investedLabel ?? context.l10n.betInvested,
-                availableLabel: availableLabel ?? context.l10n.available),
+                availableLabel: availableLabel ?? context.l10n.available,
+                availableFirst: availableFirst,
+                trailing: splitTrailing),
           ],
           if (balanceDetail != null && balanceDetail!.isNotEmpty)
             Padding(
@@ -314,11 +342,15 @@ class _BalanceSplitLine extends StatelessWidget {
   final String? availableText;
 
   final String investedLabel, availableLabel;
+  final bool availableFirst;
+  final Widget? trailing;
   const _BalanceSplitLine(
       {this.investedText,
       this.availableText,
       required this.investedLabel,
-      required this.availableLabel});
+      required this.availableLabel,
+      this.availableFirst = false,
+      this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -338,24 +370,31 @@ class _BalanceSplitLine extends StatelessWidget {
       height: 1.0,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final invested = [
+      if (investedText != null) ...[
+        Text('$investedLabel ', style: labelStyle),
+        RollingNumberText(text: investedText!, style: valueStyle),
+      ],
+    ];
+    final available = [
+      if (availableText != null) ...[
+        Text('$availableLabel ', style: labelStyle),
+        RollingNumberText(text: availableText!, style: valueStyle),
+      ],
+    ];
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       runSpacing: 8,
       children: [
-        if (investedText != null) ...[
-          Text('$investedLabel ', style: labelStyle),
-          RollingNumberText(text: investedText!, style: valueStyle),
-        ],
+        ...availableFirst ? available : invested,
         if (investedText != null && availableText != null)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.w),
             child: Text('·', style: labelStyle),
           ),
-        if (availableText != null) ...[
-          Text('$availableLabel ', style: labelStyle),
-          RollingNumberText(text: availableText!, style: valueStyle),
-        ],
+        ...availableFirst ? invested : available,
+        if (trailing != null) trailing!,
       ],
     );
   }

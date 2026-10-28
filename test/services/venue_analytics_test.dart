@@ -35,6 +35,8 @@ void main() {
       expect(p['is_live'], true);
       expect(p['event_tags'], ['nba', 'basketball', 'lakers']);
       expect(p['time_to_resolution_bucket'], '1-24h');
+      // Exact seconds beside the bucket (5 h, give or take the test's run).
+      expect(p['time_to_resolution_seconds'], closeTo(5 * 3600, 5));
     });
 
     test('maps tags to the product categories and falls back', () {

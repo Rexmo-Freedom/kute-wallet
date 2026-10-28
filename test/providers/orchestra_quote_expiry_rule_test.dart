@@ -13,6 +13,8 @@ import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/services/api/orchestra_api.dart';
 
+import '../helpers/fake_network.dart';
+
 final _created = DateTime.utc(2026, 9, 1, 12);
 final _expires = _created.add(const Duration(minutes: 2));
 
@@ -47,7 +49,7 @@ SwapOrder _row({
 
 Future<Result<OrchestraOrder>> _statusWith(
         Future<http.Response> Function(http.Request request) handler) =>
-    http.runWithClient(
+    withFakeNetwork(
       () => OrchestraService.getStatus('q_1'),
       () => MockClient(handler),
     );
@@ -185,7 +187,7 @@ void main() {
 
   group('Cash App quote rows read the normalized null-order envelope', () {
     Future<OrchestraOrder?> fetchWith(String body) async {
-      final result = await http.runWithClient(
+      final result = await withFakeNetwork(
         () => OrchestraService.getStatus('q_1'),
         () => MockClient((_) async => http.Response(body, 200)),
       );

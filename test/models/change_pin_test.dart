@@ -216,7 +216,11 @@ void main() {
             reason: 'a stale biometric_pin never verifies');
       }
     }
-  });
+  },
+      // Every crash point re-runs a whole PIN change and its recovery, each
+      // paying the real PBKDF2 cost (100k rounds per copy): about 80 s on
+      // its own, far longer while the full suite shares the CPU.
+      timeout: const Timeout(Duration(minutes: 10)));
 
   test('recovery does nothing with a PIN that does not match pin_hash',
       () async {

@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/services/api/orchestra_api.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show isPolicyRefusal;
 
 /// How an Orchestra call that carries an idempotency key ended.
 enum SettlementHttpOutcome {
@@ -16,18 +18,38 @@ enum SettlementHttpOutcome {
   /// HTTP 429. Retry with the same key after the reset.
   rateLimited,
 
+  /// HTTP 409 `idempotency_in_progress`: the provider is still processing
+  /// an earlier request with this key (a submit that outlived our timeout
+  /// while Flashnet verifies the source transaction). Not a rejection: the
+  /// key is kept, nothing is retried now and no error is shown; the order
+  /// appears through status polling, or a later attempt with the SAME key
+  /// gets the result.
+  inProgress,
+
   /// A definitive rejection: any other 4xx, or a 2xx the provider flagged
   /// as an error. Flashnet requires a new key for the next attempt.
   rejected,
 }
+
+/// Flashnet's code for a request whose idempotency key is still being
+/// processed.
+const String kIdempotencyInProgressCode = 'idempotency_in_progress';
 
 SettlementHttpOutcome classifySettlementResult(Result<Object?> result) {
   final code = result.statusCode;
   if (result.isSuccess && code != null && code >= 200 && code < 300) {
     return SettlementHttpOutcome.success;
   }
+  // A policy refusal (the app's own check before any request) is an
+  // answer, not a lost request: asking again only gets the same one.
+  if (isPolicyRefusal(result.cause)) {
+    return SettlementHttpOutcome.rejected;
+  }
   if (code == null) return SettlementHttpOutcome.transient;
   if (code == 429) return SettlementHttpOutcome.rateLimited;
+  if (code == 409 && result.errorCode == kIdempotencyInProgressCode) {
+    return SettlementHttpOutcome.inProgress;
+  }
   if (code == 408 || code >= 500) return SettlementHttpOutcome.transient;
   if (code >= 400 || (code >= 200 && code < 300)) {
     return SettlementHttpOutcome.rejected;
@@ -154,8 +176,9 @@ class IdempotentCallResult<T> {
 Future<void> _delay(Duration d) => Future<void>.delayed(d);
 
 /// Sends [call] with [key] and retries it with the same key after a
-/// timeout, transport error, 408, 5xx or 429. A success or a definitive
-/// rejection ends the call.
+/// timeout, transport error, 408, 5xx or 429. A success, a definitive
+/// rejection or an in-progress answer ends the call (asking again while the
+/// first request is still being processed only gets the same answer).
 Future<IdempotentCallResult<T>> callWithIdempotencyKey<T>({
   required String key,
   required Future<Result<T>> Function(String key) call,
@@ -172,6 +195,7 @@ Future<IdempotentCallResult<T>> callWithIdempotencyKey<T>({
         result: result, outcome: outcome, attempts: attempt, key: key);
     if (outcome == SettlementHttpOutcome.success ||
         outcome == SettlementHttpOutcome.rejected ||
+        outcome == SettlementHttpOutcome.inProgress ||
         attempt >= policy.maxAttempts) {
       return done();
     }

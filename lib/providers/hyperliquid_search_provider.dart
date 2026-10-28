@@ -70,7 +70,8 @@ class HlMarketSearchResult {
   final double dayChangePct;
 
   /// How far a perp can be geared ([HlMarket.offeredMaxLeverage]), for
-  /// the row's "40x"; null for a token or when not known.
+  /// the market a bare result is drawn from (never shown on the row);
+  /// null for a token or when not known.
   final int? maxLeverage;
 
   /// The decimals the venue prices this market to, as the browse cards
@@ -237,27 +238,6 @@ Future<List<HlMarketSearchResult>> _fallbackResults(
         market: e.key,
       ),
   ];
-}
-
-/// Whether [query] names an Investing market outright, from what is on the
-/// device: a ticker or friendly name typed in full, a curated alias
-/// ("tesla", "s&p"), or the start of a friendly name (three letters or
-/// more). Search uses it to put markets above activity for the query; it
-/// never waits for the remote leg.
-bool hlQueryNamesMarket(String query, Iterable<HlMarket> universe) {
-  final normQ = _normalizeToken(query);
-  if (normQ.isEmpty) return false;
-  if (_aliasTargets(query, normQ).isNotEmpty) return true;
-  for (final entry in _kHlSymbolNames.entries) {
-    final symbol = _normalizeToken(entry.key);
-    final name = _normalizeToken(entry.value);
-    if (symbol == normQ || name == normQ) return true;
-    if (normQ.length >= 3 && name.startsWith(normQ)) return true;
-  }
-  for (final m in universe) {
-    if (_normalizeToken(m.coin) == normQ) return true;
-  }
-  return false;
 }
 
 /// Lowercase [s] and strip every non-alphanumeric char, so "S&P 500" →

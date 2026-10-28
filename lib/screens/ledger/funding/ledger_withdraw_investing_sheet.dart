@@ -161,8 +161,11 @@ class _LedgerWithdrawInvestingSheetState
         : hypercoreAvailableUsdc(snapshot.withdrawable, snapshot.spotBalances);
   }
 
-  String _bucket(BigInt baseUnits) => TrackingService.usdBucket(
-      baseUnits.toDouble() / math.pow(10, kHypercoreUsdcDecimals));
+  double _usd(BigInt baseUnits) =>
+      baseUnits.toDouble() / math.pow(10, kHypercoreUsdcDecimals);
+
+  String _bucket(BigInt baseUnits) =>
+      TrackingService.usdBucket(_usd(baseUnits));
 
   void _setStep(_WithdrawStep step) {
     if (!mounted) return;
@@ -259,6 +262,7 @@ class _LedgerWithdrawInvestingSheetState
         route: _route,
         outcome: ledgerFundingOutcomeCode(e),
         amountBucket: _bucket(units),
+        amountUsd: _usd(units),
       );
       _fail(e);
     }
@@ -311,6 +315,7 @@ class _LedgerWithdrawInvestingSheetState
         route: _route,
         outcome: ledgerFundingOutcomeCode(e),
         amountBucket: _bucket(review.amountBaseUnits),
+        amountUsd: _usd(review.amountBaseUnits),
       );
       _fail(e);
     }
@@ -394,10 +399,12 @@ class _LedgerWithdrawInvestingSheetState
       route: _route,
       outcome: pending ? 'submit_pending' : 'submitted',
       amountBucket: _bucket(review.amountBaseUnits),
+      amountUsd: _usd(review.amountBaseUnits),
     );
     TrackingService.ledgerActionSubmitted(
       action: 'hypercore_to_btc',
       amountBucket: _bucket(review.amountBaseUnits),
+      amountUsd: _usd(review.amountBaseUnits),
     );
     widget.onSubmitted?.call();
     final navigator = Navigator.of(context, rootNavigator: true);
@@ -407,6 +414,10 @@ class _LedgerWithdrawInvestingSheetState
       navigator: navigator,
       overlay: KuteConfirmation(
         message: l10n.ledgerWithdrawSentMessage,
+        amount: ledgerFormatUsd(_usd(review.amountBaseUnits)),
+        tone: pending
+            ? KuteConfirmationTone.pending
+            : KuteConfirmationTone.success,
         detail: pending
             ? l10n.ledgerSubmitPendingPlain
             : l10n.ledgerArrivesAfterNetwork,
@@ -623,6 +634,8 @@ class _LedgerWithdrawReview extends StatelessWidget {
         ),
         OrchestraFeeSummary(
           sourceFeeUsd: review.activationFeeBaseUnits.toDouble() / 1e8,
+          // The device-verified Ledger address the reviewed quote pays.
+          recipient: review.recipient.address,
           route: (
             fromChain: 'hypercore',
             fromAsset: 'USDC',

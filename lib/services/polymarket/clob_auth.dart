@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:kute/services/hardware/evm_signing_request.dart';
+import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/polymarket_order_v2.dart';
 import 'package:polybrainz_polymarket/polybrainz_polymarket.dart'
     show ApiCredentials, EthPrivateKey;
@@ -63,34 +64,33 @@ class PolymarketClobAuth {
 
   /// Nonce zero is the official SDK default and makes provisioning
   /// repeatable after a lost response without creating a new key each time.
+  ///
+  /// Both calls ride the shared keep-alive client for clob.polymarket.com
+  /// (one handshake for derive + create) unless a test injected [_client].
   Future<ApiCredentials> deriveOrCreate(Map<String, String> headers) async {
-    final ownedClient = _client == null;
-    final client = _client ?? http.Client();
-    try {
-      final derived = await client
-          .get(
-            Uri.https('clob.polymarket.com', '/auth/derive-api-key'),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
-      if (derived.statusCode == 200) return _parse(derived);
-      // A failed lookup may mean no key exists for this nonce. Preserve
-      // the reference client's create/derive compatibility, but never
-      // fall back to a different signing identity or signature protocol.
-      final created = await client
-          .post(
-            Uri.https('clob.polymarket.com', '/auth/api-key'),
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
-      if (created.statusCode != 200) {
-        throw StateError(
-            'CLOB credential creation failed (${created.statusCode})');
-      }
-      return _parse(created);
-    } finally {
-      if (ownedClient) client.close();
+    final derived = await SharedHttpClient.get(
+      Uri.https('clob.polymarket.com', '/auth/derive-api-key'),
+      headers: headers,
+      kind: HttpCallKind.userAction,
+      timeout: const Duration(seconds: 15),
+      client: _client,
+    );
+    if (derived.statusCode == 200) return _parse(derived);
+    // A failed lookup may mean no key exists for this nonce. Preserve
+    // the reference client's create/derive compatibility, but never
+    // fall back to a different signing identity or signature protocol.
+    final created = await SharedHttpClient.post(
+      Uri.https('clob.polymarket.com', '/auth/api-key'),
+      headers: headers,
+      kind: HttpCallKind.userAction,
+      timeout: const Duration(seconds: 15),
+      client: _client,
+    );
+    if (created.statusCode != 200) {
+      throw StateError(
+          'CLOB credential creation failed (${created.statusCode})');
     }
+    return _parse(created);
   }
 
   static ApiCredentials _parse(http.Response response) {

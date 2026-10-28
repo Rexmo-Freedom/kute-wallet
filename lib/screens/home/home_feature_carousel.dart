@@ -13,6 +13,7 @@ Future<bool> checkPolymarketGeoblock(BuildContext context,
     Duration maxAge = Duration.zero}) async {
   late String message;
   var regionBlocked = false;
+  ({String capability, CapabilityDecision decision})? denial;
   final l10n = context.l10n;
   try {
     // At the tap the slip re-checks what it checked when it opened; a
@@ -28,8 +29,9 @@ Future<bool> checkPolymarketGeoblock(BuildContext context,
     regionBlocked =
         error.availability.status == ProviderAvailabilityStatus.restricted;
   } on CapabilityUnavailableException catch (error) {
-    message = error.decision.messageIn(l10n);
+    message = error.decision.bodyIn(l10n);
     regionBlocked = error.decision.regionRestricted;
+    denial = (capability: error.capability, decision: error.decision);
   }
   if (!context.mounted) return true;
 
@@ -54,7 +56,10 @@ Future<bool> checkPolymarketGeoblock(BuildContext context,
     context,
     message: message,
     regionRestricted: regionBlocked,
+    denial: denial,
+    surface: 'predictions_gate_sheet',
     title: l10n.gatePredictionsUnavailable,
+    capabilities: capabilities ?? [capability],
   ));
   return true;
 }

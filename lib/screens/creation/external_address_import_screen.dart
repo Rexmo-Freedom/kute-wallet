@@ -1,3 +1,4 @@
+import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/custom_button.dart';
@@ -55,6 +56,7 @@ class _ExternalAddressImportScreenState
         'wallet_kind': 'external_address',
         if (_captureMethod != null) 'method': _captureMethod!,
         'has_address': _addressController.text.trim().isNotEmpty,
+        'time_in_flow_ms': _flowClock.elapsed.inMilliseconds,
         'time_in_flow_bucket': _timeInFlowBucket(_flowClock.elapsed),
         'reason': _lastErrorCategory != null ? 'error' : 'user_closed',
         if (_lastErrorCategory != null)
@@ -81,7 +83,7 @@ class _ExternalAddressImportScreenState
 
   void _onScanPressed() async {
     _step('scan_qr', method: 'qr');
-    final result = await context.pushNamed<String>('QrScanner');
+    final result = await showScannerSheet(context, multiPart: true);
     if (result != null && result.isNotEmpty) {
       setState(() => _addressController.text = _cleanAddress(result));
       _captureMethod = 'qr';
@@ -315,22 +317,29 @@ class _ExternalAddressImportScreenState
           network: 'bitcoin',
           source: 'add_wallet',
         );
-        // The same confirmation every money moment ends on: one check,
-        // one line, Done. Done tears down the routes under the overlay
-        // and lands on Home, whose wallets menu surfaces the address.
+        // The shared result sheet. The routes under it are torn down
+        // first and the user lands on Home, whose wallets menu surfaces
+        // the address; the sheet then slides up over it, naming the new
+        // wallet, so Done only closes it.
         final router = GoRouter.of(context);
         final rootNav = Navigator.of(context, rootNavigator: true);
+        final l10n = context.l10n;
+        final importedName = _nameController.text.trim();
         TrackingService.track('track_address_confirmation_shown');
-        pushKuteSuccessOverlay(
+        pushKuteSuccessOverlayAfter(
           navigator: rootNav,
+          navigate: () {
+            while (rootNav.canPop()) {
+              rootNav.pop();
+            }
+            router.go('/home');
+          },
           overlay: KuteConfirmation(
-            message: context.l10n.confirmationAddressTracked,
-            onDone: () {
-              while (rootNav.canPop()) {
-                rootNav.pop();
-              }
-              router.go('/home');
-            },
+            message: l10n.confirmationAddressTracked,
+            contextLine: importedName.isEmpty
+                ? null
+                : l10n.walletImportedWithOthers(importedName),
+            onDone: rootNav.pop,
           ),
         );
       }

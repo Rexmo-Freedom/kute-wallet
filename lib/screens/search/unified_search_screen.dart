@@ -13,8 +13,8 @@
 //      transparent)`, with a keyboard-aware bottom inset so the field +
 //      results lift above the keyboard. No backdrop blur.
 //
-//   2. Category filter chips — a horizontal All / Transactions /
-//      Predictions / Investing row styled like the Polymarket category
+//   2. Category filter chips — a horizontal All / Predictions /
+//      Investing / Transactions row styled like the Polymarket category
 //      pills. All searches the three at once; selecting one narrows the
 //      results to that section. Nothing else is searched: no balances,
 //      no wallet-action shortcuts, no Settings destinations.
@@ -24,11 +24,13 @@
 //      so the Bitcoin / Spark / swap / Outlogic / Polymarket / USDB
 //      leading icons match the rest of the app.
 //
-// Local results (transactions + the user's own positions) come from
+// Local results (transactions + the user's own positions, both under
+// Transactions: Predictions and Investing list markets only) come from
 // `unifiedSearchResultsProvider` and update instantly. The market groups
 // stream in from the debounced remote providers, drawn with the Investing
 // and Predictions tabs' own cards (positions with the Portfolio's), the
-// named market first, four per group under All with a "See all", and card
+// named market first, three per group under All (Predictions, then
+// Investing, then Transactions) with a "See all", and card
 // skeletons holding their place while they load.
 //
 // Public entrypoint: `showKuteSearch(BuildContext)`. The surface itself is
@@ -64,6 +66,7 @@ import 'package:kute/screens/ledger/ledger_account_body.dart'
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/after_route_transition.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/kute_list_row.dart';
 import 'package:kute/screens/shared/kute_composer.dart';
@@ -84,7 +87,7 @@ import 'package:kute/screens/polymarket/components/position_card.dart'
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
     show polyPositionEnd;
 import 'package:kute/screens/shared/investment_market_browser.dart'
-    show PredictionBrowseCard;
+    show InvestmentSectionHeader, PredictionBrowseCard;
 import 'package:kute/models/hyperliquid_market.dart'
     show HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
@@ -148,6 +151,10 @@ class _SearchSessionStats {
   int resultsTapped = 0;
   int settledQueries = 0;
   bool submitted = false;
+
+  /// How the sheet went: `close_button` (the X beside the drag handle),
+  /// else `other` (dragged down, back, a result that closed it).
+  String closeMethod = 'other';
 }
 
 _SearchSessionStats? _searchStats;
@@ -306,6 +313,8 @@ void _reportSearchClosed(ProviderContainer container) {
                 : 'no_query',
     'results_tapped': stats.resultsTapped,
     'queries': stats.settledQueries,
+    'close_method': stats.closeMethod,
+    'time_in_flow_ms': stats.watch.elapsed.inMilliseconds,
     'time_in_flow_bucket': _searchTimeBucket(stats.watch.elapsed),
   });
 }
@@ -372,26 +381,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
   // Sal's opening questions for this open, chosen once per language from
   // the public movers and starred markets already loaded.
   (Locale, List<SalChip>)? _salChips;
-  // Whether the markets lead the results, decided once per query.
-  (String, bool)? _marketsFirst;
-
-  /// Investing and Predictions above Transactions when [query] names a
-  /// market. Decided on the query's first frame from what is on the device
-  /// (hlQueryNamesMarket) and kept for that query, never from when the
-  /// remote results arrive, so groups do not trade places on screen.
-  bool _marketsFirstFor(String query) {
-    if (query.isEmpty) return false;
-    final memo = _marketsFirst;
-    if (memo != null && memo.$1 == query) return memo.$2;
-    // Only a universe already in memory: this never starts a read.
-    final universe = ref.exists(hyperliquidBrowseUniverseProvider)
-        ? ref.read(hyperliquidBrowseUniverseProvider).valueOrNull ?? const []
-        : const <HlMarket>[];
-    final first = hlQueryNamesMarket(query, universe);
-    _marketsFirst = (query, first);
-    return first;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -479,7 +468,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       _searchStats?.settledQueries++;
       TrackingService.track('search_results_settled', params: {
         'category': category,
+        'query_length': query.length,
         'query_length_bucket': _searchLengthBucket(query.length),
+        'result_count': _visibleResults,
         'result_count_bucket': _searchCountBucket(_visibleResults),
         'has_results': _visibleResults > 0,
         'result_types': _visibleTypes.join(','),
@@ -499,9 +490,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
     if (!aiEnabled) {
-      // Length bucket only; the query text never leaves the device.
+      // Its length only; the query text never leaves the device.
       _searchStats?.submitted = true;
       TrackingService.track('search_submitted', params: {
+        'query_length': q.length,
         'query_length_bucket': _searchLengthBucket(q.length),
         'category': ref.read(selectedSearchCategoryProvider).name,
         'ai_enabled': false,
@@ -522,6 +514,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(q,
         input: 'typed', locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
@@ -558,6 +551,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
+    session.setEntrySource('search');
     session.ask(chip.text,
         context: chip.context,
         input: 'suggested',
@@ -615,11 +609,12 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // dedicated Perpetuals filter.
     final showPerpetuals =
         category == SearchCategory.all || category == SearchCategory.perpetuals;
-    final txSection = showTx && local.transactions.isNotEmpty;
-    final predictionSection = showPredictions &&
-        (local.ownedPositions.isNotEmpty ||
-            globalResults.isNotEmpty ||
-            globalLoading);
+    // The person's own positions are history and sit with Transactions;
+    // Predictions and Investing list markets only.
+    final txSection = showTx &&
+        (local.transactions.isNotEmpty || local.ownedPositions.isNotEmpty);
+    final predictionSection =
+        showPredictions && (globalResults.isNotEmpty || globalLoading);
     final perpetualsSection =
         showPerpetuals && (hlResults.isNotEmpty || hlLoading);
 
@@ -627,20 +622,20 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
 
     // Result rows grouped by type: Investing, Predictions and Transactions,
     // nothing else. Under the "All" filter all three can appear at once, so
-    // each group is introduced by the slips' quiet section label and shows
-    // its first four with a "See all" that switches the filter to it. Under
-    // a single-type filter only one group shows, whole and unlabelled (the
-    // pill already names it).
+    // each group is introduced by the market lists' own section header
+    // (InvestmentSectionHeader) and shows its first [kSearchSectionCap]
+    // with a "See all" that switches the filter to it. Under a single-type
+    // filter only one group shows, whole and unlabelled (the pill already
+    // names it).
     //
-    // Within a group the market the person named leads (exact ticker or
-    // name, then prefixes, then the rest; search_result_order.dart). When
-    // the query names a market, Investing and Predictions sit above
-    // Transactions; that is decided once per query from what is on the
-    // device, so a group never jumps when the remote results land.
+    // Within Investing the market the person named leads (exact ticker or
+    // name, then prefixes, then the rest); within Predictions a game in
+    // play leads, then the most traded (search_result_order.dart). The
+    // groups themselves always read Predictions, Investing, Transactions,
+    // so a group never jumps when the remote results land.
     final sportsLive = ref.read(sportsLiveProvider);
     final rankedHl = rankInvestingResults(query, hlResults);
     final rankedGlobal = rankPredictionResults(
-      query,
       globalResults,
       (r) => r.event,
       isLive: (r) =>
@@ -668,9 +663,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       loading: globalLoading,
       skeleton: const _MarketCardSkeletons(investing: false),
       rows: [
-        // The person's own positions first.
-        for (final r in local.ownedPositions)
-          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in rankedGlobal)
           (int p) => _GlobalMarketRow(
               key: ValueKey('poly-${r.event.slug}-${r.event.id}'),
@@ -678,26 +670,29 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               position: p),
       ],
     );
+    // The wallet tag only tells rows apart when they come from more than
+    // one wallet; from one wallet it would repeat on every row.
+    final showWalletTags =
+        local.transactions.map((r) => r.walletName).toSet().length > 1;
     final transactions = _ResultGroup(
       key: 'transactions',
       label: context.l10n.transactions,
       filter: SearchCategory.transactions,
       rows: [
+        // The person's own prediction positions first, then the rest.
+        for (final r in local.ownedPositions)
+          (int p) => _OwnedPositionRow(result: r, position: p),
         for (final r in local.transactions)
-          (int p) => _TransactionRow(result: r, position: p),
+          (int p) => _TransactionRow(
+              result: r, position: p, showWallet: showWalletTags),
       ],
     );
+    // Under All: Predictions, then Investing, then Transactions, always
+    // (founder, 2026-10-27); a group with nothing to show is left out.
     final groups = <_ResultGroup>[
-      if (_marketsFirstFor(query)) ...[
-        if (perpetualsSection) investing,
-        if (predictionSection) predictions,
-        if (txSection) transactions,
-      ] else ...[
-        if (txSection) transactions,
-        // Investing markets rank above Predictions in the All list.
-        if (perpetualsSection) investing,
-        if (predictionSection) predictions,
-      ],
+      if (predictionSection) predictions,
+      if (perpetualsSection) investing,
+      if (txSection) transactions,
     ];
     // `pos` numbers the result rows in display order (analytics position
     // on tap); skeletons and "See all" take no number.
@@ -710,7 +705,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       final rows = [for (final build in shown) build(pos++)];
       final waiting = rows.isEmpty && g.loading;
       if (labelGroups) {
-        resultChildren.add(_TypeSectionHeader(
+        resultChildren.add(InvestmentSectionHeader(
             key: ValueKey('header-${g.key}'), label: g.label));
       }
       resultChildren.add(ArrivalSwitcher(
@@ -727,7 +722,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                   ...rows,
                   if (capped)
                     _SeeAllRow(onTap: () {
-                      TrackingService.searchCategoryChanged(g.filter.name);
+                      TrackingService.searchCategoryChanged(g.filter.name,
+                          source: 'see_all');
                       ref.read(selectedSearchCategoryProvider.notifier).state =
                           g.filter;
                     }),
@@ -803,8 +799,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       context,
       children: [
         // While a query is being typed (or in search-only mode) the
-        // compact filter "tabs" (All · Transactions · Predictions ·
-        // Investing) narrow the live results. Idle with Sal available:
+        // compact filter "tabs" (All · Predictions · Investing ·
+        // Transactions) narrow the live results. Idle with Sal available:
         // no header row — the drag handle sits straight above the chat /
         // intro, so there's no empty gap. A pool-scoped sheet renders
         // its OWN tab set even under
@@ -875,11 +871,32 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
               title: context.l10n.salChatWith,
               trailing: const AppBottomSheetCloseButton(),
             )
-          else ...[
-            SizedBox(height: 12.h),
-            AppDecorations.dragHandle(context),
-            SizedBox(height: 8.h),
-          ],
+          else
+            // The drag handle with the shared close X at the row's end
+            // (founder, 27 October 2026: a way out besides dragging down).
+            // The same circled X the bet and order slips wear
+            // (KuteCloseButton; founder, 28 October 2026).
+            SizedBox(
+              height: 56.h,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 12.h,
+                    child: AppDecorations.dragHandle(context),
+                  ),
+                  Positioned(
+                    right: 16.w,
+                    top: 6.h,
+                    child: KuteCloseButton(onPressed: () {
+                      // Named on search_closed; the pop is the button's own.
+                      _searchStats?.closeMethod = 'close_button';
+                      Navigator.of(context).pop();
+                    }),
+                  ),
+                ],
+              ),
+            ),
           ...children,
         ],
       ),
@@ -888,7 +905,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
 }
 
 /// The compact filter "tabs" shown while a query is being typed:
-/// All · Transactions · Predictions · Investing. Selecting one writes
+/// All · Predictions · Investing · Transactions. Selecting one writes
 /// [selectedSearchCategoryProvider], which the sheet's `showTx` /
 /// `showPredictions` / `showPerpetuals` visibility already reads to narrow
 /// the result groups. Replaces the old "Search wallet" text label — the
@@ -901,13 +918,14 @@ class _WalletFilterChips extends ConsumerWidget {
   final List<(SearchCategory, String)>? tabs;
   const _WalletFilterChips({required this.selected, this.tabs});
 
-  /// The global tab set. The Hyperliquid leg keeps its `perpetuals`
-  /// category key (analytics stay stable) but reads Investing.
+  /// The global tab set, in All's section order: Predictions, Investing,
+  /// Transactions. The Hyperliquid leg keeps its `perpetuals` category key
+  /// (analytics stay stable) but reads Investing.
   static List<(SearchCategory, String)> _standardTabs(BuildContext context) => [
         (SearchCategory.all, context.l10n.searchFilterAll),
-        (SearchCategory.transactions, context.l10n.transactions),
         (SearchCategory.predictions, context.l10n.predictions),
         (SearchCategory.perpetuals, context.l10n.trading),
+        (SearchCategory.transactions, context.l10n.transactions),
       ];
 
   @override
@@ -967,9 +985,9 @@ class _WalletActivityResults extends ConsumerWidget {
 
 /// Transaction result row. Reuses the canonical activity-feed row builder
 /// so the per-type leading icon (Bitcoin / Spark / swap / Outlogic /
-/// Polymarket / USDB) matches the rest of the app exactly, and tags each
-/// row with the OWNING WALLET's name — search spans every wallet, so the
-/// row would otherwise be ambiguous about which wallet a tx belongs to.
+/// Polymarket / USDB) matches the rest of the app exactly, and, when the
+/// results span more than one wallet, tags each row with the OWNING
+/// WALLET's name so it is clear which wallet a tx belongs to.
 ///
 /// The canonical builder doesn't show the wallet, so we render a small
 /// wallet-name pill under it. Tapping does NOT pop the search sheet: the
@@ -978,7 +996,12 @@ class _WalletActivityResults extends ConsumerWidget {
 class _TransactionRow extends ConsumerWidget {
   final TransactionSearchResult result;
   final int? position;
-  const _TransactionRow({required this.result, this.position});
+
+  /// Whether the owning wallet's tag shows: only when the results span
+  /// more than one wallet.
+  final bool showWallet;
+  const _TransactionRow(
+      {required this.result, this.position, this.showWallet = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1002,7 +1025,7 @@ class _TransactionRow extends ConsumerWidget {
           AbsorbPointer(
             child: buildUnifiedTransactionItem(tx, context, ref),
           ),
-          if (walletName.isNotEmpty)
+          if (showWallet && walletName.isNotEmpty)
             Padding(
               // Align under the row text (leading icon ≈ 40w + 16w gap),
               // lifted up so it tucks beneath the row, above the divider.
@@ -1089,8 +1112,9 @@ class _OwnedPositionRow extends ConsumerWidget {
           eventSlug: p.eventSlug,
           end: polyPositionEnd(p),
           conditionId: p.marketId,
+          // A won position is claimed automatically: it reads "Settled"
+          // like any closed one, never "Ready to claim".
           resolved: p.isResolved,
-          claimable: p.won == true,
           onTap: () {
             HapticFeedback.lightImpact();
             _trackSearchResultTap(ref, 'owned_position', position: position);
@@ -1164,8 +1188,8 @@ class _GlobalMarketRow extends ConsumerWidget {
 
 /// An Investing market from [globalHyperliquidResultsProvider], drawn with
 /// the Investing list's own card ([HlMarketCard]): the logo, the name over
-/// "TICKER · 40x", the daily line, and the live price over the day's
-/// change. Tapping re-resolves the full [HlMarket] and opens the Investing
+/// its ticker ("TICKER · Spot" for a spot token), the daily line, and the
+/// live price over the day's change. Tapping re-resolves the full [HlMarket] and opens the Investing
 /// detail sheet on the root navigator (so it stacks ON TOP of search); if
 /// the universe hasn't loaded yet it falls back to the Investing tab.
 class _HlMarketRow extends ConsumerWidget {
@@ -1213,7 +1237,9 @@ class _HlMarketRow extends ConsumerWidget {
     // Resolve THIS row's instrument: the wire id pins the exact market, so
     // a row badged Own never opens the leveraged contract behind the same
     // ticker (and vice versa).
-    final market = ref.read(hyperliquidAccountMarketProvider(result.wireCoin));
+    final market = ref.read(hyperliquidExactMarketProvider(
+            '${result.kind.name}:${result.wireCoin}')) ??
+        result.market;
     final ledgerWalletId = ref.read(searchLedgerWalletIdProvider);
     if (ledgerWalletId != null) {
       // Ledger account search: the Ledger order sheet is the only target
@@ -1455,32 +1481,6 @@ class _EmptyState extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// A result group's label under the "All" filter: the slips' quiet section
-/// label (14sp w600 secondary), at the lists' side inset. No hairline, no
-/// capitals.
-class _TypeSectionHeader extends StatelessWidget {
-  final String label;
-  const _TypeSectionHeader({super.key, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 10.h),
-      child: Semantics(
-        header: true,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: context.colors.textSecondary,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 }

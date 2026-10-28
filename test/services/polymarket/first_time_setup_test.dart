@@ -78,6 +78,13 @@ class _Chain {
             jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': '0x6080'}), 200);
       }
       if (rpc['method'] == 'eth_call') {
+        final call = rpc['params'][0] as Map;
+        if ((call['data'] as String).startsWith('0x04f1d3c7')) {
+          // The factory's prediction, asked beside the registry check.
+          return http.Response(
+              jsonEncode({'jsonrpc': '2.0', 'id': 1, 'result': '0x${'2' * 64}'}),
+              200);
+        }
         allowanceReads++;
         final word = approvalsLanded ? '1'.padLeft(64, '0') : '0' * 64;
         return http.Response(

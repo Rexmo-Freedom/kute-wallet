@@ -313,36 +313,6 @@ class PasskeyPrfService {
     return true;
   }
 
-  /// Drop the cached PRF seed (in-memory and the device-local copy).
-  /// Called when the user explicitly signs out / wipes the wallet so the
-  /// next session re-authenticates via the OS ceremony from scratch.
-  /// No-op when there's nothing cached.
-  ///
-  /// Only the in-memory keys we know about get individually deleted from
-  /// device-local storage. Anything not in `_prfCache` at clear time is
-  /// harmless leftover — the next derive overwrites it. A legacy
-  /// iCloud-synced copy is never deleted.
-  static Future<void> clearCache() async {
-    final keys = {..._prfCache.keys, ..._inFlight.keys}.toList();
-    clearMemory();
-    await drainPendingWrites();
-    for (final cacheKey in keys) {
-      final parts = cacheKey.split('|');
-      if (parts.length != 2) continue;
-      try {
-        await SecretStores.local
-            .deleteLocalOnly(key: _storageKey(parts[0], parts[1]));
-      } catch (_) {
-        // best-effort cleanup
-      }
-    }
-    // Drop the pinned credential id too — a wiped wallet must not leave a
-    // stale id that pins (and breaks) the next ceremony. The RP is fixed,
-    // so delete it unconditionally: `_prfCache` may already be empty here
-    // (wipe before any derive ran this session).
-    await _deleteCredentialId('keys.breez.technology');
-  }
-
   /// Forget every PRF seed and pending ceremony held in memory. Storage is
   /// untouched. Called by the wipe path.
   static void clearMemory() {

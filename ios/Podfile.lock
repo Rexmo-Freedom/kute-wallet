@@ -13,7 +13,7 @@ PODS:
   - audioplayers_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
-  - breez_sdk_spark_flutter (0.26.0):
+  - breez_sdk_spark_flutter (0.26.1):
     - Flutter
   - Crisp/Crisp (2.13.0)
   - crisp_chat (2.7.0):
@@ -270,7 +270,7 @@ SPEC CHECKSUMS:
   AppsFlyerFramework: bf96b40ed77d0ad089e5d3e2ae2c0a0d8d62f5b1
   AppsFlyerRPC: d4125067fdc9cb55f5d97aaf36caae2967001c72
   audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
-  breez_sdk_spark_flutter: 4a82e9cb56fd41fb2955402838326d48dd879bb8
+  breez_sdk_spark_flutter: 7ede2cd0dce79dfb2af1502a65f725938517d252
   Crisp: 40ebc6237d94759461cd92fd87cd2459a9d6d7ec
   crisp_chat: 9eb43ca9e70aa940230228690cf9c7d0c052b7b8
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe

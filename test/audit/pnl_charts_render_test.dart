@@ -1,0 +1,591 @@
+// Render harness for Investments → Portfolio → P&L charts (founder review,
+// 28 October 2026): the one block (the bare ring with the figure and the
+// Active | Historic pair, the venue rows that pick the series, the chart
+// and its ranges) and the resting orders under it, All, Predictions
+// picked and Historic, at the top and scrolled to the orders, at 390 x
+// 844 in the app's real themes and Inter, light and dark. Writes PNGs.
+//
+// Not part of the normal suite; it only runs when asked:
+//
+//   fvm flutter test test/audit/pnl_charts_render_test.dart \
+//     --dart-define=PORTFOLIO_REDESIGN_OUT=/tmp/pnl-charts \
+//     --dart-define=PORTFOLIO_REDESIGN_IMAGES=/tmp/portfolio-images
+//
+// The images directory (optional) holds the pictures the order rows would
+// load from the network: kane.jpg (a Polymarket market image) and btc.svg
+// (Hyperliquid's coin logo). Without it the rows draw their fallback
+// glyphs. The founder's month: Predictions −$6.49 realised over 15
+// predictions ($83.34 predicted), Investing +$0.10 over 16 fills ($208.53
+// traded), so −$6.39 in all; two Investing positions, one resting order
+// at each venue.
+
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+// The cache manager's own File type (package:file), for the local
+// artwork below.
+// ignore: depend_on_referenced_packages
+import 'package:file/file.dart' as fs;
+// ignore: depend_on_referenced_packages
+import 'package:file/local.dart' show LocalFileSystem;
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/models/settings_model.dart';
+import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
+import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/polymarket_live_prices_provider.dart';
+import 'package:kute/providers/polymarket_open_orders_provider.dart';
+import 'package:kute/providers/polymarket_order_metadata_provider.dart';
+import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceUnknownProvider;
+import 'package:kute/providers/venue_sweeper_provider.dart';
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/portfolio/investments_portfolio.dart';
+import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/one_balance/one_balance_state.dart';
+import 'package:kute/theme/app_theme.dart';
+import 'package:polybrainz_polymarket/polybrainz_polymarket.dart' show Order;
+
+import '../helpers/portfolio_overrides.dart';
+
+const _out = String.fromEnvironment('PORTFOLIO_REDESIGN_OUT');
+const _images = String.fromEnvironment('PORTFOLIO_REDESIGN_IMAGES');
+const _key = ValueKey('shot');
+const _dpr = 3.0;
+const _size = Size(390, 844);
+
+class _Sweeper extends VenueSweeperNotifier {
+  @override
+  VenueSweeperState build() => const VenueSweeperState();
+
+  @override
+  Future<void> preview() async {}
+
+  @override
+  Future<void> trigger(String reason, {OneBalanceVenue? venue}) async {}
+}
+
+/// Buying power \$17.64; four predictions worth \$19.03 (one settled); two
+/// Investing positions worth \$1,704.85.
+const _state = OneBalanceState(
+  investedUsd: 1723.88,
+  investedByVenue: {
+    OneBalanceVenue.investing: 1704.85,
+    OneBalanceVenue.predictions: 19.03,
+  },
+  investingKnown: true,
+  predictionsKnown: true,
+  venueCash: {
+    OneBalanceVenue.investing: 17.21,
+    OneBalanceVenue.predictions: 0.43,
+  },
+);
+
+/// No live price feed: the rows at their last read price.
+class _Prices extends LivePriceNotifier {
+  @override
+  LivePriceState build() => const LivePriceState();
+
+  @override
+  void acquire() {}
+
+  @override
+  void release() {}
+
+  @override
+  void registerCardTokens(List<String> tokens) {}
+
+  @override
+  void unregisterCardTokens(List<String> tokens) {}
+}
+
+/// Market pictures from the images directory, by a word of their URL.
+class _LocalArtwork implements BaseCacheManager {
+  static const _byWord = {'harry-kane': 'kane.jpg'};
+
+  @override
+  Future<fs.File> getSingleFile(String url,
+      {String key = "", Map<String, String> headers = const {}}) async {
+    for (final e in _byWord.entries) {
+      if (url.contains(e.key)) {
+        return const LocalFileSystem().file('$_images/${e.value}');
+      }
+    }
+    throw const HttpException('no local artwork');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Hyperliquid's coin logos from the images directory.
+final _coinLogos = MockClient((request) async {
+  final path = request.url.path;
+  for (final (word, file) in [('NVDA', 'nvda.svg'), ('BTC', 'btc.svg')]) {
+    final f = File('$_images/$file');
+    if (path.contains(word) && f.existsSync()) {
+      return http.Response.bytes(f.readAsBytesSync(), 200,
+          headers: {'content-type': 'image/svg+xml'});
+    }
+  }
+  return http.Response('', 404);
+});
+
+const _btc = HlPerpPosition(
+    coin: 'BTC',
+    szi: 0.0125,
+    entryPx: 90120,
+    positionValue: 1168.75,
+    unrealizedPnl: 42.25,
+    returnOnEquity: 0.0375,
+    liquidationPx: null,
+    marginUsed: 1126.5,
+    leverageType: 'isolated',
+    leverageValue: 1,
+    maxLeverage: 40);
+
+const _nvda = HlPerpPosition(
+    coin: 'xyz:NVDA',
+    szi: -3,
+    entryPx: 182.4,
+    positionValue: 558.3,
+    unrealizedPnl: -11.1,
+    returnOnEquity: -0.0203,
+    liquidationPx: 360.2,
+    marginUsed: 547.2,
+    leverageType: 'isolated',
+    leverageValue: 1,
+    maxLeverage: 10);
+
+HlMarket _perp(String coin, String wire, double mid,
+        {String category = 'crypto', bool hip3 = false}) =>
+    HlMarket(
+        coin: coin,
+        wireCoin: wire,
+        assetId: 1,
+        kind: HlMarketKind.perp,
+        szDecimals: 4,
+        maxLeverage: 10,
+        onlyIsolated: false,
+        markPx: mid,
+        midPx: mid,
+        prevDayPx: mid,
+        dayNtlVlm: 1e6,
+        category: category,
+        dex: hip3 ? 'xyz' : '',
+        isHip3: hip3);
+
+/// The Investing account as the venue reports it, every read.
+class _Account extends HlAccountNotifier {
+  @override
+  Future<HlAccountSnapshot> build() async => const HlAccountSnapshot(
+      accountValue: 1722.06,
+      withdrawable: 17.21,
+      totalMarginUsed: 1673.7,
+      positions: [_btc, _nvda],
+      spotBalances: []);
+}
+
+/// The account's fills: 16 small ETH fills, eight round trips, $208.53
+/// traded, +$0.18 closed on $0.08 of fees: +$0.10.
+List<HlFill> _fills() {
+  final now = DateTime.now().toUtc();
+  const closed = [0.10, -0.05, 0.08, 0.02, -0.03, 0.04, 0.01, 0.01];
+  return [
+    for (var i = 0; i < 16; i++)
+      HlFill.fromJson({
+        'coin': 'ETH',
+        'tid': '${i + 1}',
+        'oid': i + 1,
+        'hash': 'h$i',
+        'time': now
+            .subtract(Duration(days: 28 - i * 27 ~/ 15))
+            .millisecondsSinceEpoch,
+        'startPosition': i.isEven ? '0' : '0.0043',
+        'sz': '0.0043',
+        'px': i == 15 ? '3045.35' : '3030',
+        'side': i.isEven ? 'B' : 'A',
+        'closedPnl': i.isEven ? '0' : '${closed[i ~/ 2]}',
+        'fee': '0.005',
+        'feeToken': 'USDC',
+        'dir': i.isEven ? 'Open Long' : 'Close Long',
+      }),
+  ].reversed.toList();
+}
+
+/// A resting Investing limit order: buy a little more BTC at 88,000.
+const _hlOrder = HlOpenOrder(
+    coin: 'BTC',
+    oid: 7,
+    isBuy: true,
+    limitPx: 88000,
+    sz: 0.005,
+    origSz: 0.005,
+    timestamp: 1761600000000,
+    cloid: null,
+    reduceOnly: false,
+    orderType: 'Limit',
+    isTrigger: false,
+    triggerPx: null);
+
+/// A resting Predictions limit order: 10 more Kane Yes shares at 65¢.
+const _pmOrder = Order(
+    id: 'pm-1',
+    market: 'kane',
+    assetId: 'kane-yes',
+    owner: '0xme',
+    side: 'BUY',
+    price: '0.65',
+    originalSize: '10',
+    sizeMatched: '0',
+    outcome: 'Yes',
+    timestamp: '1761600000');
+
+/// The venues' P&L series and, for Predictions, the account's positions:
+/// three live (Kane, Madrid, Lula) and one settled win (F1).
+List<Override> _performance({bool open = true}) {
+  final now = DateTime.now().toUtc();
+  DateTime ago(int days) => now.subtract(Duration(days: days));
+  PortfolioPerformance series(List<(int, double)> points, String source) =>
+      PortfolioPerformance(
+          points: [
+            for (final (days, pnl) in points)
+              PortfolioPnlPoint(timestamp: ago(days), pnlUsd: pnl)
+          ],
+          totalPnlUsd: points.last.$2,
+          asOf: ago(points.last.$1),
+          sourceLabel: source,
+          basisLabel: 'P&L',
+          coverageLabel: 'All time');
+  PredictionRecord record(String token,
+          {required bool open,
+          bool redeemable = false,
+          required double size,
+          required double avgPrice,
+          required double price,
+          required int entered,
+          String market = '',
+          String title = ''}) =>
+      PredictionRecord(
+          tokenId: token,
+          open: open,
+          redeemable: redeemable,
+          size: size,
+          totalSize: size,
+          avgPrice: avgPrice,
+          entryCostUsd: size * avgPrice,
+          currentPrice: price,
+          realizedPnlUsd: 0,
+          unrealizedPnlUsd: size * (price - avgPrice),
+          firstEntryAt: ago(entered),
+          lastEventAt: ago(entered),
+          conditionId: market,
+          title: title);
+  // Eleven closed: $67.70 staked, −$9.19 realised.
+  const closedPnl = [
+    -3.0, 1.2, -2.5, 0.8, -1.4, -0.9, 2.1, -1.6, -2.0, 0.6, -2.49 //
+  ];
+  PredictionRecord closed(int i) => PredictionRecord(
+      tokenId: 'closed-$i',
+      open: false,
+      redeemable: false,
+      size: 10,
+      totalSize: 10,
+      avgPrice: i == 10 ? 0.76972 : 0.6,
+      entryCostUsd: i == 10 ? 7.6972 : 6,
+      currentPrice: 0,
+      realizedPnlUsd: closedPnl[i],
+      unrealizedPnlUsd: 0,
+      firstEntryAt: ago(27 - i * 2),
+      lastEventAt: ago(26 - i * 2),
+      conditionId: 'c$i',
+      title: 'Closed $i');
+  final book = PredictionsBook(records: [
+    if (open) ...[
+      record('kane-yes',
+          open: true,
+          size: 4.99,
+          avgPrice: 0.72,
+          price: 0.718,
+          entered: 9,
+          market: 'kane',
+          title: "Will Harry Kane win the 2026 Ballon d'Or?"),
+      record('rm-no',
+          open: true,
+          size: 10,
+          avgPrice: 0.40,
+          price: 0.40,
+          entered: 4,
+          market: 'rm',
+          title: 'Will Real Madrid CF win on 2026-10-25?'),
+      record('lula-yes',
+          open: true,
+          size: 12.5,
+          avgPrice: 0.38,
+          price: 0.3801,
+          entered: 2,
+          market: 'lula',
+          title: 'Will Lula win the 2026 Brazilian presidential election?'),
+      record('f1-v',
+          open: true,
+          redeemable: true,
+          size: 6,
+          avgPrice: 0.55,
+          price: 1,
+          entered: 12,
+          market: 'f1',
+          title: 'Who will finish higher: Verstappen or Hadjar?'),
+    ],
+    for (var i = 0; i < 11; i++) closed(i),
+  ]);
+  return [
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.trading))
+        .overrideWith((_) async => series(
+            [(30, 0), (24, 0.05), (18, -0.12), (12, 0.2), (6, 0.04), (1, 0.10)],
+            'Hyperliquid')),
+    portfolioPerformanceProvider(const PortfolioPerformanceRequest(
+            venue: PortfolioPerformanceVenue.predictions))
+        .overrideWith((_) async => series([
+              (28, 0),
+              (22, -1.2),
+              (17, -3.4),
+              (12, -2.1),
+              (8, -5.0),
+              (4, -4.3),
+              (2, -6.49)
+            ], 'Polymarket')
+                .withPredictions(book)),
+  ];
+}
+
+List<Override> get _held => [
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(
+              isInitialized: true,
+              positions: [_btc, _nvda],
+              openOrders: [_hlOrder]))),
+      hyperliquidDisplayTradingProvider
+          .overrideWith((ref) => ref.watch(hyperliquidTradingProvider)),
+      hyperliquidAccountProvider.overrideWith(_Account.new),
+      hyperliquidDisplayAccountProvider
+          .overrideWith((ref) => ref.watch(hyperliquidAccountProvider)),
+      hyperliquidUserFillsProvider.overrideWith((_) async => _fills()),
+      hyperliquidActivityFillsProvider.overrideWithValue(_fills()),
+      hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
+      hyperliquidLiveMidProvider('xyz:NVDA').overrideWith((_) => null),
+      hyperliquidPerpMarketsProvider.overrideWith((_) async => [
+            _perp('BTC', 'BTC', 93500),
+            _perp('NVDA', 'xyz:NVDA', 186.1, category: 'stocks', hip3: true),
+          ]),
+      hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      polymarketOpenOrdersProvider
+          .overrideWith((_) => Stream.value(const [_pmOrder])),
+      polymarketOrderMetadataProvider.overrideWith((_) async => const {
+            'kane': PolymarketOrderMetadata(
+                title: "Will Harry Kane win the 2026 Ballon d'Or?",
+                imageUrl:
+                    'https://polymarket-upload.s3.us-east-2.amazonaws.com/'
+                    'ballon-dor-2026-harry-kane-536e46ad53.jpg'),
+          }),
+      livePriceProvider.overrideWith(_Prices.new),
+      ..._performance(),
+    ];
+
+/// The Investing account with nothing open.
+class _FlatAccount extends HlAccountNotifier {
+  @override
+  Future<HlAccountSnapshot> build() async => const HlAccountSnapshot(
+      accountValue: 17.21,
+      withdrawable: 17.21,
+      totalMarginUsed: 0,
+      positions: [],
+      spotBalances: []);
+}
+
+/// Nothing open at either venue, nothing resting; the same history.
+List<Override> get _nothingOpen => [
+      ..._held,
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(isInitialized: true))),
+      hyperliquidAccountProvider.overrideWith(_FlatAccount.new),
+      polymarketOpenOrdersProvider
+          .overrideWith((_) => Stream.value(const <Order>[])),
+      ..._performance(open: false),
+    ];
+
+Future<void> _mount(WidgetTester tester, bool dark,
+    {bool nothingOpen = false}) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      ...portfolioOverrides(),
+      settingsProvider.overrideWith((_) => SettingsModel(Settings(
+          currency: 'USD',
+          language: 'en',
+          btcFormat: 'sats',
+          backup: false,
+          biometricsEnabled: false,
+          bitcoinElectrumNode: '',
+          nodeType: '',
+          reviewDone: true))),
+      oneBalanceProvider.overrideWith((ref) => _state),
+      usdBalanceUnknownProvider.overrideWithValue(false),
+      venueSweeperProvider.overrideWith(_Sweeper.new),
+      ...(nothingOpen ? _nothingOpen : _held),
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: dark ? buildDarkTheme() : buildLightTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: RepaintBoundary(
+          key: _key,
+          child: Builder(
+            builder: (context) => Scaffold(
+              backgroundColor: context.colors.background,
+              body: DecoratedBox(
+                decoration: AppDecorations.screenGradient(context),
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ProviderScope(
+                      overrides: [
+                        portfolioSectionProvider
+                            .overrideWith((_) => PortfolioSection.charts)
+                      ],
+                      child: InvestmentsPortfolio(onSection: (_) {}),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  await _settle(tester);
+}
+
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+    // The pictures load from files and decode off the frame.
+    await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 250)));
+  }
+  await tester.pump(const Duration(seconds: 1));
+}
+
+Future<void> _png(WidgetTester tester, String name) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(_key));
+  final image =
+      (await tester.runAsync(() => boundary.toImage(pixelRatio: _dpr)))!;
+  await tester.runAsync(() async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    File('$_out/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
+  });
+}
+
+Future<void> _scroll(WidgetTester tester, double by) async {
+  await tester.drag(find.byType(CustomScrollView).first, Offset(0, -by));
+  await tester.pump(const Duration(seconds: 1));
+}
+
+void main() {
+  if (_out.isEmpty) {
+    test('P&L charts render', () {},
+        skip: 'on demand: --dart-define=PORTFOLIO_REDESIGN_OUT=<dir>');
+    return;
+  }
+
+  setUpAll(() async {
+    Directory(_out).createSync(recursive: true);
+    if (_images.isNotEmpty) {
+      PolyCrestImage.debugCacheManager = _LocalArtwork();
+      SharedHttpClient.debugOverride = _coinLogos;
+    }
+    GoogleFonts.config.allowRuntimeFetching = false;
+    for (final family in [GoogleFonts.inter().fontFamily!, 'Inter']) {
+      final inter = FontLoader(family);
+      for (final f in ['Regular', 'SemiBold', 'Bold']) {
+        inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+      }
+      await inter.load();
+    }
+    // The app bundles Material's icon font; the test does not, so the
+    // chevrons would draw as boxes. The SDK's own copy, when it is there.
+    final root = Platform.environment['FLUTTER_ROOT'];
+    final icons = File(
+        '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+    if (root != null && icons.existsSync()) {
+      final bytes = icons.readAsBytesSync();
+      await (FontLoader('MaterialIcons')
+            ..addFont(Future.value(ByteData.sublistView(bytes))))
+          .load();
+    }
+  });
+
+  // Nothing open anywhere (founder, 28 October 2026): Active draws no
+  // chart; Historic does. Light only.
+  testWidgets('nothing open: Active and Historic, light', (tester) async {
+    tester.view.devicePixelRatio = _dpr;
+    tester.view.physicalSize = _size * _dpr;
+    addTearDown(tester.view.reset);
+    await _mount(tester, false, nothingOpen: true);
+    await _png(tester, 'nothing_open_active_light');
+    await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+    await _settle(tester);
+    await _png(tester, 'nothing_open_historic_light');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // All, Predictions picked (its row tapped), Historic.
+  for (final shot in ['all', 'predictions', 'historic']) {
+    testWidgets('$shot, light and dark, top and orders', (tester) async {
+      tester.view.devicePixelRatio = _dpr;
+      tester.view.physicalSize = _size * _dpr;
+      addTearDown(tester.view.reset);
+      for (final dark in [false, true]) {
+        final theme = dark ? 'dark' : 'light';
+        await _mount(tester, dark);
+        if (shot == 'predictions') {
+          await tester
+              .tap(find.byKey(const ValueKey('pnl-venue-predictions-pick')));
+          await _settle(tester);
+        }
+        if (shot == 'historic') {
+          await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+          await _settle(tester);
+        }
+        await _png(tester, '${shot}_top_$theme');
+        // The orders under the block.
+        await _scroll(tester, 2000);
+        await _png(tester, '${shot}_orders_$theme');
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+}

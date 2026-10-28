@@ -260,4 +260,32 @@ void main() {
     expect(b.read()!.closes, [1, 2, 3]);
     expect(asked, ['BTC']);
   });
+
+  test('each card gets its own coin\'s series, whatever order they land in',
+      () async {
+    // Perp, builder-dex and spot wires asked together; the venue answers
+    // them in the reverse order. No answer may reach another coin's card.
+    final pending = <String, Completer<List<double>>>{};
+    final container = ProviderContainer(overrides: [
+      hyperliquidSparklineStoreProvider.overrideWithValue(HlSparklineStore(
+        fetch: (wire) => (pending[wire] = Completer<List<double>>()).future,
+        now: () => day1,
+        boxName: boxName,
+      )),
+    ]);
+    addTearDown(container.dispose);
+    const wires = ['BTC', 'xyz:GOLD', '@107', 'HYPE/USDC'];
+    final subs = {
+      for (final w in wires)
+        w: container.listen(hyperliquidSparklineProvider(w), (_, __) {}),
+    };
+    expect(pending.keys, wires);
+    for (final (i, w) in wires.reversed.indexed) {
+      pending[w]!.complete([i + 1.0, i + 2.0, i + 3.0]);
+    }
+    await _until(() => subs.values.every((s) => s.read() != null));
+    for (final (i, w) in wires.reversed.indexed) {
+      expect(subs[w]!.read()!.closes, [i + 1.0, i + 2.0, i + 3.0], reason: w);
+    }
+  });
 }

@@ -1,3 +1,5 @@
+import 'package:kute/models/balance_history.dart';
+
 /// Venue-reported cumulative profit and loss. Values are USD, not account
 /// equity, deposits, withdrawals, or a reconstruction from recent fills.
 enum PortfolioPerformanceVenue { trading, predictions }
@@ -206,8 +208,7 @@ class PortfolioPerformance {
 
   /// The same performance carrying [book] (and the series' non-position
   /// P&L, [other]).
-  PortfolioPerformance withPredictions(PredictionsBook book,
-          {double? other}) =>
+  PortfolioPerformance withPredictions(PredictionsBook book, {double? other}) =>
       PortfolioPerformance(
           points: points,
           sourceLabel: sourceLabel,
@@ -219,6 +220,82 @@ class PortfolioPerformance {
           asOf: asOf,
           otherPnlUsd: other ?? otherPnlUsd,
           predictions: book);
+
+  /// The venues' P&L as one account (the spending account's Statistics
+  /// tab): every moment either series published, each venue carried at
+  /// its last observation at or before it (zero before its first: both
+  /// series start with the account), the figures added. A venue with no
+  /// observations adds nothing, so one with a series alone is that
+  /// series. A realised or open figure a venue does not publish leaves
+  /// the sum's unknown. Nothing is interpolated.
+  static PortfolioPerformance combine(List<PortfolioPerformance> parts) {
+    final drawn = [
+      for (final p in parts)
+        if (p.points.isNotEmpty) p
+    ];
+    final times = <DateTime>{
+      for (final p in drawn)
+        for (final o in p.points) o.timestamp.toUtc()
+    }.toList()
+      ..sort();
+    final cursor = List<int>.filled(drawn.length, -1);
+    final points = <PortfolioPnlPoint>[];
+    for (final t in times) {
+      var pnl = 0.0;
+      double? realized = 0;
+      double? open = 0;
+      for (var i = 0; i < drawn.length; i++) {
+        final series = drawn[i].points;
+        while (cursor[i] + 1 < series.length &&
+            !series[cursor[i] + 1].timestamp.isAfter(t)) {
+          cursor[i]++;
+        }
+        if (cursor[i] < 0) continue;
+        final o = series[cursor[i]];
+        pnl += o.pnlUsd;
+        realized = realized == null || o.realizedPnlUsd == null
+            ? null
+            : realized + o.realizedPnlUsd!;
+        open =
+            open == null || o.openPnlUsd == null ? null : open + o.openPnlUsd!;
+      }
+      points.add(PortfolioPnlPoint(
+          timestamp: t,
+          pnlUsd: pnl,
+          realizedPnlUsd: realized,
+          openPnlUsd: open));
+    }
+    double? sum(double? Function(PortfolioPerformance p) of) {
+      if (drawn.isEmpty) return null;
+      var total = 0.0;
+      for (final p in drawn) {
+        final v = of(p);
+        if (v == null) return null;
+        total += v;
+      }
+      return total;
+    }
+
+    DateTime? asOf;
+    for (final p in drawn) {
+      final at = p.asOf ?? p.points.last.timestamp;
+      if (asOf == null || at.isAfter(asOf)) asOf = at;
+    }
+    return PortfolioPerformance(
+        points: List.unmodifiable(points),
+        sourceLabel: [for (final p in drawn) p.sourceLabel].join(' + '),
+        basisLabel: {for (final p in drawn) p.basisLabel}.join(' + '),
+        coverageLabel: {for (final p in drawn) p.coverageLabel}.join(' + '),
+        totalPnlUsd: sum((p) => p.totalPnlUsd ?? p.points.last.pnlUsd),
+        realizedPnlUsd: sum((p) => p.realizedPnlUsd),
+        openPnlUsd: sum((p) => p.openPnlUsd),
+        asOf: asOf);
+  }
+
+  /// Whether there is any P&L to draw: a series that is zero all the way
+  /// (or none) draws no line, the empty state stands in its place (the
+  /// Earn chart's rule: never a flat line at zero).
+  bool get hasMovement => points.any((p) => p.pnlUsd != 0);
 }
 
 /// What [PortfolioPerformance.rangeView] draws: the line from the range's
@@ -385,6 +462,59 @@ double? _pnlDifference(double? current, double? previous) {
     throw const FormatException('Invalid P&L change');
   }
   return difference;
+}
+
+/// The P&L chart's line (portfolio_pnl_chart.dart): [data]'s cumulative
+/// P&L laid on the Balance charts' even grid ([stepGridSeries], the same
+/// ranges, buckets and pinch limits as [BalanceSeries]) up to [now], each
+/// grid point the last observation at or before it, so a bucket draws its
+/// closing P&L and a swing inside it never shows. The last point is the
+/// P&L now ([PortfolioPerformance.totalPnlUsd], else the last
+/// observation).
+///
+/// It starts a short lead-in (a twelfth of the history, at least an hour)
+/// before the first observation off zero, the first trade or prediction
+/// as far as the series knows, held at zero: both venues' series start
+/// with the account at zero, so a range longer than the trading history
+/// opens on the first trade, never on a long flat stretch before it. A
+/// P&L that never left zero is the last week, flat at zero (the chart's
+/// empty state). Times are local wall-clock, as the Balance charts'.
+BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
+  final end = now.toLocal();
+  final changes = <(DateTime, double)>[
+    for (final p in data.points)
+      if (!p.timestamp.toLocal().isAfter(end))
+        (p.timestamp.toLocal(), p.pnlUsd)
+  ];
+  final current =
+      data.totalPnlUsd ?? (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
+  DateTime? start;
+  for (final c in changes) {
+    if (c.$2 != 0) {
+      start = c.$1;
+      break;
+    }
+  }
+  if (start == null && current != 0) start = end;
+  DateTime first;
+  if (start == null) {
+    first = end.subtract(const Duration(days: 7));
+  } else {
+    var lead = Duration(
+        microseconds:
+            (end.difference(start).inMicroseconds * kBalanceHistoryLeadIn)
+                .round());
+    if (lead < kBalanceMinLeadIn) lead = kBalanceMinLeadIn;
+    first = start.subtract(lead);
+  }
+  return stepGridSeries(
+    first: first,
+    now: end,
+    opening: 0,
+    // Nothing on record still means zero before now, not the P&L now.
+    changes: changes.isEmpty ? [(first, 0.0)] : changes,
+    current: current,
+  );
 }
 
 /// Distinct from an empty, successfully read history and a transport failure.

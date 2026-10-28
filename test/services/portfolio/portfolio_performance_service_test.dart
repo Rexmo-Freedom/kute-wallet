@@ -363,8 +363,19 @@ void main() {
         throwsFormatException);
   });
 
-  test('Hyperliquid week and month samples are lifted onto all time', () {
+  test('Hyperliquid day, week and month samples are lifted onto all time',
+      () {
     final data = parseHyperliquidPerformance([
+      [
+        'day',
+        {
+          'pnlHistory': [
+            [1700000800000, '0.0'],
+            [1700000850000, '-2'],
+            [1700000900000, '1']
+          ]
+        }
+      ],
       [
         'week',
         {
@@ -386,8 +397,12 @@ void main() {
         }
       ],
     ]);
-    expect(data.points.map((p) => p.pnlUsd), [0, 20, 16, 23]);
+    // The day's samples lifted by 22, the week's by 20.
+    expect(data.points.map((p) => p.pnlUsd), [0, 20, 16, 22, 20, 23]);
     expect(data.totalPnlUsd, 23);
+    final day = data.rangeView(const Duration(milliseconds: 100000));
+    expect(day.points.map((p) => p.pnlUsd), [22, 20, 23]);
+    expect(day.changeUsd, 1);
     final week = data.rangeView(const Duration(milliseconds: 400000));
     expect(week.changeUsd, 3);
   });

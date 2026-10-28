@@ -24,6 +24,8 @@ import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity, ActivityType;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/balance_provider.dart';
+import 'package:kute/providers/breez_provider.dart'
+    show sparkDepositAutoClaimerProvider;
 import 'package:kute/providers/home_view_scope_provider.dart';
 import 'package:kute/providers/kute_state_provider.dart';
 import 'package:kute/providers/milestone_provider.dart';
@@ -36,6 +38,9 @@ import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/polymarket_spark_txs_service.dart';
+import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
+    show ownBitcoinDeliveryReceives;
+import 'package:kute/helpers/swap_activity.dart' show swapActivityFor;
 import 'package:kute/services/haptic_gates.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -90,6 +95,10 @@ class RawTransactionData {
   // of treating the empty lists as authoritative.
   final bool sparkPaymentsFetchFailed;
 
+  /// A failed token-history read is unknown, never an observed empty ledger.
+  /// Preserve the wallet's USDB rows and the receive-recovery baseline.
+  final bool usdbPaymentsFetchFailed;
+
   // True when `listUnclaimedDeposits` failed/timed out for this build.
   // Same load-bearing distinction as `sparkPaymentsFetchFailed`: an
   // empty `unclaimedDeposits` from a 15s timeout is NOT "no deposits",
@@ -112,6 +121,7 @@ class RawTransactionData {
     this.polymarketUsdcReceives = const [],
     this.outlogicOrders = const [],
     this.sparkPaymentsFetchFailed = false,
+    this.usdbPaymentsFetchFailed = false,
     this.unclaimedDepositsFetchFailed = false,
   });
 }
@@ -699,6 +709,20 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // counted by swap_completed): reported as purpose 'conversion_leg' so
     // they do not bump affiliate activity or first-receive milestones.
     final deliveryLegs = PolymarketSparkTxsService.orchestraDeliverySnapshot();
+    // And the receives Activity folds into the wallet's own withdrawals
+    // to Bitcoin (the same matcher, own_bitcoin_deliveries.dart): money
+    // coming home from Investments or Dollars is not a transfer in, even
+    // before the reconciler has tagged it.
+    // Read only once a new receive needs it.
+    Map<String, String>? ownDeliveries;
+    Map<String, String> ownDeliveriesNow() =>
+        ownDeliveries ??= ownBitcoinDeliveryReceives(
+          snapshot.swapOrderTransactions,
+          snapshot.sparkTransactions,
+          ownAddresses: const {},
+          classify: swapActivityFor,
+          links: PolymarketSparkTxsService.orchestraDeliveryLinks(),
+        );
     for (final tx in snapshot.sparkTransactions) {
       // Cached shells (no live `details`) are skipped here — we
       // only fire `transaction_received` for events surfaced by the
@@ -729,6 +753,7 @@ class TransactionNotifier extends StateNotifier<Transaction> {
         amountUsd: usdOf(amountSats),
         walletKind: walletKind,
         purpose: deliveryLegs.contains(tx.id) ||
+                ownDeliveriesNow().containsKey(tx.id) ||
                 PolymarketSparkTxsService.isTagged(tx.id)
             ? 'conversion_leg'
             : 'transfer',
@@ -1127,9 +1152,9 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // mempool row and the unclaimed row overlap during the 1–2 conf window.
     // We want the `n/3` row to be the SINGLE representation through that whole
     // window — so the unclaimed twin is hidden below, not the mempool row.
-    final pendingMempoolTxids = rawData.sparkPendingDeposits
-        .map((pd) => pd.mempoolTx.txid.toLowerCase())
-        .toSet();
+    // From 3 confirmations the mempool row only bridges the gap until the
+    // SDK lists the deposit, so the SDK's own row wins there.
+    final pendingMempoolTxids = sparkConfirmingTxids(rawData.sparkPendingDeposits);
 
     // 4. Spark Unclaimed Deposits — hide any that still have a live mempool
     // `n/3` twin (the progress row covers them until 3 confs); the unclaimed
@@ -1163,6 +1188,13 @@ class TransactionNotifier extends StateNotifier<Transaction> {
         ]),
         mempoolTxids: pendingMempoolTxids,
       );
+      // A live snapshot: claim what the SDK will never claim again itself.
+      if (sparkUnclaimedDeposits.isNotEmpty) {
+        unawaited(ref
+            .read(sparkDepositAutoClaimerProvider)
+            .review(walletId, sparkUnclaimedDeposits)
+            .catchError((_) {}));
+      }
     }
 
     // 4b. Spark Pending Deposits (websocket/mempool-tracked, 0–2 confs).
@@ -1174,20 +1206,36 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // display time (`Transaction._pendingDepositTxids`), and it drops out
     // automatically at 3 confs (the source filters `>= 3`), at which point
     // the unclaimed/confirmed row takes over.
-    final sparkPendingDeposits = rawData.sparkPendingDeposits.toList();
+    //
+    // Past 3 confirmations the row is kept only to bridge the gap until the
+    // SDK lists the outpoint (as unclaimed or as a deposit payment), which
+    // `Transaction` checks at display time. That check needs a live SDK
+    // read of both lists, so without one the bridge rows are dropped
+    // rather than shown against cache shells that cannot prove a credit.
+    final sdkListsLive = !rawData.sparkPaymentsFetchFailed &&
+        !rawData.unclaimedDepositsFetchFailed &&
+        !identical(sparkTransactions, cachedSpark);
+    final sparkPendingDeposits = rawData.sparkPendingDeposits
+        .where((d) => d.confirmations < 3 || sdkListsLive)
+        .toList();
 
     // 5. Mempool Transactions (External Address)
     final mempoolTransactions = rawData.mempoolTxs;
 
     // 6. USDB Token Transactions (Breez SDK)
-    final usdbTokenTransactions = rawData.usdbTokenPayments.map((payment) {
-      return UsdbTokenTransaction(
-        id: payment.id,
-        timestamp: DateTime.fromMillisecondsSinceEpoch(payment.timestamp.toInt() * 1000),
-        details: payment,
-        isConfirmed: payment.status == breez.PaymentStatus.completed,
-      );
-    }).toList();
+    final usdbTokenTransactions = rawData.usdbPaymentsFetchFailed
+        ? (ref.read(walletTransactionCacheProvider)[walletId]
+                ?.usdbTokenTransactions ??
+            const <UsdbTokenTransaction>[])
+        : rawData.usdbTokenPayments.map((payment) {
+            return UsdbTokenTransaction(
+              id: payment.id,
+              timestamp: DateTime.fromMillisecondsSinceEpoch(
+                  payment.timestamp.toInt() * 1000),
+              details: payment,
+              isConfirmed: payment.status == breez.PaymentStatus.completed,
+            );
+          }).toList();
 
     // 8. Swap order transactions (Orchestra, Cash App, retired-provider history)
     // Filter out 0-value exchanges and exchanges belonging to other wallets

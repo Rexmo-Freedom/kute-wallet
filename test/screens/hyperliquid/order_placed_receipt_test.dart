@@ -94,8 +94,14 @@ void main() {
   group('filled receipt against a held position', () {
     testWidgets('an open keeps the opened-order chip', (tester) async {
       await pumpReceipt(tester);
-      expect(find.text('Short · 1×'), findsOneWidget);
+      // The hero says the side and the margin; the coin is the context.
+      expect(find.text(r'Short $3,000.00'), findsOneWidget);
+      expect(find.text('BTC'), findsOneWidget);
+      expect(find.text('1×'), findsOneWidget);
       expect(find.text('Position size'), findsOneWidget);
+      // Done closes; View positions is the one quiet button.
+      expect(find.text('Done'), findsOneWidget);
+      expect(find.text('View positions'), findsOneWidget);
       expect(find.text('Realized P&L'), findsNothing);
     });
 
@@ -106,8 +112,10 @@ void main() {
       expect(plan!.effect, HlPositionEffect.reduce);
       await pumpReceipt(tester, plan: plan, realizedPnl: 12.5);
       expect(find.text('Reduced long · 0.05 BTC'), findsOneWidget);
-      expect(find.text('Short · 1×'), findsNothing);
-      expect(find.text('Total'), findsOneWidget);
+      expect(find.text(r'Short $3,000.00'), findsNothing);
+      // An exit is valued as the total it closed, as the hero.
+      expect(find.text(r'$3,000.00'), findsOneWidget);
+      expect(find.text('Position size'), findsNothing);
       expect(find.text('Realized P&L'), findsOneWidget);
       expect(find.text(r'+$12.50'), findsOneWidget);
     });
@@ -127,7 +135,7 @@ void main() {
           _filled(-0.1, orderIsLong: true, orderSize: 0.1, filled: 0.1);
       await pumpReceipt(tester, isLong: true, sizeFilled: 0.1, plan: plan);
       expect(find.text('Closed short'), findsOneWidget);
-      expect(find.text('Long · 1×'), findsNothing);
+      expect(find.text(r'Long $6,000.00'), findsNothing);
       // No fills in hand: no realised line rather than a guess.
       expect(find.text('Realized P&L'), findsNothing);
     });
@@ -201,5 +209,13 @@ void main() {
       expect(hlRealizedFromFills([_fill(0.03, closedPnl: 9)], 0.05), isNull);
       expect(hlRealizedFromFills(const [], 0.05), isNull);
     });
+  });
+
+  test('the receipt fee is what the fills paid, as Hyperliquid reported it',
+      () {
+    expect(hlFeeFromFills([_fill(0.1, fee: 1.2), _fill(0.2, fee: 2.4)], 0.3),
+        closeTo(3.6, 1e-12));
+    // Not all the fills in hand: no figure rather than part of one.
+    expect(hlFeeFromFills([_fill(0.1, fee: 1.2)], 0.3), isNull);
   });
 }

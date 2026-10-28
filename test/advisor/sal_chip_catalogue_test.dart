@@ -56,6 +56,29 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final en = l10nForLanguage('en');
 
+  group('"Why is it moving?"', () {
+    test('Investing: every market asks hl.moving_today, calm or not', () {
+      for (final label in ['NVDA', 'BTC', 'PURR']) {
+        final chip = salWhyMovingHl(en, label: label);
+        expect(chip.template, 'hl.moving_today');
+        expect(chip.text, 'Why is $label moving today?');
+        expect(kSalChipTemplates, contains(chip.template));
+      }
+    });
+
+    test('Predictions: a game in play, or 8 points or more in a day', () {
+      expect(salWhyMovingPm(en, oddsChange1d: 0.079, liveGame: false), isNull);
+      expect(salWhyMovingPm(en, oddsChange1d: null, liveGame: false), isNull);
+      expect(salWhyMovingPm(en, oddsChange1d: -0.08, liveGame: false)!.template,
+          'pm.odds_moving');
+      final live = salWhyMovingPm(en, oddsChange1d: 0, liveGame: true)!;
+      expect(live.template, 'pm.live_game');
+      expect(live.text, en.salChipPmLiveGame);
+      expect(kSalChipTemplates, contains('pm.odds_moving'));
+      expect(kSalChipTemplates, contains('pm.live_game'));
+    });
+  });
+
   List<String?> ids(AdvisorContext c,
           [SalChipSignals s = const SalChipSignals()]) =>
       [
@@ -190,10 +213,12 @@ void main() {
             ],
           ),
           now: _now);
+      // The watchlist chip carries no template: its id would tell the
+      // backend the market is on the watchlist.
       expect([
         for (final c in chips) c.template
       ], [
-        'search.watchlist_news',
+        null,
         'search.top_movers',
         'wallet.receive',
         'wallet.send'

@@ -676,9 +676,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get expires => 'Expire';
 
   @override
-  String get enterRefundAddress => 'Saisissez l\'adresse de remboursement';
-
-  @override
   String get description => 'Description';
 
   @override
@@ -809,9 +806,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get confirmClaim => 'Confirmer la récupération';
 
   @override
-  String get confirmRefund => 'Confirmer le remboursement';
-
-  @override
   String get connectSign => 'Connecter et signer';
 
   @override
@@ -855,10 +849,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String enterAAssetCodeAddress(String assetCode) {
     return 'Saisissez une adresse $assetCode';
   }
-
-  @override
-  String get enterTheBitcoinAddressAndFeeRateToRefund =>
-      'Saisissez l\'adresse Bitcoin et le taux de frais pour le remboursement.';
 
   @override
   String get enterYourPinOnTheJadeDevice =>
@@ -922,9 +912,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hlMarketInvestCta => 'Investir';
 
   @override
-  String get feeRateSatsVbyte => 'Taux de frais (sats/vByte)';
-
-  @override
   String get financials => 'Finances';
 
   @override
@@ -966,9 +953,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get invalidAddressOrAmount => 'Adresse ou montant invalide';
-
-  @override
-  String get invalidRate => 'Taux invalide';
 
   @override
   String get liquidity => 'LIQUIDITÉ';
@@ -1124,9 +1108,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get receiveBitcoin => 'Recevoir du Bitcoin';
 
   @override
-  String get refundDeposit => 'Rembourser le dépôt';
-
-  @override
   String get refunding => 'Remboursement en cours';
 
   @override
@@ -1196,34 +1177,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get totalFee => 'Frais totaux';
-
-  @override
-  String get usdEarnTitle => 'Rendement';
-
-  @override
-  String get usdEarnRate => 'Taux annuel récent';
-
-  @override
-  String get usdEarnNextPayment => 'Prochain versement';
-
-  @override
-  String get usdEarnNextPaymentIn => 'Versement dans';
-
-  @override
-  String get usdEarnRatePending => 'Chargement';
-
-  @override
-  String get usdEarnRateUnavailable => 'Indisponible pour le moment';
-
-  @override
-  String get usdEarnPaidToDate => 'Versé à ce jour';
-
-  @override
-  String get usdEarnActivityEmpty => 'Aucun versement pour l\'instant';
-
-  @override
-  String get usdEarnActivityUnavailable =>
-      'L\'historique des versements est indisponible pour le moment';
 
   @override
   String hlYieldAvailableLine(String amount) {
@@ -1578,8 +1531,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get scanCouldNotRead => 'Impossible de lire ce code. Réessayez.';
 
   @override
-  String get scanCouldNotReadClipboard =>
-      'Impossible d\'utiliser le contenu de votre presse-papiers. Copiez à nouveau l\'adresse ou le code.';
+  String get scanSecretRefused =>
+      'Ce code ressemble à une phrase de récupération ou à une clé privée, pas à une adresse. Gardez-le privé.';
 
   @override
   String get walletImportCouldNotImport =>
@@ -1600,9 +1553,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get jadeErrorWrongDevice =>
       'Ce Jade n\'est pas celui associé à ce portefeuille. Rien n\'a été signé. Connectez le Jade associé, ou associez celui-ci en mettant à jour l\'empreinte principale du portefeuille.';
-
-  @override
-  String get receiveOtherAssets => 'Recevoir d\'autres actifs';
 
   @override
   String get medium => 'Moyen';
@@ -1651,10 +1601,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get scanQrCode => 'Scanner un QR code';
 
   @override
-  String get scanAnyQRCodeDescription =>
-      'Scannez n\'importe quel QR code, nous essaierons de l\'identifier.';
-
-  @override
   String get importFile => 'Importer un fichier';
 
   @override
@@ -1700,9 +1646,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String feeAmountSats(String fee) {
     return '$fee sats';
   }
-
-  @override
-  String get memoColon => 'Mémo : ';
 
   @override
   String errorMessage(String err) {
@@ -1900,6 +1843,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get walletPublicKeyShowFull => 'Afficher la clé complète';
 
   @override
+  String get sparkRecoveryNote =>
+      'Spark est une couche rapide au-dessus de Bitcoin où Kute garde votre solde. Vous seul le contrôlez. Un portefeuille Bitcoin classique n\'affichera pas ce solde avec ces mots. Pour le récupérer, restaurez-les dans un portefeuille compatible Spark, comme Kute, Wallet of Satoshi ou Glow de Breez.';
+
+  @override
   String get walletsNeverShareWordsPlain =>
       'Ne partagez jamais ces mots. Toute personne qui les possède peut prendre tout ce qu\'il y a dans ce portefeuille.';
 
@@ -1974,9 +1921,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get scannerKeepInFrame => 'Gardez le code dans le cadre';
-
-  @override
-  String get scannerPointAtCode => 'Pointez l\'appareil photo vers le QR code';
 
   @override
   String get trackAddressPasteHint => 'Collez une adresse Bitcoin';
@@ -2081,6 +2025,36 @@ class AppLocalizationsFr extends AppLocalizations {
       'Configuration annulée. Rien n\'a été créé.';
 
   @override
+  String get passkeyBackupSyncing => 'Synchronisation de votre sauvegarde…';
+
+  @override
+  String get passkeyFinishBackupTitle =>
+      'Terminez la sauvegarde par clé d\'accès';
+
+  @override
+  String get passkeyFinishBackupSubtitle =>
+      'Pour le restaurer sur un nouveau téléphone';
+
+  @override
+  String get passkeyFinishBackupBody =>
+      'Confirmez avec votre clé d\'accès pour pouvoir restaurer ce portefeuille sur un nouveau téléphone.';
+
+  @override
+  String get passkeyFinishBackupFailed =>
+      'Impossible de terminer la sauvegarde par clé d\'accès. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get passkeyCreateNewTitle => 'Aucune clé d\'accès trouvée';
+
+  @override
+  String passkeyCreateNewBody(String method) {
+    return 'Rien n\'a été créé. Créer une nouvelle clé d\'accès pour ce portefeuille avec $method ?';
+  }
+
+  @override
+  String get passkeyCreateNewAction => 'Créer une nouvelle clé d\'accès';
+
+  @override
   String passkeyChoiceFallbackWords(String method) {
     return 'Impossible de configurer $method. Votre portefeuille a été créé avec des mots de récupération à la place.';
   }
@@ -2142,13 +2116,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Cet itinéraire est temporairement indisponible. Réessayez plus tard.';
 
   @override
-  String get receiveAssetTemporarilyUnavailable =>
-      'La réception de cet actif est temporairement indisponible.';
-
-  @override
-  String get clipboardEmpty => 'Le presse-papiers est vide';
-
-  @override
   String get pleaseSetUpPINFirst => 'Configurez d\'abord votre PIN';
 
   @override
@@ -2188,7 +2155,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tradingUnavailableRegion =>
-      'Ce service est restreint dans la région où semble se trouver votre connexion internet. Si ce n\'est pas là où vous êtes, vérifiez votre réseau ou vos réglages VPN et réessayez.';
+      'Ce service est restreint dans la région où semble se trouver votre connexion internet. Si vous n\'êtes pas là-bas, vérifiez vos réglages VPN.';
 
   @override
   String get ohlcOpen => 'Ouv. : ';
@@ -2343,11 +2310,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get receiveBeneficiary => 'Bénéficiaire';
 
   @override
-  String receiveAssetOnNetwork(String asset, String network) {
-    return '$asset sur $network';
-  }
-
-  @override
   String get receiveFailedToGetRate => 'Impossible d\'obtenir le taux';
 
   @override
@@ -2357,10 +2319,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get receiveUsdcWalletNotReady =>
       'Votre compte Prédictions est encore en cours de configuration. Réessayez dans un instant.';
-
-  @override
-  String get receiveFundsLandAsBitcoin =>
-      'Les fonds arrivent sur votre portefeuille en Bitcoin.';
 
   @override
   String get receiveConnectionFailed => 'Échec de la connexion.';
@@ -2702,9 +2660,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get walletsEnterFriendCodeDescriptionNoDiscount =>
       'Si un ami vous a invité, saisissez son code.';
-
-  @override
-  String get accountEarn => 'Gagner';
 
   @override
   String get accountInviteFriendsEarnShare =>
@@ -3451,6 +3406,63 @@ class AppLocalizationsFr extends AppLocalizations {
   String get activityTapToAddToWallet => 'Appuyez pour ajouter au portefeuille';
 
   @override
+  String get activityDepositWaiting => 'Dépôt en attente';
+
+  @override
+  String get activityTapToAddToBalance =>
+      'Appuyez pour l\'ajouter à votre solde';
+
+  @override
+  String get activityAddingToBalance => 'Ajout à votre solde…';
+
+  @override
+  String depositStatusConfirming(String current) {
+    return 'Confirmation · $current sur 3';
+  }
+
+  @override
+  String get depositStatusWaitingFee => 'En attente de frais plus bas';
+
+  @override
+  String get depositStatusFailed => 'Pas encore ajouté';
+
+  @override
+  String get depositAutoAfterConfirmations =>
+      'Ajouté automatiquement après 3 confirmations.';
+
+  @override
+  String get depositReasonFeeHigh =>
+      'Les frais pour l\'ajouter maintenant sont inhabituellement élevés. Il est ajouté automatiquement dès qu\'ils baissent, ou vous pouvez le récupérer maintenant.';
+
+  @override
+  String get depositReasonFailed =>
+      'Il n\'a pas encore pu être ajouté. Réessayez.';
+
+  @override
+  String depositClaimNowFee(String fee) {
+    return 'Récupérer maintenant · $fee de frais';
+  }
+
+  @override
+  String get depositFeeToClaimNow => 'Frais pour récupérer maintenant';
+
+  @override
+  String get depositWaitForLowerFee => 'Attendre des frais plus bas';
+
+  @override
+  String depositHomeWaiting(String amount) {
+    return '$amount attend d\'être ajouté à votre solde';
+  }
+
+  @override
+  String stepUpReasonClaimDeposit(String fee) {
+    return 'Confirmer des frais jusqu\'à $fee';
+  }
+
+  @override
+  String get depositClaimFailedTitle => 'Impossible d\'ajouter vos bitcoins';
+
+  @override
   String get activityAddToWallet => 'Ajouter au portefeuille';
 
   @override
@@ -3483,9 +3495,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get activityBitcoinAddedPending =>
       'L\'affichage dans votre solde peut prendre quelques minutes.';
-
-  @override
-  String get activityRefundStarted => 'Remboursement lancé';
 
   @override
   String depositAddFeeAboveLimit(String amount) {
@@ -3558,10 +3567,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible d\'ajouter ces bitcoins à votre portefeuille. Réessayez.';
 
   @override
-  String get depositRefundStartFailed =>
-      'Impossible de lancer le remboursement. Réessayez.';
-
-  @override
   String get receiveRequestFailed =>
       'Impossible de créer la demande de paiement. Réessayez.';
 
@@ -3576,10 +3581,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get receiveCoinNetworkUnavailable =>
       'Cette crypto et ce réseau ne sont pas encore disponibles pour les dépôts. Choisissez-en un autre.';
-
-  @override
-  String get receiveOtherCoinsNotToPredictions =>
-      'Les autres cryptos ne peuvent pas arriver dans Prédictions. Recevez-les sur votre portefeuille de dépenses, puis transférez-les.';
 
   @override
   String get activityStables => 'Stablecoins';
@@ -3704,7 +3705,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get activityProcessingEllipsis => 'Traitement…';
 
   @override
-  String get usdAccountTab => 'Dollars';
+  String get usdAccountTab => 'Investments';
 
   @override
   String activityFromAmount(String amount) {
@@ -4100,6 +4101,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsReferralProgram => 'Programme de parrainage';
 
   @override
+  String get hubReferrals => 'Parrainage';
+
+  @override
   String get settingsEarnAShareOfFees =>
       'Gagnez une part de ce que Kute perçoit sur vos amis';
 
@@ -4144,10 +4148,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Définissez le coût maximal autorisé pour cette récupération, en sats. C\'est une limite de frais, pas une vitesse de confirmation. Si les frais requis sont plus élevés, la récupération s\'arrêtera.';
 
   @override
-  String get depositRefundSubmitted =>
-      'Remboursement envoyé. En attente de confirmation.';
-
-  @override
   String get depositActionWalletChanged =>
       'Le portefeuille a changé. Rouvrez le dépôt pour continuer.';
 
@@ -4183,10 +4183,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ce dépôt n\'est plus en attente. Actualisation de son statut.';
 
   @override
-  String get depositRefundBroadcastUnconfirmed =>
-      'Le remboursement a été signé, mais sa diffusion n\'a pas été confirmée. Vérifiez à nouveau son statut plus tard.';
-
-  @override
   String claimFeeLastQuote(String sats) {
     return 'Suggéré à partir de la dernière cotation de $sats sats, avec une marge.';
   }
@@ -4202,6 +4198,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get confirmationBitcoinSent => 'Bitcoin envoyé';
+
+  @override
+  String confirmationSentToRecipient(String recipient) {
+    return 'À $recipient';
+  }
 
   @override
   String get confirmationWalletBackedUp => 'Portefeuille sauvegardé';
@@ -4532,8 +4533,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get polyAwaitingResult => 'Terminé · Résultat dans quelques minutes';
 
   @override
-  String get polyAwaitingWon =>
-      'Vous avez gagné · Récupérable dans quelques minutes';
+  String get polyAwaitingWon => 'Vous avez gagné';
 
   @override
   String get polyAwaitingLost => 'Terminé · Perdu';
@@ -4542,7 +4542,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get polyAwaitingResultSoon => 'Terminé · Résultat en attente';
 
   @override
-  String get polyAwaitingWonSoon => 'Vous avez gagné · Bientôt récupérable';
+  String get polyAwaitingWonSoon => 'Vous avez gagné';
 
   @override
   String polyAwaitingResultInMinutes(int minutes) {
@@ -4746,7 +4746,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get ledgerErrorGeoBlocked =>
-      'Investir est restreint dans la région où semble se trouver votre connexion internet. Si ce n\'est pas là où vous êtes, vérifiez votre réseau ou vos réglages VPN et réessayez.';
+      'Investir est restreint dans la région où semble se trouver votre connexion internet. Si vous n\'êtes pas là-bas, vérifiez vos réglages VPN.';
 
   @override
   String get ledgerErrorTradingDisabled =>
@@ -5446,9 +5446,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get stepUpReasonRevealSeed => 'Afficher votre phrase de récupération';
 
   @override
-  String get stepUpReasonRefund => 'Confirmer votre remboursement';
-
-  @override
   String stepUpReasonSwitchWallet(String name) {
     return 'Passer à $name';
   }
@@ -5520,11 +5517,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String feeUiKuteFeeWithRate(String rate) {
     return 'Frais Kute ($rate)';
-  }
-
-  @override
-  String receiveKuteFeeOnArrival(String rate) {
-    return 'Frais Kute $rate · prélevés sur le montant reçu';
   }
 
   @override
@@ -5847,6 +5839,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartStyleTitle => 'Style du graphique';
 
   @override
+  String get hlAdvancedChart => 'Graphique avancé';
+
+  @override
   String get chartStyleCandles => 'Bougies';
 
   @override
@@ -5986,9 +5981,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get portfolioStatRealized => 'Gain / perte réalisé';
 
   @override
-  String get portfolioStatOpen => 'Gain / perte latent';
-
-  @override
   String get portfolioStatAmountPredicted => 'Montant des prédictions';
 
   @override
@@ -6075,6 +6067,49 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chartYouHold => 'Vous détenez';
 
   @override
+  String polyPosIfReaches(String side) {
+    return 'Si $side atteint';
+  }
+
+  @override
+  String get polyPosWorthNow => 'Vaut maintenant';
+
+  @override
+  String get polyPosWorthThen => 'Vaudrait';
+
+  @override
+  String get polyPosNow => 'Maintenant';
+
+  @override
+  String polyPosIfWins(String side) {
+    return 'Si $side gagne';
+  }
+
+  @override
+  String polyPosSetSellAt(String percent) {
+    return 'Placer une vente à $percent %';
+  }
+
+  @override
+  String polyPosSinceBoughtAt(String price) {
+    return 'depuis votre achat à $price';
+  }
+
+  @override
+  String get polyPosDragHint =>
+      'Faites glisser l\'aiguille pour voir combien cela vaudrait';
+
+  @override
+  String polyPosChangeSince(String percent, String price) {
+    return '$percent depuis $price';
+  }
+
+  @override
+  String polyPosYourAvg(String price) {
+    return 'Votre moy. $price';
+  }
+
+  @override
   String get chartNoData => 'Aucune donnée';
 
   @override
@@ -6097,7 +6132,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get moveBuyBitcoin => 'Acheter du bitcoin';
 
   @override
-  String get dollarDeposit => 'Dépôt en dollars';
+  String get dollarDeposit => 'Investments deposit';
 
   @override
   String get dollarWithdrawal => 'Retrait en dollars';
@@ -6230,6 +6265,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get investingFeeSettingsUnavailable =>
       'Les réglages de frais Investir n\'ont pas pu être vérifiés. Réessayez.';
+
+  @override
+  String get investingViewOrders => 'Voir les ordres';
 
   @override
   String get investingViewPositions => 'Voir les positions';
@@ -6547,13 +6585,37 @@ class AppLocalizationsFr extends AppLocalizations {
   String get portfolioTabStatistics => 'Statistiques';
 
   @override
+  String get portfolioBalanceDollars => 'Dollars';
+
+  @override
+  String get portfolioRebalance => 'Rééquilibrer';
+
+  @override
+  String get portfolioRebalanceMoving => 'Transfert vers USDB…';
+
+  @override
+  String get portfolioRebalanceMovingMinutes =>
+      'Transfert vers USDB… quelques minutes';
+
+  @override
+  String get portfolioRebalanceHeldOrders => 'Bloqué par des ordres ouverts';
+
+  @override
+  String get portfolioRebalanceHeldMargin =>
+      'Conservé comme marge pour les positions ouvertes';
+
+  @override
+  String get portfolioRebalanceBelowMinimum => 'Sous le minimum de transfert';
+
+  @override
+  String get portfolioRebalanceNotNow =>
+      'Transfert impossible pour l\'instant. Touchez Rééquilibrer pour réessayer.';
+
+  @override
   String get sendMoreThanAvailable => 'C\'est plus que ce dont vous disposez.';
 
   @override
   String get receiveRequestAmount => 'Demander un montant';
-
-  @override
-  String get receiveBackToBitcoin => 'Retour à Bitcoin';
 
   @override
   String get sendRecentRecipients => 'Récents';
@@ -6600,10 +6662,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get searchPredictionsHint => 'Rechercher des prédictions';
 
   @override
-  String get assetDollars => 'Dollars';
+  String get assetDollars => 'Investments';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Payer avec votre solde en dollars';
+  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Adresse du compte en dollars';
@@ -6676,10 +6738,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get receiveOneOffNewAddress => 'Obtenir une nouvelle adresse';
+  String get receiveOneOffLateDepositRepriced =>
+      'Un dépôt arrivé après peut obtenir un autre prix.';
 
   @override
-  String get receiveOneOffAmountTitle => 'Combien attendez-vous ?';
+  String get receiveOneOffNewAddress => 'Obtenir une nouvelle adresse';
 
   @override
   String get usdFlowStepCoin => 'Choisissez une crypto';
@@ -6714,10 +6777,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get usdReceiveCreating => 'Configuration de votre adresse.';
 
   @override
-  String get usdReceiveArriving =>
-      'Vos dollars arrivent dès que le paiement est confirmé.';
-
-  @override
   String get receiveAlsoAccepts => 'Accepte aussi';
 
   @override
@@ -6728,9 +6787,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get receiveCoinsLoading =>
       'Les cryptos sont en cours de chargement. Réessayez dans un instant.';
-
-  @override
-  String get receiveAlsoAcceptsTitle => 'Votre adresse accepte aussi';
 
   @override
   String get receiveAlsoAcceptsSubtitle =>
@@ -6857,46 +6913,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get betAdvancedSaleSellingAll => 'Vente de toute votre position';
 
   @override
-  String get usdEarnProjectionNote =>
-      'La ligne pointillée est une estimation au taux du jour, pas de l\'argent reçu.';
-
-  @override
-  String usdEarnBelowMinimum(String amount) {
-    return 'Les récompenses commencent dès que vous détenez $amount. Elles sont versées chaque jour en bitcoin.';
-  }
-
-  @override
-  String get usdEarnProjectedLabel => 'Projection au taux du jour';
-
-  @override
   String get moveWithdrawDestinationHint =>
       'Choisissez ce qui arrive sur votre compte de dépenses.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Vers votre solde en dollars';
+  String get moveDestDollarsSubtitle => 'Into your Investments balance';
 
   @override
   String get moveConversionOngoing => 'Conversion en cours';
-
-  @override
-  String quotedReceiveAmountSubtitle(String asset, String network) {
-    return 'Saisissez le montant de $asset que vous enverrez sur $network.';
-  }
-
-  @override
-  String quotedReceiveRefundSubtitle(String network) {
-    return 'Utilisez une adresse que vous contrôlez sur $network. Si un retour est nécessaire et pris en charge, il arrive ici. Des frais peuvent s\'appliquer.';
-  }
-
-  @override
-  String quotedReceiveRefundInvalid(String network) {
-    return 'Saisissez une adresse de remboursement $network valide.';
-  }
-
-  @override
-  String quotedReceiveExactAmount(String amount) {
-    return 'Envoyez exactement $amount en un seul paiement avant l\'expiration de cette adresse.';
-  }
 
   @override
   String get quotedReceiveExpired =>
@@ -6909,10 +6933,21 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get quotedReceiveWalletChanged =>
-      'Votre compte a changé. Fermez cet écran et recommencez.';
+      'Votre compte a changé. Fermez ceci et recommencez.';
 
   @override
-  String get receiveOneOffUseAddress => 'Utiliser une adresse à usage unique';
+  String get onetimeRefundAddressTitle => 'Adresse de retour';
+
+  @override
+  String get optionalLabel => 'Facultatif';
+
+  @override
+  String get quotedReceiveReturnsTo => 'Renvoyé à';
+
+  @override
+  String activityReturnedTo(String address, String network) {
+    return 'Renvoyé à $address sur $network';
+  }
 
   @override
   String stepUpReasonWithdrawWithSourceFee(
@@ -6946,13 +6981,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get salProgressChecking => 'Vérification des détails…';
-
-  @override
-  String get receiveRequiredMemo => 'Mémo / tag requis';
-
-  @override
-  String get receiveMemoRequiredWarning =>
-      'Incluez ce mémo avec votre dépôt. L\'adresse seule ne suffit pas.';
 
   @override
   String get receiveOwnRefundAddress =>
@@ -7027,7 +7055,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Max · $price';
+    return 'Jusqu\'à $price par part';
   }
 
   @override
@@ -7117,7 +7145,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get capabilityRegionRestricted =>
-      'Cette fonctionnalité est restreinte dans la région où semble se trouver votre connexion internet. Si ce n\'est pas là où vous êtes, vérifiez votre réseau ou vos réglages VPN et réessayez.';
+      'Cette fonctionnalité est restreinte dans la région où semble se trouver votre connexion internet. Si vous n\'êtes pas là-bas, vérifiez vos réglages VPN.';
 
   @override
   String get capabilityUpdateRequired =>
@@ -7140,6 +7168,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de vérifier la disponibilité avec Kute. Réessayez.';
 
   @override
+  String get capabilityOfflineGrace =>
+      'Kute est injoignable pour le moment. Ceci reste disponible d\'après votre dernière vérification.';
+
+  @override
   String get capabilityUnavailable =>
       'Cette fonctionnalité est actuellement indisponible dans Kute.';
 
@@ -7150,7 +7182,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String providerRegionRestricted(String provider) {
-    return '$provider est restreint dans la région où semble se trouver votre connexion internet. Si ce n\'est pas là où vous êtes, vérifiez votre réseau ou vos réglages VPN et réessayez.';
+    return '$provider est restreint dans la région où semble se trouver votre connexion internet. Si vous n\'êtes pas là-bas, vérifiez vos réglages VPN.';
   }
 
   @override
@@ -7174,6 +7206,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get capabilityRegionTitle => 'Indisponible dans votre région';
+
+  @override
+  String capabilityRegionTitleNamed(String regions) {
+    return 'Indisponible dans $regions';
+  }
+
+  @override
+  String get capabilityRegionCheckVpn =>
+      'Si vous n\'êtes pas là-bas, vérifiez vos réglages VPN.';
+
+  @override
+  String get checkConnection => 'Vérifier la connexion';
 
   @override
   String get gateUnavailableTitle => 'Indisponible';
@@ -7470,7 +7514,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get shareCodeTimedOut =>
-      'Votre code est en cours de création. Vous le trouverez à tout moment dans Paramètres → Gagner.';
+      'Votre code est en cours de création. Vous le trouverez à tout moment dans Paramètres → Programme de parrainage.';
 
   @override
   String get referrerCaptureInvalid =>
@@ -7497,7 +7541,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get referrerAddLater =>
-      'Vous pouvez aussi l\'ajouter plus tard dans Paramètres → Gagner (sous 7 jours).';
+      'Vous pouvez aussi l\'ajouter plus tard dans Paramètres → Programme de parrainage (sous 7 jours).';
 
   @override
   String get referrerSkip => 'Passer, je n\'ai pas de code';
@@ -7526,6 +7570,37 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get recoverFoundOnDevice =>
       'Trouvé sur cet appareil. Vérifiez que le solde semble correct avant de restaurer.';
+
+  @override
+  String get recoverOlderVersionSection =>
+      'D’une version précédente sur ce téléphone';
+
+  @override
+  String get recoverOlderVersionWallet =>
+      'Portefeuille d’une version précédente';
+
+  @override
+  String get recoverOlderVersionNeedsPin =>
+      'S’ouvre avec le code PIN de cette version';
+
+  @override
+  String get recoverOlderVersionIcloud =>
+      'Enregistrée dans le trousseau iCloud';
+
+  @override
+  String get recoverOlderVersionEnterPin =>
+      'Saisissez le code PIN utilisé par cette version';
+
+  @override
+  String get recoverOlderVersionFailed =>
+      'Impossible de restaurer cette copie.';
+
+  @override
+  String get restoreRescueOfferBody =>
+      'Des copies de vos portefeuilles issues d’une version précédente de Kute sont encore sur ce téléphone. Les utiliser plutôt que de repartir de zéro ?';
+
+  @override
+  String get restoreRescueOfferConfirm => 'Utiliser les copies enregistrées';
 
   @override
   String recoverConfirmWallet(String wallet) {
@@ -8157,6 +8232,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get predictPastRounds => 'Manches précédentes';
+
+  @override
   String get predictNoOpenMarketsCategory =>
       'Aucun marché ouvert dans cette catégorie pour le moment';
 
@@ -8625,16 +8703,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String slipCtaSpotNow(String side, String coin, String amount) {
-    return '$side $coin maintenant · $amount';
-  }
-
-  @override
-  String slipCtaGo(String side, String coin, String leverage, String amount) {
-    return 'Passer $side $coin ${leverage}x · $amount';
-  }
-
-  @override
   String slipCtaLimit(String side, String coin) {
     return 'Placer l\'ordre limite $side $coin';
   }
@@ -8750,6 +8818,34 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get hlChartLiq => 'Liq.';
+
+  @override
+  String hlChartYourEntry(String price) {
+    return 'Votre entrée $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Liquidation $price';
+  }
+
+  @override
+  String get hlPositionYouPutIn => 'Votre mise';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Vaut $amount maintenant';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Gain $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Perte $amount ($percent)';
+  }
 
   @override
   String get hlChartTrail => 'Suivi';
@@ -9447,6 +9543,11 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String hlFundingIn(int minutes) {
     return 'dans $minutes min';
+  }
+
+  @override
+  String hlFundingRateLine(String payer, String hourly, String annual) {
+    return '$payer $hourly/h (≈ $annual annualisé)';
   }
 
   @override
@@ -10540,7 +10641,49 @@ class AppLocalizationsFr extends AppLocalizations {
   String get financialHubAndSettings => 'Centre financier et paramètres';
 
   @override
-  String get analyticsBreakdownTab => 'Répartition';
+  String get analyticsInOutTab => 'Entrées/sorties';
+
+  @override
+  String get inOutMonth => 'Mois';
+
+  @override
+  String get inOutYear => 'Année';
+
+  @override
+  String get inOutIn => 'Entrées';
+
+  @override
+  String get inOutOut => 'Sorties';
+
+  @override
+  String get inOutWhereItWent => 'Où c\'est allé';
+
+  @override
+  String get inOutWhereItCameFrom => 'D\'où ça vient';
+
+  @override
+  String get inOutSentToPeople => 'Envoyé à des personnes';
+
+  @override
+  String get inOutIntoInvestments => 'Vers Investments';
+
+  @override
+  String get inOutIntoDollars => 'Vers Dollars';
+
+  @override
+  String get inOutFromPeople => 'De personnes';
+
+  @override
+  String get inOutFromInvestments => 'Depuis Investments';
+
+  @override
+  String get inOutFromDollars => 'Depuis Dollars';
+
+  @override
+  String get inOutBought => 'Acheté';
+
+  @override
+  String get inOutEmpty => 'Aucune entrée ni sortie';
 
   @override
   String get portfolioStatsActive => 'Actives';
@@ -10550,6 +10693,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get portfolioStatAtStake => 'Montant engagé';
+
+  @override
+  String get portfolioProfitLoss => 'Gains et pertes';
 
   @override
   String slipCtaAddTo(String side, String amount) {
@@ -10699,5 +10845,553 @@ class AppLocalizationsFr extends AppLocalizations {
       },
     );
     return '$_temp0';
+  }
+
+  @override
+  String get investmentsTotal => 'Investments total';
+
+  @override
+  String oneBalanceMovingTo(String amount, String venue) {
+    return '$amount en cours de transfert vers $venue';
+  }
+
+  @override
+  String oneBalanceComingBack(String amount, String venue) {
+    return '$amount coming back from $venue';
+  }
+
+  @override
+  String oneBalanceWaitingToWithdraw(String amount) {
+    return '$amount unavailable until balancing completes';
+  }
+
+  @override
+  String oneBalanceIncoming(String amount) {
+    return 'Incoming $amount';
+  }
+
+  @override
+  String slipAddToInvestments(String amount) {
+    return 'Add $amount to Investments';
+  }
+
+  @override
+  String slipCtaSideCoin(String side, String coin) {
+    return '$side $coin';
+  }
+
+  @override
+  String slipCtaSideMinimum(String side, String coin) {
+    return '$side le minimum sur $coin';
+  }
+
+  @override
+  String slipCtaSideAmount(String side, String amount) {
+    return '$side $amount';
+  }
+
+  @override
+  String betPlaceOnSide(String side) {
+    return 'Placer le minimum sur $side';
+  }
+
+  @override
+  String betAmountOnSide(String amount, String side) {
+    return '$amount sur $side';
+  }
+
+  @override
+  String slipAddThenOrder(String amount, String order) {
+    return 'Ajouter $amount · $order';
+  }
+
+  @override
+  String slipShortOfMinimum(String amount) {
+    return 'Il manque $amount pour atteindre le minimum';
+  }
+
+  @override
+  String slipAddsToYourPosition(String side) {
+    String _temp0 = intl.Intl.selectLogic(
+      side,
+      {
+        'long': 'Renforce votre Long',
+        'other': 'Renforce votre Short',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String betSlipPaysIfYouWin(String side, String amount) {
+    return '$side · rapporte $amount si vous gagnez';
+  }
+
+  @override
+  String get slipMoveFee => 'Move fee';
+
+  @override
+  String get slipMoveFromDollars => 'Transfert depuis Dollars';
+
+  @override
+  String get slipMoveFromBitcoin => 'Transfert depuis Bitcoin';
+
+  @override
+  String get slipMoveFromInvesting => 'Transfert depuis Investir';
+
+  @override
+  String get slipMoveFromPredictions => 'Transfert depuis Prédictions';
+
+  @override
+  String get addMoneyToInvestments => 'Ajouter de l\'argent à Investments';
+
+  @override
+  String get depositFromSpendingWallet => 'Votre portefeuille de dépenses';
+
+  @override
+  String depositFromSpendingWalletWithBalance(String amount) {
+    return 'Votre portefeuille de dépenses · $amount';
+  }
+
+  @override
+  String get depositFromAnotherWallet =>
+      'Un autre portefeuille ou une plateforme';
+
+  @override
+  String get depositFromAnotherWalletSubtitle =>
+      'Obtenez une adresse pour envoyer des dollars';
+
+  @override
+  String get portfolioStatOpenPnl => 'Gain / perte latent';
+
+  @override
+  String stepUpReasonBetReady(String amount) {
+    return 'Préparer une prédiction de $amount';
+  }
+
+  @override
+  String multiMoveSendTitle(String amount) {
+    return 'Envoyer $amount';
+  }
+
+  @override
+  String multiMoveTitle(String amount, String destination) {
+    return 'Transférer $amount vers $destination';
+  }
+
+  @override
+  String multiMoveDeliveredRemaining(String delivered, String remaining) {
+    return '$delivered livrés · $remaining restants';
+  }
+
+  @override
+  String get activityPartlyDone => 'Partiellement effectué';
+
+  @override
+  String multiMoveStillIn(String amount, String place) {
+    return '$amount est toujours dans $place';
+  }
+
+  @override
+  String multiMovePurchaseWaiting(String amount, String balance) {
+    return 'Vos $amount sont dans $balance. Touchez pour acheter du Bitcoin';
+  }
+
+  @override
+  String multiMoveSendWaiting(String amount, String balance) {
+    return 'Vos $amount sont dans $balance. L’envoi n’a pas abouti';
+  }
+
+  @override
+  String get usdReceiveDepositNow => 'Déposer maintenant';
+
+  @override
+  String get usdReceiveFromYourWallet => 'Depuis votre portefeuille';
+
+  @override
+  String get usdReceiveFromAnotherWallet =>
+      'Depuis un autre portefeuille ou une plateforme';
+
+  @override
+  String get usdWithdrawToYourWallet => 'Vers votre portefeuille';
+
+  @override
+  String get usdWithdrawToAnotherWallet =>
+      'Vers un autre portefeuille ou une plateforme';
+
+  @override
+  String get usdWithdrawNow => 'Retirer maintenant';
+
+  @override
+  String slipStepAddingToInvestments(String amount) {
+    return 'Ajout de $amount à Investments';
+  }
+
+  @override
+  String get slipStepPreparingPrediction => 'Préparation de votre prédiction';
+
+  @override
+  String get slipStepPreparingOrder => 'Préparation de votre ordre';
+
+  @override
+  String slipStepPlacingBet(String amount, String side) {
+    return 'Mise de $amount sur $side';
+  }
+
+  @override
+  String slipStepOpeningOrder(String amount, String side, String market) {
+    return 'Ouverture de $amount $side $market';
+  }
+
+  @override
+  String get slipStepTakingLonger =>
+      'Cela prend plus de temps que prévu. Encore un instant, c\'est presque fini.';
+
+  @override
+  String slipFundingReadyToPlace(String amount) {
+    return 'Vos $amount sont dans Investments. Touchez pour placer.';
+  }
+
+  @override
+  String get slipFundingBitcoinBack =>
+      'L\'ajout à Investments n\'a pas abouti. Vos bitcoins vous reviennent.';
+
+  @override
+  String get slipFundingPriceMoved => 'Le prix a bougé trop vite.';
+
+  @override
+  String get slipFundingRoundClosed =>
+      'Ce tour s\'est fermé avant l\'arrivée de votre argent.';
+
+  @override
+  String slipFundingRoundPriceMoved(String price) {
+    return 'Le prix est passé à $price pendant le transfert de votre argent.';
+  }
+
+  @override
+  String slipFundingRoundEnded(String amount) {
+    return 'Ce tour s\'est terminé pendant le transfert de votre argent. Vos $amount sont dans Prédictions.';
+  }
+
+  @override
+  String slipFundingInPredictions(String amount) {
+    return 'Vos $amount sont dans Prédictions. Touchez pour réessayer.';
+  }
+
+  @override
+  String slipFundingInInvesting(String amount) {
+    return 'Vos $amount sont dans Investir. Touchez pour réessayer.';
+  }
+
+  @override
+  String oneBalancePlacingBet(String amount, String side, String market) {
+    return 'Mise de $amount sur $side · $market';
+  }
+
+  @override
+  String oneBalanceOpeningOrder(String amount, String market) {
+    return 'Ouverture d\'un ordre de $amount sur $market';
+  }
+
+  @override
+  String hlMarginStepAdding(String amount, String coin) {
+    return 'Ajout de $amount de marge à $coin';
+  }
+
+  @override
+  String hlMarginFundingReady(String amount) {
+    return 'Vos $amount sont dans Investments. Touchez pour ajouter la marge.';
+  }
+
+  @override
+  String get salWhyMoving => 'Pourquoi ça bouge ?';
+
+  @override
+  String get positionProtectIt => 'La protéger';
+
+  @override
+  String hlRiskLiquidationLong(String market, String price, String amount) {
+    return 'Si $market descend à $price, cette position est clôturée et vous perdez $amount.';
+  }
+
+  @override
+  String hlRiskLiquidationShort(String market, String price, String amount) {
+    return 'Si $market monte à $price, cette position est clôturée et vous perdez $amount.';
+  }
+
+  @override
+  String polyRiskOutcome(String outcome, String cost, String payout) {
+    return 'Si $outcome perd, vous perdez $cost ; s\'il gagne, vous recevez $payout.';
+  }
+
+  @override
+  String moneyStepMovingFrom(String amount, String source) {
+    return 'Transfert de $amount depuis $source';
+  }
+
+  @override
+  String moneyStepMovedFrom(String amount, String source) {
+    return '$amount transférés depuis $source';
+  }
+
+  @override
+  String moneyStepMovingFromTo(
+      String amount, String source, String destination) {
+    return 'Transfert de $amount depuis $source → $destination';
+  }
+
+  @override
+  String moneyStepMovedFromTo(
+      String amount, String source, String destination) {
+    return '$amount transférés depuis $source → $destination';
+  }
+
+  @override
+  String moneyStepMoveFailed(String amount, String source) {
+    return '$amount depuis $source n\'ont pas été transférés';
+  }
+
+  @override
+  String moneyStepFellBack(String source, String via) {
+    return 'Route $source saturée, passage par $via';
+  }
+
+  @override
+  String moneyStepViaDollars(String source, String via) {
+    return '$source passe par $via';
+  }
+
+  @override
+  String moneyStepRouteUnavailable(String source, String via) {
+    return 'Route $source indisponible, passage par $via';
+  }
+
+  @override
+  String moneyStepTooSmallDirect(String source, String via) {
+    return 'Montant trop faible pour passer directement depuis $source, passage par $via';
+  }
+
+  @override
+  String multiMoveOrderWaiting(String amount, String balance) {
+    return 'Vos $amount sont dans $balance. L’ordre n’a pas abouti';
+  }
+
+  @override
+  String get moneyStepConverting => 'Conversion en pUSD';
+
+  @override
+  String get moneyStepConverted => 'Converti en pUSD';
+
+  @override
+  String moneyStepGathering(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'En attente de tout l’argent',
+      two: 'En attente des deux arrivées',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepGathered(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tout est arrivé',
+      two: 'Les deux sont arrivés',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String moneyStepMovingTwo(
+      String amount1, String source1, String amount2, String source2) {
+    return 'Transfert de $amount1 depuis $source1 et de $amount2 depuis $source2';
+  }
+
+  @override
+  String moneyStepMovingMany(String amount, int count) {
+    return 'Transfert de $amount depuis $count soldes';
+  }
+
+  @override
+  String get moneyStepApproving => 'Autorisation de dépense';
+
+  @override
+  String get moneyStepApproved => 'Dépense autorisée';
+
+  @override
+  String get moneyStepConfirming => 'Confirmation du solde';
+
+  @override
+  String get moneyStepConfirmed => 'Solde confirmé';
+
+  @override
+  String get moneyStepCrediting => 'Crédit sur le solde de trading';
+
+  @override
+  String get moneyStepCredited => 'Crédité sur le solde de trading';
+
+  @override
+  String moneyStepBuying(String amount) {
+    return 'Achat de $amount de Bitcoin';
+  }
+
+  @override
+  String moneyStepBought(String amount) {
+    return '$amount de Bitcoin achetés';
+  }
+
+  @override
+  String get moneyStepArriving => 'Arrivée dans Bitcoin';
+
+  @override
+  String get moneyStepArrived => 'Arrivé dans Bitcoin';
+
+  @override
+  String moneyStepSending(String amount) {
+    return 'Envoi de $amount';
+  }
+
+  @override
+  String moneyStepSent(String amount) {
+    return '$amount envoyés';
+  }
+
+  @override
+  String moneyStepCompact(String source, String destination, String amount) {
+    return '$source → $destination · $amount';
+  }
+
+  @override
+  String moneyJourneyAt(String place) {
+    return 'À $place';
+  }
+
+  @override
+  String moneyJourneyArrived(int count, int total) {
+    return '$count sur $total arrivés';
+  }
+
+  @override
+  String get moneyJourneyPlaced => 'Placé !';
+
+  @override
+  String cctpRefundReturnedTo(String network, String address) {
+    return 'Remboursé sur votre adresse $network $address.';
+  }
+
+  @override
+  String get cctpRefundMoveWithWallet =>
+      'Pour le déplacer, utilisez un portefeuille comme MetaMask avec la même phrase de récupération.';
+
+  @override
+  String get cctpRefundContactSupport =>
+      'Pour le déplacer, contactez l\'assistance.';
+
+  @override
+  String get portfolioSectionPnlCharts => 'Graphiques P&L';
+
+  @override
+  String get portfolioSectionBalances => 'Portefeuille';
+
+  @override
+  String balanceChangePastWeek(String change) {
+    return '$change sur la dernière semaine';
+  }
+
+  @override
+  String balanceChangePastMonth(String change) {
+    return '$change sur le dernier mois';
+  }
+
+  @override
+  String balanceChangePast3Months(String change) {
+    return '$change sur les 3 derniers mois';
+  }
+
+  @override
+  String balanceChangePastYear(String change) {
+    return '$change sur la dernière année';
+  }
+
+  @override
+  String balanceChangeAllTime(String change) {
+    return '$change au total';
+  }
+
+  @override
+  String balanceChangeSince(String change, String date) {
+    return '$change depuis le $date';
+  }
+
+  @override
+  String balanceChangeBetween(String change, String start, String end) {
+    return '$change, $start – $end';
+  }
+
+  @override
+  String get balanceNoChangePastWeek =>
+      'Aucun changement sur la dernière semaine';
+
+  @override
+  String get balanceNoChangePastMonth => 'Aucun changement sur le dernier mois';
+
+  @override
+  String get balanceNoChangePast3Months =>
+      'Aucun changement sur les 3 derniers mois';
+
+  @override
+  String get balanceNoChangePastYear =>
+      'Aucun changement sur la dernière année';
+
+  @override
+  String balanceNoChangeSince(String date) {
+    return 'Aucun changement depuis le $date';
+  }
+
+  @override
+  String balanceNoChangeBetween(String start, String end) {
+    return 'Aucun changement, $start – $end';
+  }
+
+  @override
+  String get balanceChartEmptyBitcoin =>
+      'L\'évolution de votre solde s\'affichera ici dès que vous détiendrez des bitcoins';
+
+  @override
+  String get balanceChartEmptyDollars =>
+      'L\'évolution de votre solde s\'affichera ici dès que vous détiendrez des dollars';
+
+  @override
+  String get pnlChartEmpty =>
+      'Vos gains et pertes s\'afficheront ici dès que vous négocierez ou ferez des prédictions';
+
+  @override
+  String portfolioPositionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count positions',
+      one: '$count position',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get portfolioBuyingPower => 'Disponible à investir';
+
+  @override
+  String get portfolioNoOpenPositions => 'Aucune position ouverte';
+
+  @override
+  String portfolioRowShares(String shares, String price) {
+    return '$shares parts · moy. $price';
+  }
+
+  @override
+  String portfolioRowEntry(String price) {
+    return 'entrée $price';
   }
 }

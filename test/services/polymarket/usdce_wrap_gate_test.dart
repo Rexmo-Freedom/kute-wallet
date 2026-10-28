@@ -63,12 +63,18 @@ void main() {
       final code = stripComments(
           File('lib/providers/polymarket_trading_provider.dart')
               .readAsStringSync());
-      final decide = code.indexOf('polyShouldWrapBeforeBuy(');
+      // The decision lives in the buy's collateral check
+      // (venue_collateral.dart), which runs before the order is signed.
+      final decide = code.indexOf('polyReadyVenueCollateral(');
       final sign = code.indexOf('final signed = await buildOrder();');
       expect(decide, greaterThan(0));
       expect(sign, greaterThan(decide));
+      expect(
+          File('lib/services/polymarket/venue_collateral.dart')
+              .readAsStringSync(),
+          contains('polyShouldWrapBeforeBuy('));
       expect(code, contains('isPolymarketBalanceRefusal(e.reason)'));
-      expect(code, contains("trigger: 'refusal'"));
+      expect(code, contains("trigger: prefetched ? 'order' : 'refusal'"));
     });
   });
 
@@ -121,6 +127,92 @@ void main() {
       final b = gate.run('0xb', () async => _usd(++wraps));
       await Future.wait([a, b]);
       expect(wraps, 2);
+    });
+  });
+
+  group('no conversion while a funded bet\'s money is still on its way', () {
+    tearDown(FundedConversionHold.reset);
+
+    test('held while funding or waiting, until the balances showed all of it',
+        () {
+      // Funding running (the legs on their way, the bet not queued yet).
+      expect(
+          fundedConversionHeld(
+              funded: true,
+              fundingRunning: true,
+              awaitingBalance: false,
+              landedConfirmed: false),
+          isTrue);
+      // Queued for its money, not all of it read on chain yet.
+      expect(
+          fundedConversionHeld(
+              funded: true,
+              fundingRunning: false,
+              awaitingBalance: true,
+              landedConfirmed: false),
+          isTrue);
+      // The wallet's balances showed every leg's money: the one
+      // conversion may run.
+      expect(
+          fundedConversionHeld(
+              funded: true,
+              fundingRunning: false,
+              awaitingBalance: true,
+              landedConfirmed: true),
+          isFalse);
+      // A bet funded from nothing, or one placing, done, failed or
+      // cleared, holds nothing: a stop never leaves conversions held.
+      expect(
+          fundedConversionHeld(
+              funded: false,
+              fundingRunning: false,
+              awaitingBalance: true,
+              landedConfirmed: false),
+          isFalse);
+      expect(
+          fundedConversionHeld(
+              funded: true,
+              fundingRunning: false,
+              awaitingBalance: false,
+              landedConfirmed: false),
+          isFalse);
+    });
+
+    test('the autofire answers; removed, nothing is held', () {
+      expect(FundedConversionHold.held, isFalse);
+      var held = true;
+      final remove = FundedConversionHold.install(() => held);
+      expect(FundedConversionHold.held, isTrue);
+      held = false;
+      expect(FundedConversionHold.held, isFalse);
+      held = true;
+      remove();
+      expect(FundedConversionHold.held, isFalse);
+      // A failing answer holds nothing.
+      FundedConversionHold.install(() => throw StateError('gone'));
+      expect(FundedConversionHold.held, isFalse);
+    });
+
+    test('every conversion path asks first, before the gate and the relayer',
+        () {
+      final code = stripComments(
+          File('lib/providers/polymarket_trading_provider.dart')
+              .readAsStringSync());
+      final wrap = code.indexOf('Future<BigInt> _wrapHeldUsdcE(');
+      final hold = code.indexOf('FundedConversionHold.held', wrap);
+      final gate = code.indexOf('_wrapGate.run(wallet', wrap);
+      expect(wrap, greaterThan(0));
+      expect(hold, greaterThan(wrap));
+      expect(gate, greaterThan(hold));
+      // The post-withdraw rewrap (its own direct call) asks too.
+      final rewrap = code.indexOf('void scheduleDelayedUsdceRewrap(');
+      final rewrapHold = code.indexOf('FundedConversionHold.held', rewrap);
+      final rewrapCall =
+          code.indexOf('wrapUsdceToPusdInDepositWallet(', rewrap);
+      expect(rewrapHold, greaterThan(rewrap));
+      expect(rewrapCall, greaterThan(rewrapHold));
+      // Nothing else converts outside _wrapHeldUsdcE.
+      expect('wrapHeldUsdceToPusdInDepositWallet('.allMatches(code).length, 1);
     });
   });
 }

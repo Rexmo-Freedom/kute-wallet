@@ -24,6 +24,7 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/services/polymarket/current_round.dart';
 import 'package:kute/services/polymarket/market_buy_quote.dart';
 import 'package:kute/services/polymarket/selected_outcome_guard.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -56,7 +57,8 @@ class _Trading extends PolymarketTradingNotifier {
 class _ThinBookController extends PolymarketBetController {
   _ThinBookController(super.ref);
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     final book = parsePolymarketOrderBook({
       'market': 'm',
       'asset_id': intent.tokenId,
@@ -79,7 +81,8 @@ class _ThinBookController extends PolymarketBetController {
   Future<AuthGrantException?> place(String mode,
       {required AuthGrant grant,
       bool successHaptic = true,
-      String? entrySource}) {
+      String? entrySource,
+      bool requireFreshCollateral = false}) {
     throw StateError('a stake the book cannot fill must not be placed');
   }
 }
@@ -88,7 +91,8 @@ class _CaptureController extends PolymarketBetController {
   _CaptureController(super.ref);
   final tokens = <String>[];
   @override
-  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent) async {
+  Future<PendingBetIntent> prepareIntent(PendingBetIntent intent,
+      {bool requireFreshCollateral = false}) async {
     tokens.add(intent.tokenId);
     throw StateError('captured');
   }
@@ -105,6 +109,7 @@ Future<void> _pumpSlip(
   String? sideLabelPos,
   String? sideLabelNeg,
   PolymarketBetController Function(Ref ref)? controller,
+  List<Override> overrides = const [],
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -131,6 +136,7 @@ Future<void> _pumpSlip(
       aiEnabledProvider.overrideWith((ref) async => false),
       polymarketBetControllerProvider.overrideWith((ref) =>
           controller?.call(ref) ?? (_controller = _CaptureController(ref))),
+      ...overrides,
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -446,6 +452,85 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('bet-slip-retry')), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await _release(tester, policy);
+  });
+
+  testWidgets(
+      'a 5-minute round that ended with its bet not placed: Retry opens the '
+      'series\' round in play, the same side and stake, nothing placed',
+      (tester) async {
+    final policy = await _allowEverything();
+    final now = DateTime.now().toUtc();
+    final start = (now.millisecondsSinceEpoch ~/ 1000 ~/ 300) * 300;
+    final endedSlug = 'btc-updown-5m-${start - 300}';
+    final liveSlug = 'btc-updown-5m-$start';
+    final asked = <int>[];
+    await _pumpSlip(tester,
+        question: 'Bitcoin Up or Down - October 7, 8:45AM-8:50AM ET',
+        outcomes: const [
+          PolymarketOutcome(name: 'Up', price: 0.5, tokenId: 'tok-up'),
+          PolymarketOutcome(name: 'Down', price: 0.5, tokenId: 'tok-down'),
+        ],
+        initialIndex: 1,
+        controller: _ThinBookController.new,
+        overrides: [
+          polyRoundWindowReaderProvider.overrideWithValue(
+              (asset, windowStart, minutes) async {
+            asked.add(windowStart);
+            final slug = '$asset-updown-${minutes}m-$windowStart';
+            return Btc5MinEvent(
+              slug: slug,
+              title: 'Bitcoin Up or Down - live round',
+              endDate: DateTime.fromMillisecondsSinceEpoch(
+                  (windowStart + 300) * 1000,
+                  isUtc: true),
+              upPrice: 0.55,
+              downPrice: 0.45,
+              upTokenId: 'up-$slug',
+              downTokenId: 'down-$slug',
+              conditionId: 'cond-$slug',
+            );
+          }),
+        ]);
+    // A stop on the slip (any), then the autofire's word on it: the round
+    // ended while the money moved, the money now Predictions cash.
+    await tester.tap(find.byType(PolySlipCta).first);
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(BetSlipSheet).first));
+    container.read(pendingPolymarketBetProvider.notifier).setIntent(
+        PendingBetIntent(
+          tokenId: 'tok-down',
+          amount: 10,
+          slippagePct: 10,
+          marketQuestion: 'Bitcoin Up or Down - October 7, 8:45AM-8:50AM ET',
+          outcomeName: 'Down',
+          expectedPrice: 0.5,
+          status: PendingBetStatus.failed,
+          failureCode: 'round_ended',
+          eventSlug: endedSlug,
+          marketEndAt: DateTime.now().subtract(const Duration(seconds: 5)),
+        ));
+    await tester.pumpAndSettle();
+    final retry = find.byKey(const ValueKey('bet-slip-retry-next-round'));
+    expect(retry, findsOneWidget);
+    expect(tester.widget<PolySlipCta>(retry).label,
+        startsWith('Try again · '));
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    // Resolved from the series (the window in play), never the old id.
+    expect(asked, [start]);
+    final slips = tester.widgetList<BetSlipSheet>(find.byType(BetSlipSheet));
+    final opened = slips.last;
+    expect(opened.marketSlug, liveSlug);
+    expect(opened.initialOutcomeIndex, 1);
+    expect(opened.outcomes[1].tokenId, 'down-$liveSlug');
+    expect(opened.initialAmountUsd, 10);
+    expect(opened.source, 'round_retry');
+    // The stop gave way; nothing was placed (the controller would throw).
+    expect(container.read(pendingPolymarketBetProvider), isNull);
+    // The new slip's analytics write settles.
+    await tester.pump(const Duration(seconds: 3));
     await _release(tester, policy);
   });
 }

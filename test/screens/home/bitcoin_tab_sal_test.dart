@@ -1,7 +1,9 @@
-// The wallet home's first tab, "Bitcoin": while it is the selected tab its
-// mark is Sal holding a bitcoin (KuteDogBitcoin), who tosses and catches it
-// on becoming selected and then every 10 s, resting in between; selected
-// elsewhere, the plain dog. Still under Reduce Motion.
+// The top tab strip draws Bitcoin and Dollars (Investments) with one icon
+// family at one size (user decision 2026-10-12: no mascot, no dollar
+// mark, no venue logos). With one balance the spending account's venues
+// are pills inside Investments, so the strip carries no Investing or
+// Predictions tab for it. The KuteDogBitcoin glyph tests below pin the
+// scene widget itself, still used elsewhere.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,23 +77,26 @@ Widget _glyph() => const MaterialApp(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('the selected Bitcoin tab is Sal with his coin, the tab the '
-      'same size', (tester) async {
-    await _pumpStrip(tester, ActiveNavTab.home);
-    final sal = find.byKey(const ValueKey('bitcoin-tab-sal'));
-    expect(sal, findsOneWidget);
-    expect(tester.widget<KuteDogBitcoin>(sal).size, 24.sp);
-    expect(tester.getSize(sal), Size.square(24.sp));
-    expect(_plainDog(), findsNothing);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('another tab selected: the plain dog, no coin', (tester) async {
-    await _pumpStrip(tester, ActiveNavTab.trading);
-    expect(find.byType(KuteDogBitcoin), findsNothing);
-    expect(_plainDog(), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
+  testWidgets('the two tabs share one icon family: Bitcoin and dollars, '
+      'no venue tabs, no mascot or logos', (tester) async {
+    for (final tab in [ActiveNavTab.home, ActiveNavTab.usd]) {
+      await _pumpStrip(tester, tab);
+      expect(find.byIcon(Icons.currency_bitcoin_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.attach_money_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.trending_up_rounded), findsNothing);
+      expect(find.byIcon(Icons.donut_large_rounded), findsNothing);
+      expect(find.byType(KuteDogBitcoin), findsNothing);
+      expect(_plainDog(), findsNothing);
+      expect(find.byType(SvgPicture), findsNothing);
+      for (final icon in [
+        Icons.currency_bitcoin_rounded,
+        Icons.attach_money_rounded,
+      ]) {
+        expect(tester.widget<Icon>(find.byIcon(icon)).size, 24.sp);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('he tosses the coin on appearing, rests, and tosses it again '

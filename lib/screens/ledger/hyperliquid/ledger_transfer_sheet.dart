@@ -123,7 +123,15 @@ class _LedgerTransferSheetState extends ConsumerState<LedgerTransferSheet> {
     }
     if (outcome.isSuccess) {
       Navigator.of(context).pop();
-      showLedgerConfirmation(navigator, message: l10n.ledgerTransferDone);
+      showLedgerConfirmation(navigator,
+          message: l10n.ledgerTransferDone,
+          amount: ledgerFormatUsd(cents / 100),
+          rows: {
+            l10n.ledgerSummaryFrom:
+                _toPerp ? l10n.ledgerHlCash : l10n.ledgerHlInvestingBalance,
+            l10n.ledgerSummaryTo:
+                _toPerp ? l10n.ledgerHlInvestingBalance : l10n.ledgerHlCash,
+          });
     }
   }
 

@@ -65,7 +65,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      // Read into the sheet: the payout is the hero, the market the
+      // context line, the rest rows.
       expect(find.text(r'$18.00'), findsOneWidget);
+      expect(find.text('Yes · Portugal to win the final'), findsOneWidget);
+      expect(find.text('Return less cost basis'), findsOneWidget);
       expect(haptics, 1);
     });
   }
@@ -85,7 +89,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           home: KuteConfirmation(
             message: 'Prediction lost',
-            success: false,
+            tone: KuteConfirmationTone.neutral,
             onDone: () {},
           ),
         ),
@@ -93,6 +97,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(haptics, 0);
-    expect(find.byType(KuteCheckMark), findsNothing);
+    expect(
+        tester.widget<KuteStatusMark>(find.byType(KuteStatusMark)).tone,
+        KuteConfirmationTone.neutral);
   });
 }

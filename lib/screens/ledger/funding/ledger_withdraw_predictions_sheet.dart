@@ -249,7 +249,8 @@ class _LedgerWithdrawPredictionsSheetState
       // balances again, verifies the BTC address and obtains a fresh quote.
       _setStep(_Step.ready);
       showLedgerConfirmation(Navigator.of(context, rootNavigator: true),
-          message: context.l10n.ledgerUnwrapDone);
+          message: context.l10n.ledgerUnwrapDone,
+          amount: '${_units(_unwrapAmount, 6)} pUSD');
     } catch (error) {
       _fail(error, submissionAttempted: true);
     }
@@ -318,9 +319,12 @@ class _LedgerWithdrawPredictionsSheetState
       ref.invalidate(ledgerPmAccountProvider(_walletId));
       final navigator = Navigator.of(context, rootNavigator: true);
       final l10n = context.l10n;
+      final receive = _receiveAmount(review);
       Navigator.of(context).pop();
       showLedgerConfirmation(navigator,
           message: l10n.ledgerPmWithdrawSentHeadline,
+          amount: '${_units(_amount, 6)} USDC.e',
+          rows: {l10n.ledgerWithdrawReviewReceive: receive},
           detail: result.submitAccepted
               ? l10n.ledgerPmWithdrawSentDetail
               : l10n.ledgerSubmitPendingPlain);

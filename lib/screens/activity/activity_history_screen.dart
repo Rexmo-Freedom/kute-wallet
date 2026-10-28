@@ -12,11 +12,18 @@
 // off and the same scope the surface that opened it was showing, so a
 // row reads identically in both places and nothing had to be rebuilt
 // to say the same thing twice.
+//
+// The Portfolio's Activity opens it in its Investments scope
+// ([investments]): the Portfolio's own merged list (Dollars, Investing and
+// Predictions moves, PortfolioActivityList), uncapped, in place of the
+// wallet's.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/portfolio/portfolio_activity.dart'
+    show PortfolioActivityList;
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -28,6 +35,7 @@ class ActivityHistoryScreen extends StatelessWidget {
     this.walletIdOverride,
     this.onlyUsdb = false,
     this.title,
+    this.investments = false,
   });
 
   /// Scopes the list to one wallet's own history, for a hardware or
@@ -40,6 +48,10 @@ class ActivityHistoryScreen extends StatelessWidget {
   /// Overrides the heading where the surface has a better word for
   /// what these rows are than the generic one.
   final String? title;
+
+  /// The Portfolio's Activity (Dollars, Investing and Predictions moves)
+  /// instead of a wallet's: the rows the Portfolio previews, all of them.
+  final bool investments;
 
   static const routeName = 'activity-history';
 
@@ -67,14 +79,16 @@ class ActivityHistoryScreen extends StatelessWidget {
       ),
       body: PlatformSafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
-          child: TransactionList(
-            walletIdOverride: walletIdOverride,
-            onlyUsdb: onlyUsdb,
-            showAll: true,
-          ),
-        ),
+        child: investments
+            ? const PortfolioActivityList()
+            : SingleChildScrollView(
+                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+                child: TransactionList(
+                  walletIdOverride: walletIdOverride,
+                  onlyUsdb: onlyUsdb,
+                  showAll: true,
+                ),
+              ),
       ),
     );
   }
@@ -84,22 +98,26 @@ class ActivityHistoryScreen extends StatelessWidget {
 ///
 /// [source] is the categorical surface the "See all" came from; when a
 /// caller leaves it null it is inferred from the scope (Dollars passes
-/// [onlyUsdb], a wallet tab passes [walletIdOverride]).
+/// [onlyUsdb], a wallet tab passes [walletIdOverride]). [investments]
+/// lists the Portfolio's Activity (see [ActivityHistoryScreen.investments]).
 Future<void> showActivityHistory(
   BuildContext context, {
   String? walletIdOverride,
   bool onlyUsdb = false,
   String? title,
   String? source,
+  bool investments = false,
 }) {
   // The pushed route already reports a `$screen`; this adds where it was
   // opened from and which ledger it lists. Fires once per open (the tap),
   // never on rebuild. No wallet id: `scope` is categorical.
-  final scope = onlyUsdb
-      ? 'usd'
-      : walletIdOverride != null
-          ? 'wallet'
-          : 'active_wallet';
+  final scope = investments
+      ? 'investments'
+      : onlyUsdb
+          ? 'usd'
+          : walletIdOverride != null
+              ? 'wallet'
+              : 'active_wallet';
   TrackingService.track('activity_history_opened', params: {
     'entry_source': source ??
         (onlyUsdb
@@ -110,13 +128,14 @@ Future<void> showActivityHistory(
     'scope': scope,
   });
   return Navigator.of(context, rootNavigator: true).push<void>(
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
-        builder: (_) => ActivityHistoryScreen(
-          walletIdOverride: walletIdOverride,
-          onlyUsdb: onlyUsdb,
-          title: title,
-        ),
+    MaterialPageRoute<void>(
+      settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
+      builder: (_) => ActivityHistoryScreen(
+        walletIdOverride: walletIdOverride,
+        onlyUsdb: onlyUsdb,
+        title: title,
+        investments: investments,
       ),
-    );
+    ),
+  );
 }

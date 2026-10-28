@@ -2,7 +2,7 @@
 //
 // The chrome the two Polymarket tickets share. Buying (bet_slip_sheet)
 // and selling (sell_sheet) are the same sheet with a different verb, so
-// the header, the quick-percent chips, the Advanced row, the headline
+// the header, the quick-percent chips, the Advanced pill, the headline
 // figure and the primary action live here once instead of drifting apart
 // in two 2,000-line files.
 //
@@ -11,6 +11,8 @@
 // only widget that needs to know it is sitting on a tint is the CTA,
 // which inverts (see [PolySlipCta]).
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,10 +20,14 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show AmountActionChip;
 import 'package:kute/screens/shared/animated_balance.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
+import 'package:kute/screens/shared/slip_form_body.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The ticket's title without the event repeated in front of it. A market
@@ -64,23 +70,39 @@ class PolySlipHeader extends StatelessWidget {
     required this.marketQuestion,
     this.marketImage,
     this.trailing,
+    this.leading,
+    this.maxLines = 5,
   });
 
   final String marketQuestion;
   final String? marketImage;
   final Widget? trailing;
 
+  /// The market's own artwork in place of [marketImage] (an Investing
+  /// coin's logo on the Close ticket), at the same 36 size.
+  final Widget? leading;
+
+  /// How many lines the title may take before it ellipsizes.
+  final int maxLines;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final img = marketImage;
     final marketQuestion = polySlipTitle(this.marketQuestion);
+    // A ticket short of room keeps the question to two lines.
+    final tight = SlipDensity.tight(context);
+    final maxLines = tight ? math.min(this.maxLines, 2) : this.maxLines;
+    final pad = tight ? 9.h : 14.h;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 14.h, 12.w, 14.h),
+      padding: EdgeInsets.fromLTRB(20.w, pad, 12.w, pad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (img != null && img.isNotEmpty) ...[
+          if (leading != null) ...[
+            leading!,
+            SizedBox(width: 10.w),
+          ] else if (img != null && img.isNotEmpty) ...[
             PolyCrestImage(
               url: img,
               size: 36.sp,
@@ -98,7 +120,7 @@ class PolySlipHeader extends StatelessWidget {
             // smaller face the longer it runs.
             child: Text(
               marketQuestion,
-              maxLines: 5,
+              maxLines: maxLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: marketQuestion.length > 90
@@ -125,69 +147,109 @@ class PolySlipHeader extends StatelessWidget {
   }
 }
 
-/// The ticket's one-line "Advanced" entry. A bare text row floated on the
-/// tinted sheet with nothing to sit on, so it takes a secondary step.
-///
-/// [expanded] null means the row opens a separate page and the chevron
-/// points right; a non-null value means it expands in place and the
-/// chevron rotates.
-class PolySlipAdvancedRow extends StatelessWidget {
-  const PolySlipAdvancedRow({
-    super.key,
+/// The key of a slip's [SlipAdvancedButton].
+const Key kSlipAdvancedButtonKey = ValueKey('slip-advanced-button');
+
+/// A slip's way into its Advanced page: a pill reading "Advanced" with
+/// a small sliders glyph, beside the amount's Max ([SlipAmountPills]),
+/// the same size, weight and chrome as Max. A small dot says the Advanced
+/// settings are not the default ones (the [SlipAdvancedChip] under the
+/// amount says which). [enabled] false leaves it inert and dimmed (an
+/// order in flight).
+class SlipAdvancedButton extends StatelessWidget {
+  const SlipAdvancedButton({
+    super.key = kSlipAdvancedButtonKey,
     required this.onTap,
-    this.trailingText,
-    this.expanded,
+    this.modified = false,
+    this.enabled = true,
   });
 
   final VoidCallback onTap;
-  final String? trailingText;
-  final bool? expanded;
+  final bool modified;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final open = expanded;
-    return Semantics(
-      button: true,
-      expanded: open,
-      child: Material(
-        color: c.surfaceLight,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            side: BorderSide(color: c.border, width: 0.5)),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12.r),
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 13.h, horizontal: 14.w),
-            child: Row(children: [
-              Icon(Icons.tune_rounded, size: 20.sp, color: c.textPrimary),
-              SizedBox(width: 10.w),
-              Expanded(
-                  child: Text(context.l10n.walletsAdvanced,
-                      style: TextStyle(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                          color: c.textPrimary))),
-              if (trailingText != null)
-                Text(trailingText!,
-                    style: TextStyle(fontSize: 14.sp, color: c.textSecondary)),
-              SizedBox(width: 8.w),
-              if (open == null)
-                Icon(Icons.chevron_right_rounded,
-                    size: 22.sp, color: c.textSecondary)
-              else
-                AnimatedRotation(
-                  turns: open ? 0.5 : 0,
-                  duration: MediaQuery.of(context).disableAnimations
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
-                  child: Icon(Icons.keyboard_arrow_down_rounded,
-                      size: 22.sp, color: c.textSecondary),
-                ),
-            ]),
-          ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AmountActionChip(
+          label: context.l10n.walletsAdvanced,
+          semanticLabel: context.l10n.walletsAdvanced,
+          icon: Icons.tune_rounded,
+          onTap: enabled ? onTap : null,
         ),
+        if (modified)
+          Positioned(
+            top: -3.w,
+            right: -3.w,
+            child: Container(
+              key: const ValueKey('slip-advanced-dot'),
+              width: 10.w,
+              height: 10.w,
+              decoration: BoxDecoration(
+                color: c.textPrimary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The pills at the right end of a slip's amount row: Max, then
+/// Advanced, side by side. Either may be absent (no Max on a balance too
+/// small to stake). They keep their size; the figure beside them scales
+/// down first ([BigAmountDisplay]'s FittedBox), so they never wrap.
+class SlipAmountPills extends StatelessWidget {
+  const SlipAmountPills({super.key, this.max, this.advanced});
+
+  final Widget? max;
+  final Widget? advanced;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (max != null) max!,
+        if (max != null && advanced != null) SizedBox(width: 8.w),
+        if (advanced != null) advanced!,
+      ],
+    );
+  }
+}
+
+/// What a slip's Advanced is set to, when it is not the default ("Limit ·
+/// 52¢", "Market · 5x"): a pill under the amount's line, the same face as
+/// the Max and Advanced pills. A tap opens Advanced, like the Advanced
+/// pill beside Max. Default settings show none.
+class SlipAdvancedChip extends StatelessWidget {
+  const SlipAdvancedChip({super.key, required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      // In a row, so the pill hugs its label as Max does.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KeyedSubtree(
+            key: const ValueKey('slip-advanced-chip'),
+            child: AmountActionChip(
+              label: text,
+              semanticLabel: text,
+              icon: Icons.tune_rounded,
+              onTap: onTap,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -243,7 +305,11 @@ class PolySlipFigureRow extends StatelessWidget {
 ///
 /// On a side-tinted sheet the CTA inverts: the sheet's ink becomes the
 /// fill and the side colour becomes the label, so the one action still
-/// reads as the one action. A red button on a red sheet does not.
+/// reads as the one action. A red button on a red sheet does not. A
+/// [neutral] action (the deposit door, a wait) keeps a label that
+/// contrasts with that fill instead, so the funding door never wears the
+/// trade's direction. Same rule, and the same faded disabled state, as
+/// the order slip's `AppButton` ([slipCtaLabelColor]).
 class PolySlipCta extends StatelessWidget {
   const PolySlipCta({
     super.key,
@@ -253,17 +319,49 @@ class PolySlipCta extends StatelessWidget {
     required this.onTap,
     required this.label,
     this.busyLabel,
+    this.busyLabelInSteps = false,
+    this.neutral = false,
+    this.band = true,
+    this.bandOutcome,
+    this.bandProgress,
+    this.bandExpected = const Duration(seconds: 4),
   });
 
   final Color color;
   final bool isBusy;
+
+  /// The placement's rubber band ([RubberBandBusy]): while [isBusy] the
+  /// button is drawn up with growing tension, and lets go when it ends.
+  /// False where an outer band already carries it (a funded order's
+  /// steps).
+  final bool band;
+
+  /// How the busy run ended, read once [isBusy] is false:
+  /// [RubberBandOutcome.success] snaps back with a light haptic; null or
+  /// failure releases softly.
+  final RubberBandOutcome? bandOutcome;
+
+  /// The run's known progress (0..1), or null to ease by time over
+  /// [bandExpected].
+  final double? bandProgress;
+  final Duration bandExpected;
   final bool enabled;
   final VoidCallback onTap;
   final String label;
 
+  /// Not the trade itself (the deposit door, a wait, a status check): on
+  /// a tinted sheet its label contrasts with the fill rather than wearing
+  /// the side colour.
+  final bool neutral;
+
   /// Shown beside the spinner while [isBusy]. Defaults to the buy slip's
   /// "Placing order…".
   final String? busyLabel;
+
+  /// The step list under the button already names [busyLabel]: while
+  /// busy the button shows only its spinner (and band), never the same
+  /// words twice, and [busyLabel] is what a screen reader hears.
+  final bool busyLabelInSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -271,16 +369,18 @@ class PolySlipCta extends StatelessWidget {
     // Reduce-motion: the enabled/colour fill tween is decorative.
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final tint = SheetTint.maybeOf(context);
-    final bg = tint == null
-        ? (enabled ? color : color.withValues(alpha: 0.40))
-        : tint.on.withValues(alpha: enabled ? 1 : 0.22);
+    final bg = tint == null ? color : tint.on;
     // Label contrast follows the fill (the deposit branch runs the dark
     // primary fill, which is WHITE in dark mode — white text there was
-    // the old invisible-label bug class).
+    // the old invisible-label bug class). On the tint, the order slip's
+    // rule: the trade wears its side colour, a neutral action contrasts.
     final fg = tint == null
         ? contrastingOnColor(color)
-        : (enabled ? tint.side : tint.on.withValues(alpha: 0.65));
-    return SizedBox(
+        : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
+    // Disabled the way `AppButton` is: the whole button, fill and label
+    // together, fades to 0.35. A busy button stays at full strength.
+    final faded = !enabled && !isBusy;
+    final button = SizedBox(
       width: double.infinity,
       height: 56.h,
       child: Material(
@@ -328,7 +428,17 @@ class PolySlipCta extends StatelessWidget {
               state: isBusy,
               alignment: Alignment.center,
               animateSize: false,
-              child: isBusy
+              child: isBusy && busyLabelInSteps
+                  ? Semantics(
+                      key: const ValueKey('poly-slip-cta-busy-quiet'),
+                      label: busyLabel ?? context.l10n.betPlacingOrderEllipsis,
+                      liveRegion: true,
+                      child: LoadingAnimationWidget.staggeredDotsWave(
+                        color: fg,
+                        size: 22.sp,
+                      ),
+                    )
+                  : isBusy
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -368,6 +478,19 @@ class PolySlipCta extends StatelessWidget {
         ),
       ),
     );
+    return AnimatedOpacity(
+      opacity: faded ? 0.35 : 1,
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+      child: RubberBandBusy(
+        enabled: band,
+        busy: isBusy,
+        outcome: bandOutcome,
+        progress: bandProgress,
+        expected: bandExpected,
+        child: button,
+      ),
+    );
   }
 }
 
@@ -376,8 +499,10 @@ class PolySlipCta extends StatelessWidget {
 /// Replaces the locked panel both tickets used to swap themselves for: the
 /// form stays where it was, the figures stay readable, and the retry is
 /// the ticket's own CTA rather than a second button on a second design.
-/// [details] is the raw diagnostic, folded away until asked for.
-class PolySlipNotice extends StatefulWidget {
+/// [details] is the raw diagnostic, one tap away in a bottom sheet; a
+/// ticket short of room shows the notice as one line whose tap opens it
+/// all there too. Nothing opens in place.
+class PolySlipNotice extends StatelessWidget {
   const PolySlipNotice({
     super.key,
     required this.title,
@@ -389,25 +514,45 @@ class PolySlipNotice extends StatefulWidget {
   final String message;
   final String? details;
 
-  @override
-  State<PolySlipNotice> createState() => _PolySlipNoticeState();
-}
-
-class _PolySlipNoticeState extends State<PolySlipNotice> {
-  bool _open = false;
+  /// The raw diagnostic, selectable, as the sheet shows it.
+  Widget _details(AppColorsExtension c, String details) => SelectableText(
+      details,
+      style: TextStyle(fontSize: 12.sp, color: c.textSecondary, height: 1.4));
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final details = widget.details;
+    final details = this.details;
+    final hasDetails = details != null && details.isNotEmpty;
+    final decoration = BoxDecoration(
+      color: c.surface,
+      borderRadius: BorderRadius.circular(14.r),
+      border: Border.all(color: c.borderSubtle, width: 0.5),
+    );
+    // A ticket short of room says it in one line; a tap reads it all.
+    final lines = SlipDensity.noticeLines(context);
+    if (lines != null) {
+      return SlipNoticeLine(
+        maxLines: lines,
+        icon: Icons.error_outline_rounded,
+        title: title,
+        message: message,
+        decoration: decoration,
+        onOpen: () => showSlipDetailSheet(context, title: title, children: [
+          Text(message,
+              style: TextStyle(
+                  fontSize: 15.sp, height: 1.4, color: c.textPrimary)),
+          if (hasDetails) ...[
+            SizedBox(height: 12.h),
+            _details(c, details),
+          ],
+        ]),
+      );
+    }
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: c.borderSubtle, width: 0.5),
-      ),
+      decoration: decoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -423,13 +568,13 @@ class _PolySlipNoticeState extends State<PolySlipNotice> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(widget.title,
+                    Text(title,
                         style: TextStyle(
                             fontSize: 15.sp,
                             fontWeight: FontWeight.w700,
                             color: c.textPrimary)),
                     SizedBox(height: 4.h),
-                    Text(widget.message,
+                    Text(message,
                         style: TextStyle(
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w500,
@@ -440,40 +585,28 @@ class _PolySlipNoticeState extends State<PolySlipNotice> {
               ),
             ],
           ),
-          if (details != null && details.isNotEmpty) ...[
+          if (hasDetails) ...[
             SizedBox(height: 8.h),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _open = !_open),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(context.l10n.details,
-                      style: TextStyle(
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          color: c.textSecondary)),
-                  Icon(
-                      _open
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 18.sp,
-                      color: c.textSecondary),
-                ],
+            Semantics(
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => showSlipDetailSheet(context,
+                    title: context.l10n.details,
+                    children: [_details(c, details)]),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(context.l10n.details,
+                        style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: c.textSecondary)),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 18.sp, color: c.textSecondary),
+                  ],
+                ),
               ),
-            ),
-            AnimatedCrossFade(
-              firstChild: SizedBox(width: double.infinity, height: 0),
-              secondChild: Padding(
-                padding: EdgeInsets.only(top: 6.h),
-                child: SelectableText(details,
-                    style: TextStyle(fontSize: 12.sp, color: c.textSecondary)),
-              ),
-              crossFadeState:
-                  _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: MediaQuery.of(context).disableAnimations
-                  ? Duration.zero
-                  : const Duration(milliseconds: 160),
             ),
           ],
         ],
@@ -564,30 +697,42 @@ class PolySlipDetailRow extends StatelessWidget {
             child: Text(label,
                 style: TextStyle(fontSize: 14.sp, color: c.textSecondary))),
         SizedBox(width: 12.w),
-        Text(value,
-            style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: c.textPrimary)),
+        // A long figure ("$200.00 → $10,199.00" at a large text size)
+        // wraps instead of running off the sheet.
+        Flexible(
+          child: Text(value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: c.textPrimary)),
+        ),
       ],
     );
   }
 }
 
-/// The rare stuff, folded away. Nothing in here changes the order; it
-/// only describes it. [open] and [onToggle] keep the disclosure on the
-/// page's own state so it survives a rebuild.
+/// The rare stuff, one tap away. Nothing in here changes the order; it
+/// only describes it. A "Details" row that opens [rows] in a bottom sheet
+/// ([showSlipDetailSheet]), never in place. [onToggle] hears the sheet
+/// open (true) and close (false), for the callers that count it.
 class PolySlipDetailsGroup extends StatelessWidget {
   const PolySlipDetailsGroup({
     super.key,
-    required this.open,
     required this.onToggle,
     required this.rows,
   });
 
-  final bool open;
-  final VoidCallback onToggle;
+  final ValueChanged<bool> onToggle;
   final List<Widget> rows;
+
+  Future<void> _open(BuildContext context) async {
+    onToggle(true);
+    await showSlipDetailSheet(context,
+        title: context.l10n.details,
+        children: rows);
+    onToggle(false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -598,51 +743,26 @@ class PolySlipDetailsGroup extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: c.borderSubtle, width: 0.5),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16.r),
-              onTap: onToggle,
-              child: Padding(
-                padding: EdgeInsets.all(16.w),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(context.l10n.details,
-                        style: TextStyle(
-                            fontSize: 17.sp,
-                            fontWeight: FontWeight.w600,
-                            color: c.textPrimary)),
-                  ),
-                  Icon(
-                      open
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 22.sp,
-                      color: c.textSecondary),
-                ]),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16.r),
+          onTap: () => _open(context),
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Row(children: [
+              Expanded(
+                child: Text(context.l10n.details,
+                    style: TextStyle(
+                        fontSize: 17.sp,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary)),
               ),
-            ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 22.sp, color: c.textSecondary),
+            ]),
           ),
-          AnimatedCrossFade(
-            firstChild: SizedBox(width: double.infinity, height: 0),
-            secondChild: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: rows,
-              ),
-            ),
-            crossFadeState:
-                open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: MediaQuery.of(context).disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/hyperliquid/trailing_stop.dart';
@@ -88,6 +89,16 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
   final _activation = TextEditingController();
   bool _percent = true, _activate = false, _busy = false, _pending = false;
   String? _error;
+
+  /// The placement's rubber band on the CTA: how far along it is (checks,
+  /// approval, sent), and how it ended. Presentation only.
+  double? _bandProgress;
+  RubberBandOutcome? _bandOutcome;
+
+  void _bandTo(double progress) {
+    if (!mounted) return;
+    setState(() => _bandProgress = progress);
+  }
   @override
   void dispose() {
     _distance.dispose();
@@ -99,6 +110,10 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
     if (_busy || _pending) return;
     setState(() {
       _busy = true;
+      // The tap takes the band's first pull; time and the phases below
+      // build it from there.
+      _bandProgress = null;
+      _bandOutcome = null;
       _error = null;
     });
     FocusManager.instance.primaryFocus?.unfocus();
@@ -121,6 +136,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
           market: widget.market, isBuy: widget.isBuy, referencePrice: price);
       if (!mounted) return;
       HlOrderResult? result;
+      _bandTo(0.45);
       if (widget.ledger) {
         result = await runLedgerHlTrailingStop(context, ref,
             walletId: widget.walletId,
@@ -157,6 +173,7 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             reason: context.l10n.stepUpReasonOrder(widget.market.coin),
             amountUsd: widget.size * price / widget.leverage);
         if (grant == null || !mounted) return;
+        _bandTo(0.65);
         result = await ref
             .read(hyperliquidTradingProvider.notifier)
             .placeTrailingStop(
@@ -172,9 +189,13 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
       if (widget.ledger && result != null) {
         // The hot path reports from the trading notifier; a Ledger order
         // never touches it, so its placement is reported here.
+        // offeredMaxLeverage is at least 1, so the bounds never cross on
+        // a market that reports no leverage.
         final lev = widget.market.isSpot
             ? 1
-            : widget.leverage.clamp(1, widget.market.maxLeverage).toInt();
+            : widget.leverage
+                .clamp(1, widget.market.offeredMaxLeverage)
+                .toInt();
         final notional = widget.size * price;
         TrackingService.hyperliquidOrderPlaced(
           coin: widget.market.coin,
@@ -194,6 +215,11 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
         );
       }
       if (mounted && result != null) {
+        // Placed: the band snaps, and is seen doing it, while the CTA
+        // still holds the order; then the sheet hands the result on.
+        setState(() => _bandOutcome = RubberBandOutcome.success);
+        await RubberBand.settle(context);
+        if (!mounted) return;
         setState(() => _busy = false);
         if (widget.embedded) {
           widget.onResult?.call(result);
@@ -290,13 +316,18 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             _percent
                 ? context.l10n.slipDistancePercent
                 : context.l10n.trailingDistanceUsd),
-        SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.l10n.slipActivationPrice),
-            value: _activate,
-            onChanged: _busy || _pending
-                ? null
-                : (v) => setState(() => _activate = v)),
+        // A ListTile needs a Material ancestor to paint its ink; the
+        // sheet's coloured box has none, so give it a transparent one.
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.slipActivationPrice),
+              value: _activate,
+              onChanged: _busy || _pending
+                  ? null
+                  : (v) => setState(() => _activate = v)),
+        ),
         if (_activate)
           _field(_activation, context.l10n.trailingActivationPriceUsd),
       ]),
@@ -310,6 +341,9 @@ class _TrailingStopState extends ConsumerState<HlTrailingStopSheet> {
             ? AppColors.marketDown
             : AppColors.marketUp,
         isBusy: _busy,
+        bandProgress: _bandProgress,
+        bandOutcome: _bandOutcome,
+        bandExpected: const Duration(seconds: 2),
         enabled: !_busy && !_pending,
         onTap: _submit,
         label: context.l10n.trailingPlace,

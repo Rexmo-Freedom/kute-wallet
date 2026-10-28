@@ -1,5 +1,4 @@
 import 'package:kute/helpers/require_fresh_auth.dart';
-import 'package:kute/screens/shared/trade_results_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,20 +16,21 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCirclePillButton;
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/providers/asset_icon_provider.dart' show kUsdMarkAsset;
 import 'package:kute/screens/home/shell_venue_tabs.dart'
     show shellShowsPredictionsTab, shellShowsTradingTab;
 import 'package:kute/screens/shared/wallet_icon.dart';
+import 'package:kute/screens/settings/settings.dart' show kReferralCapability;
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show runtimeCapabilitiesProvider;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/services/support_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The Financial hub: the wallet list, switch wallet (with its step-up) and
-/// Add wallet, and Settings (a labelled pill) and Notifications (the round
-/// bell) side by side in its header. It opens from the + at the top right of the shell's top bar (the
-/// only door on the shell; it replaced the Settings gear) and from the
-/// wallet's name on a pushed wallet screen, which has no +. The dock's
-/// square button is search everywhere (owner decision: give each job one
-/// home). No Ask Sal here: Sal has its own doors.
+/// The Financial hub: wallet switching and Add wallet, under a row of
+/// header buttons (Settings, Support, Referrals) below its compact title.
+/// Referrals shows only where `affiliate.program` is allowed. Portfolio
+/// lives inside Investments. The hub opens from the shell's top-right +
+/// or a pushed wallet screen's name.
 ///
 /// [source] is the categorical door for `wallet_actions_opened`:
 /// home_plus | usd_plus | trading_plus | predictions_plus | bank_plus (the
@@ -74,20 +74,9 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
           children: [
             AppBottomSheetHeader(
               title: context.l10n.walletActionsTitle,
-              // Settings and Notifications side by side in the header:
-              // Settings a labelled pill in the circled chassis of the
-              // sheets' header buttons, Notifications the round bell with
-              // its unread badge.
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _HubSettingsButton(callerContext: callerContext),
-                  SizedBox(width: 8.w),
-                  const TradeResultsButton(
-                      compact: true, entrySource: 'financial_hub'),
-                ],
-              ),
+              compact: true,
             ),
+            _HubButtons(sheetContext: context, callerContext: callerContext),
             _WalletsSection(
               sheetContext: context,
               callerContext: callerContext,
@@ -100,11 +89,63 @@ class _WalletMoneyActionsSheet extends StatelessWidget {
   }
 }
 
-/// Settings in the hub's header, next to Notifications: the gear and the
-/// word "Settings" in a pill of the header buttons' chassis (owner
-/// decision October 2026: a labelled button beside the bell, not a row
-/// below Add account). Closes the hub and opens /settings from the screen
-/// the hub was opened on, as Add wallet does.
+/// The hub's header buttons, one row under the title (three do not fit
+/// beside it): the Settings pill, Support as a bare circle, and the
+/// Referrals pill where the policy allows the referral program. A withheld
+/// capability hides its button outright, as Settings hides its row.
+class _HubButtons extends ConsumerWidget {
+  const _HubButtons({required this.sheetContext, required this.callerContext});
+
+  final BuildContext sheetContext;
+  final BuildContext callerContext;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showReferral =
+        ref.watch(runtimeCapabilitiesProvider).allows(kReferralCapability);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
+      // Right-aligned under the title. Wraps rather than overflowing where
+      // a long translation or a large text size makes the three wider than
+      // the sheet.
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8.w,
+            runSpacing: 8.h,
+            children: [
+              // Referrals first, then Support, Settings last (right edge).
+              if (showReferral)
+                KuteCirclePillButton(
+                  icon: Icons.group_rounded,
+                  label: context.l10n.hubReferrals,
+                  size: 40,
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    if (!callerContext.mounted) return;
+                    callerContext.push('/affiliate');
+                  },
+                ),
+              KuteCirclePillButton(
+                icon: Icons.support_agent_rounded,
+                label: context.l10n.support,
+                size: 40,
+                onPressed: () {
+                  TrackingService.supportOpened(source: 'financial_hub');
+                  Navigator.of(sheetContext).pop();
+                  openSupportChat();
+                },
+              ),
+              _HubSettingsButton(callerContext: callerContext),
+            ]),
+      ),
+    );
+  }
+}
+
+/// Settings in the hub's header. Closes the hub and opens /settings
+/// from the screen the hub was opened on, as Add wallet does.
 class _HubSettingsButton extends StatelessWidget {
   const _HubSettingsButton({required this.callerContext});
 
@@ -115,6 +156,7 @@ class _HubSettingsButton extends StatelessWidget {
     return KuteCirclePillButton(
       icon: Icons.settings_rounded,
       label: context.l10n.settings,
+      size: 40,
       onPressed: () {
         // `source` kept for the existing settings_opened breakdowns;
         // the playbook's entry_source carries the same door.
@@ -165,9 +207,8 @@ class _WalletsSection extends ConsumerWidget {
       // Another account's balances and actions only come up once the
       // person has proved it is them, the same check removing a wallet
       // asks for. Re-tapping the wallet already shown asks nothing.
-      final targetId = spending != null && wallet.id == spending.id
-          ? null
-          : wallet.id;
+      final targetId =
+          spending != null && wallet.id == spending.id ? null : wallet.id;
       if (targetId != shellWalletId) {
         final approved = await approveLocalAction(
           sheetContext,
@@ -300,12 +341,12 @@ class _WalletRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
           child: Row(
             children: [
               SizedBox(
-                width: 36.w,
-                height: 36.w,
+                width: 32.w,
+                height: 32.w,
                 child: Center(child: leading),
               ),
               SizedBox(width: 12.w),
@@ -353,8 +394,9 @@ class _VenueMarks extends StatelessWidget {
     this.predictions = true,
   });
 
-  /// The spending account also carries Dollars as a tab of its own, so
-  /// its row shows that mark beside the two venues. A Ledger does not.
+  /// The spending account also carries Investments (the dollar balance)
+  /// as a tab of its own, so its row shows the Investments arrow beside
+  /// the two venues, never the USDB coin. A Ledger does not.
   final bool withDollars;
 
   /// Which venue marks to draw: a Ledger draws only the venues it has.
@@ -369,13 +411,16 @@ class _VenueMarks extends StatelessWidget {
       label: [
         if (investing) l10n.ledgerTabInvestingSemantics,
         if (predictions) l10n.ledgerTabPredictionsSemantics,
-        if (withDollars) l10n.usdAccountTab,
+        if (withDollars) l10n.bitcoin,
       ].join(', '),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // The spending account's own mark is the bitcoin glyph the top
+          // strip uses; the venues follow (user decision 2026-10-12).
           if (withDollars) ...[
-            SvgPicture.asset(kUsdMarkAsset, width: size, height: size),
+            Icon(Icons.currency_bitcoin_rounded,
+                size: size, color: context.colors.textPrimary),
             if (investing || predictions) SizedBox(width: 6.w),
           ],
           if (investing)

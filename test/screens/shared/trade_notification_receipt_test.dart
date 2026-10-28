@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -59,8 +58,9 @@ void main() {
   setUpAll(() => initializeDateFormatting('en'));
 
   testWidgets(
-      'a results-inbox fill reads as a receipt: heading on top, short hash, '
-      'copy and explorer', (tester) async {
+      'a results-inbox fill reads as the result sheet: the title, the amount '
+      'as the hero, the market, at most four rows and the explorer',
+      (tester) async {
     final opened = <Uri>[];
     final events = <String, Map<String, Object>?>{};
     TradeReceiptTransaction.debugLaunchOverride = (uri) async {
@@ -71,56 +71,43 @@ void main() {
       TradeReceiptTransaction.debugLaunchOverride = null;
       TrackingService.debugTrackObserver = null;
     });
-    String? copied;
-    tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'Clipboard.setData') {
-        copied = (call.arguments as Map)['text'] as String?;
-      }
-      return null;
-    });
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, null));
 
-    var listed = 0;
+    var listed = 0, done = 0;
     await _pump(
         tester,
         tradeNotificationConfirmation(l10n, _fill(),
-            showWallet: false, onList: () => listed++));
+            showWallet: false, onList: () => listed++, onDone: () => done++));
 
-    // The result is the heading, above the card; no mascot on a receipt.
-    final heading = find.text('Prediction bought');
-    expect(heading, findsOneWidget);
-    expect(tester.getTopLeft(heading).dy,
-        lessThan(tester.getTopLeft(find.byType(TradeReceipt)).dy));
-    expect(find.byIcon(Icons.receipt_long_outlined), findsNothing);
+    // The result is the title; a read receipt is neutral (no check).
+    expect(find.text('Prediction bought'), findsOneWidget);
+    expect(
+        tester
+            .widget<KuteStatusMark>(find.byType(KuteStatusMark))
+            .tone,
+        KuteConfirmationTone.neutral);
 
-    // Title wraps on its own; the outcome is the chip.
-    expect(find.text('Bitcoin Up or Down - October 5, 5:50AM-5:55AM ET'),
+    // The amount is the hero; the outcome and market are the context.
+    expect(
+        tester
+            .widget<Text>(
+                find.byKey(const ValueKey('kute-confirmation-amount')))
+            .data,
+        r'$3.07');
+    expect(
+        find.text('Up · Bitcoin Up or Down - October 5, 5:50AM-5:55AM ET'),
         findsOneWidget);
-    expect(find.text('Up'), findsOneWidget);
 
-    // Plain rows at the Activity sheets' precision.
-    expect(find.text(r'$3.07'), findsOneWidget);
+    // Plain rows at the Activity sheets' precision; a fill's status says
+    // nothing more, and one wallet gets no wallet row.
     expect(find.text('4.53'), findsOneWidget);
     expect(find.text('67.7¢'), findsOneWidget);
-    expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Filled'), findsNothing);
+    expect(find.text('Completed'), findsNothing);
     expect(find.text('5 Oct 2026, 10:52'), findsOneWidget);
-    // One wallet: no wallet row.
     expect(find.text('Main Dev'), findsNothing);
 
-    // The hash: short, one line, full value copied.
+    // The hash is never shown; the transaction is a row action.
     expect(find.text(_hash), findsNothing);
-    final short = find.text('0x5301aa...39d672c3');
-    expect(short, findsOneWidget);
-    expect(find.byIcon(Icons.copy_rounded), findsOneWidget);
-    await tester.tap(short);
-    await tester.pump();
-    expect(copied, _hash);
-    expect(find.text('Copied to clipboard'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
 
     // The explorer: Polygonscan for a Polymarket fill; analytics carry the
     // chain, never the hash.
@@ -130,14 +117,20 @@ void main() {
     expect(events['block_explorer_opened'], containsPair('chain', 'polygon'));
     expect(events['block_explorer_opened'].toString(), isNot(contains(_hash)));
 
-    // No open position: the list the receipt came from is the only button.
-    await tester.tap(find.text('Activity'));
-    expect(listed, 1);
+    // No open position: Done, and the list the receipt came from as the
+    // one quiet button.
     expect(find.text('View prediction'), findsNothing);
+    await tester.tap(find.text('Activity'));
+    await tester.pump();
+    expect(listed, 1);
+    await tester.tap(find.text('Done'));
+    await tester.pump();
+    expect(done, 1);
   });
 
-  testWidgets('an open position leads with View prediction, Activity second',
-      (tester) async {
+  testWidgets(
+      'an open position offers View prediction as the quiet button, and '
+      'several wallets add the wallet row within four', (tester) async {
     var viewed = 0, listed = 0;
     await _pump(
         tester,
@@ -146,13 +139,14 @@ void main() {
             onList: () => listed++,
             onViewPrediction: () => viewed++));
     expect(find.text('Main Dev'), findsOneWidget);
+    expect(find.text('5 Oct 2026, 10:52'), findsOneWidget);
+    expect(find.text('Activity'), findsNothing);
     await tester.tap(find.text('View prediction'));
-    await tester.tap(find.text('Activity'));
-    expect((viewed, listed), (1, 1));
+    await tester.pump();
+    expect((viewed, listed), (1, 0));
   });
 
-  testWidgets('an unread win still celebrates above the heading',
-      (tester) async {
+  testWidgets('an unread win celebrates in gold', (tester) async {
     KuteConfirmation.debugFeedbackOverride = () async {};
     addTearDown(() => KuteConfirmation.debugFeedbackOverride = null);
     final won = TradeNotification(
@@ -169,9 +163,12 @@ void main() {
         tester,
         tradeNotificationConfirmation(l10n, won,
             showWallet: false, onList: () {}));
-    expect(find.byType(KuteCheckMark), findsOneWidget);
-    expect(tester.getTopLeft(find.byType(KuteCheckMark)).dy,
-        lessThan(tester.getTopLeft(find.text('Prediction won')).dy));
+    expect(
+        tester
+            .widget<KuteStatusMark>(find.byType(KuteStatusMark))
+            .tone,
+        KuteConfirmationTone.celebrate);
+    expect(find.text(r'$18.00'), findsOneWidget);
     expect(find.text('Positions'), findsOneWidget);
     // No hash stored: no transaction row.
     expect(find.text('View on the blockchain'), findsNothing);

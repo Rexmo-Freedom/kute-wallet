@@ -54,6 +54,19 @@ import flutter_local_notifications
     if let registrar = registry.registrar(forPlugin: "SecurityNativePlugin") {
       SecurityNativePlugin.register(with: registrar)
     }
+
+    // The rubber band's continuous haptic (`kute/continuous_haptics`,
+    // `lib/services/continuous_haptics.dart`): Core Haptics.
+    if let registrar = registry.registrar(forPlugin: "ContinuousHapticsPlugin") {
+      ContinuousHapticsPlugin.register(with: registrar)
+    }
+
+    // Network path changes (`kute/network_path`,
+    // `lib/services/network_change_signal.dart`): NWPathMonitor, so a VPN
+    // or network switch re-asks every region answer.
+    if let registrar = registry.registrar(forPlugin: "NetworkPathPlugin") {
+      NetworkPathPlugin.register(with: registrar)
+    }
   }
 
   // THIS IS THE CRUCIAL FUNCTION FOR BACKGROUND NOTIFICATIONS

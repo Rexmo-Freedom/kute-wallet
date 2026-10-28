@@ -8,6 +8,11 @@ import 'package:kute/providers/hyperliquid_trading_provider.dart'
     show isolatedMarginTarget;
 import 'package:kute/screens/hyperliquid/components/hl_adjust_margin_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
+import 'package:kute/helpers/auth_grant.dart';
+import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart';
+import 'package:kute/services/one_balance/margin_funding.dart'
+    show sizeMarginFunding;
+import 'package:kute/services/one_balance/venue_funder.dart';
 
 const _long = HlPerpPosition(
   coin: 'xyz:TSLA',
@@ -190,4 +195,67 @@ void main() {
     expect(add.amountMax, remove.amountMax);
     expect(add.limits, isNot(equals(remove.limits)));
   });
+
+  group('adding more than the Investing balance funds the rest from '
+      'Investments', () {
+    test('before the route answers, the move is priced conservatively', () {
+      expect(HlAdjustMarginSheetFunding.fallback(0).fundUsd, 0);
+      // \$10 short: \$10.25 must land; the route's share and its near-flat
+      // cost on top.
+      final f = HlAdjustMarginSheetFunding.fallback(10);
+      expect(f.arrivingUsd, 10.25);
+      expect(f.fundUsd, closeTo(10.25 / 0.98 + 1.25, 0.011));
+    });
+
+    test('the move is sized on what arrives, with the engine buffer',
+        () async {
+      final funder = _FlatFunder(flat: 1.24);
+      final size = await sizeMarginFunding(funder, shortfallUsd: 10);
+      // \$10 short + \$0.25 buffer must land.
+      expect(size.arrivingUsd, greaterThanOrEqualTo(10.25));
+      // Within a few cents of the exact \$11.49; the extra stays as cash.
+      expect(size.fundUsd, inInclusiveRange(11.49, 11.6));
+    });
+
+    test('the approval binds the change AND the dollars for it', () {
+      final change = HlIntents.isolatedMargin(
+          walletId: 'w', market: _market, positionIsLong: true, usd: 30);
+      final approved = change.copyWith(limits: {
+        ...change.limits,
+        kFundUsdLimit: dollarsBaseUnits(11.49),
+        kFundVenueLimit: kFundVenueInvesting,
+      });
+      expect(approved.limits[kFundVenueLimit], kFundVenueInvesting);
+      // The change itself signs under a grant chained to it alone.
+      final grant = AuthGrants.issue(approved, method: AuthGrantMethod.pin);
+      final child = GrantGuard.chain(grant, change);
+      expect(child.boundIntent.limits.containsKey(kFundUsdLimit), isFalse);
+    });
+  });
+}
+
+class _FlatFunder implements VenueFunder {
+  _FlatFunder({required this.flat});
+  final double flat;
+
+  @override
+  Future<VenueMoveQuote> estimate(double usd) async => VenueMoveQuote(
+      arrivingUsd: usd - flat,
+      feeUsd: flat,
+      fixedCostUsd: 0,
+      minUsd: 1,
+      maxUsd: 100000);
+
+  @override
+  Future<VenueMoveResult> fund(
+          {required double usd,
+          required MoveAuthorization auth,
+          String purpose = 'order_funding'}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<double> idleUsd() async => 0;
+
+  @override
+  Future<double> minimumUsd() async => 1;
 }

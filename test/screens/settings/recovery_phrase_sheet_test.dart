@@ -51,7 +51,7 @@ void main() {
   });
 
   Future<void> pumpSheet(WidgetTester tester, String? value,
-      {Future<void> Function(String)? onCopy}) async {
+      {Future<void> Function(String)? onCopy, bool isSpark = false}) async {
     tester.view.physicalSize = const Size(430, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -69,6 +69,7 @@ void main() {
             child: RecoveryPhraseSheet(
               phrase: value,
               onCopy: onCopy ?? (_) async {},
+              isSpark: isSpark,
             ),
           ),
         ),
@@ -91,16 +92,23 @@ void main() {
     expect(clipboardCalls, isEmpty);
   });
 
-  testWidgets('the QR code appears only after an explicit tap', (tester) async {
+  testWidgets('the QR code and the words show at once', (tester) async {
     await pumpSheet(tester, phrase);
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.text(l10n.walletsShowQr), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('wallets-show-qr')));
-    await tester.pump();
     expect(find.byType(QrImageView), findsOneWidget);
-    expect(find.byKey(const ValueKey('wallets-show-qr')), findsNothing);
+    expect(find.text(phrase), findsOneWidget);
+    expect(find.text(l10n.walletsShowQr), findsNothing);
     expect(clipboardCalls, isEmpty);
+  });
+
+  testWidgets('a Spark wallet explains where its 12 words restore the balance',
+      (tester) async {
+    await pumpSheet(tester, phrase, isSpark: true);
+    expect(find.text(l10n.sparkRecoveryNote), findsOneWidget);
+  });
+
+  testWidgets('any other wallet has no Spark note', (tester) async {
+    await pumpSheet(tester, phrase);
+    expect(find.text(l10n.sparkRecoveryNote), findsNothing);
   });
 
   testWidgets('the sheet is a secure screen', (tester) async {
@@ -142,7 +150,6 @@ void main() {
     await pumpSheet(tester, null);
     expect(find.text(l10n.walletsNoRecoveryPhraseStored), findsOneWidget);
     expect(find.byKey(const ValueKey('wallets-copy-phrase')), findsNothing);
-    expect(find.byKey(const ValueKey('wallets-show-qr')), findsNothing);
     expect(find.byType(QrImageView), findsNothing);
   });
 }
