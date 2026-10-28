@@ -1852,7 +1852,7 @@ class _CryptoWindowChips extends ConsumerWidget {
                 if (selected == minutes) return;
                 HapticFeedback.selectionClick();
                 TrackingService.track('crypto_window_changed',
-                    params: {'minutes': minutes});
+                    params: {'minutes': minutes, 'from_minutes': selected});
                 ref.read(cryptoPredictWindowProvider.notifier).state = minutes;
               },
               child: Container(

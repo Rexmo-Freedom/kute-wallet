@@ -64,6 +64,7 @@ import 'package:kute/services/one_balance/sweep_rules.dart'
     show SweepSkipReason, kSweepDustUsd, kVenueMoveMaxAge, venueWithdrawalRowOf;
 import 'package:kute/services/venue_total_cache_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/services/tracking_service.dart';
 
 /// A venue's cash as the breakdown counts it: its unreserved cash, the
 /// part the sweeper keeps or cannot move ([OneBalanceState.venueCash]) and
@@ -607,6 +608,8 @@ class _PortfolioBalanceBreakdownState
         onPressed: rebalance.running
             ? null
             : () {
+                TrackingService.track('portfolio_move_money_tapped',
+                    params: const {'surface': 'balances'});
                 unawaited(showMoneyMovementSheet(context));
               },
       ),
@@ -628,6 +631,10 @@ class _PortfolioBalanceBreakdownState
         link: true,
         onTap: () {
           if (rebalance.running) return;
+          // The pill's own tap (the sheet then reports its open with
+          // entry_source portfolio). No amounts.
+          TrackingService.track('portfolio_move_money_tapped',
+              params: const {'surface': 'balances'});
           unawaited(showMoneyMovementSheet(context));
         },
       ),

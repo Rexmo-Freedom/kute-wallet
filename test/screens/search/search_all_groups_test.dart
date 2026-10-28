@@ -30,6 +30,7 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
 import 'package:kute/theme/app_theme.dart';
@@ -208,10 +209,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(
       () async => expect(await AdvisorInputGuard.isSafe('bitcoin'), isTrue));
+  late List<(String, Map<String, Object>?)> events;
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     OpenOnce.reset();
+    events = [];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
   });
+  tearDown(() => TrackingService.debugTrackObserver = null);
 
   testWidgets('"bitcoin" under All: only Predictions, Investing, Transactions',
       (tester) async {
@@ -278,6 +283,10 @@ void main() {
     await _settle(tester);
     expect(container.read(selectedSearchCategoryProvider),
         SearchCategory.predictions);
+    // The same event as a pill tap, told apart by its source.
+    expect(
+        events.where((e) => e.$1 == 'search_category_changed').single.$2,
+        {'category': 'predictions', 'source': 'see_all'});
     expect(_headers(tester), isEmpty);
     expect(_txRows(tester), 0);
     // All five markets, whole.

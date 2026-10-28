@@ -779,6 +779,10 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// its approval for the receipt's fee. Null when nothing moved.
   double? _placedFundingFeeUsd;
 
+  /// What the spending Bitcoin lands, as the Max chip last counted it
+  /// (zero on a Ledger): `bet_slip_available_tapped`'s `bitcoin_usd`.
+  double _maxBitcoinUsd = 0;
+
   /// Read once in initState: dispose and a pre-fund move finishing after
   /// the slip went must not touch `ref`.
   late final PendingPolymarketBetNotifier _pendingNotifier;
@@ -1680,7 +1684,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// The person committed: one polymarket_bet_submitted per order, and the
   /// ticket's settings staged so the placed / failed event carries them.
   void _trackSubmitted({Map<String, Object> extra = const {}}) {
-    final inputs = _slipInputs();
+    final inputs = {..._slipInputs(), ..._feeEstimateParams()};
     final token = _selectedTokenId;
     if (token != null) {
       VenueAnalytics.stage('pm', token, {
@@ -1694,6 +1698,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           'advanced_used',
           'outcome_side',
           'bet_type',
+          'fee_shown_usd',
+          'fee_shown_basis',
+          'funding_fee_estimated_usd',
+          'funding_legs',
+          'funding_sources',
         ])
           if (inputs[k] != null) k: inputs[k]!,
       });
@@ -1709,6 +1718,44 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           DateTime.now().difference(_draft.openedAt)),
       ...extra,
     });
+  }
+
+  /// The fees the slip showed at submit, for the submitted event and the
+  /// staged ticket (so the placed / failed event carries them):
+  /// `fee_shown_usd` with `fee_shown_basis: estimate`, the venue's fee
+  /// curve with Kute's at the price the slip shows for the stake (the
+  /// venue reports no fee with the fill, so what the slip shows is always
+  /// an estimate, named as one; UX analytics, never revenue), and the
+  /// funding legs ([fundingFeeAnalytics]) when the stake needs a move.
+  /// Never a balance; reads nothing new.
+  Map<String, Object> _feeEstimateParams() {
+    final out = <String, Object>{};
+    if (_amount <= 0) return out;
+    final token = _selectedTokenId;
+    if (token != null && token.isNotEmpty) {
+      try {
+        final terms = ref.read(polymarketFeeTermsProvider(token)).valueOrNull;
+        final price = _slipIntent()?.expectedPrice;
+        if (terms != null && price != null && price > 0) {
+          final fee = terms.totalFee(_amount / price, price);
+          if (fee.isFinite && fee > 0) {
+            out['fee_shown_usd'] = (fee * 100).ceil() / 100;
+            out['fee_shown_basis'] = 'estimate';
+          }
+        }
+      } catch (_) {
+        // An estimate only; the event goes without it.
+      }
+    }
+    if (!_isLedger) {
+      final plan = _fundingPlanAmount == _amount ? _fundingPlan : null;
+      if (plan != null && plan.fundUsd > 0) {
+        try {
+          out.addAll(fundingFeeAnalytics(_fundingFees(plan)));
+        } catch (_) {}
+      }
+    }
+    return out;
   }
 
   /// Always renders a USD amount in the user's chosen `settings.currency`,
@@ -4978,6 +5025,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       // typed stake.
       final bitcoinUsd =
           _isLedger ? 0.0 : ref.watch(spendingBitcoinLandingUsdProvider);
+      _maxBitcoinUsd = bitcoinUsd;
       if (!_isLedger &&
           otherSpendable + bitcoinUsd > 0 &&
           cash != null &&
@@ -5607,8 +5655,14 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
     _updateState(() => _amount = target);
     if (!fromChip) return;
     if (haptic) HapticFeedback.selectionClick();
-    TrackingService.track('bet_slip_available_tapped',
-        params: {'chip': method == 'min' ? 'min' : 'max'});
+    TrackingService.track('bet_slip_available_tapped', params: {
+      'chip': method == 'min' ? 'min' : 'max',
+      // What the chip wrote, exact; on Max, what the spending Bitcoin
+      // lands of it (since kute-wallet d0f76b8 Max counts it too).
+      ...TrackingService.exactUsd('amount_usd', target),
+      if (method != 'min' && _maxBitcoinUsd > 0)
+        ...TrackingService.exactUsd('bitcoin_usd', _maxBitcoinUsd),
+    });
   }
 
   /// The plain slip's payout figure: what the bet pays if it wins; zero
