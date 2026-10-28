@@ -1,8 +1,8 @@
 // Render harness for Investments → Portfolio → P&L charts (founder review,
-// 28 October 2026): the P&L chart card, then the Balances frame around
-// the figures (the bare ring, Open P&L with the Active | Historic pair,
-// each venue's row with its figures, its sub-row and its resting orders),
-// Active and Historic, at the top and scrolled to the figures, at 390 x
+// 28 October 2026): the one block (the bare ring with the figure and the
+// Active | Historic pair, the venue rows that pick the series, the chart
+// and its ranges) and the resting orders under it, All, Predictions
+// picked and Historic, at the top and scrolled to the orders, at 390 x
 // 844 in the app's real themes and Inter, light and dark. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
@@ -14,9 +14,10 @@
 // The images directory (optional) holds the pictures the order rows would
 // load from the network: kane.jpg (a Polymarket market image) and btc.svg
 // (Hyperliquid's coin logo). Without it the rows draw their fallback
-// glyphs. The wallet is the Balances render's: four predictions (three
-// live, one settled), two Investing positions, one resting order at each
-// venue.
+// glyphs. The founder's month: Predictions −$6.49 realised over 15
+// predictions ($83.34 predicted), Investing +$0.10 over 16 fills ($208.53
+// traded), so −$6.39 in all; two Investing positions, one resting order
+// at each venue.
 
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -202,36 +203,31 @@ class _Account extends HlAccountNotifier {
       spotBalances: []);
 }
 
-/// The account's fills: the two open positions and one ETH round trip
-/// closed for +60 on 1.20 of fees.
+/// The account's fills: 16 small ETH fills, eight round trips, $208.53
+/// traded, +$0.18 closed on $0.08 of fees: +$0.10.
 List<HlFill> _fills() {
   final now = DateTime.now().toUtc();
-  int ago(int days) =>
-      now.subtract(Duration(days: days)).millisecondsSinceEpoch;
-  HlFill fill(String id, String coin, double before, double size, String side,
-          int time,
-          {required double px, double pnl = 0, required double fee}) =>
-      HlFill.fromJson({
-        'coin': coin,
-        'tid': id,
-        'oid': int.parse(id),
-        'hash': 'h$id',
-        'time': time,
-        'startPosition': '$before',
-        'sz': '$size',
-        'px': '$px',
-        'side': side,
-        'closedPnl': '$pnl',
-        'fee': '$fee',
-        'feeToken': 'USDC',
-        'dir': before == 0 ? 'Open Long' : 'Close Long',
-      });
+  const closed = [0.10, -0.05, 0.08, 0.02, -0.03, 0.04, 0.01, 0.01];
   return [
-    fill('4', 'xyz:NVDA', 0, 3, 'A', ago(3), px: 182.4, fee: 0.55),
-    fill('3', 'BTC', 0, 0.0125, 'B', ago(6), px: 90120, fee: 0.4),
-    fill('2', 'ETH', 0.5, 0.5, 'A', ago(14), px: 3120, pnl: 60, fee: 0.6),
-    fill('1', 'ETH', 0, 0.5, 'B', ago(21), px: 3000, fee: 0.6),
-  ];
+    for (var i = 0; i < 16; i++)
+      HlFill.fromJson({
+        'coin': 'ETH',
+        'tid': '${i + 1}',
+        'oid': i + 1,
+        'hash': 'h$i',
+        'time': now
+            .subtract(Duration(days: 28 - i * 27 ~/ 15))
+            .millisecondsSinceEpoch,
+        'startPosition': i.isEven ? '0' : '0.0043',
+        'sz': '0.0043',
+        'px': i == 15 ? '3045.35' : '3030',
+        'side': i.isEven ? 'B' : 'A',
+        'closedPnl': i.isEven ? '0' : '${closed[i ~/ 2]}',
+        'fee': '0.005',
+        'feeToken': 'USDC',
+        'dir': i.isEven ? 'Open Long' : 'Close Long',
+      }),
+  ].reversed.toList();
 }
 
 /// A resting Investing limit order: buy a little more BTC at 88,000.
@@ -302,6 +298,25 @@ List<Override> _performance() {
           lastEventAt: ago(entered),
           conditionId: market,
           title: title);
+  // Eleven closed: $67.70 staked, −$9.19 realised.
+  const closedPnl = [
+    -3.0, 1.2, -2.5, 0.8, -1.4, -0.9, 2.1, -1.6, -2.0, 0.6, -2.49 //
+  ];
+  PredictionRecord closed(int i) => PredictionRecord(
+      tokenId: 'closed-$i',
+      open: false,
+      redeemable: false,
+      size: 10,
+      totalSize: 10,
+      avgPrice: i == 10 ? 0.76972 : 0.6,
+      entryCostUsd: i == 10 ? 7.6972 : 6,
+      currentPrice: 0,
+      realizedPnlUsd: closedPnl[i],
+      unrealizedPnlUsd: 0,
+      firstEntryAt: ago(27 - i * 2),
+      lastEventAt: ago(26 - i * 2),
+      conditionId: 'c$i',
+      title: 'Closed $i');
   final book = PredictionsBook(records: [
     record('kane-yes',
         open: true,
@@ -315,7 +330,7 @@ List<Override> _performance() {
         open: true,
         size: 10,
         avgPrice: 0.40,
-        price: 0.47,
+        price: 0.40,
         entered: 4,
         market: 'rm',
         title: 'Will Real Madrid CF win on 2026-10-25?'),
@@ -336,17 +351,26 @@ List<Override> _performance() {
         entered: 12,
         market: 'f1',
         title: 'Who will finish higher: Verstappen or Hadjar?'),
+    for (var i = 0; i < 11; i++) closed(i),
   ]);
   return [
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
             venue: PortfolioPerformanceVenue.trading))
         .overrideWith((_) async => series(
-            [(30, 0), (21, -4.2), (14, 55.4), (9, 48.1), (6, 61.3), (1, 89.0)],
+            [(30, 0), (24, 0.05), (18, -0.12), (12, 0.2), (6, 0.04), (1, 0.10)],
             'Hyperliquid')),
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
             venue: PortfolioPerformanceVenue.predictions))
         .overrideWith((_) async =>
-            series([(12, 0), (9, -0.4), (4, 2.3), (2, 3.1)], 'Polymarket')
+            series([
+              (28, 0),
+              (22, -1.2),
+              (17, -3.4),
+              (12, -2.1),
+              (8, -5.0),
+              (4, -4.3),
+              (2, -6.49)
+            ], 'Polymarket')
                 .withPredictions(book)),
   ];
 }
@@ -498,26 +522,28 @@ void main() {
     }
   });
 
-  for (final historic in [false, true]) {
-    final scope = historic ? 'historic' : 'active';
-    testWidgets('$scope, light and dark, top and scrolled', (tester) async {
+  // All, Predictions picked (its row tapped), Historic.
+  for (final shot in ['all', 'predictions', 'historic']) {
+    testWidgets('$shot, light and dark, top and orders', (tester) async {
       tester.view.devicePixelRatio = _dpr;
       tester.view.physicalSize = _size * _dpr;
       addTearDown(tester.view.reset);
       for (final dark in [false, true]) {
         final theme = dark ? 'dark' : 'light';
         await _mount(tester, dark);
-        if (historic) {
+        if (shot == 'predictions') {
+          await tester
+              .tap(find.byKey(const ValueKey('pnl-venue-predictions-pick')));
+          await _settle(tester);
+        }
+        if (shot == 'historic') {
           await tester.tap(find.byKey(const ValueKey('statistics-historic')));
           await _settle(tester);
         }
-        await _png(tester, '${scope}_top_$theme');
-        // The frame under the chart card, whole.
-        await _scroll(tester, 430);
-        await _png(tester, '${scope}_figures_$theme');
-        // The orders at the end.
+        await _png(tester, '${shot}_top_$theme');
+        // The orders under the block.
         await _scroll(tester, 2000);
-        await _png(tester, '${scope}_orders_$theme');
+        await _png(tester, '${shot}_orders_$theme');
       }
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

@@ -27,12 +27,10 @@ import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
-    show KuteRangePill;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlCloseValue, hlPositionMargin;
@@ -148,44 +146,50 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 /// the Portfolio screen (open_investments_screen.dart): Investing and
 /// Predictions as one account, said once, from the top down.
 ///
-///   * ONE profit and loss card leads ([PortfolioPnlChart]): one headline,
-///     one line over the range picked under it (1W to ALL), pinch to zoom.
-///     With both venues' P&L moving, a
-///     small All · Investing · Predictions toggle at the top of the card
-///     switches the series drawn in the same chart (All: the venues added
-///     on the moments either published, [PortfolioPerformance.combine]),
-///     and the headline and change with it. A venue whose P&L never moved
-///     is not offered (it would draw a flat line); with one left the
-///     toggle is gone. A P&L that never moved draws the chart's calm
-///     empty state. Earn (the dollar rewards programme) is never shown here,
-///     whatever the backend's `usd.earn` says (owner decision).
-///   * Under the card, the Balances section's frame (founder decision
-///     28 October 2026; components/balances_overview.dart, the same
-///     widgets): ONE row with the small bare allocation ring on the left
-///     (each venue's share of the sub-tab's amount, Predictions amber and
-///     Investing teal as everywhere, nothing in its hole), "Open P&L" (the
-///     venues' title size) with the venues' added P&L under it in the
-///     result colour, and the Active | Historic pair's small pills at the
-///     row's end; a hairline; then one venue row per venue as Balances
-///     draws its own, "● Predictions · N" with the venue's figures at the
-///     end, Investing after it:
-///       - Active: N open positions; the venue's value (what is at stake
-///         plus its open P&L) with the open P&L beside it, "+$1.10 (12.4%)"
-///         against what is at stake; under it one indented quiet sub-row,
-///         "Amount at stake" (Predictions: what the open positions cost;
-///         Investing: the margin the perps use);
-///       - Historic: N predictions or trades; the realised P&L at the end
-///         in the result colour; under it "Amount predicted" or "Volume
-///         traded", all time;
-///       - then the venue's RESTING ORDERS (portfolio_orders.dart, each row
-///         its venue sheet's own with its own Cancel; Investing's ended
-///         orders after them) when any rest, and after the last venue's a
-///         quiet "Cancel all" text link, only with orders at both venues.
-///     No Orders heading, no count, no section titles, nothing said twice.
-///     A venue with nothing on the sub-tab and no orders reads "No open
-///     positions" (Historic: its own "No … yet") at its row's end and
-///     lists nothing; nothing on the sub-tab at any venue and no orders:
-///     the compact empty state under the row, as before.
+///   * ONE card, one block (founder decision 28 October 2026; the
+///     Balances section's frame, components/balances_overview.dart, the
+///     same widgets), top down:
+///       - the lead row: the small bare allocation ring on the left (each
+///         venue's share of the sub-tab's amount, Predictions amber and
+///         Investing teal as everywhere, nothing in its hole), beside it
+///         "Profit and loss", the P&L now as the figure in the result
+///         colour and the quiet change line ("−$6.39 past month"), and the
+///         Active | Historic pair's small pills at the row's end;
+///       - a hairline, then one venue row per venue as Balances draws its
+///         own, "● Predictions · N" with the venue's figures at the end,
+///         Investing after it:
+///           . Active: N open positions; the venue's value (what is at
+///             stake plus its open P&L) with the open P&L beside it,
+///             "+$1.10 (12.4%)" against what is at stake; under it one
+///             indented quiet sub-row, "Amount at stake" (Predictions:
+///             what the open positions cost; Investing: the margin the
+///             perps use);
+///           . Historic: N predictions or trades; the realised P&L at the
+///             end in the result colour; under it "Amount predicted" or
+///             "Volume traded", all time;
+///         The venue rows ARE the chart's filter: with both venues' P&L
+///         moving, a row tapped draws that venue alone (the figure, the
+///         change line and the chart), the row on the selected pill's
+///         surface and the other dimmed; the picked row tapped again is
+///         All (the venues added on the moments either published,
+///         [PortfolioPerformance.combine]). With one venue moving the rows
+///         pick nothing. No All · Investing · Predictions control;
+///       - a hairline, then the chart ([PortfolioPnlChart]: straight
+///         segments in the result colour, a soft fade, a solid hairline at
+///         zero) with its time axis and range pills (1W to ALL).
+///     A P&L that never moved draws the chart's calm empty state. Earn
+///     (the dollar rewards programme) is never shown here, whatever the
+///     backend's `usd.earn` says (owner decision).
+///   * Under the card, the RESTING ORDERS (portfolio_orders.dart, each row
+///     its venue sheet's own with its own Cancel; Investing's ended orders
+///     after them) under a small "● Predictions" / "● Investing" heading,
+///     then a quiet "Cancel all" text link, only with orders at both
+///     venues. No Orders title, no count, nothing said twice.
+///   * A venue with nothing on the sub-tab reads "No open positions" (Historic:
+///     its own "No … yet") at its row's end; nothing on the sub-tab at any
+///     venue and no orders: the compact empty state in the rows' place,
+///     unless the rows are the chart's filter (both venues' P&L moving):
+///     then both rows stay, each with its quiet line.
 ///   * [footer]: slivers under everything (the Portfolio screen's
 ///     Positions and Activity).
 ///   * Never traded (no chart, nothing on either sub-tab): the page is the
@@ -195,8 +199,9 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     Loading shows shimmer cards until every venue has answered; every venue
 ///     failing is the retry state (one `portfolio_performance_error_shown`
 ///     per venue).
-///   * Analytics: the chart toggle sends `portfolio_statistics_venue_toggled`
-///     {venue}; the pair `portfolio_allocation_view_changed` {view: active
+///   * Analytics: a venue row picked (or tapped again, All) sends
+///     `portfolio_statistics_venue_toggled` {venue: all | hyperliquid |
+///     polymarket}; the pair `portfolio_allocation_view_changed` {view: active
 ///     | historic}; the chart's scrub event carries the series drawn
 ///     as `venue` (`all`, `hyperliquid`, `polymarket`); the orders' cancel
 ///     events are the venue sheets' own.
@@ -440,76 +445,42 @@ class _OverviewBody extends ConsumerWidget {
       return emptyPage(_PageEmpty(text: text));
     }
 
+    // Balances' order: Predictions first, then Investing.
+    final listed = [
+      if (venues.contains(PortfolioPerformanceVenue.predictions))
+        PortfolioPerformanceVenue.predictions,
+      if (venues.contains(PortfolioPerformanceVenue.trading))
+        PortfolioPerformanceVenue.trading,
+    ];
+    final picked = toggled ? charted : null;
+
     return page([
-      // A P&L that never moved, with something below: the chart's calm
-      // empty state over it.
+      // ONE block: the ring, the figure and the pair; the venue rows,
+      // which pick the series; the chart. A P&L that never moved, with
+      // something below: the chart's calm empty state.
       PortfolioPnlChart(
         venue: series,
         eventVenue: _eventVenue(series),
         data: toggled ? data[charted]! : combined,
-        selector: moving.length > 1
-            ? _VenueToggle(
-                venues: moving,
-                selected: toggled ? charted : null,
-                onSelected: onChart)
-            : null,
-      ),
-      SizedBox(height: 4.h),
-      _PnlOverview(
-        venues: venues,
-        byVenue: byVenue,
-        total: figures,
-        single: single,
-        scope: scope,
-        onScope: onScope,
-        orders: orders,
-      ),
-    ]);
-  }
-}
-
-/// All · Investing · Predictions at the top of the P&L card: the charts'
-/// small pills ([KuteRangePill], the card's own selector style), at their
-/// natural width.
-class _VenueToggle extends StatelessWidget {
-  const _VenueToggle({
-    required this.venues,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  /// The venues offered after All.
-  final List<PortfolioPerformanceVenue> venues;
-
-  /// The venue drawn; null: All.
-  final PortfolioPerformanceVenue? selected;
-  final ValueChanged<PortfolioPerformanceVenue?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    Widget pill(PortfolioPerformanceVenue? venue, String label) =>
-        KuteRangePill(
-          key: ValueKey('statistics-venue-${_eventVenue(venue)}'),
-          label: label,
-          selected: venue == selected,
-          onTap: () => onSelected(venue),
-        );
-    return Align(
-      alignment: Alignment.centerLeft,
-      // Under very large text the row scales down rather than overflow.
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            pill(null, l10n.searchFilterAll),
-            for (final v in venues) pill(v, _venueName(l10n, v)),
-          ],
+        leading: _PnlRing(listed: listed, byVenue: byVenue),
+        trailing: _ScopePills(scope: scope, onScope: onScope, compact: true),
+        middle: _PnlVenues(
+          listed: listed,
+          byVenue: byVenue,
+          total: figures,
+          single: single,
+          scope: scope,
+          anyOrders: resting,
+          selected: picked,
+          // The rows pick the series only with two venues' P&L moving;
+          // the picked row tapped again is All.
+          onPick: moving.length > 1
+              ? (v) => onChart(v == picked ? null : v)
+              : null,
         ),
       ),
-    );
+      if (resting) _PnlOrders(listed: listed, orders: orders!),
+    ]);
   }
 }
 
@@ -532,31 +503,71 @@ Color _pnlColor(BuildContext context, double value) => value > 0
         ? AppColors.marketDown
         : context.colors.textPrimary;
 
-/// Under the chart: the Balances frame around the sub-tab's figures (see
-/// [PortfolioStatisticsOverview]): the ring, Open P&L (Historic: Realised
-/// P&L) and the pair on one row, a hairline, then each venue's row with
-/// its figures, its one sub-row and its resting orders under it.
-class _PnlOverview extends ConsumerWidget {
-  const _PnlOverview({
-    required this.venues,
+/// The small bare ring at the start of the block's lead row, as Balances
+/// draws its own ([BalancesRing]): each venue's share of the sub-tab's
+/// amount (what is at stake; the amount predicted and the volume traded),
+/// in the venues' fixed colours; only the track while an amount is not
+/// known.
+class _PnlRing extends StatelessWidget {
+  const _PnlRing({required this.listed, required this.byVenue});
+
+  final List<PortfolioPerformanceVenue> listed;
+  final Map<PortfolioPerformanceVenue, _Figures?> byVenue;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final shares = balancesShares({
+      for (final v in listed)
+        _categoryOf(v): (usd: byVenue[v]?.amount, stale: false),
+    });
+    return BalancesRing(
+      chartKey: const ValueKey('statistics-allocation-ring'),
+      categories: [for (final v in listed) _categoryOf(v)],
+      shares: shares,
+      semantics: [
+        for (final v in listed)
+          '${_venueName(l10n, v)} '
+              '${balancesPercent(shares[_categoryOf(v)] ?? 0)}',
+      ].join(', '),
+    );
+  }
+}
+
+/// The block's venue rows, between its lead row and the chart (see
+/// [PortfolioStatisticsOverview]): each venue's row as Balances draws its
+/// own with its one sub-row; a row tapped picks the series the chart
+/// draws ([onPick]), the picked one on the selected pill's surface and the
+/// other dimmed. Nothing on the sub-tab at any venue and no orders: the
+/// compact empty state instead, unless the rows are picking the series
+/// (each then reads its quiet "No open positions" / "No … yet").
+class _PnlVenues extends ConsumerWidget {
+  const _PnlVenues({
+    required this.listed,
     required this.byVenue,
     required this.total,
     required this.single,
     required this.scope,
-    required this.onScope,
-    required this.orders,
+    required this.anyOrders,
+    required this.selected,
+    required this.onPick,
   });
 
-  /// The venues read, in the account's order.
-  final List<PortfolioPerformanceVenue> venues;
+  /// The venues read, in Balances' order.
+  final List<PortfolioPerformanceVenue> listed;
   final Map<PortfolioPerformanceVenue, _Figures?> byVenue;
 
   /// The venues' figures added (the only venue's on a one-venue account).
   final _Figures? total;
   final PortfolioPerformanceVenue? single;
   final StatisticsScope scope;
-  final ValueChanged<StatisticsScope> onScope;
-  final PortfolioOrdersBook? orders;
+  final bool anyOrders;
+
+  /// The venue the chart draws; null: All.
+  final PortfolioPerformanceVenue? selected;
+
+  /// A row tapped; null: the rows pick nothing (one venue moving).
+  final ValueChanged<PortfolioPerformanceVenue>? onPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -578,40 +589,18 @@ class _PnlOverview extends ConsumerWidget {
     Color? colorOf(double? usd) =>
         usd == null || !visible ? null : _pnlColor(context, usd);
 
-    // Balances' order: Predictions first, then Investing.
-    final listed = [
-      if (venues.contains(PortfolioPerformanceVenue.predictions))
-        PortfolioPerformanceVenue.predictions,
-      if (venues.contains(PortfolioPerformanceVenue.trading))
-        PortfolioPerformanceVenue.trading,
-    ];
-    List<Widget> ordersOf(PortfolioPerformanceVenue v) => switch (v) {
-          PortfolioPerformanceVenue.predictions =>
-            orders?.predictionsItems(context, ref) ?? const [],
-          PortfolioPerformanceVenue.trading =>
-            orders?.investingItems(context, ref) ?? const [],
-        };
-    final anyOrders = orders != null && !orders!.isEmpty;
-
-    // The ring: each venue's share of the sub-tab's amount (what is at
-    // stake; the amount predicted and the volume traded), in the venues'
-    // fixed colours; only the track while an amount is not known.
-    final shares = balancesShares({
-      for (final v in listed)
-        _categoryOf(v): (usd: byVenue[v]?.amount, stale: false),
-    });
-    final lead =
-        active ? l10n.portfolioStatOpenPnl : l10n.portfolioStatRealized;
-    // Nothing on the sub-tab: a dash under the label, never a zero.
-    final quietTotal = _Figures.quiet(total);
-    final pnl = quietTotal ? null : total?.pnl;
+    if (_Figures.quiet(total) && !anyOrders && onPick == null) {
+      // Nothing on the sub-tab at any venue: the empty state, never rows
+      // of zeros. While the rows pick the chart's series they stay, each
+      // reading its quiet line, so the filter never goes away.
+      return _SubTabEmpty(text: _quietText(l10n, single, scope));
+    }
 
     Widget venue(PortfolioPerformanceVenue v) {
       final f = byVenue[v];
       final category = _categoryOf(v);
       final name = category.name;
       final quiet = _Figures.quiet(f);
-      final venueOrders = ordersOf(v);
       // Active: the value (at stake plus the open P&L) with the P&L
       // beside it; Historic: the realised P&L alone, in its colour.
       final BalancesFigure figure;
@@ -643,7 +632,7 @@ class _PnlOverview extends ConsumerWidget {
         figureColor = colorOf(f.pnl);
         empty = null;
       }
-      return Column(
+      final row = Column(
         key: ValueKey('pnl-venue-section-$name'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -672,79 +661,131 @@ class _PnlOverview extends ConsumerWidget {
               figure: amount(f!.amount),
               amountKey: ValueKey('pnl-venue-$name-stat-amount'),
             ),
-          if (venueOrders.isNotEmpty)
-            Padding(
-              key: ValueKey('pnl-venue-$name-orders'),
-              padding: EdgeInsets.only(top: 8.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: venueOrders,
-              ),
-            ),
-          // The one Cancel all, a quiet link after the last venue's orders,
-          // only with orders at both venues.
-          if (v == listed.last && orders != null && orders!.both)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: PortfolioCancelAllLink(
-                  investing: orders!.investing,
-                  predictions: orders!.predictions),
-            ),
         ],
+      );
+      final pick = onPick;
+      if (pick == null) return row;
+      // The picked row on the selected pill's surface (the range pills'
+      // own), reaching a little past the text; the other row dimmed.
+      final picked = selected == v;
+      final motion = kuteReduceMotion(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180);
+      return Semantics(
+        button: true,
+        selected: picked,
+        child: GestureDetector(
+          key: ValueKey('pnl-venue-$name-pick'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => pick(v),
+          child: AnimatedOpacity(
+            opacity: selected != null && !picked ? 0.6 : 1,
+            duration: motion,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: -8.w,
+                  right: -8.w,
+                  top: 8.h,
+                  bottom: -2.h,
+                  child: AnimatedContainer(
+                    key: ValueKey('pnl-venue-$name-selected-$picked'),
+                    duration: motion,
+                    decoration: BoxDecoration(
+                      color: picked ? c.surfaceElevated : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                  ),
+                ),
+                row,
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     return Column(
-      key: const ValueKey('statistics-pnl-overview'),
+      key: const ValueKey('statistics-figures'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(height: 8.h),
-        Row(
-          children: [
-            BalancesRing(
-              chartKey: const ValueKey('statistics-allocation-ring'),
-              categories: [for (final v in listed) _categoryOf(v)],
-              shares: shares,
-              semantics: [
-                '$lead ${signed(pnl).text}',
-                if (shares.isNotEmpty)
-                  for (final v in listed)
-                    '${_venueName(l10n, v)} '
-                        '${balancesPercent(shares[_categoryOf(v)] ?? 0)}',
-              ].join(', '),
+      children: [for (final v in listed) venue(v)],
+    );
+  }
+}
+
+/// Under the block: the RESTING ORDERS (portfolio_orders.dart, each row
+/// its venue sheet's own with its own Cancel; Investing's ended orders
+/// after them), under a small "● Predictions" / "● Investing" heading per
+/// venue with any, then the quiet "Cancel all" text link, only with
+/// orders at both venues.
+class _PnlOrders extends ConsumerWidget {
+  const _PnlOrders({required this.listed, required this.orders});
+
+  final List<PortfolioPerformanceVenue> listed;
+  final PortfolioOrdersBook orders;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final heading = balancesQuiet(context)
+        .copyWith(color: c.textSecondary, fontWeight: FontWeight.w600);
+    final groups = [
+      for (final v in listed)
+        (
+          v,
+          switch (v) {
+            PortfolioPerformanceVenue.predictions =>
+              orders.predictionsItems(context, ref),
+            PortfolioPerformanceVenue.trading =>
+              orders.investingItems(context, ref),
+          }
+        )
+    ].where((g) => g.$2.isNotEmpty).toList();
+    if (groups.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      key: const ValueKey('statistics-pnl-orders'),
+      padding: EdgeInsets.only(top: 18.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (v, items) in groups)
+            Column(
+              key: ValueKey('pnl-venue-${_categoryOf(v).name}-orders'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(bottom: 8.h),
+                  child: Row(
+                    children: [
+                      BalancesDot(
+                          color: balancesCategoryColor(c, _categoryOf(v))),
+                      SizedBox(width: 8.w),
+                      Text(_venueName(l10n, v),
+                          key: ValueKey(
+                              'pnl-orders-heading-${_categoryOf(v).name}'),
+                          style: heading),
+                    ],
+                  ),
+                ),
+                ...items,
+                SizedBox(height: 6.h),
+              ],
             ),
-            SizedBox(width: kBalancesRingGap.w),
-            Expanded(
-              child: BalancesLead(
-                key: const ValueKey('statistics-pnl-lead'),
-                amountKey: const ValueKey('statistics-pnl-lead-amount'),
-                label: lead,
-                figure: signed(pnl),
-                amountColor: colorOf(pnl),
-              ),
+          // The one Cancel all, a quiet link after the last orders, only
+          // with orders at both venues.
+          if (orders.both)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: PortfolioCancelAllLink(
+                  investing: orders.investing, predictions: orders.predictions),
             ),
-            SizedBox(width: 12.w),
-            _ScopePills(scope: scope, onScope: onScope, compact: true),
-          ],
-        ),
-        SizedBox(height: 16.h),
-        if (quietTotal && !anyOrders)
-          // Nothing on the sub-tab at any venue: the empty state, never
-          // rows of zeros.
-          _SubTabEmpty(text: _quietText(l10n, single, scope))
-        else
-          Column(
-            key: const ValueKey('statistics-figures'),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              marketGroupDivider(context, 0),
-              for (final v in listed) venue(v),
-            ],
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

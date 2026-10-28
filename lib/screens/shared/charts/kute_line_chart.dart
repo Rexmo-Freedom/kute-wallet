@@ -61,9 +61,19 @@
 //     optional dotted baseline at the first value on screen
 //     ([KuteLineChart.startBaseline]);
 //   * an optional fixed baseline ([KuteLineChart.baselineAt], the P&L
-//     chart's zero): dotted across the plot, always on the scale, and with
+//     chart's zero): dotted across the plot (a plain solid hairline with
+//     [KuteLineChart.solidBaseline]), always on the scale, and with
 //     [KuteLineChart.fillAboveColor] / [KuteLineChart.fillBelowColor] the
-//     fill runs between the line and it, tinted by the side it is on.
+//     fill runs between the line and it, tinted by the side it is on;
+//   * an optional straight line ([KuteLineChart.straight], the P&L chart):
+//     straight segments through the points drawn and nothing between them,
+//     so the line never shows a bump or a dip that did not happen; with
+//     [KuteLineChart.filledEndpoint] the end dot is solid in the line's
+//     colour;
+//   * an optional fixed plot height ([KuteLineChart.plotHeight]): the
+//     chart is then as tall as its header plus the plot, so a header of
+//     any height (the P&L card's lead row and venue rows) never squeezes
+//     the line.
 //
 // Painters here never read Theme — the widget resolves colors once per
 // build and hands them down.
@@ -211,6 +221,15 @@ class KuteLineChart extends StatefulWidget {
   /// money does. Off by default: every price series stays a curve.
   final bool stepped;
 
+  /// Draw the history as straight segments through the points drawn
+  /// ([kuteStraightPath]) instead of the monotone curve: nothing is drawn
+  /// between two points but the straight line joining them, so the line
+  /// never passes above or below what was there. Off by default.
+  final bool straight;
+
+  /// The end dot solid in [lineColor] (no hole). Off by default.
+  final bool filledEndpoint;
+
   /// Faint hairlines at two or three round levels of the scale on
   /// screen. For a series of amounts held: levels under zero are left
   /// out. Off by default.
@@ -294,6 +313,16 @@ class KuteLineChart extends StatefulWidget {
   final Color? fillAboveColor;
   final Color? fillBelowColor;
 
+  /// With [baselineAt], the baseline is a plain solid hairline instead of
+  /// the dotted line.
+  final bool solidBaseline;
+
+  /// The height of the plot (with its time axis) under the header: the
+  /// chart is then the header's height plus this, laid out from its
+  /// content rather than filling its parent. Null fills the parent, the
+  /// header taking its share.
+  final double? plotHeight;
+
   /// A new value puts the window back on the whole series (a range pill
   /// tapped again). A series of another length also does, unless
   /// [resetViewOnLengthChange] is off.
@@ -354,6 +383,8 @@ class KuteLineChart extends StatefulWidget {
     this.showEndpointDot = true,
     this.strokeWidth = 2.0,
     this.stepped = false,
+    this.straight = false,
+    this.filledEndpoint = false,
     this.showScale = false,
     this.scaleLabel,
     this.projectedFrom,
@@ -375,6 +406,8 @@ class KuteLineChart extends StatefulWidget {
     this.baselineAt,
     this.fillAboveColor,
     this.fillBelowColor,
+    this.solidBaseline = false,
+    this.plotHeight,
     this.viewResetKey,
     this.resetViewOnLengthChange = true,
     this.defaultSpan,
@@ -739,6 +772,10 @@ class _KuteLineChartState extends State<KuteLineChart>
                     showEndpointDot: widget.showEndpointDot,
                     strokeWidth: widget.strokeWidth,
                     stepped: widget.stepped,
+                    straight: widget.straight,
+                    filledEndpoint: widget.filledEndpoint,
+                    solidBaseline:
+                        widget.baselineAt != null && widget.solidBaseline,
                     showScale: widget.showScale,
                     baseline: widget.baselineAt ??
                         (widget.startBaseline ? values[firstOnScreen] : null),
@@ -891,16 +928,26 @@ class _KuteLineChartState extends State<KuteLineChart>
       );
     }
 
+    final plotHeight = widget.plotHeight;
     return FadeTransition(
       opacity: _fade,
-      child: summary == null
-          ? body
-          : Column(
+      child: plotHeight != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                summary,
-                Expanded(child: body),
+                if (summary != null) summary,
+                SizedBox(height: plotHeight, child: body),
               ],
-            ),
+            )
+          : summary == null
+              ? body
+              : Column(
+                  children: [
+                    summary,
+                    Expanded(child: body),
+                  ],
+                ),
     );
   }
 }
@@ -1102,6 +1149,11 @@ class _KuteLinePainter extends CustomPainter {
   final bool showEndpointDot;
   final double strokeWidth;
   final bool stepped;
+  final bool straight;
+  final bool filledEndpoint;
+
+  /// The baseline is a solid hairline, not dotted.
+  final bool solidBaseline;
   final bool showScale;
   final int? projectedFrom;
   final double? lockedMinY;
@@ -1139,6 +1191,9 @@ class _KuteLinePainter extends CustomPainter {
     required this.showEndpointDot,
     required this.strokeWidth,
     required this.stepped,
+    this.straight = false,
+    this.filledEndpoint = false,
+    this.solidBaseline = false,
     required this.showScale,
     required this.projectedFrom,
     required this.lockedMinY,
@@ -1191,7 +1246,17 @@ class _KuteLinePainter extends CustomPainter {
     // The dotted baseline at the first value on screen, under the line.
     // Mid-morph the window is the whole resampled series: none.
     final base = morphSeries == null ? baseline : null;
-    if (base != null && base.isFinite) {
+    if (base != null && base.isFinite && solidBaseline) {
+      // A plain hairline: the P&L's zero.
+      final y = toY(base);
+      canvas.drawLine(
+          Offset(0, y),
+          Offset(w, y),
+          Paint()
+            ..color =
+                (isDark ? Colors.white : Colors.black).withValues(alpha: 0.14)
+            ..strokeWidth = 1.0);
+    } else if (base != null && base.isFinite) {
       final y = toY(base);
       final dot = Paint()
         ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.22);
@@ -1202,8 +1267,7 @@ class _KuteLinePainter extends CustomPainter {
 
     // Single point: just the endpoint dot — nothing to connect yet.
     if (n == 1) {
-      kuteDrawEndpointDot(canvas, Offset(w, toY(series.first)), lineColor,
-          isDark: isDark);
+      _endDot(canvas, Offset(w, toY(series.first)));
       return;
     }
 
@@ -1246,8 +1310,11 @@ class _KuteLinePainter extends CustomPainter {
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(-6, -6, w + 12, h + 12));
     if (historyPts.length >= 2) {
-      final path =
-          stepped ? kuteStepPath(historyPts) : kuteMonotonePath(historyPts);
+      final path = stepped
+          ? kuteStepPath(historyPts)
+          : straight
+              ? kuteStraightPath(historyPts)
+              : kuteMonotonePath(historyPts);
       final fillBase = morphSeries == null ? baseline : null;
       if (showFill &&
           fillBase != null &&
@@ -1306,7 +1373,9 @@ class _KuteLinePainter extends CustomPainter {
 
     if (projectedPts != null && projectedPts.length >= 2) {
       canvas.drawPath(
-        _dashPath(kuteMonotonePath(projectedPts)),
+        _dashPath(straight
+            ? kuteStraightPath(projectedPts)
+            : kuteMonotonePath(projectedPts)),
         kuteStrokePaint(lineColor.withValues(alpha: 0.55), width: strokeWidth),
       );
     }
@@ -1331,8 +1400,7 @@ class _KuteLinePainter extends CustomPainter {
       // screen; the projected end gets a hollow ring, which reads as
       // "has not arrived".
       if (historyPts.isNotEmpty && historyEnd <= i1) {
-        kuteDrawEndpointDot(canvas, historyPts.last, lineColor,
-            isDark: isDark);
+        _endDot(canvas, historyPts.last);
       }
       if (projectedPts != null && projectedPts.length >= 2 && i1 == n - 1) {
         canvas.drawCircle(projectedPts.last, 4.0,
@@ -1348,6 +1416,16 @@ class _KuteLinePainter extends CustomPainter {
       }
     }
     canvas.restore();
+  }
+
+  /// The end dot: the engine's ringed dot, or solid in the line's colour
+  /// ([filledEndpoint]).
+  void _endDot(Canvas canvas, Offset center) {
+    if (filledEndpoint) {
+      canvas.drawCircle(center, 4, Paint()..color = lineColor);
+    } else {
+      kuteDrawEndpointDot(canvas, center, lineColor, isDark: isDark);
+    }
   }
 
   /// Chop a path into even dashes. The projected tail only.
@@ -1377,6 +1455,9 @@ class _KuteLinePainter extends CustomPainter {
       old.showEndpointDot != showEndpointDot ||
       old.strokeWidth != strokeWidth ||
       old.stepped != stepped ||
+      old.straight != straight ||
+      old.filledEndpoint != filledEndpoint ||
+      old.solidBaseline != solidBaseline ||
       old.showScale != showScale ||
       old.projectedFrom != projectedFrom ||
       old.lockedMinY != lockedMinY ||
@@ -1395,6 +1476,19 @@ class _KuteLinePainter extends CustomPainter {
     if (a == null || b == null) return false;
     return kuteSameSeries(a, b);
   }
+}
+
+/// Straight segments through [pts], one point to the next, and nothing
+/// else: the line never leaves the box the points span, so it never shows
+/// a high or a low that was not there.
+Path kuteStraightPath(List<Offset> pts) {
+  final path = Path();
+  if (pts.isEmpty) return path;
+  path.moveTo(pts.first.dx, pts.first.dy);
+  for (var i = 1; i < pts.length; i++) {
+    path.lineTo(pts[i].dx, pts[i].dy);
+  }
+  return path;
 }
 
 /// A stepped line through [pts]: flat from each point to the next one's
