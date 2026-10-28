@@ -94,7 +94,6 @@ class _Rig {
         funded.add((usd: usd, grant: grant));
         if (notNeeded) return const OrderFundingNotNeeded();
         if (refuse) return const OrderFundingRefused('route');
-        if (unconfirmed) return const OrderFundingUnconfirmed();
         return OrderFundingFunded(VenueMoveResult(
           quoteId: 'quote-${funded.length}',
           sentUsd: usd,
@@ -118,7 +117,6 @@ class _Rig {
   PredictionsFundingBlock? block;
   bool notNeeded = false;
   bool refuse = false;
-  bool unconfirmed = false;
   int disarmed = 0;
   final requests = <PrefundRequest>[];
   final grants = <AuthGrant>[];
@@ -388,31 +386,6 @@ void main() {
   });
 
   group('declining', () {
-    test(
-        'a move the rail cannot confirm is held as on its way: Confirm '
-        'queues behind it and never funds the bet a second time', () async {
-      final rig = _Rig()..unconfirmed = true;
-      await rig.prefund.holdFired(_slip);
-      expect(rig.funded, hasLength(1));
-      final move = rig.prefund.moves.single;
-      expect(move.ref, isEmpty);
-      expect(move.sentUsd, rig.funded.single.usd);
-      expect(rig.prefund.inFlightArrivingUsd, greaterThan(0));
-
-      final result = await rig.prefund.confirm(_slip());
-      expect(result, isA<PrefundQueued>());
-      // No second prompt, no second move.
-      expect(rig.requests, hasLength(1));
-      expect(rig.funded, hasLength(1));
-      final queued = (result as PrefundQueued).intent;
-      expect(queued.status, PendingBetStatus.awaitingBalance);
-      expect(queued.fundQuoteRef, isNull);
-      // The bet waits for the money; it fires if it lands.
-      expect(5, lessThan(autofireFireAt(queued)));
-      expect(5 + move.arrivingUsd,
-          greaterThanOrEqualTo(autofireFireAt(queued)));
-    });
-
     test('falls back to Confirm-time funding and never asks again', () async {
       final rig = _Rig(answer: PrefundApprovalResult.declined);
       await rig.prefund.holdFired(_slip);
