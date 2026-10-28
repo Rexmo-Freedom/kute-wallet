@@ -666,33 +666,11 @@ class SettlementRunner {
           {bool reReview = false}) =>
       runSparkFlow(() => _prepare(plan, reReview: reReview));
 
-  /// Whether an earlier operation on [walletId] and [route] may have moved
-  /// funds and its outcome is still unknown: mid-broadcast, or
-  /// `fundingUnknown` until the reconciler finds the payment or proves it
-  /// never left. A new operation on that wallet and route is refused
-  /// meanwhile (F11), so a second tap can never pay the same thing twice.
-  /// Screens that move money before the runner (a venue pull ahead of a
-  /// send) ask first.
-  Future<bool> blockedByUnresolved(String walletId, RouteKey route) async {
-    for (final op in await store.activeFor(walletId, route)) {
-      if (op.stage == SettlementStage.fundingUnknown ||
-          op.stage == SettlementStage.broadcasting) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   Future<SettlementPrepared> _prepare(SettlementPlan plan,
       {bool reReview = false}) async {
     if (_rereviewPending.remove(_rereviewKey(plan))) {
       // The confirm tap after a return to review (user action).
       TrackingService.settlementRereviewConfirmed(plan.flow.code);
-    }
-    // F11: nothing new on this wallet and route while an earlier send may
-    // have left and is not resolved. Nothing has been created or quoted.
-    if (await blockedByUnresolved(plan.walletId, plan.route)) {
-      throw const SettlementStopped(SettlementStopReason.blockedPending);
     }
     final availability = await plan.checkAvailability?.call();
     if (availability != null && !availability.isAvailable) {

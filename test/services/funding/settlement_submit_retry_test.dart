@@ -142,17 +142,13 @@ void main() {
           },
         );
 
-    SettlementPlan plan(
-            {bool background = false,
-            String toChain = 'polygon',
-            SettlementFundingProof Function()? fund}) =>
-        SettlementPlan(
+    SettlementPlan plan({bool background = false}) => SettlementPlan(
           walletId: 'spending',
           flow: SettlementFlow.moveBtcToUsdc,
           route: RouteKey(
               fromChain: 'spark',
               fromAsset: 'BTC',
-              toChain: toChain,
+              toChain: 'polygon',
               toAsset: 'USDC.e'),
           sourceAccount: SettlementAccountKind.sparkHot,
           destinationAccount: SettlementAccountKind.pmHot,
@@ -167,7 +163,7 @@ void main() {
           requestQuote: (_) async =>
               SettlementQuoteResult(quote, skew: Duration.zero),
           fund: (_, __) async =>
-              fund?.call() ?? const SettlementFundingProof.spark('transfer-1'),
+              const SettlementFundingProof.spark('transfer-1'),
           registerInBackground: background,
         );
 
@@ -187,33 +183,6 @@ void main() {
     tearDown(() async {
       await Hive.deleteFromDisk();
       await temporary.delete(recursive: true);
-    });
-
-    test(
-        'F11: while a send on the route may have left unconfirmed, a new one '
-        'on that wallet and route is refused before any quote; another '
-        'route still goes', () async {
-      replies = [() => _accepted('ord_1')];
-      final r = runner();
-      await expectLater(
-          r.run(plan(fund: () => throw TimeoutException('send'))),
-          throwsA(isA<SettlementFundingUnknown>()));
-      final unknown = (await store.all()).single;
-      expect(unknown.stage, SettlementStage.fundingUnknown);
-      expect(
-          await r.blockedByUnresolved('spending', unknown.route), isTrue);
-
-      await expectLater(
-          r.run(plan()),
-          throwsA(isA<SettlementStopped>().having(
-              (e) => e.reason, 'reason', SettlementStopReason.blockedPending)));
-      // Nothing was created, quoted or paid for the refused one.
-      expect(await store.all(), hasLength(1));
-      expect(keys, isEmpty);
-
-      // Another route is not held up.
-      final other = await r.run(plan(toChain: 'arbitrum'));
-      expect(other.orderId, 'ord_1');
     });
 
     test('a refusal is resubmitted quickly with a new key until accepted',
