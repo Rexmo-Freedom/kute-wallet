@@ -115,6 +115,21 @@ const _emptyInvestingState = OneBalanceState(
   },
 );
 
+/// Nothing open anywhere, the cash read: Sal's empty state.
+const _nothingOpenState = OneBalanceState(
+  investingKnown: true,
+  predictionsKnown: true,
+  venueCash: {
+    OneBalanceVenue.investing: 17.21,
+    OneBalanceVenue.predictions: 0.43,
+  },
+);
+
+/// The first load: neither venue read yet this session.
+const _unreadState = OneBalanceState(
+  venueCash: {OneBalanceVenue.investing: 17.21},
+);
+
 /// No live price feed: the rows at their last read price.
 class _Prices extends LivePriceNotifier {
   @override
@@ -334,6 +349,22 @@ List<Override> get _emptyInvestingHeld => [
           const HyperliquidTradingState(isInitialized: true))),
     ];
 
+/// Nothing open at either venue.
+List<Override> get _nothingOpenHeld => [
+      ..._held,
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(isInitialized: true))),
+      polymarketActivePositionsProvider.overrideWith((_) => const []),
+      polymarketClaimablePositionsProvider.overrideWith((_) => const []),
+    ];
+
+/// The first load: Investing's positions still being read.
+List<Override> get _firstLoadHeld => [
+      ..._held,
+      hyperliquidDisplayTradingProvider
+          .overrideWith((_) => const AsyncLoading<HyperliquidTradingState>()),
+    ];
+
 Future<ui.Image> _shoot(WidgetTester tester, bool dark,
     {required WidgetBuilder body,
     List<Override> overrides = const [],
@@ -455,6 +486,26 @@ void main() {
           .load();
     }
   });
+
+  // The first load (the venues' skeleton) and nothing open anywhere
+  // (Sal), light only.
+  for (final (name, state, held) in [
+    ('balances_first_load', _unreadState, _firstLoadHeld),
+    ('balances_nothing_open', _nothingOpenState, _nothingOpenHeld),
+  ]) {
+    testWidgets('$name, light', (tester) async {
+      tester.view.devicePixelRatio = _dpr;
+      tester.view.physicalSize = _size * _dpr;
+      addTearDown(tester.view.reset);
+      final img = await _shoot(tester, false,
+          state: state,
+          held: held,
+          body: (_) => _section(PortfolioSection.balances));
+      await _png(tester, img, '${name}_light');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   for (final (name, empty, split, scroll) in [
     ('balances', false, false, false),

@@ -426,6 +426,11 @@ class _PortfolioBalanceBreakdownState
     extends ConsumerState<PortfolioBalanceBreakdown> {
   /// The venues' refresh on open is running: their figures shimmer.
   bool _refreshing = false;
+
+  /// The refresh on open has finished (landed, failed or capped), or there
+  /// was nothing to refresh: the overview's first load stops waiting on a
+  /// venue whose figures were never read ([BalancesOverview.firstReadDone]).
+  bool _firstReadDone = false;
   Timer? _previewSoon;
 
   /// How many venues of the current Rebalance had landed at the last
@@ -480,7 +485,10 @@ class _PortfolioBalanceBreakdownState
       if (widget.trading && ref.exists(hyperliquidTradingProvider))
         ref.read(hyperliquidTradingProvider.notifier).refresh(),
     ];
-    if (runs.isEmpty) return;
+    if (runs.isEmpty) {
+      setState(() => _firstReadDone = true);
+      return;
+    }
     setState(() => _refreshing = true);
     try {
       await Future.wait(runs).timeout(kBreakdownRefreshCap);
@@ -489,7 +497,10 @@ class _PortfolioBalanceBreakdownState
       // polls carry on.
     }
     if (!mounted) return;
-    setState(() => _refreshing = false);
+    setState(() {
+      _refreshing = false;
+      _firstReadDone = true;
+    });
     _preview();
   }
 
@@ -707,6 +718,7 @@ class _PortfolioBalanceBreakdownState
         action: action,
         steps: steps,
         venues: widget.venues,
+        firstReadDone: _firstReadDone,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
@@ -739,6 +751,7 @@ class _PortfolioBalanceBreakdownState
                   known: balance.investingKnown,
                   fallback: cachedHl?.portfolio)),
               positionCount: investingCount,
+              read: balance.investingKnown,
               footer: [
                 if (note(OneBalanceVenue.investing) case final line?) line,
               ],
@@ -755,6 +768,7 @@ class _PortfolioBalanceBreakdownState
                   known: balance.predictionsKnown)),
               reservedUsd: predictionsSplit.reserved,
               positionCount: predictionsCount,
+              read: balance.predictionsKnown,
               // The open orders' reserve is named under Predictions by
               // the overview itself (reservedUsd).
               footer: [

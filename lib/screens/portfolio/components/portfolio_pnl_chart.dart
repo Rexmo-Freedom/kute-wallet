@@ -43,7 +43,10 @@
 //     [PortfolioPnlChart.trailing] (Active | Historic) at the row's end,
 //     then a hairline, the [PortfolioPnlChart.middle] (the venue rows,
 //     which pick the series), a hairline, and the chart and its ranges.
-//     Without one (a Ledger) the figure leads over the plot.
+//     Without one (a Ledger) the figure leads over the plot. With
+//     [PortfolioPnlChart.plot] off (Active with nothing open in the
+//     series picked: founder, 28 October 2026) the block is the lead row
+//     and the venue rows alone, no plot, no time axis, no range pills.
 //
 // With balances hidden the figures are dots, as on the home header.
 //
@@ -110,6 +113,7 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
     this.trailing,
     this.middle,
     this.eventVenue,
+    this.plot = true,
   });
 
   /// The venue charted; null for Investing and Predictions together (the
@@ -138,6 +142,11 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
   /// The `venue` the scrub event sends; [venue]'s name (or `all`) when
   /// null.
   final String? eventVenue;
+
+  /// Draw the plot, its time axis and the range pills. Off: the spending
+  /// account's block keeps its lead row (the change line over the range
+  /// picked) and [middle] only, nothing charted.
+  final bool plot;
 
   @override
   ConsumerState<PortfolioPnlChart> createState() => _PortfolioPnlChartState();
@@ -187,8 +196,8 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final empty = zeroIn(rangeWindow);
     // The result over the range: the line's colour.
     final inRange = drawnIn(rangeWindow);
-    final lineColor = pnlResultColor(
-        c, inRange.isEmpty ? 0 : inRange.last - inRange.first);
+    final lineColor =
+        pnlResultColor(c, inRange.isEmpty ? 0 : inRange.last - inRange.first);
     final block = widget.leading != null || widget.trailing != null;
 
     // The hero: the P&L now, the line's last point.
@@ -324,7 +333,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     // it, the pair at the row's end; a hairline, the venue rows, a
     // hairline; then the plot. Rebuilt with the chart on every scrub step,
     // so the change line follows the finger.
-    Widget blockHeader(KuteLineView view) => Column(
+    Widget blockHeader(KuteLineView view, {bool plot = true}) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -358,12 +367,42 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
               SizedBox(height: 14.h),
               marketGroupDivider(context, 0),
               rows,
-              SizedBox(height: 10.h),
-              marketGroupDivider(context, 0),
+              if (plot) ...[
+                SizedBox(height: 10.h),
+                marketGroupDivider(context, 0),
+              ],
             ],
             SizedBox(height: 14.h),
           ],
         );
+
+    // No plot (Active with nothing open in the series picked): the lead
+    // row and the venue rows, the change line written for the range's
+    // opening view as the plot would have.
+    if (block && !widget.plot) {
+      final drawn = buckets.indicesFor(values.length, rangeWindow);
+      final inside = [
+        for (final i in drawn)
+          if (i >= rangeWindow.start - 1e-6 && i <= rangeWindow.end + 1e-6) i
+      ];
+      final shown = inside.isEmpty ? drawn : inside;
+      final view = KuteLineView(
+        first: shown.isEmpty ? 0 : shown.first,
+        last: shown.isEmpty ? values.length - 1 : shown.last,
+        touched: null,
+        window: rangeWindow,
+        isDefault: true,
+      );
+      return Container(
+        key: const ValueKey('statistics-pnl-card'),
+        clipBehavior: Clip.antiAlias,
+        decoration: AppDecorations.card(context),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+          child: blockHeader(view, plot: false),
+        ),
+      );
+    }
 
     final chart = KuteLineChart(
       key: const ValueKey('statistics-pnl-chart'),

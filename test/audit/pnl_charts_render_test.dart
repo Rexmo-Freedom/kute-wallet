@@ -260,7 +260,7 @@ const _pmOrder = Order(
 
 /// The venues' P&L series and, for Predictions, the account's positions:
 /// three live (Kane, Madrid, Lula) and one settled win (F1).
-List<Override> _performance() {
+List<Override> _performance({bool open = true}) {
   final now = DateTime.now().toUtc();
   DateTime ago(int days) => now.subtract(Duration(days: days));
   PortfolioPerformance series(List<(int, double)> points, String source) =>
@@ -318,39 +318,41 @@ List<Override> _performance() {
       conditionId: 'c$i',
       title: 'Closed $i');
   final book = PredictionsBook(records: [
-    record('kane-yes',
-        open: true,
-        size: 4.99,
-        avgPrice: 0.72,
-        price: 0.718,
-        entered: 9,
-        market: 'kane',
-        title: "Will Harry Kane win the 2026 Ballon d'Or?"),
-    record('rm-no',
-        open: true,
-        size: 10,
-        avgPrice: 0.40,
-        price: 0.40,
-        entered: 4,
-        market: 'rm',
-        title: 'Will Real Madrid CF win on 2026-10-25?'),
-    record('lula-yes',
-        open: true,
-        size: 12.5,
-        avgPrice: 0.38,
-        price: 0.3801,
-        entered: 2,
-        market: 'lula',
-        title: 'Will Lula win the 2026 Brazilian presidential election?'),
-    record('f1-v',
-        open: true,
-        redeemable: true,
-        size: 6,
-        avgPrice: 0.55,
-        price: 1,
-        entered: 12,
-        market: 'f1',
-        title: 'Who will finish higher: Verstappen or Hadjar?'),
+    if (open) ...[
+      record('kane-yes',
+          open: true,
+          size: 4.99,
+          avgPrice: 0.72,
+          price: 0.718,
+          entered: 9,
+          market: 'kane',
+          title: "Will Harry Kane win the 2026 Ballon d'Or?"),
+      record('rm-no',
+          open: true,
+          size: 10,
+          avgPrice: 0.40,
+          price: 0.40,
+          entered: 4,
+          market: 'rm',
+          title: 'Will Real Madrid CF win on 2026-10-25?'),
+      record('lula-yes',
+          open: true,
+          size: 12.5,
+          avgPrice: 0.38,
+          price: 0.3801,
+          entered: 2,
+          market: 'lula',
+          title: 'Will Lula win the 2026 Brazilian presidential election?'),
+      record('f1-v',
+          open: true,
+          redeemable: true,
+          size: 6,
+          avgPrice: 0.55,
+          price: 1,
+          entered: 12,
+          market: 'f1',
+          title: 'Who will finish higher: Verstappen or Hadjar?'),
+    ],
     for (var i = 0; i < 11; i++) closed(i),
   ]);
   return [
@@ -361,8 +363,7 @@ List<Override> _performance() {
             'Hyperliquid')),
     portfolioPerformanceProvider(const PortfolioPerformanceRequest(
             venue: PortfolioPerformanceVenue.predictions))
-        .overrideWith((_) async =>
-            series([
+        .overrideWith((_) async => series([
               (28, 0),
               (22, -1.2),
               (17, -3.4),
@@ -408,7 +409,30 @@ List<Override> get _held => [
       ..._performance(),
     ];
 
-Future<void> _mount(WidgetTester tester, bool dark) async {
+/// The Investing account with nothing open.
+class _FlatAccount extends HlAccountNotifier {
+  @override
+  Future<HlAccountSnapshot> build() async => const HlAccountSnapshot(
+      accountValue: 17.21,
+      withdrawable: 17.21,
+      totalMarginUsed: 0,
+      positions: [],
+      spotBalances: []);
+}
+
+/// Nothing open at either venue, nothing resting; the same history.
+List<Override> get _nothingOpen => [
+      ..._held,
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(isInitialized: true))),
+      hyperliquidAccountProvider.overrideWith(_FlatAccount.new),
+      polymarketOpenOrdersProvider
+          .overrideWith((_) => Stream.value(const <Order>[])),
+      ..._performance(open: false),
+    ];
+
+Future<void> _mount(WidgetTester tester, bool dark,
+    {bool nothingOpen = false}) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pumpWidget(ProviderScope(
     overrides: [
@@ -425,7 +449,7 @@ Future<void> _mount(WidgetTester tester, bool dark) async {
       oneBalanceProvider.overrideWith((ref) => _state),
       usdBalanceUnknownProvider.overrideWithValue(false),
       venueSweeperProvider.overrideWith(_Sweeper.new),
-      ..._held,
+      ...(nothingOpen ? _nothingOpen : _held),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -520,6 +544,21 @@ void main() {
             ..addFont(Future.value(ByteData.sublistView(bytes))))
           .load();
     }
+  });
+
+  // Nothing open anywhere (founder, 28 October 2026): Active draws no
+  // chart; Historic does. Light only.
+  testWidgets('nothing open: Active and Historic, light', (tester) async {
+    tester.view.devicePixelRatio = _dpr;
+    tester.view.physicalSize = _size * _dpr;
+    addTearDown(tester.view.reset);
+    await _mount(tester, false, nothingOpen: true);
+    await _png(tester, 'nothing_open_active_light');
+    await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+    await _settle(tester);
+    await _png(tester, 'nothing_open_historic_light');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   // All, Predictions picked (its row tapped), Historic.

@@ -316,6 +316,7 @@ Future<void> _pump(WidgetTester tester,
     Map<String, Set<String>>? tags,
     double textScale = 1,
     Size size = const Size(390, 844),
+    Override? displayAccount,
     Widget? home}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -356,8 +357,9 @@ Future<void> _pump(WidgetTester tester,
         hyperliquidActivityFillsProvider.overrideWithValue(_tradingFills()),
         hyperliquidAccountProvider
             .overrideWith(() => _Account(flat ? _flat() : _positions())),
-        hyperliquidDisplayAccountProvider
-            .overrideWith((ref) => ref.watch(hyperliquidAccountProvider)),
+        displayAccount ??
+            hyperliquidDisplayAccountProvider
+                .overrideWith((ref) => ref.watch(hyperliquidAccountProvider)),
         hyperliquidPerpMarketsProvider.overrideWith((_) async => const []),
         hyperliquidSpotMarketsProvider.overrideWith((_) async => const []),
         // Gamma's tags for the three markets the predictions were on.
@@ -1168,14 +1170,18 @@ void main() {
     });
 
     testWidgets(
-        'the spending account\'s Active with nothing open: the chart, then '
-        'only the compact empty state', (tester) async {
+        'the spending account\'s Active with nothing open: no chart, only '
+        'the lead row and the compact empty state', (tester) async {
       await _pump(tester,
           flat: true,
           scope: StatisticsScope.active,
           home: const PortfolioStatisticsOverview(
               trading: true, predictions: false));
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      // Nothing open to chart (founder, 28 October 2026): no plot, no
+      // axis, no range pills.
+      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.byType(KuteRangePills), findsNothing);
       expect(
           find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
       // The lead row stays (the ring, the chart's figure, the pair); no
@@ -1526,12 +1532,18 @@ void main() {
             bool predictions = true,
             bool reduceMotion = false,
             bool flat = false,
+            bool noOpen = false,
             bool hidden = false,
+            bool settle = true,
+            Override? displayAccount,
             double textScale = 1,
             Size size = const Size(390, 844)}) =>
         _pump(tester,
             predictions: true,
             flat: flat,
+            noOpen: noOpen,
+            settle: settle,
+            displayAccount: displayAccount,
             hidden: hidden,
             scope: StatisticsScope.active,
             reduceMotion: reduceMotion,
@@ -1617,10 +1629,12 @@ void main() {
       await pumpOverview(tester);
       expectOneOfEach(tester);
       final all = headline(tester);
-      Finder pick(String venue) => find.byKey(ValueKey('pnl-venue-$venue-pick'));
+      Finder pick(String venue) =>
+          find.byKey(ValueKey('pnl-venue-$venue-pick'));
       double opacity(String venue) => tester
           .widget<AnimatedOpacity>(find
-              .descendant(of: pick(venue), matching: find.byType(AnimatedOpacity))
+              .descendant(
+                  of: pick(venue), matching: find.byType(AnimatedOpacity))
               .first)
           .opacity;
       Finder selected(String venue, bool on) =>
@@ -1870,10 +1884,13 @@ void main() {
       expect(venueRow('investing'), findsNothing);
       expect(lead, findsOneWidget);
       expect(find.text('No open investments'), findsOneWidget);
+      // Nothing open: no chart on Active.
+      expect(find.byType(KuteLineChart), findsNothing);
       // Only the track: no slice while nothing is at stake.
       expect(_ring(tester).arcs, isEmpty);
       await open(tester, find.byKey(const ValueKey('statistics-historic')));
       expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+      expect(find.byType(KuteLineChart), findsOneWidget);
       expect(venueCount(tester, 'investing'), '3');
       expect(stat(tester, 'investing'), r'$6,210.00');
       expect(tester.takeException(), isNull);
@@ -1900,6 +1917,116 @@ void main() {
           find.byKey(const ValueKey('pnl-venue-investing-stat')), findsNothing);
       expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+
+    // Founder, 28 October 2026: "if on P&L no active predictions maybe
+    // don't show the graph".
+    group('Active with nothing open: no chart', () {
+      final chart = find.byType(KuteLineChart);
+      final ranges = find.byKey(const ValueKey('statistics-pnl-ranges'));
+      final skeleton =
+          find.byKey(const ValueKey('portfolio-performance-loading'));
+
+      testWidgets(
+          'nothing open at either venue: no plot, axis or range pills; the '
+          'lead row and both venue rows stay; Historic charts', (tester) async {
+        await pumpOverview(tester, flat: true, noOpen: true);
+        expect(_chartCard, findsOneWidget);
+        expect(chart, findsNothing);
+        expect(ranges, findsNothing);
+        expect(find.byType(KuteRangePills), findsNothing);
+        expect(find.descendant(of: _chartCard, matching: lead), findsOneWidget);
+        expect(headline(tester), isNotEmpty);
+        // Both rows, each with its quiet line, still pick the series.
+        for (final venue in ['predictions', 'investing']) {
+          expect(
+              tester
+                  .widget<Text>(find.byKey(ValueKey('pnl-venue-$venue-line')))
+                  .data,
+              'No open positions');
+          expect(find.byKey(ValueKey('pnl-venue-$venue-pick')), findsOneWidget);
+        }
+        await open(tester, find.byKey(const ValueKey('statistics-historic')));
+        expect(chart, findsOneWidget);
+        expect(ranges, findsOneWidget);
+        // Back to Active: hidden again.
+        await open(tester, find.byKey(const ValueKey('statistics-active')));
+        expect(chart, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+          'All with one venue open charts All; the venue picked with '
+          'nothing open hides it, picked again (All) it is back',
+          (tester) async {
+        await pumpOverview(tester, flat: true);
+        // Predictions open, Investing not: All is charted.
+        expect(chart, findsOneWidget);
+        expect(ranges, findsOneWidget);
+        await open(
+            tester, find.byKey(const ValueKey('pnl-venue-investing-pick')));
+        expect(chart, findsNothing);
+        expect(ranges, findsNothing);
+        // The rows stay: the other venue is a tap away.
+        expect(find.byKey(const ValueKey('pnl-venue-predictions-pick')),
+            findsOneWidget);
+        await open(
+            tester, find.byKey(const ValueKey('pnl-venue-predictions-pick')));
+        expect(chart, findsOneWidget);
+        await open(
+            tester, find.byKey(const ValueKey('pnl-venue-predictions-pick')));
+        expect(chart, findsOneWidget); // All again
+        // Investing picked on Historic: charted (Historic always is).
+        await open(
+            tester, find.byKey(const ValueKey('pnl-venue-investing-pick')));
+        expect(chart, findsNothing);
+        await open(tester, find.byKey(const ValueKey('statistics-historic')));
+        expect(chart, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+          'the first load: the card\'s skeleton until Investing\'s positions '
+          'answer, never the chart then nothing; a reload keeps the card',
+          (tester) async {
+        final account = StateProvider<AsyncValue<HlAccountSnapshot>>(
+            (_) => const AsyncLoading());
+        await pumpOverview(tester,
+            flat: true,
+            noOpen: true,
+            settle: false,
+            displayAccount: hyperliquidDisplayAccountProvider
+                .overrideWith((ref) => ref.watch(account)));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(skeleton, findsOneWidget);
+          expect(_chartCard, findsNothing);
+          expect(chart, findsNothing);
+        }
+        final c = ProviderScope.containerOf(
+            tester.element(find.byType(PortfolioStatisticsOverview)));
+        c.read(account.notifier).state = AsyncData(_flat());
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(skeleton, findsNothing);
+          expect(_chartCard, findsOneWidget);
+          expect(chart, findsNothing);
+        }
+        // A reload (the last snapshot kept): no skeleton, nothing moves.
+        c.read(account.notifier).state = const AsyncLoading<HlAccountSnapshot>()
+            .copyWithPrevious(AsyncData(_flat()));
+        await tester.pump();
+        expect(skeleton, findsNothing);
+        expect(_chartCard, findsOneWidget);
+        expect(chart, findsNothing);
+        // A read that failed with nothing before it: decided, not loading
+        // for good.
+        c.read(account.notifier).state = AsyncError<HlAccountSnapshot>(
+            Exception('offline'), StackTrace.empty);
+        await tester.pump();
+        expect(skeleton, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
     });
 
     testWidgets('one venue: its row alone, picking nothing', (tester) async {
