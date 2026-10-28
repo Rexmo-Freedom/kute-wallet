@@ -1,9 +1,10 @@
 // A hot Investing ticket short of venue cash funds the order from Dollars:
 // the button is the order when Dollars cover the move (with the Move fee
-// in the fee rows), "Add $X · the order" when they do not (its tap
-// funds X from the spending bitcoin when it covers it, else opens the
-// Investments Receive sheet), and a Ledger ticket is not touched by any of
-// it. "Available" is the whole spendable Investments.
+// in the fee rows), the funding door, still named after the order, when
+// they do not (its tap funds X from the spending bitcoin when it covers
+// it, else opens the Investments Receive sheet), and a Ledger ticket is
+// not touched by any of it. The line under the amount names only the
+// minimum.
 
 import 'dart:async';
 
@@ -66,7 +67,6 @@ import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
 /// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
-final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -431,12 +431,11 @@ void main() {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
     await _typeOnKeypad(tester, '20');
     final button = _button(tester);
-    expect(button.text, startsWith('Add \$'));
-    expect(button.text, _addThenOrder);
+    // Only the order, never the top-up it needs.
     expect(button.onPressed, isNotNull);
     // The $20.24 need plus the engine's safety buffer (2%, ≥ $0.25) lands,
     // so $21.68 has to leave Dollars; $5 are there.
-    expect(button.text, 'Add \$16.68 · Long \$20.00');
+    expect(button.text, 'Long \$20.00');
     expect(_moveFeeRow(tester).usd, closeTo(1.03, 0.011));
 
     await tester.tap(find.byType(AppButton));
@@ -460,7 +459,7 @@ void main() {
     sheet.complete();
     await _frames(tester, 3);
     expect(_button(tester).onPressed, isNotNull);
-    expect(_button(tester).text, 'Add \$16.68 · Long \$20.00');
+    expect(_button(tester).text, r'Long $20.00');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -475,8 +474,8 @@ void main() {
 
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
-    // Nothing typed: the order's short name; the tap tops up first.
-    expect(door.text, 'Long BTC');
+    // Nothing typed: the minimum order; the tap tops up first.
+    expect(door.text, 'Long minimum on BTC');
     expect(door.onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -522,19 +521,19 @@ void main() {
     await _frames(tester, 10);
     expect(gate.checks, 0);
     expect(find.text(r'$10.26'), findsOneWidget);
-    expect(_button(tester).text, _addThenOrder);
+    expect(_button(tester).text, r'Long $10.26');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets(
       'nothing typed, venue cash under the minimum and no Dollars: '
-      '"Add \$X · the order" from the start, the one action',
+      'the minimum order from the start, the one action',
       (tester) async {
     await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
     final door = _button(tester);
-    // Nothing typed: the one action is the order's short name, no
-    // amounts; its tap still tops up and places the minimum.
-    expect(door.text, 'Long BTC');
+    // Nothing typed: the one action is the minimum order, no amounts;
+    // its tap still tops up and places the minimum.
+    expect(door.text, 'Long minimum on BTC');
     expect(door.onPressed, isNotNull);
     expect(find.byType(AppButton), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
@@ -545,14 +544,14 @@ void main() {
     final mode = dark ? 'dark' : 'light';
     // The bet slip letters its button the same way (see
     // bet_slip_deposit_door_loading_test): on the sheet's white ink the
-    // trade and the "Add $X · …" door are both lettered dark, never in
+    // trade and the funding door are both lettered dark, never in
     // the side colour (founder decision).
     testWidgets('$mode: the door contrasts with its fill, the order is '
         'dark too', (tester) async {
       await _pumpSlip(tester,
           venueUsd: 0, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, _addThenOrder);
+      expect(_button(tester).text, r'Long $20.00');
       expect(_buttonLabelColor(tester), Colors.black);
       expect(
           _buttonLabelColor(tester),
@@ -838,7 +837,7 @@ void main() {
                 message: 'Order rejected.')
           ]);
       // Nothing typed: the minimum order, again.
-      expect(_button(tester).text, 'Try again · Long BTC');
+      expect(_button(tester).text, 'Try again · Long minimum on BTC');
       expect(_button(tester).onPressed, isNotNull);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       expect(rail.deposits, isEmpty);
@@ -958,7 +957,7 @@ void main() {
       debugFreshSpendingBitcoin = () => fresh.future;
       await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, 'Add \$16.68 · Long \$20.00');
+      expect(_button(tester).text, r'Long $20.00');
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
@@ -1002,13 +1001,11 @@ void main() {
   });
 
   testWidgets(
-      'Available is the whole spendable Investments, and Max fills an order '
-      'the ticket funds itself', (tester) async {
-    // $0.49 of Investing cash and $8.10 in Dollars (the founder's case:
-    // the ticket read "Available $0.49").
+      'the line names only the minimum, and Max fills an order the ticket '
+      'funds itself', (tester) async {
+    // $0.49 of Investing cash and $8.10 in Dollars.
     await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 8.10, rail: rail);
-    expect(find.textContaining(r'Available $8.59'), findsOneWidget);
-    expect(find.textContaining(r'Available $0.49'), findsNothing);
+    expect(find.textContaining('Available'), findsNothing);
     // The minimum stays on the line.
     expect(find.textContaining('Minimum'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -1017,7 +1014,6 @@ void main() {
     // the $0.49 here that the move from Dollars covers, so the button is
     // the order, never "Add".
     await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 30, rail: rail);
-    expect(find.textContaining(r'Available $30.49'), findsOneWidget);
     await tester.tap(find.text('Max'));
     await _frames(tester, 15);
     final button = _button(tester);

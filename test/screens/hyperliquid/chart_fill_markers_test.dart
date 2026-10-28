@@ -391,9 +391,13 @@ void main() {
     final entries = [
       HlFillTooltipEntry(
         identity: 't1',
-        title: 'Bought 0.5 BTC at \$104.00',
-        detail: 'Open Long · \$52.00 · 14 Nov, 22:16',
+        isBuy: true,
+        title: 'Bought 0.5 BTC',
+        detail: 'Open Long · 14 Nov, 22:16',
+        value: '\$104.00',
+        subValue: '\$52.00',
         color: AppColors.marketUp,
+        textColor: Colors.white,
         detailColor: Colors.grey,
       ),
     ];
@@ -461,10 +465,14 @@ void main() {
     expect(tip, isNotNull);
     expect(tip!.entries, hasLength(1));
     final entry = tip.entries.single;
-    expect(entry.title, 'Bought 0.5 BTC at \$104.00');
+    expect(entry.title, 'Bought 0.5 BTC');
     final when = DateFormat('d MMM, HH:mm')
         .format(DateTime.fromMillisecondsSinceEpoch(_fills[0].time));
-    expect(entry.detail, 'Open Long · \$52.00 · $when');
+    expect(entry.detail, 'Open Long · $when');
+    // The price, and what the fill was worth, on the right.
+    expect(entry.value, '\$104.00');
+    expect(entry.subValue, '\$52.00');
+    expect(entry.isBuy, isTrue);
     expect(entry.color, AppColors.marketUp);
     // A tap never starts a scrub: the crosshair stays idle.
     expect(
@@ -483,8 +491,11 @@ void main() {
     await tester.tapAt(origin + _marker(tester, 't2').center);
     await tester.pump();
     final entry = _tooltip(tester)!.entries.single;
-    expect(entry.title, 'Sold 0.25 BTC at \$108.00');
-    expect(entry.detail, startsWith('Close Long · \$27.00 · '));
+    expect(entry.title, 'Sold 0.25 BTC');
+    expect(entry.detail, startsWith('Close Long · '));
+    expect(entry.value, '\$108.00');
+    expect(entry.subValue, '\$27.00');
+    expect(entry.isBuy, isFalse);
     expect(entry.color, AppColors.marketDown);
     await _settle(tester);
   });
@@ -496,10 +507,10 @@ void main() {
     await tester.tapAt(origin + _marker(tester, 't4').center);
     await tester.pump();
     final tip = _tooltip(tester)!;
-    expect(tip.entries.map((e) => e.title),
-        ['Bought 1 BTC at \$105.50', 'Sold 1 BTC at \$106.00']);
-    // No direction label on these: notional and time only.
-    expect(tip.entries.first.detail, startsWith('\$105.50 · '));
+    expect(tip.entries.map((e) => e.title), ['Bought 1 BTC', 'Sold 1 BTC']);
+    expect(tip.entries.map((e) => e.value), ['\$105.50', '\$106.00']);
+    // No direction label on these: the time only.
+    expect(tip.entries.first.detail, isNot(contains(' · ')));
     await _settle(tester);
   });
 
@@ -566,7 +577,7 @@ void main() {
     final tip = _tooltip(tester);
     expect(tip, isNotNull);
     expect(tip!.isDark, isTrue);
-    expect(tip.entries.single.title, 'Bought 0.5 BTC at \$104.00');
+    expect(tip.entries.single.title, 'Bought 0.5 BTC');
     await _settle(tester);
   });
 
@@ -576,7 +587,7 @@ void main() {
     final origin = tester.getRect(_surface).topLeft;
     await tester.tapAt(origin + _marker(tester, 't2').center);
     await tester.pump();
-    expect(_tooltip(tester)?.entries.single.title, 'Sold 0.25 BTC at \$108.00');
+    expect(_tooltip(tester)?.entries.single.title, 'Sold 0.25 BTC');
     await _settle(tester);
   });
 }

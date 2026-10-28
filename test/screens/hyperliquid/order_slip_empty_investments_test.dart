@@ -383,7 +383,7 @@ void main() {
       'minimum order in place under ONE approval, no sheet', (tester) async {
     await _pumpSlip(tester, rail);
     // Nothing typed: the order's short name; the tap adds, then places.
-    expect(_button(tester).text, 'Long BTC');
+    expect(_button(tester).text, 'Long minimum on BTC');
 
     await tester.tap(find.byType(AppButton));
     await _frames(tester, 20);
