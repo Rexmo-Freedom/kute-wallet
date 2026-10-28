@@ -6051,8 +6051,8 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     if (keypad) {
       // The whole wallet a buy draws on (Dollars, both venues' cash and
       // what the spending Bitcoin lands); a spot sell says what is held,
-      // the most it can sell. It sits under Max and Advanced; the minimum
-      // under the figure.
+      // the most it can sell. One row under the figure: the minimum at the
+      // left, this at the right.
       final compactAvailLabel = isSpot && !_isLong
           ? availLabel
           : !balanceKnown
@@ -6081,7 +6081,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         amountText: _amountController.text,
         conversionLabel:
             _marginUsd > 0 ? _denomLine(_denomEquivalent(_marginUsd)) : null,
-        // Under Max and Advanced, in their column.
+        // At the right of the minimum's row.
         trailingCaption: compactAvailLabel,
         minimumOnOwnLine: true,
         // The minimum until an amount is typed, then just the figure; it

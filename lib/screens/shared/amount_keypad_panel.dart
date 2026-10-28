@@ -147,8 +147,9 @@ class BigAmountDisplay extends StatelessWidget {
   /// currency selector pill).
   final Widget? trailing;
 
-  /// One quiet line under [trailing], right-aligned in its column (the
-  /// bet and order slips' balance under Max and Advanced).
+  /// A quiet figure at the right end of the minimum's row (the bet and
+  /// order slips' balance), with [minimumLabel] at its left when
+  /// [minimumOnOwnLine].
   final String? trailingCaption;
 
   /// Unit control rendered CENTRED under the figure, the arrangement the
@@ -237,28 +238,7 @@ class BigAmountDisplay extends StatelessWidget {
             ),
             if (trailing != null) ...[
               SizedBox(width: 10.w),
-              if (trailingCaption == null)
-                trailing!
-              else
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    trailing!,
-                    SizedBox(height: tight ? 4.h : 6.h),
-                    Text(
-                      trailingCaption!,
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: c.textSecondary,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+              trailing!,
             ],
           ],
         ),
@@ -306,21 +286,51 @@ class BigAmountDisplay extends StatelessWidget {
             ),
           ),
         ],
-        if (minimumOnOwnLine && minimumLabel != null) ...[
+        if (minimumOnOwnLine &&
+            (minimumLabel != null || trailingCaption != null)) ...[
           SizedBox(height: tight ? 2.h : 4.h),
-          Text.rich(
-            TextSpan(children: [
-              TextSpan(
-                text: minimumLabel,
-                style: minimumIsError ? TextStyle(color: c.error) : null,
+          // The minimum at the left, [trailingCaption] at the right, one
+          // row.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: minimumLabel == null
+                    ? const SizedBox.shrink()
+                    : Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                            text: minimumLabel,
+                            style: minimumIsError
+                                ? TextStyle(color: c.error)
+                                : null,
+                          ),
+                        ]),
+                        textAlign: align,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
-            ]),
-            textAlign: align,
-            style: TextStyle(
-              color: c.textSecondary,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w600,
-            ),
+              if (trailingCaption != null) ...[
+                SizedBox(width: 10.w),
+                Text(
+                  trailingCaption!,
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
         if (noteLabel != null) ...[
