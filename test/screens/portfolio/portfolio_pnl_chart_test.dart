@@ -11,6 +11,8 @@ import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
+import 'package:kute/screens/shared/charts/kute_chart_core.dart'
+    show kuteMonotonePath;
 import 'package:kute/screens/shared/charts/kute_chart_crosshair.dart';
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_chart_time_axis.dart';
@@ -23,10 +25,12 @@ import 'package:kute/theme/app_theme.dart';
 /// The P&L chart leading the Portfolio ("P&L charts"), restyled as the
 /// Balance charts were: a range row under the plot (1M to start,
 /// remembered for the session), the closing P&L per bucket ending on the
-/// P&L now, no scale or gridlines, a dotted baseline at zero with the
-/// fill green above it and red below, the neutral line colour, a quiet
-/// change line above the plot (never a percent), the scrubbed P&L written
-/// there, a calm empty state, and the Balance charts' pinch.
+/// P&L now drawn as straight segments, no scale or gridlines, a solid
+/// hairline at zero, the line, its one soft fade and its solid end dot in
+/// the range's result colour, a quiet change line (never a percent), the
+/// scrubbed P&L written there, a calm empty state, the Balance charts'
+/// pinch, and the spending account's one block (the ring row, the rows,
+/// the plot).
 void main() {
   // Inter loaded before any layout here (see loadAppFonts): its figures
   // change colour alone, which a font landing mid-test turns into
@@ -297,20 +301,32 @@ void main() {
     });
 
     testWidgets(
-        'the look: neutral line, no scale, a dotted baseline at zero '
-        'kept on the scale, fill green above and red below', (tester) async {
+        'the look: straight segments in the result colour, one soft fade '
+        'under the line, a solid hairline at zero kept on the scale, a '
+        'solid end dot, no scale', (tester) async {
       await pump(tester, upMonth());
       final c = chart(tester);
-      expect(c.lineColor, AppColorsExtension.light().accent);
+      // Up over the month: the up colour, never the neutral chart colour.
+      expect(c.lineColor, AppColors.marketUp);
+      expect(c.straight, isTrue);
+      expect(c.stepped, isFalse);
+      expect(c.filledEndpoint, isTrue);
       expect(c.showScale, isFalse);
       expect(c.scaleLabel, isNull);
-      expect(c.stepped, isFalse);
       expect(c.startBaseline, isFalse);
       expect(c.baselineAt, 0);
+      expect(c.solidBaseline, isTrue);
       expect(c.showFill, isTrue);
-      expect(c.fillAboveColor, AppColors.marketUp);
-      expect(c.fillBelowColor, AppColors.marketDown);
+      // One fade in the line's colour, not a two-colour fill.
+      expect(c.fillAboveColor, isNull);
+      expect(c.fillBelowColor, isNull);
       final p = painter(tester);
+      expect(p.straight, isTrue);
+      expect(p.solidBaseline, isTrue);
+      expect(p.filledEndpoint, isTrue);
+      expect(p.lineColor, AppColors.marketUp);
+      expect(p.fillAbove, isNull);
+      expect(p.fillBelow, isNull);
       expect(p.baseline, 0);
       expect(p.includeBaseline, isTrue);
       expect(p.showScale, isFalse);
@@ -323,17 +339,50 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('the fill is drawn green above zero and red below',
+    test('straight segments: through the points and nothing else', () {
+      // A flat stretch, a jump, a flat stretch: a curve through these
+      // would swing above the top and below the bottom.
+      const pts = [
+        Offset(0, 80),
+        Offset(40, 80),
+        Offset(50, 10),
+        Offset(90, 10),
+        Offset(100, 60),
+      ];
+      final path = kuteStraightPath(pts);
+      // Never past the box the points span: no high or low invented.
+      final b = path.getBounds();
+      expect(b.top, 10);
+      expect(b.bottom, 80);
+      expect(b.left, 0);
+      expect(b.right, 100);
+      // Its length is the straight segments' and nothing more.
+      var expected = 0.0;
+      for (var i = 1; i < pts.length; i++) {
+        expected += (pts[i] - pts[i - 1]).distance;
+      }
+      final length = path
+          .computeMetrics()
+          .fold<double>(0, (sum, m) => sum + m.length);
+      expect(length, closeTo(expected, 0.01));
+      // The monotone curve the chart drew before is longer: it bends.
+      final curve = kuteMonotonePath(pts)
+          .computeMetrics()
+          .fold<double>(0, (sum, m) => sum + m.length);
+      expect(curve, greaterThan(expected + 0.5));
+    });
+
+    testWidgets(
+        'the result colour: red when the range fell, green when it rose, '
+        'the neutral grey when flat; the fade under the line in it',
         (tester) async {
+      // Down over the month (30 to −6.38).
       await pump(tester, upThenDown());
-      // The 3M window: the line above zero, then below it.
-      await tester.tap(find.text('3M'));
-      await tester.pump(const Duration(milliseconds: 300));
+      expect(chart(tester).lineColor, AppColors.marketDown);
       final p = painter(tester);
       final values = chart(tester).values;
       final w = window(tester);
       final indices = p.indices as List<int>;
-      final drawn = indices.where((i) => i >= w.start && i <= w.end).toList();
       final boundary = tester.renderObject<RenderRepaintBoundary>(find
           .descendant(
               of: find.byType(KuteLineChart),
@@ -348,30 +397,105 @@ void main() {
         return data!;
       }))!;
       final width = size.width.round();
-      (int, int, int) pixel(double x, double y) {
-        final o = (y.round() * width + x.round()) * 4;
-        return (
-          bytes.getUint8(o),
-          bytes.getUint8(o + 1),
-          bytes.getUint8(o + 3)
-        );
-      }
+      // Under the line, half way to the bottom of the plot, where the line
+      // is above zero: the fade is red there too (one colour, not green
+      // above zero).
+      final i = indices.firstWhere(
+          (i) => i >= w.start && i <= w.end && values[i] > 10);
+      final x = w.xOf(i.toDouble(), size.width);
+      final yLine = kuteLineY(values[i], size.height, d);
+      final o = (((yLine + size.height) / 2).round() * width + x.round()) * 4;
+      expect(bytes.getUint8(o + 3), greaterThan(0), reason: 'faded');
+      expect(bytes.getUint8(o), greaterThan(bytes.getUint8(o + 1)),
+          reason: 'red under the line');
+      await settle(tester);
 
-      final y0 = kuteLineY(0, size.height, d);
-      for (final positive in [true, false]) {
-        final i = positive
-            ? drawn.firstWhere((i) => values[i] > 30)
-            : drawn.firstWhere((i) => values[i] < -20);
-        final x = w.xOf(i.toDouble(), size.width);
-        final yLine = kuteLineY(values[i], size.height, d);
-        final (r, g, a) = pixel(x, (yLine + y0) / 2);
-        expect(a, greaterThan(0), reason: 'filled ($positive)');
-        if (positive) {
-          expect(g, greaterThan(r), reason: 'green above zero');
-        } else {
-          expect(r, greaterThan(g), reason: 'red below zero');
-        }
-      }
+      // Up over the month.
+      await pump(tester, upMonth());
+      expect(chart(tester).lineColor, AppColors.marketUp);
+      await settle(tester);
+
+      // Flat over the month (8 since two months ago).
+      await pump(
+          tester,
+          perf([
+            (const Duration(days: 120), 5),
+            (const Duration(days: 60), 8),
+          ]));
+      expect(chart(tester).lineColor, AppColorsExtension.light().textTertiary);
+      expect(pnlResultColor(AppColorsExtension.light(), 0),
+          AppColorsExtension.light().textTertiary);
+      expect(pnlResultColor(AppColorsExtension.light(), -0.01),
+          AppColors.marketDown);
+      expect(pnlResultColor(AppColorsExtension.light(), 0.01),
+          AppColors.marketUp);
+      await settle(tester);
+    });
+
+    testWidgets(
+        'the one block: the ring, then the caption, figure and change line '
+        'beside it, the pair at the end, the rows between, then the plot',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          settingsProvider.overrideWith((_) => SettingsModel(settings())),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildLightTheme(),
+            home: Scaffold(
+              body: ListView(children: [
+                PortfolioPnlChart(
+                  venue: null,
+                  data: upThenDown(),
+                  now: now,
+                  leading: const SizedBox(
+                      key: ValueKey('ring'), width: 50, height: 50),
+                  trailing: const SizedBox(
+                      key: ValueKey('pair'), width: 100, height: 30),
+                  middle: const SizedBox(
+                      key: ValueKey('rows'), width: 10, height: 120),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 400));
+      Rect at(String key) => tester.getRect(find.byKey(ValueKey(key)));
+      final ring = at('ring');
+      final pair = at('pair');
+      final rows = at('rows');
+      final figure = at('statistics-pnl-headline');
+      final line = at('statistics-pnl-header');
+      final plot = tester.getRect(find.byType(KuteLineChart));
+      // One row: the ring, the figure and its change line, the pair.
+      expect(figure.left, greaterThan(ring.right));
+      expect(line.left, greaterThan(ring.right));
+      expect(line.top, greaterThan(figure.bottom - 1));
+      expect(pair.left, greaterThan(figure.right));
+      expect(find.text('Profit and loss'), findsOneWidget);
+      // The rows under it, the plot under them, the ranges under that.
+      expect(rows.top, greaterThan(line.bottom));
+      final plotTop = tester
+          .getRect(find
+              .descendant(
+                  of: find.byType(KuteLineChart),
+                  matching: find.byType(RepaintBoundary))
+              .first)
+          .top;
+      expect(plotTop, greaterThan(rows.bottom));
+      expect(tester.getTopLeft(find.byType(KuteRangePills)).dy,
+          greaterThan(plot.bottom - 1));
+      // The plot keeps its height under the rows.
+      expect(plot.bottom - plotTop, greaterThan(150));
       await settle(tester);
     });
 
@@ -519,7 +643,7 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets('another series (the toggle) opens afresh on the range',
+    testWidgets('another series (a venue row picked) opens afresh on the range',
         (tester) async {
       await pump(tester, upThenDown(), eventVenue: 'all');
       final before = window(tester);

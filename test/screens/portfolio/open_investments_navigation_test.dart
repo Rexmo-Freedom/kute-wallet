@@ -612,7 +612,8 @@ void main() {
     });
 
     testWidgets(
-        'one P&L chart whose toggle switches the series, headline and change',
+        'one P&L chart whose venue rows switch the series, headline and '
+        'change',
         (tester) async {
       final events = _events();
       await _pump(tester,
@@ -631,11 +632,14 @@ void main() {
       // All: the venues added on the moments either published,
       // Investing's 15 and Predictions' 4.
       expect(headline(), r'+$19.00');
-      for (final venue in ['all', 'hyperliquid', 'polymarket']) {
+      // No All · Investing · Predictions control: the venue rows in the
+      // card pick the series.
+      expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
+      for (final venue in ['investing', 'predictions']) {
         expect(
             find.descendant(
                 of: find.byType(PortfolioPnlChart),
-                matching: find.byKey(ValueKey('statistics-venue-$venue'))),
+                matching: find.byKey(ValueKey('pnl-venue-$venue-pick'))),
             findsOneWidget);
       }
       // No Earn, ever.
@@ -645,10 +649,10 @@ void main() {
           tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last;
       expect(lineEnd(), 19);
       await tester
-          .tap(find.byKey(const ValueKey('statistics-venue-polymarket')));
+          .tap(find.byKey(const ValueKey('pnl-venue-predictions-pick')));
       await tester.pumpAndSettle();
       expect(headline(), r'+$4.00');
-      // The toggle still filters the line: Predictions' alone.
+      // The row filters the line: Predictions' alone.
       expect(lineEnd(), 4);
       expect(events.last.$1, 'portfolio_statistics_venue_toggled');
       expect(events.last.$2, {'venue': 'polymarket'});
@@ -694,8 +698,10 @@ void main() {
           r'+$15.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
-      // The scrub event names the one venue charted.
-      await tester.longPress(find.byType(KuteLineChart));
+      // The scrub event names the one venue charted (a press on the plot).
+      await tester.longPress(find.byWidgetPredicate((w) =>
+          w is CustomPaint &&
+          w.painter.runtimeType.toString() == '_KuteLinePainter'));
       await tester.pumpAndSettle();
       expect(
           events

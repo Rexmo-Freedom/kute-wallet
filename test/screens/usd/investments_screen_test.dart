@@ -688,11 +688,11 @@ void main() {
   });
 
   testWidgets(
-      'P&L charts lists each venue\'s resting orders under its row, '
-      'Predictions then Investing, with no Orders heading and no count; one '
-      'quiet Cancel all after the last venue\'s; a row\'s Cancel runs the '
-      'venue\'s cancel; Balances lists none; the switch is reported with '
-      'sub: charts', (tester) async {
+      'P&L charts lists the resting orders under the one block, each '
+      'venue\'s under its small heading, Predictions then Investing, with no '
+      'Orders title and no count; one quiet Cancel all after the last; a '
+      'row\'s Cancel runs the venue\'s cancel; Balances lists none; the '
+      'switch is reported with sub: charts', (tester) async {
     final events = recordEvents();
     final cancelled = <String>[];
     await pumpInvestments(tester, overrides: [
@@ -731,11 +731,38 @@ void main() {
         find.text(l10n.portfolioTabOrders, skipOffstage: false), findsNothing);
     expect(find.byType(AppButton, skipOffstage: false),
         findsNWidgets(2)); // the rows' own Cancel buttons
-    // Each venue's order under its row: the Predictions order under
-    // Predictions, the Investing order under Investing, in that order.
+    // Each venue's order under its small heading, under the block (the
+    // card with the venue rows and the chart), never inside it: the
+    // Predictions order first, then the Investing order.
     final predictions =
         find.byKey(const ValueKey('pnl-venue-predictions-orders'));
     final investing = find.byKey(const ValueKey('pnl-venue-investing-orders'));
+    final card = find.byKey(const ValueKey('statistics-pnl-card'));
+    expect(
+        find.descendant(
+            of: card,
+            matching: find.byKey(const ValueKey('pnl-venue-predictions'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: card,
+            matching: find.byType(PolyOrderRow, skipOffstage: false)),
+        findsNothing);
+    expect(
+        find.descendant(
+            of: card, matching: find.byType(HlOrderRow, skipOffstage: false)),
+        findsNothing);
+    for (final (venue, name) in [
+      ('predictions', l10n.predictions),
+      ('investing', l10n.trading)
+    ]) {
+      expect(
+          tester
+              .widget<Text>(find.byKey(ValueKey('pnl-orders-heading-$venue'),
+                  skipOffstage: false))
+              .data,
+          name);
+    }
     final scrollable = find
         .descendant(
             of: find.byType(CustomScrollView),
@@ -747,6 +774,8 @@ void main() {
     expect(
         find.descendant(of: predictions, matching: find.byType(PolyOrderRow)),
         findsOneWidget);
+    expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
+        greaterThan(tester.getBottomLeft(card).dy));
     expect(find.descendant(of: predictions, matching: find.byType(HlOrderRow)),
         findsNothing);
     await tester.scrollUntilVisible(find.byType(HlOrderRow), 200,
