@@ -28,7 +28,10 @@ import 'package:kute/providers/one_balance_live_provider.dart'
     show OneBalanceLiveMarks;
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show PolymarketPosition, polymarketActivePositionsProvider;
+    show
+        PolymarketPosition,
+        polymarketActivePositionsProvider,
+        polymarketClaimablePositionsProvider;
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -1812,9 +1815,10 @@ void main() {
     });
 
     testWidgets(
-        "the founder's wallet: the bare ring, Available to invest next to "
-        'it, Move money at the row\'s end, no repeated total, then each '
-        'venue', (tester) async {
+        "the founder's wallet: the small bare ring, Available to invest "
+        'next to it with its amount at the line\'s end, Move money under it '
+        'where the label starts, no repeated total, then each venue',
+        (tester) async {
       final c = await _pump(tester,
           home: overviewBreakdown, overrides: [twoPredictions]);
       c.read(_balance.notifier).state = founder;
@@ -1826,7 +1830,9 @@ void main() {
       // carries the total), no legend, no percentages.
       final ring =
           tester.getRect(find.byKey(const ValueKey('portfolio-balance-ring')));
-      expect(ring.width, lessThanOrEqualTo(64));
+      // Lighter (founder, 28 October 2026): about 40.
+      expect(kBalancesRingDiameter, 40);
+      expect(ring.width, lessThanOrEqualTo(42));
       expect(
           find.descendant(
               of: find.byKey(const ValueKey('portfolio-balance-ring')),
@@ -1845,8 +1851,8 @@ void main() {
       expect(find.textContaining('%'), findsNothing);
 
       // Available to invest ("Buying power" until 27 October 2026) next to
-      // the ring: its title the venues' size, its amount under the label at
-      // the venue headers' amount size (not a big figure), the chevron
+      // the ring: its title the venues' size, its amount at the line's end
+      // at the venue headers' amount size (not a big figure), the chevron
       // after the amount.
       expect(find.text('Available to invest'), findsOneWidget);
       expect(find.text('Buying power'), findsNothing);
@@ -1872,10 +1878,9 @@ void main() {
       final label = tester.getRect(find.text('Available to invest'));
       final amount = tester.getRect(bpAmount);
       expect(label.left, greaterThan(ring.right));
-      expect(amount.top, greaterThanOrEqualTo(label.bottom - 0.5));
-      expect(amount.left, moreOrLessEquals(label.left, epsilon: 0.5));
-      expect(label.top, greaterThanOrEqualTo(ring.top - 0.5));
-      expect(amount.bottom, lessThanOrEqualTo(ring.bottom + 0.5));
+      // One line: the amount at its end, level with the label.
+      expect(amount.left, greaterThan(label.right));
+      expect(amount.center.dy, moreOrLessEquals(label.center.dy, epsilon: 2));
       final chevron = find.descendant(
           of: find
               .byKey(const ValueKey('portfolio-balance-category-buyingPower')),
@@ -1906,14 +1911,16 @@ void main() {
       expect(tester.widget<KutePill>(_rebalance).size, KutePillSize.large);
       expect(find.byType(AppButton), findsNothing);
       expect(find.text('Add money'), findsNothing);
-      // At the row's end, where the amount used to be (founder, 27 October
-      // 2026), level with the ring.
+      // Under the line, starting where the label does (founder, 28
+      // October 2026); the chevron stays at the line's end.
       final move = tester.getRect(_rebalance);
       final overview = tester
           .getRect(find.byKey(const ValueKey('portfolio-balance-overview')));
-      expect(move.left, greaterThan(label.right - 0.5));
-      expect(move.right, moreOrLessEquals(overview.right, epsilon: 0.5));
-      expect(move.center.dy, moreOrLessEquals(ring.center.dy, epsilon: 1));
+      expect(move.top, greaterThanOrEqualTo(label.bottom - 0.5));
+      expect(move.left, moreOrLessEquals(label.left, epsilon: 0.5));
+      expect(move.right, lessThan(overview.right));
+      expect(tester.getRect(chevron).right,
+          moreOrLessEquals(overview.right, epsilon: 0.5));
       // No hairline between the top and the venues, or between the venues.
       expect(
           find.descendant(
@@ -2146,6 +2153,119 @@ void main() {
               .single
               .$2,
           {'product': 'trading'});
+    });
+
+    testWidgets(
+        'a venue lists its 3 largest open positions, the same rows, then a '
+        'quiet "See all  N" (settled ones counted) that opens the rest in '
+        'place, settled last, and "Show less" folds them back', (tester) async {
+      final events = _events();
+      PolymarketPosition open(String token, double size) => PolymarketPosition(
+          marketId: 'm-$token',
+          marketQuestion: 'Q $token',
+          outcome: 'Yes',
+          size: size,
+          avgPrice: 0.5,
+          currentPrice: 0.5,
+          pnl: 0,
+          pnlPercent: 0,
+          isResolved: false,
+          tokenId: token);
+      const settled = PolymarketPosition(
+          marketId: 'm-won',
+          marketQuestion: 'Q won',
+          outcome: 'Yes',
+          size: 40,
+          avgPrice: 0.5,
+          currentPrice: 1,
+          pnl: 20,
+          pnlPercent: 100,
+          isResolved: true,
+          won: true,
+          tokenId: 'won');
+      final c = await _pump(tester,
+          home: listedBreakdown,
+          size: const Size(400, 1600),
+          overrides: [
+            // Worth 1, 5, 3, 4 and 2: listed 5, 4, 3 folded.
+            polymarketActivePositionsProvider.overrideWith((_) => [
+                  open('a', 2),
+                  open('b', 10),
+                  open('c', 6),
+                  open('d', 8),
+                  open('e', 4),
+                ]),
+            polymarketClaimablePositionsProvider
+                .overrideWith((_) => const [settled]),
+          ]);
+      c.read(_balance.notifier).state = const OneBalanceState(
+        investedUsd: 55,
+        investedByVenue: {OneBalanceVenue.predictions: 55},
+        investingKnown: true,
+        predictionsKnown: true,
+        venueCash: {OneBalanceVenue.investing: 17.21},
+      );
+      await tester.pumpAndSettle();
+
+      final card =
+          find.byKey(const ValueKey('portfolio-balance-predictions-positions'));
+      List<String> tokens() => [
+            for (final row in tester.widgetList<PolyPositionRow>(find
+                .descendant(of: card, matching: find.byType(PolyPositionRow))))
+              row.position.tokenId!
+          ];
+      final fold =
+          find.byKey(const ValueKey('portfolio-balance-predictions-see-all'));
+
+      // Folded: the 3 largest open rows, the settled one held back.
+      expect(tokens(), ['b', 'd', 'c']);
+      expect(find.descendant(of: card, matching: fold), findsOneWidget);
+      expect(find.descendant(of: fold, matching: find.text('See all')),
+          findsOneWidget);
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: fold,
+                  matching: find.byKey(
+                      const ValueKey('portfolio-balance-see-all-count'))))
+              .data,
+          '6');
+      // Under the last row, past the card's inset hairline, its text where
+      // the rows' titles start.
+      final rows =
+          find.descendant(of: card, matching: find.byType(PolyPositionRow));
+      expect(tester.getRect(fold).top,
+          greaterThanOrEqualTo(tester.getRect(rows.last).bottom));
+      expect(find.descendant(of: card, matching: find.byType(Divider)),
+          findsNWidgets(3));
+      // Investing has nothing to fold.
+      expect(find.byKey(const ValueKey('portfolio-balance-investing-see-all')),
+          findsNothing);
+
+      // Opened in place: every open row, then the settled one; Show less.
+      await tester.tap(fold);
+      await tester.pumpAndSettle();
+      expect(tokens(), ['b', 'd', 'c', 'e', 'a', 'won']);
+      expect(find.descendant(of: fold, matching: find.text('Show less')),
+          findsOneWidget);
+      expect(find.descendant(of: fold, matching: find.text('See all')),
+          findsNothing);
+      expect(tester.getRect(fold).top,
+          greaterThanOrEqualTo(tester.getRect(rows.last).bottom));
+
+      // Folded back.
+      await tester.tap(fold);
+      await tester.pumpAndSettle();
+      expect(tokens(), ['b', 'd', 'c']);
+      expect(
+          events
+              .where((e) => e.$1 == 'portfolio_venue_positions_expanded')
+              .map((e) => e.$2),
+          [
+            {'venue': 'predictions', 'open': true},
+            {'venue': 'predictions', 'open': false},
+          ]);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(

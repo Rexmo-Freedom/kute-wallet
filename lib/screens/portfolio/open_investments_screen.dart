@@ -23,11 +23,10 @@
 //     Balances and Activity are the Portfolio pill's sections now): the
 //     app bar with its back over one scrolling page — the balance
 //     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
-//     Dollars, Investing and Predictions cash), the one P&L chart with its
-//     All · Investing · Predictions toggle, then the Balances frame
-//     around the figures: the ring, Open P&L with the Active | Historic
-//     pair, each venue's row with its figures and its resting orders
-//     under it (PortfolioStatisticsOverview, the orders from
+//     Dollars, Investing and Predictions cash), the P&L charts' one card
+//     (the realised P&L, the chart and its ranges, one line per venue
+//     that picks the series) with the resting orders under it
+//     (PortfolioStatisticsOverview, the orders from
 //     PortfolioOrdersBook), then Positions (the Positions pill's rows,
 //     when anything is held), then
 //     the Activity, the one merged list (portfolio_activity.dart), its
@@ -381,10 +380,12 @@ List<Widget> portfolioPositionsSlivers(
 /// (founder decision 27 October 2026: the Positions pill is gone, its rows
 /// live under their venue): under Predictions the bets on their way, the
 /// open positions and combos largest first, then the settled ones in their
-/// own row style; under Investing the perps and spot holdings largest
-/// first. Each with the venue's P&L beside its value and shimmer rows
-/// while it is still read with nothing listed. The rows, taps and sheets
-/// are the Positions list's own.
+/// own row style ([BalancesVenueList.settled]: the card lists them only
+/// once its "See all" opens it, founder 28 October 2026); under Investing
+/// the perps and spot holdings largest first. Each with the venue's P&L
+/// beside its value and shimmer rows while it is still read with nothing
+/// listed. The rows, taps and sheets are the Positions list's own; the
+/// card shows the first three (components/balances_overview.dart).
 Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
     BuildContext context, WidgetRef ref, PortfolioVenues venues) {
   List<Widget> ranked(List<(double, Widget)> cards) {
@@ -407,6 +408,9 @@ Map<BalancesCategory, BalancesVenueList> portfolioVenueLists(
             for (final p in book.placing)
               PlacingBetRow(key: ValueKey('placing-${p.placementId}'), bet: p),
             ...ranked(book.openCards()),
+          ],
+          // Settled: listed once the venue's "See all" opens its card.
+          settled: [
             for (final p in book.claimable)
               PolyPositionRow(
                   key: ValueKey('poly-r-${p.tokenId}'), position: p),

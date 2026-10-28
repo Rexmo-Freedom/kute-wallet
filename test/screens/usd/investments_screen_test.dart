@@ -575,8 +575,8 @@ void main() {
     expect(find.text('Ready for any trade or prediction'), findsNothing);
     expect(find.text(l10n.betInvested), findsNothing);
 
-    // P&L charts: the chart, pair and figures; neither Balances nor the
-    // activity.
+    // P&L charts: the one card, Historic only (founder, 28 October 2026:
+    // no Active | Historic pair); neither Balances nor the activity.
     await tapAndPump(tester, _section('charts'));
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
       'tab': 'positions',
@@ -586,6 +586,10 @@ void main() {
       'from_sub': 'balances'
     });
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
+    expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
+    expect(
+        find.byKey(const ValueKey('statistics-allocation-ring')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsNothing);
     expect(find.byKey(const ValueKey('portfolio-move-money')), findsNothing);
@@ -742,10 +746,12 @@ void main() {
             of: card,
             matching: find.byKey(const ValueKey('pnl-venue-predictions'))),
         findsOneWidget);
+    // The resting orders stay below the card.
+    expect(tester.getTopLeft(predictions).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(card).dy));
     expect(
         find.descendant(
-            of: card,
-            matching: find.byType(PolyOrderRow, skipOffstage: false)),
+            of: card, matching: find.byType(PolyOrderRow, skipOffstage: false)),
         findsNothing);
     expect(
         find.descendant(

@@ -7,21 +7,23 @@
 // (founder decision 27 October 2026: the Positions section is gone, its
 // rows live under their venue in Balances):
 //
-//   * BALANCES (first, the default): Buying power big with the small ring
-//     and the total beside it, its split (Hyperliquid, Polymarket,
-//     Dollars) opened in place, one Move money, then Invested with each
-//     venue and its positions under it, the Option-B position rows with
-//     their taps and sheets (PortfolioBalanceBreakdown in its overview
-//     layout, components/balances_overview.dart, the rows from
+//   * BALANCES (the "Portfolio" pill, first, the default; lighter since
+//     the founder's 28 October 2026 review): the small bare ring beside
+//     "Available to invest" with its amount and chevron at the line's
+//     end, its split (Hyperliquid, Polymarket, Dollars) opened in place,
+//     Move money under that line, then each venue and its 3 largest
+//     positions, the Option-B position rows with their taps and sheets,
+//     and a quiet "See all  N" that opens the rest (settled ones last) in
+//     place (PortfolioBalanceBreakdown in its overview layout,
+//     components/balances_overview.dart, the rows from
 //     portfolioVenueLists in open_investments_screen.dart);
-//   * P&L CHARTS: the one P&L chart with its All · Investing ·
-//     Predictions toggle, then (founder decision 28 October 2026) the
-//     Balances frame under it: the small bare allocation ring, Open P&L
-//     (Historic: Realised P&L) with the Active | Historic pair at the
-//     row's end, a hairline, then each venue's row with its figures, its
-//     one quiet sub-row and its resting orders under it, each row with
-//     its own cancel, one quiet Cancel all link after the last venue's
-//     only with orders at both venues (PortfolioStatisticsOverview,
+//   * P&L CHARTS (what is done only, founder decision 28 October 2026: no
+//     Active | Historic pair): ONE card, "Profit and loss" with the
+//     realised P&L big in the result colour, the chart under it with its
+//     range pills, a hairline, then one line per venue with its realised
+//     P&L, a line tapped charting that venue alone; the resting orders
+//     under the card, each row with its own cancel, one quiet Cancel all
+//     link only with orders at both venues (PortfolioStatisticsOverview,
 //     portfolio_statistics.dart; the orders from PortfolioOrdersBook,
 //     portfolio_orders.dart). No venue on the account: the "No positions
 //     yet" empty state;
@@ -169,8 +171,8 @@ Widget _pillsSliver(Widget pills) => SliverPadding(
 Widget _dockClearance(BuildContext context) => SliverToBoxAdapter(
     child: SizedBox(height: 32.h + kuteDockScrollClearance(context)));
 
-/// P&L charts: the chart, then the Balances frame around the figures,
-/// each venue's resting orders under its row (see the file header).
+/// P&L charts: the one card (the realised figure, the chart, the venue
+/// lines), the resting orders under it (see the file header).
 class _Charts extends ConsumerWidget {
   const _Charts({required this.pills});
 
@@ -196,8 +198,8 @@ class _Charts extends ConsumerWidget {
   }
 }
 
-/// Balances: Buying power with the ring, Move money, then Invested with
-/// each venue's positions under it (PortfolioBalanceBreakdown in its
+/// Balances: Available to invest with the ring, Move money under it, then
+/// each venue's first positions under it (PortfolioBalanceBreakdown in its
 /// overview layout, the rows from [portfolioVenueLists]).
 class _Balances extends ConsumerWidget {
   const _Balances({required this.pills});
