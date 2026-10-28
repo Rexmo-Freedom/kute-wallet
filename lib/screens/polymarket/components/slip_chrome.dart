@@ -223,8 +223,9 @@ class SlipAmountPills extends StatelessWidget {
 }
 
 /// What a slip's Advanced is set to, when it is not the default ("Limit ·
-/// 52¢", "Market · 5x"): a small pill under the amount's line. A tap
-/// opens Advanced, like the Advanced pill beside Max. Default settings show none.
+/// 52¢", "Market · 5x"): a pill under the amount's line, the same face as
+/// the Max and Advanced pills. A tap opens Advanced, like the Advanced
+/// pill beside Max. Default settings show none.
 class SlipAdvancedChip extends StatelessWidget {
   const SlipAdvancedChip({super.key, required this.text, required this.onTap});
 
@@ -233,44 +234,22 @@ class SlipAdvancedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return Align(
       alignment: Alignment.centerLeft,
-      child: Semantics(
-        button: true,
-        child: GestureDetector(
-          key: const ValueKey('slip-advanced-chip'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: c.borderSubtle, width: 0.5),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.tune_rounded, size: 14.sp, color: c.textPrimary),
-                SizedBox(width: 6.w),
-                Flexible(
-                  child: Text(
-                    text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ),
-              ],
+      // In a row, so the pill hugs its label as Max does.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          KeyedSubtree(
+            key: const ValueKey('slip-advanced-chip'),
+            child: AmountActionChip(
+              label: text,
+              semanticLabel: text,
+              icon: Icons.tune_rounded,
+              onTap: onTap,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
