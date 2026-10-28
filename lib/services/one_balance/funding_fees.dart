@@ -104,6 +104,22 @@ class OrderFundingFees {
 
 double _clean(double v) => v.isFinite && v > 0 ? v : 0;
 
+/// The funding legs of an order as PostHog properties, for the slips'
+/// submitted events (staged, so the placed / failed event carries them
+/// too): `funding_fee_estimated_usd` (every leg's fee added; an estimate,
+/// named as one), `funding_legs` (how many legs) and `funding_sources`
+/// (the legs' sources in order, comma-joined fixed ids: `dollars`,
+/// `bitcoin`, `predictions`, `investing`). Empty when nothing moves.
+/// Never a balance. Pure.
+Map<String, Object> fundingFeeAnalytics(OrderFundingFees? fees) {
+  if (fees == null || fees.isEmpty) return const {};
+  return {
+    'funding_fee_estimated_usd': fees.totalUsd,
+    'funding_legs': fees.legs.length,
+    'funding_sources': fees.legs.map((l) => l.source.name).join(','),
+  };
+}
+
 double _ceilCents(double usd) {
   if (!usd.isFinite || usd <= 0) return 0;
   return ((usd * 100) - 1e-6).ceil() / 100;

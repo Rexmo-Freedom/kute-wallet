@@ -207,6 +207,7 @@ hyperliquid_close_submitted
 hyperliquid_deposit_completed
 hyperliquid_deposit_failed
 hyperliquid_deposit_initiated
+hyperliquid_fill_fee_reported
 hyperliquid_funding_blocked
 hyperliquid_geoblocked_shown
 hyperliquid_leverage_adjusted
@@ -319,6 +320,7 @@ move_step
 move_submitted
 move_withdraw_destination_selected
 multi_source_move_finished
+multi_source_move_retry_refused
 multi_source_move_retry_tapped
 multi_source_move_started
 notification_subscribed
@@ -463,7 +465,9 @@ polymarket_withdraw_submitted
 portfolio_allocation_drilled
 portfolio_allocation_view_changed
 portfolio_available_to_invest_toggled
+portfolio_balances_empty_shown
 portfolio_category_slice_selected
+portfolio_move_money_tapped
 portfolio_opened
 portfolio_performance_chart_scrubbed
 portfolio_performance_error_shown

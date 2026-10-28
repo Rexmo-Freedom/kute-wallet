@@ -2152,10 +2152,13 @@ class TrackingService {
     });
   }
 
-  /// The search category-filter chip changed (All / Transactions /
-  /// Predictions / Support). [category] is the newly-selected section.
-  static void searchCategoryChanged(String category) {
-    track('search_category_changed', params: {'category': category});
+  /// The search category-filter chip changed (All / Predictions /
+  /// Investing / Transactions). [category] is the newly-selected section;
+  /// [source] what switched it: `pill` (a filter pill) or `see_all` (a
+  /// group's "See all" row under All).
+  static void searchCategoryChanged(String category, {String source = 'pill'}) {
+    track('search_category_changed',
+        params: {'category': category, 'source': source});
   }
 
   /// A search result row was tapped. [resultType] is the categorical row
@@ -5126,8 +5129,12 @@ class TrackingService {
   /// `prediction_market_viewed` (a market in the browse list) — this is
   /// a user inspecting one of their own held positions. No market id /
   /// amount: a coarse engagement signal only.
-  static void predictionsPositionDetailViewed() =>
-      track('predictions_position_detail_viewed');
+  /// [dialHintShown]: the open position's speedometer shows "Drag the
+  /// needle to see what it'd be worth" (never dragged on this device).
+  static void predictionsPositionDetailViewed({bool? dialHintShown}) =>
+      track('predictions_position_detail_viewed', params: {
+        if (dialHintShown != null) 'dial_hint_shown': dialHintShown,
+      });
 
   /// Fired when the user triggers the "Claim winnings → convert to BTC"
   /// flow from the claim sheet. [result] is the coarse outcome:

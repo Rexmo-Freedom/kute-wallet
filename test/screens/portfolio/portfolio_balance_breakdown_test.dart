@@ -502,6 +502,9 @@ void main() {
       for (var i = 0; i < 6; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
+      // The pill's own tap, no amounts.
+      expect(events.where((e) => e.$1 == 'portfolio_move_money_tapped').single.$2,
+          {'surface': 'balances'});
       expect(find.byType(DepositSheet), findsOneWidget);
       expect(
           find.byKey(const ValueKey('money-movement-sheet')), findsOneWidget);

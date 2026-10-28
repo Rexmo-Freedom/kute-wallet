@@ -1060,7 +1060,15 @@ class VenueCashPuller {
   /// than Dollars asks first. Null when there is nothing to retry.
   Future<VenueCashPlan?> planRetry(String moveId) async {
     final move = MultiSourceMoveStore.get(moveId);
-    if (move == null || !move.partial || !_ownsMove(move)) return null;
+    if (move == null || !move.partial) return null;
+    if (!_ownsMove(move)) {
+      // The Retry does nothing: a fixed reason, never the wallets.
+      TrackingService.track('multi_source_move_retry_refused', params: {
+        'reason': 'other_wallet',
+        'destination': move.destination.code,
+      });
+      return null;
+    }
     if (move.isParallelPurchase) return _parallelRetryPlan(move);
     return plan(
       neededUsd: move.remainingUsd,
@@ -1533,7 +1541,8 @@ class VenueCashPuller {
         'route': route,
         'destination': destination.code,
         'error_category': TrackingService.errorCategory(e),
-        'amount_bucket': TrackingService.usdBucket(p.usd),
+        // The leg's planned amount, exact (new events send no buckets).
+        ...TrackingService.exactUsd('amount_usd', p.usd),
       });
       return _recorded(
           moveId, VenueCashLegOutcome(pull: p, error: e, route: route));

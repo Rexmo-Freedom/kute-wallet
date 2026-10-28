@@ -387,6 +387,8 @@ void main() {
     expect(p['direction'], 'up');
     expect(p['sell_tapped'], false);
     expect(p['venue'], 'polymarket');
+    // Never dragged on this device before this test: the hint's drag.
+    expect(p['first_drag'], true);
     // Never an id.
     expect(p.values.whereType<String>().any((v) => v.contains('cf-no')),
         isFalse);
@@ -450,8 +452,10 @@ void main() {
             .getRect(find.byKey(const ValueKey('poly-position-value')))
             .top,
         tilesTop);
-    // The drag's own event, as before; nothing for the hint.
+    // The drag's own event, as before, marked as the first on this device;
+    // nothing for the hint.
     expect(events.map((e) => e.$1), ['prediction_position_whatif_used']);
+    expect(events.single.$2!['first_drag'], true);
 
     // Opened again: no hint, no room for it.
     await tester.pumpWidget(const SizedBox.shrink());

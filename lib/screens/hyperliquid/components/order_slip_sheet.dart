@@ -811,7 +811,13 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// and the ticket settings staged so the provider's placed / failed
   /// event carries them.
   void _trackSubmitted() {
-    final inputs = _slipInputs();
+    // The funding legs the order needs (every leg's fee, an estimate), so
+    // the placed / failed event carries them too.
+    Map<String, Object> funding = const {};
+    try {
+      funding = fundingFeeAnalytics(_fundingFeesNow());
+    } catch (_) {}
+    final inputs = {..._slipInputs(), ...funding};
     _flowStep = 'submitted';
     TrackingService.setFlowStep('submitted');
     VenueAnalytics.stage('hl', market.coin, {
@@ -829,6 +835,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         'scale_legs',
         'twap_minutes',
         'twap_randomized',
+        'funding_fee_estimated_usd',
+        'funding_legs',
+        'funding_sources',
       ])
         if (inputs[k] != null) k: inputs[k]!,
     });
@@ -1215,9 +1224,19 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         'chip': method,
         'venue': 'hyperliquid',
         'kind': isSpot ? 'spot' : 'perp',
+        // What the chip wrote, exact; on Max, what the spending Bitcoin
+        // lands of it (since kute-wallet d0f76b8 Max counts it too).
+        ...TrackingService.exactUsd('amount_usd', usd),
+        if (method == 'max' && _maxBitcoinUsd > 0)
+          ...TrackingService.exactUsd('bitcoin_usd', _maxBitcoinUsd),
       });
     }
   }
+
+  /// What the spending Bitcoin lands, as the Max chip last counted it
+  /// (zero on a Ledger or a sell): `order_slip_available_tapped`'s
+  /// `bitcoin_usd`.
+  double _maxBitcoinUsd = 0;
 
   /// The smallest amount the field can take (margin on a perp, dollars on
   /// spot) for the order this ticket would send now: its size floored the
@@ -4156,6 +4175,26 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         : hlFilledPlan(_sentPlan,
             sizeFilled: sizeFilled, szDecimals: market.szDecimals);
     final nav = Navigator.of(context, rootNavigator: true);
+    // The fee the fills paid, as the exchange reported it with each fill
+    // (exact, Kute's builder fee inside it), the receipt's "Fee" row: the
+    // one figure the slip's estimates can be read against. UX analytics
+    // (fee_shown_*), never a balance; revenue itself stays the backend's
+    // builder export.
+    final paidFeeUsd = hlFeeFromFills(
+        fills.isNotEmpty ? fills : _orderFills, sizeFilled);
+    if (paidFeeUsd != null) {
+      TrackingService.track('hyperliquid_fill_fee_reported', params: {
+        'venue': 'hyperliquid',
+        'coin': market.coin,
+        'kind': isSpot ? 'spot' : 'perp',
+        ...VenueAnalytics.hlAssetParams(market.coin,
+            kind: isSpot ? 'spot' : 'perp'),
+        'wallet_kind': 'hot',
+        'fee_shown_usd': (paidFeeUsd * 100).round() / 100,
+        'fee_shown_basis': 'fill',
+        ...TrackingService.exactUsd('notional_usd', sizeFilled * avgPx),
+      });
+    }
     // Let the band's success snap play before the sheet goes.
     setState(() {});
     await RubberBand.settle(context);
@@ -4176,8 +4215,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
           ? null
           : hlRealizedFromFills(fills.toList(), sizeFilled),
       // The fee the fills paid, as the exchange reported it (exact).
-      feeUsd: hlFeeFromFills(
-          fills.isNotEmpty ? fills : _orderFills, sizeFilled),
+      feeUsd: paidFeeUsd,
     );
   }
 
@@ -4588,6 +4626,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // the tap converts the Bitcoin first, as for a typed order.
     final bitcoinUsd =
         buysFromInvestments ? ref.watch(spendingBitcoinLandingUsdProvider) : 0.0;
+    _maxBitcoinUsd = bitcoinUsd;
     double? fundedMaxUsd;
     if (buysFromInvestments &&
         otherSpendableUsd + bitcoinUsd > 0 &&
@@ -6579,19 +6618,18 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 (_fundPlan!.shortfallUsd - _slipShortfallUsd).abs() >= 0.005),
       );
 
-  /// What moving the shortfall costs while the order needs the move, from
-  /// the plan read for it: the Dollars route's share when Dollars carry it
-  /// all, else every leg's fee added (Bitcoin, the Predictions cash, at
-  /// once), each leg its own line ([estimateOrderFundingFees]). Null while
-  /// no move is needed or its plan is still being read.
-  ({double usd, List<MoneyFeeLeg> legs})? _moveFee() {
+  /// Every leg the move of the shortfall would take and its fee, on the
+  /// figures the app holds now, from the plan read for this shortfall
+  /// ([estimateOrderFundingFees]). Null while no move is needed or its
+  /// plan is still being read. Reads nothing new.
+  OrderFundingFees? _fundingFeesNow() {
     final plan = _fundPlan;
     if (_slipShortfallUsd <= 0 ||
         plan == null ||
         (plan.shortfallUsd - _slipShortfallUsd).abs() >= 0.005) {
       return null;
     }
-    final fees = estimateOrderFundingFees(
+    return estimateOrderFundingFees(
       fundUsd: plan.fundUsd,
       arrivingUsd: plan.arrivingUsd,
       dollarsUsd: _dollarsUsd(),
@@ -6600,6 +6638,17 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       bitcoinSpread: plan.bitcoinSpread ?? BitcoinLegRules.fallbackSpread,
       otherVenues: venueCashCandidatesNow(ref.read),
     );
+  }
+
+  /// What moving the shortfall costs while the order needs the move, from
+  /// the plan read for it: the Dollars route's share when Dollars carry it
+  /// all, else every leg's fee added (Bitcoin, the Predictions cash, at
+  /// once), each leg its own line ([estimateOrderFundingFees]). Null while
+  /// no move is needed or its plan is still being read.
+  ({double usd, List<MoneyFeeLeg> legs})? _moveFee() {
+    final plan = _fundPlan;
+    final fees = _fundingFeesNow();
+    if (plan == null || fees == null) return null;
     if (fees.isEmpty || fees.dollarsOnly) {
       return (usd: plan.moveFeeUsd, legs: const []);
     }

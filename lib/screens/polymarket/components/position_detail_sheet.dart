@@ -125,7 +125,9 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
     final key = '$routeName:${position.tokenId}';
     if (OpenOnce.isOpen(key)) return;
     TrackingService.screenView('prediction_position_detail');
-    TrackingService.predictionsPositionDetailViewed();
+    // Whether the dial's one-time drag hint shows on this open.
+    TrackingService.predictionsPositionDetailViewed(
+        dialHintShown: !PolyDialDragMemory.dragged);
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final navigator = Navigator.of(context, rootNavigator: true);
@@ -223,7 +225,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
 
   static double _pct(double v) => (v * 1000).round() / 10;
 
+  /// The drag under way is the first on this device (the hint led it).
+  bool _firstDrag = false;
+
   void _onExploreStart() {
+    _firstDrag = _dialHint;
     if (_dialHint) {
       PolyDialDragMemory.noteDragged();
       setState(() => _dialHint = false);
@@ -245,6 +251,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       'live_pct': _pct(live),
       if (entry != null) 'entry_pct': _pct(entry),
       'direction': whatIf >= live ? 'up' : 'down',
+      // The first drag on this device: the one the hint asked for.
+      'first_drag': _firstDrag,
     };
     _sellAtTimer?.cancel();
     _sellAtTimer = Timer(_sellOfferFor, () {

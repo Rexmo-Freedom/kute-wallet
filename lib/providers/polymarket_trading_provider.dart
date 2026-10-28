@@ -3924,6 +3924,16 @@ class PolymarketTradingNotifier
                 // to the `quoted_price` the caller priced it from.
                 'fill_price':
                     side == OrderSide.buy ? making / taking : taking / making,
+                // A market buy sized by its stake: the stake typed (what
+                // the order signed, to the cent) beside what the venue
+                // filled (`amount_usd` is the filled cost) and the exact
+                // shares, so a stake that filled short is visible.
+                if (marketSpend != null)
+                  ...TrackingService.exactUsd('stake_usd', marketSpend),
+                if (side == OrderSide.buy) ...{
+                  ...TrackingService.exactUsd('filled_usd', making),
+                  'filled_shares': (taking * 100).round() / 100,
+                },
                 // v1 (CTF) | v2 (Protocol V2 / ExchangeV3), from the token.
                 'market_protocol': PolyMarketProtocol.wireForToken(tokenId),
                 // biometric | fast_window | allowance: how this order

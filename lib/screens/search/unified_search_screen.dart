@@ -150,6 +150,10 @@ class _SearchSessionStats {
   int resultsTapped = 0;
   int settledQueries = 0;
   bool submitted = false;
+
+  /// How the sheet went: `close_button` (the X beside the drag handle),
+  /// else `other` (dragged down, back, a result that closed it).
+  String closeMethod = 'other';
 }
 
 _SearchSessionStats? _searchStats;
@@ -308,6 +312,7 @@ void _reportSearchClosed(ProviderContainer container) {
                 : 'no_query',
     'results_tapped': stats.resultsTapped,
     'queries': stats.settledQueries,
+    'close_method': stats.closeMethod,
     'time_in_flow_ms': stats.watch.elapsed.inMilliseconds,
     'time_in_flow_bucket': _searchTimeBucket(stats.watch.elapsed),
   });
@@ -716,7 +721,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                   ...rows,
                   if (capped)
                     _SeeAllRow(onTap: () {
-                      TrackingService.searchCategoryChanged(g.filter.name);
+                      TrackingService.searchCategoryChanged(g.filter.name,
+                          source: 'see_all');
                       ref.read(selectedSearchCategoryProvider.notifier).state =
                           g.filter;
                     }),
@@ -875,7 +881,11 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                   AppDecorations.dragHandle(context),
                   Positioned(
                     right: 8.w,
-                    child: const AppBottomSheetCloseButton(),
+                    child: AppBottomSheetCloseButton(onPressed: () {
+                      // Named on search_closed; the pop is the button's own.
+                      _searchStats?.closeMethod = 'close_button';
+                      Navigator.of(context).pop();
+                    }),
                   ),
                 ],
               ),

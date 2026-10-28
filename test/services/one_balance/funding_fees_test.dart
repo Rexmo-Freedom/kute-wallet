@@ -131,6 +131,27 @@ void main() {
         isTrue);
   });
 
+  test('the legs as PostHog properties: estimated total, count, sources',
+      () {
+    final fees = estimateOrderFundingFees(
+      fundUsd: 100,
+      arrivingUsd: 98,
+      dollarsUsd: 30,
+      venue: OneBalanceVenue.predictions,
+      bitcoinMaxUsd: 40,
+      otherVenues: [_cash(OneBalanceVenue.investing, 100)],
+    );
+    final params = fundingFeeAnalytics(fees);
+    expect(params['funding_fee_estimated_usd'], fees.totalUsd);
+    expect(params['funding_legs'], 3);
+    expect(params['funding_sources'], 'dollars,bitcoin,investing');
+    // Only the estimate, the count and fixed ids: never a balance.
+    expect(params.keys, hasLength(3));
+    // Nothing moves: nothing to say.
+    expect(fundingFeeAnalytics(OrderFundingFees.none), isEmpty);
+    expect(fundingFeeAnalytics(null), isEmpty);
+  });
+
   test('the Bitcoin spread from Orchestra\'s own estimate', () {
     // 10,000 sats at $100,000 is $10; $9.80 lands: 2%.
     expect(

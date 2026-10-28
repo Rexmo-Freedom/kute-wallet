@@ -524,6 +524,13 @@ void main() {
       expect(i.available, 500);
       expect(events.where((e) => e.$1 == 'investing_cash_pulled'), isEmpty);
       expect(event('multi_source_move_finished')!['failed_legs'], 1);
+      // The leg's own stop: a fixed category and the exact amount, no
+      // bucket.
+      final failed = event('venue_cash_pull_failed')!;
+      expect(failed['venue'], 'investing');
+      expect(failed['error_category'], isA<String>());
+      expect(failed['amount_usd'], outcome.failedLegs.single.pull.usd);
+      expect(failed.containsKey('amount_bucket'), isFalse);
     });
 
     test(
@@ -1184,11 +1191,18 @@ void main() {
         sleep: (d) async => now = now.add(d),
         walletId: () => 'w2',
       );
+      final before = events.length;
       expect(await other.planRetry(first.moveId!), isNull);
       expect(
           await other.retryMove(first.moveId!,
               approval: _approval(to: VenueCashDestination.bitcoin)),
           isNull);
+      // Said once, with a fixed reason: never which wallet.
+      final refused =
+          events.skip(before).where((e) => e.$1 == 'multi_source_move_retry_refused');
+      expect(refused, hasLength(1));
+      expect(refused.single.$2,
+          {'reason': 'other_wallet', 'destination': 'bitcoin'});
     });
 
     test('Retry pulls only the failed remainder, never the leg that went',

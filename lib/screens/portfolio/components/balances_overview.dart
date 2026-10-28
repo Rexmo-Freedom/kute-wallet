@@ -274,6 +274,25 @@ class BalancesOverview extends StatefulWidget {
 }
 
 class _BalancesOverviewState extends State<BalancesOverview> {
+  /// Sal's empty state (nothing open on either venue) was reported for
+  /// this mount.
+  bool _emptyReported = false;
+
+  /// Reports `portfolio_balances_empty_shown` once per mount, after the
+  /// frame that first draws Sal's empty state; an empty widget in the
+  /// column so the build stays declarative.
+  Widget _emptyShownOnce() {
+    if (!_emptyReported) {
+      _emptyReported = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        TrackingService.track('portfolio_balances_empty_shown',
+            params: const {'surface': 'balances'});
+      });
+    }
+    return const SizedBox.shrink();
+  }
+
   /// Where Buying power sits, opened with its chevron.
   bool _split = false;
 
@@ -449,6 +468,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
         if ((predictions != null || investing != null) &&
             venueEmpty(BalancesCategory.predictions, predictions) &&
             venueEmpty(BalancesCategory.investing, investing)) ...[
+          _emptyShownOnce(),
           Padding(
             key: const ValueKey('portfolio-balance-no-positions'),
             padding: EdgeInsets.symmetric(vertical: 24.h),
