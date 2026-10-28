@@ -10545,7 +10545,49 @@ class AppLocalizationsCs extends AppLocalizations {
   String get financialHubAndSettings => 'Finanční centrum a nastavení';
 
   @override
-  String get analyticsBreakdownTab => 'Rozpis';
+  String get analyticsInOutTab => 'Příjem a výdej';
+
+  @override
+  String get inOutMonth => 'Měsíc';
+
+  @override
+  String get inOutYear => 'Rok';
+
+  @override
+  String get inOutIn => 'Příjem';
+
+  @override
+  String get inOutOut => 'Výdej';
+
+  @override
+  String get inOutWhereItWent => 'Kam šly';
+
+  @override
+  String get inOutWhereItCameFrom => 'Odkud přišly';
+
+  @override
+  String get inOutSentToPeople => 'Odesláno lidem';
+
+  @override
+  String get inOutIntoInvestments => 'Do Investments';
+
+  @override
+  String get inOutIntoDollars => 'Do Dolarů';
+
+  @override
+  String get inOutFromPeople => 'Od lidí';
+
+  @override
+  String get inOutFromInvestments => 'Z Investments';
+
+  @override
+  String get inOutFromDollars => 'Z Dolarů';
+
+  @override
+  String get inOutBought => 'Nakoupeno';
+
+  @override
+  String get inOutEmpty => 'Žádné příjmy ani výdaje';
 
   @override
   String get portfolioStatsActive => 'Aktivní';

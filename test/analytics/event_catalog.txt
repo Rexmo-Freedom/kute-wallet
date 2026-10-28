@@ -77,6 +77,8 @@ biometric_prompt_cancelled
 biometric_prompt_shown
 biometrics_toggle_cancelled
 biometrics_toggled
+bitcoin_in_out_period_changed
+bitcoin_in_out_side_changed
 block_explorer_opened
 bottom_bar_tapped
 builder_combo_toggled

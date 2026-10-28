@@ -10636,7 +10636,49 @@ class AppLocalizationsEl extends AppLocalizations {
   String get financialHubAndSettings => 'Οικονομικό κέντρο και ρυθμίσεις';
 
   @override
-  String get analyticsBreakdownTab => 'Ανάλυση';
+  String get analyticsInOutTab => 'Έσοδα & έξοδα';
+
+  @override
+  String get inOutMonth => 'Μήνας';
+
+  @override
+  String get inOutYear => 'Έτος';
+
+  @override
+  String get inOutIn => 'Εισερχόμενα';
+
+  @override
+  String get inOutOut => 'Εξερχόμενα';
+
+  @override
+  String get inOutWhereItWent => 'Πού πήγαν';
+
+  @override
+  String get inOutWhereItCameFrom => 'Από πού ήρθαν';
+
+  @override
+  String get inOutSentToPeople => 'Στάλθηκαν σε άτομα';
+
+  @override
+  String get inOutIntoInvestments => 'Προς Investments';
+
+  @override
+  String get inOutIntoDollars => 'Προς Δολάρια';
+
+  @override
+  String get inOutFromPeople => 'Από άτομα';
+
+  @override
+  String get inOutFromInvestments => 'Από Investments';
+
+  @override
+  String get inOutFromDollars => 'Από Δολάρια';
+
+  @override
+  String get inOutBought => 'Αγοράστηκαν';
+
+  @override
+  String get inOutEmpty => 'Καμία κίνηση χρημάτων';
 
   @override
   String get portfolioStatsActive => 'Ενεργά';

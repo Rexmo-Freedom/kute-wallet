@@ -10143,7 +10143,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String get financialHubAndSettings => '資金管理と設定';
 
   @override
-  String get analyticsBreakdownTab => '内訳';
+  String get analyticsInOutTab => '入出金';
+
+  @override
+  String get inOutMonth => '月';
+
+  @override
+  String get inOutYear => '年';
+
+  @override
+  String get inOutIn => '入金';
+
+  @override
+  String get inOutOut => '出金';
+
+  @override
+  String get inOutWhereItWent => '出金先';
+
+  @override
+  String get inOutWhereItCameFrom => '入金元';
+
+  @override
+  String get inOutSentToPeople => '送金';
+
+  @override
+  String get inOutIntoInvestments => 'Investmentsへ';
+
+  @override
+  String get inOutIntoDollars => 'ドルへ';
+
+  @override
+  String get inOutFromPeople => '受け取り';
+
+  @override
+  String get inOutFromInvestments => 'Investmentsから';
+
+  @override
+  String get inOutFromDollars => 'ドルから';
+
+  @override
+  String get inOutBought => '購入';
+
+  @override
+  String get inOutEmpty => '入出金はありません';
 
   @override
   String get portfolioStatsActive => 'アクティブ';

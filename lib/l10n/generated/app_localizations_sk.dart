@@ -10559,7 +10559,49 @@ class AppLocalizationsSk extends AppLocalizations {
   String get financialHubAndSettings => 'Finančné centrum a nastavenia';
 
   @override
-  String get analyticsBreakdownTab => 'Rozpis';
+  String get analyticsInOutTab => 'Príjem a výdaj';
+
+  @override
+  String get inOutMonth => 'Mesiac';
+
+  @override
+  String get inOutYear => 'Rok';
+
+  @override
+  String get inOutIn => 'Príjem';
+
+  @override
+  String get inOutOut => 'Výdaj';
+
+  @override
+  String get inOutWhereItWent => 'Kam išli';
+
+  @override
+  String get inOutWhereItCameFrom => 'Odkiaľ prišli';
+
+  @override
+  String get inOutSentToPeople => 'Odoslané ľuďom';
+
+  @override
+  String get inOutIntoInvestments => 'Do Investments';
+
+  @override
+  String get inOutIntoDollars => 'Do Dolárov';
+
+  @override
+  String get inOutFromPeople => 'Od ľudí';
+
+  @override
+  String get inOutFromInvestments => 'Z Investments';
+
+  @override
+  String get inOutFromDollars => 'Z Dolárov';
+
+  @override
+  String get inOutBought => 'Kúpené';
+
+  @override
+  String get inOutEmpty => 'Žiadne príjmy ani výdavky';
 
   @override
   String get portfolioStatsActive => 'Aktívne';

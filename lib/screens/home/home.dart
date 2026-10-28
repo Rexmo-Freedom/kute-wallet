@@ -7,7 +7,6 @@ import 'package:kute/providers/unified_search_provider.dart'
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/services/passkey_service.dart';
@@ -37,7 +36,7 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/analytics/components/money_flow_breakdown.dart';
+import 'package:kute/screens/analytics/components/money_in_out.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
@@ -837,11 +836,12 @@ class _ActivitySection extends ConsumerWidget {
           // header + a small empty-state below; gating the header on
           // tx-present made the home feel anchorless for new wallets.
           // ONE merged section behind a pill strip (user decision):
-          // Activity | Balance | Breakdown (plus whatever the wallet
+          // Activity | Balance | In & out (plus whatever the wallet
           // scope adds) — the old stacked Activity header + separate
           // analytics block are gone. No Price on the main screen
-          // (owner decision). Breakdown is the spending wallet's money
-          // in and out by kind, so only the hot Spark wallet gets it.
+          // (owner decision). In & out is the spending wallet's money
+          // in and out by month or year, so only the hot Spark wallet
+          // gets it.
           // The activity child is pre-resolved here because its
           // skeleton/empty states hang off Home-local providers.
           // A deposit waiting for a lower fee: one quiet line (the
