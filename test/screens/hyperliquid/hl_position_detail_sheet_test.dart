@@ -143,13 +143,14 @@ void main() {
     final c = AppColorsExtension.light();
 
     // Header: the smaller logo, the ticker alone (no kind chip), the live
-    // price in the primary colour.
+    // price quiet in the secondary colour (the one big number is the
+    // position's worth).
     expect(find.text('BTC'), findsOneWidget);
     expect(find.byType(HlKindBadge), findsNothing);
     expect(tester.widget<HlCoinIcon>(find.byType(HlCoinIcon).first).size, 32);
     final price = tester.widget<HlTickPrice>(find.byType(HlTickPrice));
     expect(price.price, 66000);
-    expect(price.style.color, c.textPrimary);
+    expect(price.style.color, c.textSecondary);
 
     // The headline is what closing now gives back: the margin plus the
     // live P&L (6,400 + 1,000), the Portfolio card's own figure; the P&L
