@@ -40,7 +40,7 @@ import 'package:kute/services/funding/settlement_funding_outcome.dart';
 import 'package:kute/services/funding/settlement_http.dart';
 import 'package:kute/services/funding/settlement_quote_policy.dart';
 import 'package:kute/services/funding/settlement_reconciler.dart'
-    show SubmitAttemptOutcome, kSettlementUnquotedAbandonAfter;
+    show SubmitAttemptOutcome;
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/orchestra/orchestra_quote_guard.dart';
@@ -51,13 +51,6 @@ import 'package:kute/services/debug/settlement_fault_registry.dart';
 /// How many silent refreshes a run makes before giving up. Each is a new
 /// deliberate quote with a new idempotency key.
 const int kSettlementMaxSilentRefreshes = 2;
-
-/// How long past its quote's expiry an unresolved non-Spark send holds its
-/// route (F11). The reconciler settles a Spark payment either way (found,
-/// or proven never sent); a Predictions or Investing source is settled only
-/// by a deposit the provider saw, so without this a send that never left
-/// would hold its route for good.
-const Duration kSettlementUnresolvedHold = Duration(minutes: 30);
 
 /// A verified quote and the clock skew its response carried.
 class SettlementQuoteResult {
@@ -680,23 +673,12 @@ class SettlementRunner {
   /// meanwhile (F11), so a second tap can never pay the same thing twice.
   /// Screens that move money before the runner (a venue pull ahead of a
   /// send) ask first.
-  /// A non-Spark send holds only until [kSettlementUnresolvedHold] after its
-  /// quote expired: those routes pay the wallet's own accounts, so a second
-  /// send then can't pay anyone twice.
   Future<bool> blockedByUnresolved(String walletId, RouteKey route) async {
-    final now = _clock();
     for (final op in await store.activeFor(walletId, route)) {
-      if (op.stage != SettlementStage.fundingUnknown &&
-          op.stage != SettlementStage.broadcasting) {
-        continue;
+      if (op.stage == SettlementStage.fundingUnknown ||
+          op.stage == SettlementStage.broadcasting) {
+        return true;
       }
-      final state = op.toReconcileState();
-      if (state.fundingKind == SettlementFundingKind.spark) return true;
-      final expiresAt = state.quoteExpiresAt;
-      final until = expiresAt == null
-          ? state.createdAt.add(kSettlementUnquotedAbandonAfter)
-          : expiresAt.add(kSettlementUnresolvedHold);
-      if (now.add(state.skew).isBefore(until)) return true;
     }
     return false;
   }
