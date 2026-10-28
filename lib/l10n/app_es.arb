@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "La orden no coincidía con el lado que elegiste, así que no se colocó nada. Revisa tu elección e inténtalo de nuevo.",
   "betBuyFillsUpTo": "Ahora se pueden comprar hasta {amount} a este precio. No se compró nada. Prueba con esa cantidad o menos.",
   "betBuyPriceMoved": "El precio subió a {price}, por encima de tu límite de {limit}, así que no se compró nada. Inténtalo de nuevo al nuevo precio.",
-  "betSlipMaxAt": "Máx. · {price}",
+  "betSlipMaxAt": "Hasta {price} por acción",
   "betRetryAtPrice": "Reintentar a {price}",
   "betSellPriceMoved": "El precio bajó a {price}, por debajo de tu límite de {limit}, así que no se vendió nada. Inténtalo de nuevo al nuevo precio.",
   "walletsInvestingAndPredictions": "Invertir y Predicciones",

@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Toimeksianto ei vastannut valitsemaasi puolta, joten mitään ei tehty. Tarkista valintasi ja yritä uudelleen.",
   "betBuyFillsUpTo": "Tähän hintaan voidaan nyt toteuttaa enintään {amount}. Mitään ei ostettu. Kokeile tätä summaa tai vähemmän.",
   "betBuyPriceMoved": "Hinta nousi {price}, yli rajasi {limit}, joten mitään ei ostettu. Yritä uudelleen uudella hinnalla.",
-  "betSlipMaxAt": "Enint. · {price}",
+  "betSlipMaxAt": "Enintään {price} osuudelta",
   "betRetryAtPrice": "Yritä uudelleen hintaan {price}",
   "betSellPriceMoved": "Hinta laski {price}, alle rajasi {limit}, joten mitään ei myyty. Yritä uudelleen uudella hinnalla.",
   "walletsInvestingAndPredictions": "Sijoita ja Ennusteet",

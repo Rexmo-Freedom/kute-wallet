@@ -12186,10 +12186,10 @@ abstract class AppLocalizations {
   /// **'The price moved to {price}, past your limit of {limit}, so nothing was bought. Try again at the new price.'**
   String betBuyPriceMoved(String price, String limit);
 
-  /// Beside Advanced on a market order: the most it pays per share (the approved maximum price).
+  /// Chip under the amount on a market bet: the most it pays per share (the approved maximum price), e.g. 'Up to 1¢ a share'.
   ///
   /// In en, this message translates to:
-  /// **'Max · {price}'**
+  /// **'Up to {price} a share'**
   String betSlipMaxAt(String price);
 
   /// The retry button after the price moved past the approved maximum: the new maximum it asks to approve.

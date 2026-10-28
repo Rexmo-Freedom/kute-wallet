@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Naročilo se ni ujemalo z izbrano stranjo, zato ni bilo oddano nič. Preverite svojo izbiro in poskusite znova.",
   "betBuyFillsUpTo": "Po tej ceni je zdaj mogoče izvršiti do {amount}. Nič ni bilo kupljeno. Poskusite s tem zneskom ali manj.",
   "betBuyPriceMoved": "Cena se je premaknila na {price}, nad vašo mejo {limit}, zato ni bilo kupljeno nič. Poskusite znova po novi ceni.",
-  "betSlipMaxAt": "Najv. · {price}",
+  "betSlipMaxAt": "Do {price} na delež",
   "betRetryAtPrice": "Poskusi znova po {price}",
   "betSellPriceMoved": "Cena se je premaknila na {price}, pod vašo mejo {limit}, zato ni bilo prodano nič. Poskusite znova po novi ceni.",
   "walletsInvestingAndPredictions": "Investiranje in Napovedi",

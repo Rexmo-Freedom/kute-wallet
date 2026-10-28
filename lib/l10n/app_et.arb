@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Tellimus ei vastanud valitud poolele, seega midagi ei esitatud. Kontrolli oma valikut ja proovi uuesti.",
   "betBuyFillsUpTo": "Selle hinnaga saab praegu täita kuni {amount}. Midagi ei ostetud. Proovi seda summat või vähem.",
   "betBuyPriceMoved": "Hind liikus {price} peale, üle sinu piiri {limit}, seega midagi ei ostetud. Proovi uuesti uue hinnaga.",
-  "betSlipMaxAt": "Max · {price}",
+  "betSlipMaxAt": "Kuni {price} osa kohta",
   "betRetryAtPrice": "Proovi uuesti hinnaga {price}",
   "betSellPriceMoved": "Hind liikus {price} peale, alla sinu piiri {limit}, seega midagi ei müüdud. Proovi uuesti uue hinnaga.",
   "walletsInvestingAndPredictions": "Investeerimine ja Ennustused",

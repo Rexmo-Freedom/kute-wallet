@@ -7002,7 +7002,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Max · $price';
+    return 'Upp till $price per andel';
   }
 
   @override

@@ -7023,7 +7023,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Max. · $price';
+    return 'Legfeljebb $price részesedésenként';
   }
 
   @override

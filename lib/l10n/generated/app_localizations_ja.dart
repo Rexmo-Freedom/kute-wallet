@@ -6729,7 +6729,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return '上限 · $price';
+    return '1株あたり最大$price';
   }
 
   @override

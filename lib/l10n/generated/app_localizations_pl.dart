@@ -7031,7 +7031,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Maks. · $price';
+    return 'Do $price za udział';
   }
 
   @override

@@ -7005,7 +7005,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Enint. · $price';
+    return 'Enintään $price osuudelta';
   }
 
   @override

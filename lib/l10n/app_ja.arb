@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "注文が選んだ側と一致しなかったため、何も発注されていません。選択を確認して、もう一度お試しください。",
   "betBuyFillsUpTo": "現在この価格で約定できるのは最大{amount}です。何も購入されていません。この金額以下でお試しください。",
   "betBuyPriceMoved": "価格が{price}に動き、上限の{limit}を超えたため、何も購入されていません。新しい価格でもう一度お試しください。",
-  "betSlipMaxAt": "上限 · {price}",
+  "betSlipMaxAt": "1株あたり最大{price}",
   "betRetryAtPrice": "{price}で再試行",
   "betSellPriceMoved": "価格が{price}に動き、下限の{limit}を下回ったため、何も売却されていません。新しい価格でもう一度お試しください。",
   "walletsInvestingAndPredictions": "投資と予測",

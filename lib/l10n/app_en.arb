@@ -3861,9 +3861,9 @@
       }
     }
   },
-  "betSlipMaxAt": "Max · {price}",
+  "betSlipMaxAt": "Up to {price} a share",
   "@betSlipMaxAt": {
-    "description": "Beside Advanced on a market order: the most it pays per share (the approved maximum price).",
+    "description": "Chip under the amount on a market bet: the most it pays per share (the approved maximum price), e.g. 'Up to 1¢ a share'.",
     "placeholders": {
       "price": {
         "type": "String"

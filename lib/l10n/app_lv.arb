@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Rīkojums neatbilda jūsu izvēlētajai pusei, tāpēc nekas netika iesniegts. Pārbaudiet savu izvēli un mēģiniet vēlreiz.",
   "betBuyFillsUpTo": "Par šo cenu tagad var izpildīt līdz {amount}. Nekas netika nopirkts. Mēģiniet šo summu vai mazāku.",
   "betBuyPriceMoved": "Cena pārvietojās uz {price}, pāri jūsu limitam {limit}, tāpēc nekas netika nopirkts. Mēģiniet vēlreiz par jauno cenu.",
-  "betSlipMaxAt": "Maks. · {price}",
+  "betSlipMaxAt": "Līdz {price} par daļu",
   "betRetryAtPrice": "Mēģināt vēlreiz par {price}",
   "betSellPriceMoved": "Cena pārvietojās uz {price}, zem jūsu limita {limit}, tāpēc nekas netika pārdots. Mēģiniet vēlreiz par jauno cenu.",
   "walletsInvestingAndPredictions": "Investēšana un Prognozes",

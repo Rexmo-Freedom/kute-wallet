@@ -7030,7 +7030,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Max · $price';
+    return 'Tot $price per aandeel';
   }
 
   @override

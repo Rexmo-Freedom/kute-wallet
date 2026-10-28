@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Ordinul nu corespundea părții alese, așa că nu s-a plasat nimic. Verifică alegerea și încearcă din nou.",
   "betBuyFillsUpTo": "La acest preț se pot executa acum până la {amount}. Nu s-a cumpărat nimic. Încearcă această sumă sau mai puțin.",
   "betBuyPriceMoved": "Prețul a urcat la {price}, peste limita ta de {limit}, așa că nu s-a cumpărat nimic. Încearcă din nou la noul preț.",
-  "betSlipMaxAt": "Max. · {price}",
+  "betSlipMaxAt": "Până la {price} pe acțiune",
   "betRetryAtPrice": "Reîncearcă la {price}",
   "betSellPriceMoved": "Prețul a coborât la {price}, sub limita ta de {limit}, așa că nu s-a vândut nimic. Încearcă din nou la noul preț.",
   "walletsInvestingAndPredictions": "Investiții și Predicții",

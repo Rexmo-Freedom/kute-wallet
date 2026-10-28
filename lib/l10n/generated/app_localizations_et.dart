@@ -6989,7 +6989,7 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Max · $price';
+    return 'Kuni $price osa kohta';
   }
 
   @override

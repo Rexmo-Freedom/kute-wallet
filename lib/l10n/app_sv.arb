@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Ordern stämde inte med den sida du valde, så inget lades. Kontrollera ditt val och försök igen.",
   "betBuyFillsUpTo": "Upp till {amount} kan fyllas nu till det här priset. Inget köptes. Prova det beloppet eller mindre.",
   "betBuyPriceMoved": "Priset rörde sig till {price}, över din gräns på {limit}, så inget köptes. Försök igen till det nya priset.",
-  "betSlipMaxAt": "Max · {price}",
+  "betSlipMaxAt": "Upp till {price} per andel",
   "betRetryAtPrice": "Försök igen till {price}",
   "betSellPriceMoved": "Priset rörde sig till {price}, under din gräns på {limit}, så inget såldes. Försök igen till det nya priset.",
   "walletsInvestingAndPredictions": "Investera och Prognoser",

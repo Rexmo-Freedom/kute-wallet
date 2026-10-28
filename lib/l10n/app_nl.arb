@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "De order kwam niet overeen met de gekozen kant, dus er is niets geplaatst. Controleer je keuze en probeer het opnieuw.",
   "betBuyFillsUpTo": "Tot {amount} kan nu tegen deze prijs worden uitgevoerd. Er is niets gekocht. Probeer dat bedrag of minder.",
   "betBuyPriceMoved": "De prijs ging naar {price}, boven je limiet van {limit}, dus er is niets gekocht. Probeer het opnieuw tegen de nieuwe prijs.",
-  "betSlipMaxAt": "Max · {price}",
+  "betSlipMaxAt": "Tot {price} per aandeel",
   "betRetryAtPrice": "Opnieuw tegen {price}",
   "betSellPriceMoved": "De prijs ging naar {price}, onder je limiet van {limit}, dus er is niets verkocht. Probeer het opnieuw tegen de nieuwe prijs.",
   "walletsInvestingAndPredictions": "Beleggen en Voorspellingen",

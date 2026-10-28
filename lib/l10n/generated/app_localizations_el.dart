@@ -7059,7 +7059,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String betSlipMaxAt(String price) {
-    return 'Μέγ. · $price';
+    return 'Έως $price ανά μερίδιο';
   }
 
   @override

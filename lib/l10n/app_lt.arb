@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Pavedimas neatitiko jūsų pasirinktos pusės, todėl niekas nebuvo pateikta. Patikrinkite pasirinkimą ir bandykite dar kartą.",
   "betBuyFillsUpTo": "Šia kaina dabar galima įvykdyti iki {amount}. Niekas nenupirkta. Bandykite šią sumą ar mažesnę.",
   "betBuyPriceMoved": "Kaina pakilo iki {price}, virš jūsų ribos {limit}, todėl niekas nenupirkta. Bandykite dar kartą nauja kaina.",
-  "betSlipMaxAt": "Maks. · {price}",
+  "betSlipMaxAt": "Iki {price} už dalį",
   "betRetryAtPrice": "Bandyti dar kartą už {price}",
   "betSellPriceMoved": "Kaina nukrito iki {price}, žemiau jūsų ribos {limit}, todėl niekas neparduota. Bandykite dar kartą nauja kaina.",
   "walletsInvestingAndPredictions": "Investavimas ir Prognozės",

@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "A megbízás nem egyezett a választott oldallal, ezért semmi sem került feladásra. Ellenőrizd a választásod, és próbáld újra.",
   "betBuyFillsUpTo": "Ezen az áron most legfeljebb {amount} teljesíthető. Semmi sem került megvásárlásra. Próbáld ezzel az összeggel vagy kevesebbel.",
   "betBuyPriceMoved": "Az ár {price} lett, túllépve a(z) {limit} limitedet, ezért semmi sem került megvásárlásra. Próbáld újra az új áron.",
-  "betSlipMaxAt": "Max. · {price}",
+  "betSlipMaxAt": "Legfeljebb {price} részesedésenként",
   "betRetryAtPrice": "Újra {price} áron",
   "betSellPriceMoved": "Az ár {price} lett, a(z) {limit} limited alá esett, ezért semmi sem került eladásra. Próbáld újra az új áron.",
   "walletsInvestingAndPredictions": "Befektetés és Előrejelzések",

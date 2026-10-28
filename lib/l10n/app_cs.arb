@@ -2014,7 +2014,7 @@
   "betSideMismatchStopped": "Objednávka neodpovídala zvolené straně, takže nic nebylo zadáno. Zkontrolujte svou volbu a zkuste to znovu.",
   "betBuyFillsUpTo": "Za tuto cenu lze nyní nakoupit až {amount}. Nic nebylo koupeno. Zkuste tuto částku nebo menší.",
   "betBuyPriceMoved": "Cena se posunula na {price}, nad váš limit {limit}, takže nic nebylo koupeno. Zkuste to znovu za novou cenu.",
-  "betSlipMaxAt": "Max · {price}",
+  "betSlipMaxAt": "Až {price} za podíl",
   "betRetryAtPrice": "Zkusit znovu za {price}",
   "betSellPriceMoved": "Cena se posunula na {price}, pod váš limit {limit}, takže nic nebylo prodáno. Zkuste to znovu za novou cenu.",
   "walletsInvestingAndPredictions": "Investování a Predikce",
