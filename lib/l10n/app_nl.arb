@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Adres gevonden op klembord. Gebruiken?",
   "useIt": "Gebruiken",
   "sendFailedTitle": "Betaling niet verstuurd",
-  "sendOutcomeUnknownTitle": "Betalingsstatus onbekend",
   "scannerCameraAccessOff": "Cameratoegang staat uit. Open Instellingen om die toe te staan.",
   "openSettings": "Instellingen openen",
   "sendChooseAccountFirst": "Kies een beschikbare rekening voordat je verstuurt.",

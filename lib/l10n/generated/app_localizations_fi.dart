@@ -6583,9 +6583,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendFailedTitle => 'Maksua ei lähetetty';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Maksun tila ei ole tiedossa';
-
-  @override
   String get scannerCameraAccessOff =>
       'Kameran käyttö on estetty. Salli se Asetuksissa.';
 

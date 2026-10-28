@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Am găsit o adresă în clipboard. O folosești?",
   "useIt": "Folosește",
   "sendFailedTitle": "Plata nu a fost trimisă",
-  "sendOutcomeUnknownTitle": "Starea plății este necunoscută",
   "scannerCameraAccessOff": "Accesul la cameră este dezactivat. Deschide Setări ca să-l permiți.",
   "openSettings": "Deschide Setări",
   "sendChooseAccountFirst": "Alege un cont disponibil înainte de trimitere.",

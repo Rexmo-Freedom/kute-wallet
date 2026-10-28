@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Adresse trouvée dans le presse-papiers. L'utiliser ?",
   "useIt": "Utiliser",
   "sendFailedTitle": "Paiement non envoyé",
-  "sendOutcomeUnknownTitle": "Statut du paiement inconnu",
   "scannerCameraAccessOff": "L'accès à l'appareil photo est désactivé. Ouvrez Réglages pour l'autoriser.",
   "openSettings": "Ouvrir Réglages",
   "sendChooseAccountFirst": "Choisissez un compte disponible avant d'envoyer.",

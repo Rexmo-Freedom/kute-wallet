@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "V schránke je adresa. Použiť ju?",
   "useIt": "Použiť",
   "sendFailedTitle": "Platba neodoslaná",
-  "sendOutcomeUnknownTitle": "Stav platby nie je známy",
   "scannerCameraAccessOff": "Prístup k fotoaparátu je vypnutý. Povoľ ho v Nastaveniach.",
   "openSettings": "Otvoriť Nastavenia",
   "sendChooseAccountFirst": "Pred odoslaním vyber dostupný účet.",

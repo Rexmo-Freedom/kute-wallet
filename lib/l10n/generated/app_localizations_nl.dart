@@ -6607,9 +6607,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendFailedTitle => 'Betaling niet verstuurd';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Betalingsstatus onbekend';
-
-  @override
   String get scannerCameraAccessOff =>
       'Cameratoegang staat uit. Open Instellingen om die toe te staan.';
 

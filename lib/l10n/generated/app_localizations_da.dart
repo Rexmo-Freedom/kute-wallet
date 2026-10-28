@@ -6587,9 +6587,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get sendFailedTitle => 'Betaling ikke sendt';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Betalingens status er ukendt';
-
-  @override
   String get scannerCameraAccessOff =>
       'Kameraadgang er slået fra. Åbn Indstillinger for at tillade den.';
 

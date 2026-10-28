@@ -6581,9 +6581,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendFailedTitle => 'Betalningen skickades inte';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Betalningsstatus okänd';
-
-  @override
   String get scannerCameraAccessOff =>
       'Kameraåtkomst är avstängd. Öppna Inställningar för att tillåta den.';
 

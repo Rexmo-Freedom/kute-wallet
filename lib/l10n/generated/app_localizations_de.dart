@@ -6633,9 +6633,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sendFailedTitle => 'Zahlung nicht gesendet';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Zahlungsstatus unbekannt';
-
-  @override
   String get scannerCameraAccessOff =>
       'Der Kamerazugriff ist aus. Öffne die Einstellungen, um ihn zu erlauben.';
 

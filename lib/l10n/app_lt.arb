@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Iškarpinėje rastas adresas. Naudoti jį?",
   "useIt": "Naudoti",
   "sendFailedTitle": "Mokėjimas neišsiųstas",
-  "sendOutcomeUnknownTitle": "Mokėjimo būsena nežinoma",
   "scannerCameraAccessOff": "Prieiga prie kameros išjungta. Atidarykite Nustatymus, kad ją leistumėte.",
   "openSettings": "Atidaryti Nustatymus",
   "sendChooseAccountFirst": "Prieš siųsdami pasirinkite prieinamą paskyrą.",

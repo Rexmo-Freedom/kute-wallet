@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "W schowku znaleziono adres. Użyć go?",
   "useIt": "Użyj",
   "sendFailedTitle": "Płatność nie została wysłana",
-  "sendOutcomeUnknownTitle": "Status płatności nieznany",
   "scannerCameraAccessOff": "Dostęp do aparatu jest wyłączony. Otwórz Ustawienia, aby go włączyć.",
   "openSettings": "Otwórz Ustawienia",
   "sendChooseAccountFirst": "Przed wysłaniem wybierz dostępne konto.",

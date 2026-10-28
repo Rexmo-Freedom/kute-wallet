@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Címet találtunk a vágólapon. Használod?",
   "useIt": "Használom",
   "sendFailedTitle": "A fizetés nem lett elküldve",
-  "sendOutcomeUnknownTitle": "A fizetés állapota ismeretlen",
   "scannerCameraAccessOff": "A kamerahozzáférés ki van kapcsolva. Engedélyezd a Beállításokban.",
   "openSettings": "Beállítások megnyitása",
   "sendChooseAccountFirst": "Küldés előtt válassz egy elérhető fiókot.",

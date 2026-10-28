@@ -4855,50 +4855,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ref.invalidate(prepareGenericPaymentProvider);
         ref.invalidate(prepareLightningPaymentProvider);
       }
-      // Thrown at or after the payment call, before it reported back: the
-      // payment may have left. Never "Try again" then (a Spark address,
-      // a Lightning address or an on-chain send can be paid twice); the
-      // person checks Activity first. A refusal the app recognises (not
-      // enough to cover the fee) is still a plain failure.
-      final outcomeUnknown = !_sendCompleted &&
-          sendStage == 'broadcast' &&
-          !isSparkInsufficientFunds(e);
-      if (mounted) {
-        if (outcomeUnknown) {
-          _showSendOutcomeUnknown(amountSats: actualSentAmount);
-        } else {
-          _showSendFailed(e, amountSats: actualSentAmount);
-        }
-      }
+      if (mounted) _showSendFailed(e, amountSats: actualSentAmount);
     } finally {
       if (mounted) setState(() => isProcessing = false);
     }
-  }
-
-  /// A send whose payment call failed before it reported back: it may
-  /// have left. Says so, sends the person to Activity before anything
-  /// else, and closes the send instead of offering it again.
-  void _showSendOutcomeUnknown({int? amountSats}) {
-    if (!mounted) return;
-    _sendFailedFeedback();
-    final nav = Navigator.of(context);
-    final btcFormat = ref.read(settingsProvider).btcFormat;
-    pushKuteSuccessOverlay(
-      navigator: nav,
-      overlay: KuteConfirmation(
-        tone: KuteConfirmationTone.failure,
-        message: context.l10n.sendOutcomeUnknownTitle,
-        amount: amountSats != null && amountSats > 0
-            ? '${amountSats.toFormattedString(btcFormat)} $btcFormat'
-            : null,
-        detail: context.l10n.sendCouldNotComplete,
-        buttonText: context.l10n.done,
-        onDone: () {
-          if (nav.canPop()) nav.pop();
-          if (mounted) _closeAndReset();
-        },
-      ),
-    );
   }
 
   Future<void> _handleBitcoinSoftwareSend(BuildContext context, WidgetRef ref,

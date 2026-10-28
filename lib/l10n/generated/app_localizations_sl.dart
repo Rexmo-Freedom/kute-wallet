@@ -6599,9 +6599,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendFailedTitle => 'Plačilo ni poslano';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Stanje plačila ni znano';
-
-  @override
   String get scannerCameraAccessOff =>
       'Dostop do kamere je izklopljen. Odprite Nastavitve in ga dovolite.';
 

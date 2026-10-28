@@ -6607,9 +6607,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendFailedTitle => 'Płatność nie została wysłana';
 
   @override
-  String get sendOutcomeUnknownTitle => 'Status płatności nieznany';
-
-  @override
   String get scannerCameraAccessOff =>
       'Dostęp do aparatu jest wyłączony. Otwórz Ustawienia, aby go włączyć.';
 

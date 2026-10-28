@@ -1899,7 +1899,6 @@
   "sendClipboardAddressFound": "Adresse fundet i udklipsholderen. Vil du bruge den?",
   "useIt": "Brug",
   "sendFailedTitle": "Betaling ikke sendt",
-  "sendOutcomeUnknownTitle": "Betalingens status er ukendt",
   "scannerCameraAccessOff": "Kameraadgang er slået fra. Åbn Indstillinger for at tillade den.",
   "openSettings": "Åbn Indstillinger",
   "sendChooseAccountFirst": "Vælg en tilgængelig konto, før du sender.",
