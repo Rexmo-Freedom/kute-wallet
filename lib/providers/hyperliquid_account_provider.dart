@@ -35,7 +35,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_account_cache.dart';
-import 'package:kute/helpers/evm_format_settle.dart' show EvmFormatSettle;
 import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/pending_pool_deposits_provider.dart';
@@ -149,15 +148,10 @@ bool hlAccountSnapshotEquals(HlAccountSnapshot a, HlAccountSnapshot b) =>
 /// wallets included), or the mnemonic can't be resolved. Recomputes on
 /// wallet switch, on a new unlock, and once the lock overlay lifts after
 /// a build behind it.
-/// The spending wallet, its EVM format and whether that format is still
-/// being checked: what selects its EVM account.
-(String?, EvmDerivationVersion?, bool) _spendingEvmIdentity(Settings s) {
+/// The spending wallet and its EVM format: what selects its EVM account.
+(String?, EvmDerivationVersion?) _spendingEvmIdentity(Settings s) {
   final wallet = pickSpendingWallet(s);
-  return (
-    wallet?.id,
-    wallet?.evmDerivationVersion,
-    wallet?.evmFormatCheckPending ?? false,
-  );
+  return (wallet?.id, wallet?.evmDerivationVersion);
 }
 
 final hyperliquidAddressProvider = FutureProvider<String?>((ref) async {
@@ -171,16 +165,6 @@ final hyperliquidAddressProvider = FutureProvider<String?>((ref) async {
   final spending = pickSpendingWallet(settings);
   if (spending == null) return null;
   if (!watchSessionUnlock(ref)) return null;
-  // A recovered wallet whose EVM format check has not settled may still
-  // move to its legacy account: no Investing account until it has, so no
-  // move, deposit or order can go to an account the wallet then leaves
-  // (Predictions sets nothing up meanwhile either). The check settles in
-  // this session on a short schedule, or at the next start; this builds
-  // again when it does.
-  if (spending.evmFormatCheckPending) {
-    EvmFormatSettle.schedule(ref.container);
-    return null;
-  }
 
   try {
     final mnemonic = await resolveBip39MnemonicFor(spending,
