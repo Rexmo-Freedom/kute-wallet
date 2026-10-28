@@ -10615,7 +10615,49 @@ class AppLocalizationsRo extends AppLocalizations {
   String get financialHubAndSettings => 'Centru financiar și setări';
 
   @override
-  String get analyticsBreakdownTab => 'Defalcare';
+  String get analyticsInOutTab => 'Intrări/ieșiri';
+
+  @override
+  String get inOutMonth => 'Lună';
+
+  @override
+  String get inOutYear => 'An';
+
+  @override
+  String get inOutIn => 'Intrări';
+
+  @override
+  String get inOutOut => 'Ieșiri';
+
+  @override
+  String get inOutWhereItWent => 'Unde s-au dus';
+
+  @override
+  String get inOutWhereItCameFrom => 'De unde au venit';
+
+  @override
+  String get inOutSentToPeople => 'Trimis altora';
+
+  @override
+  String get inOutIntoInvestments => 'În Investments';
+
+  @override
+  String get inOutIntoDollars => 'În Dolari';
+
+  @override
+  String get inOutFromPeople => 'De la alții';
+
+  @override
+  String get inOutFromInvestments => 'Din Investments';
+
+  @override
+  String get inOutFromDollars => 'Din Dolari';
+
+  @override
+  String get inOutBought => 'Cumpărat';
+
+  @override
+  String get inOutEmpty => 'Nicio intrare sau ieșire';
 
   @override
   String get portfolioStatsActive => 'Active';

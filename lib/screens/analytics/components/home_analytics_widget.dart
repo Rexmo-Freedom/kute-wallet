@@ -103,10 +103,10 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// wrong money entirely.
   final Widget? valuationChild;
 
-  /// When non-null, a "Breakdown" tab follows Balance and renders this:
-  /// the money in and out of the account by kind, all time. Home passes
-  /// it for the spending wallet and Dollars for the dollar account; no
-  /// hardware, Ledger, watch-only or on-chain wallet ever does.
+  /// When non-null, an "In & out" tab follows Balance and renders this:
+  /// the money in and out of the account by month or year. Home passes it
+  /// for the spending wallet; no hardware, Ledger, watch-only or on-chain
+  /// wallet ever does.
   final Widget? breakdownChild;
 
   /// When false the Price tab is left out. Home passes false (owner
@@ -115,7 +115,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   final bool showPrice;
 
   /// When true the strip is the caller's own short strip — Activity and
-  /// Balance (and Breakdown when passed) — whatever the
+  /// Balance (and In & out when passed) — whatever the
   /// scope filters would otherwise allow. The Dollars tab passes it: a
   /// cash account has no price chart and no coins map, so Price / Coins
   /// Tapping Activity while Activity is already showing. The pill
@@ -250,7 +250,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       tabs = AnalyticsTab.values.where((t) {
         if (t == AnalyticsTab.activity) return widget.activityChild != null;
         if (t == AnalyticsTab.balance) return false; // legacy
-        // Breakdown is the caller's own child; Price is opt-out.
+        // In & out is the caller's own child; Price is opt-out.
         if (t == AnalyticsTab.breakdown) return widget.breakdownChild != null;
         if (t == AnalyticsTab.price && !widget.showPrice) return false;
         // Split is opt-in via the `showSplit` constructor flag. Home
@@ -362,7 +362,7 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
 
   /// The tab strip is the shared [KutePillTabs] row (same chrome as
   /// the category pills on the Predictions and Investing screens, user
-  /// decision). Three tabs (Home: Activity/Balance/Breakdown) share the
+  /// decision). Three tabs (Home: Activity/Balance/In & out) share the
   /// width; hardware wallets add Coins and the strip side-scrolls.
   Widget _buildTypeSelector(List<AnalyticsTab> tabs) {
     return KutePillTabs(
@@ -405,9 +405,12 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
           icon: Icons.savings_rounded,
         );
       case AnalyticsTab.breakdown:
+        // "In & out" (founder, 2026-10-28): the bitcoin that came in and
+        // went out, by month or year. The enum keeps its name, so the
+        // tab event still reports `breakdown`.
         return KutePillItem(
-          label: context.l10n.analyticsBreakdownTab,
-          icon: Icons.donut_large_rounded,
+          label: context.l10n.analyticsInOutTab,
+          icon: Icons.swap_vert_rounded,
         );
       case AnalyticsTab.price:
         return KutePillItem(

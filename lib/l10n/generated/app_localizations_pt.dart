@@ -10608,7 +10608,49 @@ class AppLocalizationsPt extends AppLocalizations {
   String get financialHubAndSettings => 'Centro financeiro e definições';
 
   @override
-  String get analyticsBreakdownTab => 'Distribuição';
+  String get analyticsInOutTab => 'Entradas/saídas';
+
+  @override
+  String get inOutMonth => 'Mês';
+
+  @override
+  String get inOutYear => 'Ano';
+
+  @override
+  String get inOutIn => 'Entradas';
+
+  @override
+  String get inOutOut => 'Saídas';
+
+  @override
+  String get inOutWhereItWent => 'Para onde foi';
+
+  @override
+  String get inOutWhereItCameFrom => 'De onde veio';
+
+  @override
+  String get inOutSentToPeople => 'Enviado a pessoas';
+
+  @override
+  String get inOutIntoInvestments => 'Para Investments';
+
+  @override
+  String get inOutIntoDollars => 'Para Dólares';
+
+  @override
+  String get inOutFromPeople => 'De pessoas';
+
+  @override
+  String get inOutFromInvestments => 'De Investments';
+
+  @override
+  String get inOutFromDollars => 'De Dólares';
+
+  @override
+  String get inOutBought => 'Comprado';
+
+  @override
+  String get inOutEmpty => 'Sem entradas nem saídas';
 
   @override
   String get portfolioStatsActive => 'Ativas';

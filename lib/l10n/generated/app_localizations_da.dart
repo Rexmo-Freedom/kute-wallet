@@ -10559,7 +10559,49 @@ class AppLocalizationsDa extends AppLocalizations {
   String get financialHubAndSettings => 'Økonomisk overblik og indstillinger';
 
   @override
-  String get analyticsBreakdownTab => 'Fordeling';
+  String get analyticsInOutTab => 'Ind og ud';
+
+  @override
+  String get inOutMonth => 'Måned';
+
+  @override
+  String get inOutYear => 'År';
+
+  @override
+  String get inOutIn => 'Ind';
+
+  @override
+  String get inOutOut => 'Ud';
+
+  @override
+  String get inOutWhereItWent => 'Hvor de gik hen';
+
+  @override
+  String get inOutWhereItCameFrom => 'Hvor de kom fra';
+
+  @override
+  String get inOutSentToPeople => 'Sendt til andre';
+
+  @override
+  String get inOutIntoInvestments => 'Til Investments';
+
+  @override
+  String get inOutIntoDollars => 'Til Dollars';
+
+  @override
+  String get inOutFromPeople => 'Fra andre';
+
+  @override
+  String get inOutFromInvestments => 'Fra Investments';
+
+  @override
+  String get inOutFromDollars => 'Fra Dollars';
+
+  @override
+  String get inOutBought => 'Købt';
+
+  @override
+  String get inOutEmpty => 'Ingen penge ind eller ud';
 
   @override
   String get portfolioStatsActive => 'Aktive';
