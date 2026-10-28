@@ -850,10 +850,12 @@ class TrackingService {
   // beside the legacy buckets (kept so dashboards do not break):
   // amount_usd (2 dp), amount (native units) + asset, currency/amount_fiat
   // for fiat-entered flows, and the fee the USER SAW before confirming as
-  // fee_shown_usd + fee_shown_basis (shown_at_quote | network_fee). These
-  // are UX analytics, never Kute revenue: revenue reaches PostHog only from
-  // the database through the warehouse sync, and no app event carries it
-  // or an estimate of it. Never balances, addresses, txids, order ids or
+  // fee_shown_usd + fee_shown_basis (shown_at_quote | network_fee |
+  // estimate: the bet slip's fee curve at submit | fill: the fee the
+  // Investing fills paid, as the venue reported it). These are UX
+  // analytics, never Kute revenue: revenue reaches PostHog only from the
+  // database through the warehouse sync, and no app event carries it or
+  // an estimate of it. Never balances, addresses, txids, order ids or
   // keys.
 
   static double _round(double v, int dp) {
