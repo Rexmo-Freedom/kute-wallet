@@ -462,7 +462,6 @@ polymarket_withdraw_completed
 polymarket_withdraw_failed
 polymarket_withdraw_initiated
 polymarket_withdraw_submitted
-portfolio_allocation_view_changed
 portfolio_available_to_invest_toggled
 portfolio_balances_empty_shown
 portfolio_category_slice_selected
@@ -474,6 +473,7 @@ portfolio_performance_retry_tapped
 portfolio_rebalance_tapped
 portfolio_statistics_venue_toggled
 portfolio_tab_changed
+portfolio_venue_positions_expanded
 position_protect_tapped
 predict_hero_viewed
 prediction_claim_tapped
