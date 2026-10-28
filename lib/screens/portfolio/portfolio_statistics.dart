@@ -177,7 +177,12 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///       - a hairline, then the chart ([PortfolioPnlChart]: straight
 ///         segments in the result colour, a soft fade, a solid hairline at
 ///         zero) with its time axis and range pills (1W to ALL).
-///     A P&L that never moved draws the chart's calm empty state. Earn
+///     A P&L that never moved draws the chart's calm empty state. Active
+///     with nothing open in the series drawn (All: at either venue; a
+///     venue row picked: at that venue) draws no chart (founder, 28
+///     October 2026): no plot, axis or range pills, the lead row and the
+///     venue rows stay so Historic or the other venue is a tap away; All
+///     with one venue open charts All. Historic always charts. Earn
 ///     (the dollar rewards programme) is never shown here, whatever the
 ///     backend's `usd.earn` says (owner decision).
 ///   * Under the card, the RESTING ORDERS (portfolio_orders.dart, each row
@@ -196,7 +201,9 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     app's one empty state ([NoActivityState]), or only the [footer]
 ///     when it has rows ([footerEmpty] false).
 ///   * A venue the account has not, or whose read failed, is left out.
-///     Loading shows shimmer cards until every venue has answered; every venue
+///     Loading shows shimmer cards until every venue has answered, and on
+///     Active until Investing's positions have answered for the first time
+///     (the first load: never the chart, then nothing); every venue
 ///     failing is the retry state (one `portfolio_performance_error_shown`
 ///     per venue).
 ///   * Analytics: a venue row picked (or tapped again, All) sends
@@ -321,7 +328,14 @@ class _PortfolioStatisticsOverviewState
     // A header keeps the page a scrolling list whatever the figures say.
     final footer = !widget.footerEmpty || widget.header != null;
     // As the venue's own tab: a reload keeps the last figures up.
-    if (results.values.any((r) => !r.hasValue && !r.hasError)) {
+    // Active's first load: what Investing holds decides whether the chart
+    // is drawn, so its positions answer first (a reload keeps the last
+    // ones: the skeleton never comes back).
+    final account = widget.trading && _scope == StatisticsScope.active
+        ? ref.watch(hyperliquidDisplayAccountProvider)
+        : null;
+    if (results.values.any((r) => !r.hasValue && !r.hasError) ||
+        (account != null && !account.hasValue && !account.hasError)) {
       return _page([
         SkeletonCardList(
             key: const ValueKey('portfolio-performance-loading'),
@@ -453,6 +467,10 @@ class _OverviewBody extends ConsumerWidget {
         PortfolioPerformanceVenue.trading,
     ];
     final picked = toggled ? charted : null;
+    // Active with nothing open in the series drawn (All, or the venue
+    // picked): no chart, nothing meaningful to plot.
+    final plot = scope != StatisticsScope.active ||
+        !_Figures.quiet(picked != null ? byVenue[picked] : figures);
 
     return page([
       // ONE block: the ring, the figure and the pair; the venue rows,
@@ -462,6 +480,7 @@ class _OverviewBody extends ConsumerWidget {
         venue: series,
         eventVenue: _eventVenue(series),
         data: toggled ? data[charted]! : combined,
+        plot: plot,
         leading: _PnlRing(listed: listed, byVenue: byVenue),
         trailing: _ScopePills(scope: scope, onScope: onScope, compact: true),
         middle: _PnlVenues(
@@ -474,9 +493,8 @@ class _OverviewBody extends ConsumerWidget {
           selected: picked,
           // The rows pick the series only with two venues' P&L moving;
           // the picked row tapped again is All.
-          onPick: moving.length > 1
-              ? (v) => onChart(v == picked ? null : v)
-              : null,
+          onPick:
+              moving.length > 1 ? (v) => onChart(v == picked ? null : v) : null,
         ),
       ),
       if (resting) _PnlOrders(listed: listed, orders: orders!),

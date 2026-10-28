@@ -32,6 +32,15 @@
 //     nothing open reads "No open positions" in its header row and lists
 //     nothing; what open orders hold there is named under its header.
 //
+// The first load (founder, 28 October 2026): until both venues' positions
+// are known (a list still read with nothing in it, a venue's figures never
+// read this session and the breakdown's refresh on open not done yet) the
+// venue area is the venue card's skeleton rows, never headers that then
+// give way to "No open positions" or Sal. Known once, the area follows the
+// figures and a later refresh (the shimmer of a figure being read again,
+// a list reloading) keeps what is on screen: no skeleton, no headers
+// coming and going.
+//
 // Unknown figures keep the breakdown's rules: a figure never read reads a
 // dash, dimmed and sweeping ([StaleShimmer]); a cached one is dimmed with
 // the same sweep while it refreshes; never a confident $0.00. While any
@@ -101,6 +110,7 @@ class BalancesEntry {
     this.positionCount = 0,
     this.reservedUsd = 0,
     this.footer = const [],
+    this.read = true,
   });
 
   final BalancesPart part;
@@ -125,6 +135,11 @@ class BalancesEntry {
   /// Quiet captions under its sub-row (where Buying power sits): a
   /// Rebalance note. Any note opens the split.
   final List<String> footer;
+
+  /// Its figures were read this session (a refresh of them may be
+  /// running); false while they are only a saved figure or none, so what
+  /// it holds is not known yet (the first load, see the file header).
+  final bool read;
 
   /// The key part of its widgets ("dollars", "investing").
   String get id => part.name;
@@ -270,6 +285,7 @@ class BalancesOverview extends StatefulWidget {
     this.action,
     this.steps,
     this.venues = const {},
+    this.firstReadDone = true,
   });
 
   final List<BalancesEntry> entries;
@@ -278,6 +294,12 @@ class BalancesOverview extends StatefulWidget {
   final Widget? action;
   final Widget? steps;
   final Map<BalancesCategory, BalancesVenueList> venues;
+
+  /// The breakdown's read of the venues on open has finished (or there
+  /// was none): a venue whose figures are still not read is then taken as
+  /// it stands once its list is read (a cash read that failed never holds
+  /// the first load forever).
+  final bool firstReadDone;
 
   @override
   State<BalancesOverview> createState() => _BalancesOverviewState();
@@ -305,6 +327,11 @@ class _BalancesOverviewState extends State<BalancesOverview> {
 
   /// Where Buying power sits, opened with its chevron.
   bool _split = false;
+
+  /// Both venues' positions were known once for this mount: from then on
+  /// the venue area follows the figures, a refresh never brings the
+  /// skeleton (or a venue's loading rows) back.
+  bool _venuesKnown = false;
 
   @override
   Widget build(BuildContext context) {
@@ -335,8 +362,19 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       return null;
     }
 
-    // A venue with nothing to show: no positions, none loading, nothing
-    // held in open orders and a known figure.
+    // What a venue holds is known: rows listed, or its list read and its
+    // figures read this session (or the read on open done). Decided once
+    // per mount ([_venuesKnown]), so only the first load waits on it.
+    bool venueKnown(BalancesCategory category, BalancesEntry? e) {
+      if (e == null) return true;
+      final list = widget.venues[category] ?? BalancesVenueList.empty;
+      if (list.rows.isNotEmpty) return true;
+      return !list.loading && (e.read || widget.firstReadDone);
+    }
+
+    // A venue with nothing to show: no positions and nothing held in open
+    // orders. Asked only once the venues are known, so a refresh (a figure
+    // shimmering, a list reloading) never turns it back into a header.
     bool venueEmpty(BalancesCategory category, BalancesEntry? e) {
       if (e == null) return true;
       final list = widget.venues[category] ?? BalancesVenueList.empty;
@@ -345,10 +383,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           (!open &&
               e.positions?.usd != null &&
               e.atWorkUsd >= kBalancesCentUsd);
-      return !open &&
-          !list.loading &&
-          !held &&
-          !figure(categories[category]!).stale;
+      return !open && !held;
     }
 
     Widget venue(BalancesCategory category, BalancesEntry e) {
@@ -362,7 +397,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           : !open && e.positions?.usd != null && e.atWorkUsd >= kBalancesCentUsd
               ? l10n.investingInOpenOrders(money(e.atWorkUsd))
               : null;
-      final empty = !open && !list.loading && reserve == null && !f.stale;
+      // Known (see [venueKnown]): nothing open is "No open positions",
+      // whatever a refresh is doing to the figure.
+      final empty = !open && reserve == null;
       return Column(
         key: ValueKey('portfolio-balance-venue-${category.name}'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -379,7 +416,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             empty: empty ? l10n.portfolioNoOpenPositions : null,
             caption: reserve,
           ),
-          if (list.rows.isNotEmpty || list.loading)
+          // A count the rows have not caught up with yet: their shimmer
+          // rows; never an empty venue's while a refresh reloads its list.
+          if (list.rows.isNotEmpty || (open && list.loading))
             Padding(
               key: ValueKey('portfolio-balance-${category.name}-positions'),
               padding: EdgeInsets.only(top: 8.h),
@@ -395,6 +434,12 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     final predictions = entryOf(BalancesPart.predictions);
     final investing = entryOf(BalancesPart.investing);
     final buyingPower = figure(categories[BalancesCategory.buyingPower]!);
+    final anyVenue = predictions != null || investing != null;
+    if (!_venuesKnown &&
+        venueKnown(BalancesCategory.predictions, predictions) &&
+        venueKnown(BalancesCategory.investing, investing)) {
+      _venuesKnown = true;
+    }
 
     return Column(
       key: const ValueKey('portfolio-balance-overview'),
@@ -477,9 +522,17 @@ class _BalancesOverviewState extends State<BalancesOverview> {
         ),
         if (widget.steps case final steps?) steps,
         SizedBox(height: 16.h),
+        // The first load: the venue card's skeleton rows until both
+        // venues' positions are known, never headers that then go.
+        if (anyVenue && !_venuesKnown)
+          Padding(
+            key: const ValueKey('portfolio-balance-venues-loading'),
+            padding: EdgeInsets.only(top: 14.h),
+            child: const _VenueCard(rows: [], loading: true, skeletonRows: 3),
+          )
         // Nothing open anywhere: Sal's empty state, not two empty venue
         // rows (founder, 27 October 2026).
-        if ((predictions != null || investing != null) &&
+        else if (anyVenue &&
             venueEmpty(BalancesCategory.predictions, predictions) &&
             venueEmpty(BalancesCategory.investing, investing)) ...[
           _emptyShownOnce(),
@@ -489,7 +542,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             child: NoActivityState(
                 title: l10n.portfolioNoOpenPositions, cycles: 3, compact: true),
           ),
-        ] else if (predictions != null || investing != null) ...[
+        ] else if (anyVenue) ...[
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
           // Room for the card's soft shadow, which falls below it.
@@ -513,10 +566,14 @@ const double _kCardInset = 16;
 /// (starting where a row's text does), the rows' press ink clipped to the
 /// corners; shimmer rows while the venue is read with nothing listed.
 class _VenueCard extends StatelessWidget {
-  const _VenueCard({required this.rows, required this.loading});
+  const _VenueCard(
+      {required this.rows, required this.loading, this.skeletonRows = 2});
 
   final List<Widget> rows;
   final bool loading;
+
+  /// How many shimmer rows [loading] draws.
+  final int skeletonRows;
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +596,7 @@ class _VenueCard extends StatelessWidget {
               ],
               if (loading)
                 SkeletonRowList(
-                    count: 2,
+                    count: skeletonRows,
                     padding:
                         EdgeInsets.symmetric(horizontal: inset, vertical: 8.h),
                     rowPadding: EdgeInsets.symmetric(vertical: 10.h)),

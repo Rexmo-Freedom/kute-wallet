@@ -503,7 +503,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       // The pill's own tap, no amounts.
-      expect(events.where((e) => e.$1 == 'portfolio_move_money_tapped').single.$2,
+      expect(
+          events.where((e) => e.$1 == 'portfolio_move_money_tapped').single.$2,
           {'surface': 'balances'});
       expect(find.byType(DepositSheet), findsOneWidget);
       expect(
@@ -1293,6 +1294,227 @@ void main() {
     });
   });
 
+  // The first load (founder, 28 October 2026): until both venues'
+  // positions are known the venue area is the skeleton, never "● Predictions"
+  // and "● Investing" headers that then give way to "No open positions"
+  // or Sal; a later refresh never brings the skeleton back.
+  group('the Balances first load', () {
+    final skeleton =
+        find.byKey(const ValueKey('portfolio-balance-venues-loading'));
+    final sal = find.byKey(const ValueKey('portfolio-balance-no-positions'));
+    Finder header(String venue) =>
+        find.byKey(ValueKey('portfolio-balance-venue-$venue'));
+    Finder line(String venue) =>
+        find.byKey(ValueKey('portfolio-balance-category-$venue-line'));
+    final anyHeader = find.byWidgetPredicate((w) =>
+        w.key == const ValueKey('portfolio-balance-venue-predictions') ||
+        w.key == const ValueKey('portfolio-balance-venue-investing'));
+
+    PolymarketPosition held(String token) => PolymarketPosition(
+        marketId: 'm-$token',
+        marketQuestion: 'Q $token',
+        outcome: 'Yes',
+        size: 2,
+        avgPrice: 0.5,
+        currentPrice: 0.5,
+        pnl: 0,
+        pnlPercent: 0,
+        isResolved: false,
+        tokenId: token);
+
+    final listed = Scaffold(
+        body: SingleChildScrollView(
+            child: Consumer(
+                builder: (context, ref, _) => PortfolioBalanceBreakdown(
+                    trading: true,
+                    predictions: true,
+                    overview: true,
+                    venues: portfolioVenueLists(
+                        context,
+                        ref,
+                        const PortfolioVenues(
+                            trading: true, predictions: true))))));
+
+    // Nothing read yet this session: a saved figure at most.
+    const unread = OneBalanceState(
+        venueCash: {OneBalanceVenue.investing: 5},
+        investingKnown: false,
+        predictionsKnown: false);
+    // Read: nothing held at either venue.
+    const nothingHeld = OneBalanceState(
+        venueCash: {OneBalanceVenue.investing: 5},
+        investingKnown: true,
+        predictionsKnown: true);
+
+    /// Frames for [d], failing on any frame that shows a venue header.
+    Future<void> noHeaders(WidgetTester tester,
+        [Duration d = const Duration(milliseconds: 600)]) async {
+      const step = Duration(milliseconds: 50);
+      for (var t = Duration.zero; t < d; t += step) {
+        await tester.pump(step);
+        expect(anyHeader, findsNothing);
+      }
+    }
+
+    testWidgets(
+        'nothing open anywhere: the skeleton until both venues are read, '
+        'then Sal straight away, never the headers in between', (tester) async {
+      _SlowPoly.gate = Completer<void>();
+      final events = _events();
+      final c = await _pump(tester,
+          home: listed,
+          settle: false,
+          overrides: [polymarketTradingProvider.overrideWith(_SlowPoly.new)]);
+      c.read(_balance.notifier).state = unread;
+      // The lists read, the figures not: still the skeleton.
+      await noHeaders(tester);
+      expect(skeleton, findsOneWidget);
+      expect(sal, findsNothing);
+      expect(find.text('No open positions'), findsNothing);
+      // Available to invest is drawn meanwhile (its own shimmer).
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-category-buyingPower')),
+          findsOneWidget);
+      expect(events.where((e) => e.$1 == 'portfolio_balances_empty_shown'),
+          isEmpty);
+
+      // Read: nothing held. Sal at once, no header ever.
+      c.read(_balance.notifier).state = nothingHeld;
+      await noHeaders(tester);
+      expect(skeleton, findsNothing);
+      expect(sal, findsOneWidget);
+      expect(events.where((e) => e.$1 == 'portfolio_balances_empty_shown'),
+          hasLength(1));
+
+      // A refresh (the venues read again, their figures unknown for a
+      // moment, the refresh on open landing): what is on screen stays.
+      c.read(_balance.notifier).state = unread;
+      await noHeaders(tester);
+      _SlowPoly.gate!.complete();
+      await noHeaders(tester);
+      c.read(_balance.notifier).state = nothingHeld;
+      await noHeaders(tester);
+      expect(skeleton, findsNothing);
+      expect(sal, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'positions at one venue: the skeleton, then its section and the '
+        'other venue\'s "No open positions", once the refresh on open has '
+        'read what was never read', (tester) async {
+      _SlowPoly.gate = Completer<void>();
+      final c = await _pump(tester, home: listed, settle: false, overrides: [
+        polymarketTradingProvider.overrideWith(_SlowPoly.new),
+        polymarketActivePositionsProvider
+            .overrideWith((_) => [held('a'), held('b')]),
+      ]);
+      c.read(_balance.notifier).state = const OneBalanceState(
+          investedUsd: 2,
+          investedByVenue: {OneBalanceVenue.predictions: 2},
+          investingKnown: false,
+          predictionsKnown: true);
+      await noHeaders(tester);
+      // Predictions' rows are known, Investing's figures never read: the
+      // skeleton, not Predictions alone and Investing later.
+      expect(skeleton, findsOneWidget);
+      expect(find.byType(PolyPositionRow), findsNothing);
+
+      // The refresh on open lands without Investing ever answering: what
+      // its list says is taken as it stands.
+      _SlowPoly.gate!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(skeleton, findsNothing);
+      expect(sal, findsNothing);
+      expect(header('predictions'), findsOneWidget);
+      expect(find.byType(PolyPositionRow), findsNWidgets(2));
+      expect(header('investing'), findsOneWidget);
+      expect(tester.widget<Text>(line('investing')).data, 'No open positions');
+      expect(line('predictions'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    // The overview itself, its inputs moved by hand: a list reloading and
+    // a figure shimmering after the first load never bring the skeleton or
+    // a venue's loading rows back.
+    testWidgets('a refresh after the first load keeps what is on screen',
+        (tester) async {
+      final load = ValueNotifier<(bool loading, bool stale, bool rows)>(
+          (true, true, false));
+      BalancesEntry venue(BalancesPart part, {required bool stale}) =>
+          BalancesEntry(
+            part: part,
+            asset: '',
+            name: part.name,
+            cash: BalancesFigure(r'$1.00', usd: 1, stale: stale),
+            positions: BalancesFigure(r'$0.00', usd: 0, stale: stale),
+            read: !stale,
+          );
+      await _pump(tester,
+          settle: false,
+          home: Scaffold(
+              body: SingleChildScrollView(
+                  child: ValueListenableBuilder(
+                      valueListenable: load,
+                      builder: (_, l, __) => BalancesOverview(
+                            money: (usd) => '\$${usd.toStringAsFixed(2)}',
+                            firstReadDone: false,
+                            entries: [
+                              const BalancesEntry(
+                                  part: BalancesPart.dollars,
+                                  asset: '',
+                                  name: 'dollars',
+                                  cash: BalancesFigure(r'$0.00', usd: 0)),
+                              venue(BalancesPart.investing, stale: l.$2),
+                              venue(BalancesPart.predictions, stale: l.$2),
+                            ],
+                            venues: {
+                              BalancesCategory.predictions:
+                                  BalancesVenueList(loading: l.$1, rows: [
+                                if (l.$3)
+                                  const SizedBox(
+                                      key: ValueKey('a-row'), height: 40),
+                              ]),
+                              BalancesCategory.investing:
+                                  BalancesVenueList(loading: l.$1),
+                            },
+                          )))));
+      await tester.pump();
+      expect(skeleton, findsOneWidget);
+      expect(anyHeader, findsNothing);
+
+      // Known, nothing anywhere: Sal.
+      load.value = (false, false, false);
+      await tester.pump();
+      expect(sal, findsOneWidget);
+      // A refresh: lists loading, figures shimmering. Sal stays.
+      load.value = (true, true, false);
+      await tester.pump();
+      expect(sal, findsOneWidget);
+      expect(skeleton, findsNothing);
+      expect(anyHeader, findsNothing);
+
+      // A position lands: its section; Investing "No open positions".
+      load.value = (false, false, true);
+      await tester.pump();
+      expect(header('predictions'), findsOneWidget);
+      expect(find.byKey(const ValueKey('a-row')), findsOneWidget);
+      expect(tester.widget<Text>(line('investing')).data, 'No open positions');
+      // Refreshing again: Investing keeps its line, no loading rows, no
+      // skeleton anywhere.
+      load.value = (true, true, true);
+      await tester.pump();
+      expect(tester.widget<Text>(line('investing')).data, 'No open positions');
+      expect(
+          find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+          findsNothing);
+      expect(skeleton, findsNothing);
+      expect(find.byKey(const ValueKey('a-row')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('the Balances overview', () {
     const overviewBreakdown = Scaffold(
         body: SingleChildScrollView(
@@ -1981,7 +2203,9 @@ void main() {
 
     testWidgets(r'a balance not read yet: a sweeping dash, never $0.00',
         (tester) async {
-      final c = await _pump(tester, home: overviewBreakdown, overrides: [
+      // The venues' skeleton sweeps for good: frames, not a settle.
+      final c =
+          await _pump(tester, home: listedBreakdown, settle: false, overrides: [
         hyperliquidDisplayTradingProvider
             .overrideWith((_) => const AsyncLoading<HyperliquidTradingState>()),
       ]);
@@ -1996,7 +2220,12 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(place(tester, 'investing'), '—');
       expect(sweeping(tester, 'portfolio-balance-investing-amount'), isTrue);
-      expect(category(tester, 'investing'), '—');
+      // What Investing holds is not known: the venues' skeleton, never a
+      // header that may give way to "No open positions".
+      expect(find.byKey(const ValueKey('portfolio-balance-venues-loading')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('portfolio-balance-category-investing')),
+          findsNothing);
       expect(_inCard('investing', find.textContaining(r'$0.00')), findsNothing);
       // The whole is not known: no slices.
 

@@ -613,14 +613,24 @@ void main() {
 
     testWidgets(
         'one P&L chart whose venue rows switch the series, headline and '
-        'change',
-        (tester) async {
+        'change', (tester) async {
       final events = _events();
       await _pump(tester,
           overrides: _performance(),
           home: const OpenInvestmentsScreen(source: 'test'));
       expect(find.byType(PortfolioStatistics), findsNothing);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      // Active with nothing open: no chart (founder, 28 October 2026), the
+      // venue rows stay to pick from; Historic charts.
+      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.byType(KuteRangePills), findsNothing);
+      await tester
+          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+      await tester.pumpAndSettle();
+      expect(events.last.$1, 'portfolio_allocation_view_changed');
+      expect(events.last.$2, {'view': 'historic'});
       expect(find.byType(KuteLineChart), findsOneWidget);
       // The range row under the plot, 1W to ALL.
       expect(find.byType(KuteRangePills), findsOneWidget);
@@ -657,14 +667,15 @@ void main() {
       expect(events.last.$1, 'portfolio_statistics_venue_toggled');
       expect(events.last.$2, {'venue': 'polymarket'});
 
-      // The pair switches the donut and the figures, and says so.
+      // Back to Active: nothing open at Predictions, so no chart.
       await tester
-          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
+          .ensureVisible(find.byKey(const ValueKey('statistics-active')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+      await tester.tap(find.byKey(const ValueKey('statistics-active')));
       await tester.pumpAndSettle();
       expect(events.last.$1, 'portfolio_allocation_view_changed');
-      expect(events.last.$2, {'view': 'historic'});
+      expect(events.last.$2, {'view': 'active'});
+      expect(find.byType(KuteLineChart), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -698,6 +709,12 @@ void main() {
           r'+$15.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
+      // Nothing open: Historic charts it.
+      await tester
+          .ensureVisible(find.byKey(const ValueKey('statistics-historic')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('statistics-historic')));
+      await tester.pumpAndSettle();
       // The scrub event names the one venue charted (a press on the plot).
       await tester.longPress(find.byWidgetPredicate((w) =>
           w is CustomPaint &&
