@@ -216,6 +216,40 @@ void main() {
       expect(other.orderId, 'ord_1');
     });
 
+    test(
+        'F11: an unresolved send the reconciler cannot settle (not Spark) '
+        'holds its route only until 30 min past its quote', () async {
+      replies = [() => _accepted('ord_1')];
+      await expectLater(
+          runner().run(plan(fund: () => throw TimeoutException('send'))),
+          throwsA(isA<SettlementFundingUnknown>()));
+      final unknown = (await store.all()).single;
+      final expiresAt = unknown.quote!.expiresAt;
+      SettlementRunner at(DateTime t) =>
+          SettlementRunner(store: store, clock: () => t);
+
+      // A Spark payment is held until the reconciler settles it.
+      expect(
+          await at(expiresAt.add(const Duration(days: 3)))
+              .blockedByUnresolved('spending', unknown.route),
+          isTrue);
+
+      await store.update(unknown.operationId,
+          stage: unknown.stage,
+          expectedVersion: unknown.version,
+          patch: (c) => c.copyWith(
+              funding:
+                  const SettlementFunding(kind: SettlementFundingKind.relayer)));
+      expect(
+          await at(expiresAt.add(const Duration(minutes: 29)))
+              .blockedByUnresolved('spending', unknown.route),
+          isTrue);
+      expect(
+          await at(expiresAt.add(const Duration(minutes: 31)))
+              .blockedByUnresolved('spending', unknown.route),
+          isFalse);
+    });
+
     test('a refusal is resubmitted quickly with a new key until accepted',
         () async {
       replies = [_refused, () => _accepted('ord_1')];
