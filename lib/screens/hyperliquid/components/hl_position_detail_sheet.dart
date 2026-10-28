@@ -476,12 +476,12 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 ),
                             ],
                             // The chart's editing mode, as on the market
-                            // screen: one row, above Details.
+                            // screen: one row, above Details, with no icon
+                            // like the rows around it.
                             if (m != null)
                               PositionLinkRow(
                                 key: const ValueKey('hl-advanced-chart'),
                                 label: context.l10n.hlAdvancedChart,
-                                icon: Icons.candlestick_chart_rounded,
                                 onTap: () =>
                                     HlCandleChart.openAdvanced(_chartHostKey),
                               ),

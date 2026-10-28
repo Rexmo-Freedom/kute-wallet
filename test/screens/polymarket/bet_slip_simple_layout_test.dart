@@ -117,7 +117,7 @@ Future<void> _pumpSlip(WidgetTester tester,
     double? initialAmountUsd = 10,
     String? ledgerWalletId,
     // One balance: the spending account's Dollars. Zero, so a short bet
-    // shows the Dollars door ("Add $X · the order") like the old
+    // shows the Dollars door (still named after the bet) like the old
     // deposit door did; a balance that covers the move shows the bet.
     double dollars = 0,
     bool settle = true}) async {
@@ -367,7 +367,7 @@ void main() {
   testWidgets('empty Predictions balance offers deposit directly',
       (tester) async {
     await _pumpSlip(tester, balance: 0);
-    expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^Place \$[^ ]+ on ')), findsOneWidget);
     expect(find.text('Max'), findsNothing);
     expect(find.text('Enter an amount'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -486,7 +486,7 @@ void main() {
       expect(await policy.refresh(), isTrue);
       // $5 cannot cover the $10 default stake.
       await _pumpSlip(tester, balance: 5);
-      expect(door(tester).label, startsWith(r'Add $'));
+      expect(door(tester).label, r'Place $10.00 on Yes');
       expect(door(tester).enabled, isFalse);
       expect(find.text('This feature is currently unavailable in Kute.'),
           findsOneWidget);
@@ -778,7 +778,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.textContaining(RegExp(r'^Add \$[^ ]+ · '));
+      final action = find.textContaining(RegExp(r'^Place \$[^ ]+ on '));
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -815,7 +815,7 @@ void main() {
     expect(position.maxScrollExtent, 0);
     final action = find
         .ancestor(
-            of: find.textContaining(RegExp(r'^Add \$[^ ]+ · ')),
+            of: find.textContaining(RegExp(r'^Place \$[^ ]+ on ')),
             matching: find.byType(InkWell))
         .first;
     expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));

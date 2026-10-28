@@ -1,8 +1,8 @@
 // The order slip's one button while it cannot know yet what it should be:
 // the Investing account not read yet ("Loading your account..."); and, once
-// read empty with no Dollars to fund the order, the "Add $X · the order"
-// door, which with no bitcoin to cover X opens the Investments Receive
-// sheet, one sheet at a time.
+// read empty with no Dollars to fund the order, the funding door (still
+// named after the order), which with no bitcoin to cover X opens the
+// Investments Receive sheet, one sheet at a time.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -201,16 +201,15 @@ void main() {
     });
 
     testWidgets(
-        'an account not read yet is not added into Available as \$0.00: '
-        'the line says it is updating', (tester) async {
+        'the line under the amount names only the minimum, before and after '
+        'the account is read', (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(find.textContaining('Updating balance'), findsOneWidget);
-      expect(find.textContaining(r'Available $0'), findsNothing);
+      expect(find.textContaining('Available'), findsNothing);
       account.complete(_snapshot(500));
       await _frames(tester);
-      expect(find.textContaining('Updating balance'), findsNothing);
-      expect(find.textContaining('Available'), findsWidgets);
+      expect(find.textContaining('Available'), findsNothing);
+      expect(find.textContaining('Minimum '), findsWidgets);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -218,11 +217,11 @@ void main() {
         (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
+      expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       account.complete(_snapshot(0));
       await _frames(tester);
-      // Nothing typed: the order's short name; the tap tops up first.
-      expect(_button(tester).text, 'Long BTC');
+      // Nothing typed: the minimum it places; the tap tops up first.
+      expect(_button(tester).text, 'Long minimum on BTC');
       expect(_button(tester).isLoading, isFalse);
       expect(_button(tester).onPressed, isNotNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -265,7 +264,8 @@ void main() {
       sheet = Completer<void>();
       await _pumpSlip(tester, Future.value(_snapshot(0)));
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, startsWith('Add \$'));
+      // Only the order, never the top-up it needs.
+      expect(_button(tester).text, r'Long $20.00');
 
       await tester.tap(find.byType(AppButton));
       await _frames(tester, 3);
@@ -286,7 +286,7 @@ void main() {
       // The sheet closes without a deposit: the door again, same X.
       sheet.complete();
       await _frames(tester, 3);
-      expect(_button(tester).text, startsWith('Add \$'));
+      expect(_button(tester).text, r'Long $20.00');
       expect(_button(tester).onPressed, isNotNull);
       sheet = Completer<void>()..complete();
       await tester.tap(find.byType(AppButton));

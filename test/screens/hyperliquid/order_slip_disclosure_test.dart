@@ -118,12 +118,13 @@ const _market = HlMarket(
 );
 
 /// The hot ticket's door when the venue cannot cover the order and Dollars
-/// cannot fund the move: "Add $X · the order" (the Dollar deposit).
-final Matcher _dollarDoor = allOf(startsWith('Add \$'), contains(' · '));
+/// cannot fund the move: named after the order alone, never "Add $X · …"
+/// (owner decision).
+final Matcher _dollarDoor = allOf(isNotEmpty, isNot(startsWith('Add ')));
 
-/// The empty ticket's button: the order's short name, no amount, also
-/// when its tap tops up first and then places the minimum.
-const String _emptyOrder = 'Long BTC';
+/// The empty ticket's button: the order and that it is the minimum, no
+/// amount, also when its tap tops up first and then places the minimum.
+const String _emptyOrder = 'Long minimum on BTC';
 
 Future<void> _pumpSlip(WidgetTester tester,
     {double available = 500,
@@ -256,7 +257,8 @@ void main() {
       'Sal on', (tester) async {
     await _pumpSlip(tester, ai: true);
     // The title, and the empty ticket's button.
-    expect(find.text('Long BTC'), findsNWidgets(2));
+    expect(find.text('Long BTC'), findsOneWidget);
+    expect(find.text(_emptyOrder), findsOneWidget);
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
@@ -450,10 +452,10 @@ void main() {
       expect(chip.height, lessThan(figure.height));
       expect(chip.width, lessThan(390 / 4));
 
-      // One quiet line under it: the balance, then the minimum.
+      // One quiet line under it: only the minimum, no available figure.
       final line = tester.widget<Text>(infoLine()).textSpan!.toPlainText();
-      expect(line, matches(RegExp(r'^Available \$500\.00 · Minimum \$\d+\.\d{2}$')));
-      expect(find.textContaining(r'$500.00'), findsOneWidget);
+      expect(line, matches(RegExp(r'^Minimum \$\d+\.\d{2}$')));
+      expect(find.textContaining('Available'), findsNothing);
 
       await tester.tap(find.bySemanticsLabel('Use maximum'));
       await tester.pumpAndSettle();
@@ -1069,7 +1071,7 @@ void main() {
       expect(button(tester).text, r'Long $20.00');
       expect(button(tester).onPressed, isNotNull);
       await _typeOnKeypad(tester, '600');
-      expect(button(tester).text, _dollarDoor);
+      expect(button(tester).text, r'Long $600.00');
       await tester.pumpWidget(const SizedBox.shrink());
     });
 

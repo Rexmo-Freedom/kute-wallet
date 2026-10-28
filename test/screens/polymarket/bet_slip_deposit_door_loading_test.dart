@@ -4,10 +4,11 @@
 //
 // One balance: a bet short of venue cash funds itself from Dollars at the
 // tap. Only when the whole Investments balance cannot cover that move is
-// the button "Add $X · the order", whose tap decides on the spending
-// bitcoin read at the tap: the Bitcoin-funded chain when it covers X, the
-// Investments Receive sheet (never the Bitcoin Move sheet) when it does
-// not. "Available" is the whole spendable Investments.
+// the button that door, still named after the bet ("Place $10.00 on Yes"),
+// whose tap decides on the spending bitcoin read at the tap: the
+// Bitcoin-funded chain when it covers X, the Investments Receive sheet
+// (never the Bitcoin Move sheet) when it does not. The line under the
+// figure names only the minimum.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -65,7 +66,6 @@ import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
 /// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
-final Matcher _addThenOrder = allOf(startsWith('Add \$'), contains(' · '));
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -392,8 +392,8 @@ void main() {
       account.complete(const PolymarketTradingState(usdcBalance: 0));
       await _frames(tester);
       expect(_door, findsOneWidget);
-      expect(_cta(tester).label, startsWith(r'Add $'));
-      expect(_cta(tester).label, _addThenOrder);
+      // Only the bet, never the top-up it needs.
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       await release(tester);
     });
@@ -557,7 +557,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 0)),
           dollars: 0);
       await _frames(tester);
-      expect(_cta(tester).label, startsWith(r'Add $'));
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       await tester.tap(_door);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
@@ -622,7 +622,7 @@ void main() {
   group('button label colour', () {
     // The order slip letters its button the same way (see
     // order_slip_funding_test): on the sheet's white ink the trade and
-    // the "Add $X · …" door are both lettered dark, never in the side
+    // the funding door are both lettered dark, never in the side
     // colour (founder decision).
     late RuntimeCapabilitiesService policy;
     setUp(() async {
@@ -1281,8 +1281,8 @@ void main() {
           dollars: 8.10,
           initialAmountUsd: null);
       await _frames(tester);
-      expect(find.textContaining(r'Available $8.59'), findsOneWidget);
-      expect(find.textContaining(r'Available $0.49'), findsNothing);
+      // No available figure under the amount, only the minimum.
+      expect(find.textContaining('Available'), findsNothing);
 
       await tester.tap(find.text('Max'));
       await _frames(tester);
@@ -1300,7 +1300,7 @@ void main() {
 
     testWidgets(
         'a Predictions balance that could not be read is not added as 0: '
-        'the line says it is updating', (tester) async {
+        'the button waits', (tester) async {
       expect(await policy.refresh(), isTrue);
       // The cash read failed (0 in the state, not known); $8.10 in Dollars.
       await _pumpSlip(
@@ -1310,8 +1310,8 @@ void main() {
           dollars: 8.10,
           initialAmountUsd: null);
       await _frames(tester);
-      expect(find.textContaining('Updating balance'), findsOneWidget);
-      expect(find.textContaining(r'Available $8.10'), findsNothing);
+      // The line under the figure names only the minimum.
+      expect(find.textContaining('Available'), findsNothing);
       // The button waits rather than deciding a shortfall on the 0.
       expect(find.byKey(const ValueKey('bet-slip-loading-account')),
           findsOneWidget);
