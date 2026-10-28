@@ -566,8 +566,8 @@ void main() {
             isSpot: false));
         expect(size * wire, greaterThanOrEqualTo(10));
         final button = tester.widget<AppButton>(find.byType(AppButton));
-        // Nothing typed: the order's short name; a tap places the figure.
-        expect(button.text, '${isLong ? 'Long' : 'Short'} SPCX');
+        // Nothing typed: the minimum order; a tap places the figure.
+        expect(button.text, '${isLong ? 'Long' : 'Short'} minimum on SPCX');
         expect(button.onPressed, isNotNull);
         // The old figure is now under the minimum: the button offers it.
         await typeOnKeypad(tester, '10.08');
@@ -686,9 +686,9 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     // The title, and the empty ticket's button.
-    expect(find.text('Short BTC'), findsNWidgets(2));
+    expect(find.text('Short BTC'), findsOneWidget);
     expect(tester.widget<AppButton>(find.byType(AppButton)).text,
-        'Short BTC');
+        'Short minimum on BTC');
     // Even at 1x a short can be liquidated. The plain ticket keeps just
     // its two figures; the estimate is on the Advanced page.
     await _typeOnKeypad(tester, '20');

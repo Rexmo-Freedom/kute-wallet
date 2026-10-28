@@ -5463,8 +5463,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Compact slip amount: one big typed figure with the USDC equivalent,
   /// a small Max chip beside it ([onMax]; null hides it, [maxLocked]
   /// dims it, and the Advanced pill after it, with its dot when
-  /// [advancedModified]) and the market's minimum beneath it
-  /// ([belowMinimum] paints it red), never an available figure (owner
+  /// [advancedModified]) and, until a stake is typed or while it is under
+  /// it, the market's minimum beneath it ([belowMinimum] paints it red),
+  /// never an available figure (owner
   /// decision: a bet draws on the whole wallet). There is no TextField on
   /// this step, so the OS keyboard never opens over the ticket; the pinned
   /// [AmountKeypad] under the form is the only way in. [note] is one quiet
@@ -5485,8 +5486,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       prefix: polyDisplayLabel(ref),
       amountText: _amountController.text,
       conversionLabel: conversion,
-      minimumLabel: context.l10n
-          .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
+      // The minimum until a stake is typed, then just the figure; it
+      // comes back, red, while the stake is under it.
+      minimumLabel: _emptyStake || belowMinimum
+          ? context.l10n
+              .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd))
+          : null,
       minimumIsError: belowMinimum,
       noteLabel: note,
       trailing: SlipAmountPills(

@@ -6079,7 +6079,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
         conversionLabel:
             _marginUsd > 0 ? _denomLine(_denomEquivalent(_marginUsd)) : null,
         availableLabel: compactAvailLabel,
-        minimumLabel: minAmountUsd == null
+        // The minimum until an amount is typed, then just the figure; it
+        // comes back, red, while the amount is under it.
+        minimumLabel: minAmountUsd == null ||
+                (_marginUsd > 0 && !belowMinimum)
             ? null
             : context.l10n.amountMinimumInline(formatHlUsd(minAmountUsd)),
         minimumIsError: belowMinimum && minAmountUsd != null,
