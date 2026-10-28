@@ -15,13 +15,16 @@
 //     layout, components/balances_overview.dart, the rows from
 //     portfolioVenueLists in open_investments_screen.dart);
 //   * P&L CHARTS: the one P&L chart with its All · Investing ·
-//     Predictions toggle, the Active | Historic pair over the allocation
-//     donut and its figures (PortfolioStatisticsOverview), then the
-//     resting orders at both venues, Investing and Predictions, under
-//     their Orders heading with the count and one Cancel all, each row
-//     with its own cancel (portfolioOrdersSlivers, portfolio_orders.dart),
-//     only when anything rests. No venue on the account: the "No
-//     positions yet" empty state;
+//     Predictions toggle, then (founder decision 28 October 2026) the
+//     Balances frame under it: the small bare allocation ring, Open P&L
+//     (Historic: Realised P&L) with the Active | Historic pair at the
+//     row's end, a hairline, then each venue's row with its figures, its
+//     one quiet sub-row and its resting orders under it, each row with
+//     its own cancel, one quiet Cancel all link after the last venue's
+//     only with orders at both venues (PortfolioStatisticsOverview,
+//     portfolio_statistics.dart; the orders from PortfolioOrdersBook,
+//     portfolio_orders.dart). No venue on the account: the "No positions
+//     yet" empty state;
 //   * ACTIVITY: the Investments activity, the one merged list
 //     (portfolio_activity.dart), all of it: this is its home now, so no
 //     preview and no "See all".
@@ -46,11 +49,12 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioOrdersSlivers, portfolioVenueLists;
+    show portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
+import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -165,9 +169,8 @@ Widget _pillsSliver(Widget pills) => SliverPadding(
 Widget _dockClearance(BuildContext context) => SliverToBoxAdapter(
     child: SizedBox(height: 32.h + kuteDockScrollClearance(context)));
 
-/// P&L charts: the Portfolio screen's chart, pair and figures, then the
-/// resting orders under their Orders heading when anything rests (see
-/// the file header).
+/// P&L charts: the chart, then the Balances frame around the figures,
+/// each venue's resting orders under its row (see the file header).
 class _Charts extends ConsumerWidget {
   const _Charts({required this.pills});
 
@@ -183,14 +186,12 @@ class _Charts extends ConsumerWidget {
             child: PortfolioEmptyState(context.l10n.ledgerNoPositionsYet)),
       ]);
     }
-    final footer = portfolioOrdersSlivers(context, ref, venues);
     return PortfolioStatisticsOverview(
       key: const ValueKey('statistics-overview'),
       trading: venues.trading,
       predictions: venues.predictions,
+      orders: PortfolioOrdersBook.watch(ref, venues),
       header: Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills),
-      footer: footer,
-      footerEmpty: footer.isEmpty,
     );
   }
 }

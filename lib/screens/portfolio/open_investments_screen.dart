@@ -14,8 +14,8 @@
 //     positions yet"). The Investments tab's Portfolio pill lists the
 //     positions under their venue in its Balances section
 //     ([portfolioVenueLists], since 27 October 2026: no Positions section
-//     any more) and the orders under its P&L charts
-//     ([portfolioOrdersSlivers], investments_portfolio.dart);
+//     any more) and the orders under their venue on its P&L charts
+//     (PortfolioOrdersBook, investments_portfolio.dart);
 //     [PortfolioPositions] is the same rows as a page of their own.
 //   * THE PORTFOLIO ([OpenInvestmentsScreen]), full screen, opened from
 //     Home's Predictions card and a venue browser's dock standing on its
@@ -24,10 +24,12 @@
 //     app bar with its back over one scrolling page — the balance
 //     breakdown with its Rebalance (portfolio_balance_breakdown.dart:
 //     Dollars, Investing and Predictions cash), the one P&L chart with its
-//     All · Investing · Predictions toggle, the Active | Historic pair
-//     over one allocation donut by category with both venues merged, the
-//     figures for the pair (PortfolioStatisticsOverview), then Positions
-//     (the Positions pill's rows, when anything is held or resting), then
+//     All · Investing · Predictions toggle, then the Balances frame
+//     around the figures: the ring, Open P&L with the Active | Historic
+//     pair, each venue's row with its figures and its resting orders
+//     under it (PortfolioStatisticsOverview, the orders from
+//     PortfolioOrdersBook), then Positions (the Positions pill's rows,
+//     when anything is held), then
 //     the Activity, the one merged list (portfolio_activity.dart), its
 //     newest five with Home's "See all" to the whole list. No
 //     balance header and no deposit or withdrawal buttons. Never traded
@@ -182,7 +184,6 @@ class _PortfolioPage extends ConsumerWidget {
       // What is held now, the Positions pill's rows, then the resting
       // orders, above the Activity.
       ...portfolioPositionsSlivers(context, ref, venues),
-      ...portfolioOrdersSlivers(context, ref, venues),
       if (activity.entries.isNotEmpty || activity.failed) ...[
         SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -220,6 +221,7 @@ class _PortfolioPage extends ConsumerWidget {
       key: const ValueKey('statistics-overview'),
       trading: venues.trading,
       predictions: venues.predictions,
+      orders: PortfolioOrdersBook.watch(ref, venues),
       // The balance's cash, part by part, with Rebalance, above the chart.
       header: PortfolioBalanceBreakdown(
           trading: venues.trading, predictions: venues.predictions),
@@ -350,8 +352,7 @@ List<Widget> _orderItems(
 /// [heading] false (the Investments tab's Positions section, whose pill
 /// already says it). Still reading: shimmer rows. Nothing held once
 /// read: no section at all. The resting orders are not here: they are
-/// [portfolioOrdersSlivers] (under the Investments tab's P&L charts, and
-/// under these on the Portfolio screen).
+/// listed under their venue on P&L charts (PortfolioStatisticsOverview).
 List<Widget> portfolioPositionsSlivers(
     BuildContext context, WidgetRef ref, PortfolioVenues venues,
     {bool heading = true}) {
@@ -370,28 +371,6 @@ List<Widget> portfolioPositionsSlivers(
             PortfolioPositionsCount(count: book.held.length),
           ...portfolioRowsWithHairlines(context, book.held),
           if (book.loading) const _LoadingRows(),
-        ]),
-      ),
-    ),
-  ];
-}
-
-/// The resting orders at both venues, as slivers: the Orders heading with
-/// its count and one Cancel all, the rows with their own cancels
-/// (portfolio_orders.dart). Still reading: shimmer cards. Nothing resting
-/// once read: nothing, so the caller shows its own empty state.
-List<Widget> portfolioOrdersSlivers(
-    BuildContext context, WidgetRef ref, PortfolioVenues venues) {
-  if (!venues.any) return const [];
-  final orders = PortfolioOrdersBook.watch(ref, venues);
-  if (orders.isEmpty && !orders.loading) return const [];
-  return [
-    SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      sliver: SliverList(
-        delegate: SliverChildListDelegate([
-          if (orders.loading) const _LoadingCard(),
-          ..._orderItems(context, ref, orders),
         ]),
       ),
     ),
@@ -743,15 +722,6 @@ class _LoadingRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       SkeletonRowList(count: 2, padding: EdgeInsets.symmetric(vertical: 8.h));
-}
-
-/// A venue still loading: the app's shimmer card stack.
-class _LoadingCard extends StatelessWidget {
-  const _LoadingCard();
-
-  @override
-  Widget build(BuildContext context) => SkeletonCardList(
-      count: 2, height: 116.h, padding: EdgeInsets.only(bottom: 12.h));
 }
 
 /// One quiet sentence inside a list (a venue that could not be read),
