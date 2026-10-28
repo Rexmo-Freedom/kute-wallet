@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
@@ -249,7 +249,7 @@ void main() {
 
   testWidgets('the sheet has a close X beside its drag handle', (tester) async {
     await _open(tester, 'bitcoin');
-    final close = find.byType(AppBottomSheetCloseButton);
+    final close = find.byType(KuteCloseButton);
     expect(close, findsOneWidget);
     await tester.tap(close);
     await _settle(tester);

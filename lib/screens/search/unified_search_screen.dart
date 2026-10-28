@@ -66,6 +66,7 @@ import 'package:kute/screens/ledger/ledger_account_body.dart'
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/after_route_transition.dart';
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/kute_list_row.dart';
 import 'package:kute/screens/shared/kute_composer.dart';
@@ -873,15 +874,21 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
           else
             // The drag handle with the shared close X at the row's end
             // (founder, 27 October 2026: a way out besides dragging down).
+            // The same circled X the bet and order slips wear
+            // (KuteCloseButton; founder, 28 October 2026).
             SizedBox(
-              height: 44.h,
+              height: 56.h,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  AppDecorations.dragHandle(context),
                   Positioned(
-                    right: 8.w,
-                    child: AppBottomSheetCloseButton(onPressed: () {
+                    top: 12.h,
+                    child: AppDecorations.dragHandle(context),
+                  ),
+                  Positioned(
+                    right: 16.w,
+                    top: 6.h,
+                    child: KuteCloseButton(onPressed: () {
                       // Named on search_closed; the pop is the button's own.
                       _searchStats?.closeMethod = 'close_button';
                       Navigator.of(context).pop();
