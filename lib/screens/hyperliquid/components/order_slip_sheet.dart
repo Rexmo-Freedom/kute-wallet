@@ -4706,27 +4706,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                 ? fundedStopLine(_strings, funded.record, formatHlUsd)
                 : null,
           );
-    // The hot ticket's Dollars door with nothing typed: Investments cannot
-    // cover even the minimum order, said once under the amount.
-    final doorShort = !_isLedger &&
-        canDeposit &&
-        !canFundFromDollars &&
-        !incoming &&
-        funded == null &&
-        openBlock == null &&
-        dollarsShort > 0;
     // What the order does to a position already held here: adding to it
-    // is a small pill; reducing, closing or flipping it stays a line.
+    // is a small pill; reducing, closing or flipping it stays a line. No
+    // gap to the minimum is ever said (owner decision: the whole wallet
+    // pays).
     final addsToHeld = !isSpot && netPlan.effect == HlPositionEffect.add;
-    // The line names the real gap to the minimum; the button names the
-    // top-up the route actually needs ("Add $2.05 · …").
-    final minimumGap = minAmountUsd - shownAvailable;
-    final String? amountNote =
-        doorShort && _marginUsd <= 0 && balanceKnown && minimumGap >= 0.005
-            ? _strings.slipShortOfMinimum(formatHlUsd(minimumGap))
-            : addsToHeld
-                ? null
-                : _positionNote(netPlan);
+    final String? amountNote = addsToHeld ? null : _positionNote(netPlan);
 
     // While the order is in flight the ticket STAYS. It used to be
     // replaced by a centered card, so the moment someone committed money

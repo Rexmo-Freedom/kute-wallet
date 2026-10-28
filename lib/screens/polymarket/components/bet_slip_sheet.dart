@@ -4053,11 +4053,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// the wallet's own figures. Set by the build.
   double? _shownAddUsd;
 
-  /// What the button's Dollars door adds ("Add $X · Place …"), null while
-  /// the button is anything else. Set by the build with the button, so
-  /// the line under the amount names the same figure.
-  double? _doorAddUsd;
-
   /// [_shownAddUsd] as it was at the Add tap: what the leg converts.
   double? _bitcoinTapAddUsd;
 
@@ -5158,18 +5153,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       final journey =
           fullscreen ? null : _fundingJourney(activelyPlacing, running: true);
       final journeyShown = journey != null;
-      // The real gap to the market's minimum, said once under the amount
-      // while the button is the Dollars door (which names the top-up the
-      // route actually needs).
-      final double? minimumGap = spendable == null
-          ? null
-          : _effectiveMinBetUsd -
-              slipAvailableUsd(
-                  venueUsd: spendable, otherSpendableUsd: otherSpendable);
-      final String? heroNote =
-          _emptyStake && _doorAddUsd != null && (minimumGap ?? 0) >= 0.005
-              ? context.l10n.slipShortOfMinimum(_fiatCompanion(minimumGap!))
-              : null;
       // Advanced holds exactly the same controls as before, grouped into
       // four boxes instead of one long run: what you are buying, how much,
       // how the order rests, what it comes to — and the read-only rows
@@ -5291,7 +5274,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                                 _buyInFlight || ledgerLocked || activelyPlacing,
                             advancedModified:
                                 _advancedSummary(orderPrice, fundedMax: fundedMaxPrice) != null,
-                            note: heroNote,
                           ),
                   ),
                   // Two figures, no boxes: what it pays if it wins and the
@@ -5901,7 +5883,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       required bool failed,
       required String busyLabel,
       bool stepsUnder = false}) {
-    _doorAddUsd = null;
     // Taken once, by this build: the minimum the under-the-floor button
     // wrote is placed only by the bet button below, never later.
     final placeFilledMinimum = _placeMinimumOnBuild;
@@ -6160,7 +6141,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
         _warmBitcoinLeg();
       }
       if (missing > 0) {
-        _doorAddUsd = missing;
         final door = _depositDoor(
           // Busy while the tap is worked out (the bitcoin read, the prefill)
           // and while it runs the bet; shut until the tap (and the Dollars
