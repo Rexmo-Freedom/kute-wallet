@@ -544,7 +544,7 @@ void main() {
       l10n.activity,
     ]);
     expect(tester.widgetList<KutePill>(pills).map((p) => p.label),
-        ['Portfolio', 'P&L charts', 'Activity']);
+        ['Portfolio', 'P&L Charts', 'Activity']);
     expect(find.text(l10n.ledgerPositionsTitle), findsNothing);
     expect(tester.widget<KutePill>(_section('balances')).selected, isTrue);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);

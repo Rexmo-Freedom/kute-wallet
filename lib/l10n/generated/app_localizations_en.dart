@@ -11119,7 +11119,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cctpRefundContactSupport => 'To move it, contact Support.';
 
   @override
-  String get portfolioSectionPnlCharts => 'P&L charts';
+  String get portfolioSectionPnlCharts => 'P&L Charts';
 
   @override
   String get portfolioSectionBalances => 'Portfolio';

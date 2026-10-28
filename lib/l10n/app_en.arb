@@ -6810,7 +6810,7 @@
   "@cctpRefundMoveWithWallet": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the standard format (m/44'/60'/0'/0/0 from the recovery phrase): the refunded USDC can be moved by importing the same 12 words into a wallet like MetaMask. MetaMask is a product name."},
   "cctpRefundContactSupport": "To move it, contact Support.",
   "@cctpRefundContactSupport": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."},
-  "portfolioSectionPnlCharts": "P&L charts",
+  "portfolioSectionPnlCharts": "P&L Charts",
   "portfolioSectionBalances": "Portfolio",
   "@portfolioSectionBalances": {"description": "Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was \"Balances\"."},
   "balanceChangePastWeek": "{change} past week",

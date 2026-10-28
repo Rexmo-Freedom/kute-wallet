@@ -18732,7 +18732,7 @@ abstract class AppLocalizations {
   /// No description provided for @portfolioSectionPnlCharts.
   ///
   /// In en, this message translates to:
-  /// **'P&L charts'**
+  /// **'P&L Charts'**
   String get portfolioSectionPnlCharts;
 
   /// Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was "Balances".
