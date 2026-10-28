@@ -1160,32 +1160,6 @@ void main() {
       expect(move.linkedIds, contains('cctp-op-direct-predictions-1'));
     });
 
-    test(
-        'a leg whose send may have left (a timeout) is never remaining: no '
-        'Retry sends it again; a refusal before sending still is', () async {
-      final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});
-      final i = _DirectSource(_i, 500, to: {VenueCashDestination.bitcoin})
-        ..directError = TimeoutException('usdSend');
-      final pull = puller([p, i]);
-      final outcome = await pull.pullShortfall(
-          neededUsd: 50,
-          forAction: VenueCashFor.buyBitcoin,
-          destination: VenueCashDestination.bitcoin,
-          approval: _approval(to: VenueCashDestination.bitcoin));
-      final move = MultiSourceMoveStore.get(outcome.moveId!)!;
-      expect(move.isParallelPurchase, isFalse);
-      final failed = move.failedLegs.single;
-      expect(failed.venue, _i);
-      expect(failed.uncertain, isTrue);
-      expect(move.remainingUsd, 0);
-      expect(move.partial, isFalse);
-      expect(await pull.planRetry(outcome.moveId!), isNull);
-      expect(
-          await pull.retryMove(outcome.moveId!,
-              approval: _approval(to: VenueCashDestination.bitcoin)),
-          isNull);
-    });
-
     test('a Retry after switching wallets never pulls the other wallet',
         () async {
       final p = _DirectSource(_p, 20, to: {VenueCashDestination.bitcoin});

@@ -264,12 +264,7 @@ class MultiSourceMove {
         (!hasParallelDollars && finalOperationId != null)) {
       return 0;
     }
-    // A leg whose outcome is unknown may have moved its money: it is never
-    // part of what is still missing, so no Retry sends it again.
-    final uncertainUsd = legs
-        .where((l) => !l.ok && l.uncertain)
-        .fold<double>(0, (sum, l) => sum + l.arrivingUsd);
-    final left = _cents(totalUsd - deliveredUsd - uncertainUsd);
+    final left = _cents(totalUsd - deliveredUsd);
     return left > 0 ? left : 0;
   }
 
