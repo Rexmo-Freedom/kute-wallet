@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Τα short πληρώνουν τα long",
   "hlChartEntry": "Είσοδος",
   "hlChartLiq": "Ρευστ.",
+  "hlChartYourEntry": "Είσοδός σου {price}",
+  "hlChartLiquidationCaption": "Ρευστοποίηση {price}",
   "hlChartTrail": "Trail",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

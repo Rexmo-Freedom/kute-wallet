@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "A shortok fizetnek a longoknak",
   "hlChartEntry": "Belépés",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Belépésed {price}",
+  "hlChartLiquidationCaption": "Likvidáció {price}",
   "hlChartTrail": "Követés",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

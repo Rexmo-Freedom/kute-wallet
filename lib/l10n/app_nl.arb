@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Shorts betalen longs",
   "hlChartEntry": "Instap",
   "hlChartLiq": "Liq",
+  "hlChartYourEntry": "Jouw instap {price}",
+  "hlChartLiquidationCaption": "Liquidatie {price}",
   "hlChartTrail": "Trail",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take-profit",

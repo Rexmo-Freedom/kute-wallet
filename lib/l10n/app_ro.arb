@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Short plătește long",
   "hlChartEntry": "Intrare",
   "hlChartLiq": "Lich.",
+  "hlChartYourEntry": "Intrarea ta {price}",
+  "hlChartLiquidationCaption": "Lichidare {price}",
   "hlChartTrail": "Trail",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

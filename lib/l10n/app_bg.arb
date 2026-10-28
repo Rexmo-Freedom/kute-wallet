@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Short плащат на long",
   "hlChartEntry": "Вход",
   "hlChartLiq": "Ликв.",
+  "hlChartYourEntry": "Твоят вход {price}",
+  "hlChartLiquidationCaption": "Ликвидация {price}",
   "hlChartTrail": "Плъзг.",
   "hlChartStop": "Стоп",
   "hlTakeProfit": "Take profit",

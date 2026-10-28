@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Shortovi plaćaju longovima",
   "hlChartEntry": "Ulaz",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Tvoj ulaz {price}",
+  "hlChartLiquidationCaption": "Likvidacija {price}",
   "hlChartTrail": "Pomični",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

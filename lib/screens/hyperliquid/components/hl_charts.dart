@@ -1176,6 +1176,20 @@ class HlCandlestickChart extends StatefulWidget {
   /// Called when a signal's tag is tapped, with its id.
   final ValueChanged<String>? onSignalTapped;
 
+  /// The Investing screens' reading chart: no latest price line or pill
+  /// and no tag column (the header has the price), so the plot spans the
+  /// whole width and the line ends in its dot. A few price levels sit
+  /// inside the plot at its right edge, and the position's entry and
+  /// liquidation are captions at the plot's left ("Your entry $64,000"),
+  /// as the Predictions position writes its average, instead of tags.
+  /// Working orders' and signal levels' tags sit at the right edge.
+  final bool cleanView;
+
+  /// The position screen's [cleanView]: the entry is held in the
+  /// autoscale fit and the liquidation is left off (its tile sits under
+  /// the chart).
+  final bool positionView;
+
   const HlCandlestickChart({
     super.key,
     required this.candles,
@@ -1215,6 +1229,8 @@ class HlCandlestickChart extends StatefulWidget {
     this.footer,
     this.summaryBelow = false,
     this.showSummary = true,
+    this.cleanView = false,
+    this.positionView = false,
   });
 
   /// Shown right under the plot (and any indicator panes), above the
@@ -1538,6 +1554,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       lo = body.lo;
       hi = body.hi;
     }
+    // The position view keeps the entry on the scale: its captioned line
+    // has no tag to pin at an edge.
+    final entry = _positionEntry;
+    if (entry != null) {
+      lo = math.min(lo, entry);
+      hi = math.max(hi, entry);
+    }
     final useLog = widget.logScale && lo > 0;
     if (useLog) {
       lo = kuteLogPrice(lo);
@@ -1550,6 +1573,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         line,
         useLog,
         widget.style == HlChartStyle.heikinAshi,
+        entry,
       ),
       lo,
       hi,
@@ -2960,6 +2984,15 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     fills: widget.fills,
                                     entryPx: widget.entryPx,
                                     entryIsLong: widget.entryIsLong,
+                                    // The clean view: no latest price
+                                    // tag, price levels inside the plot,
+                                    // and the entry and liquidation as
+                                    // captions.
+                                    showLastPrice: !widget.cleanView,
+                                    priceLevels: widget.cleanView,
+                                    levelColor: c.textTertiary,
+                                    captions: _captionsFor(candles, c),
+                                    captionHalo: c.background,
                                     leadingClose: leadingClose,
                                     morphSeries: morphSeries,
                                     overlays: _visOverlays,
@@ -2977,48 +3010,50 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // faint hairlines). Always on in Advanced mode;
                             // outside it, it rides the crosshair's 120ms
                             // fade while the user scrubs. The shared price
-                            // geometry never shifts.
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                child: AnimatedOpacity(
-                                  opacity: (widget.drawingMode ||
-                                          scrubbing ||
-                                          !_autoScale ||
-                                          _axisDragging)
-                                      ? 1.0
-                                      : 0.0,
-                                  duration: _reduceMotion
-                                      ? Duration.zero
-                                      : const Duration(milliseconds: 120),
-                                  curve: Curves.easeOut,
-                                  child: RepaintBoundary(
-                                    child: CustomPaint(
-                                      size: Size.infinite,
-                                      painter: _HlPriceScalePainter(
-                                        candles: candles,
-                                        renderAsLine: _asLine,
-                                        showVolume: widget.showVolume,
-                                        logScale: widget.logScale,
-                                        leadingClose: leadingClose,
-                                        morphSeries: morphSeries,
-                                        decimalCap: widget.decimalCap,
-                                        labelColor: c.textTertiary,
-                                        hairlineColor: c.textPrimary,
-                                        domain: domain,
-                                        tagGutter: gutter,
-                                        lastValue: morphSeries != null &&
-                                                morphSeries.isNotEmpty
-                                            ? morphSeries.last
-                                            : (_asLine
-                                                ? (leadingClose ??
-                                                    candles.last.close)
-                                                : candles.last.close),
+                            // geometry never shifts. The clean view writes
+                            // its levels inside the plot instead.
+                            if (!widget.cleanView)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: AnimatedOpacity(
+                                    opacity: (widget.drawingMode ||
+                                            scrubbing ||
+                                            !_autoScale ||
+                                            _axisDragging)
+                                        ? 1.0
+                                        : 0.0,
+                                    duration: _reduceMotion
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 120),
+                                    curve: Curves.easeOut,
+                                    child: RepaintBoundary(
+                                      child: CustomPaint(
+                                        size: Size.infinite,
+                                        painter: _HlPriceScalePainter(
+                                          candles: candles,
+                                          renderAsLine: _asLine,
+                                          showVolume: widget.showVolume,
+                                          logScale: widget.logScale,
+                                          leadingClose: leadingClose,
+                                          morphSeries: morphSeries,
+                                          decimalCap: widget.decimalCap,
+                                          labelColor: c.textTertiary,
+                                          hairlineColor: c.textPrimary,
+                                          domain: domain,
+                                          tagGutter: gutter,
+                                          lastValue: morphSeries != null &&
+                                                  morphSeries.isNotEmpty
+                                              ? morphSeries.last
+                                              : (_asLine
+                                                  ? (leadingClose ??
+                                                      candles.last.close)
+                                                  : candles.last.close),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
                             // ── User drawings (trendlines/levels/rays/rects) —
                             // above the data, below the pulse + crosshair.
                             // Mounted only when there is something to show, so
@@ -3070,7 +3105,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                               ),
                             // ── Position + working orders: tagged price
                             // lines, above drawings, below the crosshair.
-                            if (widget.tradeLines.isNotEmpty ||
+                            if (_taggedLines.isNotEmpty ||
                                 _tradeDrag != null)
                               Positioned.fill(
                                 child: IgnorePointer(
@@ -3078,10 +3113,13 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     child: CustomPaint(
                                       painter: KuteChartTradeLinesPainter(
                                         // Tags in the tag column, past
-                                        // the end of the data.
-                                        tagColumn: gutter,
+                                        // the end of the data; at the
+                                        // right edge without a column.
+                                        tagColumn: widget.cleanView
+                                            ? null
+                                            : gutter,
                                         tagLead: kPolyTagLead,
-                                        lines: widget.tradeLines,
+                                        lines: _taggedLines,
                                         dragging: _tradeDrag,
                                         hits: _tradeHits,
                                         palette: ChartTradeLinePalette(
@@ -3157,7 +3195,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                               leadingClose,
                                               morphSeries))
                                             (top: t.top, height: t.height),
-                                          if (widget.tradeLines.isNotEmpty)
+                                          if (_taggedLines.isNotEmpty)
                                             for (final h in _tradeHits)
                                               (
                                                 top: h.rect.top,
@@ -3191,7 +3229,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           widget.logScale,
                                           isDark,
                                           domain,
-                                          widget.tradeLines,
+                                          _taggedLines,
                                           _tradeDrag,
                                         ),
                                       ),
@@ -3449,6 +3487,67 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   Widget _plotBox(Widget plot) =>
       widget.fillHeight ? Expanded(child: plot) : plot;
 
+  // ── clean view ───────────────────────────────────────────────────
+  List<ChartTradeLine>? _taggedSource;
+  List<ChartTradeLine> _tagged = const [];
+
+  /// The trade lines drawn with a tag: all of them, or on the clean view
+  /// ([HlCandlestickChart.cleanView]) the working orders alone (the
+  /// entry and the liquidation are the data painter's captions). Kept
+  /// per source list, so the painter's identity check holds across live
+  /// ticks.
+  List<ChartTradeLine> get _taggedLines {
+    if (!widget.cleanView) return widget.tradeLines;
+    if (identical(widget.tradeLines, _taggedSource)) return _tagged;
+    _taggedSource = widget.tradeLines;
+    return _tagged = [
+      for (final l in widget.tradeLines)
+        if (l.kind != ChartTradeLineKind.entry &&
+            l.kind != ChartTradeLineKind.liquidation)
+          l,
+    ];
+  }
+
+  /// The position's entry price on the position view, else null.
+  double? get _positionEntry {
+    if (!widget.positionView) return null;
+    for (final l in widget.tradeLines) {
+      if (l.kind == ChartTradeLineKind.entry && l.price > 0) return l.price;
+    }
+    return null;
+  }
+
+  /// The clean view's captioned lines: the entry ("Your entry $64,000",
+  /// on a dashed line in the side's colour) and, off the position
+  /// screen, the liquidation ("Liquidation $58,000", in the warning
+  /// colour), each written in the tags' price format.
+  List<_HlChartCaption> _captionsFor(
+      List<HyperliquidCandle> candles, AppColorsExtension c) {
+    if (!widget.cleanView || candles.isEmpty) return const [];
+    String px(double v) => formatHlPriceLike(v, candles.last.close,
+        decimalCap: widget.decimalCap);
+    return [
+      for (final l in widget.tradeLines)
+        if (l.price > 0 && l.kind == ChartTradeLineKind.entry)
+          (
+            price: l.price,
+            text: context.l10n.hlChartYourEntry(px(l.price)),
+            textColor: c.textSecondary,
+            lineColor: (l.isBuy ? AppColors.marketUp : AppColors.marketDown)
+                .withValues(alpha: 0.45),
+          )
+        else if (l.price > 0 &&
+            l.kind == ChartTradeLineKind.liquidation &&
+            !widget.positionView)
+          (
+            price: l.price,
+            text: context.l10n.hlChartLiquidationCaption(px(l.price)),
+            textColor: AppColors.warning,
+            lineColor: AppColors.warning.withValues(alpha: 0.55),
+          ),
+    ];
+  }
+
   // ── tag column ───────────────────────────────────────────────────
   /// The lowest low and highest high of the loaded tape, kept per tape.
   List<HyperliquidCandle>? _rangeSource;
@@ -3464,6 +3563,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// ([hlChartTagGutter]): the price tags, the trade lines' tags and the
   /// price scale's labels sit in it, and the data ends where it starts.
   double _gutterFor(double width) {
+    // The clean view keeps no column: the plot spans the width.
+    if (widget.cleanView) return 0;
     final tape = _styledFull;
     if (!identical(_rangeSource, tape)) {
       _rangeSource = tape;
@@ -3710,7 +3811,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     double? leadingClose,
     List<double>? morphSeries,
   ) {
-    if (candles.isEmpty) return const [];
+    if (candles.isEmpty || widget.cleanView) return const [];
     final lastK = candles.last;
     final value = morphSeries != null && morphSeries.isNotEmpty
         ? morphSeries.last
@@ -3818,6 +3919,16 @@ class HlAutoScalePill extends StatelessWidget {
 /// layer, so this canvas never repaints during a scrub. Prices are
 /// min–max normalized across the highs/lows with a small vertical pad;
 /// grid-free per the app's unified chart language.
+/// A price line the clean view writes as a caption at the plot's left
+/// instead of a tag ([HlCandlestickChart.cleanView]): the position's entry
+/// or its liquidation.
+typedef _HlChartCaption = ({
+  double price,
+  String text,
+  Color textColor,
+  Color lineColor,
+});
+
 class _HlCandlePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final Color upColor;
@@ -3871,6 +3982,24 @@ class _HlCandlePainter extends CustomPainter {
   /// [kPolyTagLead] past the end of the data, so no tag covers a candle.
   final double tagGutter;
 
+  /// False drops the dashed last-price line and its pill (the clean
+  /// view, whose screen header has the price).
+  final bool showLastPrice;
+
+  /// The clean view's price levels: 3-4 of the Advanced axis' levels as
+  /// faint hairlines, each labelled in [levelColor] inside the plot at
+  /// its right edge, just over its line.
+  final bool priceLevels;
+  final Color? levelColor;
+
+  /// The clean view's captioned price lines (the entry, the liquidation):
+  /// a dashed line and a small caption at the plot's left.
+  final List<_HlChartCaption> captions;
+
+  /// The chart's background: a soft halo behind a caption or a level's
+  /// label that the price series runs through.
+  final Color? captionHalo;
+
   _HlCandlePainter({
     required this.candles,
     required this.upColor,
@@ -3893,6 +4022,11 @@ class _HlCandlePainter extends CustomPainter {
     this.volumeMa = const [],
     this.domain,
     this.tagGutter = 0,
+    this.showLastPrice = true,
+    this.priceLevels = false,
+    this.levelColor,
+    this.captions = const [],
+    this.captionHalo,
   });
 
   /// Laid-out TextPainters keyed by (text, color, fontSize) — the rail
@@ -3960,6 +4094,75 @@ class _HlCandlePainter extends CustomPainter {
 
     final slot = w / n;
     final bodyW = (slot * 0.62).clamp(1.0, 22.0);
+
+    // ── The clean view's captions and levels, laid out first ─────────
+    // The entry and the liquidation as the Predictions position writes
+    // its average: a dashed line across the plot and a small caption at
+    // its left, under the line or over it on the side the price keeps
+    // clear of (see _placeCaption). A line off the scale writes its
+    // caption at that edge with an arrow, and draws no line.
+    final taken = <Rect>[];
+    final placedCaptions = <({
+      _HlChartCaption cap,
+      double y,
+      bool off,
+      TextPainter text,
+      Rect rect,
+      bool halo,
+    })>[];
+    for (final cap in captions) {
+      final cy = toY(cap.price);
+      final off = cy < 0 || cy > priceH;
+      final tp = _cachedTp(
+          off ? '${cy < 0 ? '▲' : '▼'} ${cap.text}' : cap.text,
+          cap.textColor,
+          11.sp,
+          FontWeight.w600);
+      final placed = _placeCaption(
+        tp.width + 4,
+        tp.height + 2,
+        off ? (cy < 0 ? 0.0 : priceH) : cy,
+        priceH,
+        (r) =>
+            taken.any((t) => t.inflate(2).overlaps(r)) ||
+            _seriesNear(r, w, toY),
+      );
+      taken.add(placed.rect);
+      placedCaptions.add((
+        cap: cap,
+        y: cy,
+        off: off,
+        text: tp,
+        rect: placed.rect,
+        halo: placed.halo,
+      ));
+    }
+    // The price levels: each labelled at the plot's right edge, just over
+    // its line. A level whose label would cover the latest point (the
+    // line's end dot, the last candle) or a caption is left out whole.
+    final levelCol = levelColor;
+    final placedLevels = <({double y, TextPainter text, Rect rect})>[];
+    if (priceLevels && levelCol != null) {
+      final latest = _latestRect(w, toY, bodyW);
+      for (final l in _levels(geom, priceH)) {
+        final tp = _cachedTp(l.label, levelCol, 10.sp, FontWeight.w600);
+        final rect = Rect.fromLTWH(
+            w - tp.width - 6, l.y - tp.height - 1, tp.width + 4, tp.height);
+        if (rect.top < 0 ||
+            rect.inflate(4).overlaps(latest) ||
+            taken.any((t) => t.inflate(2).overlaps(rect))) {
+          continue;
+        }
+        placedLevels.add((y: l.y, text: tp, rect: rect));
+      }
+      // Their hairlines, faint, under the data.
+      final hairline = Paint()
+        ..color = labelFg.withValues(alpha: 0.06)
+        ..strokeWidth = 1.0;
+      for (final l in placedLevels) {
+        canvas.drawLine(Offset(0, l.y), Offset(w, l.y), hairline);
+      }
+    }
 
     // ── Volume strip (both modes) ────────────────────────────────────
     if (showVolume && maxVol > 0 && priceH < h) {
@@ -4248,7 +4451,27 @@ class _HlCandlePainter extends CustomPainter {
           up: upColor, down: downColor, halo: labelBg);
     }
 
+    // ── The clean view's captions (laid out above) ───────────────────
+    for (final c in placedCaptions) {
+      if (!c.off) {
+        final dash = Paint()
+          ..color = c.cap.lineColor
+          ..strokeWidth = 1.0;
+        for (double x = 0; x < w; x += 9) {
+          canvas.drawLine(
+              Offset(x, c.y), Offset(math.min(x + 4.5, w), c.y), dash);
+        }
+      }
+      _paintLabel(canvas, c.text, c.rect, c.halo);
+    }
+    // The levels' labels, over the data; one the series runs through
+    // gets a halo.
+    for (final l in placedLevels) {
+      _paintLabel(canvas, l.text, l.rect, _seriesNear(l.rect, w, toY));
+    }
+
     // ── Last-price line + its tag in the column ──────────────────────
+    if (!showLastPrice) return;
     final lastK = candles.last;
     // Colour by the last candle's direction for candles, the overall line
     // direction (first→last) when rendering as a line.
@@ -4319,7 +4542,127 @@ class _HlCandlePainter extends CustomPainter {
       !identical(old.band, band) ||
       old.logScale != logScale ||
       old.domain != domain ||
-      old.tagGutter != tagGutter;
+      old.tagGutter != tagGutter ||
+      old.showLastPrice != showLastPrice ||
+      old.priceLevels != priceLevels ||
+      old.levelColor != levelColor ||
+      !listEquals(old.captions, captions) ||
+      old.captionHalo != captionHalo;
+
+  /// The clean view's levels on [geom]'s scale: the Advanced axis'
+  /// levels and labels ([hlNiceLevels], [hlAxisLabels]), every other one
+  /// past four so 3-4 stay evenly spaced, those whose label fits over
+  /// its line preferred.
+  List<({double y, String label})> _levels(
+      ({double priceH, double loP, double rangeP, bool log}) geom,
+      double priceH) {
+    final lo = geom.log ? math.exp(geom.loP) : geom.loP;
+    final hi = geom.log
+        ? math.exp(geom.loP + geom.rangeP)
+        : geom.loP + geom.rangeP;
+    final all = hlNiceLevels(lo, hi, log: geom.log);
+    if (all.isEmpty) return const [];
+    final labels = hlAxisLabels(all);
+    final room = 10.sp * 1.4;
+    List<({double y, String label})> pick(int start, int stride) => [
+          for (var i = start; i < all.length; i += stride)
+            (
+              y: priceH *
+                  (1 - (_hlMapPrice(all[i], geom.log) - geom.loP) / geom.rangeP),
+              label: labels[i],
+            ),
+        ]..removeWhere((l) => l.y < room || l.y > priceH);
+    if (all.length <= 4) return pick(0, 1);
+    final a = pick(0, 2);
+    final b = pick(1, 2);
+    return b.length > a.length ? b : a;
+  }
+
+  /// Where the latest point is drawn: the line's end dot, or the last
+  /// candle ([bodyW] wide).
+  Rect _latestRect(double w, double Function(double) toY, double bodyW) {
+    final series = renderAsLine ? morphSeries : null;
+    if (series != null && series.length >= 2) {
+      final slot = w / series.length;
+      return Rect.fromCircle(
+          center: Offset(w - slot / 2, toY(series.last)), radius: 6);
+    }
+    final last = candles.last;
+    final x = w - w / candles.length / 2;
+    if (renderAsLine) {
+      return Rect.fromCircle(
+          center: Offset(x, toY(leadingClose ?? last.close)), radius: 6);
+    }
+    return Rect.fromLTRB(
+        x - bodyW / 2, toY(last.high), x + bodyW / 2, toY(last.low));
+  }
+
+  /// Whether the price series passes within [clear] of [r]: each line
+  /// segment, or each candle's wick, that reaches into its stretch.
+  bool _seriesNear(Rect r, double w, double Function(double) toY,
+      {double clear = 2}) {
+    final series = renderAsLine ? morphSeries : null;
+    final resampled = series != null && series.length >= 2;
+    final n = resampled ? series.length : candles.length;
+    if (n == 0) return false;
+    final slot = w / n;
+    double valueAt(int i) => resampled
+        ? series[i]
+        : (renderAsLine && i == n - 1 && leadingClose != null
+            ? leadingClose!
+            : candles[i].close);
+    final first = math.max(0, (r.left / slot - 1.5).floor());
+    final last = math.min(n - 1, (r.right / slot).ceil());
+    for (var i = first; i <= last; i++) {
+      final double a, b;
+      if (renderAsLine) {
+        final xa = (i + 0.5) * slot;
+        final xb = i + 1 < n ? xa + slot : xa;
+        if (xb < r.left || xa > r.right) continue;
+        a = toY(valueAt(i));
+        b = i + 1 < n ? toY(valueAt(i + 1)) : a;
+      } else {
+        final cx = (i + 0.5) * slot;
+        if (cx + slot / 2 < r.left || cx - slot / 2 > r.right) continue;
+        a = toY(candles[i].high);
+        b = toY(candles[i].low);
+      }
+      if (math.min(a, b) < r.bottom + clear &&
+          math.max(a, b) > r.top - clear) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Where a caption [width] x [height] goes at the plot's left for a
+  /// line at [y]: just under it, else just over it, wherever [blocked]
+  /// (the series, another caption) leaves it clear; when neither side
+  /// is, under it where there is room, with a halo.
+  static ({Rect rect, bool halo}) _placeCaption(double width, double height,
+      double y, double priceH, bool Function(Rect r) blocked) {
+    const gap = 3.0;
+    final under = Rect.fromLTWH(0, y + gap, width, height);
+    final over = Rect.fromLTWH(0, y - gap - height, width, height);
+    final roomUnder = under.bottom <= priceH;
+    final roomOver = over.top >= 0;
+    if (roomUnder && !blocked(under)) return (rect: under, halo: false);
+    if (roomOver && !blocked(over)) return (rect: over, halo: false);
+    return (rect: roomUnder || !roomOver ? under : over, halo: true);
+  }
+
+  /// A caption or a level's label in [rect] (2 px of padding at each
+  /// side), over a soft halo in [captionHalo] when [halo].
+  void _paintLabel(Canvas canvas, TextPainter tp, Rect rect, bool halo) {
+    final bg = captionHalo;
+    if (halo && bg != null) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              rect.inflate(1), const Radius.circular(5)),
+          Paint()..color = bg.withValues(alpha: 0.9));
+    }
+    tp.paint(canvas, Offset(rect.left + 2, rect.top + (rect.height - tp.height) / 2));
+  }
 
   static bool _sameMorph(List<double>? a, List<double>? b) {
     if (identical(a, b)) return true;

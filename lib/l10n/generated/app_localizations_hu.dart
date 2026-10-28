@@ -8774,6 +8774,16 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlChartLiq => 'Likv.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Belépésed $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvidáció $price';
+  }
+
+  @override
   String get hlChartTrail => 'Követés';
 
   @override

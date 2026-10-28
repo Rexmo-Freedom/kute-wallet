@@ -8817,6 +8817,16 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlChartLiq => 'Ρευστ.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Είσοδός σου $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Ρευστοποίηση $price';
+  }
+
+  @override
   String get hlChartTrail => 'Trail';
 
   @override

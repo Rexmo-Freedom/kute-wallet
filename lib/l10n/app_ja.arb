@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "ショートがロングに支払い",
   "hlChartEntry": "エントリー",
   "hlChartLiq": "清算",
+  "hlChartYourEntry": "エントリー {price}",
+  "hlChartLiquidationCaption": "清算 {price}",
   "hlChartTrail": "トレール",
   "hlChartStop": "ストップ",
   "hlTakeProfit": "利益確定",

@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Short moka long",
   "hlChartEntry": "Įėjimas",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Jūsų įėjimas {price}",
+  "hlChartLiquidationCaption": "Likvidavimas {price}",
   "hlChartTrail": "Slank.",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take-profit",

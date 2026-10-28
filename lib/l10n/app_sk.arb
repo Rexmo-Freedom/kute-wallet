@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Shorty platia longom",
   "hlChartEntry": "Vstup",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Tvoj vstup {price}",
+  "hlChartLiquidationCaption": "Likvidácia {price}",
   "hlChartTrail": "Trail",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

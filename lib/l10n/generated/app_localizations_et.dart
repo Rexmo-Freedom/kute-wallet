@@ -8736,6 +8736,16 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlChartLiq => 'Likv';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Sinu sisenemine $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvideerimine $price';
+  }
+
+  @override
   String get hlChartTrail => 'Jälg';
 
   @override

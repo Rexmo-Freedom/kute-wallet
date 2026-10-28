@@ -8383,6 +8383,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlChartLiq => '清算';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'エントリー $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return '清算 $price';
+  }
+
+  @override
   String get hlChartTrail => 'トレール';
 
   @override

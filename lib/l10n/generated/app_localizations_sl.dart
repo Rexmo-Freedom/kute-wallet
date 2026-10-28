@@ -8771,6 +8771,16 @@ class AppLocalizationsSl extends AppLocalizations {
   String get hlChartLiq => 'Likv.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Vaš vstop $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvidacija $price';
+  }
+
+  @override
   String get hlChartTrail => 'Drseči';
 
   @override

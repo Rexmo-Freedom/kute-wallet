@@ -8769,6 +8769,16 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlChartLiq => 'Ликв.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Твоят вход $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Ликвидация $price';
+  }
+
+  @override
   String get hlChartTrail => 'Плъзг.';
 
   @override

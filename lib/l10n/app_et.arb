@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Shortid maksavad longidele",
   "hlChartEntry": "Sisenemine",
   "hlChartLiq": "Likv",
+  "hlChartYourEntry": "Sinu sisenemine {price}",
+  "hlChartLiquidationCaption": "Likvideerimine {price}",
   "hlChartTrail": "Jälg",
   "hlChartStop": "Stopp",
   "hlTakeProfit": "Take profit",

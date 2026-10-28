@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Īsās pozīcijas maksā garajām",
   "hlChartEntry": "Ieeja",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Tava ieeja {price}",
+  "hlChartLiquidationCaption": "Likvidācija {price}",
   "hlChartTrail": "Slīd.",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",

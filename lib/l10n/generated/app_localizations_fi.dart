@@ -8756,6 +8756,16 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlChartLiq => 'Likv.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Avaushintasi $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvidaatio $price';
+  }
+
+  @override
   String get hlChartTrail => 'Liukuva';
 
   @override

@@ -294,11 +294,17 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   price: markPx,
                                   text: formatHlPrice(markPx,
                                       decimalCap: m?.pxDecimalCap),
+                                  // Quiet context: the screen's one big
+                                  // number is what the position is worth
+                                  // (If you close now), never a second
+                                  // price beside it.
                                   style: TextStyle(
-                                    color: c.textPrimary,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.2,
+                                    color: c.textSecondary,
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
                                   ),
                                 ),
                                 if (m != null)
@@ -309,7 +315,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                           ? greenColor
                                           : redColor,
                                       fontSize: 13.sp,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 if (m != null && m.isLowLiquidity)
@@ -553,6 +559,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         // This IS the position's screen: its entry and liquidation tags
         // do not open it again.
         positionTagOpensPosition: false,
+        // Read like the Predictions position's chart outside Advanced.
+        positionView: true,
         ledgerWalletId: widget.ledgerWalletId,
         onAdvancedChanged: (on) => setState(() => _advancedChart = on),
       );

@@ -361,83 +361,94 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                       SizedBox(width: 8.w),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // The ticker alone: the kind (Own / Leveraged)
-                            // is the Instrument row under Stats, so the
-                            // header keeps its room for the title.
-                            // Smaller rather than cut, on its one line.
-                            FittedTitle(
-                              m.coin,
-                              key: const ValueKey('hl-detail-title'),
-                              maxLines: 1,
-                              style: TextStyle(
-                                color: c.textPrimary,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            // Wrap (not Row) so the price + change + the
-                            // optional 'up to Nx' chip NEVER overflow — on a
-                            // wide price (e.g. $29,466.50) the leverage chip
-                            // flows to a new line instead of clipping. Only
-                            // shown when it fits.
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8.w,
-                              runSpacing: 2.h,
-                              children: [
-                                // The primary text colour at rest; a
-                                // tick flashes green or red and fades
-                                // back, so the price never sits in a
-                                // colour that argues with the change.
-                                HlTickPrice(
-                                  price: price,
-                                  text: formatHlPrice(price,
-                                      decimalCap: m.pxDecimalCap),
-                                  style: TextStyle(
-                                    color: c.textPrimary,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                // The change of the price shown beside
-                                // it, not of a minutes-old snapshot.
-                                Text(
-                                  formatHlPct(m.dayChangeAt(price)),
-                                  style: TextStyle(
-                                    color: m.dayChangeAt(price) >= 0
-                                        ? greenColor
-                                        : redColor,
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                // The price feed gave up reconnecting:
-                                // say so instead of painting a frozen
-                                // number as if it were live.
-                                if (!pricesLive)
-                                  HlMetaChip(
-                                      text: context.l10n.chartPriceDelayed),
-                                // A thinly traded market says so, in
-                                // the kind badge's own neutral chip. It
-                                // sits on this wrapping line, not beside
-                                // the badge: the name row has no room
-                                // for it and would cut the ticker.
-                                if (m.isLowLiquidity)
-                                  const HlLowLiquidityBadge(),
-                              ],
-                            ),
-                          ],
+                        // The ticker alone: the kind (Own / Leveraged) is
+                        // the Instrument row under Stats, so the header
+                        // keeps its room for the title. Smaller rather
+                        // than cut, on its one line.
+                        child: FittedTitle(
+                          m.coin,
+                          key: const ValueKey('hl-detail-title'),
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
                       // is the "Why is it moving?" row under the chart.
                       HlWatchStar(market: m, size: 22, source: 'detail'),
+                    ],
+                  ),
+                ),
+
+              // ── The price, large ──────────────────────────────────
+              // The figure the screen is about, as on Robinhood and
+              // Revolut: the live price over its change today. The chart
+              // under it writes no price of its own (its scrub card names
+              // a scrubbed bar).
+              if (!_advancedChart)
+                Container(
+                  alignment: Alignment.centerLeft,
+                  padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Smaller rather than cut on a long price. The
+                      // primary text colour at rest; a tick flashes green
+                      // or red and fades back, so the price never sits in
+                      // a colour that argues with the change.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: HlTickPrice(
+                          key: const ValueKey('hl-detail-price'),
+                          price: price,
+                          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 38.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.0,
+                            height: 1.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      // Wrap (not Row) so the change and the optional
+                      // chips never overflow: a chip flows to a new line.
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8.w,
+                        runSpacing: 4.h,
+                        children: [
+                          // The change of the price shown above it, not
+                          // of a minutes-old snapshot.
+                          Text(
+                            formatHlPct(m.dayChangeAt(price)),
+                            key: const ValueKey('hl-detail-change'),
+                            style: TextStyle(
+                              color: m.dayChangeAt(price) >= 0
+                                  ? greenColor
+                                  : redColor,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          // The price feed gave up reconnecting: say so
+                          // instead of painting a frozen number as if it
+                          // were live.
+                          if (!pricesLive)
+                            HlMetaChip(text: context.l10n.chartPriceDelayed),
+                          // A thinly traded market says so, in the kind
+                          // badge's own neutral chip.
+                          if (m.isLowLiquidity) const HlLowLiquidityBadge(),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -929,6 +940,12 @@ class HlCandleChart extends ConsumerStatefulWidget {
   /// scrub card still names a scrubbed bar.
   final bool showSummary;
 
+  /// The open position's screen: outside Advanced the chart reads like
+  /// the Predictions position's, with a "Your entry" caption on the entry
+  /// line, no liquidation line (its tile is under the chart) and no
+  /// volume. Advanced brings everything back.
+  final bool positionView;
+
   const HlCandleChart({
     super.key,
     required this.market,
@@ -940,6 +957,7 @@ class HlCandleChart extends ConsumerStatefulWidget {
     this.showSignals = false,
     this.positionTagOpensPosition = true,
     this.showSummary = true,
+    this.positionView = false,
   });
 
   /// Opens the chart under [key] in Advanced (editing) mode, as its old
@@ -2823,6 +2841,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     final signals = _signalsFor(indicators, displayPx);
     final showPressure =
         widget.showSignals && !indicators.contains(kHlLayerPressureOff);
+    // The position screen's clean reading chart (see positionView).
+    final positionView = widget.positionView && !_drawingMode;
 
     // Candle sizes or ranges, then the chart-type button. Advanced (the
     // editing mode) opens from the host screen's "Advanced chart" row.
@@ -2914,7 +2934,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             // The summary is the change over the visible span, named by
             // that span, as on TradingView.
             timeframeLabel: null,
-            showVolume: indicators.contains('vol'),
+            showVolume: indicators.contains('vol') && !positionView,
             renderAsLine: false,
             style: style,
             onMoreHistoryWanted: () => unawaited(_loadMoreHistory()),
@@ -2941,6 +2961,11 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onTradeLineTapped: (id) => _onTradeLineTapped(id, myPosition),
             signals: signals,
             onSignalTapped: _onSignalTapped,
+            // The header has the price: outside Advanced the reading
+            // chart has no live price pill, line or tag column, its levels
+            // inside the plot and the position's lines as captions.
+            cleanView: !_drawingMode,
+            positionView: positionView,
             // The interval's identity: a new one opens on its newest
             // bars.
             morphKey: 'interval:${candleIv.interval}',

@@ -15077,6 +15077,18 @@ abstract class AppLocalizations {
   /// **'Liq'**
   String get hlChartLiq;
 
+  /// Investing open-position chart: small caption at the left of the dashed line at the position's entry price, e.g. 'Your entry $64,000'. Mirrors the Predictions position chart's 'Your avg 19¢'. {price} is the formatted price.
+  ///
+  /// In en, this message translates to:
+  /// **'Your entry {price}'**
+  String hlChartYourEntry(String price);
+
+  /// Investing market chart: small caption at the left of the dashed line at the position's liquidation price, e.g. 'Liquidation $58,000'. {price} is the formatted price.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquidation {price}'**
+  String hlChartLiquidationCaption(String price);
+
   /// No description provided for @hlChartTrail.
   ///
   /// In en, this message translates to:

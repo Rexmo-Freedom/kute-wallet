@@ -2495,6 +2495,8 @@
   "hlShortsPayLongs": "Shortit maksavat longeille",
   "hlChartEntry": "Avaus",
   "hlChartLiq": "Likv.",
+  "hlChartYourEntry": "Avaushintasi {price}",
+  "hlChartLiquidationCaption": "Likvidaatio {price}",
   "hlChartTrail": "Liukuva",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Voitonkotiutus",

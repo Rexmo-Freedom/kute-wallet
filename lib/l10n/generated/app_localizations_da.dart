@@ -8750,6 +8750,16 @@ class AppLocalizationsDa extends AppLocalizations {
   String get hlChartLiq => 'Likv.';
 
   @override
+  String hlChartYourEntry(String price) {
+    return 'Din indgang $price';
+  }
+
+  @override
+  String hlChartLiquidationCaption(String price) {
+    return 'Likvidation $price';
+  }
+
+  @override
   String get hlChartTrail => 'Trail';
 
   @override

@@ -2768,6 +2768,8 @@
   "hlShortsPayLongs": "Os shorts pagam aos longs",
   "hlChartEntry": "Entrada",
   "hlChartLiq": "Liq.",
+  "hlChartYourEntry": "A sua entrada {price}",
+  "hlChartLiquidationCaption": "Liquidação {price}",
   "hlChartTrail": "Móvel",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",
