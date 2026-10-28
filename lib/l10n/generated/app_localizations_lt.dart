@@ -8796,6 +8796,24 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Jūsų įnašas';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Dabar vertė $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Pelnas $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Nuostolis $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Slank.';
 
   @override

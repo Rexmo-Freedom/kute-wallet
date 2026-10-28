@@ -8779,6 +8779,24 @@ class AppLocalizationsBg extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Вложено';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Струва $amount сега';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Печалба $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Загуба $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Плъзг.';
 
   @override

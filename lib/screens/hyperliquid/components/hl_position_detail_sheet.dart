@@ -7,19 +7,19 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // lib/screens/hyperliquid/components/hl_position_detail_sheet.dart
 //
-// The open-position screen of an Investing position. It reads like the
-// market sheet of the same market: the sheet's header (logo, ticker, the
-// kind, the live price in the primary colour, the 24h change, "Low
-// liquidity" on a thin market) and the sheet's chart with its pressure
-// bar. On top of that sits what is the user's, in Predictions' hierarchy:
-// "If you close now" with the money closing gives back (the margin plus
-// the profit or loss, the Portfolio card's own figure, [hlCloseValue]) and
-// the profit or loss under it. Then, in the Predictions position's
-// language, two tiles: the margin (the collateral on cross) with the side
-// under it, and the liquidation price with how far it is ("12% away",
-// coloured as it closes in: HlLiquidationTile); then plain rows: "Add
-// margin" on an isolated position (the margin sheet, where Remove is a
-// mode), "Protect it" and "Details". The position size (the notional,
+// The open-position screen of an Investing position, in plain words. It
+// reads like the market sheet of the same market: its header row (logo,
+// ticker), the live price as the big figure with its change today ("Low
+// liquidity" on a thin market) and the sheet's chart, clean, with its
+// pressure bar. Under the price, what is the user's: the side and the
+// leverage ("Long · 5x") and the profit or loss with the return on what
+// was put in ("Profit +$1,000.00 (+15.6%)"). Then two tiles: what was put
+// in (the margin; the collateral on cross) with what it is worth now (the
+// margin plus the profit or loss, the Portfolio card's own figure,
+// [hlCloseValue]), and the liquidation price with how far it is ("12%
+// away", coloured as it closes in: HlLiquidationTile); then plain rows:
+// "Add margin" on an isolated position (the margin sheet, where Remove is
+// a mode), "Protect it" and "Details". The position size (the notional,
 // size x price, with the coin size), entry, leverage, margin mode and
 // funding wait in Details, with one line on what the position size is;
 // closing stays wallet-scoped.
@@ -52,7 +52,6 @@ import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -246,7 +245,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         child: PlatformSafeArea(
           child: Column(
             children: [
-              // ── Header: close, logo, ticker and price ─────────────
+              // ── Header: close, logo and ticker ────────────────────
               // Edit mode hides it: the chart's own slim top bar names
               // the market there, and Done brings the header back.
               if (!editing)
@@ -256,11 +255,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     children: [
                       const KuteCloseButton(),
                       SizedBox(width: 8.w),
-                      // The market sheet's header: logo, ticker, the live
-                      // price in the primary colour (a tick flashes and
-                      // fades) and the 24h change of that same price in
-                      // the up / down colour. No Sal on a position: its
-                      // rows say what is at risk and how to protect it.
+                      // The market sheet's header row: logo and ticker; the
+                      // price is the big figure under it. No Sal on a
+                      // position: its rows say what is at risk and how to
+                      // protect it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -269,63 +267,20 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           size: 32),
                       SizedBox(width: 8.w),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Smaller rather than cut, on its one line.
-                            FittedTitle(
-                              m?.coin ?? pos.coin,
-                              key: const ValueKey('hl-position-title'),
-                              maxLines: 1,
-                              style: TextStyle(
-                                color: c.textPrimary,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8.w,
-                              runSpacing: 2.h,
-                              children: [
-                                HlTickPrice(
-                                  price: markPx,
-                                  text: formatHlPrice(markPx,
-                                      decimalCap: m?.pxDecimalCap),
-                                  // Quiet context: the screen's one big
-                                  // number is what the position is worth
-                                  // (If you close now), never a second
-                                  // price beside it.
-                                  style: TextStyle(
-                                    color: c.textSecondary,
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w600,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
-                                ),
-                                if (m != null)
-                                  Text(
-                                    formatHlPct(m.dayChangeAt(markPx)),
-                                    style: TextStyle(
-                                      color: m.dayChangeAt(markPx) >= 0
-                                          ? greenColor
-                                          : redColor,
-                                      fontSize: 13.sp,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                if (m != null && m.isLowLiquidity)
-                                  const HlLowLiquidityBadge(),
-                    ],
-                                ),
-                              ],
-                            ),
+                        // Smaller rather than cut, on its one line.
+                        child: FittedTitle(
+                          m?.coin ?? pos.coin,
+                          key: const ValueKey('hl-position-title'),
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
                           ),
-                                            ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -343,46 +298,100 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SizedBox(height: 10.h),
-                            // What closing now gives back (the margin plus the
-                            // profit or loss, the Portfolio card's figure), and
-                            // under it the profit or loss with the return on
-                            // the margin, as plain text in the up / down
-                            // colour. The notional is the Position size row.
-                            Text(context.l10n.hlIfYouCloseNow,
-                                style: TextStyle(
-                                    color: c.textTertiary,
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.1)),
-                            SizedBox(height: 4.h),
+                            // The price now, large, as on the market screen
+                            // (a tick flashes and fades), with its change
+                            // today; then the position in plain words: its
+                            // side and leverage, and the profit or loss with
+                            // the return on what was put in.
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
-                              child: RollingNumberText(
-                                  text: formatPolyAmount(ref,
-                                      hlCloseValue(pos, liveMid: liveMid)),
-                                  style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontSize: 48.sp,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -1.2,
-                                      height: 1,
+                              child: HlTickPrice(
+                                key: const ValueKey('hl-position-price'),
+                                price: markPx,
+                                text: formatHlPrice(markPx,
+                                    decimalCap: m?.pxDecimalCap),
+                                style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontSize: 38.sp,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.0,
+                                  height: 1.1,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8.w,
+                              runSpacing: 4.h,
+                              children: [
+                                if (m != null)
+                                  Text(
+                                    context.l10n.polyCardMoveToday(
+                                        formatHlPct(m.dayChangeAt(markPx))),
+                                    key: const ValueKey('hl-position-change'),
+                                    style: TextStyle(
+                                      color: m.dayChangeAt(markPx) >= 0
+                                          ? greenColor
+                                          : redColor,
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.w700,
                                       fontFeatures: const [
                                         FontFeature.tabularFigures()
-                                      ])),
+                                      ],
+                                    ),
+                                  ),
+                                if (m != null && m.isLowLiquidity)
+                                  const HlLowLiquidityBadge(),
+                              ],
                             ),
-                            SizedBox(height: 8.h),
-                            RollingNumberText(
-                                text:
-                                    '${positive ? "+" : "−"}${formatPolyAmount(ref, pnl.abs())}  ${formatHlPct(roe)}',
-                                style: TextStyle(
+                            SizedBox(height: 14.h),
+                            // "Long · 5x" in the side's colour (a spot
+                            // holding has no leverage: the side alone),
+                            // then "Profit +$1,000.00 (+15.6%)" or
+                            // "Loss −$500.00 (−7.8%)" in the up / down
+                            // colour.
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 10.w,
+                              runSpacing: 6.h,
+                              children: [
+                                HlSideChip(
+                                  key: const ValueKey('hl-position-side'),
+                                  text: [
+                                    pos.isLong
+                                        ? context.l10n.longLabel
+                                        : context.l10n.shortLabel,
+                                    if (!(m?.isSpot ?? false) &&
+                                        pos.leverageValue > 0)
+                                      '${pos.leverageValue}x',
+                                  ].join(' · '),
+                                  color: pos.isLong ? greenColor : redColor,
+                                ),
+                                Text(
+                                  (positive
+                                      ? context.l10n.hlPositionProfit
+                                      : context.l10n.hlPositionLoss)(
+                                    '${positive ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
+                                    formatHlPct(roe),
+                                  ),
+                                  key: const ValueKey('hl-position-result'),
+                                  style: TextStyle(
                                     color: accent,
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
                                     fontFeatures: const [
                                       FontFeature.tabularFigures()
-                                    ])),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                             SizedBox(height: 20.h),
                             // The market sheet's chart, so both screens read the
                             // same: candle sizes, styles, zoom, history, the
@@ -396,10 +405,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               const SkeletonLineChart(
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
-                            // Only what matters on the screen, in the
-                            // Predictions position's language: the margin
-                            // (with the side) and how far the liquidation
-                            // is, each on its own tile; then plain rows to
+                            // Only what matters on the screen, in plain
+                            // words: what was put in (with what it is worth
+                            // now) and how far the liquidation is, each on
+                            // its own tile; then plain rows to
                             // add margin (an isolated position the app can
                             // move margin on), to protect it, and Details
                             // (what else the position is made of).
@@ -407,25 +416,27 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               PositionStatTiles(
                                 left: PositionStatTile(
                                   key: const ValueKey('hl-position-margin'),
-                                  // An isolated position's margin (what was
-                                  // put in, with any added since); a cross
-                                  // position's is shared with the account,
-                                  // so it is the collateral it ties up.
-                                  label: pos.isCross
-                                      ? context.l10n.investingCollateral
-                                      : context.l10n.hlMargin,
+                                  // The margin (an isolated position's, with
+                                  // any added since; a cross position's, the
+                                  // collateral it ties up), and under it
+                                  // what closing now gives back: the margin
+                                  // plus the profit or loss, the Portfolio
+                                  // card's figure. Isolated or cross is in
+                                  // Details.
+                                  label: context.l10n.hlPositionYouPutIn,
                                   value: Text(formatPolyAmount(ref, margin),
                                       maxLines: 1,
                                       style: positionTileValueStyle(c)),
                                   caption: Text(
-                                      pos.isLong
-                                          ? context.l10n.longLabel
-                                          : context.l10n.shortLabel,
+                                      context.l10n.hlPositionWorthNow(
+                                          formatPolyAmount(
+                                              ref,
+                                              hlCloseValue(pos,
+                                                  liveMid: liveMid))),
+                                      key: const ValueKey(
+                                          'hl-position-worth'),
                                       maxLines: 1,
-                                      style: positionTileCaptionStyle(c,
-                                          color: pos.isLong
-                                              ? greenColor
-                                              : redColor)),
+                                      style: positionTileCaptionStyle(c)),
                                 ),
                                 right: HlLiquidationTile(
                                   liquidation: liquidation,

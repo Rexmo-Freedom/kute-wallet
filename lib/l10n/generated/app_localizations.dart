@@ -15089,6 +15089,30 @@ abstract class AppLocalizations {
   /// **'Liquidation {price}'**
   String hlChartLiquidationCaption(String price);
 
+  /// Investing open-position screen: label of the tile with the money the user put into the position (its margin), e.g. 'You put in $6,400.00'. Plain words, no trading jargon.
+  ///
+  /// In en, this message translates to:
+  /// **'You put in'**
+  String get hlPositionYouPutIn;
+
+  /// Investing open-position screen: subline under 'You put in': what that money is worth now (margin plus the open profit or loss), e.g. 'Worth $7,400.00 now'.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth {amount} now'**
+  String hlPositionWorthNow(String amount);
+
+  /// Investing open-position screen: the open result in plain words when it is a gain, e.g. 'Profit +$1,000.00 (+15.6%)'. {amount} is signed money, {percent} the signed return on what was put in.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit {amount} ({percent})'**
+  String hlPositionProfit(String amount, String percent);
+
+  /// Investing open-position screen: the open result in plain words when it is a loss, e.g. 'Loss −$500.00 (−7.8%)'. {amount} is signed money, {percent} the signed return on what was put in.
+  ///
+  /// In en, this message translates to:
+  /// **'Loss {amount} ({percent})'**
+  String hlPositionLoss(String amount, String percent);
+
   /// No description provided for @hlChartTrail.
   ///
   /// In en, this message translates to:

@@ -8793,6 +8793,24 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Jouw inleg';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Nu $amount waard';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Winst $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Verlies $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Trail';
 
   @override

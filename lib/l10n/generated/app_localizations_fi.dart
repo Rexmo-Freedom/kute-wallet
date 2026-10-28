@@ -8766,6 +8766,24 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Sijoitit';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Arvo nyt $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Voitto $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Tappio $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Liukuva';
 
   @override

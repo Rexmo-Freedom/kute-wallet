@@ -8393,6 +8393,24 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => '投資額';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return '現在の価値 $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return '利益 $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return '損失 $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'トレール';
 
   @override

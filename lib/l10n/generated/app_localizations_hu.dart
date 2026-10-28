@@ -8784,6 +8784,24 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Befektetésed';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Most $amount értékű';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Nyereség $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Veszteség $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Követés';
 
   @override

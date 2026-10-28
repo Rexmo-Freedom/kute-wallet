@@ -8801,6 +8801,24 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'O seu investimento';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Vale $amount agora';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Lucro $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Perda $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Móvel';
 
   @override

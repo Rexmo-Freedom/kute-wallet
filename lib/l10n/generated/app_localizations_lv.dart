@@ -8730,6 +8730,24 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Tavs ieguldījums';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Tagad vērts $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Peļņa $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Zaudējums $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Slīd.';
 
   @override

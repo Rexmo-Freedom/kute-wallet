@@ -8762,6 +8762,24 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Tvoj vklad';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Teraz má hodnotu $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Zisk $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Strata $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Trail';
 
   @override

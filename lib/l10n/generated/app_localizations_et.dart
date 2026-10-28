@@ -8746,6 +8746,24 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Sinu panus';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Praegu väärt $amount';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Kasum $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Kahjum $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Jälg';
 
   @override

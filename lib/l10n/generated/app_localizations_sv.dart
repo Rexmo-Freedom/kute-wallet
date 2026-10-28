@@ -8756,6 +8756,24 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get hlPositionYouPutIn => 'Din insats';
+
+  @override
+  String hlPositionWorthNow(String amount) {
+    return 'Värt $amount nu';
+  }
+
+  @override
+  String hlPositionProfit(String amount, String percent) {
+    return 'Vinst $amount ($percent)';
+  }
+
+  @override
+  String hlPositionLoss(String amount, String percent) {
+    return 'Förlust $amount ($percent)';
+  }
+
+  @override
   String get hlChartTrail => 'Trail';
 
   @override

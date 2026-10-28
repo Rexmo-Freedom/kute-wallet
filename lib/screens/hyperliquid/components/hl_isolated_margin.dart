@@ -44,7 +44,7 @@ double hlPositionMargin(HlPerpPosition p) =>
 
 /// What closing [p] now gives back, before fees: its margin plus the
 /// profit or loss at the live mid. The big number of the Portfolio card
-/// and of the position screen ("If you close now"), never the notional
+/// and the position screen's "Worth $X now", never the notional
 /// (size x price, the "Position size" row). For an isolated position it is
 /// [hlPositionMoney].
 double hlCloseValue(HlPerpPosition p, {double? liveMid}) =>

@@ -54,7 +54,6 @@ import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart'
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart';
-import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 
 // No socket in a test.
@@ -137,42 +136,43 @@ Future<void> _openDetails(WidgetTester tester) async {
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('the market sheet\'s header, the value over the P&L, the '
-      'position as rows', (tester) async {
+  testWidgets('the market sheet\'s header, the price over the position in '
+      'plain words, the position as rows', (tester) async {
     await _pump(tester);
     final c = AppColorsExtension.light();
 
-    // Header: the smaller logo, the ticker alone (no kind chip), the live
-    // price quiet in the secondary colour (the one big number is the
-    // position's worth).
+    // Header: the smaller logo, the ticker alone (no kind chip, no
+    // price); the live price is the big figure under it, in the primary
+    // colour.
     expect(find.text('BTC'), findsOneWidget);
     expect(find.byType(HlKindBadge), findsNothing);
     expect(tester.widget<HlCoinIcon>(find.byType(HlCoinIcon).first).size, 32);
     final price = tester.widget<HlTickPrice>(find.byType(HlTickPrice));
     expect(price.price, 66000);
-    expect(price.style.color, c.textSecondary);
+    expect(price.style.color, c.textPrimary);
+    expect(price.style.fontSize, greaterThan(30));
 
-    // The headline is what closing now gives back: the margin plus the
-    // live P&L (6,400 + 1,000), the Portfolio card's own figure; the P&L
-    // under it with its return on the margin.
-    expect(find.text('If you close now'), findsOneWidget);
+    // Under it, the position in plain words: the side and the leverage,
+    // and the live P&L with its return on the margin. No "If you close
+    // now" headline.
+    expect(find.text('If you close now'), findsNothing);
     expect(find.text('Position value'), findsNothing);
-    expect(find.byWidgetPredicate(
-            (w) => w is RollingNumberText && w.text == r'$7,400.00'),
-        findsOneWidget);
-    expect(find.byWidgetPredicate(
-            (w) => w is RollingNumberText && w.text.startsWith(r'+$1,000.00')),
-        findsOneWidget);
+    expect(find.byType(HlSideChip), findsOneWidget);
+    expect(find.text('Long · 5x'), findsOneWidget);
+    expect(find.text(r'Profit +$1,000.00 (+15.6%)'), findsOneWidget);
 
-    // On the screen two tiles: an isolated position's margin (what was
-    // put in) with the side under it, and the liquidation price with how
-    // far the live mark (66,000) is from it: 8,000 / 66,000.
+    // On the screen two tiles: what was put in (an isolated position's
+    // margin) with what it is worth now (6,400 + 1,000, the Portfolio
+    // card's own figure), and the liquidation price with how far the live
+    // mark (66,000) is from it: 8,000 / 66,000.
     final marginTile = find.byKey(const ValueKey('hl-position-margin'));
-    expect(find.descendant(of: marginTile, matching: find.text('Margin')),
+    expect(find.descendant(of: marginTile, matching: find.text('You put in')),
         findsOneWidget);
     expect(find.descendant(of: marginTile, matching: find.text(r'$6,400.00')),
         findsOneWidget);
-    expect(find.descendant(of: marginTile, matching: find.text('Long')),
+    expect(
+        find.descendant(
+            of: marginTile, matching: find.text(r'Worth $7,400.00 now')),
         findsOneWidget);
     expect(find.text('Collateral'), findsNothing);
     final liqTile = find.byKey(HlLiquidationTile.tileKey);
@@ -182,9 +182,8 @@ void main() {
         findsOneWidget);
     expect(find.descendant(of: liqTile, matching: find.text('12% away')),
         findsOneWidget);
-    // No side chip, no card of rows. The market has not loaded, so nothing
+    // No card of rows. The market has not loaded, so nothing
     // can sign margin or place a protective order yet: no such rows.
-    expect(find.byType(HlSideChip), findsNothing);
     expect(find.byType(PositionRowsCard), findsNothing);
     expect(find.text('Remove margin'), findsNothing);
     expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
@@ -231,8 +230,9 @@ void main() {
         .first;
     expect(find.descendant(of: header, matching: find.byType(HlCoinIcon)),
         findsWidgets);
+    // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
-        findsOneWidget);
+        findsNothing);
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
@@ -264,8 +264,12 @@ void main() {
           leverageValue: 5,
           maxLeverage: 40,
         ));
-    // The side under the margin, in the down colour.
-    expect(find.text('Short'), findsOneWidget);
+    // The side and the leverage, in the down colour, and the loss in
+    // plain words: (64,000 - 66,000) x 0.5 at the live mark.
+    expect(find.text('Short · 5x'), findsOneWidget);
+    expect(tester.widget<HlSideChip>(find.byType(HlSideChip)).color,
+        AppColors.marketDown);
+    expect(find.textContaining(r'Loss −$1,000.00'), findsOneWidget);
     expect(find.textContaining('this position closes'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -395,9 +399,7 @@ void main() {
           maxLeverage: 40,
         ));
     // Closing gives the collateral back with the live P&L (6,400 + 1,000).
-    expect(find.byWidgetPredicate(
-            (w) => w is RollingNumberText && w.text == r'$7,400.00'),
-        findsOneWidget);
+    expect(find.text(r'Worth $7,400.00 now'), findsOneWidget);
     expect(find.text('Liquidation'), findsOneWidget);
     expect(find.text(r'$62,000'), findsOneWidget);
     expect(find.text('6.1% away'), findsOneWidget);
@@ -406,8 +408,10 @@ void main() {
         AppColorsExtension.light().warning);
     expect(find.byKey(const ValueKey('hl-add-margin')), findsNothing);
     expect(find.text('Add margin'), findsNothing);
-    // A cross position's margin is the collateral it ties up.
-    expect(find.text('Collateral'), findsOneWidget);
+    // A cross position's margin (the collateral it ties up) is what was
+    // put in, in the same plain words; cross is in Details.
+    expect(find.text('You put in'), findsOneWidget);
+    expect(find.text('Collateral'), findsNothing);
     expect(find.text('Margin'), findsNothing);
     expect(tester.takeException(), isNull);
   });
