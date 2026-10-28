@@ -324,10 +324,6 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final lines = InvestmentBalanceHeader.inFlightLines(context, state, amount);
     final display = InvestmentBalanceHeader._oneBalanceDisplay(ref);
     final figure = InvestmentBalanceHeader.oneBalanceFigure(ref);
-    // With nothing on a rail the total is Available plus Invested, so the
-    // split is read off the same display snapshot as the total (cached
-    // together while a venue reconnects) and always adds up to it.
-    final available = display.total - display.invested;
     final tap = widget.onTap;
     // The tap affordance: an arrow to the right with the Portfolio's pie
     // as its badge, right after the big total (it opens the Portfolio;
@@ -355,10 +351,8 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
       // "Available $X · Invested $Y" under the total at rest (founder,
       // 27 October 2026: back after a day without it); the in-flight
       // lines in its place while anything is on a rail.
-      availableFirst: true,
-      availableText: lines.isEmpty
-          ? amount(available.isFinite && available > 0 ? available : 0)
-          : null,
+      // Only "Invested $Y" under the total (founder, 28 October 2026).
+      availableText: null,
       investedText: lines.isEmpty ? amount(display.invested) : null,
       showActionRow: false,
       investedChild: lines.isEmpty

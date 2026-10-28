@@ -250,18 +250,18 @@ void main() {
     final chevron = find.byKey(const ValueKey('investments-balance-chevron'));
 
     testWidgets(
-        'no title: the total with "Available · Invested" under it, no '
+        'no title: the total with "Invested" alone under it, no '
         'deposit door',
         (tester) async {
       await pumpOne(tester, known);
       expect(header(tester).amountText, r'$100.00');
       expect(header(tester).totalLabel, isNull);
       expect(find.text('Investments total'), findsNothing);
-      // Available first, then Invested; together they make the total.
-      expect(header(tester).availableFirst, isTrue);
-      expect(header(tester).availableText, r'$42.50');
+      // Only Invested under the total (founder, 28 October 2026).
+      expect(header(tester).availableText, isNull);
+      expect(header(tester).availableFirst, isFalse);
       expect(header(tester).investedText, r'$57.50');
-      expect(find.text('Available '), findsOneWidget);
+      expect(find.text('Available '), findsNothing);
       // Not tappable without a door: no arrow, no press feedback.
       expect(chevron, findsNothing);
       expect(find.byKey(const ValueKey('investments-balance')), findsNothing);
@@ -370,7 +370,7 @@ void main() {
               investedUsd: 0,
               venueCash: const {OneBalanceVenue.investing: 0.06}));
       expect(header(tester).amountText, r'$6.26');
-      expect(header(tester).availableText, r'$6.26');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$0.00');
       expect(header(tester).investedChild, isNull);
       expect(find.textContaining('unavailable'), findsNothing);
@@ -436,7 +436,7 @@ void main() {
           ]));
       expect(find.textContaining('coming back'), findsNothing);
       expect(find.byType(PendingDepositLine), findsNothing);
-      expect(header(tester).availableText, r'$45.50');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$57.50');
       expect(header(tester).investedChild, isNull);
       // Money moving to a venue for no order: no line either.
@@ -744,7 +744,7 @@ void main() {
             usdBalanceUnknownProvider.overrideWithValue(false),
           ]);
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).availableText, r'$42.00');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$58.00');
       final container = ProviderScope.containerOf(
           tester.element(find.byType(InvestmentBalanceHeader)));
@@ -757,7 +757,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(header(tester).amountText, r'$100.00');
-      expect(header(tester).availableText, r'$42.00');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$58.00');
       expect(header(tester).stale, isTrue);
       // A completed, genuinely empty read must replace the saved figure.
@@ -765,7 +765,7 @@ void main() {
           const OneBalanceState(investingKnown: true, predictionsKnown: true);
       await tester.pumpAndSettle();
       expect(header(tester).amountText, r'$0.00');
-      expect(header(tester).availableText, r'$0.00');
+      expect(header(tester).availableText, isNull);
       expect(header(tester).investedText, r'$0.00');
       expect(header(tester).stale, isFalse);
     });
