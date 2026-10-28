@@ -7,19 +7,22 @@
 //
 //   * Header: the period's name ("October", "2026") and the app's small
 //     Month | Year pills.
-//   * In and Out side by side: +amount in the success colour and
-//     −amount in the primary text colour, each with its other unit under
-//     it (fiat under bitcoin, or bitcoin under fiat when the person picked
+//   * In and Out side by side, each label behind a dot of its chart
+//     colour (the app's chart palette: In teal, Out indigo, founder
+//     2026-10-28: "the same colour palette as the rest"): +amount and
+//     −amount in the primary text colour, as Balances writes figures,
+//     each with its other unit under it (fiat under bitcoin, or bitcoin under fiat when the person picked
 //     fiat as the main denomination); sats or BTC as everywhere else.
 //     Tapping a side lists it below; the picked side sits on the inset
 //     tone, the legend rows' selected treatment.
 //   * Bars: a pair per period (the last six months, or each year since
-//     the first move), In in the success colour, Out in the primary colour, the
+//     the first move), In teal and Out indigo, the
 //     picked period's pair at full strength and the others faded. Tapping
 //     a pair picks its period.
 //   * "Where it went" (Out) or "Where it came from" (In): one row per
-//     category with money in it, largest first: a round icon, the name, a
-//     thin share bar and the amount. Never a rail, an address or a
+//     category with money in it, largest first: a round icon, a dot and
+//     the name over a thin share bar in the chart palette by rank of size
+//     (chartColorsByShare, as the old donut legend), and the amount. Never a rail, an address or a
 //     counterparty (services/portfolio/money_in_out.dart).
 //   * A period with nothing in it: Sal's compact empty state; a wallet
 //     with nothing at all: only Sal.
@@ -277,20 +280,29 @@ class _MoneyInOutState extends ConsumerState<MoneyInOut> {
                 SizedBox(height: 4.h),
                 SelectionFade(
                   selection: (_side, _kind, offset),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final row in selected.rowsOf(_side))
-                        _CategoryRow(
-                          key: ValueKey(
-                              'in-out-row-${_side.analyticsName}-${row.key.name}'),
-                          side: _side,
-                          category: row.key,
-                          sats: row.value,
-                          share: row.value / selected.totalOf(_side),
-                        ),
-                    ],
-                  ),
+                  child: Builder(builder: (context) {
+                    final rows = selected.rowsOf(_side);
+                    final total = selected.totalOf(_side);
+                    final shares = [for (final r in rows) r.value / total];
+                    // The chart palette by rank of size, as the old donut
+                    // legend; slivers wear the palette's grey.
+                    final colors = c.chartColorsByShare(shares);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < rows.length; i++)
+                          _CategoryRow(
+                            key: ValueKey(
+                                'in-out-row-${_side.analyticsName}-${rows[i].key.name}'),
+                            side: _side,
+                            category: rows[i].key,
+                            sats: rows[i].value,
+                            share: shares[i],
+                            color: colors[i],
+                          ),
+                      ],
+                    );
+                  }),
                 ),
               ],
             ],
@@ -344,8 +356,27 @@ String _barLabel(MoneyPeriod period, String locale) {
 
 const _masked = '••••••';
 
-/// One side's total: "In" over +amount (success colour), or "Out" over
-/// −amount (primary), the other unit under it. The picked side sits on
+/// A side's chart colour: In the palette's teal, Out its indigo (the two
+/// first hues of `chartCategorical`, light and dark alike).
+Color moneySideColor(AppColorsExtension c, MoneySide side) =>
+    side == MoneySide.moneyIn ? c.chartCategorical[1] : c.chartCategorical[0];
+
+/// The legend's dot: the old donut legend's 8 pt circle.
+class _Dot extends StatelessWidget {
+  final Color color;
+  const _Dot(this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 8.w,
+        height: 8.w,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+}
+
+/// One side's total: a dot of the side's chart colour and "In" over
+/// +amount, or "Out" over −amount, in the primary text colour, the other
+/// unit under it. The picked side sits on
 /// the inset tone.
 class _SideFigure extends ConsumerWidget {
   final MoneySide side;
@@ -391,12 +422,19 @@ class _SideFigure extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isIn ? l10n.inOutIn : l10n.inOutOut,
-                  style: caption.copyWith(
-                    color: selected ? c.textPrimary : c.textTertiary,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  ),
+                Row(
+                  children: [
+                    _Dot(moneySideColor(c, side)),
+                    SizedBox(width: 6.w),
+                    Text(
+                      isIn ? l10n.inOutIn : l10n.inOutOut,
+                      style: caption.copyWith(
+                        color: selected ? c.textPrimary : c.textTertiary,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 4.h),
                 FittedBox(
@@ -407,8 +445,7 @@ class _SideFigure extends ConsumerWidget {
                         ? '${isIn ? '+' : '−'}${money.main}'
                         : _masked,
                     maxLines: 1,
-                    style: polyCardFigureStyle(
-                        isIn ? c.success : c.textPrimary),
+                    style: polyCardFigureStyle(c.textPrimary),
                   ),
                 ),
                 SizedBox(height: 2.h),
@@ -427,8 +464,8 @@ class _SideFigure extends ConsumerWidget {
   }
 }
 
-/// The pairs of bars, one per period: In (success colour) beside Out
-/// (primary), on one scale. The picked pair is at full strength, the
+/// The pairs of bars, one per period: In (teal) beside Out (indigo), on
+/// one scale. The picked pair is at full strength, the
 /// others faded; a period with nothing in it keeps a hairline stub so
 /// the row never has a hole.
 class _Bars extends StatelessWidget {
@@ -494,10 +531,12 @@ class _Bars extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          bar(totals[i].totalIn, c.success,
+                          bar(totals[i].totalIn,
+                              moneySideColor(c, MoneySide.moneyIn),
                               i == selectedIndex),
                           SizedBox(width: 3.w),
-                          bar(totals[i].totalOut, c.textPrimary,
+                          bar(totals[i].totalOut,
+                              moneySideColor(c, MoneySide.moneyOut),
                               i == selectedIndex),
                         ],
                       ),
@@ -525,8 +564,8 @@ class _Bars extends StatelessWidget {
   }
 }
 
-/// One "Where it went" line: the category's round icon, its name over a
-/// thin share bar, and the amount.
+/// One "Where it went" line: the category's round icon, a dot and its
+/// name over a thin share bar in its chart colour, and the amount.
 class _CategoryRow extends ConsumerWidget {
   final MoneySide side;
   final MoneyCategory category;
@@ -535,12 +574,16 @@ class _CategoryRow extends ConsumerWidget {
   /// The row's share of its side's total, 0 to 1.
   final double share;
 
+  /// The row's chart colour (by rank of size).
+  final Color color;
+
   const _CategoryRow({
     super.key,
     required this.side,
     required this.category,
     required this.sats,
     required this.share,
+    required this.color,
   });
 
   @override
@@ -551,7 +594,6 @@ class _CategoryRow extends ConsumerWidget {
     final caption = polyCardCaptionStyle(c).copyWith(
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final tint = side == MoneySide.moneyIn ? c.success : c.textPrimary;
     return MergeSemantics(
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 8.h),
@@ -572,12 +614,21 @@ class _CategoryRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    moneyCategoryLabel(context.l10n, side, category),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: caption.copyWith(
-                        color: c.textPrimary, fontWeight: FontWeight.w600),
+                  Row(
+                    children: [
+                      _Dot(color),
+                      SizedBox(width: 8.w),
+                      Flexible(
+                        child: Text(
+                          moneyCategoryLabel(context.l10n, side, category),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: caption.copyWith(
+                              color: c.textPrimary,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 6.h),
                   ClipRRect(
@@ -591,8 +642,7 @@ class _CategoryRow extends ConsumerWidget {
                           FractionallySizedBox(
                             widthFactor: share.clamp(0.0, 1.0),
                             heightFactor: 1,
-                            child: ColoredBox(
-                                color: tint.withValues(alpha: 0.7)),
+                            child: ColoredBox(color: color),
                           ),
                         ],
                       ),

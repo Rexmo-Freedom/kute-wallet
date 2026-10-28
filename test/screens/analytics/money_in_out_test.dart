@@ -24,6 +24,7 @@ import 'package:kute/providers/viewed_wallet_provider.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
 import 'package:kute/screens/analytics/components/money_in_out.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/services/portfolio/money_in_out.dart' show MoneySide;
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
 import 'package:kute/services/tracking_service.dart';
@@ -327,20 +328,44 @@ void main() {
       expect(_within('in-out-side-out', 'Out'), findsOneWidget);
       expect(_within('in-out-side-out', '−₿63,000'), findsOneWidget);
       expect(_within('in-out-side-out', '\$63.00'), findsOneWidget);
-      // In in the success colour, Out in the primary text colour.
+      // The figures in the primary text colour, as Balances writes them;
+      // each side's colour is its chart hue (In teal, Out indigo) on the
+      // dot before its label and on its bars. No success green anywhere.
       final c = AppColorsExtension.light();
-      expect(
-          tester
-              .widget<Text>(_within('in-out-side-in', '+₿12,500'))
-              .style!
-              .color,
-          c.success);
-      expect(
-          tester
-              .widget<Text>(_within('in-out-side-out', '−₿63,000'))
-              .style!
-              .color,
-          c.textPrimary);
+      for (final f in [
+        _within('in-out-side-in', '+₿12,500'),
+        _within('in-out-side-out', '−₿63,000'),
+      ]) {
+        expect(tester.widget<Text>(f).style!.color, c.textPrimary);
+      }
+      expect(moneySideColor(c, MoneySide.moneyIn), c.chartCategorical[1]);
+      expect(moneySideColor(c, MoneySide.moneyOut), c.chartCategorical[0]);
+      Set<Color> fills(String key) => {
+            for (final e in find
+                .descendant(
+                    of: find.byKey(ValueKey(key)),
+                    matching: find.byType(Container))
+                .evaluate())
+              if ((e.widget as Container).decoration is BoxDecoration &&
+                  ((e.widget as Container).decoration as BoxDecoration)
+                          .color !=
+                      null)
+                ((e.widget as Container).decoration as BoxDecoration).color!,
+          };
+      expect(fills('in-out-side-in'), contains(c.chartCategorical[1]));
+      expect(fills('in-out-side-out'), contains(c.chartCategorical[0]));
+      // The picked month's bars at full strength in those two hues.
+      expect(fills('in-out-bar-5'),
+          containsAll([c.chartCategorical[1], c.chartCategorical[0]]));
+      // Faded elsewhere.
+      expect(fills('in-out-bar-4'),
+          contains(c.chartCategorical[1].withValues(alpha: 0.28)));
+      final everyFill = fills('in-out-period').union({
+        for (final k in ['in-out-side-in', 'in-out-side-out'])
+          ...fills(k),
+        for (var i = 0; i < 6; i++) ...fills('in-out-bar-$i'),
+      });
+      expect(everyFill, isNot(contains(c.success)));
 
       for (var i = 0; i < 6; i++) {
         expect(find.byKey(ValueKey('in-out-bar-$i')), findsOneWidget);
@@ -356,6 +381,25 @@ void main() {
       expect(_within('in-out-row-out-people', 'Sent to people'),
           findsOneWidget);
       expect(_within('in-out-row-out-people', '₿3,000'), findsOneWidget);
+      // The rows wear the chart palette by rank of size, as the old donut
+      // legend did: the largest indigo, the next teal.
+      Color dotOf(String key) => (tester
+              .widget<Container>(find
+                  .descendant(
+                      of: find.byKey(ValueKey(key)),
+                      matching: find.byWidgetPredicate((w) =>
+                          w is Container &&
+                          w.decoration is BoxDecoration &&
+                          (w.decoration as BoxDecoration).shape ==
+                              BoxShape.circle &&
+                          (w.decoration as BoxDecoration).color !=
+                              c.surfaceLight))
+                  .first)
+              .decoration as BoxDecoration)
+          .color!;
+      final ranked = c.chartColorsByShare([60000 / 63000, 3000 / 63000]);
+      expect(dotOf('in-out-row-out-dollars'), ranked[0]);
+      expect(dotOf('in-out-row-out-people'), ranked[1]);
       expect(tester.takeException(), isNull);
     });
 
