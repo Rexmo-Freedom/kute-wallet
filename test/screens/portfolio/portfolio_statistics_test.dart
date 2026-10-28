@@ -19,6 +19,13 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show
+        BalancesCategory,
+        BalancesEndFigure,
+        BalancesLiveFigure,
+        balancesCategoryColor,
+        kBalancesRingDiameter;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -28,6 +35,7 @@ import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -348,8 +356,8 @@ Future<void> _pump(WidgetTester tester,
         hyperliquidActivityFillsProvider.overrideWithValue(_tradingFills()),
         hyperliquidAccountProvider
             .overrideWith(() => _Account(flat ? _flat() : _positions())),
-        hyperliquidDisplayAccountProvider.overrideWith(
-            (ref) => ref.watch(hyperliquidAccountProvider)),
+        hyperliquidDisplayAccountProvider
+            .overrideWith((ref) => ref.watch(hyperliquidAccountProvider)),
         hyperliquidPerpMarketsProvider.overrideWith((_) async => const []),
         hyperliquidSpotMarketsProvider.overrideWith((_) async => const []),
         // Gamma's tags for the three markets the predictions were on.
@@ -1163,7 +1171,17 @@ void main() {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(
           find.byKey(const ValueKey('statistics-chart-empty')), findsNothing);
-      expect(find.text('Open P&L'), findsNothing);
+      // The lead row stays (the pair sits on it), its figure a dash; no
+      // venue rows under it.
+      expect(find.text('Open P&L'), findsOneWidget);
+      expect(
+          tester
+              .widget<BalancesLiveFigure>(
+                  find.byKey(const ValueKey('statistics-pnl-lead-amount')))
+              .figure
+              .text,
+          '—');
+      expect(find.byKey(const ValueKey('pnl-venue-investing')), findsNothing);
       expectEmptyState(tester, 'No open investments', compact: true);
     });
 
@@ -1492,7 +1510,7 @@ void main() {
     });
   });
 
-  group('Overview (the Portfolio screen)', () {
+  group('Overview (P&L charts, the Portfolio screen)', () {
     late List<(String, Map<String, Object>?)> events;
     setUp(() {
       events = [];
@@ -1505,30 +1523,44 @@ void main() {
             bool predictions = true,
             bool reduceMotion = false,
             bool flat = false,
-            Map<String, Set<String>>? tags,
-            double textScale = 1}) =>
+            bool hidden = false,
+            double textScale = 1,
+            Size size = const Size(390, 844)}) =>
         _pump(tester,
             predictions: true,
             flat: flat,
-            tags: tags,
+            hidden: hidden,
             scope: StatisticsScope.active,
             reduceMotion: reduceMotion,
             textScale: textScale,
+            size: size,
             home: PortfolioStatisticsOverview(
                 trading: trading, predictions: predictions));
 
     final figures = find.byKey(const ValueKey('statistics-figures'));
-    String figure(WidgetTester tester, String label) {
-      final column = find.ancestor(
-          of: find.descendant(of: figures, matching: find.text(label)),
-          matching: find.byType(Column));
-      final texts = tester
-          .widgetList<Text>(
-              find.descendant(of: column.first, matching: find.byType(Text)))
-          .map((t) => t.data)
-          .toList();
-      return texts[texts.indexOf(label) + 1]!;
-    }
+    final lead = find.byKey(const ValueKey('statistics-pnl-lead'));
+    final ring = find.byKey(const ValueKey('statistics-allocation-ring'));
+    Finder venueRow(String venue) => find.byKey(ValueKey('pnl-venue-$venue'));
+
+    BalancesLiveFigure live(WidgetTester tester, String key) =>
+        tester.widget<BalancesLiveFigure>(find.byKey(ValueKey(key)));
+    String rolling(WidgetTester tester, String key) =>
+        live(tester, key).figure.text;
+    String leadAmount(WidgetTester tester) =>
+        rolling(tester, 'statistics-pnl-lead-amount');
+    String venueAmount(WidgetTester tester, String venue) =>
+        rolling(tester, 'pnl-venue-$venue-amount');
+    String venuePnl(WidgetTester tester, String venue) => tester
+        .widget<RollingFigure>(find.byKey(ValueKey('pnl-venue-$venue-pnl')))
+        .text;
+    String venueCount(WidgetTester tester, String venue) => tester
+        .widget<Text>(find.byKey(ValueKey('pnl-venue-$venue-count')))
+        .data!;
+    String stat(WidgetTester tester, String venue) => tester
+        .widget<BalancesEndFigure>(
+            find.byKey(ValueKey('pnl-venue-$venue-stat-amount')))
+        .figure
+        .text;
 
     String headline(WidgetTester tester) => tester
         .widget<RollingNumberText>(
@@ -1542,44 +1574,26 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// The opened slice's items, top to bottom.
-    List<String> items(WidgetTester tester) {
-      final found = find
-          .byWidgetPredicate((w) =>
-              w.key is ValueKey<String> &&
-              (w.key as ValueKey<String>)
-                  .value
-                  .startsWith('category-drill-item-'))
-          .evaluate()
-          .toList()
-        ..sort((a, b) => tester
-            .getTopLeft(find.byWidget(a.widget))
-            .dy
-            .compareTo(tester.getTopLeft(find.byWidget(b.widget)).dy));
-      return [
-        for (final e in found)
-          (e.widget.key as ValueKey<String>)
-              .value
-              .substring('category-drill-item-'.length)
-      ];
-    }
-
-    List<Map<String, Object>?> drilled() => [
-          for (final e in events)
-            if (e.$1 == 'portfolio_allocation_drilled') e.$2
-        ];
-
     void expectOneOfEach(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(find.byType(KuteLineChart), findsOneWidget);
       // The range row under the plot (1W to ALL).
       expect(find.byType(KuteRangePills), findsOneWidget);
       expect(find.text('Profit and loss'), findsOneWidget);
-      expect(find.byType(KuteDonutChart, skipOffstage: false), findsOneWidget);
-      expect(find.byType(PortfolioCategoryCard, skipOffstage: false),
-          findsOneWidget);
+      // The bare ring, the lead row, the pair, the venue rows.
+      expect(ring, findsOneWidget);
+      expect(lead, findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-active')), findsOneWidget);
       expect(figures, findsOneWidget);
+      // The old donut card, its legend and the stat tiles are gone.
+      expect(find.byType(PortfolioCategoryCard, skipOffstage: false),
+          findsNothing);
+      expect(find.byType(PortfolioTile, skipOffstage: false), findsNothing);
+      expect(find.byType(PortfolioTileRow, skipOffstage: false), findsNothing);
+      expect(find.textContaining('%', skipOffstage: false),
+          findsNWidgets(2)); // the venue headers' P&L only
+      expect(find.text('Orders', skipOffstage: false), findsNothing);
+      expect(find.text('Total', skipOffstage: false), findsNothing);
     }
 
     testWidgets(
@@ -1615,98 +1629,140 @@ void main() {
     });
 
     testWidgets(
-        'top down: the chart, the Active | Historic pair, the donut, the '
-        'figures', (tester) async {
+        'top down: the chart card, then the Balances frame: the ring, Open '
+        'P&L and the pair on one row, a hairline, Predictions then Investing',
+        (tester) async {
       await pumpOverview(tester);
       double top(Finder f) => tester.getTopLeft(f).dy;
       final pair = find.byKey(const ValueKey('statistics-active'));
-      final donut = find.byType(PortfolioCategoryCard);
-      expect(top(find.byType(PortfolioPnlChart)), lessThan(top(pair)));
-      expect(top(pair), lessThan(top(donut)));
-      await tester.ensureVisible(figures);
-      await tester.pumpAndSettle();
-      expect(top(donut), lessThan(top(figures)));
+      expect(top(find.byType(PortfolioPnlChart)), lessThan(top(ring)));
+      // One row: the ring on the left, the lead beside it, the pair at the
+      // row's end, all overlapping in height.
+      final ringRect = tester.getRect(ring);
+      final leadRect = tester.getRect(lead);
+      final pairRect = tester.getRect(pair);
+      expect(ringRect.right, lessThan(leadRect.left));
+      expect(leadRect.right, lessThanOrEqualTo(pairRect.left));
+      expect(pairRect.right, lessThanOrEqualTo(390));
+      expect(ringRect.top, lessThan(leadRect.bottom));
+      expect(leadRect.top, lessThan(ringRect.bottom));
+      expect(pairRect.top, lessThan(ringRect.bottom));
+      expect(pairRect.bottom, greaterThan(ringRect.top));
+      // The hairline under the row, then the venue rows, Predictions first.
+      final hairline =
+          find.descendant(of: figures, matching: find.byType(Divider));
+      expect(hairline, findsOneWidget);
+      expect(top(hairline), greaterThan(ringRect.bottom));
+      expect(top(venueRow('predictions')), greaterThan(top(hairline)));
+      expect(top(venueRow('investing')),
+          greaterThan(top(venueRow('predictions'))));
+      // Under each venue its one quiet sub-row, indented past the dot.
+      final stat = find.byKey(const ValueKey('pnl-venue-predictions-stat'));
+      expect(top(stat), greaterThan(top(venueRow('predictions'))));
+      expect(top(stat), lessThan(top(venueRow('investing'))));
+      expect(
+          tester
+              .getTopLeft(find.descendant(
+                  of: stat, matching: find.text('Amount at stake')))
+              .dx,
+          greaterThan(tester
+                  .getTopLeft(find.descendant(
+                      of: venueRow('predictions'),
+                      matching: find.text('Predictions')))
+                  .dx -
+              0.5));
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'Active: one donut by category with the venues merged — crypto at '
-        'both venues is one slice; it opens to both venues\' positions',
-        (tester) async {
+        'the ring is bare: each venue\'s share of what is at stake in its '
+        'colour, nothing written in it, not a control', (tester) async {
       await pumpOverview(tester);
-      // No venue level any more: the categories straight away, what is
-      // held now, both venues added in the hole.
-      expect(_hole(tester), r'$95.00');
-      expect(_donutTexts(tester), contains('Active'));
-      expect(_ring(tester).arcs.map((a) => a.id), ['crypto']);
+      // Predictions 20 of 80 at stake, Investing 60.
+      final painter = _ring(tester);
+      final arcs = {for (final a in painter.arcs) a.id: a};
+      expect(arcs.keys,
+          {BalancesCategory.predictions, BalancesCategory.investing});
+      expect(arcs[BalancesCategory.predictions]!.fraction, closeTo(0.25, 1e-9));
+      expect(arcs[BalancesCategory.investing]!.fraction, closeTo(0.75, 1e-9));
+      final c = AppColorsExtension.light();
+      expect(arcs[BalancesCategory.predictions]!.color,
+          balancesCategoryColor(c, BalancesCategory.predictions));
+      expect(arcs[BalancesCategory.investing]!.color,
+          balancesCategoryColor(c, BalancesCategory.investing));
       expect(
-          find.byKey(const ValueKey('category-legend-crypto')), findsOneWidget);
+          find.descendant(of: ring, matching: find.byType(Text)), findsNothing);
       expect(
-          find.byKey(const ValueKey('category-legend-trading')), findsNothing);
-      expect(find.byKey(const ValueKey('category-legend-predictions')),
+          find.descendant(of: ring, matching: find.byType(RollingNumberText)),
           findsNothing);
-      expect(find.byKey(const ValueKey('category-level-back')), findsNothing);
-      // The account's figures: both venues added.
-      expect(figure(tester, 'Open P&L'), r'+$15.00');
-      expect(figure(tester, 'Amount at stake'), r'$80.00');
-      expect(figure(tester, 'Open positions'), '3');
-
-      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
-      // Investing's coins (it holds more of the slice) over Predictions'
-      // event.
-      expect(items(tester), ['BTC', 'SOL', 'btc-100k']);
-      expect(drilled().last, {
-        'venue': 'all',
-        'level': 'category',
-        'category': 'crypto',
-        'view': 'active',
-      });
-      await open(tester, find.byKey(const ValueKey('category-drill-back')));
-      expect(drilled().last, {
-        'venue': 'all',
-        'level': 'top',
-        'category': 'crypto',
-        'view': 'active',
-      });
+      expect(tester.widget<KuteDonutChart>(ring).diameter,
+          closeTo(kBalancesRingDiameter * 390 / 430, 0.01));
+      expect(find.ancestor(of: ring, matching: find.byType(IgnorePointer)),
+          findsWidgets);
+      // The venues' dots wear the same colours.
       expect(
-          find.byKey(const ValueKey('category-legend-crypto')), findsOneWidget);
-      // The slice event names the merged set as its venue.
-      final slices = events
-          .where((e) => e.$1 == 'portfolio_category_slice_selected')
-          .toList();
-      for (final e in slices) {
-        expect(e.$2?['venue'], 'all');
-      }
+          tester
+              .widget<Container>(find
+                  .descendant(
+                      of: venueRow('predictions'),
+                      matching: find.byType(Container))
+                  .first)
+              .decoration,
+          BoxDecoration(
+              color: balancesCategoryColor(c, BalancesCategory.predictions),
+              shape: BoxShape.circle));
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'Active: Investing\'s and Predictions\' categories sit in the one '
-        'ring, each slice opening to its own venue\'s positions',
-        (tester) async {
-      await pumpOverview(tester, tags: {
-        '0xsports': {'sports'},
-        '0xpolitics': {'politics'},
-        '0xcrypto': {'sports', 'nba'},
-      });
-      expect(_hole(tester), r'$95.00');
-      expect(_ring(tester).arcs.map((a) => a.id), ['crypto', 'sports']);
-      expect(_donutTexts(tester), containsAllInOrder(['Crypto', 'Sports']));
-
-      await open(tester, find.byKey(const ValueKey('category-legend-sports')));
-      expect(items(tester), ['btc-100k']);
-      await open(tester, find.byKey(const ValueKey('category-drill-back')));
-      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
-      expect(items(tester), ['BTC', 'SOL']);
+        'Active: Open P&L bold with the venues\' added P&L under it in the '
+        'result colour; each venue row with its count, value and P&L; '
+        'Amount at stake under it', (tester) async {
+      await pumpOverview(tester);
+      expect(find.descendant(of: lead, matching: find.text('Open P&L')),
+          findsOneWidget);
+      expect(leadAmount(tester), r'+$15.00');
+      final amount = live(tester, 'statistics-pnl-lead-amount');
+      expect(amount.style.color, AppColors.marketUp);
+      // The lead's label is the venues' title size; its amount the venue
+      // headers' size and weight.
+      final title = tester.widget<Text>(
+          find.descendant(of: lead, matching: find.text('Open P&L')));
+      final venueTitle = tester.widget<Text>(find.descendant(
+          of: venueRow('predictions'), matching: find.text('Predictions')));
+      expect(title.style?.fontSize, venueTitle.style?.fontSize);
+      expect(title.style?.fontWeight, FontWeight.w700);
+      final venueValue = live(tester, 'pnl-venue-predictions-amount');
+      expect(amount.style.fontSize, venueValue.style.fontSize);
+      expect(amount.style.fontWeight, venueValue.style.fontWeight);
+      // Predictions: one live position worth 30 (20 put in, +10).
+      expect(venueCount(tester, 'predictions'), '1');
+      expect(venueAmount(tester, 'predictions'), r'$30.00');
+      expect(venuePnl(tester, 'predictions'), r'+$10.00 (50.0%)');
+      expect(stat(tester, 'predictions'), r'$20.00');
+      // Investing: BTC and SOL, 60 of margin, +5.
+      expect(venueCount(tester, 'investing'), '2');
+      expect(venueAmount(tester, 'investing'), r'$65.00');
+      expect(venuePnl(tester, 'investing'), r'+$5.00 (8.3%)');
+      expect(stat(tester, 'investing'), r'$60.00');
+      expect(find.text('Amount at stake'), findsNWidgets(2));
+      // Nothing said twice: no "Open positions" line, no tiles, no legend
+      // percentages, no second Open P&L.
+      expect(find.text('Open positions'), findsNothing);
+      expect(find.text('Open P&L'), findsOneWidget);
+      expect(find.byType(PortfolioTile), findsNothing);
+      expect(
+          find.byKey(const ValueKey('category-legend-crypto')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'Historic: everything ever traded or predicted, by category, merged; '
-        'the figures follow the pair; a slice opens to its history rows',
+        'Historic: the pair switches the figures; Realized P&L leads, each '
+        'venue\'s realised P&L at its row\'s end, the amount predicted or '
+        'volume traded under it; the same ring morphs; the event is sent',
         (tester) async {
       await pumpOverview(tester);
-      final ring = tester.state(find.byType(KuteDonutChart));
+      final ringState = tester.state(find.byType(KuteDonutChart));
       await open(tester, find.byKey(const ValueKey('statistics-historic')));
       expect(
           events
@@ -1717,66 +1773,105 @@ void main() {
           ]);
       // The old sub-tab event is the Ledger's alone now.
       expect(events.where((e) => e.$1 == 'portfolio_tab_changed'), isEmpty);
-      expectOneOfEach(tester);
-      // The same ring, now all time: Investing's volume (6,000 + 110 +
-      // 100, all crypto) and Predictions' stakes (20 crypto, 8 sports, 5
-      // politics).
-      expect(tester.state(find.byType(KuteDonutChart)), same(ring));
-      expect(_hole(tester), r'$6,243.00');
-      expect(_donutTexts(tester), contains('All time'));
-      expect(_ring(tester).arcs.map((a) => a.id),
-          ['crypto', 'sports', 'politics']);
-      // The figures for the pair, the account's: realised P&L, volume
-      // traded, trades.
-      expect(find.text('Realized P&L'), findsOneWidget);
-      expect(find.descendant(of: figures, matching: find.text('Volume traded')),
-          findsOneWidget);
-      expect(find.descendant(of: figures, matching: find.text('Trades')),
+      expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      expect(tester.state(find.byType(KuteDonutChart)), same(ringState));
+      expect(find.descendant(of: lead, matching: find.text('Realized P&L')),
           findsOneWidget);
       expect(find.text('Open P&L'), findsNothing);
-      expect(find.text('Amount predicted'), findsNothing);
+      // 6 realised at Predictions, 8 at Investing (10 gross on 2 of fees).
+      expect(leadAmount(tester), r'+$14.00');
+      expect(venueCount(tester, 'predictions'), '3');
+      expect(venueAmount(tester, 'predictions'), r'+$6.00');
+      expect(live(tester, 'pnl-venue-predictions-amount').style.color,
+          AppColors.marketUp);
+      expect(find.byKey(const ValueKey('pnl-venue-predictions-pnl')),
+          findsNothing);
+      expect(stat(tester, 'predictions'), r'$33.00');
+      expect(find.text('Amount predicted'), findsOneWidget);
+      expect(venueCount(tester, 'investing'), '3');
+      expect(venueAmount(tester, 'investing'), r'+$8.00');
+      expect(stat(tester, 'investing'), r'$6,210.00');
+      expect(find.text('Volume traded'), findsOneWidget);
+      expect(find.text('Amount at stake'), findsNothing);
+      expect(find.text('Trades'), findsNothing);
+      // The ring: 33 of 6,243 predicted, the rest traded.
+      final arcs = {for (final a in _ring(tester).arcs) a.id: a};
+      expect(arcs[BalancesCategory.predictions]!.fraction,
+          closeTo(33 / 6243, 1e-6));
+      expect(arcs[BalancesCategory.investing]!.fraction,
+          closeTo(6210 / 6243, 1e-6));
 
-      await open(tester, find.byKey(const ValueKey('category-legend-sports')));
-      expect(items(tester), ['nba-champion']);
-      expect(drilled().last, {
-        'venue': 'all',
-        'level': 'category',
-        'category': 'sports',
-        'view': 'historic',
-      });
-      await open(tester, find.byKey(const ValueKey('category-drill-back')));
-      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
-      expect(items(tester), ['BTC', 'ETH', 'btc-100k']);
-
-      // Back to Active: the ring morphs back, nothing open.
+      // Back to Active: the figures and the ring come back.
       await open(tester, find.byKey(const ValueKey('statistics-active')));
-      expect(_hole(tester), r'$95.00');
-      expect(find.byKey(const ValueKey('category-drill-back')), findsNothing);
-      expect(figure(tester, 'Open positions'), '3');
+      expect(leadAmount(tester), r'+$15.00');
+      expect(venueAmount(tester, 'predictions'), r'$30.00');
+      expect(_ring(tester).arcs.map((a) => a.fraction), [0.25, 0.75]);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'nothing held now: no donut on Active, the compact empty state; '
-        'Historic still draws', (tester) async {
+        'nothing held now and nothing resting: the lead row with a dash, '
+        'then the compact empty state, no venue rows; Historic still draws',
+        (tester) async {
       await pumpOverview(tester, flat: true, predictions: false);
-      expect(find.byType(PortfolioCategoryCard), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsOneWidget);
       expect(figures, findsNothing);
+      expect(venueRow('investing'), findsNothing);
+      expect(leadAmount(tester), '—');
       expect(find.text('No open investments'), findsOneWidget);
+      // Only the track: no slice while nothing is at stake.
+      expect(_ring(tester).arcs, isEmpty);
       await open(tester, find.byKey(const ValueKey('statistics-historic')));
-      expect(_hole(tester), r'$6,210.00');
-      expect(figure(tester, 'Trades'), '3');
+      expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+      expect(venueCount(tester, 'investing'), '3');
+      expect(stat(tester, 'investing'), r'$6,210.00');
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('one venue: no chart toggle; the donut is its categories',
-        (tester) async {
+    testWidgets(
+        'one venue with nothing on the sub-tab: its row reads "No open '
+        'positions" at the end and lists nothing', (tester) async {
+      await pumpOverview(tester, flat: true);
+      // Predictions has a live position; Investing holds nothing.
+      expect(figures, findsOneWidget);
+      expect(venueAmount(tester, 'predictions'), r'$30.00');
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('pnl-venue-investing-line')))
+              .data,
+          'No open positions');
+      expect(find.byKey(const ValueKey('pnl-venue-investing-amount')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('pnl-venue-investing-count')),
+          findsNothing);
+      expect(
+          find.byKey(const ValueKey('pnl-venue-investing-stat')), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('one venue: no chart toggle; its row alone', (tester) async {
       await pumpOverview(tester, trading: false);
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
-      expect(find.byKey(const ValueKey('category-level-back')), findsNothing);
-      expect(_donutTexts(tester), containsAllInOrder(['Active', 'Crypto']));
-      expect(_hole(tester), r'$30.00');
-      expect(figure(tester, 'Open positions'), '1');
+      expect(venueRow('predictions'), findsOneWidget);
+      expect(venueRow('investing'), findsNothing);
+      expect(leadAmount(tester), r'+$10.00');
+      expect(venueCount(tester, 'predictions'), '1');
+      expect(_ring(tester).arcs.map((a) => a.fraction), [1.0]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('hidden balances mask the amounts, not the counts',
+        (tester) async {
+      await pumpOverview(tester, hidden: true);
+      expect(leadAmount(tester), '••••••');
+      expect(venueAmount(tester, 'predictions'), '••••••');
+      expect(stat(tester, 'investing'), '••••••');
+      expect(find.byKey(const ValueKey('pnl-venue-predictions-pnl')),
+          findsNothing);
+      expect(venueCount(tester, 'investing'), '2');
+      expect(find.textContaining(r'$'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -1784,27 +1879,19 @@ void main() {
         'the ring morphs between Active and Historic; at once under Reduce '
         'Motion', (tester) async {
       final pill = find.byKey(const ValueKey('statistics-historic'));
-      await pumpOverview(tester, tags: {
-        '0xsports': {'sports'},
-        '0xpolitics': {'politics'},
-        '0xcrypto': {'sports'},
-      });
+      await pumpOverview(tester);
       await tester.tap(pill);
       await tester.pumpAndSettle();
       expect(_ring(tester).arcs.map((a) => a.id),
-          ['crypto', 'sports', 'politics']);
+          [BalancesCategory.predictions, BalancesCategory.investing]);
+      expect(_ring(tester).arcs.first.fraction, closeTo(33 / 6243, 1e-6));
 
       await tester.pumpWidget(const SizedBox());
-      await pumpOverview(tester, reduceMotion: true, tags: {
-        '0xsports': {'sports'},
-        '0xpolitics': {'politics'},
-        '0xcrypto': {'sports'},
-      });
+      await pumpOverview(tester, reduceMotion: true);
       await tester.tap(pill);
       await tester.pump();
       await tester.pump();
-      expect(_ring(tester).arcs.map((a) => a.id),
-          ['crypto', 'sports', 'politics']);
+      expect(_ring(tester).arcs.first.fraction, closeTo(33 / 6243, 1e-6));
     });
 
     testWidgets('a footer runs under the figures', (tester) async {
@@ -1834,72 +1921,30 @@ void main() {
 
     testWidgets('fits accessibility text', (tester) async {
       await pumpOverview(tester, textScale: 2);
-      await open(tester, find.byKey(const ValueKey('category-legend-crypto')));
+      await open(tester, find.byKey(const ValueKey('statistics-historic')));
+      expect(venueCount(tester, 'investing'), '3');
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-        'the figures sit in ONE row of equal tiles, every figure there, '
-        'colours kept', (tester) async {
-      await pumpOverview(tester);
-      await tester.ensureVisible(figures);
-      await tester.pumpAndSettle();
-      const labels = ['Open P&L', 'Amount at stake', 'Open positions'];
-      final tiles = [
-        for (final label in labels)
-          find.ancestor(
-              of: find.descendant(of: figures, matching: find.text(label)),
-              matching: find.byType(PortfolioTile)),
-      ];
-      for (final tile in tiles) {
-        expect(tile, findsOneWidget);
-      }
-      final rects = [for (final t in tiles) tester.getRect(t)];
-      // One row: the same top and height, left to right, equal widths.
-      for (final r in rects.skip(1)) {
-        expect(r.top, rects.first.top);
-        expect(r.height, rects.first.height);
-        expect(r.width, moreOrLessEquals(rects.first.width, epsilon: 0.01));
-      }
-      expect(rects[0].right, lessThan(rects[1].left));
-      expect(rects[1].right, lessThan(rects[2].left));
-      // Low: one card of caption-over-figure columns, never tall tiles.
-      expect(tester.getSize(figures).height, lessThanOrEqualTo(84));
-      // Every figure, the open P&L still in the up colour.
-      expect(figure(tester, 'Open P&L'), startsWith('+'));
-      final pnl = tester.widget<Text>(find.descendant(
-          of: tiles.first, matching: find.textContaining(r'$')));
-      expect(pnl.style?.color, AppColors.marketUp);
-      expect(figure(tester, 'Amount at stake'), contains(r'$'));
-      expect(figure(tester, 'Open positions'), isNotEmpty);
-      // Historic: the same row, its own three figures.
-      await open(tester, find.text('Historic'));
-      await tester.ensureVisible(figures);
-      await tester.pumpAndSettle();
-      expect(find.descendant(of: figures, matching: find.byType(PortfolioTile)),
-          findsNWidgets(3));
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('375 pt at 130 % text: the row fits, nothing cut',
+    testWidgets('375 pt at 130 % text: the lead row fits, nothing cut',
         (tester) async {
-      await _pump(tester,
-          predictions: true,
-          scope: StatisticsScope.active,
-          size: const Size(375, 812),
-          textScale: 1.3,
-          home: const PortfolioStatisticsOverview(
-              trading: true, predictions: true));
-      await tester.ensureVisible(figures);
-      await tester.pumpAndSettle();
-      expect(find.descendant(of: figures, matching: find.byType(PortfolioTile)),
-          findsNWidgets(3));
-      // No sideways scroll needed for three: all of them on screen.
-      for (final label in ['Open P&L', 'Amount at stake', 'Open positions']) {
-        final r = tester
-            .getRect(find.descendant(of: figures, matching: find.text(label)));
-        expect(r.left, greaterThanOrEqualTo(0));
-        expect(r.right, lessThanOrEqualTo(375));
+      await pumpOverview(tester, size: const Size(375, 812), textScale: 1.3);
+      final pair = find.byKey(const ValueKey('statistics-historic'));
+      expect(tester.getRect(pair).right, lessThanOrEqualTo(375));
+      expect(tester.getRect(ring).left, greaterThanOrEqualTo(0));
+      expect(
+          tester.getRect(lead).right,
+          lessThanOrEqualTo(tester
+              .getRect(find.byKey(const ValueKey('statistics-active')))
+              .left));
+      for (final label in ['Open P&L', 'Amount at stake']) {
+        for (final r in find
+            .text(label)
+            .evaluate()
+            .map((e) => tester.getRect(find.byWidget(e.widget)))) {
+          expect(r.left, greaterThanOrEqualTo(0));
+          expect(r.right, lessThanOrEqualTo(375));
+        }
       }
       expect(tester.takeException(), isNull);
     });

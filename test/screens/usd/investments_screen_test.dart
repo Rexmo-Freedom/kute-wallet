@@ -30,6 +30,7 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
+import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -133,6 +134,18 @@ const _pmOrder = Order(
     sizeMatched: '0',
     outcome: 'Yes',
     timestamp: '2000');
+
+/// Records the Predictions orders cancelled instead of reaching the venue.
+class _CancellingPoly extends PolymarketTradingNotifier {
+  _CancellingPoly(this.cancelled);
+  final List<String> cancelled;
+
+  @override
+  Future<PolymarketTradingState> build() async => PolymarketTradingState();
+
+  @override
+  Future<void> cancelOrder(String orderId) async => cancelled.add(orderId);
+}
 
 /// One order resting at each venue.
 List<Override> _restingOrders() => [
@@ -675,19 +688,21 @@ void main() {
   });
 
   testWidgets(
-      'P&L charts lists the resting orders at both venues under the chart, '
-      'with the count and Cancel all; Balances does not; the switch is '
-      'reported with sub: charts', (tester) async {
+      'P&L charts lists each venue\'s resting orders under its row, '
+      'Predictions then Investing, with no Orders heading and no count; one '
+      'quiet Cancel all after the last venue\'s; a row\'s Cancel runs the '
+      'venue\'s cancel; Balances lists none; the switch is reported with '
+      'sub: charts', (tester) async {
     final events = recordEvents();
-    await pumpInvestments(tester, overrides: _restingOrders());
+    final cancelled = <String>[];
+    await pumpInvestments(tester, overrides: [
+      ..._restingOrders(),
+      polymarketTradingProvider.overrideWith(() => _CancellingPoly(cancelled)),
+    ]);
     final l10n = _l10n(tester);
     await tapPill(tester, l10n.walletPortfolioAction);
 
     // Balances: no orders.
-    expect(
-        find.byKey(const ValueKey('portfolio-orders-heading'),
-            skipOffstage: false),
-        findsNothing);
     expect(find.byType(HlOrderRow, skipOffstage: false), findsNothing);
     expect(find.byType(PolyOrderRow, skipOffstage: false), findsNothing);
 
@@ -703,24 +718,99 @@ void main() {
       'from_sub': 'balances'
     });
     expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
-    // The orders block keeps its own heading, count and Cancel all.
+    // No Orders heading, no count, no button.
     expect(
         find.byKey(const ValueKey('portfolio-orders-heading'),
             skipOffstage: false),
+        findsNothing);
+    expect(
+        find.byKey(const ValueKey('portfolio-orders-count'),
+            skipOffstage: false),
+        findsNothing);
+    expect(
+        find.text(l10n.portfolioTabOrders, skipOffstage: false), findsNothing);
+    expect(find.byType(AppButton, skipOffstage: false),
+        findsNWidgets(2)); // the rows' own Cancel buttons
+    // Each venue's order under its row: the Predictions order under
+    // Predictions, the Investing order under Investing, in that order.
+    final predictions =
+        find.byKey(const ValueKey('pnl-venue-predictions-orders'));
+    final investing = find.byKey(const ValueKey('pnl-venue-investing-orders'));
+    final scrollable = find
+        .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(find.byType(PolyOrderRow), 200,
+        scrollable: scrollable);
+    await _pumpFrames(tester);
+    expect(
+        find.descendant(of: predictions, matching: find.byType(PolyOrderRow)),
         findsOneWidget);
-    expect(find.byType(HlOrderRow, skipOffstage: false), findsOneWidget);
-    expect(find.byType(PolyOrderRow, skipOffstage: false), findsOneWidget);
+    expect(find.descendant(of: predictions, matching: find.byType(HlOrderRow)),
+        findsNothing);
+    await tester.scrollUntilVisible(find.byType(HlOrderRow), 200,
+        scrollable: scrollable);
+    await _pumpFrames(tester);
+    expect(find.descendant(of: investing, matching: find.byType(HlOrderRow)),
+        findsOneWidget);
     expect(
         tester
-            .widget<Text>(find.byKey(const ValueKey('portfolio-orders-count'),
-                skipOffstage: false))
-            .data,
-        '2');
+            .getTopLeft(find.byKey(const ValueKey('pnl-venue-predictions')))
+            .dy,
+        lessThan(tester
+            .getTopLeft(find.byKey(const ValueKey('pnl-venue-investing')))
+            .dy));
+    expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
+        lessThan(tester.getTopLeft(find.byType(HlOrderRow)).dy));
+    // Orders at both venues: one quiet Cancel all text link after the last
+    // venue's orders, no button.
+    final cancelAll = find.byKey(const ValueKey('portfolio-orders-cancel-all'));
+    await tester.scrollUntilVisible(cancelAll, 200, scrollable: scrollable);
+    await _pumpFrames(tester);
+    expect(cancelAll, findsOneWidget);
+    expect(find.descendant(of: cancelAll, matching: find.byType(AppButton)),
+        findsNothing);
+    expect(find.descendant(of: cancelAll, matching: find.text('Cancel all')),
+        findsOneWidget);
+    expect(tester.getTopLeft(cancelAll).dy,
+        greaterThan(tester.getBottomLeft(find.byType(HlOrderRow)).dy - 0.5));
+    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+        findsNothing);
+
+    // The row's own Cancel runs the venue's cancel for that order.
+    await tester.scrollUntilVisible(find.byType(PolyOrderRow), -200,
+        scrollable: scrollable);
+    await _pumpFrames(tester);
+    await tester.tap(find.descendant(
+        of: find.byType(PolyOrderRow), matching: find.text(l10n.cancel)));
+    await _pumpFrames(tester);
+    expect(cancelled, ['pm-1']);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+  });
+
+  testWidgets(
+      'orders at one venue only: that venue\'s rows, no Cancel all link',
+      (tester) async {
+    await pumpInvestments(tester, overrides: [
+      hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+          const HyperliquidTradingState(
+              isInitialized: true, openOrders: [_hlOrder]))),
+    ]);
+    final l10n = _l10n(tester);
+    await tapPill(tester, l10n.walletPortfolioAction);
+    await tapAndPump(tester, _section('charts'));
+    expect(find.byType(HlOrderRow, skipOffstage: false), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('pnl-venue-investing-orders'),
+                skipOffstage: false),
+            matching: find.byType(HlOrderRow, skipOffstage: false)),
+        findsOneWidget);
     expect(
         find.byKey(const ValueKey('portfolio-orders-cancel-all'),
             skipOffstage: false),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsNothing);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
@@ -739,6 +829,14 @@ void main() {
         findsNothing);
     expect(
         find.byKey(const ValueKey('portfolio-orders-cancel-all'),
+            skipOffstage: false),
+        findsNothing);
+    expect(
+        find.byKey(const ValueKey('pnl-venue-investing-orders'),
+            skipOffstage: false),
+        findsNothing);
+    expect(
+        find.byKey(const ValueKey('pnl-venue-predictions-orders'),
             skipOffstage: false),
         findsNothing);
     expect(tester.takeException(), isNull);

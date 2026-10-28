@@ -18,11 +18,13 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart'
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
+import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
@@ -30,6 +32,7 @@ import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart'
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
     show hlCloseValue, hlPositionMargin;
@@ -141,9 +144,9 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
   }
 }
 
-/// The Portfolio screen (open_investments_screen.dart, opened from the
-/// Investments balance): Investing and Predictions as one account, said
-/// once, from the top down.
+/// Investments → Portfolio → P&L charts (investments_portfolio.dart), and
+/// the Portfolio screen (open_investments_screen.dart): Investing and
+/// Predictions as one account, said once, from the top down.
 ///
 ///   * ONE profit and loss card leads ([PortfolioPnlChart]): one headline,
 ///     one line over the range picked under it (1W to ALL), pinch to zoom.
@@ -156,23 +159,35 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     toggle is gone. A P&L that never moved draws the chart's calm
 ///     empty state. Earn (the dollar rewards programme) is never shown here,
 ///     whatever the backend's `usd.earn` says (owner decision).
-///   * ONE Active | Historic pair under it, and under the pair ONE
-///     allocation donut ([_AllocationCard]) by CATEGORY with both venues
-///     merged into one set ([CategoryVenue.all]: crypto at either venue is
-///     one Crypto slice, Politics and Sports beside Stocks and
-///     Commodities). Active: what the account holds now (an Investing
-///     holding at what closing it gives back or at the mid, a live
-///     prediction at the live price). Historic: everything it ever traded
-///     or predicted (the volume traded, the amount predicted), all time.
-///     A slice opens up to what is in it at both venues: the positions
-///     (Active) or the history rows (Historic). Nothing in it: no donut.
-///   * ONE row of figures for the pair, each the venues' added, as small
-///     equal tiles side by side (portfolio_figure_tiles.dart, the balance
-///     breakdown's tiles): Active the open P&L, the amount at stake and
-///     the open positions; Historic the realised P&L, the volume traded
-///     and the trades. A sub-tab with nothing on it is the compact empty
-///     state, no tiles of zeros.
-///   * [footer]: slivers under everything (the screen's Activity).
+///   * Under the card, the Balances section's frame (founder decision
+///     28 October 2026; components/balances_overview.dart, the same
+///     widgets): ONE row with the small bare allocation ring on the left
+///     (each venue's share of the sub-tab's amount, Predictions amber and
+///     Investing teal as everywhere, nothing in its hole), "Open P&L" (the
+///     venues' title size) with the venues' added P&L under it in the
+///     result colour, and the Active | Historic pair's small pills at the
+///     row's end; a hairline; then one venue row per venue as Balances
+///     draws its own, "● Predictions · N" with the venue's figures at the
+///     end, Investing after it:
+///       - Active: N open positions; the venue's value (what is at stake
+///         plus its open P&L) with the open P&L beside it, "+$1.10 (12.4%)"
+///         against what is at stake; under it one indented quiet sub-row,
+///         "Amount at stake" (Predictions: what the open positions cost;
+///         Investing: the margin the perps use);
+///       - Historic: N predictions or trades; the realised P&L at the end
+///         in the result colour; under it "Amount predicted" or "Volume
+///         traded", all time;
+///       - then the venue's RESTING ORDERS (portfolio_orders.dart, each row
+///         its venue sheet's own with its own Cancel; Investing's ended
+///         orders after them) when any rest, and after the last venue's a
+///         quiet "Cancel all" text link, only with orders at both venues.
+///     No Orders heading, no count, no section titles, nothing said twice.
+///     A venue with nothing on the sub-tab and no orders reads "No open
+///     positions" (Historic: its own "No … yet") at its row's end and
+///     lists nothing; nothing on the sub-tab at any venue and no orders:
+///     the compact empty state under the row, as before.
+///   * [footer]: slivers under everything (the Portfolio screen's
+///     Positions and Activity).
 ///   * Never traded (no chart, nothing on either sub-tab): the page is the
 ///     app's one empty state ([NoActivityState]), or only the [footer]
 ///     when it has rows ([footerEmpty] false).
@@ -182,15 +197,15 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///     per venue).
 ///   * Analytics: the chart toggle sends `portfolio_statistics_venue_toggled`
 ///     {venue}; the pair `portfolio_allocation_view_changed` {view: active
-///     | historic}; a slice opened, or closed again,
-///     `portfolio_allocation_drilled` {venue: all, level: category | top,
-///     category, view}; the chart's scrub event carries the series drawn
-///     as `venue` (`all`, `hyperliquid`, `polymarket`).
+///     | historic}; the chart's scrub event carries the series drawn
+///     as `venue` (`all`, `hyperliquid`, `polymarket`); the orders' cancel
+///     events are the venue sheets' own.
 class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   const PortfolioStatisticsOverview({
     super.key,
     required this.trading,
     required this.predictions,
+    this.orders,
     this.footer = const [],
     this.footerEmpty = true,
     this.header,
@@ -199,6 +214,10 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   /// The venues on the account (portfolio_filters.dart).
   final bool trading;
   final bool predictions;
+
+  /// The resting orders at both venues, listed under their venue's row
+  /// (portfolio_orders.dart); null lists none.
+  final PortfolioOrdersBook? orders;
 
   /// Over the chart, on the lists' gutter, whatever the figures say (the
   /// Portfolio screen's balance breakdown). A never-traded account shows
@@ -232,19 +251,12 @@ class _PortfolioStatisticsOverviewState
   /// The venue the chart draws; null: All.
   PortfolioPerformanceVenue? _charted;
 
-  /// The category the donut has open; null: none.
-  String? _drilled;
-
   void _pick(StatisticsScope next) {
     if (next == _scope) return;
     HapticFeedback.selectionClick();
     TrackingService.track('portfolio_allocation_view_changed',
         params: {'view': next.name});
-    setState(() {
-      _scope = next;
-      // The donut draws the other view afresh, nothing open.
-      _drilled = null;
-    });
+    setState(() => _scope = next);
   }
 
   void _chart(PortfolioPerformanceVenue? next) {
@@ -253,20 +265,6 @@ class _PortfolioStatisticsOverviewState
     TrackingService.track('portfolio_statistics_venue_toggled',
         params: {'venue': _eventVenue(next)});
     setState(() => _charted = next);
-  }
-
-  /// A slice opened ([category]) or closed again (null).
-  void _drill(String? category) {
-    final previous = _drilled;
-    _drilled = category;
-    final reported = category ?? previous;
-    if (reported == null) return;
-    TrackingService.track('portfolio_allocation_drilled', params: {
-      'venue': 'all',
-      'level': category == null ? 'top' : 'category',
-      'category': reported,
-      'view': _scope.name,
-    });
   }
 
   /// [top] on the lists' 16 gutter, then the footer, the last row clear
@@ -312,8 +310,8 @@ class _PortfolioStatisticsOverviewState
     ];
     final results = {
       for (final v in venues)
-        v: ref.watch(
-            portfolioPerformanceDisplayProvider(PortfolioPerformanceRequest(venue: v)))
+        v: ref.watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v)))
     };
     // A header keeps the page a scrolling list whatever the figures say.
     final footer = !widget.footerEmpty || widget.header != null;
@@ -360,9 +358,9 @@ class _PortfolioStatisticsOverviewState
       data: data,
       scope: _scope,
       onScope: _pick,
-      onDrill: _drill,
       charted: _charted,
       onChart: _chart,
+      orders: widget.orders,
       footerEmpty: widget.footerEmpty,
       page: _page,
       emptyPage: _emptyPage,
@@ -376,9 +374,9 @@ class _OverviewBody extends ConsumerWidget {
     required this.data,
     required this.scope,
     required this.onScope,
-    required this.onDrill,
     required this.charted,
     required this.onChart,
+    required this.orders,
     required this.footerEmpty,
     required this.page,
     required this.emptyPage,
@@ -392,9 +390,9 @@ class _OverviewBody extends ConsumerWidget {
   final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
   final StatisticsScope scope;
   final ValueChanged<StatisticsScope> onScope;
-  final ValueChanged<String?> onDrill;
   final PortfolioPerformanceVenue? charted;
   final ValueChanged<PortfolioPerformanceVenue?> onChart;
+  final PortfolioOrdersBook? orders;
   final bool footerEmpty;
   final Widget Function(List<Widget> top) page;
 
@@ -416,49 +414,30 @@ class _OverviewBody extends ConsumerWidget {
     final toggled = moving.length > 1 && moving.contains(charted);
     final series = toggled ? charted! : single;
 
-    // The figures on a sub-tab: the venues' added (the only venue's on a
-    // one-venue account).
-    _Figures? figuresOn(StatisticsScope on) => single != null
-        ? _venueFigures(
-            venue: single, data: data[single]!, scope: on, trading: trading)
-        : _Figures.sum([
-            for (final v in venues)
-              _venueFigures(
-                  venue: v, data: data[v]!, scope: on, trading: trading)
-          ]);
-    final figures = figuresOn(scope);
+    // Each venue's figures on a sub-tab, and the venues' added.
+    Map<PortfolioPerformanceVenue, _Figures?> byVenueOn(StatisticsScope on) => {
+          for (final v in venues)
+            v: _venueFigures(
+                venue: v, data: data[v]!, scope: on, trading: trading)
+        };
+    _Figures? sumOf(Map<PortfolioPerformanceVenue, _Figures?> parts) =>
+        single != null ? parts[single] : _Figures.sum(parts.values.toList());
+    final byVenue = byVenueOn(scope);
+    final figures = sumOf(byVenue);
 
-    // Never traded: no chart, nothing on either sub-tab. The page is one
-    // empty state (the chart's words), no pills over nothing; or only the
-    // footer's rows.
+    // Never traded: no chart, nothing on either sub-tab, nothing resting.
+    // The page is one empty state (the chart's words), no pills over
+    // nothing; or only the footer's rows.
+    final resting = orders != null && !orders!.isEmpty;
     if (!combined.hasMovement &&
+        !resting &&
         _Figures.quiet(figures) &&
-        _Figures.quiet(figuresOn(_otherScope(scope)))) {
+        _Figures.quiet(sumOf(byVenueOn(_otherScope(scope))))) {
       final text = single == PortfolioPerformanceVenue.predictions
           ? l10n.betHistoryEmpty
           : l10n.hlNoHistoryYet;
       if (!footerEmpty) return page(const []);
       return emptyPage(_PageEmpty(text: text));
-    }
-
-    final tiles = [
-      if (!_Figures.quiet(figures))
-        ..._tilesOf(context, ref, figures!, single, scope),
-    ];
-    final List<Widget> stats;
-    if (tiles.isNotEmpty) {
-      stats = [
-        _StatTiles(
-            key: const ValueKey('statistics-figures'),
-            tiles: tiles,
-            boxed: true),
-      ];
-    } else if (figures == null) {
-      // Nothing to say.
-      stats = const [];
-    } else {
-      // Nothing on the sub-tab: the empty state, never a card of zeros.
-      stats = [_SubTabEmpty(text: _quietText(l10n, single, scope))];
     }
 
     return page([
@@ -475,17 +454,16 @@ class _OverviewBody extends ConsumerWidget {
                 onSelected: onChart)
             : null,
       ),
-      SizedBox(height: 12.h),
-      _ScopePills(scope: scope, onScope: onScope),
-      _AllocationCard(
+      SizedBox(height: 4.h),
+      _PnlOverview(
         venues: venues,
-        data: data,
-        trading: trading,
+        byVenue: byVenue,
+        total: figures,
+        single: single,
         scope: scope,
-        onPicked: onDrill,
+        onScope: onScope,
+        orders: orders,
       ),
-      SizedBox(height: 12.h),
-      ...stats,
     ]);
   }
 }
@@ -541,222 +519,232 @@ String _venueName(AppLocalizations l10n, PortfolioPerformanceVenue venue) =>
         ? l10n.predictions
         : l10n.trading;
 
-/// The Portfolio's one donut, for the Active | Historic pair: both venues'
-/// categories in one set ([CategoryVenue.all]). Active: each open
-/// Investing holding at what closing it gives back or at the mid, each
-/// live prediction at the live price, the hole saying "Active". Historic:
-/// the volume traded and the amount predicted per category, all time
-/// (the hole says so); a venue whose history was cut at its read cap adds
-/// nothing (the tiles write its dash). A slice opens up to what is in it
-/// at both venues, the larger venue's list first, each item's share of
-/// the whole slice. A venue not read yet adds nothing until it lands; the
-/// predictions' categories still being read: the placeholder. Nothing in
-/// it: no card.
-class _AllocationCard extends ConsumerWidget {
-  const _AllocationCard({
+/// A venue as Balances names its row.
+BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
+    venue == PortfolioPerformanceVenue.predictions
+        ? BalancesCategory.predictions
+        : BalancesCategory.investing;
+
+/// The P&L's colour: up, down, or the text colour at zero.
+Color _pnlColor(BuildContext context, double value) => value > 0
+    ? AppColors.marketUp
+    : value < 0
+        ? AppColors.marketDown
+        : context.colors.textPrimary;
+
+/// Under the chart: the Balances frame around the sub-tab's figures (see
+/// [PortfolioStatisticsOverview]): the ring, Open P&L (Historic: Realised
+/// P&L) and the pair on one row, a hairline, then each venue's row with
+/// its figures, its one sub-row and its resting orders under it.
+class _PnlOverview extends ConsumerWidget {
+  const _PnlOverview({
     required this.venues,
-    required this.data,
-    required this.trading,
+    required this.byVenue,
+    required this.total,
+    required this.single,
     required this.scope,
-    required this.onPicked,
+    required this.onScope,
+    required this.orders,
   });
 
+  /// The venues read, in the account's order.
   final List<PortfolioPerformanceVenue> venues;
-  final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
-  final _TradingParts? trading;
+  final Map<PortfolioPerformanceVenue, _Figures?> byVenue;
+
+  /// The venues' figures added (the only venue's on a one-venue account).
+  final _Figures? total;
+  final PortfolioPerformanceVenue? single;
   final StatisticsScope scope;
-  final ValueChanged<String?> onPicked;
-
-  /// One card for both views, so the ring morphs between them.
-  static const _key = ValueKey('statistics-allocation');
-
-  /// [parts] added per category (a part not known adds nothing).
-  static Map<String, double> _merge(List<Map<String, double>?> parts) {
-    final out = <String, double>{};
-    for (final part in parts) {
-      if (part == null) continue;
-      for (final MapEntry(:key, :value) in part.entries) {
-        out[key] = (out[key] ?? 0) + value;
-      }
-    }
-    return out;
-  }
-
-  /// What [values] holds in the slice [inSlice] draws.
-  static double _inSlice(
-          Map<String, double>? values, bool Function(String) inSlice) =>
-      values == null
-          ? 0
-          : values.entries
-              .where((e) => inSlice(e.key))
-              .fold<double>(0, (sum, e) => sum + e.value);
+  final ValueChanged<StatisticsScope> onScope;
+  final PortfolioOrdersBook? orders;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final l10n = context.l10n;
     final active = scope == StatisticsScope.active;
-    final scopeName = scope.name;
-    final book = data[PortfolioPerformanceVenue.predictions]?.predictions;
-    const request = PortfolioPerformanceRequest(
-        venue: PortfolioPerformanceVenue.predictions);
-    // Both views' category reads, whichever is on screen, so the pair
-    // switches the ring at once (and it morphs) instead of loading.
-    final openCategories = book == null
-        ? null
-        : ref.watch(predictionOpenCategoriesProvider(request));
-    final stakes = book == null
-        ? null
-        : ref.watch(predictionCategoryStakesProvider(request));
-    // The same categories the stakes were split by, for the drill-down.
-    final stakeCategories = book == null
-        ? null
-        : ref.watch(predictionCategoriesProvider(request)).valueOrNull;
-    Map<String, Object> params(CategorySlice slice) =>
-        categoryDrillParams(slice,
-            venue: CategoryVenue.all, walletKind: 'hot', scope: scopeName);
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    String money(double usd) => visible ? formatPolyAmount(ref, usd) : '••••••';
+    // An amount the figures do not know (not read yet, a history cut at
+    // its cap): a dash, never a zero.
+    BalancesFigure amount(double? usd) =>
+        usd == null ? const BalancesFigure('—') : BalancesFigure(money(usd));
+    BalancesFigure signed(double? usd) => usd == null
+        ? const BalancesFigure('—')
+        : !visible
+            ? const BalancesFigure('••••••')
+            : BalancesFigure('${kuteChangeSign(usd)}${money(usd.abs())}',
+                usd: usd);
+    Color? colorOf(double? usd) =>
+        usd == null || !visible ? null : _pnlColor(context, usd);
 
-    Widget card({
-      required Map<String, double> values,
-      required String? centreLabel,
-      required CategoryDrillBuilder drill,
-    }) {
-      if (values.values.every((v) => !v.isFinite || v <= 0)) {
-        return const SizedBox.shrink();
+    // Balances' order: Predictions first, then Investing.
+    final listed = [
+      if (venues.contains(PortfolioPerformanceVenue.predictions))
+        PortfolioPerformanceVenue.predictions,
+      if (venues.contains(PortfolioPerformanceVenue.trading))
+        PortfolioPerformanceVenue.trading,
+    ];
+    List<Widget> ordersOf(PortfolioPerformanceVenue v) => switch (v) {
+          PortfolioPerformanceVenue.predictions =>
+            orders?.predictionsItems(context, ref) ?? const [],
+          PortfolioPerformanceVenue.trading =>
+            orders?.investingItems(context, ref) ?? const [],
+        };
+    final anyOrders = orders != null && !orders!.isEmpty;
+
+    // The ring: each venue's share of the sub-tab's amount (what is at
+    // stake; the amount predicted and the volume traded), in the venues'
+    // fixed colours; only the track while an amount is not known.
+    final shares = balancesShares({
+      for (final v in listed)
+        _categoryOf(v): (usd: byVenue[v]?.amount, stale: false),
+    });
+    final lead =
+        active ? l10n.portfolioStatOpenPnl : l10n.portfolioStatRealized;
+    // Nothing on the sub-tab: a dash under the label, never a zero.
+    final quietTotal = _Figures.quiet(total);
+    final pnl = quietTotal ? null : total?.pnl;
+
+    Widget venue(PortfolioPerformanceVenue v) {
+      final f = byVenue[v];
+      final category = _categoryOf(v);
+      final name = category.name;
+      final quiet = _Figures.quiet(f);
+      final venueOrders = ordersOf(v);
+      // Active: the value (at stake plus the open P&L) with the P&L
+      // beside it; Historic: the realised P&L alone, in its colour.
+      final BalancesFigure figure;
+      final Widget? pnlText;
+      final Color? figureColor;
+      final String? empty;
+      if (quiet) {
+        figure = const BalancesFigure('');
+        pnlText = null;
+        figureColor = null;
+        empty =
+            active ? l10n.portfolioNoOpenPositions : _quietText(l10n, v, scope);
+      } else if (active) {
+        final value =
+            f!.amount != null && f.pnl != null ? f.amount! + f.pnl! : null;
+        figure = amount(value);
+        pnlText = visible && f.pnl != null
+            ? BalancesPnlText(
+                usd: f.pnl!,
+                costUsd: f.amount,
+                money: money,
+                figureKey: ValueKey('pnl-venue-$name-pnl'))
+            : null;
+        figureColor = null;
+        empty = null;
+      } else {
+        figure = signed(f!.pnl);
+        pnlText = null;
+        figureColor = colorOf(f.pnl);
+        empty = null;
       }
-      return PortfolioCategoryCard(
-        key: _key,
-        level: scope,
-        values: values,
-        venue: CategoryVenue.all,
-        scope: scopeName,
-        centreLabel: centreLabel,
-        onPicked: onPicked,
-        drill: drill,
+      return Column(
+        key: ValueKey('pnl-venue-section-$name'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BalancesVenueHeader(
+            key: ValueKey('pnl-venue-$name'),
+            keyPrefix: 'pnl-venue',
+            category: category,
+            color: balancesCategoryColor(c, category),
+            title: _venueName(l10n, v),
+            count: quiet ? null : f!.count,
+            figure: figure,
+            figureColor: figureColor,
+            pnl: pnlText,
+            empty: empty,
+            caption: null,
+          ),
+          if (!quiet)
+            BalancesSubRow(
+              key: ValueKey('pnl-venue-$name-stat'),
+              label: active
+                  ? l10n.portfolioStatAtStake
+                  : v == PortfolioPerformanceVenue.predictions
+                      ? l10n.portfolioStatAmountPredicted
+                      : l10n.portfolioStatVolume,
+              figure: amount(f!.amount),
+              amountKey: ValueKey('pnl-venue-$name-stat-amount'),
+            ),
+          if (venueOrders.isNotEmpty)
+            Padding(
+              key: ValueKey('pnl-venue-$name-orders'),
+              padding: EdgeInsets.only(top: 8.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: venueOrders,
+              ),
+            ),
+          // The one Cancel all, a quiet link after the last venue's orders,
+          // only with orders at both venues.
+          if (v == listed.last && orders != null && orders!.both)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: PortfolioCancelAllLink(
+                  investing: orders!.investing,
+                  predictions: orders!.predictions),
+            ),
+        ],
       );
     }
 
-    if (active) {
-      final livePrices = ref.watch(livePriceProvider.select((s) => s.prices));
-      final positions = trading?.positions;
-      final spot = trading?.spot;
-      final (holdings, byWire) = positions != null && spot != null
-          ? _tradingHoldings(ref, positions, spot)
-          : (null, const <String, HlMarket>{});
-      final tradingValues = holdings == null
-          ? null
-          : tradingOpenCategoryValues(
-              [for (final h in holdings) (h.coin, h.market, h.value)]);
-      final live = book == null ? null : livePredictionRecords(book);
-      final categories = openCategories;
-      // Their markets' categories still being read: the placeholder.
-      if (live != null &&
-          live.isNotEmpty &&
-          categories != null &&
-          !categories.hasValue &&
-          !categories.hasError) {
-        return const PortfolioCategorySkeleton();
-      }
-      // A read that failed files every prediction under Other.
-      final byMarket = categories?.valueOrNull;
-      final predictionValues = live == null
-          ? null
-          : predictionOpenCategoryValues(
-              live, byMarket ?? const {}, livePrices);
-      return card(
-        values: _merge([tradingValues, predictionValues]),
-        centreLabel: l10n.portfolioStatsActive,
-        drill: (context, slice, inSlice) => _MergedDrill(parts: [
-          if (holdings != null)
-            (
-              _inSlice(tradingValues, inSlice),
-              TradingCategoryDrill.active(
-                holdings: holdings,
-                inSlice: (coin, market) =>
-                    inSlice(hlFillCategory(coin, market)),
-                marketsByWire: byWire,
-                params: params(slice),
-                shareOf: slice.value,
-              ),
-            ),
-          if (live != null && byMarket != null)
-            (
-              _inSlice(predictionValues, inSlice),
-              PredictionCategoryDrill(
-                records: live,
-                categories: byMarket,
-                inSlice: inSlice,
-                active: true,
-                params: params(slice),
-                shareOf: slice.value,
-              ),
-            ),
-        ]),
-      );
-    }
-
-    final tradingBook = trading?.book;
-    final markets = ref.watch(hyperliquidAllMarketsProvider);
-    final byWire = {for (final m in markets) m.wireCoin: m};
-    final tradingVolumes = tradingBook == null
-        ? null
-        : tradingCategoryVolumes(tradingBook, byWire);
-    final categories = stakeCategories;
-    if (stakes != null && !stakes.hasValue && !stakes.hasError) {
-      return const PortfolioCategorySkeleton();
-    }
-    final predictionStakes = stakes?.valueOrNull;
-    return card(
-      values: _merge([tradingVolumes, predictionStakes]),
-      centreLabel: null,
-      drill: (context, slice, inSlice) => _MergedDrill(parts: [
-        if (tradingBook != null && tradingVolumes != null)
-          (
-            _inSlice(tradingVolumes, inSlice),
-            TradingCategoryDrill.historic(
-              fills: tradingBook.fills,
-              inSlice: (coin, market) => inSlice(hlFillCategory(coin, market)),
-              marketsByWire: byWire,
-              params: params(slice),
-              shareOf: slice.value,
-            ),
-          ),
-        if (book != null && predictionStakes != null && categories != null)
-          (
-            _inSlice(predictionStakes, inSlice),
-            PredictionCategoryDrill(
-              records: book.records,
-              categories: categories,
-              inSlice: inSlice,
-              active: false,
-              params: params(slice),
-              shareOf: slice.value,
-            ),
-          ),
-      ]),
-    );
-  }
-}
-
-/// An opened slice of the merged donut: each venue's list of what is in
-/// it, the venue holding more of the slice first; a venue with nothing in
-/// it has no list.
-class _MergedDrill extends StatelessWidget {
-  const _MergedDrill({required this.parts});
-
-  /// Each venue's amount in the slice and its list.
-  final List<(double, Widget)> parts;
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = [
-      for (final part in parts)
-        if (part.$1 > 0) part
-    ]..sort((a, b) => b.$1.compareTo(a.$1));
-    if (shown.length == 1) return shown.single.$2;
     return Column(
+      key: const ValueKey('statistics-pnl-overview'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      children: [for (final part in shown) part.$2],
+      children: [
+        SizedBox(height: 8.h),
+        Row(
+          children: [
+            BalancesRing(
+              chartKey: const ValueKey('statistics-allocation-ring'),
+              categories: [for (final v in listed) _categoryOf(v)],
+              shares: shares,
+              semantics: [
+                '$lead ${signed(pnl).text}',
+                if (shares.isNotEmpty)
+                  for (final v in listed)
+                    '${_venueName(l10n, v)} '
+                        '${balancesPercent(shares[_categoryOf(v)] ?? 0)}',
+              ].join(', '),
+            ),
+            SizedBox(width: kBalancesRingGap.w),
+            Expanded(
+              child: BalancesLead(
+                key: const ValueKey('statistics-pnl-lead'),
+                amountKey: const ValueKey('statistics-pnl-lead-amount'),
+                label: lead,
+                figure: signed(pnl),
+                amountColor: colorOf(pnl),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            _ScopePills(scope: scope, onScope: onScope, compact: true),
+          ],
+        ),
+        SizedBox(height: 16.h),
+        if (quietTotal && !anyOrders)
+          // Nothing on the sub-tab at any venue: the empty state, never
+          // rows of zeros.
+          _SubTabEmpty(text: _quietText(l10n, single, scope))
+        else
+          Column(
+            key: const ValueKey('statistics-figures'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              marketGroupDivider(context, 0),
+              for (final v in listed) venue(v),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -1006,32 +994,50 @@ class _PerformanceErrorState extends State<_PerformanceError> {
 /// Breakdown tab's Sent | Received; under very large text they share the
 /// row rather than overflow it.
 class _ScopePills extends StatelessWidget {
-  const _ScopePills({required this.scope, required this.onScope});
+  const _ScopePills(
+      {required this.scope, required this.onScope, this.compact = false});
   final StatisticsScope scope;
   final ValueChanged<StatisticsScope> onScope;
+
+  /// At the end of the P&L charts' lead row: the pair at its natural
+  /// width, scaled down rather than overflowing under very large text.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final active = KutePill(
+      key: const ValueKey('statistics-active'),
+      label: l10n.portfolioStatsActive,
+      selected: scope == StatisticsScope.active,
+      onTap: () => onScope(StatisticsScope.active),
+    );
+    final historic = KutePill(
+      key: const ValueKey('statistics-historic'),
+      label: l10n.portfolioStatsHistoric,
+      selected: scope == StatisticsScope.historic,
+      onTap: () => onScope(StatisticsScope.historic),
+    );
+    if (compact) {
+      // At most the venue headers' figure width: under very large text
+      // the pair scales down rather than push the lead off the row.
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 200.w),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerEnd,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [active, SizedBox(width: 6.w), historic],
+          ),
+        ),
+      );
+    }
     return Row(
       children: [
-        Flexible(
-          child: KutePill(
-            key: const ValueKey('statistics-active'),
-            label: l10n.portfolioStatsActive,
-            selected: scope == StatisticsScope.active,
-            onTap: () => onScope(StatisticsScope.active),
-          ),
-        ),
+        Flexible(child: active),
         SizedBox(width: 6.w),
-        Flexible(
-          child: KutePill(
-            key: const ValueKey('statistics-historic'),
-            label: l10n.portfolioStatsHistoric,
-            selected: scope == StatisticsScope.historic,
-            onTap: () => onScope(StatisticsScope.historic),
-          ),
-        ),
+        Flexible(child: historic),
       ],
     );
   }
@@ -1455,32 +1461,28 @@ _TradingParts _tradingFigures(WidgetRef ref, String? walletId) {
 
 /// The figures in ONE low row (founder requests, October 2026), each a
 /// caption over its figure, in the balance breakdown's columns
-/// (portfolio_figure_tiles.dart): in a card of their own ([boxed], the
-/// Portfolio), or as columns inside the card that holds them (a Ledger's
-/// Statistics).
+/// (portfolio_figure_tiles.dart), as columns inside the card that holds
+/// them (a Ledger's Statistics).
 class _StatTiles extends StatelessWidget {
-  const _StatTiles({super.key, required this.tiles, this.boxed = false});
+  const _StatTiles({required this.tiles});
 
   /// Label, figure and the figure's colour.
   final List<(String, String, Color)> tiles;
 
-  final bool boxed;
-
   @override
-  Widget build(BuildContext context) {
-    final row = PortfolioTileRow(boxed: boxed, children: [
-      for (final (label, figure, color) in tiles)
-        PortfolioTile(
-          children: [
-            PortfolioTileStat(
-                label: label,
-                figure: PortfolioTileFigure(figure, color: color)),
-          ],
-        ),
-    ]);
-    if (boxed) return row;
-    return Padding(padding: EdgeInsets.all(16.w), child: row);
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.all(16.w),
+        child: PortfolioTileRow(boxed: false, children: [
+          for (final (label, figure, color) in tiles)
+            PortfolioTile(
+              children: [
+                PortfolioTileStat(
+                    label: label,
+                    figure: PortfolioTileFigure(figure, color: color)),
+              ],
+            ),
+        ]),
+      );
 }
 
 /// The current Predictions figures, rebuilt from the account's positions
