@@ -1202,12 +1202,21 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   /// button while the amount is under the minimum: types [usd] as the
   /// keypad would and records how the amount was filled ('max' / 'min').
   /// [haptic] false when an order follows on the same tap and brings its
-  /// own.
+  /// own. Max and the minimum report `order_slip_available_tapped`, as the
+  /// bet slip's chips do; the empty ticket's button ('min_direct') rides
+  /// on the order's own `amount_method`.
   void _fillAmountChip(double usd, String method, {bool haptic = true}) {
     if (usd <= 0) return;
     if (haptic) HapticFeedback.selectionClick();
     _onKeypadAmount(usd.toStringAsFixed(2));
     _amountMethod = method;
+    if (method == 'max' || method == 'min') {
+      TrackingService.track('order_slip_available_tapped', params: {
+        'chip': method,
+        'venue': 'hyperliquid',
+        'kind': isSpot ? 'spot' : 'perp',
+      });
+    }
   }
 
   /// The smallest amount the field can take (margin on a perp, dollars on

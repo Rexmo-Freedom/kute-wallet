@@ -50,6 +50,7 @@ import 'package:kute/screens/shared/kute_motion.dart'
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The three accounts the figures come from.
@@ -397,7 +398,12 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 open: split,
                 onToggle: places.any((e) => e.footer.isNotEmpty)
                     ? null
-                    : () => setState(() => _split = !_split),
+                    : () {
+                        setState(() => _split = !_split);
+                        TrackingService.track(
+                            'portfolio_available_to_invest_toggled',
+                            params: {'open': _split});
+                      },
               ),
             ),
             if (widget.action case final action?) ...[

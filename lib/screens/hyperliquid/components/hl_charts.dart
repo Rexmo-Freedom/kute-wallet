@@ -40,7 +40,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show PointMode;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart'
     show DragStartBehavior, kDoubleTapSlop, kDoubleTapTimeout;
@@ -51,6 +51,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:kute/services/device_performance.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/models/chart_drawing.dart';
@@ -1715,8 +1716,22 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     HapticFeedback.selectionClick();
     _fillTipTimer?.cancel();
     _fillTipTimer = Timer(_fillTipLifetime, _dismissFillTip);
+    final tip = {for (final m in hit) hlFillIdentity(m.fill)};
+    // Once per tooltip opened (a tap on the open one only keeps it up):
+    // how many fills and which side, never a price, size or time.
+    if (!setEquals(tip, _fillTip)) {
+      final buys = hit.where((m) => m.fill.isBuy).length;
+      TrackingService.track('chart_trade_marker_opened', params: {
+        'fills': hit.length,
+        'side': buys == hit.length
+            ? 'buy'
+            : buys == 0
+                ? 'sell'
+                : 'mixed',
+      });
+    }
     setState(() {
-      _fillTip = {for (final m in hit) hlFillIdentity(m.fill)};
+      _fillTip = tip;
       _touchIndex = null;
     });
     return true;

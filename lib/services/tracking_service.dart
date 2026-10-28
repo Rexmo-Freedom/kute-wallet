@@ -4239,7 +4239,8 @@ class TrackingService {
 
   /// The unlock-time retry of a recovery EVM format check that did not
   /// finish. [result]: switched_legacy | kept_standard | standard_active |
-  /// incomplete; [legacySignal] as on `recovery_seed_entered`, with
+  /// incomplete | error (the attempt threw; the flag stays for the next
+  /// launch); [legacySignal] as on `recovery_seed_entered`, with
   /// switched_legacy only.
   static void recoveryEvmFormatRechecked(
           {required String result, String? legacySignal}) =>

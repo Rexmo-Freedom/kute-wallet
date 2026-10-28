@@ -559,6 +559,7 @@ abstract final class RecoveryEvmFormat {
         }
       } catch (_) {
         // Best effort; the flag stays for the next launch.
+        TrackingService.recoveryEvmFormatRechecked(result: 'error');
       }
     }
   }

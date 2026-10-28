@@ -482,8 +482,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                               PositionLinkRow(
                                 key: const ValueKey('hl-advanced-chart'),
                                 label: context.l10n.hlAdvancedChart,
-                                onTap: () =>
-                                    HlCandleChart.openAdvanced(_chartHostKey),
+                                onTap: () => HlCandleChart.openAdvanced(
+                                    _chartHostKey,
+                                    source: 'position'),
                               ),
                             _buildDetailsRow(c, pos),
                           ],

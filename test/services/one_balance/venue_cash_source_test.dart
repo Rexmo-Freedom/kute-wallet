@@ -485,7 +485,12 @@ void main() {
       expect(p.pulls.single.purpose, kVenueCashPullPurpose);
 
       expect(event('multi_source_move_started'),
-          {'legs': 3, 'total_usd': 100.0, 'destination': 'buy_bitcoin'});
+          {
+            'legs': 3,
+            'total_usd': 100.0,
+            'destination': 'buy_bitcoin',
+            'retry': false,
+          });
       // A plain source has no direct door: home to Dollars, then on.
       expect(event('predictions_cash_pulled'), {
         'amount_usd': 20.0,

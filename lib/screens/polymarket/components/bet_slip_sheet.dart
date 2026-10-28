@@ -2519,6 +2519,9 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       'amount_bucket': TrackingService.usdBucket(_amount),
       ...TrackingService.exactUsd('amount_usd', _amount),
       'denomination': 'fiat',
+      // How the stake was filled: 'min_direct' is the empty slip's
+      // minimum button, which no chip event reports.
+      'amount_method': _draft.amountMethod,
     });
     // Regional gate at place time. The slip is already gated on open, but
     // re-check here so a region change (or a slip left open) can't slip a

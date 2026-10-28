@@ -1329,6 +1329,8 @@ class VenueCashPuller {
         'legs': plan.pulls.length + (plan.dollarsUsd > 0 ? 1 : 0),
         'total_usd': plan.neededUsd,
         'destination': forAction,
+        // A Retry pulls only the failed remainder ([retryMove]).
+        'retry': remainderOnly,
       });
       final moveKey = id;
       legs.addAll(await Future.wait([
@@ -1375,6 +1377,7 @@ class VenueCashPuller {
         'failed_legs': failed,
         'destination': forAction,
         'landed': cover,
+        'retry': remainderOnly,
       });
     }
     return VenueCashPullOutcome(
@@ -1522,6 +1525,16 @@ class VenueCashPuller {
           onAmountTooSmall?.call(p.venue, p.usd);
         } catch (_) {/* a listener never changes the leg */}
       }
+      // The leg's own stop, a fixed category (the move's
+      // `multi_source_move_finished` only counts it).
+      TrackingService.track('venue_cash_pull_failed', params: {
+        'venue': p.venue.name,
+        'for': forAction,
+        'route': route,
+        'destination': destination.code,
+        'error_category': TrackingService.errorCategory(e),
+        'amount_bucket': TrackingService.usdBucket(p.usd),
+      });
       return _recorded(
           moveId, VenueCashLegOutcome(pull: p, error: e, route: route));
     }

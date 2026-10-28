@@ -928,7 +928,11 @@ class HlSpotRow extends ConsumerWidget {
               percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
       onTap: market == null
           ? null
-          : () => HlMarketDetailSheet.show(context, market: market),
+          : () {
+              TrackingService.track('open_investments_position_tapped',
+                  params: {'product': 'trading', 'kind': 'spot'});
+              HlMarketDetailSheet.show(context, market: market);
+            },
     );
   }
 }

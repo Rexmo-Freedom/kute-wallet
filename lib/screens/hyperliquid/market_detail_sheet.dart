@@ -944,11 +944,12 @@ class HlCandleChart extends ConsumerStatefulWidget {
 
   /// Opens the chart under [key] in Advanced (editing) mode, as its old
   /// pencil did: the host screen's "Advanced chart" row. Nothing while it
-  /// is already open.
-  static void openAdvanced(GlobalKey key) {
+  /// is already open. [source] is the host screen for
+  /// `advanced_chart_opened` (`market`, `position`).
+  static void openAdvanced(GlobalKey key, {String source = 'market'}) {
     final state = key.currentState;
     if (state is _HlCandleChartState && !state._drawingMode) {
-      state._toggleDrawingMode();
+      state._toggleDrawingMode(source: source);
     }
   }
 
@@ -1449,7 +1450,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             .notifier,
       );
 
-  void _toggleDrawingMode() {
+  void _toggleDrawingMode({String source = 'market'}) {
     HapticFeedback.selectionClick();
     final entering = !_drawingMode;
     setState(() {
@@ -1464,7 +1465,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     if (entering) {
       TrackingService.track(
         'advanced_chart_opened',
-        params: {'coin': widget.market.coin},
+        params: {'coin': widget.market.coin, 'source': source},
       );
     }
     widget.onAdvancedChanged?.call(entering);

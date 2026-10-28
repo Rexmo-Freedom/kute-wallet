@@ -112,6 +112,7 @@ chart_history_extended
 chart_magnet_toggled
 chart_note_saved
 chart_timeframe_changed
+chart_trade_marker_opened
 chart_type_changed
 coin_details_opened
 coin_label_saved
@@ -350,6 +351,7 @@ order_funding_route_selected
 order_funding_started
 order_funding_step
 order_funding_submitted
+order_slip_available_tapped
 order_submit_ack_latency
 passkey_cached_label_kept
 passkey_choice_back_tapped
@@ -460,6 +462,7 @@ polymarket_withdraw_initiated
 polymarket_withdraw_submitted
 portfolio_allocation_drilled
 portfolio_allocation_view_changed
+portfolio_available_to_invest_toggled
 portfolio_category_slice_selected
 portfolio_opened
 portfolio_performance_chart_scrubbed
@@ -691,6 +694,7 @@ usd_tab_opened
 usd_token_recovery
 venue_account_link_result
 venue_cash_direct_refused
+venue_cash_pull_failed
 venue_sweep_completed
 venue_sweep_failed
 venue_sweep_skipped
