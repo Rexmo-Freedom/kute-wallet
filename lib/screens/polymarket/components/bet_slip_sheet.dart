@@ -5282,7 +5282,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                                 _fiatCompanion(payout)),
                           )
                         : _buildAmountHero(
-                            available,
                             belowMinimum: minBetWarning != null,
                             onMax: maxStake != null && maxStake >= _kMinBetUsd
                                 ? () => _fillAmount(maxStake!, 100,
@@ -5464,13 +5463,13 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
   /// Compact slip amount: one big typed figure with the USDC equivalent,
   /// a small Max chip beside it ([onMax]; null hides it, [maxLocked]
   /// dims it, and the Advanced pill after it, with its dot when
-  /// [advancedModified]) and the available line beneath it, which also names the
-  /// market's minimum ([belowMinimum] paints that part red). There is no
-  /// TextField on this step, so the OS keyboard never opens over the
-  /// ticket; the pinned [AmountKeypad] under the form is the only way in.
-  /// [note] is one quiet line under the available line (how much more the
-  /// minimum needs).
-  Widget _buildAmountHero(String available,
+  /// [advancedModified]) and the market's minimum beneath it
+  /// ([belowMinimum] paints it red), never an available figure (owner
+  /// decision: a bet draws on the whole wallet). There is no TextField on
+  /// this step, so the OS keyboard never opens over the ticket; the pinned
+  /// [AmountKeypad] under the form is the only way in. [note] is one quiet
+  /// line under the minimum (how much more the minimum needs).
+  Widget _buildAmountHero(
       {VoidCallback? onMax,
       bool maxLocked = false,
       bool advancedModified = false,
@@ -5486,7 +5485,6 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
       prefix: polyDisplayLabel(ref),
       amountText: _amountController.text,
       conversionLabel: conversion,
-      availableLabel: available,
       minimumLabel: context.l10n
           .amountMinimumInline(_fiatCompanion(_effectiveMinBetUsd)),
       minimumIsError: belowMinimum,
@@ -6166,13 +6164,12 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
           busyLabel: context.l10n.feeUiCalculating,
           enabled: !_buyInFlight && !_doorCalculating,
           onTap: _onAddDollarsTap,
-          // Both deeds, short: what is added, then the bet placed right
-          // after it ("Add $1.00 · $12.00 on No"). An empty slip (the tap
-          // places the minimum after the top-up) says only the bet.
+          // Only the bet ("Place $12.00 on No"), never the top-up it
+          // needs (owner decision): the tap draws on the whole wallet. An
+          // empty slip (the tap places the minimum) says the minimum.
           label: again(_emptyStake
               ? _betCtaLabel(selected, stake, empty: true)
-              : context.l10n.slipAddThenOrder(_fiatCompanion(missing),
-                  _betCtaLabel(selected, stake, afterTopUp: true))),
+              : _betCtaLabel(selected, stake)),
         );
         if (!funding.failed) return door;
         return Column(
@@ -6246,20 +6243,15 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
 
   /// The bet button's words for a stake of [amountUsd] on [selected].
   /// [empty]: nothing typed yet, the bet's short name with no amount
-  /// ("Place minimum on No"). [afterTopUp]: the bet after an "Add $1.00 · ",
-  /// without its verb ("$12.00 on No").
+  /// ("Place minimum on No").
   String _betCtaLabel(PolymarketOutcome selected, double amountUsd,
-      {bool empty = false, bool afterTopUp = false}) {
+      {bool empty = false}) {
     if (empty) return context.l10n.betPlaceOnSide(_sideDisplayName(selected));
     // When the input is in sats (BTC tab) show sats.
     // Otherwise route through the localized fiat helper
     // so a UK user sees `Predict YES · £8.05` instead
     // of `$10.00`.
     final amountStr = _fiatCompanion(amountUsd);
-    if (afterTopUp && !_isLimitMode) {
-      return context.l10n
-          .betAmountOnSide(amountStr, _sideDisplayName(selected));
-    }
     // Limit orders read as "Place limit · 39¢ · $X" so the
     // CTA is unmistakably a resting order, not a market buy.
     if (_isLimitMode) {

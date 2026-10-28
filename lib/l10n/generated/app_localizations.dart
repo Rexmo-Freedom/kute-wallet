@@ -18145,6 +18145,12 @@ abstract class AppLocalizations {
   /// **'{side} {coin}'**
   String slipCtaSideCoin(String side, String coin);
 
+  /// A market slip's button before an amount is typed: a tap places the market's minimum on that side and coin ('Long minimum on ETH', 'Short minimum on BTC').
+  ///
+  /// In en, this message translates to:
+  /// **'{side} minimum on {coin}'**
+  String slipCtaSideMinimum(String side, String coin);
+
   /// A buy slip's button with an amount typed: the side and the amount ('Short $12.00').
   ///
   /// In en, this message translates to:

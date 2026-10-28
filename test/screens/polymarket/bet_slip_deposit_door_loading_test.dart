@@ -500,7 +500,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
 
       await tester.tap(_door);
@@ -541,7 +541,7 @@ void main() {
       // The door closes without a deposit: the door again, amount kept.
       sheet!.complete();
       await _frames(tester, 3);
-      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
       expect(find.text(r'$10'), findsOneWidget);
       await release(tester);
@@ -1212,7 +1212,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      expect(_cta(tester).label, r'Add $3.70 · $10.00 on Yes');
+      expect(_cta(tester).label, r'Place $10.00 on Yes');
 
       await tester.tap(_door);
       await _frames(tester, 3);

@@ -3006,6 +3006,7 @@
   "oneBalanceIncoming": "Incoming {amount}",
   "slipAddToInvestments": "Add {amount} to Investments",
   "slipCtaSideCoin": "{side} {coin}",
+  "slipCtaSideMinimum": "{side} ελάχιστο σε {coin}",
   "slipCtaSideAmount": "{side} {amount}",
   "betPlaceOnSide": "Ελάχιστο στο {side}",
   "betAmountOnSide": "{amount} στο {side}",

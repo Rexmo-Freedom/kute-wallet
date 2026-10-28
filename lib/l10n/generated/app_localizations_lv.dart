@@ -10696,6 +10696,11 @@ class AppLocalizationsLv extends AppLocalizations {
   }
 
   @override
+  String slipCtaSideMinimum(String side, String coin) {
+    return '$side minimumu: $coin';
+  }
+
+  @override
   String slipCtaSideAmount(String side, String amount) {
     return '$side $amount';
   }

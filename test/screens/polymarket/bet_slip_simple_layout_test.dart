@@ -278,7 +278,9 @@ void main() {
       (tester) async {
     await _pumpSlip(tester);
     expect(find.text('Payout if you win'), findsOneWidget);
-    expect(find.text(r'Available $100.00 · Minimum $1.00'), findsOneWidget);
+    // Only the minimum under the figure, never an available figure.
+    expect(find.text(r'Minimum $1.00'), findsOneWidget);
+    expect(find.textContaining('Available'), findsNothing);
     expect(find.text('Limit'), findsNothing);
     expect(find.text('Estimated shares'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -603,8 +605,9 @@ void main() {
           sizeMatched: '0',
           outcome: 'Yes'),
     ]);
-    // 100 cash less the unfilled 80 shares of the resting buy at 50c.
-    expect(find.text(r'Available $60.00 · Minimum $1.00'), findsOneWidget);
+    // 100 cash less the unfilled 80 shares of the resting buy at 50c is
+    // what Max works on; the line under the figure names only the minimum.
+    expect(find.text(r'Minimum $1.00'), findsOneWidget);
     // Max beside the figure stakes all of it: the largest stake
     // whose stake plus worst-case venue fees, plus the market buy's
     // rounding cent, still fits the $60. The fee is sized at the side's
@@ -655,10 +658,9 @@ void main() {
     final figure = tester
         .getRect(find.descendant(of: hero, matching: find.byType(FittedBox)));
     expect(tester.getRect(max).center.dy, closeTo(figure.center.dy, 1));
-    // One quiet line: the balance, then the market's minimum.
+    // One quiet line: the market's minimum, no available figure.
     expect(tester.widget<Text>(infoLine()).textSpan!.toPlainText(),
-        r'Available $60.00 · Minimum $1.00');
-    expect(find.textContaining(r'$60.00'), findsOneWidget);
+        r'Minimum $1.00');
     expect(minimumSpan().style?.color, isNot(errorInk));
 
     await _typeOnKeypad(tester, '0.5');
@@ -1144,7 +1146,7 @@ void main() {
                 .overrideWith((ref) => controller = _RecordingController(ref)),
           ]);
       expect(find.text(r'$0'), findsNWidgets(3));
-      expect(find.text(r'Available $100.00 · Minimum $5.00'), findsOneWidget);
+      expect(find.text(r'Minimum $5.00'), findsOneWidget);
       expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
       await tester.tap(find.byType(PolySlipCta));

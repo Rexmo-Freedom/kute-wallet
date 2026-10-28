@@ -6537,6 +6537,18 @@
       }
     }
   },
+  "slipCtaSideMinimum": "{side} minimum on {coin}",
+  "@slipCtaSideMinimum": {
+    "description": "A market slip's button before an amount is typed: a tap places the market's minimum on that side and coin ('Long minimum on ETH', 'Short minimum on BTC').",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      },
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "slipCtaSideAmount": "{side} {amount}",
   "@slipCtaSideAmount": {
     "description": "A buy slip's button with an amount typed: the side and the amount ('Short $12.00').",

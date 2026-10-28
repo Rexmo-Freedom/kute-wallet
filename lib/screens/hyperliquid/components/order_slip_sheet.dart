@@ -4995,18 +4995,16 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryKind = 'deposit';
       // With no amount to name yet (nothing typed on a limit ticket, or a
       // shut door), the hot ticket still says where the money goes.
-      // With an amount typed the button names both deeds, short: what is
-      // added, then the order placed right after it ("Add $1.00 · Short
-      // $12.00"). An empty ticket that places the minimum after the top-up
-      // says only the order ("Long ETH"); the tap is unchanged.
+      // With an amount typed the button names only the order ("Short
+      // $12.00"), never the top-up it needs (owner decision: the tap
+      // draws on the whole wallet). An empty ticket that places the
+      // minimum says so ("Long minimum on ETH"); the tap is unchanged.
       primaryLabel = _isLedger
           ? context.l10n.depositToTrade
           : dollarsShort > 0
               ? _marginUsd > 0
-                  ? context.l10n.slipAddThenOrder(
-                      formatHlUsd(dollarsShort),
-                      _positionCtaLabel(netPlan, amountUsd: _marginUsd) ??
-                          _ctaLabel(amountUsd: _marginUsd))
+                  ? _positionCtaLabel(netPlan, amountUsd: _marginUsd) ??
+                      _ctaLabel(amountUsd: _marginUsd)
                   : placesMinimum
                       ? _emptyCtaLabel(netPlan)
                       : context.l10n
@@ -5038,8 +5036,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       primaryNeutral = false;
     } else if (placesMinimum) {
       primaryKind = 'trade';
-      // Nothing typed: the order's short name ("Long ETH"), no amount;
-      // a tap still places the minimum.
+      // Nothing typed: the order and that it is the minimum ("Long
+      // minimum on ETH"), as Predictions' "Place minimum on Yes"; a tap
+      // places the minimum.
       primaryLabel = _emptyCtaLabel(netPlan);
       primaryAction = formReadyButAmount && gatesOpen
           ? () => _placeMinimum(minAmountUsd)
@@ -6052,13 +6051,10 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     // Simple ticket: the shared hero + the app's own keypad (pinned by the
     // ticket below the form), so the OS keyboard never covers the sheet.
     if (keypad) {
-      // The balance reads "Available $X" here so the minimum can follow
-      // it on the same line.
-      final compactAvailLabel = isSpot && !_isLong
-          ? availLabel
-          : !balanceKnown
-              ? context.l10n.betSlipBalanceUpdating
-              : context.l10n.betSlipAvailableAmount(formatHlUsd(shown));
+      // The line under the figure names only the minimum (owner decision:
+      // an order draws on the whole wallet, so no available figure); a
+      // spot sell still says what is held, the most it can sell.
+      final compactAvailLabel = isSpot && !_isLong ? availLabel : null;
       // Everything, floored to a cent: a spot sell of the whole holding
       // as is, a buy or a perp margin with its slippage and fees reserved
       // out of the same cash so the order can be funded (on a hot ticket,
@@ -6880,10 +6876,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
     final side = _sideWord();
     final l = _strings;
     // The button is the deed, short (founder): "Short $12.00", "Buy
-    // $12.00"; before an amount is typed, "Long ETH".
+    // $12.00"; before an amount is typed, the minimum a tap places,
+    // "Long minimum on ETH".
     switch (_mode) {
       case _OrderMode.market:
-        if (empty) return l.slipCtaSideCoin(side, market.coin);
+        if (empty) return l.slipCtaSideMinimum(side, market.coin);
         return l.slipCtaSideAmount(side, amount);
       case _OrderMode.limit:
         return l.slipCtaLimit(side, market.coin);
