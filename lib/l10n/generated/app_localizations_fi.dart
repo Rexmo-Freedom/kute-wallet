@@ -10568,51 +10568,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get financialHubAndSettings => 'Raha-asiat ja asetukset';
 
   @override
-  String get analyticsInOutTab => 'Sisään ja ulos';
-
-  @override
-  String get inOutMonth => 'Kuukausi';
-
-  @override
-  String get inOutYear => 'Vuosi';
-
-  @override
-  String get inOutIn => 'Sisään';
-
-  @override
-  String get inOutOut => 'Ulos';
-
-  @override
-  String get inOutWhereItWent => 'Minne meni';
-
-  @override
-  String get inOutWhereItCameFrom => 'Mistä tuli';
-
-  @override
-  String get inOutSentToPeople => 'Lähetetty muille';
-
-  @override
-  String get inOutIntoInvestments => 'Investmentsiin';
-
-  @override
-  String get inOutIntoDollars => 'Dollareihin';
-
-  @override
-  String get inOutFromPeople => 'Muilta';
-
-  @override
-  String get inOutFromInvestments => 'Investmentsistä';
-
-  @override
-  String get inOutFromDollars => 'Dollareista';
-
-  @override
-  String get inOutBought => 'Ostettu';
-
-  @override
-  String get inOutEmpty => 'Ei rahaa sisään eikä ulos';
-
-  @override
   String get portfolioStatsActive => 'Aktiiviset';
 
   @override

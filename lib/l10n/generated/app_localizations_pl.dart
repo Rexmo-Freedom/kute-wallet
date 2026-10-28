@@ -10593,51 +10593,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get financialHubAndSettings => 'Centrum finansowe i ustawienia';
 
   @override
-  String get analyticsInOutTab => 'Wpływy/wydatki';
-
-  @override
-  String get inOutMonth => 'Miesiąc';
-
-  @override
-  String get inOutYear => 'Rok';
-
-  @override
-  String get inOutIn => 'Wpływy';
-
-  @override
-  String get inOutOut => 'Wydatki';
-
-  @override
-  String get inOutWhereItWent => 'Na co poszło';
-
-  @override
-  String get inOutWhereItCameFrom => 'Skąd przyszło';
-
-  @override
-  String get inOutSentToPeople => 'Wysłane innym';
-
-  @override
-  String get inOutIntoInvestments => 'Do Investments';
-
-  @override
-  String get inOutIntoDollars => 'Do Dolarów';
-
-  @override
-  String get inOutFromPeople => 'Od innych';
-
-  @override
-  String get inOutFromInvestments => 'Z Investments';
-
-  @override
-  String get inOutFromDollars => 'Z Dolarów';
-
-  @override
-  String get inOutBought => 'Kupione';
-
-  @override
-  String get inOutEmpty => 'Brak wpływów i wydatków';
-
-  @override
   String get portfolioStatsActive => 'Aktywne';
 
   @override

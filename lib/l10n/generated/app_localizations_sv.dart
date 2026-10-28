@@ -10556,51 +10556,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get financialHubAndSettings => 'Finanscenter och inställningar';
 
   @override
-  String get analyticsInOutTab => 'In & ut';
-
-  @override
-  String get inOutMonth => 'Månad';
-
-  @override
-  String get inOutYear => 'År';
-
-  @override
-  String get inOutIn => 'In';
-
-  @override
-  String get inOutOut => 'Ut';
-
-  @override
-  String get inOutWhereItWent => 'Vart det gick';
-
-  @override
-  String get inOutWhereItCameFrom => 'Varifrån det kom';
-
-  @override
-  String get inOutSentToPeople => 'Skickat till andra';
-
-  @override
-  String get inOutIntoInvestments => 'Till Investments';
-
-  @override
-  String get inOutIntoDollars => 'Till Dollar';
-
-  @override
-  String get inOutFromPeople => 'Från andra';
-
-  @override
-  String get inOutFromInvestments => 'Från Investments';
-
-  @override
-  String get inOutFromDollars => 'Från Dollar';
-
-  @override
-  String get inOutBought => 'Köpt';
-
-  @override
-  String get inOutEmpty => 'Inga pengar in eller ut';
-
-  @override
   String get portfolioStatsActive => 'Aktiva';
 
   @override

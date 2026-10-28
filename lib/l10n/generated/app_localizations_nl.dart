@@ -10592,51 +10592,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get financialHubAndSettings => 'Financiële hub en instellingen';
 
   @override
-  String get analyticsInOutTab => 'In & uit';
-
-  @override
-  String get inOutMonth => 'Maand';
-
-  @override
-  String get inOutYear => 'Jaar';
-
-  @override
-  String get inOutIn => 'In';
-
-  @override
-  String get inOutOut => 'Uit';
-
-  @override
-  String get inOutWhereItWent => 'Waar het heen ging';
-
-  @override
-  String get inOutWhereItCameFrom => 'Waar het vandaan kwam';
-
-  @override
-  String get inOutSentToPeople => 'Verzonden aan anderen';
-
-  @override
-  String get inOutIntoInvestments => 'Naar Investments';
-
-  @override
-  String get inOutIntoDollars => 'Naar Dollars';
-
-  @override
-  String get inOutFromPeople => 'Van anderen';
-
-  @override
-  String get inOutFromInvestments => 'Van Investments';
-
-  @override
-  String get inOutFromDollars => 'Van Dollars';
-
-  @override
-  String get inOutBought => 'Gekocht';
-
-  @override
-  String get inOutEmpty => 'Geen geld in of uit';
-
-  @override
   String get portfolioStatsActive => 'Actief';
 
   @override

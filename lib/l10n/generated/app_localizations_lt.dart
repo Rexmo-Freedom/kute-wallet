@@ -10602,51 +10602,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get financialHubAndSettings => 'Finansų centras ir nustatymai';
 
   @override
-  String get analyticsInOutTab => 'Įeina/išeina';
-
-  @override
-  String get inOutMonth => 'Mėnuo';
-
-  @override
-  String get inOutYear => 'Metai';
-
-  @override
-  String get inOutIn => 'Įeina';
-
-  @override
-  String get inOutOut => 'Išeina';
-
-  @override
-  String get inOutWhereItWent => 'Kur išleista';
-
-  @override
-  String get inOutWhereItCameFrom => 'Iš kur gauta';
-
-  @override
-  String get inOutSentToPeople => 'Išsiųsta žmonėms';
-
-  @override
-  String get inOutIntoInvestments => 'Į Investments';
-
-  @override
-  String get inOutIntoDollars => 'Į Dolerius';
-
-  @override
-  String get inOutFromPeople => 'Iš žmonių';
-
-  @override
-  String get inOutFromInvestments => 'Iš Investments';
-
-  @override
-  String get inOutFromDollars => 'Iš Dolerių';
-
-  @override
-  String get inOutBought => 'Nupirkta';
-
-  @override
-  String get inOutEmpty => 'Nei įplaukų, nei išlaidų';
-
-  @override
   String get portfolioStatsActive => 'Aktyvios';
 
   @override

@@ -10577,51 +10577,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get financialHubAndSettings => 'Финансов център и настройки';
 
   @override
-  String get analyticsInOutTab => 'Вход и изход';
-
-  @override
-  String get inOutMonth => 'Месец';
-
-  @override
-  String get inOutYear => 'Година';
-
-  @override
-  String get inOutIn => 'Входящи';
-
-  @override
-  String get inOutOut => 'Изходящи';
-
-  @override
-  String get inOutWhereItWent => 'Къде отидоха';
-
-  @override
-  String get inOutWhereItCameFrom => 'Откъде дойдоха';
-
-  @override
-  String get inOutSentToPeople => 'Изпратени на хора';
-
-  @override
-  String get inOutIntoInvestments => 'Към Investments';
-
-  @override
-  String get inOutIntoDollars => 'Към Долари';
-
-  @override
-  String get inOutFromPeople => 'От хора';
-
-  @override
-  String get inOutFromInvestments => 'От Investments';
-
-  @override
-  String get inOutFromDollars => 'От Долари';
-
-  @override
-  String get inOutBought => 'Купени';
-
-  @override
-  String get inOutEmpty => 'Няма входящи или изходящи';
-
-  @override
   String get portfolioStatsActive => 'Активни';
 
   @override

@@ -10544,51 +10544,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get financialHubAndSettings => 'Finantskeskus ja seaded';
 
   @override
-  String get analyticsInOutTab => 'Sisse ja välja';
-
-  @override
-  String get inOutMonth => 'Kuu';
-
-  @override
-  String get inOutYear => 'Aasta';
-
-  @override
-  String get inOutIn => 'Sisse';
-
-  @override
-  String get inOutOut => 'Välja';
-
-  @override
-  String get inOutWhereItWent => 'Kuhu läks';
-
-  @override
-  String get inOutWhereItCameFrom => 'Kust tuli';
-
-  @override
-  String get inOutSentToPeople => 'Saadetud inimestele';
-
-  @override
-  String get inOutIntoInvestments => 'Investments\'i';
-
-  @override
-  String get inOutIntoDollars => 'Dollaritesse';
-
-  @override
-  String get inOutFromPeople => 'Inimestelt';
-
-  @override
-  String get inOutFromInvestments => 'Investments\'ist';
-
-  @override
-  String get inOutFromDollars => 'Dollaritest';
-
-  @override
-  String get inOutBought => 'Ostetud';
-
-  @override
-  String get inOutEmpty => 'Raha ei tulnud ega läinud';
-
-  @override
   String get portfolioStatsActive => 'Aktiivsed';
 
   @override

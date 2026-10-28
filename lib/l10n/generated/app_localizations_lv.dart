@@ -10526,51 +10526,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get financialHubAndSettings => 'Finanšu centrs un iestatījumi';
 
   @override
-  String get analyticsInOutTab => 'Ienāk un iziet';
-
-  @override
-  String get inOutMonth => 'Mēnesis';
-
-  @override
-  String get inOutYear => 'Gads';
-
-  @override
-  String get inOutIn => 'Ienāk';
-
-  @override
-  String get inOutOut => 'Iziet';
-
-  @override
-  String get inOutWhereItWent => 'Kur aizgāja';
-
-  @override
-  String get inOutWhereItCameFrom => 'No kurienes ienāca';
-
-  @override
-  String get inOutSentToPeople => 'Nosūtīts citiem';
-
-  @override
-  String get inOutIntoInvestments => 'Uz Investments';
-
-  @override
-  String get inOutIntoDollars => 'Uz Dolāriem';
-
-  @override
-  String get inOutFromPeople => 'No citiem';
-
-  @override
-  String get inOutFromInvestments => 'No Investments';
-
-  @override
-  String get inOutFromDollars => 'No Dolāriem';
-
-  @override
-  String get inOutBought => 'Nopirkts';
-
-  @override
-  String get inOutEmpty => 'Nav ienākumu vai izdevumu';
-
-  @override
   String get portfolioStatsActive => 'Aktīvās';
 
   @override

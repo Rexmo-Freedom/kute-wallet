@@ -10582,51 +10582,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get financialHubAndSettings => 'Pénzügyi központ és beállítások';
 
   @override
-  String get analyticsInOutTab => 'Be és ki';
-
-  @override
-  String get inOutMonth => 'Hónap';
-
-  @override
-  String get inOutYear => 'Év';
-
-  @override
-  String get inOutIn => 'Be';
-
-  @override
-  String get inOutOut => 'Ki';
-
-  @override
-  String get inOutWhereItWent => 'Hová ment';
-
-  @override
-  String get inOutWhereItCameFrom => 'Honnan jött';
-
-  @override
-  String get inOutSentToPeople => 'Másoknak küldve';
-
-  @override
-  String get inOutIntoInvestments => 'Investmentsbe';
-
-  @override
-  String get inOutIntoDollars => 'Dollárba';
-
-  @override
-  String get inOutFromPeople => 'Másoktól';
-
-  @override
-  String get inOutFromInvestments => 'Investmentsből';
-
-  @override
-  String get inOutFromDollars => 'Dollárból';
-
-  @override
-  String get inOutBought => 'Vásárolt';
-
-  @override
-  String get inOutEmpty => 'Nem jött és nem ment pénz';
-
-  @override
   String get portfolioStatsActive => 'Aktív';
 
   @override

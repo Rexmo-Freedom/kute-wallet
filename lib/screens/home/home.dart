@@ -36,7 +36,6 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/screens/analytics/components/home_analytics_widget.dart';
-import 'package:kute/screens/analytics/components/money_in_out.dart';
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
@@ -836,12 +835,9 @@ class _ActivitySection extends ConsumerWidget {
           // header + a small empty-state below; gating the header on
           // tx-present made the home feel anchorless for new wallets.
           // ONE merged section behind a pill strip (user decision):
-          // Activity | Balance | In & out (plus whatever the wallet
-          // scope adds) — the old stacked Activity header + separate
-          // analytics block are gone. No Price on the main screen
-          // (owner decision). In & out is the spending wallet's money
-          // in and out by month or year, so only the hot Spark wallet
-          // gets it.
+          // Activity | Balance (plus whatever the wallet scope adds) —
+          // the old stacked Activity header + separate analytics block
+          // are gone. No Price on the main screen (owner decision).
           // The activity child is pre-resolved here because its
           // skeleton/empty states hang off Home-local providers.
           // A deposit waiting for a lower fee: one quiet line (the
@@ -851,7 +847,6 @@ class _ActivitySection extends ConsumerWidget {
             child: HomeAnalyticsWidget(
               surface: 'home',
               showPrice: false,
-              breakdownChild: homeBreakdownChild(activeWallet),
               onSeeAllActivity: () =>
                   showActivityHistory(context, source: 'home'),
               activityChild: breezWaking

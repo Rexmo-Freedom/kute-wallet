@@ -10581,51 +10581,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get financialHubAndSettings => 'Financijsko središte i postavke';
 
   @override
-  String get analyticsInOutTab => 'Ulaz i izlaz';
-
-  @override
-  String get inOutMonth => 'Mjesec';
-
-  @override
-  String get inOutYear => 'Godina';
-
-  @override
-  String get inOutIn => 'Ulaz';
-
-  @override
-  String get inOutOut => 'Izlaz';
-
-  @override
-  String get inOutWhereItWent => 'Kamo je otišlo';
-
-  @override
-  String get inOutWhereItCameFrom => 'Odakle je došlo';
-
-  @override
-  String get inOutSentToPeople => 'Poslano ljudima';
-
-  @override
-  String get inOutIntoInvestments => 'U Investments';
-
-  @override
-  String get inOutIntoDollars => 'U Dolare';
-
-  @override
-  String get inOutFromPeople => 'Od ljudi';
-
-  @override
-  String get inOutFromInvestments => 'Iz Investments';
-
-  @override
-  String get inOutFromDollars => 'Iz Dolara';
-
-  @override
-  String get inOutBought => 'Kupljeno';
-
-  @override
-  String get inOutEmpty => 'Nema ulaza ni izlaza';
-
-  @override
   String get portfolioStatsActive => 'Aktivno';
 
   @override
