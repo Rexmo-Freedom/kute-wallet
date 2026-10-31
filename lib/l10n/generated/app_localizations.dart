@@ -18884,6 +18884,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchase'**
   String get purchaseShort;
+
+  /// Recipient option on Send: a link anyone can claim with Kute.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to anyone'**
+  String get shareSendToAnyone;
+
+  /// No description provided for @shareSendToAnyoneSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A link they claim with Kute'**
+  String get shareSendToAnyoneSubtitle;
+
+  /// No description provided for @shareWhoIsItFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Who is it for?'**
+  String get shareWhoIsItFor;
+
+  /// No description provided for @shareFirstNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'First name (optional)'**
+  String get shareFirstNameHint;
+
+  /// No description provided for @shareCreateLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Create link'**
+  String get shareCreateLink;
+
+  /// No description provided for @shareCreatingLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating link'**
+  String get shareCreatingLink;
+
+  /// No description provided for @shareCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the link. Try again.'**
+  String get shareCreateFailed;
+
+  /// An amount of bitcoin stated in the user's currency.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Bitcoin'**
+  String shareAmountInBitcoin(String amount);
+
+  /// The text put in the OS share sheet when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you {amount} with Kute. Claim it here: {url}'**
+  String shareMessageNamed(String name, String amount, String url);
+
+  /// The text put in the OS share sheet when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you {amount} with Kute. Claim it here: {url}'**
+  String shareMessageUnnamed(String amount, String url);
+
+  /// No description provided for @shareLinkSentWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Link sent · waiting for {name} to claim'**
+  String shareLinkSentWaiting(String name);
+
+  /// No description provided for @shareLinkSentWaitingUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Link sent · waiting to be claimed'**
+  String get shareLinkSentWaitingUnnamed;
+
+  /// No description provided for @shareLinkClaimedReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Claimed · ready to send'**
+  String get shareLinkClaimedReady;
+
+  /// No description provided for @shareLinkPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get shareLinkPaid;
+
+  /// No description provided for @shareLinkCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get shareLinkCancelled;
+
+  /// No description provided for @shareLinkExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get shareLinkExpired;
+
+  /// No description provided for @shareLinkCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel link'**
+  String get shareLinkCancel;
+
+  /// No description provided for @shareLinkCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel the link. Try again.'**
+  String get shareLinkCancelFailed;
+
+  /// No description provided for @shareLinkShareAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Share again'**
+  String get shareLinkShareAgain;
+
+  /// No description provided for @sharePendingLinksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Links you sent'**
+  String get sharePendingLinksTitle;
+
+  /// No description provided for @shareClaimedPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} claimed your {amount}'**
+  String shareClaimedPromptTitle(String name, String amount);
+
+  /// No description provided for @shareClaimedPromptTitleUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} was claimed'**
+  String shareClaimedPromptTitleUnnamed(String amount);
+
+  /// No description provided for @shareClaimedPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it now to finish. It leaves your wallet only when you confirm.'**
+  String get shareClaimedPromptBody;
+
+  /// No description provided for @shareSendNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Send now'**
+  String get shareSendNow;
+
+  /// No description provided for @shareLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get shareLater;
+
+  /// No description provided for @shareSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send. Kute will ask again next time it opens.'**
+  String get shareSendFailed;
+
+  /// Claim screen headline. sender is a first name or "Someone".
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you {amount}'**
+  String claimTitle(String sender, String amount);
+
+  /// Stands in for the sender's name when the link carries none.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get claimSomeone;
+
+  /// No description provided for @claimMarketLine.
+  ///
+  /// In en, this message translates to:
+  /// **'to bet on {market}'**
+  String claimMarketLine(String market);
+
+  /// No description provided for @claimButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim'**
+  String get claimButton;
+
+  /// No description provided for @claimClaiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Claiming'**
+  String get claimClaiming;
+
+  /// No description provided for @claimOnItsWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way'**
+  String get claimOnItsWay;
+
+  /// No description provided for @claimArrivesWhenOpens.
+  ///
+  /// In en, this message translates to:
+  /// **'It arrives when {sender} opens Kute.'**
+  String claimArrivesWhenOpens(String sender);
+
+  /// No description provided for @claimOpenMarket.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the market'**
+  String get claimOpenMarket;
+
+  /// No description provided for @claimAlreadyClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'This link was already claimed.'**
+  String get claimAlreadyClaimed;
+
+  /// No description provided for @claimExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This link has expired.'**
+  String get claimExpired;
+
+  /// No description provided for @claimUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This link is not available.'**
+  String get claimUnavailable;
+
+  /// No description provided for @claimFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not claim. Try again.'**
+  String get claimFailed;
+
+  /// No description provided for @claimNeedsWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wallet is still getting ready. Try again in a moment.'**
+  String get claimNeedsWallet;
+
+  /// No description provided for @shareMarketShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link'**
+  String get shareMarketShareLink;
+
+  /// No description provided for @shareMarketSendDollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Send dollars for this'**
+  String get shareMarketSendDollars;
+
+  /// No description provided for @shareMarketLookAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Look at this on Kute: {title} {link}'**
+  String shareMarketLookAt(String title, String link);
+
+  /// No description provided for @shareMarketChance.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance}% chance'**
+  String shareMarketChance(String chance);
 }
 
 class _AppLocalizationsDelegate

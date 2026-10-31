@@ -12,6 +12,9 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
+import 'package:kute/screens/share/claim_screen.dart';
+import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kute/screens/home/main_screen.dart';
 import 'package:kute/screens/creation/start.dart';
@@ -59,6 +62,10 @@ class AppRouter {
   // /hyperliquid, /polymarket) stay inside the shell.
   static final GlobalKey<NavigatorState> _rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'root');
+
+  /// The root navigator's key, for services that show a sheet with no
+  /// widget of their own (the share-link pay prompt on resume).
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
 
   // Per-branch navigator keys for the persistent nav shell. Each tab
   // (Home / Bank / USD / Trading / Predictions) owns its own Navigator so a
@@ -168,11 +175,15 @@ class AppRouter {
   @visibleForTesting
   static void handleIncomingLink(Uri uri) {
     _trackDeepLink(uri);
-    AppsFlyerService.ingestReferrerFromDeepLink(
-      uri.queryParameters['deep_link_value'] ??
-          uri.queryParameters['af_sub1'] ??
-          uri.queryParameters['c'],
-    );
+    // A claim link (`/c/{id}`, or `deep_link_value=claim`) carries no
+    // referral code: `claim` must never be bound as one.
+    if (ShareLinkClaims.claimIdFromLink(uri) == null) {
+      AppsFlyerService.ingestReferrerFromDeepLink(
+        uri.queryParameters['deep_link_value'] ??
+            uri.queryParameters['af_sub1'] ??
+            uri.queryParameters['c'],
+      );
+    }
     // Website → app identity link (never a referral code).
     AppsFlyerService.ingestWebVisitorFromDeepLink(
         uri.queryParameters['af_sub2']);
@@ -205,6 +216,21 @@ class AppRouter {
     return lockedAllowlist.contains(Uri.parse(location).path) ? null : '/splash';
   }
 
+  /// Where an incoming share-link claim (`https://<web>/c/{id}`, or a
+  /// OneLink with `deep_link_value=claim&deep_link_sub1={id}`) goes: the
+  /// Claim screen when the session is unlocked; while [locked] (a cold
+  /// start, a fresh install still onboarding) the id is parked
+  /// (ShareLinksStore) and the Claim screen opens once the session is
+  /// unlocked (app_widget.dart). Null for every other URI.
+  @visibleForTesting
+  static String? claimLinkRedirect(Uri uri, {required bool locked}) {
+    final id = ShareLinkClaims.claimIdFromLink(uri);
+    if (id == null) return null;
+    if (!locked) return ShareLinkClaims.claimRoutePath(id);
+    ShareLinksStore.parkClaim(id);
+    return null;
+  }
+
   /// The top-level redirect. [sessionLocked] reads the session (null
   /// `sessionAuthProvider`); [initialRoute] seeds the last good location.
   ///
@@ -231,7 +257,8 @@ class AppRouter {
       final uri = state.uri;
       if (uri.hasScheme) {
         handleIncomingLink(uri);
-        return lockRedirect(locked: sessionLocked(), location: lastGood) ??
+        return claimLinkRedirect(uri, locked: sessionLocked()) ??
+            lockRedirect(locked: sessionLocked(), location: lastGood) ??
             lastGood;
       }
       final guard = lockRedirect(
@@ -263,6 +290,14 @@ class AppRouter {
           name: 'splash',
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const Splash(),
+            state: state,
+          ),
+        ),
+        GoRoute(
+          path: '/claim/:id',
+          name: ClaimScreen.routeName,
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: ClaimScreen(id: state.pathParameters['id'] ?? ''),
             state: state,
           ),
         ),

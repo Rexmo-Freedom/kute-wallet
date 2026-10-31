@@ -6858,5 +6858,153 @@
   "investingTradfi": "Traditional",
   "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."},
   "purchaseShort": "Purchase",
-  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."}
+  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."},
+  "shareSendToAnyone": "Send to anyone",
+  "@shareSendToAnyone": {
+    "description": "Recipient option on Send: a link anyone can claim with Kute."
+  },
+  "shareSendToAnyoneSubtitle": "A link they claim with Kute",
+  "shareWhoIsItFor": "Who is it for?",
+  "shareFirstNameHint": "First name (optional)",
+  "shareCreateLink": "Create link",
+  "shareCreatingLink": "Creating link",
+  "shareCreateFailed": "Could not create the link. Try again.",
+  "shareAmountInBitcoin": "{amount} in Bitcoin",
+  "@shareAmountInBitcoin": {
+    "description": "An amount of bitcoin stated in the user's currency.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareMessageNamed": "{name}, I sent you {amount} with Kute. Claim it here: {url}",
+  "@shareMessageNamed": {
+    "description": "The text put in the OS share sheet when the sender named the recipient.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "shareMessageUnnamed": "I sent you {amount} with Kute. Claim it here: {url}",
+  "@shareMessageUnnamed": {
+    "description": "The text put in the OS share sheet when the sender gave no name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "shareLinkSentWaiting": "Link sent · waiting for {name} to claim",
+  "@shareLinkSentWaiting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareLinkSentWaitingUnnamed": "Link sent · waiting to be claimed",
+  "shareLinkClaimedReady": "Claimed · ready to send",
+  "shareLinkPaid": "Sent",
+  "shareLinkCancelled": "Cancelled",
+  "shareLinkExpired": "Expired",
+  "shareLinkCancel": "Cancel link",
+  "shareLinkCancelFailed": "Could not cancel the link. Try again.",
+  "shareLinkShareAgain": "Share again",
+  "sharePendingLinksTitle": "Links you sent",
+  "shareClaimedPromptTitle": "{name} claimed your {amount}",
+  "@shareClaimedPromptTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareClaimedPromptTitleUnnamed": "Your {amount} was claimed",
+  "@shareClaimedPromptTitleUnnamed": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareClaimedPromptBody": "Send it now to finish. It leaves your wallet only when you confirm.",
+  "shareSendNow": "Send now",
+  "shareLater": "Later",
+  "shareSendFailed": "Could not send. Kute will ask again next time it opens.",
+  "claimTitle": "{sender} sent you {amount}",
+  "@claimTitle": {
+    "description": "Claim screen headline. sender is a first name or \"Someone\".",
+    "placeholders": {
+      "sender": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "claimSomeone": "Someone",
+  "@claimSomeone": {
+    "description": "Stands in for the sender's name when the link carries none."
+  },
+  "claimMarketLine": "to bet on {market}",
+  "@claimMarketLine": {
+    "placeholders": {
+      "market": {
+        "type": "String"
+      }
+    }
+  },
+  "claimButton": "Claim",
+  "claimClaiming": "Claiming",
+  "claimOnItsWay": "On its way",
+  "claimArrivesWhenOpens": "It arrives when {sender} opens Kute.",
+  "@claimArrivesWhenOpens": {
+    "placeholders": {
+      "sender": {
+        "type": "String"
+      }
+    }
+  },
+  "claimOpenMarket": "Open the market",
+  "claimAlreadyClaimed": "This link was already claimed.",
+  "claimExpired": "This link has expired.",
+  "claimUnavailable": "This link is not available.",
+  "claimFailed": "Could not claim. Try again.",
+  "claimNeedsWallet": "Your wallet is still getting ready. Try again in a moment.",
+  "shareMarketShareLink": "Share link",
+  "shareMarketSendDollars": "Send dollars for this",
+  "shareMarketLookAt": "Look at this on Kute: {title} {link}",
+  "@shareMarketLookAt": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "shareMarketChance": "{chance}% chance",
+  "@shareMarketChance": {
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  }
 }
