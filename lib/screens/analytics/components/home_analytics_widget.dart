@@ -1153,11 +1153,17 @@ class _BitcoinBalanceHistory extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(bitcoinBalanceStepsProvider);
+    final currency = ref.watch(settingsProvider.select((s) => s.currency));
+    final fiatPerBtc = ref.watch(selectedCurrencyProvider(currency)).toDouble();
+    final fiat = NumberFormat.simpleCurrency(name: currency, decimalDigits: 2);
     return BalanceHistoryChart(
       history: history,
       // As the app writes a bitcoin amount: "₿17,520", "₿0.00017520".
       format: (sats) => '₿${sats.round().toFormattedString(btcFormat)}',
-      emptyMessage: context.l10n.balanceChartEmptyBitcoin,
+      // Its worth in the display currency at today's price, under it.
+      secondary: fiatPerBtc > 0
+          ? (sats) => fiat.format(sats / 1e8 * fiatPerBtc)
+          : null,
       rangeKey: 'bitcoin',
       trackingChart: 'valuation',
     );

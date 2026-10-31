@@ -11288,6 +11288,32 @@ class AppLocalizationsRo extends AppLocalizations {
       'Evoluția soldului tău va apărea aici după ce vei avea dolari';
 
   @override
+  String get chartPeriodPastWeek => 'Past week';
+
+  @override
+  String get chartPeriodPastMonth => 'Past month';
+
+  @override
+  String get chartPeriodPast3Months => 'Past 3 months';
+
+  @override
+  String get chartPeriodPastYear => 'Past year';
+
+  @override
+  String get chartPeriodAllTime => 'All time';
+
+  @override
+  String get chartNoChange => 'No change';
+
+  @override
+  String get pnlChartNoHistory =>
+      'Your P&L shows up after your first position.';
+
+  @override
+  String get balanceChartNoHistory =>
+      'Your balance history starts with your first transaction.';
+
+  @override
   String get pnlChartEmpty =>
       'Profitul și pierderea ta vor apărea aici după ce tranzacționezi sau faci predicții';
 
