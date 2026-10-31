@@ -61,11 +61,28 @@
 // count and the sum of its events' 24h volume, "N markets · $12M vol
 // today") and the watchlist's count; the other tiles carry their name.
 //
-// A group with subcategories (Traditional → Stocks, Indices, Commodities,
-// FX, Pre-IPO; Crypto → its sectors; a Predictions topic → its topics)
-// slides to its own grid inside the same sheet (an AnimatedSwitcher on
-// the chip spring; at once under Reduce Motion): "‹ Investing" at the
-// left of the header, the group's name as the title, a wide "All
+// POSITIONS (founder, 31 October 2026: "the animation and position of
+// the buttons is not good"): ONE 16 px gutter on both sides for
+// everything (the wide tiles, the labels, the grid); 8 px between grid
+// tiles, 12 px between the wide tiles, 16 px above the "Markets" /
+// "Topics" label and the grid flush under it; every tile in a group the
+// same height; the odd last tile stays left in its column. The header is
+// the handle, 12 px, then the title at the left gutter with the circled
+// close at the right gutter, centred on it ([_SheetHeader]); the
+// Investing and Predictions sheets put the title, the wide tiles and the
+// label at the same heights.
+//
+// MOTION: on open the tiles rise in (6 px, a fade) 16 ms apart on the
+// settle easing, the wide tiles first; a press is the app's spring at
+// 0.97; a pick animates the tile's fill, ring and check on the chip
+// spring, holds 140 ms so the state is seen, then the sheet closes on
+// the settle. A group with subcategories (Traditional → Stocks, Indices,
+// Commodities, FX, Pre-IPO; Crypto → its sectors; a Predictions topic →
+// its topics) slides to its own grid inside the same sheet on the sheet
+// spring: the outgoing grid moves 24 px left and fades, the incoming
+// comes from 24 px right, the "‹ Investing" back link fading in at the
+// left of the header; back reverses. Reduce Motion: everything at once.
+// The group's page is the group's name as the title, a wide "All
 // Traditional" tile on top, then the subcategories as tiles with the
 // same numbers. Tapping any tile picks (category and subcategory) and
 // closes; a tile without subcategories picks and closes at once. The
@@ -98,7 +115,7 @@ import 'package:kute/screens/portfolio/investments_portfolio.dart'
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/kute_motion.dart'
-    show KutePressable, kuteReduceMotion;
+    show KutePressable, KuteStaggerIn, kuteReduceMotion;
 import 'package:kute/screens/usd/usd_account_screen.dart' show InvestmentsTab;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -331,6 +348,31 @@ class _InvestmentsCategorySheetState
   /// Which way the last page change went, for the slide.
   bool _forward = true;
 
+  /// The tile just tapped, drawn picked while the sheet closes (see the
+  /// file header); null reads the providers.
+  (Object, Object)? _pending;
+
+  /// Whether a tile is drawn picked: the tap's own while one is pending,
+  /// else [current] (the providers' selection).
+  bool _picked(Object a, Object b, bool current) =>
+      _pending == null ? current : _pending == (a, b);
+
+  /// A pick: the tile's state springs on, holds 140 ms, then the sheet
+  /// closes and [write] runs (the providers, the event).
+  void _pick((Object, Object) key, VoidCallback write) {
+    if (_pending != null) return;
+    HapticFeedback.selectionClick();
+    setState(() => _pending = key);
+    final wait = kuteReduceMotion(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 140);
+    Future<void>.delayed(wait, () {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      write();
+    });
+  }
+
   void _open(Object group) {
     HapticFeedback.selectionClick();
     setState(() {
@@ -389,21 +431,26 @@ class _InvestmentsCategorySheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (group == null)
-            AppBottomSheetHeader(
-                title: _sectionTitle(l10n), trailing: const KuteCloseButton())
-          else
-            _SubHeader(
-              back: _sectionTitle(l10n),
-              title: _groupTitle(l10n, group),
-              onBack: _back,
-            ),
+          _SheetHeader(
+            title: group == null
+                ? _sectionTitle(l10n)
+                : _groupTitle(l10n, group),
+            back: group == null ? null : _sectionTitle(l10n),
+            onBack: _back,
+          ),
           Flexible(
-            // A group's grid slides in from the right over the section's,
-            // and back out to it, on the chip spring.
-            child: AnimatedSwitcher(
-              duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-              switchInCurve: reduce ? Curves.linear : KuteMotion.chip,
+            // A group's grid slides in 24 px from the right over the
+            // section's (which moves 24 px left and fades), and back, on
+            // the sheet spring (see the file header); the box they share
+            // eases between their heights on the same spring, so the sheet
+            // never jumps.
+            child: AnimatedSize(
+              duration: reduce ? Duration.zero : KuteMotion.sheetInDuration,
+              curve: reduce ? Curves.linear : KuteMotion.sheetIn,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+              duration: reduce ? Duration.zero : KuteMotion.sheetInDuration,
+              switchInCurve: reduce ? Curves.linear : KuteMotion.sheetIn,
               switchOutCurve: reduce ? Curves.linear : KuteMotion.settle,
               layoutBuilder: (current, previous) => Stack(
                 alignment: Alignment.topCenter,
@@ -412,16 +459,21 @@ class _InvestmentsCategorySheetState
               transitionBuilder: (child, animation) {
                 final incoming = child.key == page.key;
                 final dir = _forward ? 1.0 : -1.0;
-                final slide = Tween<Offset>(
-                  begin: Offset(incoming ? dir : -dir, 0),
-                  end: Offset.zero,
-                ).animate(animation);
+                final from = (incoming ? dir : -dir) * 24.0;
                 return FadeTransition(
                   opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
+                  child: AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, child) => Transform.translate(
+                      offset: Offset(from * (1 - animation.value), 0),
+                      child: child,
+                    ),
+                    child: child,
+                  ),
                 );
               },
               child: page,
+              ),
             ),
           ),
         ],
@@ -478,11 +530,11 @@ class _InvestmentsCategorySheetState
     );
   }
 
-  /// A small label over a grid.
+  /// A small label over a grid: 16 above it, the grid flush under.
   Widget _label(BuildContext context, String text) {
     final c = context.colors;
     return Padding(
-      padding: EdgeInsets.fromLTRB(4.w, 14.h, 4.w, 8.h),
+      padding: EdgeInsets.fromLTRB(0, 16.h, 0, 6.h),
       child: Text(
         text,
         style: TextStyle(
@@ -499,7 +551,8 @@ class _InvestmentsCategorySheetState
   /// or [_Tile.compactHeight] for the Predictions topics), 8 apart, the
   /// odd last one half width at the left. It sits in the sheet's
   /// ListView, so it is shrink-wrapped and never scrolls on its own.
-  Widget _grid(List<Widget> tiles, {double extent = _Tile.gridHeight}) =>
+  Widget _grid(List<Widget> tiles,
+          {double extent = _Tile.gridHeight, int first = 3}) =>
       GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -511,23 +564,32 @@ class _InvestmentsCategorySheetState
           mainAxisExtent: extent,
         ),
         itemCount: tiles.length,
-        itemBuilder: (_, i) => tiles[i],
+        // The tiles rise in after the wide tiles and the label ([first]).
+        itemBuilder: (_, i) => _rise(first + i, tiles[i]),
+      );
+
+  /// A tile's arrival: 6 px up and a fade, 16 ms after the one before
+  /// (see the file header).
+  Widget _rise(int index, Widget child) => KuteStaggerIn(
+        index: index,
+        step: const Duration(milliseconds: 16),
+        rise: 6,
+        limit: 64,
+        child: child,
       );
 
   // ── Investing ────────────────────────────────────────────────────────
 
-  void _pickHl(HlBrowseTab t, HlBrowseSub s) {
-    HapticFeedback.selectionClick();
-    Navigator.of(context).pop();
-    final current = ref.read(hlBrowseSelectionProvider);
-    if (t == current.tab && s == current.sub) return;
-    TrackingService.track('hl_category_pill_tapped', params: {
-      'section': t.key,
-      if (s != HlBrowseSub.all) 'subcategory': s.key,
-    });
-    ref.read(hlBrowseSelectionProvider.notifier).state =
-        current.copyWith(tab: t, sub: s);
-  }
+  void _pickHl(HlBrowseTab t, HlBrowseSub s) => _pick((t, s), () {
+        final current = ref.read(hlBrowseSelectionProvider);
+        if (t == current.tab && s == current.sub) return;
+        TrackingService.track('hl_category_pill_tapped', params: {
+          'section': t.key,
+          if (s != HlBrowseSub.all) 'subcategory': s.key,
+        });
+        ref.read(hlBrowseSelectionProvider.notifier).state =
+            current.copyWith(tab: t, sub: s);
+      });
 
   List<HlMarket> _hlList(HlBrowseTab t, [HlBrowseSub s = HlBrowseSub.all]) {
     final universe =
@@ -587,7 +649,7 @@ class _InvestmentsCategorySheetState
             move: stat.move,
             tail: lead == null ? null : l10n.categoryStatToday),
         logos: _hlLogos(top),
-        picked: sel.tab == t,
+        picked: _picked(t, HlBrowseSub.all, sel.tab == t),
         onTap: () => _pickHl(t, HlBrowseSub.all),
       );
     }
@@ -602,7 +664,7 @@ class _InvestmentsCategorySheetState
         tint: _hlTint(c, t),
         name: t.localizedLabel(l10n),
         stat: _StatLine(count: stat.count, move: stat.move),
-        picked: sel.tab == t,
+        picked: _picked(t, HlBrowseSub.all, sel.tab == t),
         onTap: subs.isEmpty
             ? () => _pickHl(t, HlBrowseSub.all)
             : () => _open(t),
@@ -611,9 +673,10 @@ class _InvestmentsCategorySheetState
 
     return [
       if (onOffer.contains(HlBrowseTab.trending))
-        wide(HlBrowseTab.trending, lead: l10n.categoryStatMostActive),
-      if (onOffer.contains(HlBrowseTab.watchlist)) wide(HlBrowseTab.watchlist),
-      _label(context, l10n.categoryGroupMarkets),
+        _rise(0, wide(HlBrowseTab.trending, lead: l10n.categoryStatMostActive)),
+      if (onOffer.contains(HlBrowseTab.watchlist))
+        _rise(1, wide(HlBrowseTab.watchlist)),
+      _rise(2, _label(context, l10n.categoryGroupMarkets)),
       _grid([
         for (final t in onOffer)
           if (t != HlBrowseTab.trending && t != HlBrowseTab.watchlist) tile(t),
@@ -630,16 +693,17 @@ class _InvestmentsCategorySheetState
     final allStat = _hlStat(all);
     final shown = <String>{};
     return [
-      _Tile.wide(
+      _rise(0, _Tile.wide(
         key: ValueKey('category-tile-${t.key}'),
         tint: tint,
         name: l10n.categoryAllOf(t.localizedLabel(l10n)),
         stat: _StatLine(count: allStat.count, move: allStat.move),
         logos: _hlLogos(hlTileMovers(all, shown)),
-        picked: sel.tab == t && sel.sub == HlBrowseSub.all,
+        picked: _picked(t, HlBrowseSub.all,
+            sel.tab == t && sel.sub == HlBrowseSub.all),
         onTap: () => _pickHl(t, HlBrowseSub.all),
-      ),
-      _grid([
+      )),
+      _grid(first: 1, [
         for (final s in _hlSubs(t))
           () {
             final list = _hlList(t, s);
@@ -650,7 +714,7 @@ class _InvestmentsCategorySheetState
               tint: tint,
               name: s.localizedLabel(l10n),
               stat: _StatLine(count: stat.count, move: stat.move),
-              picked: sel.tab == t && sel.sub == s,
+              picked: _picked(t, s, sel.tab == t && sel.sub == s),
               onTap: () => _pickHl(t, s),
             );
           }(),
@@ -660,18 +724,16 @@ class _InvestmentsCategorySheetState
 
   // ── Predictions ──────────────────────────────────────────────────────
 
-  void _pickPoly(PolyPill p, PolySub s) {
-    HapticFeedback.selectionClick();
-    Navigator.of(context).pop();
-    final current = ref.read(polyBrowseSelectionProvider);
-    if (p == current.pill && s.key == current.subOf(p)) return;
-    TrackingService.track('category_pill_tapped', params: {
-      'section': p.key,
-      if (s.key != p.defaultSub) 'subcategory': s.route,
-    });
-    ref.read(polyBrowseSelectionProvider.notifier).state =
-        current.copyWith(pill: p).copyWith(sub: s.key);
-  }
+  void _pickPoly(PolyPill p, PolySub s) => _pick((p, s.key), () {
+        final current = ref.read(polyBrowseSelectionProvider);
+        if (p == current.pill && s.key == current.subOf(p)) return;
+        TrackingService.track('category_pill_tapped', params: {
+          'section': p.key,
+          if (s.key != p.defaultSub) 'subcategory': s.route,
+        });
+        ref.read(polyBrowseSelectionProvider.notifier).state =
+            current.copyWith(pill: p).copyWith(sub: s.key);
+      });
 
   /// The events a category's feed holds already: the picked category's
   /// (loaded for the list behind the sheet), or one browsed earlier whose
@@ -739,7 +801,7 @@ class _InvestmentsCategorySheetState
               : polyPillLabel(l10n, p),
           stat: statOf(p, lead: lead),
           logos: _polyLogos(_polyLoaded(p)),
-          picked: sel.pill == p,
+          picked: _picked(p, p.defaultSub, sel.pill == p),
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
 
@@ -754,7 +816,7 @@ class _InvestmentsCategorySheetState
         tint: _polyTint(c, p),
         name: polyPillLabel(l10n, p),
         count: events.isEmpty ? null : events.length,
-        picked: sel.pill == p,
+        picked: _picked(p, p.defaultSub, sel.pill == p),
         onTap: _polySubs(p).isEmpty
             ? () => _pickPoly(p, PolySub(p.defaultSub))
             : () => _open(p),
@@ -763,9 +825,10 @@ class _InvestmentsCategorySheetState
 
     return [
       if (pills.contains(PolyPill.trending))
-        wide(PolyPill.trending, lead: l10n.categoryStatMostActive),
-      if (pills.contains(PolyPill.watchlist)) wide(PolyPill.watchlist),
-      _label(context, l10n.categoryGroupTopics),
+        _rise(0, wide(PolyPill.trending, lead: l10n.categoryStatMostActive)),
+      if (pills.contains(PolyPill.watchlist))
+        _rise(1, wide(PolyPill.watchlist)),
+      _rise(2, _label(context, l10n.categoryGroupTopics)),
       _grid([
         for (final p in pills)
           if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
@@ -791,16 +854,16 @@ class _InvestmentsCategorySheetState
     }
 
     return [
-      _Tile.wide(
+      _rise(0, _Tile.wide(
         key: ValueKey('category-tile-${p.key}'),
         tint: tint,
         name: l10n.categoryAllOf(polyPillLabel(l10n, p)),
         stat: statOf(all.key),
         logos: _polyLogos(_polyLoaded(p, all.key)),
-        picked: sel.pill == p && sel.subOf(p) == all.key,
+        picked: _picked(p, all.key, sel.pill == p && sel.subOf(p) == all.key),
         onTap: () => _pickPoly(p, all),
-      ),
-      _grid([
+      )),
+      _grid(first: 1, [
         for (final s in subs)
           if (s.key != p.defaultSub)
             () {
@@ -812,7 +875,8 @@ class _InvestmentsCategorySheetState
                 tint: tint,
                 name: polySubLabel(l10n, s),
                 count: events.isEmpty ? null : events.length,
-                picked: sel.pill == p && sel.subOf(p) == s.key,
+                picked:
+                  _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
                 onTap: () => _pickPoly(p, s),
               );
             }(),
@@ -835,10 +899,8 @@ class _InvestmentsCategorySheetState
             glyph: _portfolioIcon(s),
             tint: tint,
             name: portfolioSectionLabel(l10n, s),
-            picked: s == current,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              Navigator.of(context).pop();
+            picked: _picked(s, s, s == current),
+            onTap: () => _pick((s, s), () {
               if (s == current) return;
               TrackingService.track('analytics_tab_selected', params: {
                 'tab': InvestmentsTab.positions.key,
@@ -848,26 +910,39 @@ class _InvestmentsCategorySheetState
                 'from_sub': current.key,
               });
               ref.read(portfolioSectionProvider.notifier).state = s;
-            },
+            }),
           ),
       ]),
     ];
   }
 }
 
-/// A group's header: the handle, "‹ Investing" at the left, the group's
-/// name, the circled close at the right.
-class _SubHeader extends StatelessWidget {
-  const _SubHeader(
-      {required this.back, required this.title, required this.onBack});
+/// The sheet's header (see the file header): the handle, 12 under it the
+/// title at the left gutter and the circled close at the right gutter,
+/// centred on it. On a group's page the "‹ Investing" back link fades in
+/// before the title (the sheet spring's length; at once under Reduce
+/// Motion).
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.title, this.back, required this.onBack});
 
-  final String back;
   final String title;
+  final String? back;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final reduce = kuteReduceMotion(context);
+    final backLabel = back;
+    final duration = reduce ? Duration.zero : KuteMotion.sheetInDuration;
+    Widget fade(Widget child) => AnimatedSwitcher(
+          duration: duration,
+          switchInCurve: reduce ? Curves.linear : KuteMotion.settle,
+          switchOutCurve: reduce ? Curves.linear : KuteMotion.settle,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: child,
+        );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -875,57 +950,74 @@ class _SubHeader extends StatelessWidget {
           padding: EdgeInsets.only(top: 12.h),
           child: AppDecorations.dragHandle(context),
         ),
+        // A Stack: the title centred on the sheet's full width and
+        // crossfading between the section and the group, the back link at
+        // the left gutter and the close at the right, each on its own.
         Padding(
-          padding: EdgeInsets.fromLTRB(12.w, 12.h, 20.w, 12.h),
-          child: Row(
-            children: [
-              Semantics(
-                button: true,
-                label: back,
-                excludeSemantics: true,
-                child: KutePressable(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onBack,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 8.w, vertical: 8.h),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.chevron_left_rounded,
-                              size: 22.sp, color: c.textSecondary),
-                          Text(
-                            back,
-                            style: TextStyle(
-                              color: c.textSecondary,
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+          child: SizedBox(
+            height: 40,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 48.w),
+                    child: Center(
+                      child: fade(Text(
+                        title,
+                        key: ValueKey(title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                      )),
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: fade(backLabel == null
+                      ? const SizedBox.shrink(key: ValueKey('no-back'))
+                      : Semantics(
+                          key: const ValueKey('back'),
+                          button: true,
+                          label: backLabel,
+                          excludeSemantics: true,
+                          child: KutePressable(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onBack,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.chevron_left_rounded,
+                                      size: 22.sp, color: c.textSecondary),
+                                  Text(
+                                    backLabel,
+                                    style: TextStyle(
+                                      color: c.textSecondary,
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )),
                 ),
-              ),
-              const KuteCloseButton(),
-            ],
+                const Positioned(right: 0, child: KuteCloseButton()),
+              ],
+            ),
           ),
         ),
       ],
@@ -1163,6 +1255,7 @@ class _Tile extends StatelessWidget {
       selected: picked,
       label: name,
       child: KutePressable(
+        scale: 0.97,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -1172,7 +1265,7 @@ class _Tile extends StatelessWidget {
             curve: reduce ? Curves.linear : KuteMotion.chip,
             width: double.infinity,
             height: _height,
-            margin: EdgeInsets.only(bottom: shape == _TileShape.wide ? 8.h : 0),
+            margin: EdgeInsets.only(bottom: shape == _TileShape.wide ? 12.h : 0),
             padding: compact
                 ? const EdgeInsets.symmetric(horizontal: 12)
                 : const EdgeInsets.all(12),

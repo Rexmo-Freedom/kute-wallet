@@ -81,7 +81,7 @@
 // 31 OCTOBER 2026 (founder review): THE TOP TAB READS "DOLLARS"
 // (Bitcoin | Dollars; the names in code stay Investments). THE PORTFOLIO
 // IS ITS OWN SCREEN (portfolio_screen.dart, route /portfolio), the third
-// button of the action row under the balance, Add · Send · Portfolio,
+// button of the action row under the balance, Add · Portfolio · Send,
 // three equal buttons; the pill row is Investing · Predictions only, and
 // every link that named a Portfolio section opens that screen. THE
 // PICKED PILL ALWAYS SHOWS WHAT IT HOLDS ("Investing · Trending", the
@@ -1070,6 +1070,13 @@ class UsdAccountActionBar extends ConsumerWidget {
           trackingId: 'receive',
           onTap: () => receive(context),
         ),
+        // Portfolio in the middle (founder, 31 October 2026).
+        KuteDockAction(
+          icon: InvestmentsTab.positions.icon,
+          label: context.l10n.walletPortfolioAction,
+          trackingId: 'portfolio',
+          onTap: () => openPortfolioScreen(context),
+        ),
         KuteDockAction(
           icon: Icons.north_east_rounded,
           label: context.l10n.send,
@@ -1078,12 +1085,6 @@ class UsdAccountActionBar extends ConsumerWidget {
           // your wallet" over the coins; a coin opens the dollar send,
           // whose `usd_send_opened` fires from its initState.
           onTap: () => withdraw(context),
-        ),
-        KuteDockAction(
-          icon: InvestmentsTab.positions.icon,
-          label: context.l10n.walletPortfolioAction,
-          trackingId: 'portfolio',
-          onTap: () => openPortfolioScreen(context),
         ),
       ];
 
@@ -1098,7 +1099,7 @@ class UsdAccountActionBar extends ConsumerWidget {
       );
 }
 
-/// The Dollars compact row under the balance: Add · Send · Portfolio, the
+/// The Dollars compact row under the balance: Add · Portfolio · Send, the
 /// Bitcoin tab's squared buttons, each once.
 class UsdAccountActionRow extends StatelessWidget {
   const UsdAccountActionRow({super.key});

@@ -533,7 +533,15 @@ class KutePressable extends StatefulWidget {
   final Widget child;
   final bool enabled;
 
-  const KutePressable({super.key, required this.child, this.enabled = true});
+  /// The scale held while pressed; [KuteMotion.pressScale] unless a surface
+  /// asks for a deeper press (the category tiles, 0.97).
+  final double scale;
+
+  const KutePressable(
+      {super.key,
+      required this.child,
+      this.enabled = true,
+      this.scale = KuteMotion.pressScale});
 
   @override
   State<KutePressable> createState() => _KutePressableState();
@@ -572,7 +580,7 @@ class _KutePressableState extends State<KutePressable> {
       onPointerUp: still ? null : (_) => _set(false),
       onPointerCancel: still ? null : (_) => _set(false),
       child: AnimatedScale(
-        scale: pressed ? KuteMotion.pressScale : 1.0,
+        scale: pressed ? widget.scale : 1.0,
         duration: still
             ? Duration.zero
             : (pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
@@ -596,7 +604,21 @@ class KuteStaggerIn extends StatefulWidget {
   final int index;
   final Widget child;
 
-  const KuteStaggerIn({super.key, required this.index, required this.child});
+  /// The step between rows, the rise in pixels and how many rows stagger
+  /// (the rest draw at once): the list defaults, or a surface's own (the
+  /// category tiles: 16 ms, 6 px, every tile).
+  final Duration step;
+  final double rise;
+  final int limit;
+
+  const KuteStaggerIn({
+    super.key,
+    required this.index,
+    required this.child,
+    this.step = kStaggerStep,
+    this.rise = 10,
+    this.limit = kStaggerRows,
+  });
 
   @override
   State<KuteStaggerIn> createState() => _KuteStaggerInState();
@@ -612,11 +634,11 @@ class _KuteStaggerInState extends State<KuteStaggerIn>
     super.didChangeDependencies();
     if (_decided) return;
     _decided = true;
-    if (widget.index >= kStaggerRows || kuteReduceMotion(context)) return;
+    if (widget.index >= widget.limit || kuteReduceMotion(context)) return;
     final c = AnimationController(
         vsync: this, duration: KuteMotion.settleDuration);
     _controller = c;
-    Future<void>.delayed(kStaggerStep * widget.index, () {
+    Future<void>.delayed(widget.step * widget.index, () {
       if (mounted && !c.isAnimating && c.value == 0) c.forward();
     });
   }
@@ -637,7 +659,7 @@ class _KuteStaggerInState extends State<KuteStaggerIn>
       child: AnimatedBuilder(
         animation: curved,
         builder: (context, child) => Transform.translate(
-          offset: Offset(0, 10 * (1 - curved.value)),
+          offset: Offset(0, widget.rise * (1 - curved.value)),
           child: child,
         ),
         child: widget.child,
