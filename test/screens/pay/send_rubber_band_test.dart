@@ -24,6 +24,7 @@ import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/success_feedback.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 /// One send route, as the bitcoin send's routes run: the SDK prepare,
 /// the face scan (`_approveSend` raises and clears the auth flag around
@@ -122,9 +123,11 @@ Future<void> _pump(WidgetTester tester, _Route route,
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       theme: ThemeData(extensions: [AppColorsExtension.light()]),
+      // Reduce Motion when asked; the shell bar over the page, Send being
+      // the bar (kute_bar_test_support.dart).
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
-        child: child!,
+        child: withKuteShellBar(context, child),
       ),
       home: _Review(route: route),
     ),

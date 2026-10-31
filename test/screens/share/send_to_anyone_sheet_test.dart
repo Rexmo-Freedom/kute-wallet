@@ -1,6 +1,8 @@
 // Send to anyone, dollars: the amount on the keypad, the optional first
 // name, Create link posting to the backend, the OS share text, the local
 // pending row and the events. Plus the market share sheet's referral link.
+// The sheet's Continue / Create link / Done is the floating Sal bar
+// (kute_bar_test_support.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/services/share_links_store.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
 import 'share_test_harness.dart';
 
 void main() {
@@ -36,7 +39,7 @@ void main() {
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars));
 
     // Continue is off until an amount is typed.
-    final continueButton = find.byKey(const ValueKey('share-amount-continue'));
+    final continueButton = kuteBarPrimaryWithText('Continue');
     expect(continueButton, findsOneWidget);
     await tester.tap(continueButton);
     await settle(tester);
@@ -54,7 +57,7 @@ void main() {
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
 
     // The backend got the pending send; nothing moved.
@@ -72,7 +75,7 @@ void main() {
     // The receipt row.
     expect(find.text('\$12.00 · Ana'), findsOneWidget);
     expect(find.text('Link sent · waiting for Ana to claim'), findsOneWidget);
-    expect(find.byKey(const ValueKey('share-done')), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
     final row = ShareLinksStore.byId('lnk_1')!;
     expect(row.status, ShareLinkStatus.open);
     expect(row.label, 'Ana');
@@ -100,9 +103,9 @@ void main() {
             kind: ShareLinkKind.dollars, marketSlug: 'will-it-rain'));
     await tester.tap(find.text('5'));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
 
     expect(env.fake.calls.single.$2['marketSlug'], 'will-it-rain');
@@ -139,12 +142,12 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('0'));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
 
     expect(env.fake.calls.single.$2, {
@@ -192,9 +195,9 @@ void main() {
     expect(find.text('Long on BTC'), findsOneWidget);
     await tester.tap(find.text('5'));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
     expect(env.fake.calls.single.$2['side'], 'long');
     expect(env.fake.calls.single.$2.containsKey('outcomeIndex'), isFalse);
@@ -211,13 +214,13 @@ void main() {
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars));
     await tester.tap(find.text('3'));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
 
     expect(find.text('Could not create the link. Try again.'), findsOneWidget);
-    expect(find.byKey(const ValueKey('share-create-link')), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Create link'), findsOneWidget);
     expect(shared, isEmpty);
     expect(ShareLinksStore.all(), isEmpty);
     expect(env.paramsOf('share_link_created'), isEmpty);

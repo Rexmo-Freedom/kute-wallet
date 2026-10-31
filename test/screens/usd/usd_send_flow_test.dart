@@ -34,7 +34,6 @@ import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill;
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -60,6 +59,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_scanner_camera.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _spark =
     'sp1pgssy7d7vel0nh9m4326qc54e6rskpczn07dktww9rv4nu5ptvt0s9ucez8h3s';
@@ -251,6 +251,9 @@ Future<void> _pump(WidgetTester tester,
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): every
+        // step's primary is the bar.
+        builder: withKuteShellBar,
         theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -261,8 +264,12 @@ Future<void> _pump(WidgetTester tester,
   await tester.pumpAndSettle();
 }
 
-AppButton _cta(WidgetTester tester, String label) => tester.widget<AppButton>(
-    find.ancestor(of: find.text(label), matching: find.byType(AppButton)));
+/// The step's primary button, the bar (kute_bar_test_support.dart),
+/// reading [label].
+KuteBarPrimaryProbe _cta(WidgetTester tester, String label) {
+  expect(kuteBarPrimaryWithText(label), findsOneWidget);
+  return kuteBarPrimaryProbe(tester);
+}
 
 bool _continueEnabled(WidgetTester tester) =>
     _cta(tester, _l10n.continueLabel).onPressed != null;
@@ -1048,9 +1055,8 @@ void main() {
     final field = tester.getRect(find.byType(TextField));
     expect(field.top, greaterThanOrEqualTo(tester.getTopLeft(_sheet).dy));
     expect(field.bottom, lessThanOrEqualTo(keyboardTop));
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
-    expect(tester.getRect(cta).bottom, lessThanOrEqualTo(keyboardTop));
+    // Continue is the bar, which slides away under the keyboard
+    // (kute_bar_context.dart) and is back once it goes; it is on.
     expect(_continueEnabled(tester), isTrue);
 
     // Outside the field: keyboard away, sheet kept.
@@ -1060,11 +1066,12 @@ void main() {
         isNot(isA<EditableText>()));
     expect(find.byType(UsdSendScreen), findsOneWidget);
 
-    await tester.tap(cta);
-    await tester.pumpAndSettle();
-    expect(_step(_l10n.amount), findsOneWidget);
+    // The keyboard gone, the bar is back: Continue.
     tester.view.resetViewInsets();
     await tester.pumpAndSettle();
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
+    await tester.pumpAndSettle();
+    expect(_step(_l10n.amount), findsOneWidget);
     expect(tester.takeException(), isNull);
     // The keypad's 1 is on screen and tappable at this size.
     await _type(tester, '5');

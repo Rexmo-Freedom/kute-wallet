@@ -348,6 +348,11 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
 /// label; not tappable. Busy: the label beside the progress ring; taps
 /// ignored. A tap runs [KuteBarContext.onPrimary]; a long press (600 ms)
 /// opens the Sal sheet ([onAsk]) so asking Sal stays available.
+///
+/// On a tinted slip the context carries the slip's own button look
+/// ([KuteBarContext.style]; founder: never black on the green or red
+/// slip): its fill, ink, radius and weight, the whole button at 0.35
+/// while not available, as the slip's CTA was.
 class KuteBarPrimaryButton extends StatelessWidget {
   const KuteBarPrimaryButton(
       {super.key, required this.barContext, required this.onAsk});
@@ -363,8 +368,20 @@ class KuteBarPrimaryButton extends StatelessWidget {
     final busy = ctx.busy;
     final enabled = ctx.enabled && !busy && ctx.onPrimary != null;
     final live = enabled || busy;
-    final fill = live ? c.textPrimary : c.surfaceLight;
-    final ink = live ? (isLight ? Colors.white : c.background) : c.textTertiary;
+    final style = ctx.style;
+    final Color fill;
+    final Color ink;
+    if (style != null) {
+      fill = live ? style.fill : (style.disabledFill ?? style.fill);
+      ink = live
+          ? style.foreground
+          : (style.disabledForeground ?? style.foreground);
+    } else {
+      fill = live ? c.textPrimary : c.surfaceLight;
+      ink = live ? (isLight ? Colors.white : c.background) : c.textTertiary;
+    }
+    // A styled button with no disabled colours of its own fades whole.
+    final faded = style != null && !live && style.disabledFill == null;
     final clip = busy ? 'search' : (enabled ? 'idle' : 'curious');
     final label = busy ? (ctx.busyLabel ?? ctx.label) : ctx.label;
     final reduce = kuteReduceMotion(context);
@@ -384,7 +401,10 @@ class KuteBarPrimaryButton extends StatelessWidget {
                 }
               : null,
           onLongPress: onAsk,
-          child: AnimatedContainer(
+          child: AnimatedOpacity(
+            opacity: faded ? 0.35 : 1,
+            duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+            child: AnimatedContainer(
             key: const ValueKey('kute-bar-primary-button'),
             duration: reduce ? Duration.zero : KuteMotion.chipDuration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
@@ -393,9 +413,9 @@ class KuteBarPrimaryButton extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 14.w),
             decoration: BoxDecoration(
               color: fill,
-              borderRadius: AppRadius.buttonBorder,
+              borderRadius: style?.radius ?? AppRadius.buttonBorder,
               border: Border.all(
-                color: live
+                color: live || style != null
                     ? Colors.transparent
                     : (isLight ? c.border : c.borderSubtle),
                 width: isLight ? 1.0 : 0.5,
@@ -419,7 +439,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
                     style: TextStyle(
                       color: ink,
                       fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: style?.fontWeight ?? FontWeight.w600,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -435,6 +455,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
                 ],
               ],
             ),
+          ),
           ),
         ),
       ),

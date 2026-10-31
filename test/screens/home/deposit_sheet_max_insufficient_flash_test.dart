@@ -38,7 +38,6 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -46,6 +45,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _balanceSats = 100000; // $100.00 at the sample price.
@@ -148,6 +148,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           theme:
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -192,7 +195,7 @@ Future<void> _close(WidgetTester tester, ProviderContainer container) async {
 }
 
 /// The sheet's one action button ("Buy \$100", "Add \$100").
-Finder get _cta => find.byType(AppButton).last;
+Finder get _cta => kuteBarPrimary;
 
 void main() {
   setUpAll(() {
@@ -238,13 +241,13 @@ void main() {
       await tester.pump();
       await tester.tap(_cta);
       await tester.pump();
-      expect(tester.widget<AppButton>(_cta).isLoading, isTrue,
+      expect(kuteBarPrimaryProbe(tester).isLoading, isTrue,
           reason: 'the move is in flight');
       // The sats leave: the live balance drops under the amount on
       // screen while the sheet is still up with its spinner.
       _setBalance(container, 0);
       expect(await _sawInsufficient(tester), isFalse);
-      expect(tester.widget<AppButton>(_cta).isLoading, isTrue);
+      expect(kuteBarPrimaryProbe(tester).isLoading, isTrue);
       await _close(tester, container);
     });
 
@@ -263,7 +266,7 @@ void main() {
       sdk.completeError(StateError('The spending wallet is disconnected.'));
       await tester.pump();
       await tester.pump();
-      expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+      expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
       expect(find.text(_insufficient), findsWidgets);
       await _close(tester, container);
     });
@@ -298,7 +301,7 @@ void main() {
       }
       expect(find.text(_insufficient), findsWidgets);
       expect(find.text('Add funds'), findsOneWidget);
-      expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+      expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
       await _close(tester, container);
     });
   }

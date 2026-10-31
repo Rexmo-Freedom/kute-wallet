@@ -372,6 +372,15 @@ class PolySlipCta extends StatelessWidget {
     // had, and draws no button of its own. What stays is the room the
     // bar needs over the keypad. The tint, the band and the colours of
     // the old button are the bar's own now.
+    // THE SLIP'S OWN BUTTON LOOK (founder: never black on the tinted
+    // slip): the sheet's ink as the fill, the trade lettered in its side
+    // colour, a neutral action in the contrast; off the tint, the side
+    // colour itself. The slip's 16 radius and w800.
+    final tint = SheetTint.maybeOf(context);
+    final fill = tint == null ? color : tint.on;
+    final fg = tint == null
+        ? contrastingOnColor(color)
+        : slipCtaLabelColor(fill: tint.on, side: tint.side, neutral: neutral);
     return KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,
@@ -381,6 +390,12 @@ class PolySlipCta extends StatelessWidget {
         busyLabel: isBusy
             ? (busyLabel ?? context.l10n.betPlacingOrderEllipsis)
             : null,
+        style: KuteBarPrimaryStyle(
+          fill: fill,
+          foreground: fg,
+          radius: BorderRadius.circular(16.r),
+          fontWeight: FontWeight.w800,
+        ),
         category: SearchCategory.predictions,
         source: 'slip',
       ),

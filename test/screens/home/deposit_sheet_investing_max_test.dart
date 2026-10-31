@@ -36,7 +36,6 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
@@ -51,6 +50,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _account = '0x1111111111111111111111111111111111111111';
@@ -241,6 +241,9 @@ Future<(ProviderContainer, _Hypercore)> _open(
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           theme:
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -270,7 +273,7 @@ Future<void> _pickDollars(WidgetTester tester) async {
 Future<void> _maxAndContinue(WidgetTester tester) async {
   await tester.tap(find.text('Max'));
   await tester.pump();
-  await tester.tap(find.byType(AppButton).last);
+  await tester.tap(kuteBarPrimary);
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -349,7 +352,7 @@ void main() {
         expect(hypercore.requested.single, expected);
         expect(find.text(_generic), findsNothing);
         expect(find.text(_insufficient), findsNothing);
-        expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+        expect(kuteBarPrimaryProbe(tester).isLoading,
             isTrue,
             reason: 'the move passed every check and is in flight');
         await _close(tester, container);
@@ -376,7 +379,7 @@ void main() {
     expect(_withdrawOnly('hyperliquid_withdraw_failed')['route'], 'direct');
     expect(
         _withdrawOnly('hyperliquid_withdraw_failed')['purpose'], 'manual_move');
-    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+    expect(kuteBarPrimaryProbe(tester).isLoading,
         isFalse);
     await _close(tester, container);
   });
@@ -414,7 +417,7 @@ void main() {
     expect(initiated['amount_usd'], 10);
     expect(initiated.containsKey('amount_bucket'), isFalse);
     expect(_withdrawOnly('hyperliquid_withdraw_step')['step'], 'cctp_fallback');
-    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+    expect(kuteBarPrimaryProbe(tester).isLoading,
         isTrue,
         reason: 'the CCTP move is in flight');
     await _close(tester, container);
@@ -443,7 +446,7 @@ void main() {
     expect(failed['route'], 'cctp');
     expect(failed['reason'], 'paused');
     expect(failed['purpose'], 'manual_move');
-    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+    expect(kuteBarPrimaryProbe(tester).isLoading,
         isFalse);
     await _close(tester, container);
   });
@@ -470,7 +473,7 @@ void main() {
     expect(find.text(decision.messageIn(l10n)), findsOneWidget);
     expect(find.text(_refusedCopy), findsNothing);
     expect(find.text(_generic), findsNothing);
-    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+    expect(kuteBarPrimaryProbe(tester).isLoading,
         isFalse);
     await tester.tap(find.text(l10n.gotIt));
     await tester.pumpAndSettle(const Duration(milliseconds: 50));
@@ -489,7 +492,7 @@ void main() {
     expect(hypercore.sent.single.destination, SparkFundingAsset.bitcoin);
     expect(cctp.moves, isEmpty, reason: 'CCTP lands as dollars only');
     expect(find.text(_refusedCopy), findsWidgets);
-    expect(tester.widget<AppButton>(find.byType(AppButton).last).isLoading,
+    expect(kuteBarPrimaryProbe(tester).isLoading,
         isFalse);
     await _close(tester, container);
   });

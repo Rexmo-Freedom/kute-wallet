@@ -169,8 +169,8 @@ class StepPageWrapper extends StatelessWidget {
 /// THE BAR IS THE BUTTON on the steps in [barSteps] (founder, 31 October
 /// 2026; kute_bar_context.dart): there the CTA draws no button of its
 /// own but declares the step's Continue as the floating Sal bar's primary
-/// action, and keeps the keypad clear of the bar. The Send to step stays
-/// a drawn button: its bar is "Send to anyone".
+/// action, and keeps the keypad clear of the bar. Both send steppers put
+/// every step there (founder: every pinned button is Sal).
 class SharedStepCta extends StatelessWidget {
   final int step;
   final AppColorsExtension colors;

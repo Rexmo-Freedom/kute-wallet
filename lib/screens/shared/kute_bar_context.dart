@@ -88,6 +88,36 @@ class KuteBarAction {
   final void Function(BuildContext sheetContext) onTap;
 }
 
+/// How a surface's primary button is painted when the bar is it (founder,
+/// 31 October 2026: NEVER black on a tinted slip). The bet slip, the sell
+/// and close sheets and the margin sheets hand the bar exactly the look
+/// their own CTA had: the slip's ink as [fill] (white on the green Yes
+/// slip, on the red No slip), the trade lettered in the side colour or a
+/// neutral action in the contrast ([foreground]), the slip's [radius] and
+/// weight. Without a style the bar is the app's primary button
+/// (textPrimary fill). A disabled styled button fades whole, as the slip's
+/// did.
+class KuteBarPrimaryStyle {
+  const KuteBarPrimaryStyle({
+    required this.fill,
+    required this.foreground,
+    this.disabledFill,
+    this.disabledForeground,
+    this.radius,
+    this.fontWeight,
+  });
+
+  final Color fill;
+  final Color foreground;
+
+  /// The fill and ink while the action is not available; the live ones at
+  /// 0.35 when null.
+  final Color? disabledFill;
+  final Color? disabledForeground;
+  final BorderRadius? radius;
+  final FontWeight? fontWeight;
+}
+
 /// What the bar is on a surface: the search / Sal pill, or the surface's
 /// PRIMARY BUTTON (founder, 31 October 2026: on amount and keypad
 /// screens and slips the bar IS the Place / Send / Continue button; the
@@ -113,7 +143,8 @@ class KuteBarContext {
         enabled = true,
         busy = false,
         onPrimary = null,
-        busyLabel = null;
+        busyLabel = null,
+        style = null;
 
   /// An informational screen's question ("Explain this receive screen…"):
   /// tapping the bar opens the Sal sheet with it already sent.
@@ -132,6 +163,7 @@ class KuteBarContext {
     this.enabled = true,
     this.busy = false,
     this.busyLabel,
+    this.style,
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -151,6 +183,10 @@ class KuteBarContext {
   final VoidCallback? onPrimary;
   final String? busyLabel;
 
+  /// The surface's own button look for the bar (a tinted slip's); null
+  /// for the app's primary button. See [KuteBarPrimaryStyle].
+  final KuteBarPrimaryStyle? style;
+
   /// A context that only hides the bar (a keyboard surface, the Sal sheet).
   const KuteBarContext.hidden()
       : label = '',
@@ -169,7 +205,8 @@ class KuteBarContext {
         enabled = true,
         busy = false,
         onPrimary = null,
-        busyLabel = null;
+        busyLabel = null,
+        style = null;
 
   /// The bar is this surface's primary button (see [KuteBarContext.primary]).
   bool get isPrimary => kind == KuteBarKind.primaryAction;
@@ -219,6 +256,7 @@ class KuteBarContext {
           enabled: enabled,
           busy: busy,
           busyLabel: busyLabel,
+          style: style,
           category: category,
           searchHint: searchHint,
           source: source,

@@ -34,7 +34,6 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceProvider;
 import 'package:kute/screens/home/components/deposit_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_stage.dart';
 import 'package:kute/services/http/shared_http_client.dart';
@@ -46,6 +45,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _balanceSats = 100000; // $100.00 at the sample price.
@@ -226,6 +226,9 @@ void main() {
         child: ScreenUtilInit(
           designSize: const Size(430, 932),
           builder: (_, __) => MaterialApp(
+            // The shell bar over the page, as app_widget.dart mounts it: the
+            // sheet's button is the bar (kute_bar_test_support.dart).
+            builder: withKuteShellBar,
             theme: buildLightTheme()
                 .copyWith(splashFactory: NoSplash.splashFactory),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -255,7 +258,7 @@ void main() {
     await _frames(tester);
     expect(find.byType(DepositSheet), findsOneWidget);
 
-    await tester.tap(find.byType(AppButton).last);
+    await tester.tap(kuteBarPrimary);
     await _frames(tester);
     // The sats are on their way: the sheet waits only for that.
     expect(sending, 1);

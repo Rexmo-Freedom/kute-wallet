@@ -34,3 +34,20 @@ bool kuteBarPrimaryEnabled(WidgetTester tester) {
   final ctx = kuteBarPrimaryContext(tester);
   return ctx.enabled && !ctx.busy && ctx.onPrimary != null;
 }
+
+/// The bar's primary button read the way a test read the drawn AppButton
+/// it replaced: [text] the label, [isLoading] the busy state, [onPressed]
+/// the handler while the button takes a tap, else null.
+class KuteBarPrimaryProbe {
+  const KuteBarPrimaryProbe(this.context);
+
+  final KuteBarContext context;
+
+  String get text => context.label;
+  bool get isLoading => context.busy;
+  VoidCallback? get onPressed =>
+      context.enabled && !context.busy ? context.onPrimary : null;
+}
+
+KuteBarPrimaryProbe kuteBarPrimaryProbe(WidgetTester tester) =>
+    KuteBarPrimaryProbe(kuteBarPrimaryContext(tester));

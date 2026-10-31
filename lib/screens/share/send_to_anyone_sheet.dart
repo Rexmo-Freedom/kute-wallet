@@ -403,6 +403,12 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           maxLength: 40,
           keyboardType: TextInputType.name,
           onChanged: (_) => setState(() {}),
+          // The bar is Create link and hides under the keyboard: the
+          // return key creates the link too.
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_creating) unawaited(_create());
+          },
         ),
         if (_error != null) ...[
           SizedBox(height: 10.h),
