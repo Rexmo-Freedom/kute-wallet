@@ -273,7 +273,7 @@ void main() {
 
   testWidgets(
       'no venue Deposit or Withdraw anywhere; the money verbs are one row '
-      'under the hero, Add · To Bitcoin, the dock is search alone, and Add '
+      'under the hero, Add · Withdraw, the dock is search alone, and Add '
       'opens the Dollars receive screen', (tester) async {
     final events = recordEvents();
     var receiveOpened = 0;
@@ -284,7 +284,7 @@ void main() {
     expect(find.byType(VenueDepositButton, skipOffstage: false), findsNothing);
     expect(find.byType(InvestmentActionBar, skipOffstage: false), findsNothing);
     // No bank words anywhere: the verbs say what happens.
-    expect(find.text(l10n.withdraw, skipOffstage: false), findsNothing);
+    expect(find.text(l10n.withdraw, skipOffstage: false), findsOneWidget);
     expect(find.text(l10n.deposit, skipOffstage: false), findsNothing);
     expect(find.textContaining('Investing deposit', skipOffstage: false),
         findsNothing);
@@ -295,7 +295,7 @@ void main() {
     expect(find.byType(AppButton, skipOffstage: false), findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
 
-    // The action row under the hero: Add and To Bitcoin, the Bitcoin
+    // The action row under the hero: Add and Withdraw, the Bitcoin
     // dock's arrows and action keys, each once on the page; then the
     // Dollars note, then the pills.
     final row = find.byType(UsdAccountActionRow);
@@ -304,12 +304,12 @@ void main() {
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
     expect(actions.map((a) => a.label),
-        [l10n.investmentsAdd, l10n.investmentsToBitcoin]);
+        [l10n.investmentsAdd, l10n.withdraw]);
     expect(actions.map((a) => a.trackingId), ['receive', 'send']);
     expect(actions.map((a) => a.icon),
         [Icons.south_west_rounded, Icons.north_east_rounded]);
     expect(find.text(l10n.investmentsAdd), findsOneWidget);
-    expect(find.text(l10n.investmentsToBitcoin), findsOneWidget);
+    expect(find.text(l10n.withdraw), findsOneWidget);
     expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
     expect(find.text(l10n.send, skipOffstage: false), findsNothing);
     expect(find.byKey(const ValueKey('dollars-held-note')), findsOneWidget);

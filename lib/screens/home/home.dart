@@ -1343,14 +1343,20 @@ class _HomeActions extends ConsumerWidget {
       );
     }
     if (activeWallet == null) return const SizedBox.shrink();
-    // One row, every action once (fintech, not a crypto dock): Receive ·
-    // Send · Buy on the bitcoin card. Scan lives inside Send. The buttons
-    // are the dock's own, so the events read as before.
+    // Under the balance, each action once: Purchase Bitcoin with the
+    // scanner beside it (the row the card always had), then Receive and
+    // Send, the dock's own buttons moved up (the dock is search alone).
     if (!isUsdc) {
-      return KuteActionRow(source: source, actions: [
-        ...bitcoinWalletDockActions(context, ref, activeWallet),
-        bitcoinBuyDockAction(context, ref, activeWallet, source: source),
-      ]);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          BitcoinWalletPrimaryActions(wallet: activeWallet, source: source),
+          SizedBox(height: 10.h),
+          KuteActionRow(
+              source: source,
+              actions: bitcoinWalletDockActions(context, ref, activeWallet)),
+        ],
+      );
     }
     // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
     return KuteActionRow(source: source, actions: [

@@ -1025,9 +1025,10 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   /// The two money verbs, as the action row under the balance draws them
   /// ([UsdAccountActionRow]). The action keys stay `receive` and `send`
-  /// so the events read as before; the labels say what happens: Add
-  /// (money into Dollars) and To Bitcoin (Dollars back out), never the
-  /// bank's Deposit and Withdraw, since no bank is involved.
+  /// so the events read as before. Add is money into Dollars (from
+  /// Bitcoin or another wallet); Withdraw is Dollars out, to Bitcoin or
+  /// sent on as a coin to another wallet, so it is not "To Bitcoin"
+  /// (founder, 31 October 2026).
   static List<KuteDockAction> moneyActions(BuildContext context) => [
         KuteDockAction(
           icon: Icons.south_west_rounded,
@@ -1037,7 +1038,7 @@ class UsdAccountActionBar extends ConsumerWidget {
         ),
         KuteDockAction(
           icon: Icons.north_east_rounded,
-          label: context.l10n.investmentsToBitcoin,
+          label: context.l10n.withdraw,
           trackingId: 'send',
           // The Add sheet, turned around (usd_withdraw_screen.dart): "To
           // your wallet" over the coins; a coin opens the dollar send,
@@ -1057,7 +1058,7 @@ class UsdAccountActionBar extends ConsumerWidget {
       );
 }
 
-/// The Investments action row under the balance: Add · To Bitcoin, the
+/// The Investments action row under the balance: Add · Withdraw, the
 /// dock's own buttons (same chrome as the Bitcoin tab's Receive · Send ·
 /// Buy), each verb once on the screen.
 class UsdAccountActionRow extends StatelessWidget {

@@ -77,35 +77,6 @@ List<KuteDockAction> bitcoinWalletDockActions(
   ];
 }
 
-/// Buy as one verb of the action row ("Buy"), beside Receive and Send: the
-/// same door the big Purchase button opened (Buy bitcoin), with the same
-/// gate for a savings wallet that has no onramp on offer.
-KuteDockAction bitcoinBuyDockAction(
-    BuildContext context, WidgetRef ref, WalletConfig wallet,
-    {required String source}) {
-  return KuteDockAction(
-    icon: Icons.currency_bitcoin_rounded,
-    label: context.l10n.homeBuy,
-    trackingId: 'purchase',
-    strongIcon: true,
-    onTap: () async {
-      if (!wallet.isSparkWallet &&
-          !await confirmAnyOnrampVisible(
-              ref.read(runtimeCapabilitiesProvider))) {
-        if (context.mounted) showBuyUnavailableSheet(context);
-        return;
-      }
-      if (!context.mounted) return;
-      if (!_pinBitcoinWallet(context, ref, wallet)) return;
-      showDepositSheet(
-        context,
-        lockedSide: MoveLockedSide.depositFromFiat,
-        fiatDepositWalletId: wallet.isSparkWallet ? null : wallet.id,
-      );
-    },
-  );
-}
-
 /// Same purchase and camera controls for Home and the displayed cold wallet.
 class BitcoinWalletPrimaryActions extends ConsumerWidget {
   const BitcoinWalletPrimaryActions(

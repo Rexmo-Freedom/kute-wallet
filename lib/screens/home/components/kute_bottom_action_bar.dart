@@ -253,7 +253,7 @@ class KuteBottomActionBar extends ConsumerWidget {
 }
 
 /// The money verbs of a surface in one row under its balance, each once:
-/// Receive · Send · Buy on a bitcoin surface, Add · To Bitcoin on
+/// Receive · Send on a bitcoin surface, Add · Withdraw on
 /// Investments. The same buttons the dock wore, so nothing changes hands;
 /// the dock itself is left to search and Sal.
 class KuteActionRow extends StatelessWidget {

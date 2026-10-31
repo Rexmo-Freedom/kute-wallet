@@ -11287,13 +11287,7 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get homeBuy => 'Vásárlás';
-
-  @override
   String get investmentsAdd => 'Hozzáadás';
-
-  @override
-  String get investmentsToBitcoin => 'Bitcoinba';
 
   @override
   String investmentsDollarsHeldTitle(String amount) {

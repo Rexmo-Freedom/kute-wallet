@@ -11320,13 +11320,7 @@ class AppLocalizationsRo extends AppLocalizations {
   }
 
   @override
-  String get homeBuy => 'Cumpără';
-
-  @override
   String get investmentsAdd => 'Adaugă';
-
-  @override
-  String get investmentsToBitcoin => 'În Bitcoin';
 
   @override
   String investmentsDollarsHeldTitle(String amount) {

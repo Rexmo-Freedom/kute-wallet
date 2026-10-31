@@ -11274,13 +11274,7 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get homeBuy => 'Osta';
-
-  @override
   String get investmentsAdd => 'Lisää';
-
-  @override
-  String get investmentsToBitcoin => 'Bitcoiniin';
 
   @override
   String investmentsDollarsHeldTitle(String amount) {

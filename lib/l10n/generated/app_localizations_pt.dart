@@ -11311,13 +11311,7 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get homeBuy => 'Comprar';
-
-  @override
   String get investmentsAdd => 'Adicionar';
-
-  @override
-  String get investmentsToBitcoin => 'Para Bitcoin';
 
   @override
   String investmentsDollarsHeldTitle(String amount) {

@@ -18861,23 +18861,11 @@ abstract class AppLocalizations {
   /// **'entry {price}'**
   String portfolioRowEntry(String price);
 
-  /// Home, the action row under the balance: the third verb beside Receive and Send; opens Buy bitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'Buy'**
-  String get homeBuy;
-
   /// Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'.
   ///
   /// In en, this message translates to:
   /// **'Add'**
   String get investmentsAdd;
-
-  /// Investments, the action row under the balance: sends Dollars back to Bitcoin (or out as a coin). Replaces 'Withdraw'.
-  ///
-  /// In en, this message translates to:
-  /// **'To Bitcoin'**
-  String get investmentsToBitcoin;
 
   /// Investments, the note under the action row while Dollars are held. {amount} is a formatted dollar amount.
   ///
