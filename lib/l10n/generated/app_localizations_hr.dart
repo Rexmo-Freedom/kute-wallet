@@ -11288,4 +11288,27 @@ class AppLocalizationsHr extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'ulaz $price';
   }
+
+  @override
+  String get homeBuy => 'Kupi';
+
+  @override
+  String get investmentsAdd => 'Dodaj';
+
+  @override
+  String get investmentsToBitcoin => 'U Bitcoin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount se drži u dolarima';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Ne mijenja se s cijenom Bitcoina';
+
+  @override
+  String get activityOnItsWay => 'Na putu';
+
+  @override
+  String get investingTradfi => 'Tradicionalno';
 }

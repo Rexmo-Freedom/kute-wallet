@@ -20,7 +20,6 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show showDepositSheet, MoveLockedSide;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kute/screens/shared/animated_balance.dart';
-import 'package:kute/screens/shared/venue_deposit_button.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -853,8 +852,14 @@ class _ActivitySection extends ConsumerWidget {
                   ? const _ActivitySkeleton()
                   : showEmptyState
                       ? const NoActivityState()
+                      // Compact rows on Home: one line of context and one
+                      // figure each; the rest is in the row's detail.
                       : const RepaintBoundary(
-                          child: TransactionList(emptyState: NoActivityState()),
+                          child: ActivityRowStyle(
+                            compact: true,
+                            child:
+                                TransactionList(emptyState: NoActivityState()),
+                          ),
                         ),
             ),
           ),
@@ -1314,40 +1319,17 @@ class _HomeActions extends ConsumerWidget {
               : MoveLockedSide.withdrawFromPredictions);
     }
 
+    final source = isUsdc ? 'home_predictions' : 'home';
     if (bottomBar) {
-      // Home's dock verbs follow the card it is showing: Send and Receive on
-      // the bitcoin cards, Portfolio and Withdraw on the Predictions (USDC)
-      // card, whose Deposit is the top button (owner decision: each job has
-      // one home).
-      final source = isUsdc ? 'home_predictions' : 'home';
+      // The money verbs sit under the balance, each once (see below); the
+      // dock is the one quiet door to search and Sal, scoped to the card:
+      // everything on the bitcoin cards, the prediction markets on the
+      // Predictions card. The same results-first sheet every venue dock
+      // opens (searchFirst): only the category differs.
       return KuteBottomActionBar(
         source: source,
         onHeightChanged: onHeightChanged,
-        actions: activeWallet == null
-            ? const []
-            : isUsdc
-                ? [
-                    KuteDockAction(
-                        icon: Icons.pie_chart_rounded,
-                        label: context.l10n.walletPortfolioAction,
-                        trackingId: 'portfolio',
-                        strongIcon: true,
-                        onTap: () => Navigator.of(context, rootNavigator: true)
-                            .push(MaterialPageRoute(
-                                builder: (_) => const OpenInvestmentsScreen(
-                                    source: 'home')))),
-                    KuteDockAction(
-                        icon: Icons.north_east_rounded,
-                        label: context.l10n.withdraw,
-                        trackingId: 'withdraw',
-                        onTap: () => fundPredictions(false)),
-                  ]
-                : bitcoinWalletDockActions(context, ref, activeWallet),
-        // The square is search, scoped to the card: everything on the
-        // bitcoin cards, the prediction markets on the Predictions card.
-        // The same results-first sheet every venue dock opens (searchFirst):
-        // only the category differs. On the bitcoin cards it used to open
-        // the Sal intro instead, which read as a different screen.
+        actions: const [],
         onSearch: activeWallet == null
             ? null
             : () => showKuteSearch(context,
@@ -1361,17 +1343,37 @@ class _HomeActions extends ConsumerWidget {
       );
     }
     if (activeWallet == null) return const SizedBox.shrink();
+    // One row, every action once (fintech, not a crypto dock): Receive ·
+    // Send · Buy on the bitcoin card. Scan lives inside Send. The buttons
+    // are the dock's own, so the events read as before.
     if (!isUsdc) {
-      return BitcoinWalletPrimaryActions(wallet: activeWallet, source: 'home');
+      return KuteActionRow(source: source, actions: [
+        ...bitcoinWalletDockActions(context, ref, activeWallet),
+        bitcoinBuyDockAction(context, ref, activeWallet, source: source),
+      ]);
     }
-    // The Predictions card's top button is the venue's own Deposit button,
-    // the one the Predictions tab wears; Portfolio is in the dock below.
-    // Build was asked to go from Predictions and this row was the last
-    // place it survived. The builder screen and its route stay.
-    return VenueDepositButton(
-        product: InvestmentsProduct.predictions,
-        source: 'home_predictions',
-        onTap: () => fundPredictions(true));
+    // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
+    return KuteActionRow(source: source, actions: [
+      KuteDockAction(
+          icon: Icons.south_west_rounded,
+          label: context.l10n.deposit,
+          trackingId: 'deposit',
+          onTap: () => fundPredictions(true)),
+      KuteDockAction(
+          icon: Icons.pie_chart_rounded,
+          label: context.l10n.walletPortfolioAction,
+          trackingId: 'portfolio',
+          strongIcon: true,
+          onTap: () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const OpenInvestmentsScreen(source: 'home')))),
+      KuteDockAction(
+          icon: Icons.north_east_rounded,
+          label: context.l10n.withdraw,
+          trackingId: 'withdraw',
+          onTap: () => fundPredictions(false)),
+    ]);
   }
 }
 

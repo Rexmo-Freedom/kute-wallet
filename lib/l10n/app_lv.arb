@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Pieejams ieguldīšanai",
   "portfolioNoOpenPositions": "Nav atvērtu pozīciju",
   "portfolioRowShares": "{shares} daļas · vid. {price}",
-  "portfolioRowEntry": "ieeja {price}"
+  "portfolioRowEntry": "ieeja {price}",
+  "homeBuy": "Pirkt",
+  "investmentsAdd": "Pievienot",
+  "investmentsToBitcoin": "Uz Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} tiek turēti dolāros",
+  "investmentsDollarsHeldBody": "Nemainās līdz ar Bitcoin cenu",
+  "activityOnItsWay": "Ceļā",
+  "investingTradfi": "Tradicionālie"
 }

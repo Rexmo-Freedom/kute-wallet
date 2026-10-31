@@ -864,7 +864,7 @@ void main() {
       expect(find.text('Withdraw'), findsOneWidget);
       expect(find.textContaining('from Investments'), findsOneWidget);
       expect(
-          find.textContaining('Pending', findRichText: true), findsOneWidget);
+          find.textContaining('On its way', findRichText: true), findsOneWidget);
       expect(find.textContaining('9.42'), findsOneWidget,
           reason: 'in dollars until bitcoin is reported');
     });
@@ -886,7 +886,7 @@ void main() {
           tester, MultiSourceMoveTransaction(move: move, legRows: [pm]));
       expect(find.text('Withdraw'), findsOneWidget);
       expect(
-          find.textContaining('Pending', findRichText: true), findsOneWidget);
+          find.textContaining('On its way', findRichText: true), findsOneWidget);
     });
 
     testWidgets('a multi-source send reads as the Dollars send row',
@@ -2121,7 +2121,7 @@ void main() {
       final tx = MultiSourceMoveTransaction(
           move: founderMove(), legRows: [rowOf(hlHome())]);
       await pump(tester, tx);
-      expect(text('Pending'), findsOneWidget);
+      expect(text('On its way'), findsOneWidget);
       expect(text('Needs attention'), findsNothing);
       expect(text('Your '), findsNothing);
       expect(text('stayed'), findsNothing);

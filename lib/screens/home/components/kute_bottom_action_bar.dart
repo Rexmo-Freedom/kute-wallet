@@ -81,6 +81,88 @@ class KuteBottomActionBar extends ConsumerWidget {
     // the dock a little more off it.
     final bottomGap =
         defaultTargetPlatform == TargetPlatform.android ? 12.h : 2.h;
+    if (actions.isEmpty && onSearch != null) {
+      // No money verbs down here (they sit under the balance, once): the
+      // dock is one quiet pill, the door to search and to Sal.
+      final pill = SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomGap),
+          child: Center(
+            child: Semantics(
+              button: true,
+              label: searchLabel,
+              child: Container(
+                key: const ValueKey('dock-search-pill'),
+                height: 46,
+                decoration: BoxDecoration(
+                  color: isLight ? Colors.white : c.surface,
+                  borderRadius: BorderRadius.circular(23),
+                  border: Border.all(
+                    color: isLight ? c.border : c.borderSubtle,
+                    width: isLight ? 1.0 : 0.5,
+                  ),
+                  boxShadow: isLight
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(23),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(23),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      TrackingService.bottomBarTapped(
+                          element: 'dock_search', source: source);
+                      onSearch!();
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          aiEnabled
+                              ? KuteStillWhenCovered(
+                                  child: KuteDogMagnifier(
+                                      size: 34, lensColor: c.textPrimary))
+                              : Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6.w),
+                                  child: Icon(Icons.search_rounded,
+                                      size: 22, color: c.textPrimary),
+                                ),
+                          SizedBox(width: 6.w),
+                          Text(
+                            searchLabel,
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      return onHeightChanged == null
+          ? pill
+          : _DockHeightReporter(onChanged: onHeightChanged!, child: pill);
+    }
     final dock = SafeArea(
       top: false,
       child: Padding(
@@ -89,7 +171,7 @@ class KuteBottomActionBar extends ConsumerWidget {
           for (var i = 0; i < actions.length; i++) ...[
             if (i > 0) SizedBox(width: 10.w),
             Expanded(
-              child: _DockActionButton(
+              child: KuteDockActionButton(
                 action: actions[i],
                 source: source,
                 isLight: isLight,
@@ -170,13 +252,45 @@ class KuteBottomActionBar extends ConsumerWidget {
   }
 }
 
+/// The money verbs of a surface in one row under its balance, each once:
+/// Receive · Send · Buy on a bitcoin surface, Add · To Bitcoin on
+/// Investments. The same buttons the dock wore, so nothing changes hands;
+/// the dock itself is left to search and Sal.
+class KuteActionRow extends StatelessWidget {
+  const KuteActionRow({super.key, required this.actions, required this.source});
+
+  final List<KuteDockAction> actions;
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Row(
+      key: const ValueKey('kute-action-row'),
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) SizedBox(width: 10.w),
+          Expanded(
+            child: KuteDockActionButton(
+              action: actions[i],
+              source: source,
+              isLight: isLight,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// A money verb in the dock, wearing the same neutral chrome as the search
 /// square so the three controls read as one row, or, when [KuteDockAction.solid],
 /// the primary CTA's monochrome fill (ctaFill / ctaOnColor, no border, and
 /// AppButton's 0.35 disabled opacity). Same size, radius and press either
 /// way. No tinted fills.
-class _DockActionButton extends StatelessWidget {
-  const _DockActionButton({
+class KuteDockActionButton extends StatelessWidget {
+  const KuteDockActionButton({
+    super.key,
     required this.action,
     required this.source,
     required this.isLight,

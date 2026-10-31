@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Disponibil pentru investiții",
   "portfolioNoOpenPositions": "Nicio poziție deschisă",
   "portfolioRowShares": "{shares} unități · medie {price}",
-  "portfolioRowEntry": "intrare {price}"
+  "portfolioRowEntry": "intrare {price}",
+  "homeBuy": "Cumpără",
+  "investmentsAdd": "Adaugă",
+  "investmentsToBitcoin": "În Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} sunt păstrați în dolari",
+  "investmentsDollarsHeldBody": "Nu se mișcă odată cu prețul Bitcoin",
+  "activityOnItsWay": "Pe drum",
+  "investingTradfi": "Tradițional"
 }

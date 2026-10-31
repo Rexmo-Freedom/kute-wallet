@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Galima investuoti",
   "portfolioNoOpenPositions": "Atvirų pozicijų nėra",
   "portfolioRowShares": "{shares} vnt. · vid. {price}",
-  "portfolioRowEntry": "įėjimas {price}"
+  "portfolioRowEntry": "įėjimas {price}",
+  "homeBuy": "Pirkti",
+  "investmentsAdd": "Pridėti",
+  "investmentsToBitcoin": "Į Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} laikoma doleriais",
+  "investmentsDollarsHeldBody": "Nekinta su Bitcoin kaina",
+  "activityOnItsWay": "Kelyje",
+  "investingTradfi": "Tradiciniai"
 }

@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Befektethető",
   "portfolioNoOpenPositions": "Nincs nyitott pozíció",
   "portfolioRowShares": "{shares} egység · átl. {price}",
-  "portfolioRowEntry": "belépés {price}"
+  "portfolioRowEntry": "belépés {price}",
+  "homeBuy": "Vásárlás",
+  "investmentsAdd": "Hozzáadás",
+  "investmentsToBitcoin": "Bitcoinba",
+  "investmentsDollarsHeldTitle": "{amount} dollárban van tartva",
+  "investmentsDollarsHeldBody": "Nem mozog a Bitcoin árával",
+  "activityOnItsWay": "Úton",
+  "investingTradfi": "Hagyományos"
 }

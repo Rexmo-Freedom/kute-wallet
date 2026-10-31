@@ -10834,4 +10834,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'エントリー $price';
   }
+
+  @override
+  String get homeBuy => '購入';
+
+  @override
+  String get investmentsAdd => '追加';
+
+  @override
+  String get investmentsToBitcoin => 'ビットコインへ';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount はドルで保有中';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'ビットコイン価格の影響を受けません';
+
+  @override
+  String get activityOnItsWay => '処理中';
+
+  @override
+  String get investingTradfi => '伝統的資産';
 }

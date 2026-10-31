@@ -11279,4 +11279,27 @@ class AppLocalizationsBg extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'вход $price';
   }
+
+  @override
+  String get homeBuy => 'Купи';
+
+  @override
+  String get investmentsAdd => 'Добави';
+
+  @override
+  String get investmentsToBitcoin => 'Към Bitcoin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount се държат в долари';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Не се движи с цената на Bitcoin';
+
+  @override
+  String get activityOnItsWay => 'На път';
+
+  @override
+  String get investingTradfi => 'Традиционни';
 }

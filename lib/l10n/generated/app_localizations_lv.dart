@@ -11228,4 +11228,27 @@ class AppLocalizationsLv extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'ieeja $price';
   }
+
+  @override
+  String get homeBuy => 'Pirkt';
+
+  @override
+  String get investmentsAdd => 'Pievienot';
+
+  @override
+  String get investmentsToBitcoin => 'Uz Bitcoin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount tiek turēti dolāros';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Nemainās līdz ar Bitcoin cenu';
+
+  @override
+  String get activityOnItsWay => 'Ceļā';
+
+  @override
+  String get investingTradfi => 'Tradicionālie';
 }

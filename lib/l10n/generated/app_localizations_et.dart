@@ -11246,4 +11246,27 @@ class AppLocalizationsEt extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'sisenemine $price';
   }
+
+  @override
+  String get homeBuy => 'Osta';
+
+  @override
+  String get investmentsAdd => 'Lisa';
+
+  @override
+  String get investmentsToBitcoin => 'Bitcoini';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount hoitakse dollarites';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Ei liigu Bitcoini hinnaga';
+
+  @override
+  String get activityOnItsWay => 'Teel';
+
+  @override
+  String get investingTradfi => 'Traditsiooniline';
 }

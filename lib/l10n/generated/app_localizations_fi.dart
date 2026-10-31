@@ -11272,4 +11272,27 @@ class AppLocalizationsFi extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'avaus $price';
   }
+
+  @override
+  String get homeBuy => 'Osta';
+
+  @override
+  String get investmentsAdd => 'Lisää';
+
+  @override
+  String get investmentsToBitcoin => 'Bitcoiniin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount on dollareina';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Ei liiku Bitcoinin hinnan mukana';
+
+  @override
+  String get activityOnItsWay => 'Matkalla';
+
+  @override
+  String get investingTradfi => 'Perinteiset';
 }

@@ -113,7 +113,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
+    show formatPolyFiatForced;
+import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/refresh_everything_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
@@ -677,6 +681,13 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           oneBalance: true,
                         ),
                       ),
+                      // The money verbs, once, under the balance (the
+                      // dock is search alone), and the Dollars note.
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
+                        child: const UsdAccountActionRow(),
+                      ),
+                      const DollarsHeldNote(),
                       // The Home strip's pills, a step bigger, on the
                       // strip's inset with 12.h of air above (where the
                       // deposit door used to sit) and under them.
@@ -952,7 +963,7 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   /// The dock's Receive: the Dollars receive sheet on its first step,
   /// "From your Bitcoin" over the coins it also accepts.
-  void _receive(BuildContext context) {
+  static void receive(BuildContext context) {
     TrackingService.markEntrySource('usd_receive', kUsdDockSource);
     final open = debugReceiveOpener;
     if (open != null) return open(context);
@@ -967,7 +978,7 @@ class UsdAccountActionBar extends ConsumerWidget {
 
   /// The dock's Withdraw: the Withdraw sheet on its first step, "To your
   /// wallet" over the coins the dollars can be sent out as.
-  void _withdraw(BuildContext context) {
+  static void withdraw(BuildContext context) {
     final open = debugWithdrawOpener;
     if (open != null) return open(context);
     // ignore: discarded_futures
@@ -1012,36 +1023,127 @@ class UsdAccountActionBar extends ConsumerWidget {
     );
   }
 
+  /// The two money verbs, as the action row under the balance draws them
+  /// ([UsdAccountActionRow]). The action keys stay `receive` and `send`
+  /// so the events read as before; the labels say what happens: Add
+  /// (money into Dollars) and To Bitcoin (Dollars back out), never the
+  /// bank's Deposit and Withdraw, since no bank is involved.
+  static List<KuteDockAction> moneyActions(BuildContext context) => [
+        KuteDockAction(
+          icon: Icons.south_west_rounded,
+          label: context.l10n.investmentsAdd,
+          trackingId: 'receive',
+          onTap: () => receive(context),
+        ),
+        KuteDockAction(
+          icon: Icons.north_east_rounded,
+          label: context.l10n.investmentsToBitcoin,
+          trackingId: 'send',
+          // The Add sheet, turned around (usd_withdraw_screen.dart): "To
+          // your wallet" over the coins; a coin opens the dollar send,
+          // whose `usd_send_opened` fires from its initState.
+          onTap: () => withdraw(context),
+        ),
+      ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => KuteBottomActionBar(
         source: kUsdSurfaceSource,
         onHeightChanged: onHeightChanged,
-        actions: [
-          // The Bitcoin dock's Receive, label, arrow and action key; the
-          // dock sends it under this surface's source (`usd`). Before
-          // 2026-10-13 this slot was Deposit (`dollar_deposit`).
-          // Investments says Deposit and Withdraw, never Receive and Send
-          // (founder, 2026-10-23); the action keys stay `receive` and
-          // `send` so the dock's events read as before.
-          KuteDockAction(
-            icon: Icons.south_west_rounded,
-            label: context.l10n.deposit,
-            trackingId: 'receive',
-            onTap: () => _receive(context),
-          ),
-          KuteDockAction(
-            icon: Icons.north_east_rounded,
-            label: context.l10n.withdraw,
-            trackingId: 'send',
-            // The Deposit's sheet, turned around (usd_withdraw_screen
-            // .dart): "To your wallet" over the coins; a coin opens the
-            // dollar send, whose `usd_send_opened` fires from its
-            // initState.
-            onTap: () => _withdraw(context),
-          ),
-        ],
+        // The money verbs sit under the balance; the dock is the one
+        // quiet door to search and Sal.
+        actions: const [],
         onSearch: () => _search(context, ref),
       );
+}
+
+/// The Investments action row under the balance: Add · To Bitcoin, the
+/// dock's own buttons (same chrome as the Bitcoin tab's Receive · Send ·
+/// Buy), each verb once on the screen.
+class UsdAccountActionRow extends StatelessWidget {
+  const UsdAccountActionRow({super.key});
+
+  @override
+  Widget build(BuildContext context) => KuteActionRow(
+        source: kUsdSurfaceSource,
+        actions: UsdAccountActionBar.moneyActions(context),
+      );
+}
+
+/// One line that answers the question the old "Available" left open:
+/// the money not invested is held as Dollars and does not move with
+/// Bitcoin's price. Shown under the action row while any Dollars are
+/// held; nothing otherwise.
+class DollarsHeldNote extends ConsumerWidget {
+  const DollarsHeldNote({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dollars =
+        ref.watch(oneBalanceProvider.select((s) => s.dollarsUsd));
+    if (dollars < 0.01) return const SizedBox.shrink();
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final amount = visible ? formatPolyFiatForced(ref, dollars) : '••••••';
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+      child: Container(
+        key: const ValueKey('dollars-held-note'),
+        padding: EdgeInsets.fromLTRB(12.w, 10.h, 14.w, 10.h),
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : c.surface,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: isLight ? c.border : c.borderSubtle,
+            width: isLight ? 1.0 : 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 30.w,
+              height: 30.w,
+              decoration: const BoxDecoration(
+                  color: AppColors.success, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: Text('\$',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0)),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.l10n.investmentsDollarsHeldTitle(amount),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2)),
+                  SizedBox(height: 2.h),
+                  Text(context.l10n.investmentsDollarsHeldBody,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 12.5.sp,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Reports the Investments tab opening for a deep link or a shortcut.

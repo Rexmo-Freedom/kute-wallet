@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Investeerimiseks saadaval",
   "portfolioNoOpenPositions": "Avatud positsioone pole",
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
-  "portfolioRowEntry": "sisenemine {price}"
+  "portfolioRowEntry": "sisenemine {price}",
+  "homeBuy": "Osta",
+  "investmentsAdd": "Lisa",
+  "investmentsToBitcoin": "Bitcoini",
+  "investmentsDollarsHeldTitle": "{amount} hoitakse dollarites",
+  "investmentsDollarsHeldBody": "Ei liigu Bitcoini hinnaga",
+  "activityOnItsWay": "Teel",
+  "investingTradfi": "Traditsiooniline"
 }

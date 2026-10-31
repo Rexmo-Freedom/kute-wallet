@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Na voljo za vlaganje",
   "portfolioNoOpenPositions": "Ni odprtih pozicij",
   "portfolioRowShares": "Deleži: {shares} · povpr. {price}",
-  "portfolioRowEntry": "vstop {price}"
+  "portfolioRowEntry": "vstop {price}",
+  "homeBuy": "Kupi",
+  "investmentsAdd": "Dodaj",
+  "investmentsToBitcoin": "V Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} je v dolarjih",
+  "investmentsDollarsHeldBody": "Ne sledi ceni Bitcoina",
+  "activityOnItsWay": "Na poti",
+  "investingTradfi": "Tradicionalno"
 }

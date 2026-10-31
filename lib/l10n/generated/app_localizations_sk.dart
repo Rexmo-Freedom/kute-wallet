@@ -11266,4 +11266,27 @@ class AppLocalizationsSk extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'vstup $price';
   }
+
+  @override
+  String get homeBuy => 'Kúpiť';
+
+  @override
+  String get investmentsAdd => 'Pridať';
+
+  @override
+  String get investmentsToBitcoin => 'Do Bitcoinu';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount je držaných v dolároch';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Nehýbe sa s cenou Bitcoinu';
+
+  @override
+  String get activityOnItsWay => 'Na ceste';
+
+  @override
+  String get investingTradfi => 'Tradičné';
 }

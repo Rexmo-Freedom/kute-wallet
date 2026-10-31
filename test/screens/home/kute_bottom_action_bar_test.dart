@@ -25,6 +25,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show bitcoinWalletDockActions;
 import 'package:kute/screens/shared/ask_sal_sheet.dart'
     show SalSuggestionButton;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
@@ -310,31 +312,47 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock is Deposit, Withdraw and search; Deposit opens '
-      'the Dollars receive screen from the dock', (tester) async {
+      'the Investments money verbs are one row, Add and To Bitcoin, and '
+      'the dock is search alone; Add opens the Dollars receive screen',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
     addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
-    await _pump(tester, const UsdAccountActionBar());
+    await _pump(
+        tester,
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          UsdAccountActionRow(),
+          UsdAccountActionBar(),
+        ]));
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    // Money in on the left, money out on the right, with the Bitcoin
-    // dock's arrows and action keys; Investments says Deposit and
-    // Withdraw, never Receive and Send.
-    expect(bar.actions.map((a) => a.label), ['Deposit', 'Withdraw']);
-    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
-    expect(bar.actions.map((a) => a.icon),
-        [Icons.south_west_rounded, Icons.north_east_rounded]);
-    expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
+    // The dock carries no money verb: the one quiet pill to search and
+    // Sal.
+    expect(bar.actions, isEmpty);
     expect(bar.source, 'usd');
+    expect(find.byKey(const ValueKey('dock-search-pill')), findsOneWidget);
+    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    // The row: money in on the left, money out on the right, with the
+    // Bitcoin dock's arrows and action keys; Investments says Add and To
+    // Bitcoin, never Receive and Send, never Deposit and Withdraw.
+    final actions = UsdAccountActionBar.moneyActions(
+        tester.element(find.byType(UsdAccountActionRow)));
+    expect(actions.map((a) => a.label), ['Add', 'To Bitcoin']);
+    expect(actions.map((a) => a.trackingId), ['receive', 'send']);
+    expect(actions.map((a) => a.icon),
+        [Icons.south_west_rounded, Icons.north_east_rounded]);
+    expect(actions.map((a) => a.onTap), everyElement(isNotNull));
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('To Bitcoin'), findsOneWidget);
     expect(find.text('Receive'), findsNothing);
     expect(find.text('Send'), findsNothing);
-    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Withdraw'), findsNothing);
 
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Add'));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
@@ -344,12 +362,12 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock\'s Deposit opens the Dollars receive as a '
+      'the Investments row\'s Add opens the Dollars receive as a '
       'bottom sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
     addTearDown(() => ReceiveSheets.debugUsdBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const UsdAccountActionBar(), routes: [
+    await _pump(tester, const UsdAccountActionRow(), routes: [
       GoRoute(
         path: '/receive_dollars',
         name: 'receiveDollars',
@@ -359,25 +377,31 @@ void main() {
         },
       ),
     ]);
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
     expect(find.text('usd receive body'), findsOneWidget);
     final route = ModalRoute.of(tester.element(find.text('usd receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receiveDollars');
-    // The dock is still underneath.
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    // The row is still underneath.
+    expect(find.byType(UsdAccountActionRow), findsOneWidget);
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
   });
 
   testWidgets(
-      'the Bitcoin dock\'s Receive opens the Bitcoin receive as a bottom '
+      'the Bitcoin row\'s Receive opens the Bitcoin receive as a bottom '
       'sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
     addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const HomeDock(), routes: [
+    // Home's row: the dock's own Receive and Send, under the balance.
+    final row = Consumer(
+        builder: (context, ref, _) => KuteActionRow(
+            source: 'home',
+            actions: bitcoinWalletDockActions(
+                context, ref, _settings().wallets.single)));
+    await _pump(tester, row, routes: [
       GoRoute(
         path: '/receive',
         name: 'receive',
@@ -394,7 +418,7 @@ void main() {
     final route = ModalRoute.of(tester.element(find.text('btc receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receive');
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    expect(find.byType(KuteActionRow), findsOneWidget);
   });
 
   testWidgets('the Portfolio pill\'s dock opens search on All',

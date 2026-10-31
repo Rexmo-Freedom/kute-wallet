@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "投資可能額",
   "portfolioNoOpenPositions": "保有中のポジションはありません",
   "portfolioRowShares": "{shares}シェア · 平均{price}",
-  "portfolioRowEntry": "エントリー {price}"
+  "portfolioRowEntry": "エントリー {price}",
+  "homeBuy": "購入",
+  "investmentsAdd": "追加",
+  "investmentsToBitcoin": "ビットコインへ",
+  "investmentsDollarsHeldTitle": "{amount} はドルで保有中",
+  "investmentsDollarsHeldBody": "ビットコイン価格の影響を受けません",
+  "activityOnItsWay": "処理中",
+  "investingTradfi": "伝統的資産"
 }

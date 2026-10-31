@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Sijoitettavissa",
   "portfolioNoOpenPositions": "Ei avoimia positioita",
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
-  "portfolioRowEntry": "avaus {price}"
+  "portfolioRowEntry": "avaus {price}",
+  "homeBuy": "Osta",
+  "investmentsAdd": "Lisää",
+  "investmentsToBitcoin": "Bitcoiniin",
+  "investmentsDollarsHeldTitle": "{amount} on dollareina",
+  "investmentsDollarsHeldBody": "Ei liiku Bitcoinin hinnan mukana",
+  "activityOnItsWay": "Matkalla",
+  "investingTradfi": "Perinteiset"
 }

@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Διαθέσιμο για επένδυση",
   "portfolioNoOpenPositions": "Καμία ανοιχτή θέση",
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
-  "portfolioRowEntry": "είσοδος {price}"
+  "portfolioRowEntry": "είσοδος {price}",
+  "homeBuy": "Αγορά",
+  "investmentsAdd": "Προσθήκη",
+  "investmentsToBitcoin": "Σε Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} κρατούνται σε δολάρια",
+  "investmentsDollarsHeldBody": "Δεν κινείται με την τιμή του Bitcoin",
+  "activityOnItsWay": "Καθ' οδόν",
+  "investingTradfi": "Παραδοσιακά"
 }

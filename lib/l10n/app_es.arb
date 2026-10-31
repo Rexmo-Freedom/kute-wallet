@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "Disponible para invertir",
   "portfolioNoOpenPositions": "Sin posiciones abiertas",
   "portfolioRowShares": "{shares} participaciones · media {price}",
-  "portfolioRowEntry": "entrada {price}"
+  "portfolioRowEntry": "entrada {price}",
+  "homeBuy": "Comprar",
+  "investmentsAdd": "Añadir",
+  "investmentsToBitcoin": "A Bitcoin",
+  "investmentsDollarsHeldTitle": "{amount} se guardan en dólares",
+  "investmentsDollarsHeldBody": "No se mueve con el precio de Bitcoin",
+  "activityOnItsWay": "En camino",
+  "investingTradfi": "Tradicional"
 }

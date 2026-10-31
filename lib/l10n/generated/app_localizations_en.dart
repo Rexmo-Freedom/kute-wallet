@@ -11216,4 +11216,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'entry $price';
   }
+
+  @override
+  String get homeBuy => 'Buy';
+
+  @override
+  String get investmentsAdd => 'Add';
+
+  @override
+  String get investmentsToBitcoin => 'To Bitcoin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount is held in Dollars';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody =>
+      'It doesn\'t move with Bitcoin\'s price';
+
+  @override
+  String get activityOnItsWay => 'On its way';
+
+  @override
+  String get investingTradfi => 'Traditional';
 }

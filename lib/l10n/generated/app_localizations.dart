@@ -18860,6 +18860,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'entry {price}'**
   String portfolioRowEntry(String price);
+
+  /// Home, the action row under the balance: the third verb beside Receive and Send; opens Buy bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy'**
+  String get homeBuy;
+
+  /// Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get investmentsAdd;
+
+  /// Investments, the action row under the balance: sends Dollars back to Bitcoin (or out as a coin). Replaces 'Withdraw'.
+  ///
+  /// In en, this message translates to:
+  /// **'To Bitcoin'**
+  String get investmentsToBitcoin;
+
+  /// Investments, the note under the action row while Dollars are held. {amount} is a formatted dollar amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} is held in Dollars'**
+  String investmentsDollarsHeldTitle(String amount);
+
+  /// Investments, second line of the Dollars note: why holding Dollars matters.
+  ///
+  /// In en, this message translates to:
+  /// **'It doesn\'t move with Bitcoin\'s price'**
+  String get investmentsDollarsHeldBody;
+
+  /// Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way'**
+  String get activityOnItsWay;
+
+  /// Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon.
+  ///
+  /// In en, this message translates to:
+  /// **'Traditional'**
+  String get investingTradfi;
 }
 
 class _AppLocalizationsDelegate

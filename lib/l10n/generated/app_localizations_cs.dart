@@ -11251,4 +11251,27 @@ class AppLocalizationsCs extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'vstup $price';
   }
+
+  @override
+  String get homeBuy => 'Koupit';
+
+  @override
+  String get investmentsAdd => 'Přidat';
+
+  @override
+  String get investmentsToBitcoin => 'Do Bitcoinu';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount je drženo v dolarech';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody => 'Nehýbe se s cenou Bitcoinu';
+
+  @override
+  String get activityOnItsWay => 'Na cestě';
+
+  @override
+  String get investingTradfi => 'Tradiční';
 }

@@ -11340,4 +11340,28 @@ class AppLocalizationsEl extends AppLocalizations {
   String portfolioRowEntry(String price) {
     return 'είσοδος $price';
   }
+
+  @override
+  String get homeBuy => 'Αγορά';
+
+  @override
+  String get investmentsAdd => 'Προσθήκη';
+
+  @override
+  String get investmentsToBitcoin => 'Σε Bitcoin';
+
+  @override
+  String investmentsDollarsHeldTitle(String amount) {
+    return '$amount κρατούνται σε δολάρια';
+  }
+
+  @override
+  String get investmentsDollarsHeldBody =>
+      'Δεν κινείται με την τιμή του Bitcoin';
+
+  @override
+  String get activityOnItsWay => 'Καθ\' οδόν';
+
+  @override
+  String get investingTradfi => 'Παραδοσιακά';
 }

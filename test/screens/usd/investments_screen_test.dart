@@ -258,7 +258,7 @@ void main() {
     expect(header.totalLabel, isNull);
     expect(find.text(l10n.investmentsTotal), findsNothing);
     expect(header.amountText, r'$25.00');
-    expect(header.availableText, isNull);
+    expect(header.availableText, r'$25.00');
     expect(header.investedText, isNotNull);
     expect(find.text('${l10n.available} '), findsNothing);
     expect(find.byKey(const ValueKey('investments-balance-chevron')),
@@ -272,9 +272,9 @@ void main() {
   });
 
   testWidgets(
-      'no venue Deposit or Withdraw anywhere and no door under the hero; '
-      'the way in is the dock\'s Deposit, which opens the Dollars receive '
-      'screen', (tester) async {
+      'no venue Deposit or Withdraw anywhere; the money verbs are one row '
+      'under the hero, Add · To Bitcoin, the dock is search alone, and Add '
+      'opens the Dollars receive screen', (tester) async {
     final events = recordEvents();
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
@@ -283,8 +283,9 @@ void main() {
     final l10n = _l10n(tester);
     expect(find.byType(VenueDepositButton, skipOffstage: false), findsNothing);
     expect(find.byType(InvestmentActionBar, skipOffstage: false), findsNothing);
-    // The dock's own Withdraw is the only one on the page.
-    expect(find.text(l10n.withdraw, skipOffstage: false), findsOneWidget);
+    // No bank words anywhere: the verbs say what happens.
+    expect(find.text(l10n.withdraw, skipOffstage: false), findsNothing);
+    expect(find.text(l10n.deposit, skipOffstage: false), findsNothing);
     expect(find.textContaining('Investing deposit', skipOffstage: false),
         findsNothing);
     expect(find.textContaining('Predictions deposit', skipOffstage: false),
@@ -293,29 +294,41 @@ void main() {
     // door's label is nowhere on the page.
     expect(find.byType(AppButton, skipOffstage: false), findsNothing);
     expect(find.text(l10n.dollarDeposit, skipOffstage: false), findsNothing);
-    // The pills sit right under the hero.
-    expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
-        lessThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy + 40));
 
-    // The dock: Deposit and Withdraw (Investments never says Receive or
-    // Send), the Bitcoin dock's arrows and action keys, and the search
-    // square.
-    final bar =
-        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    expect(bar.actions.map((a) => a.label), [l10n.deposit, l10n.withdraw]);
-    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
-    expect(bar.actions.map((a) => a.icon),
+    // The action row under the hero: Add and To Bitcoin, the Bitcoin
+    // dock's arrows and action keys, each once on the page; then the
+    // Dollars note, then the pills.
+    final row = find.byType(UsdAccountActionRow);
+    expect(row, findsOneWidget);
+    expect(tester.getTopLeft(row).dy,
+        greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
+    final actions = UsdAccountActionBar.moneyActions(tester.element(row));
+    expect(actions.map((a) => a.label),
+        [l10n.investmentsAdd, l10n.investmentsToBitcoin]);
+    expect(actions.map((a) => a.trackingId), ['receive', 'send']);
+    expect(actions.map((a) => a.icon),
         [Icons.south_west_rounded, Icons.north_east_rounded]);
-    expect(bar.onSearch, isNotNull);
-    expect(bar.source, 'usd');
-    expect(find.text(l10n.deposit), findsOneWidget);
+    expect(find.text(l10n.investmentsAdd), findsOneWidget);
+    expect(find.text(l10n.investmentsToBitcoin), findsOneWidget);
     expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
     expect(find.text(l10n.send, skipOffstage: false), findsNothing);
+    expect(find.byKey(const ValueKey('dollars-held-note')), findsOneWidget);
+    expect(find.text(l10n.investmentsDollarsHeldBody), findsOneWidget);
+    expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
+        greaterThan(tester.getBottomLeft(row).dy));
 
-    // Deposit opens the Dollars receive screen, with the Bitcoin dock's
+    // The dock: no money verbs, the one quiet door to search and Sal.
+    final bar =
+        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
+    expect(bar.actions, isEmpty);
+    expect(bar.onSearch, isNotNull);
+    expect(bar.source, 'usd');
+    expect(find.byKey(const ValueKey('dock-search-pill')), findsOneWidget);
+
+    // Add opens the Dollars receive screen, with the Bitcoin dock's
     // quick-action key under this surface and the dock as the receive
     // flow's entry source.
-    await tester.tap(find.text(l10n.deposit));
+    await tester.tap(find.text(l10n.investmentsAdd));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,

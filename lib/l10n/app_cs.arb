@@ -3124,5 +3124,12 @@
   "portfolioBuyingPower": "K dispozici k investování",
   "portfolioNoOpenPositions": "Žádné otevřené pozice",
   "portfolioRowShares": "{shares} podílů · prům. {price}",
-  "portfolioRowEntry": "vstup {price}"
+  "portfolioRowEntry": "vstup {price}",
+  "homeBuy": "Koupit",
+  "investmentsAdd": "Přidat",
+  "investmentsToBitcoin": "Do Bitcoinu",
+  "investmentsDollarsHeldTitle": "{amount} je drženo v dolarech",
+  "investmentsDollarsHeldBody": "Nehýbe se s cenou Bitcoinu",
+  "activityOnItsWay": "Na cestě",
+  "investingTradfi": "Tradiční"
 }
