@@ -370,6 +370,19 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
   /// offset at which the header is the compact bar.
   double _collapseRange = 0;
 
+  /// The outer scroll back within its maximum once this frame's layout
+  /// has shrunk the header (see the header sliver's builder).
+  void _clampOuterAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_outer.hasClients) return;
+      final position = _outer.position;
+      if (!position.hasContentDimensions || !position.hasPixels) return;
+      if (position.pixels > position.maxScrollExtent) {
+        position.forcePixels(position.maxScrollExtent);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _outer.dispose();
@@ -571,25 +584,35 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
             // bar's room while the bar is on screen.
             Consumer(
               builder: (context, ref, _) => TweenAnimationBuilder<double>(
-                tween: Tween<double>(
-                    end: ref.watch(navBarHiddenProvider) ? 0 : 1),
+                tween:
+                    Tween<double>(end: ref.watch(navBarHiddenProvider) ? 0 : 1),
                 duration: kuteMotion(context, kNavBarSlideDuration),
                 curve: Curves.easeOut,
-                builder: (context, room, _) => SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _InvestmentsHeaderDelegate(
-                    items: [for (final tab in tabs) item(tab)],
-                    selectedIndex: tabs.indexOf(selected),
-                    onTap: (i) => _pick(tabs[i]),
-                    onExpand: _expand,
-                    onExpandedHeight: _onExpandedHeight,
-                    figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
-                    expandedExtent: expandedExtent,
-                    compactExtent: compactExtent,
-                    topRoom: kShellTopBarSpacing.h * room,
-                    background: Theme.of(context).scaffoldBackgroundColor,
-                  ),
-                ),
+                builder: (context, room, _) {
+                  // The header's extents follow the nav bar's room and the
+                  // hero's measured height: when they SHRINK while the
+                  // outer scroll rests at its end, its pixels are past the
+                  // new maximum, and the nested scroll's next fling
+                  // asserts (`extra >= 0.0`, the red overlay the founder
+                  // saw). Clamped after the frame, with the drag and the
+                  // activity kept (forcePixels, never jumpTo).
+                  _clampOuterAfterFrame();
+                  return SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _InvestmentsHeaderDelegate(
+                      items: [for (final tab in tabs) item(tab)],
+                      selectedIndex: tabs.indexOf(selected),
+                      onTap: (i) => _pick(tabs[i]),
+                      onExpand: _expand,
+                      onExpandedHeight: _onExpandedHeight,
+                      figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
+                      expandedExtent: expandedExtent,
+                      compactExtent: compactExtent,
+                      topRoom: kShellTopBarSpacing.h * room,
+                      background: Theme.of(context).scaffoldBackgroundColor,
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -1111,7 +1134,6 @@ class UsdAccountActionRow extends StatelessWidget {
         actions: UsdAccountActionBar.moneyActions(context),
       );
 }
-
 
 /// Reports the Investments tab opening for a deep link or a shortcut.
 /// Kept next to the screen so callers don't re-derive the route name.
