@@ -41,6 +41,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Prices extends LivePriceNotifier {
   @override
@@ -127,6 +128,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetViewInsets);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -152,27 +154,20 @@ Future<void> _pumpSlip(WidgetTester tester,
         polymarketFeeTermsProvider.overrideWith((ref, _) async => feeTerms),
       ...extraOverrides,
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: fontFamily,
-            extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: BetSlipSheet(
-                marketQuestion: question,
-                outcomes: outcomes,
-                sideLabelPos: sideLabelPos,
-                sideLabelNeg: sideLabelNeg,
-                initialAmountUsd: initialAmountUsd,
-                ledgerWalletId: ledgerWalletId),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      fontFamily: fontFamily,
+      home: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: BetSlipSheet(
+              marketQuestion: question,
+              outcomes: outcomes,
+              sideLabelPos: sideLabelPos,
+              sideLabelNeg: sideLabelNeg,
+              initialAmountUsd: initialAmountUsd,
+              ledgerWalletId: ledgerWalletId),
         ),
       ),
     ),
@@ -550,10 +545,9 @@ void main() {
       expect(find.text('Will it rain?'), findsOneWidget);
       expect(find.text('Payout if you win'), findsOneWidget);
       expect(find.text('Predictions unavailable here'), findsNothing);
-      final place = tester.widget<PolySlipCta>(find.ancestor(
-          of: find.text(r'Place $10.00 on Yes'),
-          matching: find.byType(PolySlipCta)));
-      expect(place.enabled, isFalse);
+      // The bar is the slip's button: it reads the stake and is disabled.
+      expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+      expect(barPrimaryEnabled(tester), isFalse);
       final note = find.byType(CapabilityBlockNote);
       expect(note, findsOneWidget);
       expect(
@@ -750,13 +744,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('small screen with keyboard retains a reachable action',
-      (tester) async {
+  testWidgets(
+      'small screen: the action is the bar, reachable over the keypad; the '
+      'OS keyboard (which the compact slip never raises) hides the bar, '
+      'and it comes back when the keyboard goes', (tester) async {
     await _pumpSlip(tester, width: 320, keyboard: 300);
     expect(tester.takeException(), isNull);
-    final action = tester.getRect(find.text(r'Place $10.00 on Yes'));
-    expect(action.bottom, lessThanOrEqualTo(544));
+    // The bar hides only while the keyboard is up (kute_bar_context.dart).
+    expect(barIsUp(tester), isFalse);
+    expect(find.text(r'Place $10.00 on Yes'), findsNothing);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(barIsUp(tester), isTrue);
+    expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
+    final action = tester.getRect(barPrimaryText(r'Place $10.00 on Yes'));
+    expect(action.bottom, lessThanOrEqualTo(844));
     expect(action.top, greaterThan(0));
+    expect(findBarPrimary().hitTestable(), findsOneWidget);
     final scroll = tester
         .widget<SingleChildScrollView>(find.byType(SingleChildScrollView));
     expect(scroll.physics, isA<ClampingScrollPhysics>());
@@ -781,22 +785,28 @@ void main() {
       await tester.pumpAndSettle();
       final scroll =
           find.byKey(const ValueKey('prediction-advanced-form-scroll'));
-      final action = find.textContaining(RegExp(r'^Place \$[^ ]+ on '));
+      final action =
+          barPrimaryTextContaining(RegExp(r'^Place \$[^ ]+ on '));
       final position = tester
           .state<ScrollableState>(find
               .descendant(of: scroll, matching: find.byType(Scrollable))
               .first)
           .position;
-      // The long form scrolls; the action is pinned as a bottom bar
-      // outside it (3d8c274c), so it is reachable without scrolling and
-      // the form never runs underneath it.
+      // The long form scrolls; the action is the bar, outside it
+      // (kute_shell_bar.dart), so it is reachable without scrolling. The
+      // bar floats over the form, which pads its own end clear of it.
       expect(position.maxScrollExtent, greaterThan(0));
       expect(find.ancestor(of: action, matching: scroll), findsNothing);
       expect(position.pixels, 0);
+      if (keyboard > 0) {
+        // The bar hides only while the keyboard is up, and comes back.
+        expect(barIsUp(tester), isFalse);
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+      }
+      expect(barIsUp(tester), isTrue);
       expect(action.hitTestable(), findsOneWidget);
-      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700 - keyboard));
-      expect(tester.getRect(scroll).bottom,
-          lessThanOrEqualTo(tester.getRect(action).top));
+      expect(tester.getRect(action).bottom, lessThanOrEqualTo(700));
       expect(tester.takeException(), isNull);
       await _release(tester, policy);
     });
@@ -816,12 +826,11 @@ void main() {
             .first)
         .position;
     expect(position.maxScrollExtent, 0);
-    final action = find
-        .ancestor(
-            of: find.textContaining(RegExp(r'^Place \$[^ ]+ on ')),
-            matching: find.byType(InkWell))
-        .first;
-    expect(tester.getRect(action).bottom, closeTo(1600 - 16 * 1600 / 932, 1));
+    // The action is the bar, resting at the foot (its 2.h of air).
+    expect(barPrimaryTextContaining(RegExp(r'^Place \$[^ ]+ on ')),
+        findsOneWidget);
+    expect(tester.getRect(findBarPrimary()).bottom,
+        closeTo(1600 - 2 * 1600 / 932, 1));
     expect(tester.takeException(), isNull);
     await _release(tester, policy);
   });
@@ -938,7 +947,7 @@ void main() {
       expect(cta(tester).enabled, isTrue);
       expect(find.textContaining('Place'), findsNothing);
       events.clear();
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       // The minimum went into the figure and on into the placement, once,
       // the way a typed $1.00 would.
@@ -983,7 +992,7 @@ void main() {
             ]);
         await _typeOnKeypad(tester, '0.5');
         expect(cta(tester).label, r'Minimum $1.00');
-        await tester.tap(find.byType(PolySlipCta));
+        await tapBarPrimary(tester, settle: false);
         await tester.pump();
         await tester.pump();
         expect(find.text(r'$1'), findsOneWidget);
@@ -1013,7 +1022,7 @@ void main() {
       ]);
       await _typeOnKeypad(tester, '3');
       expect(cta(tester).label, r'Place $3.00 on Yes');
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       expect(controller.amounts, [3.0]);
       expect(find.text(r'$3'), findsOneWidget);
@@ -1152,7 +1161,7 @@ void main() {
       expect(find.text(r'Minimum $5.00'), findsOneWidget);
       expect(cta(tester).label, 'Place minimum on Yes');
       expect(cta(tester).enabled, isTrue);
-      await tester.tap(find.byType(PolySlipCta));
+      await tapBarPrimary(tester, settle: false);
       await tester.pumpAndSettle();
       expect(controller.amounts, [5.0]);
       expect(find.text(r'$5'), findsOneWidget);
