@@ -7188,5 +7188,76 @@
         "type": "String"
       }
     }
-  }
+  },
+  "sendRecipientSearchHint": "Name, address, Lightning or @user",
+  "usdSendRecipientSearchHint": "Name, address or ENS",
+  "sendDollarsTitle": "Send dollars",
+  "sendCoinTitle": "Send {coin}",
+  "@sendCoinTitle": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
+  "sendContacts": "Contacts",
+  "sendToAFriend": "Send to a friend",
+  "sendToAFriendSub": "Pick a contact to send them a link",
+  "sendAllowContactsInSettings": "Allow contacts in Settings",
+  "sendAllowContactsInSettingsSub": "Kute can only show contacts you allow",
+  "sendNoContactsMatch": "No contacts match",
+  "sendContactsSearchHint": "Search contacts",
+  "sendRailBitcoinOnchain": "Bitcoin · on-chain",
+  "sendRailLightning": "Lightning",
+  "sendRailSpark": "Spark",
+  "usdSendNotNetworkAddress": "Not an {network} address",
+  "@usdSendNotNetworkAddress": {
+    "placeholders": {
+      "network": {
+        "type": "String"
+      }
+    }
+  },
+  "usdSendResolvedRail": "{network} · {asset}",
+  "@usdSendResolvedRail": {
+    "placeholders": {
+      "network": {
+        "type": "String"
+      },
+      "asset": {
+        "type": "String"
+      }
+    }
+  },
+  "sendAlsoSendsToMore": "{names} and {count} more",
+  "@sendAlsoSendsToMore": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendAlsoSendsToList": "{names} and {last}",
+  "@sendAlsoSendsToList": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "last": {
+        "type": "String"
+      }
+    }
+  },
+  "sendPickMarket": "Send a prediction or investment",
+  "sendPickMarketSub": "Pick a market, they get it ready to place",
+  "sendPickMarketSearchHint": "Search predictions and investing",
+  "sendPickMarketNoResults": "Nothing matches",
+  "sendPickSideTitle": "Which side?",
+  "sendPickSideSub": "What they get, ready to place",
+  "shareSendAgainWhatsApp": "Send again via WhatsApp",
+  "shareSendAgainSms": "Send again via SMS",
+  "sendToLabel": "Send to"
 }

@@ -218,14 +218,21 @@ class PendingShareLink {
     required this.status,
     this.paymentId,
     this.paidReported = false,
+    this.recipientPhone,
   });
 
   final String id;
   final ShareLinkKind kind;
   final int amountMinor;
 
-  /// The recipient's first name, as the sender typed it. Optional.
+  /// The recipient's first name, as the sender typed it (or the contact
+  /// picked on the Send screen). Optional.
   final String? label;
+
+  /// The picked contact's number, LOCAL ONLY: never sent to the backend
+  /// or to analytics. It is what "Send again via WhatsApp / SMS" opens
+  /// the OS intent with (screens/share/pending_share_links.dart).
+  final String? recipientPhone;
   final String? marketSlug;
 
   /// The pick on the link, as the share text says it: the market's title,
@@ -269,6 +276,7 @@ class PendingShareLink {
         status: status ?? this.status,
         paymentId: paymentId ?? this.paymentId,
         paidReported: paidReported ?? this.paidReported,
+        recipientPhone: recipientPhone,
       );
 
   PendingShareLink withStatus(ShareLinkStatus next) => copyWith(status: next);
@@ -288,6 +296,7 @@ class PendingShareLink {
         'status': status.name,
         if (paymentId != null) 'paymentId': paymentId,
         if (paidReported) 'paidReported': true,
+        if (recipientPhone != null) 'recipientPhone': recipientPhone,
       };
 
   static PendingShareLink? fromJson(Object? json) {
@@ -314,6 +323,7 @@ class PendingShareLink {
       status: ShareLinkStatus.parse(json['status']),
       paymentId: _string(json['paymentId']),
       paidReported: json['paidReported'] == true,
+      recipientPhone: _string(json['recipientPhone']),
     );
   }
 }

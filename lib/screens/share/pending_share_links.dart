@@ -23,6 +23,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
+import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
@@ -208,6 +209,23 @@ class _PendingShareLinkDetailState
                       text: l10n.shareLinkShareAgain,
                       onPressed: () => unawaited(_shareAgain(row)),
                     ),
+                  // A contact's number (kept on the phone only), prefilled
+                  // in WhatsApp or the SMS composer.
+                  if (row.url.isNotEmpty && row.recipientPhone != null) ...[
+                    SizedBox(height: 8.h),
+                    AppTextButton(
+                      key: const ValueKey('share-link-whatsapp'),
+                      text: l10n.shareSendAgainWhatsApp,
+                      onPressed: () => unawaited(resendShareLinkVia(
+                          context, ref, row, ShareLinkResendChannel.whatsapp)),
+                    ),
+                    AppTextButton(
+                      key: const ValueKey('share-link-sms'),
+                      text: l10n.shareSendAgainSms,
+                      onPressed: () => unawaited(resendShareLinkVia(
+                          context, ref, row, ShareLinkResendChannel.sms)),
+                    ),
+                  ],
                   SizedBox(height: 8.h),
                   AppTextButton(
                     key: const ValueKey('share-link-cancel'),

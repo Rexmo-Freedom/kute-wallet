@@ -1,0 +1,854 @@
+// lib/screens/shared/send/send_recipient_step.dart
+//
+// THE RECIPIENT-FIRST SEND STEP (founder, 31 October 2026: the old step
+// "looked very 2019 fintech"). Both sends, bitcoin (confirm_send.dart)
+// and dollars (usd/usd_send_screen.dart), open on the same shape:
+//
+//   * a search-style field at the top ("Name, address, Lightning or
+//     @user"), a magnifier at its left and Paste and Scan inside at its
+//     right ([SendRecipientSearchField]);
+//   * a pasted or typed destination the flow recognises as one resolved
+//     row under it: the rail's mark, the shortened address, the rail in
+//     words ([SendResolvedRow]); the bar's Continue acts on it;
+//   * "Recent": the people and addresses this wallet paid, as circles
+//     with the name or short address under ([SendRecentCircles]);
+//   * "Contacts": the phone book, behind its permission
+//     ([SendContactsSection]; services/contacts/send_contacts_service.dart);
+//   * one soft "Send to" card: Send to anyone, a prediction or investment
+//     on the dollar send, and the coins an address can land as.
+//
+// No step bar: the sheet's title says where the person is. The floating
+// Sal bar is the step's Continue (kute_bar_context.dart), so the card
+// carries the Send to anyone row the bar used to.
+//
+// Presentation only, with one exception: the contacts section drives
+// `sendContactsProvider` (the permission prompt, the book) because every
+// send mounts it the same way. No money call here.
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/asset_icon_provider.dart' show AssetIcon;
+import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/coin_asset_grid.dart'
+    show CoinAssetGroup;
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/services/contacts/send_contacts_service.dart';
+import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
+
+/// The centred title of a send step's app bar ("Send", "Send dollars",
+/// "Send USDC").
+class SendStepTitle extends StatelessWidget {
+  const SendStepTitle(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: context.colors.textPrimary,
+          fontSize: 17.sp,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+        ),
+      );
+}
+
+/// The recipient field as a search field: a magnifier at the left, the
+/// text, and two 32 px buttons inside at the right (Paste and Scan while
+/// empty, a clear once there is text).
+class SendRecipientSearchField extends StatelessWidget {
+  const SendRecipientSearchField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    required this.onPaste,
+    required this.onScan,
+    this.autofocus = false,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onPaste;
+  final VoidCallback onScan;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final empty = controller.text.isEmpty;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    return Container(
+      key: const ValueKey('send-recipient-search'),
+      constraints: BoxConstraints(minHeight: 52.h),
+      padding: EdgeInsets.fromLTRB(14.w, 2.h, 8.w, 2.h),
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search_rounded, color: c.textSecondary, size: 22.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              autofocus: autofocus,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
+              cursorColor: c.accent,
+              cursorWidth: 2.0,
+              maxLines: 2,
+              minLines: 1,
+              // An address, a name or an invoice, never prose: nothing
+              // that rewrites what is typed or pasted.
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
+              smartDashesType: SmartDashesType.disabled,
+              smartQuotesType: SmartQuotesType.disabled,
+              scrollPadding: EdgeInsets.only(bottom: 120.h),
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintMaxLines: 1,
+                hintStyle: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                isDense: true,
+              ),
+            ),
+          ),
+          SizedBox(width: 4.w),
+          AnimatedSwitcher(
+            duration:
+                reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+            child: empty
+                ? Row(
+                    key: const ValueKey('send-field-empty'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SendSearchFieldButton(
+                        key: const ValueKey('send-field-paste'),
+                        icon: Icons.content_paste_rounded,
+                        tooltip: context.l10n.paste,
+                        onTap: onPaste,
+                      ),
+                      SizedBox(width: 4.w),
+                      SendSearchFieldButton(
+                        key: const ValueKey('send-field-scan'),
+                        icon: Icons.qr_code_scanner_rounded,
+                        tooltip: context.l10n.scan,
+                        onTap: onScan,
+                      ),
+                    ],
+                  )
+                : SendSearchFieldButton(
+                    key: const ValueKey('send-field-clear'),
+                    icon: Icons.cancel_rounded,
+                    tooltip: context.l10n.close,
+                    onTap: () {
+                      controller.clear();
+                      onChanged('');
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A 32 px icon button inside the search field.
+class SendSearchFieldButton extends StatelessWidget {
+  const SendSearchFieldButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: c.surface,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: SizedBox(
+            width: 32.sp,
+            height: 32.sp,
+            child: Icon(icon, color: c.textPrimary, size: 17.sp),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The destination the field holds, recognised: the rail's mark, the
+/// shortened address over the rail in words ("Bitcoin · on-chain",
+/// "Lightning", "USDT on Base"). One row in a soft card; the bar's
+/// Continue acts on it.
+class SendResolvedRow extends StatelessWidget {
+  const SendResolvedRow({
+    super.key,
+    required this.leading,
+    required this.address,
+    required this.rail,
+    this.onTap,
+  });
+
+  final Widget leading;
+  final String address;
+  final String rail;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SendToListCard(
+      key: const ValueKey('send-resolved-row'),
+      colors: c,
+      rows: [
+        SendToListRow(
+          colors: c,
+          leading: leading,
+          title: sendShortAddress(address),
+          subtitle: rail,
+          trailing: Container(
+            width: 24.sp,
+            height: 24.sp,
+            decoration: BoxDecoration(color: c.success, shape: BoxShape.circle),
+            child: Icon(Icons.check_rounded, color: Colors.white, size: 16.sp),
+          ),
+          onTap: onTap ?? () {},
+        ),
+      ],
+    );
+  }
+}
+
+/// One line of text under the field that says what is wrong with it
+/// ("Not an Arbitrum address").
+class SendInlineError extends StatelessWidget {
+  const SendInlineError({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(left: 6.w),
+        child: Text(
+          message,
+          key: const ValueKey('send-inline-error'),
+          style: TextStyle(
+            color: AppColors.error,
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+      );
+}
+
+/// The 12 sp section header ("Recent", "Contacts", "Send to").
+class SendSectionLabel extends StatelessWidget {
+  const SendSectionLabel(this.text, {super.key, this.trailing});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Padding(
+      padding: EdgeInsets.only(left: 4.w, right: 4.w, bottom: 10.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+/// One recent recipient as the circles row shows it: [initials] in the
+/// circle (a person), else [icon] (the rail); [label] under it.
+@immutable
+class SendRecentItem {
+  const SendRecentItem({
+    required this.id,
+    required this.label,
+    this.initials,
+    this.icon,
+    this.mark,
+    required this.onTap,
+  });
+
+  final String id;
+
+  /// The name, or the short address. Labels only: never the full address.
+  final String label;
+  final String? initials;
+  final IconData? icon;
+
+  /// A coin mark in place of [icon] (the dollar send's coin on its
+  /// network).
+  final Widget? mark;
+  final VoidCallback onTap;
+
+  /// Whether [query] matches this row's label.
+  bool matches(String query) =>
+      query.trim().isEmpty ||
+      label.toLowerCase().contains(query.trim().toLowerCase());
+}
+
+/// "Recent": the recipients as 56 px circles in a horizontal row, the
+/// name or short address under each (11 sp). Tapping one is the flow's
+/// own commit.
+class SendRecentCircles extends StatelessWidget {
+  const SendRecentCircles({super.key, required this.items});
+
+  final List<SendRecentItem> items;
+
+  static const double circle = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return SizedBox(
+      key: const ValueKey('send-recent-circles'),
+      height: (circle + 6 + 30).h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 2.w),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => SizedBox(width: 14.w),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          return Semantics(
+            button: true,
+            label: item.label,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12.r),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                item.onTap();
+              },
+              child: SizedBox(
+                width: 68.w,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: circle.sp,
+                      height: circle.sp,
+                      decoration: BoxDecoration(
+                        color: c.surfaceLight,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: c.borderSubtle, width: 0.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: item.mark ??
+                          (item.initials != null && item.initials!.isNotEmpty
+                              ? Text(
+                                  item.initials!,
+                                  style: TextStyle(
+                                    color: c.textPrimary,
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.3,
+                                  ),
+                                )
+                              : Icon(item.icon ?? Icons.person_rounded,
+                                  color: c.textPrimary, size: 24.sp)),
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      item.label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A 32 px initials circle (a contact in a list).
+class SendInitialsCircle extends StatelessWidget {
+  const SendInitialsCircle(this.initials, {super.key, this.size = 32});
+
+  final String initials;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      width: size.sp,
+      height: size.sp,
+      decoration: BoxDecoration(
+        color: c.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      alignment: Alignment.center,
+      child: initials.isEmpty
+          ? Icon(Icons.person_rounded, color: c.textPrimary, size: (size * 0.55).sp)
+          : Text(
+              initials,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: (size * 0.38).sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+    );
+  }
+}
+
+/// Sal's `share` face at 32, the glyph of the Send to anyone rows.
+class SendSalShareGlyph extends StatelessWidget {
+  const SendSalShareGlyph({super.key, this.size = 32});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SalSprite(
+        clip: 'share',
+        size: size.sp,
+        fallback: Icon(Icons.ios_share_rounded,
+            color: context.colors.textPrimary, size: (size * 0.65).sp),
+      );
+}
+
+/// "Contacts" on the Send to step, in every state of the permission
+/// (see the file header). [query] is the field's text: with the book in
+/// hand the card lists the matches, five at most, "See all" opening the
+/// full picker. [onPick] starts the flow's Send to anyone with the
+/// contact.
+class SendContactsSection extends ConsumerWidget {
+  const SendContactsSection({
+    super.key,
+    required this.query,
+    required this.onPick,
+  });
+
+  final String query;
+  final ValueChanged<SendContact> onPick;
+
+  static const int maxRows = 5;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final state = ref.watch(sendContactsProvider);
+    final notifier = ref.read(sendContactsProvider.notifier);
+
+    Widget card(List<Widget> rows) => SendToListCard(colors: c, rows: rows);
+
+    switch (state.permission) {
+      case SendContactsPermission.unknown:
+      case SendContactsPermission.denied:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SendSectionLabel(l10n.sendContacts),
+            card([
+              SendToListRow(
+                key: const ValueKey('send-contacts-ask'),
+                colors: c,
+                leading: Icon(Icons.contacts_rounded,
+                    color: c.textPrimary, size: 24.sp),
+                title: l10n.sendToAFriend,
+                subtitle: l10n.sendToAFriendSub,
+                onTap: () => unawaited(notifier.request()),
+              ),
+            ]),
+          ],
+        );
+      case SendContactsPermission.blocked:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SendSectionLabel(l10n.sendContacts),
+            card([
+              SendToListRow(
+                key: const ValueKey('send-contacts-settings'),
+                colors: c,
+                leading: Icon(Icons.contacts_rounded,
+                    color: c.textSecondary, size: 24.sp),
+                title: l10n.sendAllowContactsInSettings,
+                subtitle: l10n.sendAllowContactsInSettingsSub,
+                onTap: () => unawaited(notifier.openSettings()),
+              ),
+            ]),
+          ],
+        );
+      case SendContactsPermission.granted:
+        final matches = state.matching(query, limit: maxRows);
+        final more = state.matching(query).length > maxRows;
+        if (state.contacts.isEmpty && !state.loading) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SendSectionLabel(
+              l10n.sendContacts,
+              trailing: more || query.trim().isEmpty
+                  ? GestureDetector(
+                      key: const ValueKey('send-contacts-see-all'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => unawaited(showSendContactsPicker(context,
+                          initialQuery: query, onPick: onPick)),
+                      child: Text(
+                        l10n.seeAll,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            if (matches.isEmpty)
+              Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Text(
+                  state.loading ? '…' : l10n.sendNoContactsMatch,
+                  style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )
+            else
+              card([
+                for (final contact in matches)
+                  SendToListRow(
+                    key: ValueKey('send-contact-${contact.id}'),
+                    colors: c,
+                    leading: SendInitialsCircle(contact.initials),
+                    title: contact.displayName,
+                    subtitle: contact.phone,
+                    onTap: () => onPick(contact),
+                  ),
+              ]),
+          ],
+        );
+    }
+  }
+}
+
+/// The full contacts picker: a search field over the whole book,
+/// alphabetical. Closes on a pick and hands it to [onPick].
+Future<void> showSendContactsPicker(
+  BuildContext context, {
+  String initialQuery = '',
+  required ValueChanged<SendContact> onPick,
+}) =>
+    showAppBottomSheet<void>(
+      context: context,
+      builder: (sheetCtx) => _SendContactsPickerSheet(
+        initialQuery: initialQuery,
+        onPick: (contact) {
+          Navigator.of(sheetCtx).pop();
+          onPick(contact);
+        },
+      ),
+    );
+
+class _SendContactsPickerSheet extends ConsumerStatefulWidget {
+  const _SendContactsPickerSheet(
+      {required this.initialQuery, required this.onPick});
+
+  final String initialQuery;
+  final ValueChanged<SendContact> onPick;
+
+  @override
+  ConsumerState<_SendContactsPickerSheet> createState() =>
+      _SendContactsPickerSheetState();
+}
+
+class _SendContactsPickerSheetState
+    extends ConsumerState<_SendContactsPickerSheet> {
+  late final TextEditingController _query =
+      TextEditingController(text: widget.initialQuery);
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final state = ref.watch(sendContactsProvider);
+    final rows = state.matching(_query.text);
+    return AppBottomSheetContainer(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+      followKeyboard: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBottomSheetHeader(
+            title: l10n.sendContacts,
+            icon: Icons.contacts_rounded,
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w),
+              decoration: BoxDecoration(
+                color: c.surfaceLight,
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: c.borderSubtle, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded,
+                      color: c.textSecondary, size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('send-contacts-picker-search'),
+                      controller: _query,
+                      autofocus: widget.initialQuery.isEmpty,
+                      onChanged: (_) => setState(() {}),
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: l10n.sendContactsSearchHint,
+                        hintStyle: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Flexible(
+            child: rows.isEmpty
+                ? Padding(
+                    padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 32.h),
+                    child: Text(
+                      l10n.sendNoContactsMatch,
+                      style: TextStyle(
+                        color: c.textTertiary,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      color: c.borderSubtle,
+                      indent: 52.w,
+                    ),
+                    itemBuilder: (context, i) {
+                      final contact = rows[i];
+                      return SendToListRow(
+                        key: ValueKey('send-contact-pick-${contact.id}'),
+                        colors: c,
+                        leading: SendInitialsCircle(contact.initials),
+                        title: contact.displayName,
+                        subtitle: contact.phone,
+                        onTap: () => widget.onPick(contact),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The analytics of a recipient picked on the step: `contact`, `recent`
+/// or `address` (typed, pasted or scanned). Never the recipient itself.
+void trackSendRecipientPicked(String kind) =>
+    TrackingService.track('send_recipient_picked', params: {'kind': kind});
+
+/// The "Send to anyone" row of the Send to card.
+class SendToAnyoneRow extends StatelessWidget {
+  const SendToAnyoneRow({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SendToListRow(
+      key: const ValueKey('send-to-anyone-row'),
+      colors: context.colors,
+      leading: const SendSalShareGlyph(),
+      title: l10n.shareSendToAnyone,
+      subtitle: l10n.shareSendToAnyoneSubtitle,
+      onTap: onTap,
+    );
+  }
+}
+
+/// The dollar send's "Send a prediction or investment" row.
+class SendPickMarketRow extends StatelessWidget {
+  const SendPickMarketRow({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SendToListRow(
+      key: const ValueKey('send-pick-market-row'),
+      colors: context.colors,
+      leading: const SendSalShareGlyph(),
+      title: l10n.sendPickMarket,
+      subtitle: l10n.sendPickMarketSub,
+      onTap: onTap,
+    );
+  }
+}
+
+/// "Also sends to": the coin marks stacked, "USDC, USDT, ETH and 16
+/// more" and the chevron, opening the rails sheet.
+class SendAlsoSendsToRow extends StatelessWidget {
+  const SendAlsoSendsToRow({
+    super.key,
+    required this.groups,
+    required this.onTap,
+  });
+
+  final List<CoinAssetGroup> groups;
+  final VoidCallback onTap;
+
+  static const int _stack = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final shown = groups.take(_stack).toList();
+    final rest = groups.length - shown.length;
+    final names = [for (final g in shown) g.displaySymbol];
+    final String summary;
+    if (names.isEmpty) {
+      summary = '';
+    } else if (rest > 0) {
+      summary = l10n.sendAlsoSendsToMore(names.join(', '), rest);
+    } else if (names.length == 1) {
+      summary = names.first;
+    } else {
+      summary = l10n.sendAlsoSendsToList(
+          names.sublist(0, names.length - 1).join(', '), names.last);
+    }
+    const mark = 24.0;
+    return SendToListRow(
+      key: const ValueKey('send-also-sends-to-row'),
+      colors: c,
+      leading: SizedBox(
+        width: (mark + (shown.length - 1) * mark * 0.6).sp.clamp(mark.sp, 40.sp),
+        height: mark.sp,
+        child: Stack(
+          children: [
+            for (var i = 0; i < shown.length; i++)
+              Positioned(
+                left: (i * mark * 0.6).sp,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.surfaceLight, width: 1.5),
+                  ),
+                  child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),
+                ),
+              ),
+          ],
+        ),
+      ),
+      title: l10n.sendAlsoSendsTo,
+      subtitle: summary,
+      onTap: onTap,
+    );
+  }
+}
