@@ -275,14 +275,13 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  # 3D Sal portrait (Cycles render of the v5 rig) on the Kute blue (#3B82F6,
-  # the light theme accent). The flat pixel Sal stays in kute_logo*.png for
-  # the notification icon.
+  # 3D Sal portrait (Cycles render of the v5 rig) on white. The flat pixel
+  # Sal stays in kute_logo*.png for the notification icon.
   image_path_android: "lib/assets/kute_logo_3d_icon.png"
   image_path_ios: "lib/assets/kute_logo_3d_icon.png"
   remove_alpha_ios: true
-  background_color_ios: "#3B82F6"
-  adaptive_icon_background: "#3B82F6"
+  background_color_ios: "#FFFFFF"
+  adaptive_icon_background: "#FFFFFF"
   # the head render on transparent with 10% padding
   adaptive_icon_foreground: "lib/assets/kute_logo_3d_adaptive.png"
 
