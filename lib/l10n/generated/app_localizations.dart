@@ -19035,7 +19035,7 @@ abstract class AppLocalizations {
   /// **'The market and how you\'re doing'**
   String get shareThisPositionSub;
 
-  /// Recommended row on a market or position page: sends dollars pointed at this market (coming soon).
+  /// Recommended row on a market or position page: sends dollars pointed at this market (Send to anyone with the market on the link).
   ///
   /// In en, this message translates to:
   /// **'Send dollars for this market'**
@@ -19046,12 +19046,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'They get dollars pointed at this bet'**
   String get sendDollarsForMarketSub;
-
-  /// The text handed to the OS share sheet for a market: its title and its link with the sharer's code.
-  ///
-  /// In en, this message translates to:
-  /// **'{title} on Kute: {link}'**
-  String shareMarketText(String title, String link);
 
   /// Sal prompt chip on a position page.
   ///

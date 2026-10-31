@@ -11366,11 +11366,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendDollarsForMarketSub => 'They get dollars pointed at this bet';
 
   @override
-  String shareMarketText(String title, String link) {
-    return '$title on Kute: $link';
-  }
-
-  @override
   String get salPromptTakeProfit => 'Should I take profit?';
 
   @override

@@ -20,19 +20,14 @@
 // ([category], [searchHint]). A keyboard-driven surface, and the Sal
 // sheet itself, push a [hidden] context: the bar slides away.
 //
-// Share links: "{title} on Kute: {link}?ref={code}" through the OS share
-// sheet (share_plus); [kKuteShareLinkBase] is a placeholder for the real
-// deep-link base, and "Send dollars for this market" is a hook that says
-// "Coming soon" until the Dollars send-to-anyone entry is merged.
+// Share links: the two market rows go through the share flow in
+// screens/share/ (the market share sheet, Send to anyone); see
+// kute_share_actions.dart for the link they carry.
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
-
-/// Placeholder base for a shared market's link; the real deep-link base
-/// comes with the share screen.
-const String kKuteShareLinkBase = 'https://kute.app';
 
 /// One recommended action row in the Sal sheet. [onTap] runs after the
 /// sheet has closed; [sheetContext] is the Sal sheet's own context (for a

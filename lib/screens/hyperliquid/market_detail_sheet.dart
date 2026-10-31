@@ -391,8 +391,13 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         barContext: marketBarContext(
                           context,
                           title: widget.market.coin,
-                          path: '/investing/${widget.market.coin}',
-                          code: ref.read(settingsProvider).affiliateCode,
+                          venue: kMarketLinkInvesting,
+                          slug: widget.market.coin,
+                          price: formatHlPrice(
+                              widget.market.midPx > 0
+                                  ? widget.market.midPx
+                                  : widget.market.markPx,
+                              decimalCap: widget.market.pxDecimalCap),
                           position: false,
                           category: SearchCategory.perpetuals,
                           searchHint: context.l10n.searchInvestmentsHint,

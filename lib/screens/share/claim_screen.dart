@@ -26,14 +26,22 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/kute_state.dart';
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
+import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
+import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_mascot.dart';
 import 'package:kute/services/api/share_links_api.dart';
+import 'package:kute/services/polymarket/polymarket_category_gate.dart';
+import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -166,11 +174,50 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     }
   }
 
-  void _openMarket() {
-    final slug = _link?.marketSlug;
+  Future<void> _openMarket() async {
+    final slug = _link?.marketSlug?.trim();
     ShareLinkEvents.marketOpened(marketSlug: slug);
-    // Phase 1: the Predictions tab. A market opened by its slug is the
-    // market detail owners' hook.
+    if (slug == null || slug.isEmpty) {
+      context.go('/polymarket');
+      return;
+    }
+    // The slug on a link is a Predictions event slug or an Investing coin
+    // (kute_share_actions.dart). Resolve it the way Sal's open_market
+    // actions do (advisor/action_dispatcher.dart): the event by its slug,
+    // else the one market with that wire coin, each only when the policy
+    // offers it here; the venue's tab when neither resolves.
+    PolymarketEvent? event;
+    try {
+      event = await ref.read(polymarketEventDetailsProvider(slug).future);
+    } catch (_) {
+      event = null;
+    }
+    if (!mounted) return;
+    if (event != null &&
+        event.slug == slug &&
+        polymarketEventOffered(event, RuntimeCapabilitiesService.instance)) {
+      context.go('/polymarket');
+      MarketDetailSheet.show(context, event: event, source: 'share_claim');
+      return;
+    }
+    final markets = <HlMarket>[];
+    try {
+      markets
+        ..addAll(await ref.read(hyperliquidPerpMarketsProvider.future))
+        ..addAll(await ref.read(hyperliquidSpotMarketsProvider.future));
+    } catch (_) {}
+    if (!mounted) return;
+    final matches = markets
+        .where((m) => m.wireCoin.toUpperCase() == slug.toUpperCase())
+        .toList();
+    if (matches.length == 1 &&
+        hlMarketOfferedUnderPolicy(
+            matches.single, RuntimeCapabilitiesService.instance)) {
+      context.go('/hyperliquid');
+      HlMarketDetailSheet.show(context,
+          market: matches.single, source: 'share_claim');
+      return;
+    }
     context.go('/polymarket');
   }
 

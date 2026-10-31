@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -471,9 +470,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                       barContext: marketBarContext(
                         context,
                         title: widget.position.marketQuestion,
-                        path:
-                            '/predictions/${widget.position.eventSlug ?? ''}',
-                        code: ref.read(settingsProvider).affiliateCode,
+                        venue: kMarketLinkPredictions,
+                        slug: widget.position.eventSlug,
                         position: true,
                         category: SearchCategory.predictions,
                         searchHint: context.l10n.searchPredictionsHint,

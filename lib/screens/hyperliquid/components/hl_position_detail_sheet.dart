@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -247,8 +246,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       barContext: marketBarContext(
         context,
         title: widget.position.coin,
-        path: '/investing/${widget.position.coin}',
-        code: ref.read(settingsProvider).affiliateCode,
+        venue: kMarketLinkInvesting,
+        slug: widget.position.coin,
         position: true,
         category: SearchCategory.perpetuals,
         searchHint: context.l10n.searchInvestmentsHint,

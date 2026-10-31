@@ -33,7 +33,25 @@ class Splash extends ConsumerStatefulWidget {
 /// at the size and place the NATIVE splash still (`lib/assets/sal/
 /// splash.png`, centred) draws him, so the first Flutter frame continues
 /// the still with no cut. Tune this with that image.
-const double kSplashSalSize = 200;
+///
+/// The arithmetic (31 October 2026). flutter_native_splash draws the
+/// 1024 px still at 1x = 256 logical points, centred on the full screen
+/// (iOS: `LaunchScreen.storyboard`, `contentMode="center"`, the image
+/// view pinned to the view's edges, LaunchImage.png 256/512/768 px at
+/// 1x/2x/3x; Android: `launch_background.xml`, `gravity="center"`, the
+/// mdpi drawable 256 px). In the still Sal's opaque pixels span rows
+/// 136–940 of 1024, so he stands 805 / 4 = 201 logical tall with his
+/// middle 6.5 under the screen's centre. In the body sheets' first frame
+/// he spans rows 30–246 of a 256 px cell (217 / 256 of the side), so a
+/// cell of 201 × 256 / 217 ≈ 237 draws him at the still's height, with
+/// his middle 9 under the cell's centre: [kSplashSalOffset] moves the
+/// cell up by the difference and right by the same reading of the
+/// columns (222–775 in the still, 51–191 in the cell).
+const double kSplashSalSize = 237;
+
+/// Where the sprite's cell sits relative to the screen's centre so that
+/// Sal lands where the still drew him (see [kSplashSalSize]).
+const Offset kSplashSalOffset = Offset(3, -3);
 
 class _SplashState extends ConsumerState<Splash>
     with TickerProviderStateMixin {
@@ -414,10 +432,13 @@ class _SplashState extends ConsumerState<Splash>
           // first frame: no slide, no fade of Sal himself.
           if (_sal3d)
             Center(
-              child: SalSprite(
-                clip: _wag ? 'body_wag' : 'body_idle',
-                size: kSplashSalSize,
-                fallback: const SizedBox.shrink(),
+              child: Transform.translate(
+                offset: kSplashSalOffset,
+                child: SalSprite(
+                  clip: _wag ? 'body_wag' : 'body_idle',
+                  size: kSplashSalSize,
+                  fallback: const SizedBox.shrink(),
+                ),
               ),
             ),
 

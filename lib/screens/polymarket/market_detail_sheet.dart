@@ -1,6 +1,5 @@
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -788,8 +787,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             barContext: marketBarContext(
               context,
               title: event.title,
-              path: '/predictions/${event.slug}',
-              code: ref.read(settingsProvider).affiliateCode,
+              venue: kMarketLinkPredictions,
+              slug: event.slug,
+              chance: event.isBinary ? event.yesPrice * 100 : null,
               position: false,
               category: SearchCategory.predictions,
               searchHint: context.l10n.searchPredictionsHint,
