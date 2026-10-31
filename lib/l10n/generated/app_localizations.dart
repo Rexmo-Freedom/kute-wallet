@@ -19029,12 +19029,6 @@ abstract class AppLocalizations {
   /// **'All time'**
   String get portfolioAllTime;
 
-  /// Portfolio screen, Sal sheet: the second line of the Move money action row.
-  ///
-  /// In en, this message translates to:
-  /// **'Between Dollars, Investing and Predictions'**
-  String get portfolioMoveMoneySub;
-
   /// The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen.
   ///
   /// In en, this message translates to:

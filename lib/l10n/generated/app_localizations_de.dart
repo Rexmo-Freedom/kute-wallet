@@ -11446,10 +11446,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get portfolioAllTime => 'All time';
 
   @override
-  String get portfolioMoveMoneySub =>
-      'Between Dollars, Investing and Predictions';
-
-  @override
   String get barWhatIsThis => 'What is this?';
 
   @override

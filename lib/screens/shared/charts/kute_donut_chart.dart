@@ -31,6 +31,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 
 /// One slice of a [KuteDonutChart]. [id] keeps its identity across value
@@ -171,8 +172,10 @@ class _KuteDonutChartState extends State<KuteDonutChart>
 
   late final AnimationController _sweep =
       AnimationController(vsync: this, duration: _sweepDuration);
+  // The entrance sweeps on the app's settle (kute_motion.dart), as the
+  // Portfolio hero it draws does.
   late final Animation<double> _sweepCurve =
-      CurvedAnimation(parent: _sweep, curve: Curves.easeOutCubic);
+      CurvedAnimation(parent: _sweep, curve: KuteMotion.settle);
 
   late final AnimationController _morph =
       AnimationController(vsync: this, duration: _morphDuration, value: 1);

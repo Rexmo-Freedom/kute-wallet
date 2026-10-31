@@ -6913,8 +6913,6 @@
   },
   "portfolioAllTime": "All time",
   "@portfolioAllTime": {"description": "Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss (\"All time ▲ $120.10\")."},
-  "portfolioMoveMoneySub": "Between Dollars, Investing and Predictions",
-  "@portfolioMoveMoneySub": {"description": "Portfolio screen, Sal sheet: the second line of the Move money action row."},
   "barWhatIsThis": "What is this?",
   "@barWhatIsThis": {"description": "The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen."},
   "barReceiveExplainSub": "Sal explains how receiving works",

@@ -10,7 +10,10 @@
 // draw their own pill in their dock) it is away. A hidden context or the
 // keyboard slides it down ([KuteMotion.sheetOut]); it springs back when
 // they go. Tapping it opens the Sal sheet with that context
-// (showKuteSearch).
+// (showKuteSearch). AS THE PRIMARY BUTTON IT RIDES ABOVE THE KEYBOARD
+// instead (founder, 31 October 2026): at the keyboard's top plus
+// [kBarKeyboardGap], full width, lifted on the sheet spring and back
+// down with the keys; a search or hidden context still slides under it.
 //
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a context's [actionRowHeight]
 // lifts the bar above the page's pinned row, the lift animated on the
@@ -81,6 +84,10 @@ import 'package:kute/theme/kute_motion.dart';
 /// How long a market page's scroll stays still before the folded pill
 /// opens again.
 const Duration kBarScrollIdle = Duration(milliseconds: 600);
+
+/// The air between the keyboard's top and the primary button riding
+/// above it (see the file header).
+const double kBarKeyboardGap = 12;
 
 class KuteShellBar extends ConsumerStatefulWidget {
   const KuteShellBar({super.key});
@@ -207,13 +214,23 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // A context placed in the page's header (KuteBarPlacement.header)
     // keeps the pill away: the page draws KuteSalHeaderButton instead.
     final morphed = _morphed;
-    final keyboard = !morphed && MediaQuery.viewInsetsOf(context).bottom > 0;
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboard = !morphed && inset > 0;
+    // The primary button rides ABOVE the keyboard (founder, 31 October
+    // 2026): a surface typing into a field keeps its Continue in reach,
+    // the bar at the keyboard's top plus 12 px, full width, on the sheet
+    // spring. A search or hidden context still slides under it.
+    final rides = keyboard && top != null && top.isPrimary && !top.hidden;
     final show = top != null &&
-        (morphed || (!top.hidden && !top.inHeader && !keyboard));
+        (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
     // once left a popped market page's bar hanging over the tabs).
-    if (!morphed) _lift = show ? top.actionRowHeight : 0;
+    if (!morphed) {
+      _lift = show
+          ? top.actionRowHeight + (rides ? inset + kBarKeyboardGap : 0)
+          : 0;
+    }
     if (show && !morphed) _last = top;
     final ctx = _last;
     if (ctx == null) return const SizedBox.shrink();

@@ -173,6 +173,47 @@ void main() {
   });
 
   testWidgets(
+      'as the primary button it rides above the keyboard: full width at the '
+      'keyboard\'s top plus 12, down again with the keys; the pill hides',
+      (tester) async {
+    await _pump(tester);
+    await _push(
+        tester,
+        _page(
+            barContext:
+                KuteBarContext.primary(label: 'Continue', onPrimary: () {})),
+        name: 'form');
+    expect(_up(tester), isTrue);
+    final button = find.byKey(const ValueKey('kute-bar-primary-button'));
+    final rest = tester.getRect(button);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue, reason: 'the primary button never hides');
+    final lifted = tester.getRect(button);
+    expect(rest.bottom - lifted.bottom,
+        moreOrLessEquals(336 + kBarKeyboardGap, epsilon: 1));
+    expect(lifted.bottom, lessThanOrEqualTo(844 - 336 - kBarKeyboardGap));
+    expect(lifted.width, moreOrLessEquals(rest.width, epsilon: 1));
+    expect(lifted.width, greaterThan(300));
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(tester.getRect(button).bottom, moreOrLessEquals(rest.bottom));
+
+    // The pill (a search context) still slides under the keyboard.
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    await _push(tester, _page(), name: 'settings');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(_up(tester), isTrue);
+  });
+
+  testWidgets(
       'a short sheet hides the bar, unless its own primary is the bar: a '
       'primary context in the same route beats the sheet\'s hidden one',
       (tester) async {
