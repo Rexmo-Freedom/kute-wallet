@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} aandelen · gem. {price}",
   "portfolioRowEntry": "instap {price}",
   "investmentsAdd": "Toevoegen",
-  "investmentsDollarsHeldTitle": "{amount} staat in dollars",
-  "investmentsDollarsHeldBody": "Beweegt niet mee met de Bitcoin-prijs",
   "activityOnItsWay": "Onderweg",
   "investingTradfi": "Traditioneel"
 }

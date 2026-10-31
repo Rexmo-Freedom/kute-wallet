@@ -11233,14 +11233,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get investmentsAdd => 'Pievienot';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount tiek turēti dolāros';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Nemainās līdz ar Bitcoin cenu';
-
-  @override
   String get activityOnItsWay => 'Ceļā';
 
   @override

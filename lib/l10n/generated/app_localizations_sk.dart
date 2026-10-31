@@ -11271,14 +11271,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get investmentsAdd => 'Pridať';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount je držaných v dolároch';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Nehýbe sa s cenou Bitcoinu';
-
-  @override
   String get activityOnItsWay => 'Na ceste';
 
   @override

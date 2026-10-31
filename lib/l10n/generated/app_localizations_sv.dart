@@ -11264,14 +11264,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get investmentsAdd => 'Lägg till';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount hålls i dollar';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Följer inte Bitcoins pris';
-
-  @override
   String get activityOnItsWay => 'På väg';
 
   @override

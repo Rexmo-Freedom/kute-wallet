@@ -11312,14 +11312,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get investmentsAdd => 'Pridėti';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount laikoma doleriais';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Nekinta su Bitcoin kaina';
-
-  @override
   String get activityOnItsWay => 'Kelyje';
 
   @override

@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} podílů · prům. {price}",
   "portfolioRowEntry": "vstup {price}",
   "investmentsAdd": "Přidat",
-  "investmentsDollarsHeldTitle": "{amount} je drženo v dolarech",
-  "investmentsDollarsHeldBody": "Nehýbe se s cenou Bitcoinu",
   "activityOnItsWay": "Na cestě",
   "investingTradfi": "Tradiční"
 }

@@ -11323,15 +11323,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get investmentsAdd => 'Adaugă';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount sunt păstrați în dolari';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody =>
-      'Nu se mișcă odată cu prețul Bitcoin';
-
-  @override
   String get activityOnItsWay => 'Pe drum';
 
   @override

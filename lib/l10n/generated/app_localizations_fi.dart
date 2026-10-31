@@ -11277,14 +11277,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get investmentsAdd => 'Lisää';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount on dollareina';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Ei liiku Bitcoinin hinnan mukana';
-
-  @override
   String get activityOnItsWay => 'Matkalla';
 
   @override

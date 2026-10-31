@@ -11251,14 +11251,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get investmentsAdd => 'Lisa';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount hoitakse dollarites';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Ei liigu Bitcoini hinnaga';
-
-  @override
   String get activityOnItsWay => 'Teel';
 
   @override

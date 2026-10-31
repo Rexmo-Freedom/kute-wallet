@@ -11297,14 +11297,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get investmentsAdd => 'Dodaj';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount je v dolarjih';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Ne sledi ceni Bitcoina';
-
-  @override
   String get activityOnItsWay => 'Na poti';
 
   @override

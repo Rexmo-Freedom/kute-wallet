@@ -11345,15 +11345,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get investmentsAdd => 'Προσθήκη';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount κρατούνται σε δολάρια';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody =>
-      'Δεν κινείται με την τιμή του Bitcoin';
-
-  @override
   String get activityOnItsWay => 'Καθ\' οδόν';
 
   @override

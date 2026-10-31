@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} andelar · snitt {price}",
   "portfolioRowEntry": "ingång {price}",
   "investmentsAdd": "Lägg till",
-  "investmentsDollarsHeldTitle": "{amount} hålls i dollar",
-  "investmentsDollarsHeldBody": "Följer inte Bitcoins pris",
   "activityOnItsWay": "På väg",
   "investingTradfi": "Traditionella"
 }

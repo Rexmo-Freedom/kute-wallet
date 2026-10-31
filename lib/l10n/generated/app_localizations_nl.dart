@@ -11301,15 +11301,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get investmentsAdd => 'Toevoegen';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount staat in dollars';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody =>
-      'Beweegt niet mee met de Bitcoin-prijs';
-
-  @override
   String get activityOnItsWay => 'Onderweg';
 
   @override

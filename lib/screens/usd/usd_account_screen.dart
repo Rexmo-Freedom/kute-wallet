@@ -113,17 +113,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
-    show formatPolyFiatForced;
-import 'package:kute/providers/one_balance_provider.dart';
+import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
-import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
-import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
@@ -135,8 +131,9 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showUsdReceiveSheet;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogMagnifier;
 import 'package:kute/screens/shared/kute_motion.dart'
-    show kuteMotion, kuteReduceMotion;
+    show KuteStillWhenCovered, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -288,20 +285,18 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppDecorations.screenGradient(context),
-      child: KuteDockHost(
-        dockBuilder: (onHeightChanged) =>
-            UsdAccountActionBar(onHeightChanged: onHeightChanged),
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: const [
-              // The floating nav bar's room is the top of the page's
-              // header, there only while the bar is (see the file
-              // header), never a fixed spacer here.
-              Expanded(child: InvestmentsBody()),
-            ],
-          ),
+      // No dock: the tab's search and Sal are the big button under the
+      // balance ([UsdSearchButton]), and the money verbs the row under it.
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: const [
+            // The floating nav bar's room is the top of the page's
+            // header, there only while the bar is (see the file
+            // header), never a fixed spacer here.
+            Expanded(child: InvestmentsBody()),
+          ],
         ),
       ),
     );
@@ -681,13 +676,17 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           oneBalance: true,
                         ),
                       ),
-                      // The money verbs, once, under the balance (the
-                      // dock is search alone), and the Dollars note.
+                      // Under the balance, as the Bitcoin tab: the big
+                      // button (search and Sal), then the money verbs,
+                      // once. No dock on this tab.
                       Padding(
                         padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
+                        child: const UsdSearchButton(),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
                         child: const UsdAccountActionRow(),
                       ),
-                      const DollarsHeldNote(),
                       // The Home strip's pills, a step bigger, on the
                       // strip's inset with 12.h of air above (where the
                       // deposit door used to sit) and under them.
@@ -1007,7 +1006,7 @@ class UsdAccountActionBar extends ConsumerWidget {
           ),
       };
 
-  void _search(BuildContext context, WidgetRef ref) {
+  static void search(BuildContext context, WidgetRef ref) {
     final tab = ref.read(investmentsTabProvider);
     final target = searchTarget(tab);
     showKuteSearch(
@@ -1054,8 +1053,79 @@ class UsdAccountActionBar extends ConsumerWidget {
         // The money verbs sit under the balance; the dock is the one
         // quiet door to search and Sal.
         actions: const [],
-        onSearch: () => _search(context, ref),
+        onSearch: () => search(context, ref),
       );
+}
+
+/// The Investments tab's big button, where the Bitcoin tab has Purchase
+/// Bitcoin: the one door to search and to Sal, full width under the
+/// balance (founder, 31 October 2026: "might as well just have a big
+/// button there"). Same primary fill as Purchase; Sal with his magnifier
+/// while AI is on, the plain magnifier otherwise. The tab carries no dock
+/// since this is here.
+class UsdSearchButton extends ConsumerWidget {
+  const UsdSearchButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
+    final label = aiEnabled
+        ? context.l10n.searchOrAskSalShort
+        : context.l10n.searchAction;
+    final foreground = context.ctaOnColor;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Container(
+        key: const ValueKey('usd-search-button'),
+        height: 54,
+        decoration: BoxDecoration(
+          color: context.ctaFill,
+          borderRadius: AppRadius.buttonBorder,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: AppRadius.buttonBorder,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: AppRadius.buttonBorder,
+            splashColor: foreground.withValues(alpha: 0.16),
+            highlightColor: foreground.withValues(alpha: 0.10),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              TrackingService.bottomBarTapped(
+                  element: 'search_button', source: kUsdSurfaceSource);
+              UsdAccountActionBar.search(context, ref);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (aiEnabled)
+                  KuteStillWhenCovered(
+                      child: KuteDogMagnifier(size: 36, lensColor: foreground))
+                else
+                  Icon(Icons.search_rounded, size: 22.sp, color: foreground),
+                SizedBox(width: 8.w),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The Investments action row under the balance: Add · Withdraw, the
@@ -1071,81 +1141,6 @@ class UsdAccountActionRow extends StatelessWidget {
       );
 }
 
-/// One line that answers the question the old "Available" left open:
-/// the money not invested is held as Dollars and does not move with
-/// Bitcoin's price. Shown under the action row while any Dollars are
-/// held; nothing otherwise.
-class DollarsHeldNote extends ConsumerWidget {
-  const DollarsHeldNote({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dollars =
-        ref.watch(oneBalanceProvider.select((s) => s.dollarsUsd));
-    if (dollars < 0.01) return const SizedBox.shrink();
-    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final amount = visible ? formatPolyFiatForced(ref, dollars) : '••••••';
-    final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
-      child: Container(
-        key: const ValueKey('dollars-held-note'),
-        padding: EdgeInsets.fromLTRB(12.w, 10.h, 14.w, 10.h),
-        decoration: BoxDecoration(
-          color: isLight ? Colors.white : c.surface,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(
-            color: isLight ? c.border : c.borderSubtle,
-            width: isLight ? 1.0 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 30.w,
-              height: 30.w,
-              decoration: const BoxDecoration(
-                  color: AppColors.success, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: Text('\$',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0)),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(context.l10n.investmentsDollarsHeldTitle(amount),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2)),
-                  SizedBox(height: 2.h),
-                  Text(context.l10n.investmentsDollarsHeldBody,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12.5.sp,
-                          fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// Reports the Investments tab opening for a deep link or a shortcut.
 /// Kept next to the screen so callers don't re-derive the route name.

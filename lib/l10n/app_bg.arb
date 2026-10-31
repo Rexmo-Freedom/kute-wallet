@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} дяла · ср. {price}",
   "portfolioRowEntry": "вход {price}",
   "investmentsAdd": "Добави",
-  "investmentsDollarsHeldTitle": "{amount} се държат в долари",
-  "investmentsDollarsHeldBody": "Не се движи с цената на Bitcoin",
   "activityOnItsWay": "На път",
   "investingTradfi": "Традиционни"
 }

@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} μερίδια · μ.ο. {price}",
   "portfolioRowEntry": "είσοδος {price}",
   "investmentsAdd": "Προσθήκη",
-  "investmentsDollarsHeldTitle": "{amount} κρατούνται σε δολάρια",
-  "investmentsDollarsHeldBody": "Δεν κινείται με την τιμή του Bitcoin",
   "activityOnItsWay": "Καθ' οδόν",
   "investingTradfi": "Παραδοσιακά"
 }

@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "Deleži: {shares} · povpr. {price}",
   "portfolioRowEntry": "vstop {price}",
   "investmentsAdd": "Dodaj",
-  "investmentsDollarsHeldTitle": "{amount} je v dolarjih",
-  "investmentsDollarsHeldBody": "Ne sledi ceni Bitcoina",
   "activityOnItsWay": "Na poti",
   "investingTradfi": "Tradicionalno"
 }

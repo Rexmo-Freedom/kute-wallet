@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} parts · moy. {price}",
   "portfolioRowEntry": "entrée {price}",
   "investmentsAdd": "Ajouter",
-  "investmentsDollarsHeldTitle": "{amount} sont gardés en dollars",
-  "investmentsDollarsHeldBody": "Ne bouge pas avec le prix du Bitcoin",
   "activityOnItsWay": "En route",
   "investingTradfi": "Traditionnel"
 }

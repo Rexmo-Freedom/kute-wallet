@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} osuutta · keskim. {price}",
   "portfolioRowEntry": "avaus {price}",
   "investmentsAdd": "Lisää",
-  "investmentsDollarsHeldTitle": "{amount} on dollareina",
-  "investmentsDollarsHeldBody": "Ei liiku Bitcoinin hinnan mukana",
   "activityOnItsWay": "Matkalla",
   "investingTradfi": "Perinteiset"
 }

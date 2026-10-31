@@ -11290,14 +11290,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get investmentsAdd => 'Hozzáadás';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount dollárban van tartva';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Nem mozog a Bitcoin árával';
-
-  @override
   String get activityOnItsWay => 'Úton';
 
   @override

@@ -11314,14 +11314,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get investmentsAdd => 'Adicionar';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount estão guardados em dólares';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Não acompanha o preço do Bitcoin';
-
-  @override
   String get activityOnItsWay => 'A caminho';
 
   @override

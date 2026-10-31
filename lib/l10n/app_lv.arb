@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} daļas · vid. {price}",
   "portfolioRowEntry": "ieeja {price}",
   "investmentsAdd": "Pievienot",
-  "investmentsDollarsHeldTitle": "{amount} tiek turēti dolāros",
-  "investmentsDollarsHeldBody": "Nemainās līdz ar Bitcoin cenu",
   "activityOnItsWay": "Ceļā",
   "investingTradfi": "Tradicionālie"
 }

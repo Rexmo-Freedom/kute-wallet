@@ -273,7 +273,7 @@ void main() {
 
   testWidgets(
       'no venue Deposit or Withdraw anywhere; the money verbs are one row '
-      'under the hero, Add · Withdraw, the dock is search alone, and Add '
+      'under the hero, Add · Withdraw, under the big search button, and Add '
       'opens the Dollars receive screen', (tester) async {
     final events = recordEvents();
     var receiveOpened = 0;
@@ -312,18 +312,16 @@ void main() {
     expect(find.text(l10n.withdraw), findsOneWidget);
     expect(find.text(l10n.receive, skipOffstage: false), findsNothing);
     expect(find.text(l10n.send, skipOffstage: false), findsNothing);
-    expect(find.byKey(const ValueKey('dollars-held-note')), findsOneWidget);
-    expect(find.text(l10n.investmentsDollarsHeldBody), findsOneWidget);
+    // The big button above the row: search and Sal, where the Bitcoin
+    // tab has Purchase Bitcoin.
+    final big = find.byKey(const ValueKey('usd-search-button'));
+    expect(big, findsOneWidget);
+    expect(tester.getBottomLeft(big).dy, lessThan(tester.getTopLeft(row).dy));
     expect(tester.getTopLeft(find.byType(KutePillTabs).first).dy,
         greaterThan(tester.getBottomLeft(row).dy));
 
-    // The dock: no money verbs, the one quiet door to search and Sal.
-    final bar =
-        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    expect(bar.actions, isEmpty);
-    expect(bar.onSearch, isNotNull);
-    expect(bar.source, 'usd');
-    expect(find.byKey(const ValueKey('dock-search-pill')), findsOneWidget);
+    // No dock on this tab: nothing under the lists but the lists.
+    expect(find.byType(KuteBottomActionBar), findsNothing);
 
     // Add opens the Dollars receive screen, with the Bitcoin dock's
     // quick-action key under this surface and the dock as the receive
@@ -361,7 +359,7 @@ void main() {
         (category: SearchCategory.all, source: 'usd'));
   });
 
-  testWidgets('the search square on Positions opens search on All',
+  testWidgets('the search button on Positions opens search on All',
       (tester) async {
     final events = recordEvents();
     await pumpInvestments(tester, earn: kEarnOn);
@@ -369,9 +367,7 @@ void main() {
     await tapPill(tester, l10n.walletPortfolioAction);
     expect(_container(tester).read(investmentsTabProvider),
         InvestmentsTab.positions);
-    final bar =
-        tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    bar.onSearch!();
+    await tester.tap(find.byKey(const ValueKey('usd-search-button')));
     await tester.pump();
     final container = _container(tester);
     expect(container.read(selectedSearchCategoryProvider), SearchCategory.all);

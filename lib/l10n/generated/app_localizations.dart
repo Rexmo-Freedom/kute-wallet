@@ -18867,18 +18867,6 @@ abstract class AppLocalizations {
   /// **'Add'**
   String get investmentsAdd;
 
-  /// Investments, the note under the action row while Dollars are held. {amount} is a formatted dollar amount.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} is held in Dollars'**
-  String investmentsDollarsHeldTitle(String amount);
-
-  /// Investments, second line of the Dollars note: why holding Dollars matters.
-  ///
-  /// In en, this message translates to:
-  /// **'It doesn\'t move with Bitcoin\'s price'**
-  String get investmentsDollarsHeldBody;
-
   /// Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows.
   ///
   /// In en, this message translates to:

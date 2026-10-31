@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} ks · priem. {price}",
   "portfolioRowEntry": "vstup {price}",
   "investmentsAdd": "Pridať",
-  "investmentsDollarsHeldTitle": "{amount} je držaných v dolároch",
-  "investmentsDollarsHeldBody": "Nehýbe sa s cenou Bitcoinu",
   "activityOnItsWay": "Na ceste",
   "investingTradfi": "Tradičné"
 }

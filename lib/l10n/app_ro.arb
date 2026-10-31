@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} unități · medie {price}",
   "portfolioRowEntry": "intrare {price}",
   "investmentsAdd": "Adaugă",
-  "investmentsDollarsHeldTitle": "{amount} sunt păstrați în dolari",
-  "investmentsDollarsHeldBody": "Nu se mișcă odată cu prețul Bitcoin",
   "activityOnItsWay": "Pe drum",
   "investingTradfi": "Tradițional"
 }

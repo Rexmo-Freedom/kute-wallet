@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} vnt. · vid. {price}",
   "portfolioRowEntry": "įėjimas {price}",
   "investmentsAdd": "Pridėti",
-  "investmentsDollarsHeldTitle": "{amount} laikoma doleriais",
-  "investmentsDollarsHeldBody": "Nekinta su Bitcoin kaina",
   "activityOnItsWay": "Kelyje",
   "investingTradfi": "Tradiciniai"
 }

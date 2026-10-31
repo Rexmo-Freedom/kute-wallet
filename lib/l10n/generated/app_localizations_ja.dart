@@ -10839,14 +10839,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get investmentsAdd => '追加';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount はドルで保有中';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'ビットコイン価格の影響を受けません';
-
-  @override
   String get activityOnItsWay => '処理中';
 
   @override

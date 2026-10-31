@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} osakut · kesk. {price}",
   "portfolioRowEntry": "sisenemine {price}",
   "investmentsAdd": "Lisa",
-  "investmentsDollarsHeldTitle": "{amount} hoitakse dollarites",
-  "investmentsDollarsHeldBody": "Ei liigu Bitcoini hinnaga",
   "activityOnItsWay": "Teel",
   "investingTradfi": "Traditsiooniline"
 }

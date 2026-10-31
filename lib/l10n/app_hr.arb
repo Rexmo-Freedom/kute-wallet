@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} udjela · prosj. {price}",
   "portfolioRowEntry": "ulaz {price}",
   "investmentsAdd": "Dodaj",
-  "investmentsDollarsHeldTitle": "{amount} se drži u dolarima",
-  "investmentsDollarsHeldBody": "Ne mijenja se s cijenom Bitcoina",
   "activityOnItsWay": "Na putu",
   "investingTradfi": "Tradicionalno"
 }

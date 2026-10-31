@@ -11284,14 +11284,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get investmentsAdd => 'Добави';
 
   @override
-  String investmentsDollarsHeldTitle(String amount) {
-    return '$amount се държат в долари';
-  }
-
-  @override
-  String get investmentsDollarsHeldBody => 'Не се движи с цената на Bitcoin';
-
-  @override
   String get activityOnItsWay => 'На път';
 
   @override

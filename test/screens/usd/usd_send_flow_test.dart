@@ -39,7 +39,7 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show UsdAccountActionBar;
+    show UsdAccountActionBar, UsdAccountActionRow;
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show UsdWithdrawScreen, kUsdWithdrawRouteName;
@@ -830,7 +830,7 @@ void main() {
   // ─── The send sheet ───────────────────────────────────────────────
 
   testWidgets(
-      'the Investments dock\'s Withdraw opens the Deposit\'s sheet turned '
+      'the Investments row\'s Withdraw opens the Add sheet turned '
       'around; a coin on it opens the send sheet at medium height on Send '
       'to, the coin picked, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -841,7 +841,7 @@ void main() {
     await _pump(tester,
         home: const Scaffold(
             body: SizedBox.expand(),
-            bottomNavigationBar: UsdAccountActionBar()));
+            bottomNavigationBar: UsdAccountActionRow()));
 
     await tester.tap(find.text(_l10n.withdraw));
     await tester.pumpAndSettle();
@@ -871,7 +871,7 @@ void main() {
     expect(_grid, findsNothing);
     expect(find.byType(TextField), findsOneWidget);
     // The screen it came from stays behind the scrim.
-    expect(find.byType(UsdAccountActionBar), findsOneWidget);
+    expect(find.byType(UsdAccountActionRow), findsOneWidget);
     final opened = events.where((e) => e.$1 == 'usd_send_opened').single.$2;
     expect(opened, containsPair('presentation', 'sheet'));
     expect(events.where((e) => e.$1 == 'usd_send_coin_selected').single.$2,

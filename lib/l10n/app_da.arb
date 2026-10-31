@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} andele · gns. {price}",
   "portfolioRowEntry": "indgang {price}",
   "investmentsAdd": "Tilføj",
-  "investmentsDollarsHeldTitle": "{amount} holdes i dollars",
-  "investmentsDollarsHeldBody": "Følger ikke Bitcoins pris",
   "activityOnItsWay": "På vej",
   "investingTradfi": "Traditionelle"
 }

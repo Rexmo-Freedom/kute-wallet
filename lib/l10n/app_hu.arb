@@ -3126,8 +3126,6 @@
   "portfolioRowShares": "{shares} egység · átl. {price}",
   "portfolioRowEntry": "belépés {price}",
   "investmentsAdd": "Hozzáadás",
-  "investmentsDollarsHeldTitle": "{amount} dollárban van tartva",
-  "investmentsDollarsHeldBody": "Nem mozog a Bitcoin árával",
   "activityOnItsWay": "Úton",
   "investingTradfi": "Hagyományos"
 }
