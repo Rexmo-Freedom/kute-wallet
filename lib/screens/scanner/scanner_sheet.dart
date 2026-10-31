@@ -54,6 +54,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as spark;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1139,7 +1140,17 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
     // to its bottom edge, and the drag handle and the close X float over
     // the video. Shorter than the full-height sheets so it reads as a
     // sheet over the page, the send sheet's first-step height.
-    return PopScope<Object?>(
+    // The bar explains the scanner (founder, 31 October 2026): "What can
+    // I scan?", tapping sends the question to Sal.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barScannerLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barScannerQuestion,
+        source: 'scanner',
+      ),
+      child: PopScope<Object?>(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _onClosing();
       },
@@ -1186,7 +1197,7 @@ class _ScannerSheetState extends ConsumerState<ScannerSheet>
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// The preview, edge to edge: the camera (or a dark field with why it

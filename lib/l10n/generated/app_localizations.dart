@@ -19029,6 +19029,66 @@ abstract class AppLocalizations {
   /// **'Between Dollars, Investing and Predictions'**
   String get portfolioMoveMoneySub;
 
+  /// The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen.
+  ///
+  /// In en, this message translates to:
+  /// **'What is this?'**
+  String get barWhatIsThis;
+
+  /// Second line of the bar on the Receive sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal explains how receiving works'**
+  String get barReceiveExplainSub;
+
+  /// The question the Receive sheet's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means'**
+  String get barReceiveQuestion;
+
+  /// The bar on the scanner.
+  ///
+  /// In en, this message translates to:
+  /// **'What can I scan?'**
+  String get barScannerLabel;
+
+  /// The question the scanner's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?'**
+  String get barScannerQuestion;
+
+  /// The bar on Backup and recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Why back up?'**
+  String get barBackupLabel;
+
+  /// The question the Backup screen's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?'**
+  String get barBackupQuestion;
+
+  /// The bar on a transaction receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened here?'**
+  String get barReceiptLabel;
+
+  /// The question a receipt's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain this transaction receipt: what moved, the fees, the status and what each line means'**
+  String get barReceiptQuestion;
+
+  /// Second line of the bar on an informational screen other than Receive.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal about this screen'**
+  String get barAskSalSub;
+
   /// The floating Sal bar over the Move money screen.
   ///
   /// In en, this message translates to:

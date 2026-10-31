@@ -713,9 +713,12 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         padding: EdgeInsets.fromLTRB(32.w, 8.h, 32.w, 0),
                         child: const UsdAccountActionRow(),
                       ),
-                      // ONE pill row: the sections, the picked one
-                      // carrying its category (its tap opens the pick).
-                      // Natural widths, side-scrolling.
+                      // ONE strip, exactly the home strip (founder, 31
+                      // October 2026): two equal halves across the width,
+                      // the picked half the white pill carrying its
+                      // category ("Investing · Trending ⌄", a plain
+                      // chevron); its tap opens the pick, the other's
+                      // switches.
                       Padding(
                         padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
                         child: KutePillTabs(
@@ -723,7 +726,6 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           selectedIndex: selectedIndex,
                           onTap: onTap,
                           size: KutePillSize.large,
-                          scroll: true,
                         ),
                       ),
                     ],
@@ -865,7 +867,6 @@ class _InvestmentsCompactBar extends StatelessWidget {
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   size: KutePillSize.compact,
-                  scroll: true,
                 ),
               ],
             ),

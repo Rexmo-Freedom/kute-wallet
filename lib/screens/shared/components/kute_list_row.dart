@@ -31,10 +31,10 @@ class KuteListGroup extends StatelessWidget {
 /// secondary subtitle, and a trailing slot that defaults to the tertiary
 /// 20sp chevron. Press feedback is a flat surfaceLight wash plus a haptic
 /// (light impact; a selection click with [selectionHaptic]); no tinted
-/// fills, no ripple. With a [tint] (founder, 31 October 2026: one icon
-/// family, Material rounded filled, coloured by section) the icon is
-/// drawn 20 px in that colour on the same square; the square itself
-/// never changes.
+/// fills, no ripple. The icon is the one monochrome family (Material
+/// rounded filled; founder, 31 October 2026), 20 px in textPrimary on the
+/// same square; [tint] overrides that colour where a list has a reason
+/// (none in Settings).
 class KuteListRow extends StatefulWidget {
   final String title;
   final IconData? icon;
@@ -94,8 +94,7 @@ class _KuteListRowState extends State<KuteListRow> {
             ),
             child: widget.glyph ??
                 Icon(widget.icon,
-                    color: widget.tint ?? c.textSecondary,
-                    size: widget.tint == null ? 22.sp : 20.sp),
+                    color: widget.tint ?? c.textPrimary, size: 20.sp),
           ),
           SizedBox(width: 14.w),
           Expanded(

@@ -405,7 +405,6 @@ class _SettingsState extends ConsumerState<Settings> {
         _SettingsRow(
           title: context.l10n.accountFollowSystemTheme,
           icon: Icons.brightness_auto_rounded,
-          tint: _SectionTint.preferences(context),
           subtitle: followsSystem
               ? context.l10n.accountThemeMatchesDevice
               : context.l10n.settingsPickLightOrDarkBelow,
@@ -442,7 +441,6 @@ class _SettingsState extends ConsumerState<Settings> {
           _SettingsRow(
             title: context.l10n.appearance,
             icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-            tint: _SectionTint.preferences(context),
             subtitle: isDark ? context.l10n.darkMode : context.l10n.lightMode,
             onTap: () {
               final newTheme = isDark ? 'light' : 'dark';
@@ -491,7 +489,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.appPin,
       icon: Icons.lock_rounded,
-      tint: _SectionTint.security(context),
       subtitle: context.l10n.changeUnlockCode,
       onTap: () => _openChangePin(context, ref),
     );
@@ -530,7 +527,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.biometricUnlock,
       icon: Icons.fingerprint_rounded,
-      tint: _SectionTint.security(context),
       subtitle: context.l10n.settingsUnlockWithFaceIdOrTouchId,
       onTap: () => _setBiometrics(!biometricsEnabled),
       trailing: _SettingsSwitch(
@@ -553,7 +549,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.settingsShareUsageAnalytics,
       icon: Icons.insights_rounded,
-      tint: _SectionTint.security(context),
       subtitle: context.l10n.settingsShareUsageAnalyticsSubtitle,
       onTap: () => _setAnalytics(!_analyticsOptedIn),
       trailing: _SettingsSwitch(
@@ -646,7 +641,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.autoLock,
       icon: Icons.lock_clock_rounded,
-      tint: _SectionTint.security(context),
       subtitle: _autoLockLabel(context, seconds),
       onTap: () => _openAutoLockPicker(context, ref),
     );
@@ -691,7 +685,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.chatWithSupport,
       icon: Icons.support_agent_rounded,
-      tint: _SectionTint.support(context),
       subtitle: context.l10n.getHelpFromKuteTeam,
       onTap: () {
         HapticFeedback.lightImpact();
@@ -706,7 +699,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.settingsRateTheApp,
       icon: Icons.star_rounded,
-      tint: _SectionTint.support(context),
       subtitle: context.l10n.settingsLeaveAReview,
       onTap: () => _rateApp(context, ref),
     );
@@ -733,7 +725,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.settingsReferralProgram,
       icon: Icons.group_rounded,
-      tint: _SectionTint.support(context),
       subtitle: context.l10n.settingsEarnAShareOfFees,
       onTap: () {
         HapticFeedback.lightImpact();
@@ -747,7 +738,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.settingsExportTransactions,
       icon: Icons.table_chart_rounded,
-      tint: _SectionTint.support(context),
       subtitle: context.l10n.exportActivitySubtitle,
       onTap: () => _openTransactionExport(context, ref),
     );
@@ -772,7 +762,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.settingsBackupAndRecovery,
       icon: Icons.account_balance_wallet_rounded,
-      tint: _SectionTint.wallets(context),
       subtitle: context.l10n.settingsBackupAndRecoverySubtitle,
       onTap: () {
         HapticFeedback.lightImpact();
@@ -1080,7 +1069,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.language,
       icon: Icons.language_rounded,
-      tint: _SectionTint.preferences(context),
       subtitle: language.toUpperCase(),
       onTap: () => _openLanguagePicker(context, ref),
     );
@@ -1102,7 +1090,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.displayCurrency,
       icon: Icons.paid_rounded,
-      tint: _SectionTint.preferences(context),
       subtitle: currency.toUpperCase(),
       onTap: () => _openCurrencyPicker(context, ref),
     );
@@ -1128,7 +1115,6 @@ class _SettingsState extends ConsumerState<Settings> {
     return _SettingsRow(
       title: context.l10n.bitcoinUnit,
       icon: Icons.currency_bitcoin_rounded,
-      tint: _SectionTint.preferences(context),
       subtitle:
           btcFormat == 'sats' ? context.l10n.accountSats : context.l10n.bitcoin,
       onTap: () => _openBitcoinUnitPicker(context, ref),
@@ -2649,13 +2635,12 @@ class _GroupedCard extends StatelessWidget {
 /// One settings row inside a [_GroupedCard]: the shared [KuteListRow]
 /// (neutral 44 icon tile, 15sp w600 title, 13sp subtitle, tertiary
 /// chevron, surfaceLight press wash plus the light haptic).
-/// A Settings row: the shared list row with its icon in the section's
-/// tint ([tint]; see [_SectionTint]). One family: Material rounded filled
-/// icons (founder, 31 October 2026).
+/// A Settings row: the shared list row, its icon in the one monochrome
+/// family (Material rounded filled; founder, 31 October 2026: no tints
+/// anywhere in Settings).
 class _SettingsRow extends StatelessWidget {
   final String title;
   final IconData icon;
-  final Color? tint;
   final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -2663,7 +2648,6 @@ class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
     required this.title,
     required this.icon,
-    this.tint,
     this.subtitle,
     this.trailing,
     this.onTap,
@@ -2673,24 +2657,12 @@ class _SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) => KuteListRow(
         title: title,
         icon: icon,
-        tint: tint,
         subtitle: subtitle,
         trailing: trailing,
         onTap: onTap,
       );
 }
 
-/// The section tints of the Settings icons, the theme's own tokens so
-/// dark mode follows: Support and feedback the accent, Security the
-/// success green, Preferences the palette's violet, Wallets the bitcoin
-/// orange.
-abstract final class _SectionTint {
-  static Color support(BuildContext context) => context.colors.accent;
-  static Color security(BuildContext context) => context.colors.success;
-  static Color preferences(BuildContext context) =>
-      context.colors.chartCategorical[4];
-  static Color wallets(BuildContext context) => AppColors.accent;
-}
 
 /// Settings > Security > Notifications: the OS push-permission status
 /// (On / Off) read live from the platform, refreshed whenever the app
@@ -2789,7 +2761,6 @@ class _NotificationsRowState extends State<_NotificationsRow>
     return _SettingsRow(
       title: context.l10n.settingsNotifications,
       icon: Icons.notifications_rounded,
-      tint: _SectionTint.security(context),
       subtitle: _subtitle(context),
       onTap: _status == null ? null : _onTap,
     );

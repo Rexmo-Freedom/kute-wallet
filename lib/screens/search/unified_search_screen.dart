@@ -224,6 +224,10 @@ Future<void> showKuteSearch(
   // The bar's context (kute_bar_context.dart): its recommended rows and
   // prompts on top of the sheet, the composer scoped to its venue.
   KuteBarContext? barContext,
+  // A question sent to Sal the moment the sheet has slid in (an
+  // informational screen's "What is this?" bar): the answer streams in
+  // through the ordinary advisor path; nothing else is special.
+  String? initialQuestion,
 }) async {
   assert(walletId == null || ledgerWalletId == null);
   // One search sheet at a time: a second tap while it slides in must not
@@ -263,6 +267,7 @@ Future<void> showKuteSearch(
         walletId: walletId,
         searchHint: searchHint,
         barContext: barContext,
+        initialQuestion: initialQuestion,
       ),
     ));
   } finally {
@@ -378,6 +383,9 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
 
   /// The bar's context this sheet opened with (kute_bar_context.dart).
   final KuteBarContext? barContext;
+
+  /// Sent to Sal once the sheet has slid in (see [showKuteSearch]).
+  final String? initialQuestion;
   const UnifiedSearchSurface({
     super.key,
     this.initialCategory = SearchCategory.all,
@@ -388,6 +396,7 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
     this.searchHint,
     this.embedded = false,
     this.barContext,
+    this.initialQuestion,
   });
 
   @override
@@ -426,13 +435,25 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // they use, wait for the first query. A context screen (the bar on a
     // market page: a preview card and action rows) opens with the keyboard
     // down; it rises when the person taps the field.
-    if (!_contextScreen) {
+    final question = widget.initialQuestion?.trim() ?? '';
+    if (question.isNotEmpty) {
+      // The question, asked as soon as the sheet has settled.
+      _controller.text = question;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _initialQuestion = Timer(KuteMotion.sheetInDuration, () {
+          if (mounted) unawaited(_submit());
+        });
+      });
+    } else if (!_contextScreen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _cancelFocus = requestFocusAfterTransition(context, _focusNode);
       });
     }
   }
+
+  Timer? _initialQuestion;
 
   /// A sheet opened from the bar on a screen with its own action rows
   /// (kute_bar_context.dart): the market page's preview card and rows take
@@ -443,6 +464,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
 
   @override
   void dispose() {
+    _initialQuestion?.cancel();
     _cancelFocus?.call();
     _queryDebounce?.cancel();
     _settleTimer?.cancel();

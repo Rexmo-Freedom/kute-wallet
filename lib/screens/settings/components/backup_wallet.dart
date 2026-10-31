@@ -388,7 +388,18 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return SecureScreen(
+    // The bar explains the screen (founder, 31 October 2026): "Why back
+    // up?", tapping sends the backup question to Sal. The reveal step's
+    // Continue is the bar too (its own primary scope, deeper).
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barBackupLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barBackupQuestion,
+        source: 'backup',
+      ),
+      child: SecureScreen(
       surface: 'backup_wallet',
       child: Scaffold(
       backgroundColor: c.background,
@@ -462,7 +473,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           ],
         ),
       ),
-    ));
+    )));
   }
 
   /// Shared sticky-footer inset for both steps so the footer chrome does

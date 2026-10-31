@@ -350,7 +350,9 @@ void main() {
     expect(strip.items.map((i) => i.icon), everyElement(isNull));
     expect(strip.items.map((i) => i.leading), everyElement(isNull));
     expect(strip.size, KutePillSize.large);
-    expect(strip.scroll, isTrue);
+    // The home strip's two equal halves, never a side-scroll (founder,
+    // 31 October 2026).
+    expect(strip.scroll, isFalse);
     for (final label in strip.items.map((i) => i.label)) {
       expect(_pill(label), findsOneWidget, reason: label);
     }
@@ -438,12 +440,12 @@ void main() {
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
     expect(actions.map((a) => a.label),
-        [l10n.investmentsAdd, l10n.send, l10n.walletPortfolioAction]);
+        [l10n.investmentsAdd, l10n.walletPortfolioAction, l10n.send]);
     expect(actions.map((a) => a.trackingId), ['receive', 'portfolio', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.south_west_rounded,
-      Icons.north_east_rounded,
-      Icons.pie_chart_rounded
+      Icons.pie_chart_rounded,
+      Icons.north_east_rounded
     ]);
     expect(find.text(l10n.investmentsAdd), findsOneWidget);
     expect(find.text(l10n.send), findsOneWidget);
@@ -457,7 +459,9 @@ void main() {
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
     expect(bar.actions, isEmpty);
     expect(bar.onSearch, isNotNull);
-    expect(find.byKey(const ValueKey('dock-search-pill')), findsOneWidget);
+    // The dock draws no pill: the shell bar is the one (kute_shell_bar.dart).
+    expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
 
     // Add opens the Dollars receive screen, with the Bitcoin dock's
     // quick-action key under this surface and the dock as the receive
@@ -575,27 +579,25 @@ void main() {
     expect(events.last.$1, 'category_sheet_opened');
     expect(events.last.$2, {'surface': 'investments', 'section': 'predictions'});
 
-    // The picked tile (Trending, the wide one) wears the picked
-    // treatment: the accent at 8% over the surface, a 1 px ring in the
-    // accent at 60%, the name a step bolder and ONE inline check, nothing
-    // at a corner. No other tile has a check.
-    final accent = AppColorsExtension.light().accent;
-    const check = ValueKey<String>('category-tile-check');
+    // The picked tile (Trending, the wide one) wears the app's own picked
+    // language, the strip's picked pill: white, the hairline border, the
+    // shadow, the name a step bolder; no check, no accent, nothing at a
+    // corner. Every other tile is flat surface-1 with no border.
+    final light = AppColorsExtension.light();
     final trendingTile = find.byKey(ValueKey('category-tile-${PolyPill.trending.key}'));
     expect(trendingTile, findsOneWidget);
-    expect(find.byKey(check), findsOneWidget);
-    expect(find.descendant(of: trendingTile, matching: find.byKey(check)),
-        findsOneWidget);
+    expect(find.byKey(const ValueKey('category-tile-check')), findsNothing);
     expect(find.descendant(of: trendingTile, matching: find.byType(Positioned)),
         findsNothing);
     final trendingBox = tester
         .widget<AnimatedContainer>(find.descendant(
             of: trendingTile, matching: find.byType(AnimatedContainer)))
         .decoration as BoxDecoration;
-    expect(trendingBox.color,
-        Color.alphaBlend(accent.withValues(alpha: 0.08), Colors.white));
-    expect(trendingBox.border!.top.color, accent.withValues(alpha: 0.6));
+    expect(trendingBox.color, Colors.white);
+    expect(trendingBox.border!.top.color, light.border);
     expect(trendingBox.border!.top.width, 1.0);
+    expect(trendingBox.boxShadow!.single.color,
+        Colors.black.withValues(alpha: 0.04));
     expect(
         tester
             .widget<Text>(find.descendant(
@@ -608,8 +610,8 @@ void main() {
         isSemantics(isButton: true, isSelected: true));
 
     // A topic whose feed is not loaded is a compact 56 px row: its
-    // rounded icon in a tinted circle, the name at w500, no count, no
-    // check, and the unpicked surface with no accent ring.
+    // rounded icon in a tinted circle, the name at w500, no count, and
+    // the flat unpicked surface with no border and no shadow.
     final politics =
         find.byKey(ValueKey('category-tile-${PolyPill.politics.key}'));
     final politicsBox = find.descendant(
@@ -619,8 +621,6 @@ void main() {
         find.descendant(
             of: politics, matching: find.byIcon(Icons.how_to_vote_rounded)),
         findsOneWidget);
-    expect(find.descendant(of: politics, matching: find.byKey(check)),
-        findsNothing);
     expect(
         find.descendant(of: politics, matching: find.textContaining('market')),
         findsNothing);
@@ -634,9 +634,9 @@ void main() {
     final politicsDecoration =
         tester.widget<AnimatedContainer>(politicsBox).decoration
             as BoxDecoration;
-    expect(politicsDecoration.color, Colors.white);
-    expect(politicsDecoration.border!.top.color,
-        isNot(accent.withValues(alpha: 0.6)));
+    expect(politicsDecoration.color, light.surfaceLight);
+    expect(politicsDecoration.border!.top.color, Colors.transparent);
+    expect(politicsDecoration.boxShadow!.single.color, Colors.transparent);
     // Every topic carries its own icon; Elections a ballot.
     expect(
         find.descendant(
@@ -1374,9 +1374,14 @@ void main() {
     // pill's category makes it long), every label at its full width: the
     // name, then " · " and the category in the quieter weight on the
     // picked pill, in one line of text.
+    // The home strip's two equal halves on one line (founder, 31 October
+    // 2026): the same top, the same width, each label on its one line.
     final top = tester.getTopLeft(pills.at(0)).dy;
+    final width = tester.getSize(pills.at(0)).width;
     for (var i = 0; i < 2; i++) {
       expect(tester.getTopLeft(pills.at(i)).dy, top);
+      expect(tester.getSize(pills.at(i)).width,
+          moreOrLessEquals(width, epsilon: 1));
       final pill = tester.widget<KutePill>(pills.at(i));
       final plain = pill.detail == null
           ? pill.label
@@ -1384,8 +1389,8 @@ void main() {
       final text = tester.renderObject<RenderParagraph>(find.descendant(
           of: pills.at(i),
           matching: find.text(plain, skipOffstage: false)));
-      expect(text.size.width,
-          greaterThanOrEqualTo(text.getMaxIntrinsicWidth(double.infinity) - 0.5),
+      expect(text.size.height,
+          lessThan(text.getMaxIntrinsicHeight(double.infinity) * 1.6),
           reason: plain);
     }
     expect(tester.widget<KutePill>(pills.at(0)).detail, l10n.hlPillTrending);

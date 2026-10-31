@@ -168,6 +168,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       searchHint: ctx.searchHint,
       source: ctx.source,
       barContext: ctx,
+      initialQuestion: ctx.question,
     );
   }
 

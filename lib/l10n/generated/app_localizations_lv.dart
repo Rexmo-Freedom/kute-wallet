@@ -11329,6 +11329,40 @@ class AppLocalizationsLv extends AppLocalizations {
       'Between Dollars, Investing and Predictions';
 
   @override
+  String get barWhatIsThis => 'What is this?';
+
+  @override
+  String get barReceiveExplainSub => 'Sal explains how receiving works';
+
+  @override
+  String get barReceiveQuestion =>
+      'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means';
+
+  @override
+  String get barScannerLabel => 'What can I scan?';
+
+  @override
+  String get barScannerQuestion =>
+      'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?';
+
+  @override
+  String get barBackupLabel => 'Why back up?';
+
+  @override
+  String get barBackupQuestion =>
+      'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?';
+
+  @override
+  String get barReceiptLabel => 'What happened here?';
+
+  @override
+  String get barReceiptQuestion =>
+      'Explain this transaction receipt: what moved, the fees, the status and what each line means';
+
+  @override
+  String get barAskSalSub => 'Ask Sal about this screen';
+
+  @override
   String get barMoveMoney => 'Move money';
 
   @override

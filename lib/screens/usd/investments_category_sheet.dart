@@ -23,15 +23,14 @@
 //     the name (w500) and the numbers line ("64 markets · ▲ 0.5%", "Most
 //     active · ▲ 1.8% today", "N markets · $12M vol today").
 //
-// The picked tile is filled with the accent at 8% over its surface and
-// ringed in the accent at 60% (1 px, the same radius, nothing sticking
-// out); its name is a step bolder (w600) and a filled accent circle with
-// a white check sits INLINE at the right end of the name line (the far
-// right of a wide or compact tile). Fill and ring move on the chip
-// spring and the check pops in from 0.6 (founder, 31 October 2026: "the
-// selected one is not good, make it good"); at once under Reduce Motion.
-// The group's tint shows only on the placeholder. No chevrons anywhere.
-// Every tile has the app's press spring (KutePressable).
+// The picked tile wears the app's own picked language, the strip's
+// picked pill: white with the hairline border and the pill shadow; every
+// other tile is flat surface-1 with no border (founder, 31 October 2026:
+// choice "A" in the app's own style, no accent fill, no check, no
+// tint). Its name is a step bolder (w600). Fill, border and shadow move
+// on the chip spring; at once under Reduce Motion. The group's tint shows
+// only on the placeholder. No chevrons anywhere. Every tile has the app's
+// press spring (KutePressable).
 //
 // THE STACKS DIFFER (founder, 31 October 2026): Crypto, Perps and Spot
 // would all show BTC, HYPE and ETH. Trending keeps its top three by
@@ -1099,7 +1098,7 @@ enum _TileShape { grid, wide, compact }
 
 /// A tile: the venue's logos (or the tint's placeholder circle, or a
 /// [glyph] in it), the name, the numbers. The picked one is filled and
-/// ringed in the accent, its name bolder, with the inline [_PickCheck].
+/// white with the hairline and the shadow, its name bolder.
 /// Pressed, it gives the app's press spring.
 class _Tile extends StatelessWidget {
   const _Tile({
@@ -1197,9 +1196,9 @@ class _Tile extends StatelessWidget {
         letterSpacing: -0.2,
       ),
     );
-    final check = <Widget>[
-      if (picked) ...[SizedBox(width: 8.w), const _PickCheck()],
-    ];
+    // The picked tile wears the app's own picked language (the strip's
+    // picked pill: white, the hairline, the shadow); no check, no accent.
+    final check = <Widget>[];
     final body = switch (shape) {
       _TileShape.wide => Row(
           children: [
@@ -1269,62 +1268,34 @@ class _Tile extends StatelessWidget {
             padding: compact
                 ? const EdgeInsets.symmetric(horizontal: 12)
                 : const EdgeInsets.all(12),
+            // Picked: the strip's picked pill (white, hairline, shadow;
+            // founder, 31 October 2026: "A, in the app's own style").
+            // Unpicked: flat surface-1, no border. The shadow stays at
+            // the same blur, only transparent, so the chip spring's
+            // overshoot never lerps a blur negative.
             decoration: BoxDecoration(
-              color: picked
-                  ? Color.alphaBlend(c.accent.withValues(alpha: 0.08), surface)
-                  : surface,
+              color: picked ? surface : c.surfaceLight,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: picked
-                    ? c.accent.withValues(alpha: 0.6)
-                    : (isLight ? c.border : c.borderSubtle),
-                width: picked ? 1.0 : (isLight ? 1.0 : 0.5),
+                    ? (isLight ? c.border : c.borderSubtle)
+                    : Colors.transparent,
+                width: isLight ? 1.0 : 0.5,
               ),
-              boxShadow: isLight
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: picked && isLight
+                      ? Colors.black.withValues(alpha: 0.04)
+                      : Colors.transparent,
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: body,
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The picked tile's check: an 18 px accent circle with a white check,
-/// popping in from 0.6 on the chip spring (at once under Reduce Motion).
-class _PickCheck extends StatelessWidget {
-  const _PickCheck();
-
-  static const double size = 18;
-
-  /// Where the tests find it.
-  static const Key checkKey = ValueKey<String>('category-tile-check');
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final reduce = kuteReduceMotion(context);
-    return TweenAnimationBuilder<double>(
-      key: checkKey,
-      tween: Tween<double>(begin: 0.6, end: 1),
-      duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-      curve: reduce ? Curves.linear : KuteMotion.chip,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
-        child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
-      ),
-      builder: (_, scale, child) =>
-          Transform.scale(scale: scale, child: child),
     );
   }
 }

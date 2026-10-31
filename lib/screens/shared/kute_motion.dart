@@ -35,6 +35,7 @@
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -629,6 +630,10 @@ class _KuteStaggerInState extends State<KuteStaggerIn>
   AnimationController? _controller;
   bool _decided = false;
 
+  /// The wait before this row's rise, cancelled with the row (a delayed
+  /// future outlived a sheet closed in a test: "timers pending").
+  Timer? _wait;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -638,13 +643,14 @@ class _KuteStaggerInState extends State<KuteStaggerIn>
     final c = AnimationController(
         vsync: this, duration: KuteMotion.settleDuration);
     _controller = c;
-    Future<void>.delayed(widget.step * widget.index, () {
+    _wait = Timer(widget.step * widget.index, () {
       if (mounted && !c.isAnimating && c.value == 0) c.forward();
     });
   }
 
   @override
   void dispose() {
+    _wait?.cancel();
     _controller?.dispose();
     super.dispose();
   }

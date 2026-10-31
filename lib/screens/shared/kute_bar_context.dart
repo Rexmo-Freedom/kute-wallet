@@ -96,11 +96,16 @@ class KuteBarContext {
     this.hidden = false,
     this.actionRowHeight = 0,
     this.route,
+    this.question,
   })  : kind = KuteBarKind.search,
         enabled = true,
         busy = false,
         onPrimary = null,
         busyLabel = null;
+
+  /// An informational screen's question ("Explain this receive screen…"):
+  /// tapping the bar opens the Sal sheet with it already sent.
+  final String? question;
 
   /// The bar as the surface's primary button: [label] ("Place prediction
   /// · $10", "Continue"), [onPrimary] the exact handler the page's button
@@ -119,7 +124,8 @@ class KuteBarContext {
     this.searchHint,
     this.source = 'bar',
     this.route,
-  })  : kind = KuteBarKind.primaryAction,
+  })  : question = null,
+        kind = KuteBarKind.primaryAction,
         sublabel = null,
         clip = 'idle',
         actions = const [],
@@ -146,6 +152,7 @@ class KuteBarContext {
         hidden = true,
         actionRowHeight = 0,
         route = null,
+        question = null,
         kind = KuteBarKind.search,
         enabled = true,
         busy = false,
@@ -217,6 +224,7 @@ class KuteBarContext {
           hidden: hidden,
           actionRowHeight: actionRowHeight,
           route: route,
+          question: question,
         );
 }
 

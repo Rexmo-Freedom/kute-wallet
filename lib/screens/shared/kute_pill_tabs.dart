@@ -222,19 +222,11 @@ class KutePill extends StatelessWidget {
               ),
             ),
           ),
-          // The chevron in a filled circle: a control, not decoration.
+          // A small plain chevron (founder, 31 October 2026: no circle).
           if (menu) ...[
-            SizedBox(width: 6.w),
-            Container(
-              width: (size.icon + 6).sp,
-              height: (size.icon + 6).sp,
-              decoration: BoxDecoration(
-                color: isLight ? c.surfaceElevated : c.surfaceLight,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.expand_more_rounded,
-                  size: size.icon.sp, color: c.textSecondary),
-            ),
+            SizedBox(width: 4.w),
+            Icon(Icons.expand_more_rounded,
+                size: size.icon.sp, color: c.textSecondary),
           ],
         ],
       ),
