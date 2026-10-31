@@ -30,6 +30,15 @@
 // takes the first embedded image out of such a file and the icon draws it
 // as an ordinary image; an SVG flutter_svg cannot parse at all is a miss
 // and the next candidate is tried.
+//
+// A crypto market none of those candidates has a logo for (NBT, ANSEM,
+// KNTQ, LIT) gets two last resorts, tried only once every candidate
+// above has missed: the venue's own image under the bare upper-case
+// display symbol, then CoinCap's PNG ([hlIconLastResorts]). A PNG body is
+// drawn as a raster like a wrapped one. Both hosts' hits and misses go
+// through the same memory and disk caches as every other candidate, so a
+// coin no host knows costs its three requests once per miss TTL, not once
+// per list build; the letter tile shows until an image lands.
 
 import 'dart:async';
 import 'dart:convert';
@@ -123,11 +132,7 @@ Uint8List? hlEmbeddedRaster(String svg) {
 /// Width divided by height of a PNG, read from its header, or null for
 /// any other format (drawn as if square).
 double? hlPngAspectRatio(Uint8List bytes) {
-  const signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-  if (bytes.length < 24) return null;
-  for (var i = 0; i < signature.length; i++) {
-    if (bytes[i] != signature[i]) return null;
-  }
+  if (bytes.length < 24 || !hlLooksLikePng(bytes)) return null;
   int be(int at) =>
       (bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3];
   final w = be(16);
@@ -357,6 +362,19 @@ HlIconArt hlIconArtFromCache(Uint8List bytes, {required bool raster}) =>
 /// disk), or a failed request (remembered for this session only).
 enum _HlFetch { hit, miss, failed }
 
+const List<int> _pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+/// True when [bytes] is a PNG document (its eight-byte signature). The
+/// body decides, not the content type: the signature is definitive and a
+/// CDN may label a PNG as an octet stream.
+bool hlLooksLikePng(Uint8List bytes) {
+  if (bytes.length < _pngSignature.length) return false;
+  for (var i = 0; i < _pngSignature.length; i++) {
+    if (bytes[i] != _pngSignature[i]) return false;
+  }
+  return true;
+}
+
 Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
   try {
     IconLoadStats.network++;
@@ -365,9 +383,9 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
         timeout: const Duration(seconds: 8));
     final ct = (resp.headers['content-type'] ?? '').toLowerCase();
     // A missing logo answers 200 with the web app's HTML shell, not a
-    // 404: only a real SVG of a sane size counts. A 5xx, a rate limit or
-    // a request timeout is the host's trouble, not the logo's, so it is
-    // not believed as a miss.
+    // 404: only a real SVG (or, from the last-resort host, a PNG) of a
+    // sane size counts. A 5xx, a rate limit or a request timeout is the
+    // host's trouble, not the logo's, so it is not believed as a miss.
     final status = resp.statusCode;
     if (status >= 500 || status == 429 || status == 408) {
       return (_HlFetch.failed, null);
@@ -377,6 +395,17 @@ Future<(_HlFetch, HlIconArt?)> _fetchHlSvg(String url) async {
       if (art != null && (art.raster || await _svgParses(art.bytes))) {
         return (_HlFetch.hit, art);
       }
+    }
+    // A PNG (CoinCap's last resort) is drawn as a raster, like the
+    // raster taken out of a wrapping SVG; the same size cap as a vector.
+    if (status == 200 &&
+        hlLooksLikePng(resp.bodyBytes) &&
+        resp.bodyBytes.length <= kHlIconMaxBytes) {
+      final bytes = resp.bodyBytes;
+      return (
+        _HlFetch.hit,
+        HlIconArt(bytes: bytes, raster: true, aspect: hlPngAspectRatio(bytes))
+      );
     }
     return (_HlFetch.miss, null);
   } catch (_) {
@@ -521,17 +550,44 @@ abstract final class HlIconPrefetch {
   }
 }
 
+/// Where a crypto market that has no logo under any candidate of
+/// [hlCoinIconCandidates] looks last, in order:
+///   1. Hyperliquid's own asset image under the bare upper-case display
+///      symbol, `coins/<SYMBOL>.svg` (a builder-dex crypto under the
+///      default dex's name; for a spot token the token name);
+///   2. CoinCap's `assets/icons/<symbol>@2x.png`, lower case.
+/// Crypto only: a stock or commodity ticker (para:STX, flx:GAS) would
+/// pull the logo of the crypto of the same letters, and those categories
+/// have a glyph of their own. Empty for anything else.
+List<String> hlIconLastResorts(String coin, String? category) {
+  if (category != null && category.isNotEmpty && category != 'crypto') {
+    return const [];
+  }
+  final symbol = hlBaseCoin(coin);
+  if (symbol.isEmpty) return const [];
+  return [
+    'https://app.hyperliquid.xyz/coins/${symbol.toUpperCase()}.svg',
+    'https://assets.coincap.io/assets/icons/${symbol.toLowerCase()}@2x.png',
+  ];
+}
+
 /// The candidate URLs [HlCoinIcon] tries for a market, in order: the
 /// explicit [iconUrl] first, then [hlCoinIconCandidates] with its sibling
-/// markets, without repeats.
+/// markets, then [hlIconLastResorts], without repeats. Each is asked only
+/// after every one before it missed.
 List<String> hlIconUrlsFor(
     String coin, String? wireCoin, String? iconUrl, String? category) {
   final override = iconUrl?.trim();
   final candidates = hlCoinIconCandidates(coin, wireCoin, category,
       siblingWires: hlIconSiblingWires(coin, wireCoin, category));
+  final seen = <String>{};
   return [
-    if (override != null && override.isNotEmpty) override,
-    ...candidates.where((u) => u != override),
+    for (final u in [
+      if (override != null && override.isNotEmpty) override,
+      ...candidates,
+      ...hlIconLastResorts(coin, category),
+    ])
+      if (seen.add(u)) u,
   ];
 }
 

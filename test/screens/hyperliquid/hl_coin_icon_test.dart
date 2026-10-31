@@ -1,7 +1,8 @@
 // The Hyperliquid logo loader's pure parts: taking the raster out of an
 // SVG that only wraps one (flutter_svg paints no pattern fills, so those
-// drew as a blank plate), and the candidate list of a builder perp, which
-// tries the same symbol on every builder dex the venue lists.
+// drew as a blank plate), the candidate list of a builder perp, which
+// tries the same symbol on every builder dex the venue lists, and the two
+// last resorts of a crypto market no candidate has a logo for.
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -200,6 +201,43 @@ void main() {
         'https://app.hyperliquid.xyz/coins/UZEC_USDC.svg',
         'https://app.hyperliquid.xyz/coins/ZEC.svg',
       ]);
+    });
+  });
+
+  group('last resorts', () {
+    test('a crypto market ends with the bare venue image, then CoinCap', () {
+      // Its own dex-qualified image first (then its twins on the dexes the
+      // directory knows), the two last resorts after everything else.
+      final nbt = hlIconUrlsFor('NBT', 'hyna:NBT', null, 'crypto');
+      expect(nbt.first, 'https://app.hyperliquid.xyz/coins/hyna:NBT.svg');
+      expect(nbt.sublist(nbt.length - 2), [
+        'https://app.hyperliquid.xyz/coins/NBT.svg',
+        'https://assets.coincap.io/assets/icons/nbt@2x.png',
+      ]);
+      expect(nbt.toSet(), hasLength(nbt.length), reason: 'no repeats');
+      // A default-dex perp already tried the bare image: not twice.
+      expect(hlIconUrlsFor('BTC', 'BTC', null, 'crypto'), [
+        'https://app.hyperliquid.xyz/coins/BTC.svg',
+        'https://assets.coincap.io/assets/icons/btc@2x.png',
+      ]);
+      // Upper case on the venue, lower case on CoinCap.
+      expect(hlIconLastResorts('kPEPE', null), [
+        'https://app.hyperliquid.xyz/coins/KPEPE.svg',
+        'https://assets.coincap.io/assets/icons/kpepe@2x.png',
+      ]);
+    });
+
+    test('a stock, index or commodity has none', () {
+      expect(hlIconLastResorts('STX', 'stocks'), isEmpty);
+      expect(hlIconLastResorts('GAS', 'commodities'), isEmpty);
+      expect(hlIconUrlsFor('NVDA', 'xyz:NVDA', null, 'stocks').last,
+          'https://assets.parqet.com/logos/symbol/NVDA');
+    });
+
+    test('a PNG body is told by its signature', () {
+      expect(hlLooksLikePng(base64Decode(_png)), isTrue);
+      expect(hlLooksLikePng(_bytes(_vector)), isFalse);
+      expect(hlLooksLikePng(Uint8List(0)), isFalse);
     });
   });
 }
