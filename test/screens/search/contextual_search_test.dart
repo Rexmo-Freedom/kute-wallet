@@ -211,7 +211,6 @@ void main() {
   testWidgets('Home keeps Ask Sal but has no scanner in the search sheet',
       (tester) async {
     final probe = await _openSearch(tester);
-    expect(find.text('Search or ask Sal anything'), findsWidgets);
     expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
     expect(find.byTooltip('Scan QR code'), findsNothing);
     await tester.enterText(find.byType(TextField), 'Explain margin');

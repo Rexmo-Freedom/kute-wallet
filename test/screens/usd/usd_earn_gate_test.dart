@@ -16,8 +16,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/shared/app_bottom_sheet.dart'
-    show AppBottomSheetListTile;
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
@@ -74,8 +72,8 @@ Future<void> _openStatistics(WidgetTester tester) async {
   await tapPill(tester, 'Portfolio');
   // The picked Portfolio pill opens the sections; a row picks P&L charts.
   await tapAndPump(tester, investmentsPill('Portfolio'));
-  await tester
-      .tap(find.widgetWithText(AppBottomSheetListTile, 'P&L Charts').last);
+  // The sections are tiles now (investments_category_sheet.dart).
+  await tester.tap(find.text('P&L Charts').last);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }

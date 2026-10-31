@@ -118,18 +118,8 @@ void main() {
       expect(composer.bottom, moreOrLessEquals(keyboardTop - gap, epsilon: 0.5));
       // Before the fix it rested on the keys (a 0dp gap).
       expect(keyboardTop - composer.bottom, greaterThan(9));
-      // Sal's opening questions sit above the composer, never under it,
-      // and the first one is on screen.
-      final chips = find.byType(SalSuggestionButton);
-      expect(chips, findsWidgets);
-      final first = tester.getRect(chips.first);
-      expect(first.top, greaterThanOrEqualTo(0));
-      expect(first.top, lessThan(composer.top));
-      // The last one scrolls into view rather than being cut off.
-      await tester.ensureVisible(chips.last);
-      await tester.pumpAndSettle();
-      expect(tester.getRect(chips.last).bottom,
-          lessThanOrEqualTo(composer.top + 0.5));
+      // (No Ask Sal chips any more; founder, 31 October 2026.)
+      expect(find.byType(SalSuggestionButton), findsNothing);
       expect(tester.takeException(), isNull);
       await _close(tester);
     });
