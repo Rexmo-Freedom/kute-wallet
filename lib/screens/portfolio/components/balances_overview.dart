@@ -367,7 +367,16 @@ class BalancesOverview extends StatefulWidget {
     this.firstReadDone = true,
     this.sharesHeader = false,
     this.sectionSwitch,
+    this.heroOnly = false,
+    this.venuesOnly = false,
   });
+
+  /// The [sharesHeader] layout split in two (PortfolioBalanceBreakdown
+  /// .heroOnly): only the hero ring, its line and [sectionSwitch]; or
+  /// only the venues' positions under them ([venuesOnly]). The Portfolio
+  /// screen pins the first above its sections and scrolls the second.
+  final bool heroOnly;
+  final bool venuesOnly;
 
   /// The Portfolio screen's top (founder, 31 October 2026: "no Available
   /// to invest; Portfolio is just open positions. On top, instead of the
@@ -570,8 +579,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     // something open.
     Widget sharesVenue(BalancesCategory category, BalancesEntry e) {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
-      final count =
-          e.positionCount > 0 ? e.positionCount : list.rows.length;
+      final count = e.positionCount > 0 ? e.positionCount : list.rows.length;
       return Column(
         key: ValueKey('portfolio-balance-venue-${category.name}'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -632,12 +640,16 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     }
 
     return Column(
-      key: const ValueKey('portfolio-balance-overview'),
+      // The pinned hero instance under its own key: a test finding the
+      // overview finds the venues' one.
+      key: ValueKey(widget.heroOnly
+          ? 'portfolio-balance-hero'
+          : 'portfolio-balance-overview'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: 8.h),
-        if (widget.sharesHeader) ...[
+        if (!widget.venuesOnly) SizedBox(height: 8.h),
+        if (widget.sharesHeader && !widget.venuesOnly) ...[
           // The hero (see the file header): the ring, centred, the
           // all-time P&L in its hole.
           Center(
@@ -677,16 +689,15 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 children: [
                   _LegendFigure(
                     key: const ValueKey('portfolio-legend-invested'),
-                    color:
-                        balancesCategoryColor(c, BalancesCategory.investing),
+                    color: balancesCategoryColor(c, BalancesCategory.investing),
                     label: l10n.portfolioInvestedLabel,
                     figure: investedFigure,
                   ),
                   SizedBox(width: 16.w),
                   _LegendFigure(
                     key: const ValueKey('portfolio-legend-available'),
-                    color: balancesCategoryColor(
-                        c, BalancesCategory.buyingPower),
+                    color:
+                        balancesCategoryColor(c, BalancesCategory.buyingPower),
                     label: l10n.portfolioAvailableLabel,
                     figure: availableFigure,
                   ),
@@ -699,84 +710,88 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             SizedBox(height: 14.h),
             strip,
           ],
-        ] else ...[
-        // The lead row (founder, 31 October 2026: "the ring belongs to
-        // Available to invest"): the small bare ring LEADS the line
-        // itself (the hero above carries the total), then "● Available to
-        // invest" with its amount and chevron on that same line, so the
-        // ring, the label and the amount read as one row; Move money
-        // under the label, starting where it does. Nothing hangs in the
-        // margin on its own.
-        BalancesLead(
-          key: const ValueKey('portfolio-balance-category-buyingPower'),
-          toggleKey: const ValueKey('portfolio-balance-split-toggle'),
-          amountKey:
-              const ValueKey('portfolio-balance-category-buyingPower-amount'),
-          leading: BalancesRing(
-            categories: categories.keys.toList(),
-            shares: shares,
-            semantics: [
-              '${l10n.total} ${totalFigure.text}',
-              if (shares.isNotEmpty)
-                for (final k in categories.keys)
-                  '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
-            ].join(', '),
+        ] else if (!widget.sharesHeader) ...[
+          // The lead row (founder, 31 October 2026: "the ring belongs to
+          // Available to invest"): the small bare ring LEADS the line
+          // itself (the hero above carries the total), then "● Available to
+          // invest" with its amount and chevron on that same line, so the
+          // ring, the label and the amount read as one row; Move money
+          // under the label, starting where it does. Nothing hangs in the
+          // margin on its own.
+          BalancesLead(
+            key: const ValueKey('portfolio-balance-category-buyingPower'),
+            toggleKey: const ValueKey('portfolio-balance-split-toggle'),
+            amountKey:
+                const ValueKey('portfolio-balance-category-buyingPower-amount'),
+            leading: BalancesRing(
+              categories: categories.keys.toList(),
+              shares: shares,
+              semantics: [
+                '${l10n.total} ${totalFigure.text}',
+                if (shares.isNotEmpty)
+                  for (final k in categories.keys)
+                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+              ].join(', '),
+            ),
+            color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+            label: l10n.portfolioBuyingPower,
+            figure: buyingPower,
+            open: split,
+            onToggle: places.any((e) => e.footer.isNotEmpty)
+                ? null
+                : () {
+                    setState(() => _split = !_split);
+                    TrackingService.track(
+                        'portfolio_available_to_invest_toggled',
+                        params: {'open': _split});
+                  },
           ),
-          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-          label: l10n.portfolioBuyingPower,
-          figure: buyingPower,
-          open: split,
-          onToggle: places.any((e) => e.footer.isNotEmpty)
-              ? null
-              : () {
-                  setState(() => _split = !_split);
-                  TrackingService.track(
-                      'portfolio_available_to_invest_toggled',
-                      params: {'open': _split});
-                },
-        ),
-        if (widget.action case final action?)
-          Padding(
-            padding: EdgeInsetsDirectional.only(
-                start: balancesLeadInset(), top: 8.h),
-            child: Align(
-                alignment: AlignmentDirectional.centerStart, child: action),
+          if (widget.action case final action?)
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                  start: balancesLeadInset(), top: 8.h),
+              child: Align(
+                  alignment: AlignmentDirectional.centerStart, child: action),
+            ),
+          // Where the cash sits, opened in place.
+          AnimatedSize(
+            duration: kuteReduceMotion(context)
+                ? Duration.zero
+                : KuteMotion.chipDuration,
+            curve: kuteReduceMotion(context) ? Curves.linear : KuteMotion.chip,
+            alignment: Alignment.topCenter,
+            child: split
+                ? Padding(
+                    key: const ValueKey('portfolio-balance-split'),
+                    padding: EdgeInsets.only(top: 8.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final e in places)
+                          _wrap(
+                              e.part,
+                              _PlaceRow(
+                                key: ValueKey('portfolio-balance-${e.id}'),
+                                entry: e,
+                                cash: e.cash.usd == null
+                                    ? const BalancesFigure('—', stale: true)
+                                    : e.cash,
+                              )),
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
           ),
-        // Where the cash sits, opened in place.
-        AnimatedSize(
-          duration:
-              kuteReduceMotion(context) ? Duration.zero : KuteMotion.chipDuration,
-          curve: kuteReduceMotion(context) ? Curves.linear : KuteMotion.chip,
-          alignment: Alignment.topCenter,
-          child: split
-              ? Padding(
-                  key: const ValueKey('portfolio-balance-split'),
-                  padding: EdgeInsets.only(top: 8.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final e in places)
-                        _wrap(
-                            e.part,
-                            _PlaceRow(
-                              key: ValueKey('portfolio-balance-${e.id}'),
-                              entry: e,
-                              cash: e.cash.usd == null
-                                  ? const BalancesFigure('—', stale: true)
-                                  : e.cash,
-                            )),
-                    ],
-                  ),
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-        if (widget.steps case final steps?) steps,
+          if (widget.steps case final steps?) steps,
         ],
-        SizedBox(height: widget.sharesHeader ? 18.h : 16.h),
+        if (!widget.heroOnly)
+          SizedBox(height: widget.sharesHeader ? 18.h : 16.h),
         // The first load: the venue card's skeleton rows until both
         // venues' positions are known, never headers that then go.
-        if (anyVenue && !_venuesKnown)
+        if (widget.heroOnly)
+          const SizedBox.shrink()
+        else if (anyVenue && !_venuesKnown)
           Padding(
             key: const ValueKey('portfolio-balance-venues-loading'),
             padding: EdgeInsets.only(top: 14.h),

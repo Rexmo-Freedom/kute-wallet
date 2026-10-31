@@ -405,10 +405,25 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.venues = const {},
     this.sharesHeader = false,
     this.sectionSwitch,
+    this.heroOnly = false,
+    this.venuesOnly = false,
+    this.refreshOnOpen = true,
   });
 
   final bool trading;
   final bool predictions;
+
+  /// THE PINNED TOP (founder, 31 October 2026: "this part should remain
+  /// stable in P&L and Activity"): the Portfolio screen mounts this
+  /// breakdown twice in the [sharesHeader] layout, one instance above the
+  /// section strip drawing only the hero ring and the line under it
+  /// ([heroOnly], with [sectionSwitch]) and kept across the three
+  /// sections, and one inside the Balances section drawing only the
+  /// venues' positions ([venuesOnly], no refresh of its own: the hero's
+  /// read already runs, [refreshOnOpen] false).
+  final bool heroOnly;
+  final bool venuesOnly;
+  final bool refreshOnOpen;
 
   /// The Portfolio screen's section switch, under Move money in the
   /// [sharesHeader] layout (BalancesOverview.sectionSwitch).
@@ -456,10 +471,11 @@ class _PortfolioBalanceBreakdownState
   void initState() {
     super.initState();
     // Right away, from what the app holds: no frame waits on a read.
+    if (!widget.refreshOnOpen) _firstReadDone = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _preview();
-      unawaited(_refresh());
+      if (widget.refreshOnOpen) unawaited(_refresh());
     });
   }
 
@@ -731,6 +747,8 @@ class _PortfolioBalanceBreakdownState
         firstReadDone: _firstReadDone,
         sharesHeader: widget.sharesHeader,
         sectionSwitch: widget.sectionSwitch,
+        heroOnly: widget.heroOnly,
+        venuesOnly: widget.venuesOnly,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
@@ -808,7 +826,9 @@ class _PortfolioBalanceBreakdownState
     );
     if (widget.overview) {
       return Column(
-        key: const ValueKey('portfolio-balance-breakdown'),
+        key: ValueKey(widget.heroOnly
+            ? 'portfolio-balance-breakdown-hero'
+            : 'portfolio-balance-breakdown'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -818,7 +838,9 @@ class _PortfolioBalanceBreakdownState
       );
     }
     return Column(
-      key: const ValueKey('portfolio-balance-breakdown'),
+      key: ValueKey(widget.heroOnly
+            ? 'portfolio-balance-breakdown-hero'
+            : 'portfolio-balance-breakdown'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [

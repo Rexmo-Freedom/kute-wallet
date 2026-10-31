@@ -231,7 +231,12 @@ void main() {
     final dialRect =
         tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
     expect(result.left, closeTo(dialRect.left, 1));
-    expect(heldRect.right, closeTo(dialRect.right, 1));
+    // The held line ends before the Share button beside it (which takes
+    // the row's right edge; see position_detail_sheet.dart).
+    expect(heldRect.right, lessThanOrEqualTo(dialRect.right + 1));
+    final share = find.byKey(const ValueKey('kute-sal-header-button'));
+    expect(share, findsOneWidget);
+    expect(heldRect.right, lessThanOrEqualTo(tester.getRect(share).left));
     expect(result.bottom, lessThanOrEqualTo(dialRect.top));
     expect(heldRect.bottom, lessThanOrEqualTo(dialRect.top));
     // The sweep in the result's colour.

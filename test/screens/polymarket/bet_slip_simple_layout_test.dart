@@ -748,9 +748,14 @@ void main() {
       'and it comes back when the keyboard goes', (tester) async {
     await _pumpSlip(tester, width: 320, keyboard: 300);
     expect(tester.takeException(), isNull);
-    // The bar hides only while the keyboard is up (kute_bar_context.dart).
-    expect(barIsUp(tester), isFalse);
-    expect(find.text(r'Place $10.00 on Yes'), findsNothing);
+    // As the slip's button the bar RIDES ABOVE the keyboard (founder, 31
+    // October 2026; kute_shell_bar.dart): up, its bottom above the keys.
+    expect(barIsUp(tester), isTrue);
+    expect(find.text(r'Place $10.00 on Yes'), findsOneWidget);
+    expect(tester.getRect(find.text(r'Place $10.00 on Yes')).bottom,
+        lessThanOrEqualTo(tester.view.physicalSize.height /
+                tester.view.devicePixelRatio -
+            300));
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
     expect(barIsUp(tester), isTrue);
@@ -797,8 +802,9 @@ void main() {
       expect(find.ancestor(of: action, matching: scroll), findsNothing);
       expect(position.pixels, 0);
       if (keyboard > 0) {
-        // The bar hides only while the keyboard is up, and comes back.
-        expect(barIsUp(tester), isFalse);
+        // The slip's button rides above the keyboard (founder, 31
+        // October 2026): up, and still up when the keys go.
+        expect(barIsUp(tester), isTrue);
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();
       }

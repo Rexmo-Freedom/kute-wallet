@@ -527,6 +527,8 @@ void main() {
           .ancestor(of: find.byType(KuteCloseButton), matching: find.byType(Row))
           .first;
       expect(find.descendant(of: header, matching: share), findsNothing);
+      // The button's entry (the sheet spring, then its pulse) has landed.
+      await tester.pump(const Duration(milliseconds: 900));
       final shareRect = tester.getRect(share);
       final figureRect =
           tester.getRect(find.byKey(PolyPositionResultLine.figureKey));

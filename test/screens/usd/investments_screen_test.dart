@@ -893,6 +893,21 @@ void main() {
     // the legend.
     final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
     expect(hero, findsOneWidget);
+    // The top block (the ring and its line, the strip) is PINNED: the
+    // same widget, at the same place, on all three sections (founder:
+    // "this part should remain stable in P&L and Activity").
+    final heroRect = tester.getRect(hero);
+    final stripRect =
+        tester.getRect(find.byKey(const ValueKey('portfolio-section-pill-charts')));
+    void pinned() {
+      expect(find.byKey(const ValueKey('portfolio-pinned-top')), findsOneWidget);
+      expect(tester.getRect(hero), heroRect, reason: 'the hero never moves');
+      expect(
+          tester.getRect(
+              find.byKey(const ValueKey('portfolio-section-pill-charts'))),
+          stripRect,
+          reason: 'the strip never moves');
+    }
     expect(
         find.descendant(
             of: hero,
@@ -940,6 +955,7 @@ void main() {
     // P&L charts: the one card, Historic only (founder, 28 October 2026:
     // no Active | Historic pair); neither Balances nor the activity.
     await pickSection(tester, 'charts');
+    pinned();
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
       'tab': 'positions',
       'from_tab': 'positions',
@@ -952,13 +968,15 @@ void main() {
     expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
     expect(
         find.byKey(const ValueKey('statistics-allocation-ring')), findsNothing);
-    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+    // The pinned top (the hero breakdown) stays; the Balances list is gone.
+    expect(find.byKey(const ValueKey('portfolio-balances-list')),
         findsNothing);
     expect(find.byKey(const ValueKey('portfolio-move-money')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-activity-list')), findsNothing);
 
     // Activity: the merged list, all of it, with no "See all".
     await pickSection(tester, 'activity');
+    pinned();
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
       'tab': 'positions',
       'from_tab': 'positions',
@@ -971,7 +989,8 @@ void main() {
     expect(find.text('Prediction · Yes'), findsNWidgets(2));
     expect(
         find.byKey(const ValueKey('portfolio-activity-see-all')), findsNothing);
-    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+    // The pinned top (the hero breakdown) stays; the Balances list is gone.
+    expect(find.byKey(const ValueKey('portfolio-balances-list')),
         findsNothing);
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
 
@@ -1129,6 +1148,10 @@ void main() {
               .data,
           name);
     }
+    // Under the pinned top the viewport is shorter: the card may have
+    // scrolled fully off by the time a venue's row is in view.
+    final cardAny = find.byKey(const ValueKey('statistics-pnl-card'),
+        skipOffstage: false);
     final scrollable = find
         .descendant(
             of: find.byType(CustomScrollView),
@@ -1141,7 +1164,7 @@ void main() {
         find.descendant(of: predictions, matching: find.byType(PolyOrderRow)),
         findsOneWidget);
     expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
-        greaterThan(tester.getBottomLeft(card).dy));
+        greaterThan(tester.getBottomLeft(cardAny).dy));
     expect(find.descendant(of: predictions, matching: find.byType(HlOrderRow)),
         findsNothing);
     await tester.scrollUntilVisible(find.byType(HlOrderRow), 200,
@@ -1151,10 +1174,12 @@ void main() {
         findsOneWidget);
     expect(
         tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-predictions')))
+            .getTopLeft(find.byKey(const ValueKey('pnl-venue-predictions'),
+                skipOffstage: false))
             .dy,
         lessThan(tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-investing')))
+            .getTopLeft(find.byKey(const ValueKey('pnl-venue-investing'),
+                skipOffstage: false))
             .dy));
     expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
         lessThan(tester.getTopLeft(find.byType(HlOrderRow)).dy));
@@ -1170,7 +1195,8 @@ void main() {
         findsOneWidget);
     expect(tester.getTopLeft(cancelAll).dy,
         greaterThan(tester.getBottomLeft(find.byType(HlOrderRow)).dy - 0.5));
-    expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
+    // The pinned top (the hero breakdown) stays; the Balances list is gone.
+    expect(find.byKey(const ValueKey('portfolio-balances-list')),
         findsNothing);
 
     // The row's own Cancel runs the venue's cancel for that order.

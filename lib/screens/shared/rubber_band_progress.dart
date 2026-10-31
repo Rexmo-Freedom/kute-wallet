@@ -604,9 +604,12 @@ class RubberBandProgressState extends State<RubberBandProgress>
 
   @override
   Widget build(BuildContext context) {
-    // ONE TREE SHAPE, halted or not: a halted band once returned the bare
-    // child, and the swap as TickerMode went off under a covering page
-    // (the slip's Advanced page) rebuilt the child from scratch: its
+    // Reduce Motion: the bare child, nothing wrapped and nothing moves
+    // (a setting, not a state that flips under a page).
+    if (_reduce) return widget.child;
+    // ONE TREE SHAPE otherwise, halted or not: a halted band once returned
+    // the bare child, and the swap as TickerMode went off under a covering
+    // page (the slip's Advanced page) rebuilt the child from scratch: its
     // KuteBarContextScope remounted and pushed the slip's context again,
     // over the page on top. Halted, the translation is simply 0
     // ([stretch] reads 0 then) and nothing listens that would tick.
