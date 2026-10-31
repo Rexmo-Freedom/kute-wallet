@@ -14,8 +14,8 @@
 //
 //   * two WIDE tiles, Trending and Watchlist, then a small "Markets"
 //     (Investing) or "Topics" (Predictions) label and a real two-column
-//     grid (every tile the same 96 px, 8 px apart, the odd last one half
-//     width at the left). A tile is THE VENUE'S OWN ARTWORK, never a
+//     grid (every Investing tile the same 96 px, 8 px apart, the odd last
+//     one half width at the left). A tile is THE VENUE'S OWN ARTWORK, never a
 //     generic icon (founder, 31 October 2026): a stack of up to three
 //     overlapping logos of the category's top markets (Hyperliquid's coin
 //     and asset logos, Polymarket's event images from the loaded feed), a
@@ -23,10 +23,33 @@
 //     the name (w500) and the numbers line ("64 markets · ▲ 0.5%", "Most
 //     active · ▲ 1.8% today", "N markets · $12M vol today").
 //
-// The picked tile wears a thin outline in its group's tint (the only
-// place the tint shows besides the placeholder) and a check at its
-// top-right corner. No chevrons anywhere. Every tile has the app's press
-// spring (KutePressable).
+// The picked tile is filled with the accent at 8% over its surface and
+// ringed in the accent at 60% (1 px, the same radius, nothing sticking
+// out); its name is a step bolder (w600) and a filled accent circle with
+// a white check sits INLINE at the right end of the name line (the far
+// right of a wide or compact tile). Fill and ring move on the chip
+// spring and the check pops in from 0.6 (founder, 31 October 2026: "the
+// selected one is not good, make it good"); at once under Reduce Motion.
+// The group's tint shows only on the placeholder. No chevrons anywhere.
+// Every tile has the app's press spring (KutePressable).
+//
+// THE STACKS DIFFER (founder, 31 October 2026): Crypto, Perps and Spot
+// would all show BTC, HYPE and ETH. Trending keeps its top three by
+// volume and the Watchlist its newest stars; every other Investing tile
+// shows the three markets moving most (largest |24h|) WITHIN its group,
+// skipping a coin a tile above already shows while the group has others
+// (hlTileMovers), so each stack says something about its group.
+//
+// PREDICTIONS TOPIC TILES ARE COMPACT (founder, 31 October 2026: the
+// 96 px tiles sat empty, since a topic's feed loads only once it is
+// opened): a 56 px row, a 28 px tinted circle with the topic's rounded
+// icon at the left (a bolt for Breaking, a ballot for Elections…), the
+// name, and "N markets" in the quiet colour at the right only when that
+// topic's feed is loaded. A topic whose feed is loaded (the picked one,
+// or one browsed earlier and still alive; nothing is read for a tile)
+// shows its event images' stack instead of the icon, so the grid gets
+// richer as the person browses. Trending and the Watchlist stay wide
+// with their stack and numbers.
 //
 // THE NUMBERS COME FROM WHAT IS ALREADY LOADED, never a new read: the
 // Investing universe (hyperliquidBrowseUniverseProvider) and the browse
@@ -144,6 +167,37 @@ List<HlBrowseTab> hlCategoriesOnOffer(WidgetRef ref) {
   ];
 }
 
+/// The markets for a tile's logo stack: the [take] moving most today
+/// (largest |24h| move) among [markets], one without a yesterday last and
+/// ties by volume. A coin in [shown] (a tile above shows it) is skipped
+/// while the group has others, so the stacks differ; the picks' coins are
+/// added to [shown] for the tiles after.
+List<HlMarket> hlTileMovers(List<HlMarket> markets, Set<String> shown,
+    {int take = _kLogos}) {
+  double move(HlMarket m) => m.prevDayPx > 0 && m.markPx > 0
+      ? (m.markPx / m.prevDayPx - 1).abs()
+      : -1;
+  String keyOf(HlMarket m) => m.coin.toUpperCase();
+  final ranked = [...markets]..sort((a, b) {
+      final byMove = move(b).compareTo(move(a));
+      return byMove != 0 ? byMove : b.dayNtlVlm.compareTo(a.dayNtlVlm);
+    });
+  final out = <HlMarket>[];
+  final taken = <String>{};
+  // The group's own movers first, then whatever a tile above shows too.
+  for (final pass in [false, true]) {
+    for (final m in ranked) {
+      if (out.length == take) break;
+      final k = keyOf(m);
+      if (taken.contains(k) || (!pass && shown.contains(k))) continue;
+      out.add(m);
+      taken.add(k);
+    }
+  }
+  shown.addAll(taken);
+  return out;
+}
+
 /// Opens the categories of [tab] for a pick.
 Future<void> showInvestmentsCategorySheet(
     BuildContext context, WidgetRef ref, InvestmentsTab tab) {
@@ -225,6 +279,29 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.weather => c.chartCategorical[0],
       PolyPill.mentions => c.chartCategorical[3],
       PolyPill.elections => c.chartCategorical[0],
+    };
+
+/// A Predictions topic's rounded icon, for its compact tile while its
+/// feed is not loaded.
+IconData _polyIcon(PolyPill p) => switch (p) {
+      PolyPill.breaking => Icons.bolt_rounded,
+      PolyPill.newest => Icons.auto_awesome_rounded,
+      PolyPill.live => Icons.sensors_rounded,
+      PolyPill.politics => Icons.how_to_vote_rounded,
+      PolyPill.sports => Icons.sports_soccer_rounded,
+      PolyPill.crypto => Icons.currency_bitcoin_rounded,
+      PolyPill.esports => Icons.sports_esports_rounded,
+      PolyPill.finance => Icons.account_balance_rounded,
+      PolyPill.geopolitics => Icons.public_rounded,
+      PolyPill.tech => Icons.memory_rounded,
+      PolyPill.culture => Icons.theater_comedy_rounded,
+      PolyPill.economy => Icons.trending_up_rounded,
+      PolyPill.weather => Icons.cloud_rounded,
+      PolyPill.elections => Icons.ballot_rounded,
+      PolyPill.watchlist ||
+      PolyPill.trending ||
+      PolyPill.mentions =>
+        Icons.category_rounded,
     };
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
@@ -417,18 +494,20 @@ class _InvestmentsCategorySheetState
     );
   }
 
-  /// A real two-column grid: every tile [_Tile.gridHeight] tall, 8 apart,
-  /// the odd last one half width at the left. It sits in the sheet's
+  /// A real two-column grid: every tile [extent] tall ([_Tile.gridHeight],
+  /// or [_Tile.compactHeight] for the Predictions topics), 8 apart, the
+  /// odd last one half width at the left. It sits in the sheet's
   /// ListView, so it is shrink-wrapped and never scrolls on its own.
-  Widget _grid(List<Widget> tiles) => GridView.builder(
+  Widget _grid(List<Widget> tiles, {double extent = _Tile.gridHeight}) =>
+      GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          mainAxisExtent: _Tile.gridHeight,
+          mainAxisExtent: extent,
         ),
         itemCount: tiles.length,
         itemBuilder: (_, i) => tiles[i],
@@ -485,11 +564,18 @@ class _InvestmentsCategorySheetState
     final c = context.colors;
     final sel = ref.watch(hlBrowseSelectionProvider);
     final onOffer = hlCategoriesOnOffer(ref);
+    // The coins the tiles above already show, so the stacks differ.
+    final shown = <String>{};
 
     Widget wide(HlBrowseTab t, {String? lead}) {
       final list = _hlList(t);
       final stat = _hlStat(list);
+      // Trending keeps its top three by volume, the Watchlist its newest
+      // stars; both count as shown for the tiles under them.
+      final top = list.take(_kLogos).toList();
+      shown.addAll(top.map((m) => m.coin.toUpperCase()));
       return _Tile.wide(
+        key: ValueKey('category-tile-${t.key}'),
         tint: _hlTint(c, t),
         name: t == HlBrowseTab.watchlist
             ? l10n.polyPillWatchlist
@@ -499,7 +585,7 @@ class _InvestmentsCategorySheetState
             count: lead == null ? stat.count : null,
             move: stat.move,
             tail: lead == null ? null : l10n.categoryStatToday),
-        logos: _hlLogos(list),
+        logos: _hlLogos(top),
         picked: sel.tab == t,
         onTap: () => _pickHl(t, HlBrowseSub.all),
       );
@@ -510,7 +596,8 @@ class _InvestmentsCategorySheetState
       final stat = _hlStat(list);
       final subs = _hlSubs(t);
       return _Tile(
-        logos: _hlLogos(list),
+        key: ValueKey('category-tile-${t.key}'),
+        logos: _hlLogos(hlTileMovers(list, shown)),
         tint: _hlTint(c, t),
         name: t.localizedLabel(l10n),
         stat: _StatLine(count: stat.count, move: stat.move),
@@ -540,12 +627,14 @@ class _InvestmentsCategorySheetState
     final tint = _hlTint(c, t);
     final all = _hlList(t);
     final allStat = _hlStat(all);
+    final shown = <String>{};
     return [
       _Tile.wide(
+        key: ValueKey('category-tile-${t.key}'),
         tint: tint,
         name: l10n.categoryAllOf(t.localizedLabel(l10n)),
         stat: _StatLine(count: allStat.count, move: allStat.move),
-        logos: _hlLogos(all),
+        logos: _hlLogos(hlTileMovers(all, shown)),
         picked: sel.tab == t && sel.sub == HlBrowseSub.all,
         onTap: () => _pickHl(t, HlBrowseSub.all),
       ),
@@ -555,7 +644,8 @@ class _InvestmentsCategorySheetState
             final list = _hlList(t, s);
             final stat = _hlStat(list);
             return _Tile(
-              logos: _hlLogos(list),
+              key: ValueKey('category-tile-${s.key}'),
+              logos: _hlLogos(hlTileMovers(list, shown)),
               tint: tint,
               name: s.localizedLabel(l10n),
               stat: _StatLine(count: stat.count, move: stat.move),
@@ -582,15 +672,20 @@ class _InvestmentsCategorySheetState
         current.copyWith(pill: p).copyWith(sub: s.key);
   }
 
-  /// The events the picked category's feed holds (already loaded for
-  /// the list behind the sheet); nothing is read for any other.
+  /// The events a category's feed holds already: the picked category's
+  /// (loaded for the list behind the sheet), or one browsed earlier whose
+  /// feed is still alive. Nothing is read for a tile: a feed that does
+  /// not exist is left alone and the tile shows its icon.
   List<PolymarketEvent> _polyLoaded(PolyPill p, [String? sub]) {
     final sel = ref.watch(polyBrowseSelectionProvider);
-    if (p != sel.pill) return const [];
-    if (sub != null && sub != sel.subOf(p)) return const [];
     final query = p == PolyPill.live
         ? const PolyFeedQuery(pill: PolyPill.live)
-        : sel.query;
+        : PolyFeedQuery(pill: p, sub: sub ?? sel.subOf(p));
+    final onScreen =
+        p == sel.pill && (sub == null || sub == sel.subOf(p));
+    if (!onScreen && !ref.exists(polyBrowseFeedProvider(query))) {
+      return const [];
+    }
     return ref.watch(polyBrowseFeedProvider(query)).events;
   }
 
@@ -636,6 +731,7 @@ class _InvestmentsCategorySheetState
     }
 
     Widget wide(PolyPill p, {String? lead}) => _Tile.wide(
+          key: ValueKey('category-tile-${p.key}'),
           tint: _polyTint(c, p),
           name: p == PolyPill.watchlist
               ? l10n.polyPillWatchlist
@@ -646,16 +742,23 @@ class _InvestmentsCategorySheetState
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
 
-    Widget tile(PolyPill p) => _Tile(
-          logos: _polyLogos(_polyLoaded(p)),
-          tint: _polyTint(c, p),
-          name: polyPillLabel(l10n, p),
-          stat: statOf(p),
-          picked: sel.pill == p,
-          onTap: _polySubs(p).isEmpty
-              ? () => _pickPoly(p, PolySub(p.defaultSub))
-              : () => _open(p),
-        );
+    // A topic: compact, its icon until its feed is loaded, then its
+    // event images and "N markets".
+    Widget tile(PolyPill p) {
+      final events = _polyLoaded(p);
+      return _Tile.compact(
+        key: ValueKey('category-tile-${p.key}'),
+        logos: _polyLogos(events),
+        glyph: _polyIcon(p),
+        tint: _polyTint(c, p),
+        name: polyPillLabel(l10n, p),
+        count: events.isEmpty ? null : events.length,
+        picked: sel.pill == p,
+        onTap: _polySubs(p).isEmpty
+            ? () => _pickPoly(p, PolySub(p.defaultSub))
+            : () => _open(p),
+      );
+    }
 
     return [
       if (pills.contains(PolyPill.trending))
@@ -665,7 +768,7 @@ class _InvestmentsCategorySheetState
       _grid([
         for (final p in pills)
           if (p != PolyPill.trending && p != PolyPill.watchlist) tile(p),
-      ]),
+      ], extent: _Tile.compactHeight),
     ];
   }
 
@@ -688,6 +791,7 @@ class _InvestmentsCategorySheetState
 
     return [
       _Tile.wide(
+        key: ValueKey('category-tile-${p.key}'),
         tint: tint,
         name: l10n.categoryAllOf(polyPillLabel(l10n, p)),
         stat: statOf(all.key),
@@ -698,15 +802,20 @@ class _InvestmentsCategorySheetState
       _grid([
         for (final s in subs)
           if (s.key != p.defaultSub)
-            _Tile(
-              logos: _polyLogos(_polyLoaded(p, s.key)),
-              tint: tint,
-              name: polySubLabel(l10n, s),
-              stat: statOf(s.key),
-              picked: sel.pill == p && sel.subOf(p) == s.key,
-              onTap: () => _pickPoly(p, s),
-            ),
-      ]),
+            () {
+              final events = _polyLoaded(p, s.key);
+              return _Tile.compact(
+                key: ValueKey('category-tile-${s.key}'),
+                logos: _polyLogos(events),
+                glyph: _polyIcon(p),
+                tint: tint,
+                name: polySubLabel(l10n, s),
+                count: events.isEmpty ? null : events.length,
+                picked: sel.pill == p && sel.subOf(p) == s.key,
+                onTap: () => _pickPoly(p, s),
+              );
+            }(),
+      ], extent: _Tile.compactHeight),
     ];
   }
 
@@ -823,9 +932,11 @@ class _SubHeader extends StatelessWidget {
   }
 }
 
-/// A logo in a tile's stack, and how many a stack holds.
+/// A logo in a tile's stack, and how many a stack holds; the compact
+/// tile's icon circle.
 const double _kLogo = 22;
 const int _kLogos = 3;
+const double _kCompactArt = 28;
 
 /// A tile's second line: "[lead ·] N markets · ▲ 1.8% [· $12M vol today]
 /// [today]". The move's arrow and colour follow its sign; 0.0% is quiet
@@ -888,12 +999,18 @@ class _StatLine extends StatelessWidget {
   }
 }
 
+/// The three shapes a tile takes: the 96 px grid tile (art top-left,
+/// name and numbers under it), the full-width 64 px row, and the 56 px
+/// compact row of the Predictions topics.
+enum _TileShape { grid, wide, compact }
+
 /// A tile: the venue's logos (or the tint's placeholder circle, or a
-/// [glyph] for the Portfolio) top-left, the name, the numbers under it.
-/// The picked one wears the tint's outline and the check. Pressed, it
-/// gives the app's press spring. [wide] is the full-width row tile.
+/// [glyph] in it), the name, the numbers. The picked one is filled and
+/// ringed in the accent, its name bolder, with the inline [_PickCheck].
+/// Pressed, it gives the app's press spring.
 class _Tile extends StatelessWidget {
   const _Tile({
+    super.key,
     required this.tint,
     required this.name,
     required this.onTap,
@@ -901,47 +1018,81 @@ class _Tile extends StatelessWidget {
     this.glyph,
     this.stat,
     this.picked = false,
-  }) : wide = false;
+  })  : shape = _TileShape.grid,
+        count = null;
 
   const _Tile.wide({
+    super.key,
     required this.tint,
     required this.name,
     required this.onTap,
     this.logos = const [],
     this.stat,
     this.picked = false,
-  })  : wide = true,
-        glyph = null;
+  })  : shape = _TileShape.wide,
+        glyph = null,
+        count = null;
+
+  /// The compact row: [glyph] in a 28 px tinted circle (or the [logos]
+  /// stack when there are any), the name, and "[count] markets" at the
+  /// right when [count] is known.
+  const _Tile.compact({
+    super.key,
+    required this.tint,
+    required this.name,
+    required this.onTap,
+    this.logos = const [],
+    this.glyph,
+    this.count,
+    this.picked = false,
+  })  : shape = _TileShape.compact,
+        stat = null;
 
   final Color tint;
   final String name;
   final Widget? stat;
+  final int? count;
   final List<Widget> logos;
   final IconData? glyph;
   final bool picked;
-  final bool wide;
+  final _TileShape shape;
   final VoidCallback onTap;
 
-  /// Every grid tile's height; the wide tiles are shorter.
+  /// The grid tile's height, the wide row's and the compact row's.
   static const double gridHeight = 96;
   static const double wideHeight = 64;
+  static const double compactHeight = 56;
+
+  double get _height => switch (shape) {
+        _TileShape.grid => gridHeight,
+        _TileShape.wide => wideHeight,
+        _TileShape.compact => compactHeight,
+      };
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = context.l10n;
     final isLight = !context.isDark;
     final reduce = kuteReduceMotion(context);
-    final Widget art = logos.isNotEmpty
-        ? _LogoStack(logos: logos)
-        : Container(
-            width: _kLogo,
-            height: _kLogo,
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: glyph == null ? 0.22 : 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: glyph == null ? null : Icon(glyph, size: 14, color: tint),
-          );
+    final compact = shape == _TileShape.compact;
+    final Widget art;
+    if (logos.isNotEmpty) {
+      art = _LogoStack(logos: logos);
+    } else {
+      final d = compact ? _kCompactArt : _kLogo;
+      art = Container(
+        width: d,
+        height: d,
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: glyph == null ? 0.22 : 0.14),
+          shape: BoxShape.circle,
+        ),
+        child: glyph == null
+            ? null
+            : Icon(glyph, size: compact ? 16 : 14, color: tint),
+      );
+    }
     final nameText = Text(
       name,
       maxLines: 1,
@@ -949,36 +1100,63 @@ class _Tile extends StatelessWidget {
       style: TextStyle(
         color: c.textPrimary,
         fontSize: 15.sp,
-        fontWeight: FontWeight.w500,
+        fontWeight: picked ? FontWeight.w600 : FontWeight.w500,
         letterSpacing: -0.2,
       ),
     );
-    final body = wide
-        ? Row(
-            children: [
-              art,
-              SizedBox(width: 10.w),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    nameText,
-                    if (stat != null) ...[SizedBox(height: 2.h), stat!],
-                  ],
+    final check = <Widget>[
+      if (picked) ...[SizedBox(width: 8.w), const _PickCheck()],
+    ];
+    final body = switch (shape) {
+      _TileShape.wide => Row(
+          children: [
+            art,
+            SizedBox(width: 10.w),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  nameText,
+                  if (stat != null) ...[SizedBox(height: 2.h), stat!],
+                ],
+              ),
+            ),
+            ...check,
+          ],
+        ),
+      _TileShape.compact => Row(
+          children: [
+            art,
+            SizedBox(width: 10.w),
+            Expanded(child: nameText),
+            if (count != null) ...[
+              SizedBox(width: 8.w),
+              Text(
+                l10n.categoryStatMarkets(count!),
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 12.5.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.1,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              art,
-              const Spacer(),
-              nameText,
-              if (stat != null) ...[SizedBox(height: 2.h), stat!],
-            ],
-          );
+            ...check,
+          ],
+        ),
+      _TileShape.grid => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            art,
+            const Spacer(),
+            Row(children: [Expanded(child: nameText), ...check]),
+            if (stat != null) ...[SizedBox(height: 2.h), stat!],
+          ],
+        ),
+    };
+    final surface = isLight ? Colors.white : c.surface;
     return Semantics(
       button: true,
       selected: picked,
@@ -987,56 +1165,72 @@ class _Tile extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              AnimatedContainer(
-                duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-                curve: reduce ? Curves.linear : KuteMotion.chip,
-                width: double.infinity,
-                height: wide ? wideHeight : gridHeight,
-                margin: EdgeInsets.only(bottom: wide ? 8.h : 0),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isLight ? Colors.white : c.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: picked ? tint : (isLight ? c.border : c.borderSubtle),
-                    width: picked ? 1.5 : (isLight ? 1.0 : 0.5),
-                  ),
-                  boxShadow: isLight
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: body,
+          // The fill and ring spring between the two states.
+          child: AnimatedContainer(
+            duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+            curve: reduce ? Curves.linear : KuteMotion.chip,
+            width: double.infinity,
+            height: _height,
+            margin: EdgeInsets.only(bottom: shape == _TileShape.wide ? 8.h : 0),
+            padding: compact
+                ? const EdgeInsets.symmetric(horizontal: 12)
+                : const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: picked
+                  ? Color.alphaBlend(c.accent.withValues(alpha: 0.08), surface)
+                  : surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: picked
+                    ? c.accent.withValues(alpha: 0.6)
+                    : (isLight ? c.border : c.borderSubtle),
+                width: picked ? 1.0 : (isLight ? 1.0 : 0.5),
               ),
-              // The check at the picked tile's top-right corner.
-              if (picked)
-                Positioned(
-                  top: -6,
-                  right: -6,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: tint,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: c.background, width: 2),
-                    ),
-                    child: const Icon(Icons.check_rounded,
-                        size: 12, color: Colors.white),
-                  ),
-                ),
-            ],
+              boxShadow: isLight
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: body,
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The picked tile's check: an 18 px accent circle with a white check,
+/// popping in from 0.6 on the chip spring (at once under Reduce Motion).
+class _PickCheck extends StatelessWidget {
+  const _PickCheck();
+
+  static const double size = 18;
+
+  /// Where the tests find it.
+  static const Key checkKey = ValueKey<String>('category-tile-check');
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final reduce = kuteReduceMotion(context);
+    return TweenAnimationBuilder<double>(
+      key: checkKey,
+      tween: Tween<double>(begin: 0.6, end: 1),
+      duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+      curve: reduce ? Curves.linear : KuteMotion.chip,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+        child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
+      ),
+      builder: (_, scale, child) =>
+          Transform.scale(scale: scale, child: child),
     );
   }
 }
