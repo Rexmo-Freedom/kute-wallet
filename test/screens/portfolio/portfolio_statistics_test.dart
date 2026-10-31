@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
+import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
@@ -27,9 +28,8 @@ import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyEventsBatchFetchProvider, polyFeedCacheLookupProvider;
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
-import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
@@ -490,26 +490,20 @@ void main() {
                 find.byKey(const ValueKey('statistics-pnl-headline')))
             .text,
         r'+$16.00');
-    final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-    // The result colour (up over the month), straight segments.
+    final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
+    // The result colour (up over the month), one line.
     expect(chart.lineColor, AppColors.marketUp);
-    expect(chart.straight, isTrue);
-    expect(chart.zoomable, isTrue);
     // From zero before the first trade to the P&L now.
     expect(chart.values.first, 0);
     expect(chart.values.last, 16);
     expect(chart.values.toSet(), containsAll(<double>[0, -5, 9, 15, 16]));
     // The range row under the plot, 1M to start.
-    expect(find.byType(KuteRangePills), findsOneWidget);
+    expect(find.byType(KuteChartRangeRow), findsOneWidget);
     for (final pill in ['1W', '1M', '3M', '1Y', 'ALL']) {
       expect(find.text(pill), findsOneWidget);
     }
-    // One soft fade under the line, a solid hairline at zero.
-    expect(chart.showFill, isTrue);
-    expect(chart.baselineAt, 0);
-    expect(chart.solidBaseline, isTrue);
-    expect(chart.fillAboveColor, isNull);
-    expect(chart.fillBelowColor, isNull);
+    expect(chart.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
+    expect(chart.selectedRange, BalanceRange.month.index);
     // The figure leads: the balance type, over the 20sp tile figures.
     final hero = tester
         .widget<RollingNumberText>(
@@ -565,7 +559,7 @@ void main() {
     expect(find.byType(KuteDonutChart), findsNothing);
     expect(find.byType(PortfolioCategorySkeleton), findsNothing);
     // The chart stays: it is the series', not the categories'.
-    expect(find.byType(KuteLineChart), findsOneWidget);
+    expect(find.byType(KuteTrendChart), findsOneWidget);
     expect(
         tester.getTopLeft(find.text('Amount predicted')).dy -
             tester.getTopLeft(_card).dy,
@@ -590,7 +584,7 @@ void main() {
       'empty history does not fabricate a zero result: the quiet line in '
       'the chart\'s place', (tester) async {
     await _pump(tester, empty: true);
-    expect(find.byType(KuteLineChart), findsNothing);
+    expect(find.byType(KuteTrendChart), findsNothing);
     expect(_chartCard, findsNothing);
     expect(
         find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
@@ -637,7 +631,7 @@ void main() {
         'a P&L at zero all the way draws no line: the quiet line in its '
         'place', (tester) async {
       await _pump(tester, series: series([(40, 0), (10, 0), (1, 0)]));
-      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.byType(KuteTrendChart), findsNothing);
       expect(_chartCard, findsNothing);
       expect(
           find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
@@ -650,12 +644,11 @@ void main() {
         'in the month, over the baseline at zero', (tester) async {
       // Five dollars made two months ago, nothing since.
       await _pump(tester, series: series([(60, 5), (40, 5), (1, 5)]));
-      expect(find.byType(KuteLineChart), findsOneWidget);
-      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-      expect(chart.values.first, 0);
+      expect(find.byType(KuteTrendChart), findsOneWidget);
+      final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
+      expect(chart.values.first, 5);
       expect(chart.values.last, 5);
-      expect(chart.baselineAt, 0);
-      expect(find.text('No change in the past month'), findsOneWidget);
+      expect(find.text('No change · Past month'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -665,11 +658,10 @@ void main() {
       await _pump(tester, series: series([(10, 2), (1, 5)]));
       expect(
           find.byKey(const ValueKey('statistics-pnl-chart')), findsOneWidget);
-      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
+      final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
       expect(chart.values.first, 0);
       expect(chart.values.last, 5);
-      expect(chart.defaultSpan, chart.values.length - 1);
-      expect(find.byType(KuteRangePills), findsOneWidget);
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
@@ -1549,8 +1541,8 @@ void main() {
     /// sub-rows, nothing Active-only.
     void expectHistoricOnly(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
-      expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(find.byType(KuteRangePills), findsOneWidget);
+      expect(find.byType(KuteTrendChart), findsOneWidget);
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
       expect(find.text('Profit and loss'), findsOneWidget);
       for (final f in [lead, figures]) {
         expect(find.descendant(of: _chartCard, matching: f), findsOneWidget);
@@ -1562,7 +1554,7 @@ void main() {
           findsNothing);
       expect(find.byType(KuteDonutChart), findsNothing);
       expect(find.byKey(const ValueKey('statistics-pnl-header')), findsNothing);
-      expect(find.textContaining('past month'), findsNothing);
+      expect(find.textContaining('Past month'), findsNothing);
       for (final gone in [
         'Open P&L',
         'Realized P&L',
@@ -1610,7 +1602,7 @@ void main() {
       final plot = find.byWidgetPredicate((w) =>
           w is CustomPaint &&
           w.painter.runtimeType.toString() == '_KuteLinePainter');
-      final ranges = find.byType(KuteRangePills);
+      final ranges = find.byType(KuteChartRangeRow);
       final hairline =
           find.descendant(of: _chartCard, matching: find.byType(Divider));
       expect(hairline, findsOneWidget);
@@ -1668,7 +1660,7 @@ void main() {
       expect(headline(tester), r'+$8.00');
       // The line is Investing's alone, ending on its P&L now.
       expect(
-          tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last,
+          tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last,
           15);
       expect(selected('investing', true), findsOneWidget);
       expect(

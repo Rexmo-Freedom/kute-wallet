@@ -261,11 +261,13 @@ class _KuteTrendChartState extends State<KuteTrendChart>
 
   void _scrubTo(double dx, double width) {
     final n = widget.values.length;
-    if (n == 0 || width <= 0) return;
-    final x = dx.clamp(0.0, width);
+    // The points sit on the painter's width (the end dot's inset kept).
+    final plotW = width - _kRightInset;
+    if (n == 0 || plotW <= 0) return;
+    final x = dx.clamp(0.0, plotW);
     final idx = n == 1
         ? 0
-        : (x / width * (n - 1)).round().clamp(0, n - 1).toInt();
+        : (x / plotW * (n - 1)).round().clamp(0, n - 1).toInt();
     if (idx == _touchIndex) return;
     if (!_scrubStartReported) {
       _scrubStartReported = true;

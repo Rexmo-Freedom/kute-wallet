@@ -165,9 +165,9 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final scrubbing = scrub != null && scrub.index < values.length;
 
     final locale = kuteChartLocale(context);
-    // On a daily grid a point at midnight closes the day before; finer
-    // grids say when in the day.
-    final daily = series.cellMinutes >= 1440;
+    // On daily (or coarser) buckets a point at midnight closes the day
+    // before; finer buckets say when in the day.
+    final daily = series.strideFor(span) * series.cellMinutes >= 1440;
     String timeOf(DateTime t) {
       final d = daily && t.hour == 0 && t.minute == 0
           ? t.subtract(const Duration(minutes: 1))
@@ -231,7 +231,10 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
               TextSpan(text: l10n.chartNoChange)
             else
               TextSpan(
-                text: '${kuteTrendArrow(delta)}${money(delta)}',
+                // Hidden: dots alone, no arrow to read a direction from.
+                text: visible
+                    ? '${kuteTrendArrow(delta)}${money(delta)}'
+                    : money(delta),
                 style: TextStyle(
                     color: visible ? color : c.textPrimary,
                     fontWeight: FontWeight.w700),
