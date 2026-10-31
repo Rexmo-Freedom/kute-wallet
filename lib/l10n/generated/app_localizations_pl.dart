@@ -10587,6 +10587,9 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Szukaj lub zapytaj Sala';
 
   @override

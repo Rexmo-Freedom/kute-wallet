@@ -10635,6 +10635,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Recherchez ou demandez à Sal';
 
   @override

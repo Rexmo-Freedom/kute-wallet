@@ -10550,6 +10550,9 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Sök eller fråga Sal';
 
   @override

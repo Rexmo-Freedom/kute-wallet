@@ -3,7 +3,7 @@
 // draws the pill transparent in place; the copy lands on the composer's
 // rect; closing travels back and the pill is itself again. A context
 // placed in the page's header keeps the pill away and the page's
-// KuteSalHeaderButton opens the same sheet, travelling too. Reduce
+// KuteSalHeaderButton (the Share pill) opens the same sheet, travelling too. Reduce
 // Motion: a plain sheet, nothing travels.
 
 import 'package:flutter/material.dart';
@@ -211,10 +211,19 @@ void main() {
     expect(_barUp(tester), isFalse);
     final button = find.byKey(const ValueKey('kute-sal-header-button'));
     expect(button, findsOneWidget);
+    // A compact pill: 32 tall, Sal's face and the word "Share", no badge
+    // (founder: the circle alone "should say share or send").
     final rect = tester.getRect(button);
-    expect(rect.width, KuteSalHeaderButton.size);
-    expect(rect.height, KuteSalHeaderButton.size);
-    expect(find.byIcon(Icons.ios_share_rounded), findsOneWidget);
+    expect(rect.height, KuteSalHeaderButton.height);
+    expect(rect.width, greaterThan(KuteSalHeaderButton.height));
+    expect(
+        find.descendant(
+            of: button,
+            matching: find.byKey(const ValueKey('kute-sal-header-label'))),
+        findsOneWidget);
+    expect(find.descendant(of: button, matching: find.text('Share')),
+        findsOneWidget);
+    expect(find.byIcon(Icons.ios_share_rounded), findsNothing);
 
     await tester.tap(button);
     await tester.pump();

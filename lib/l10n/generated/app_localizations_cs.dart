@@ -10539,6 +10539,9 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Hledej nebo se zeptej Sala';
 
   @override

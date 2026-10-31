@@ -21,6 +21,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -91,6 +92,14 @@ Future<_Probe> _pumpHost(WidgetTester tester, {required bool? predictions}) asyn
       globalHyperliquidResultsProvider
           .overrideWith((_) => const AsyncValue.data([])),
       hyperliquidAllMarketsProvider.overrideWith((_) => []),
+      // The Sal sheet's venue surfaces read the perp markets; the real
+      // provider's reference fetch retries on a timer that would outlive
+      // the test ("timers pending"). Nothing to list here.
+      hyperliquidPerpMarketsProvider.overrideWith((_) async => <HlMarket>[]),
+      hyperliquidPerpCoreMarketsProvider
+          .overrideWith((_) async => <HlMarket>[]),
+      // Spot markets refresh on a periodic timer: the same, nothing to list.
+      hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),

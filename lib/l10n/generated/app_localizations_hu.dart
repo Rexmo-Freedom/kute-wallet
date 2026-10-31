@@ -10576,6 +10576,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Keress, vagy kérdezd Salt';
 
   @override

@@ -10575,6 +10575,9 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Pretraži ili pitaj Sala';
 
   @override

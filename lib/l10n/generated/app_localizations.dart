@@ -18023,6 +18023,12 @@ abstract class AppLocalizations {
   /// **'{percent} of total'**
   String portfolioCategoryShare(String percent);
 
+  /// Market and position page headers: the word on the compact Sal pill (Sal's share face + this), left of the watchlist star, opening the Sal sheet with the share rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get shareHeaderLabel;
+
   /// Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal.
   ///
   /// In en, this message translates to:

@@ -10562,6 +10562,9 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Hae tai kysy Salilta';
 
   @override

@@ -1,9 +1,12 @@
 // Adding margin is funded like the Investing order slip (founder, 14
 // October 2026): "Available" and Max are the whole spendable Investments,
-// an Add the whole balance cannot fund reads "Add $X to Investments" and,
+// an Add the whole balance cannot fund reads "Add $X to Dollars" and,
 // when the bitcoin cannot cover X, opens the Investments Receive sheet;
 // a funded change shows the slips' staged steps under its one button, and
-// a chain that stopped with the bitcoin's money in Investments says so.
+// a chain that stopped with the bitcoin's money in Dollars says so.
+//
+// The sheet's one button is the shell bar (kute_shell_bar.dart,
+// shell_bar_harness.dart): `PolySlipCta` declares it, the bar draws it.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +42,8 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/shell_bar_harness.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -163,6 +168,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  // The bar over the sheet is the sheet's button (shell_bar_harness.dart).
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
@@ -200,11 +207,14 @@ Future<void> _pump(
         ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // The text size reaches the bar too: the MediaQuery wraps the
+        // bar's layer, not only the navigator.
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+          child: shellBarBuilder(context, child),
         ),
+        navigatorObservers: shellBarObservers(),
         home: const Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
@@ -240,6 +250,15 @@ Future<void> _type(WidgetTester tester, String amount) async {
 PolySlipCta _cta(WidgetTester tester) =>
     tester.widget<PolySlipCta>(find.byType(PolySlipCta));
 
+/// The sheet's one button is the bar: what the sheet declared through
+/// [PolySlipCta] is what the bar reads. A tap on the button is a tap on
+/// the bar; one frame, never settle (a busy bar spins).
+Future<void> _tapCta(WidgetTester tester) async {
+  expect(barPrimaryLabel(tester), _cta(tester).label);
+  expect(barPrimaryEnabled(tester), _cta(tester).enabled);
+  await tapBarPrimary(tester, settle: false);
+}
+
 double _typed(WidgetTester tester) =>
     double.parse(tester.widget<AmountKeypad>(find.byType(AmountKeypad)).value);
 
@@ -265,11 +284,14 @@ void main() {
     expect(max, lessThan(149));
     expect(_cta(tester).label, 'Add margin');
     expect(_cta(tester).enabled, isTrue);
+    expect(barPrimaryLabel(tester), 'Add margin');
+    expect(barPrimaryText('Add margin'), findsOneWidget);
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-      'more than Investments can fund: "Add \$X to Investments"; bitcoin '
+      'more than Investments can fund: "Add \$X to Dollars"; bitcoin '
       'short of X opens the Investments Receive sheet for X', (tester) async {
     final receives = <(SlipVenue, double)>[];
     debugShowSlipReceiveSheet = (venue, addUsd) async {
@@ -287,11 +309,13 @@ void main() {
     expect(x, greaterThan(0));
     final label = _cta(tester).label;
     expect(label, startsWith(r'Add $'));
-    expect(label, endsWith('to Investments'));
+    expect(label, endsWith('to Dollars'));
     expect(label, contains(x.toStringAsFixed(2)));
     expect(_cta(tester).enabled, isTrue);
+    expect(barPrimaryLabel(tester), label);
+    expect(barPrimaryText(label), findsOneWidget);
 
-    await tester.tap(find.byType(PolySlipCta));
+    await _tapCta(tester);
     await _frames(tester, 4);
     expect(receives, [(SlipVenue.investing, x)]);
     final topUp = events.singleWhere((e) => e.$1 == 'slip_top_up_opened').$2!;
@@ -310,7 +334,7 @@ void main() {
       await _pump(tester,
           funded: [_record(FundedOrderStage.preparing, slow: true)]);
       expect(find.byType(SlipFundingSteps), findsOneWidget);
-      expect(find.text(r'Adding $9.49 to Investments'), findsOneWidget);
+      expect(find.text(r'Adding $9.49 to Dollars'), findsOneWidget);
       expect(find.text('Preparing your order'), findsWidgets);
       expect(find.text(r'Adding $30.00 margin to TSLA'), findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
@@ -322,6 +346,9 @@ void main() {
       // away while the steps run, which take their room.
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).busyLabel, 'Preparing your order');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryLabel(tester), 'Preparing your order');
       expect(find.byType(AmountKeypad), findsNothing);
       expect(find.byType(AmountQuickChips), findsNothing);
       expect(tester.takeException(), isNull);
@@ -337,15 +364,18 @@ void main() {
           ['Preparing your order', r'Adding $30.00 margin to TSLA']);
       expect(steps.active, 1);
       expect(_cta(tester).busyLabel, r'Adding $30.00 margin to TSLA');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), r'Adding $30.00 margin to TSLA');
     });
 
-    testWidgets('stopped with the money in Investments: tap to add margin',
+    testWidgets('stopped with the money in Dollars: tap to add margin',
         (tester) async {
       await _pump(tester, funded: [_record(FundedOrderStage.ready)]);
       expect(find.byType(SlipFundingSteps), findsNothing);
-      expect(find.text(r'Your $9.49 is in Investments. Tap to add margin.'),
+      expect(find.text(r'Your $9.49 is in Dollars. Tap to add margin.'),
           findsOneWidget);
       expect(_cta(tester).isBusy, isFalse);
+      expect(barPrimaryBusy(tester), isFalse);
     });
   });
 
@@ -364,7 +394,8 @@ void main() {
     // A long amount on the button.
     await _pump(tester, size: const Size(375, 812), textScale: 1.3);
     await _type(tester, '9999');
-    expect(_cta(tester).label, endsWith('to Investments'));
+    expect(_cta(tester).label, endsWith('to Dollars'));
+    expect(barPrimaryLabel(tester), endsWith('to Dollars'));
     expect(tester.takeException(), isNull);
   });
 }

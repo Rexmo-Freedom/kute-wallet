@@ -10538,6 +10538,9 @@ class AppLocalizationsEt extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Otsi või küsi Salilt';
 
   @override

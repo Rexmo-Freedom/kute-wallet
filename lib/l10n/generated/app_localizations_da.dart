@@ -10553,6 +10553,9 @@ class AppLocalizationsDa extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Søg, eller spørg Sal';
 
   @override

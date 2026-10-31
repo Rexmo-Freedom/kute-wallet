@@ -10137,6 +10137,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => '検索、またはSalに質問';
 
   @override

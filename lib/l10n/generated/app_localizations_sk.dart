@@ -10553,6 +10553,9 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Hľadaj alebo sa opýtaj Sala';
 
   @override
