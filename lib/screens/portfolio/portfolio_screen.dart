@@ -8,13 +8,19 @@
 // the shell (route `/portfolio`, app_router.dart), with the app's standard
 // back. NO BALANCE HERO and no Available to invest (founder, 31 October
 // 2026: "Portfolio is just open positions. On top, instead of the
-// balance, show the shares with the pie chart on the left"): the section
-// pills (Portfolio · P&L Charts · Activity), and the Portfolio section
-// opens on the shares block (the allocation ring at the left, the
-// Investing / Predictions / Dollars shares as rows at the right, no total:
-// the Dollars tab has it) over the venues' open positions
-// (BalancesOverview.sharesHeader). No dock: Add and Send are not
-// repeated here.
+// balance, show the shares with the pie chart on the left"). Laid out on
+// the fintech pattern (Robinhood, Revolut, Wealthfront; the founder's
+// redo of the same day, after a card-with-rows draft "looked so bad"),
+// top down, no card around the top block: the HERO, the allocation ring
+// big and centred (150, a 14 stroke, the three share colours) with the
+// all-time P&L in its hole; under it three allocation tiles in a row
+// (Investing, Predictions, Dollars: dot and name, the amount, the share);
+// Move money as a full-width secondary button; the section switch
+// (Portfolio | P&L Charts | Activity, the home strip); then the open
+// positions by venue under small-caps labels, each venue one soft card
+// (BalancesOverview.sharesHeader, components/balances_overview.dart). No
+// total: the Dollars tab has it. On P&L Charts and Activity the strip is
+// at the top of the list. No dock: Add and Send are not repeated here.
 //
 // A deep link naming a Portfolio section (`/usd?tab=portfolio|positions|
 // orders|activity…`, PortfolioSection.forLink) opens this screen on that

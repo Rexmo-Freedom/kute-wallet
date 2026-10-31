@@ -37,8 +37,20 @@ class NoActivityState extends StatefulWidget {
   /// may leave open settles on a calm frame.
   final int? cycles;
 
+  /// Sal's size and the headline's, in design units, when a surface wants
+  /// its own (the Portfolio screen's empty state under its strip: 96 and
+  /// 15); null is the [compact] or full size.
+  final double? salSize;
+  final double? titleSize;
+
   const NoActivityState(
-      {super.key, this.padding, this.title, this.compact = false, this.cycles});
+      {super.key,
+      this.padding,
+      this.title,
+      this.compact = false,
+      this.cycles,
+      this.salSize,
+      this.titleSize});
 
   @override
   State<NoActivityState> createState() => _NoActivityStateState();
@@ -117,7 +129,7 @@ class _NoActivityStateState extends State<NoActivityState>
     final c = context.colors;
     final compact = widget.compact;
 
-    final salSize = compact ? 120.sp : 160.sp;
+    final salSize = widget.salSize?.sp ?? (compact ? 120.sp : 160.sp);
     // Centred whatever the parent column's alignment (the Dollars tab's
     // starts its children at the left).
     return Padding(
@@ -150,8 +162,10 @@ class _NoActivityStateState extends State<NoActivityState>
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: c.textPrimary,
-                fontSize: compact ? 17.sp : 22.sp,
-                fontWeight: FontWeight.w800,
+                fontSize: widget.titleSize?.sp ?? (compact ? 17.sp : 22.sp),
+                fontWeight: widget.titleSize == null
+                    ? FontWeight.w800
+                    : FontWeight.w600,
                 letterSpacing: -0.5,
                 height: 1.1,
               ),

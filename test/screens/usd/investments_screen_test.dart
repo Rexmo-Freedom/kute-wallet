@@ -609,9 +609,10 @@ void main() {
         tester.getSemantics(trendingTile),
         isSemantics(isButton: true, isSelected: true));
 
-    // A topic whose feed is not loaded is a compact 56 px row: its
-    // rounded icon in a tinted circle, the name at w500, no count, and
-    // the flat unpicked surface with no border and no shadow.
+    // A topic whose feed is not loaded is a compact 56 px row: Polymarket's
+    // own glyph for it (an SVG, never a Material icon) on the surface-1
+    // square, the name at w500, no count, and the flat unpicked surface
+    // with no border and no shadow.
     final politics =
         find.byKey(ValueKey('category-tile-${PolyPill.politics.key}'));
     final politicsBox = find.descendant(
@@ -619,8 +620,11 @@ void main() {
     expect(tester.getSize(politicsBox).height, 56);
     expect(
         find.descendant(
-            of: politics, matching: find.byIcon(Icons.how_to_vote_rounded)),
+            of: politics,
+            matching: find.byKey(const ValueKey('category-tile-icon-politics'))),
         findsOneWidget);
+    expect(find.descendant(of: politics, matching: find.byType(Icon)),
+        findsNothing);
     expect(
         find.descendant(of: politics, matching: find.textContaining('market')),
         findsNothing);
@@ -637,12 +641,13 @@ void main() {
     expect(politicsDecoration.color, light.surfaceLight);
     expect(politicsDecoration.border!.top.color, Colors.transparent);
     expect(politicsDecoration.boxShadow!.single.color, Colors.transparent);
-    // Every topic carries its own icon; Elections a ballot.
+    // Every topic carries its own Polymarket glyph; Elections its own.
     expect(
         find.descendant(
             of: find.byKey(
                 ValueKey('category-tile-${PolyPill.elections.key}')),
-            matching: find.byIcon(Icons.ballot_rounded)),
+            matching:
+                find.byKey(const ValueKey('category-tile-icon-elections'))),
         findsOneWidget);
 
     await tapAndPump(tester, find.byType(KuteCloseButton));
@@ -881,8 +886,56 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-balance-split-toggle')),
         findsNothing);
     expect(find.text(l10n.moveTransfer), findsOneWidget);
+    // The fintech layout (31 October 2026): the hero ring with the
+    // all-time P&L in its hole (the stub histories: nothing ever
+    // published, so nothing made), the three allocation tiles under it
+    // (each with its share: the harness's $42.50 all sits in Dollars),
+    // Move money under the tiles as the one button (the app's secondary
+    // tier, full width), the section strip under Move money.
+    final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
+    expect(hero, findsOneWidget);
+    expect(
+        find.descendant(
+            of: hero,
+            matching: find.byKey(const ValueKey('portfolio-all-time'))),
+        findsOneWidget);
+    expect(find.text(l10n.portfolioAllTime), findsOneWidget);
+    for (final (share, percent) in const [
+      ('investing', '0%'),
+      ('predictions', '0%'),
+      ('buyingPower', '100%'),
+    ]) {
+      final tile = find.byKey(ValueKey('portfolio-share-$share'));
+      expect(tile, findsOneWidget);
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(ValueKey('portfolio-share-$share-percent')))
+              .data,
+          percent);
+      expect(
+          tester.getRect(tile).top, greaterThan(tester.getRect(hero).bottom));
+    }
+    final moveMoney =
+        tester.getRect(find.byKey(const ValueKey('portfolio-move-money')));
+    expect(
+        moveMoney.top,
+        greaterThan(tester
+            .getRect(find.byKey(const ValueKey('portfolio-share-investing')))
+            .bottom));
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('portfolio-section-pill-charts')))
+            .top,
+        greaterThan(moveMoney.bottom));
     expect(find.text(l10n.portfolioBuyingPower), findsNothing);
-    expect(find.byType(AppButton), findsNothing);
+    expect(find.byType(AppButton), findsOneWidget);
+    expect(
+        tester
+            .widget<AppButton>(
+                find.byKey(const ValueKey('portfolio-move-money')))
+            .variant,
+        AppButtonVariant.secondary);
     expect(find.text('Total investments'), findsNothing);
     expect(find.text('Ready for any trade or prediction'), findsNothing);
     expect(find.text(l10n.betInvested), findsNothing);
