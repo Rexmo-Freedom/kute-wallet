@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/creation/passkey_choice.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/theme/app_theme.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +39,9 @@ void main() {
         await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
           designSize: const Size(430, 932),
           builder: (_, __) => MaterialApp.router(
+            // The shell bar over the page (kute_bar_test_support.dart): the
+            // screen's primary is the bar.
+            builder: withKuteShellBar,
             routerConfig: router,
             theme: ThemeData(splashFactory: NoSplash.splashFactory,
                 fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
@@ -51,7 +54,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(PasskeyChoice), findsOneWidget);
         expect(tester.takeException(), isNull);
-        final button = tester.getRect(find.byType(AppButton));
+        final button = tester.getRect(kuteBarPrimary);
         expect(button.bottom, greaterThan(790));
         expect(button.bottom, lessThanOrEqualTo(844));
         if (systemBack) {

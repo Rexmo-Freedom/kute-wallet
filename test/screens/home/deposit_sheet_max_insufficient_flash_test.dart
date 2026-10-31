@@ -302,6 +302,8 @@ void main() {
         await tester.pump();
       }
       expect(find.text(_insufficient), findsWidgets);
+      // The bar's label follows the page a frame later.
+      await tester.pump();
       expect(find.text('Add funds'), findsOneWidget);
       expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
       await _close(tester, container);

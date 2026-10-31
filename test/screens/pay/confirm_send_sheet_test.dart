@@ -306,8 +306,6 @@ void main() {
     await _pump(tester);
     await tester.tap(find.text('Open send'));
     await tester.pumpAndSettle();
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
     for (final recipient in [
       'lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq',
       'satoshi@paykute.com',
@@ -317,12 +315,12 @@ void main() {
     ]) {
       await tester.enterText(find.byType(TextField), recipient);
       await tester.pumpAndSettle();
-      expect(tester.widget<AppButton>(cta).onPressed, isNotNull,
+      expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull,
           reason: recipient);
       expect(find.textContaining('Not available'), findsNothing,
           reason: recipient);
     }
-    await tester.tap(cta);
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
     await tester.pumpAndSettle();
     expect(_step(_l10n.amount), findsOneWidget);
     expect(find.byType(CapabilityUnavailableSheet), findsNothing);
@@ -353,14 +351,13 @@ void main() {
     const keyboardTop = 812 - keyboard;
     expect(tester.getRect(find.byType(TextField)).bottom,
         lessThanOrEqualTo(keyboardTop));
-    final cta = find.ancestor(
-        of: find.text(_l10n.continueLabel), matching: find.byType(AppButton));
-    expect(tester.getRect(cta).bottom, lessThanOrEqualTo(keyboardTop));
-    expect(tester.widget<AppButton>(cta).onPressed, isNotNull);
+    // Continue is the bar, away under the keyboard and back once it goes.
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
-    await tester.tap(cta);
-    await tester.pumpAndSettle();
+    // The keyboard gone, the bar is back: Continue.
     tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(_step(_l10n.amount), findsOneWidget);

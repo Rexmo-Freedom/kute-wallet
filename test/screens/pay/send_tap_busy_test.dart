@@ -128,6 +128,8 @@ void main() {
 
     await tester.tap(find.text('Send'));
     await tester.pump();
+    // The bar draws the busy state a frame after the page.
+    await tester.pump();
     expect(state.isProcessing, isTrue);
     expect(_spinner, findsOneWidget);
     expect(quoted, isFalse, reason: 'the balance read is still out');
@@ -165,6 +167,8 @@ void main() {
     });
     await tester.tap(find.text('Send'));
     await tester.pump();
+    // The bar draws the busy state a frame after the page.
+    await tester.pump();
     expect(_spinner, findsOneWidget);
     prompt.complete(false);
     await tester.pumpAndSettle();
@@ -180,6 +184,8 @@ void main() {
     });
     expect(_spinner, findsNothing);
     await tester.tap(find.text('Send'));
+    await tester.pump();
+    // The bar draws the busy state a frame after the page.
     await tester.pump();
     expect(state.isProcessing, isTrue);
     expect(kuteBarPrimaryProbe(tester).isLoading, isTrue);

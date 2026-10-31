@@ -15,13 +15,13 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/passkey_choice.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../services/support/fake_secret_store.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const phrase =
     'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
@@ -139,6 +139,9 @@ void main() {
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp.router(
+          // The shell bar over the page (kute_bar_test_support.dart): the
+          // screen's primary is the bar.
+          builder: withKuteShellBar,
           routerConfig: router,
           theme: ThemeData(
               splashFactory: NoSplash.splashFactory,
@@ -177,7 +180,7 @@ void main() {
       'a new passkey, which creates the wallet', (tester) async {
     final settings =
         await pump(tester, signIn: (_) async => throw _cancelled);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await pumpDialog(tester);
 
     expect(cancelParams(), containsPair('sheet', 'sign_in'));
@@ -211,7 +214,7 @@ void main() {
       (tester) async {
     final settings =
         await pump(tester, signIn: (_) async => throw _cancelled);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await pumpDialog(tester);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
@@ -226,7 +229,7 @@ void main() {
             .$2,
         containsPair('accepted', false));
     // Continue is enabled again for a retry.
-    expect(tester.widget<AppButton>(find.byType(AppButton)).onPressed,
+    expect(kuteBarPrimaryProbe(tester).onPressed,
         isNotNull);
     await settleToast(tester);
   });
@@ -234,7 +237,7 @@ void main() {
   testWidgets('a device that knows a passkey gets no offer', (tester) async {
     await pump(tester,
         signIn: (_) async => throw _cancelled, knownCredential: true);
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pumpAndSettle();
 
     expect(cancelParams(), containsPair('sheet', 'sign_in'));
@@ -251,7 +254,7 @@ void main() {
           PrfProviderError.credentialNotFound('none')),
       register: (_, __) async => throw _cancelled,
     );
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pumpAndSettle();
 
     expect(cancelParams(), containsPair('sheet', 'create'));
