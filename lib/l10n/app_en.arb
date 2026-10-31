@@ -6947,6 +6947,8 @@
   "@searchHomeRecent": {"description": "Search sheet, before any text: the small label over the last things opened or typed."},
   "searchHomeClear": "Clear",
   "@searchHomeClear": {"description": "Search sheet, Recent: clears the list."},
+  "searchScopeTitle": "Search in",
+  "@searchScopeTitle": {"description": "Search sheet: the title of the short menu the scope chip (\"All\") opens while typing, listing All / Predictions / Investing / Transactions."},
   "marketMetaLine": "{volume} · closes {date}",
   "@marketMetaLine": {
     "description": "Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.",

@@ -19131,6 +19131,12 @@ abstract class AppLocalizations {
   /// **'Clear'**
   String get searchHomeClear;
 
+  /// Search sheet: the title of the short menu the scope chip ("All") opens while typing, listing All / Predictions / Investing / Transactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in'**
+  String get searchScopeTitle;
+
   /// Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.
   ///
   /// In en, this message translates to:

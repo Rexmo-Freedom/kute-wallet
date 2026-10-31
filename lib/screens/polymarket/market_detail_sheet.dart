@@ -59,7 +59,8 @@ import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show SliverConstraints;
+import 'package:flutter/rendering.dart'
+    show SliverConstraints, OverflowBoxFit;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -608,6 +609,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     // when this sheet is on top again.
     // A sheet being closed is no longer active: its stream stops with it.
     syncStreamHandoff(context);
+    final bar = _barContext();
     return Scaffold(
       backgroundColor: context.isDark
           ? context.colors.gradientBottom
@@ -619,7 +621,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
-              _buildHeader(c),
+              _buildHeader(c, bar),
               Expanded(
                 // Slivers, so a long outcome list ("More markets" of a game
                 // with 300 markets) builds only the rows in view.
@@ -641,7 +643,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                                 buildWatchPlayer(c),
                                 SizedBox(height: 18.h),
                               ],
-                              _buildHeroCard(c),
+                              _buildHeroCard(c, bar),
                               SizedBox(height: 20.h),
                               if (event.hasLivestream && !watching) ...[
                                 buildMediaToggle(c),
@@ -751,13 +753,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Close, the event's image and title (up to two lines), Sal's share
-  /// circle (KuteSalHeaderButton; founder, 31 October 2026: the floating
-  /// pill is away on a market or event page) and the watchlist star.
-  Widget _buildHeader(AppColorsExtension c) {
-    // The page's Sal context, placed in this header; held by the scope
-    // around the close button while the page is up.
-    final bar = marketBarContext(
+  /// The page's Sal context, placed in its header (no bottom bar), held by
+  /// the scope around the close button while the page is up. Its control,
+  /// the Share pill (KuteSalHeaderButton), sits beside the headline figure
+  /// ([_figureWithShare]), not in the title row.
+  KuteBarContext _barContext() {
+    return marketBarContext(
       context,
       title: event.title,
       venue: kMarketLinkPredictions,
@@ -776,6 +777,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       source: 'predictions',
       placement: KuteBarPlacement.header,
     );
+  }
+
+  /// Close, the event's image and title (up to two lines) and the
+  /// watchlist star. The Share pill is beside the big number in the hero
+  /// (founder, 31 October 2026), so the title keeps its two lines' width;
+  /// a game sheet, which has no headline figure, keeps the pill here.
+  Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
@@ -817,8 +825,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               ),
             ),
           ),
-          SizedBox(width: 8.w),
-          KuteSalHeaderButton(barContext: bar),
+          if (_isGameSheet) ...[
+            SizedBox(width: 8.w),
+            KuteSalHeaderButton(barContext: bar),
+          ],
           SizedBox(width: 8.w),
           PolyWatchStar(event: event, size: 22, source: 'detail'),
         ],
@@ -1558,7 +1568,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     });
   }
 
-  Widget _buildHeroCard(AppColorsExtension c) {
+  Widget _buildHeroCard(AppColorsExtension c, KuteBarContext bar) {
     final sportsTeams = _detectSportsTeams();
     // Where the game stands (live or over, score, clock): the same read
     // the open-position screen makes for its header.
@@ -1593,7 +1603,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             // Own Consumer: the hero percentage is the only thing in the
             // hero card that has to follow a price tick.
             Consumer(
-              builder: (context, heroRef, _) => _buildHeroHeadline(heroRef, c),
+              builder: (context, heroRef, _) =>
+                  _buildHeroHeadline(heroRef, c, bar),
             ),
           ],
         ],
@@ -1615,24 +1626,69 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   ///   5. Otherwise — leading outcome's name + its % (drops the
   ///      misleading "Leading" framing in favour of the actual
   ///      candidate, e.g. "Senegal 50%" / "France 18%").
-  Widget _buildHeroHeadline(WidgetRef ref, AppColorsExtension c) {
+  /// On every path Sal's Share pill sits at the end of the figure's row
+  /// ([_figureWithShare]).
+  Widget _buildHeroHeadline(
+      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
     if (event.isBinary) {
-      return _buildBinaryHeroHeadline(ref, c);
+      return _buildBinaryHeroHeadline(ref, c, bar);
     }
     if (_allOutcomesResolvedFor(ref)) {
-      return _buildResolvedHeroPill(ref, c);
+      return _buildResolvedHeroPill(ref, c, bar);
     }
     if (_allOutcomesStubFor(ref)) {
-      return _buildAwaitingLiquidityHeroPill(c);
+      return _buildAwaitingLiquidityHeroPill(c, bar);
     }
     if (_isLargeMultiOutcome) {
-      return _buildMarketCountHero(ref, c);
+      return _buildMarketCountHero(ref, c, bar);
     }
-    return _buildLeadingOutcomeHero(ref, c);
+    return _buildLeadingOutcomeHero(ref, c, bar);
   }
 
-  Widget _buildBinaryHeroHeadline(WidgetRef ref, AppColorsExtension c) {
+  /// The headline figure with Sal's Share pill (KuteSalHeaderButton) at the
+  /// end of its row, right against the gutter and centred on the figure's
+  /// first line, [lineHeight] tall (founder, 31 October 2026: the pill sits
+  /// next to the big number, not in the title row). The figure is as it
+  /// was, in the width the pill leaves it; the pill, taller than a short
+  /// line, overflows that line evenly above and below.
+  Widget _figureWithShare(Widget figure, KuteBarContext bar,
+      {required double lineHeight}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: figure),
+        SizedBox(width: 8.w),
+        SizedBox(
+          height: lineHeight,
+          child: OverflowBox(
+            fit: OverflowBoxFit.deferToChild,
+            alignment: Alignment.center,
+            minHeight: KuteSalHeaderButton.height,
+            maxHeight: KuteSalHeaderButton.height,
+            child: KuteSalHeaderButton(barContext: bar),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The height of one line of [style] as it is drawn here (its size, the
+  /// text scale and its line height).
+  double _lineHeightOf(TextStyle style) =>
+      MediaQuery.textScalerOf(context).scale(style.fontSize!) *
+      (style.height ?? 1.0);
+
+  Widget _buildBinaryHeroHeadline(
+      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
     final heroProb = _liveYesPrice(ref);
+    final figureStyle = TextStyle(
+      color: _kPolyGreen,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1647,16 +1703,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        Text(
-          _formatPctShort(heroProb),
-          style: TextStyle(
-            color: _kPolyGreen,
-            fontSize: 56.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.6,
-            height: 1.0,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+        _figureWithShare(
+          Text(_formatPctShort(heroProb), style: figureStyle),
+          bar,
+          lineHeight: _lineHeightOf(figureStyle),
         ),
       ],
     );
@@ -1665,7 +1715,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// Leading-outcome hero — shows the actual top candidate's name and
   /// its probability instead of the generic "Leading" label. Mirrors
   /// polymarket.com's event hero treatment ("Senegal 50%").
-  Widget _buildLeadingOutcomeHero(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildLeadingOutcomeHero(
+      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
     // Rank only the BETTABLE field — a decided sports sub-market pinned
     // at 100% (e.g. a finished "Set 1 Winner") must not hijack the
     // headline from the still-live markets. Falls back to the raw list
@@ -1682,6 +1733,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     });
     final leader = pool[indexed.first];
     final leaderPrice = _priceOf(prices, leader.tokenId, leader.price);
+    final figureStyle = TextStyle(
+      // An Up or Down market's leader in its own colour.
+      color: polyUpDownColor(leader.name, event.outcomes) ?? _kPolyPurple,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1698,18 +1758,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 4.h),
-        Text(
-          _formatPctShort(leaderPrice),
-          style: TextStyle(
-            // An Up or Down market's leader in its own colour.
-            color: polyUpDownColor(leader.name, event.outcomes) ??
-                _kPolyPurple,
-            fontSize: 56.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.6,
-            height: 1.0,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+        _figureWithShare(
+          Text(_formatPctShort(leaderPrice), style: figureStyle),
+          bar,
+          lineHeight: _lineHeightOf(figureStyle),
         ),
       ],
     );
@@ -1719,7 +1771,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// "Leading 100%" hero when every sub-market has settled. Picks the
   /// outcome with price >0.97 as the winner; falls back to the
   /// highest-priced outcome if none crosses the threshold (defensive).
-  Widget _buildResolvedHeroPill(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildResolvedHeroPill(
+      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
     final prices = _livePriceMap(ref);
     final indexed = List.generate(event.outcomes.length, (i) => i);
     indexed.sort((a, b) {
@@ -1736,6 +1789,13 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       orElse: () => indexed.first,
     );
     final winner = event.outcomes[winnerIdx];
+    final figureStyle = TextStyle(
+      color: _kPolyGreen,
+      fontSize: 28.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.6,
+      height: 1.1,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1757,17 +1817,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        Text(
-          winner.name,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: _kPolyGreen,
-            fontSize: 28.sp,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            height: 1.1,
-          ),
+        _figureWithShare(
+          Text(winner.name,
+              maxLines: 2, overflow: TextOverflow.ellipsis, style: figureStyle),
+          bar,
+          lineHeight: _lineHeightOf(figureStyle),
         ),
       ],
     );
@@ -1776,7 +1830,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// "Awaiting liquidity" pill — every outcome sits at the 0.5 stub
   /// because no one has placed an order yet. Don't pretend there's a
   /// leader.
-  Widget _buildAwaitingLiquidityHeroPill(AppColorsExtension c) {
+  Widget _buildAwaitingLiquidityHeroPill(
+      AppColorsExtension c, KuteBarContext bar) {
+    final figureStyle = TextStyle(
+      color: c.textSecondary,
+      fontSize: 22.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.4,
+      height: 1.1,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1798,15 +1860,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
           ),
         ),
         SizedBox(height: 10.h),
-        Text(
-          context.l10n.betNoPricesYet,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 22.sp,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            height: 1.1,
-          ),
+        _figureWithShare(
+          Text(context.l10n.betNoPricesYet, style: figureStyle),
+          bar,
+          lineHeight: _lineHeightOf(figureStyle),
         ),
       ],
     );
@@ -1890,7 +1947,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     return [for (final i in key.indices) outcomes[i]];
   }
 
-  Widget _buildMarketCountHero(WidgetRef ref, AppColorsExtension c) {
+  Widget _buildMarketCountHero(
+      WidgetRef ref, AppColorsExtension c, KuteBarContext bar) {
     final bettable = _bettableOutcomesFor(ref);
     final n = bettable.length;
     // The headline is the leader: the open outcome with the highest
@@ -1907,28 +1965,35 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
         leaderPrice = p;
       }
     }
+    final figureStyle = TextStyle(
+      color: _kPolyPurple,
+      fontSize: 56.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.6,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     if (leader != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _LeaderHeadline(
-            figure: _formatPctShort(leaderPrice),
-            name: leader.name,
-            figureStyle: TextStyle(
-              color: _kPolyPurple,
-              fontSize: 56.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1.6,
-              height: 1.0,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          // The pill's row leaves the headline the width to decide where
+          // the name goes (beside the figure or under it).
+          _figureWithShare(
+            _LeaderHeadline(
+              figure: _formatPctShort(leaderPrice),
+              name: leader.name,
+              figureStyle: figureStyle,
+              nameStyle: TextStyle(
+                color: c.textSecondary,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
             ),
-            nameStyle: TextStyle(
-              color: c.textSecondary,
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-            ),
+            bar,
+            lineHeight: _lineHeightOf(figureStyle),
           ),
         ],
       );
@@ -1937,34 +2002,28 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '$n',
-              style: TextStyle(
-                color: _kPolyPurple,
-                fontSize: 56.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.6,
-                height: 1.0,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Padding(
-              padding: EdgeInsets.only(bottom: 10.h),
-              child: Text(
-                context.l10n.betMarketsSuffix,
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
+        _figureWithShare(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('$n', style: figureStyle),
+              SizedBox(width: 8.w),
+              Padding(
+                padding: EdgeInsets.only(bottom: 10.h),
+                child: Text(
+                  context.l10n.betMarketsSuffix,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          bar,
+          lineHeight: _lineHeightOf(figureStyle),
         ),
       ],
     );

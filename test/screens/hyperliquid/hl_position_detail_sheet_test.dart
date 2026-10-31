@@ -3,7 +3,6 @@
 // position itself as plain rows, with nothing written twice.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,8 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/advisor_provider.dart'
-    show advisorStreamRequestProvider, aiEnabledProvider;
-import 'package:kute/models/advisor_model.dart';
+    show aiEnabledProvider;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_candles_provider.dart';
@@ -37,7 +35,6 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
         HlChartEditBody,
         HlMarketDetailSheet,
         debugResetHlChartRail;
-import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
@@ -46,9 +43,6 @@ import 'package:kute/screens/hyperliquid/components/close_position_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_liquidation_distance.dart'
     show HlLiquidationTile, hlLossAtLiquidation;
 import 'package:kute/services/runtime_capabilities_service.dart';
-import 'package:kute/services/advisor/advisor_input_guard.dart';
-import 'package:kute/services/advisor/advisor_service.dart'
-    show AdvisorPrompt, AdvisorStreamEvent;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart'
     show ChartTradeLineKind;
@@ -234,6 +228,17 @@ void main() {
     // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
         findsNothing);
+    // Sal's Share pill ends the price's row, centred on the price and
+    // right against the 20 pt gutter, not in the header (founder, 31
+    // October 2026).
+    final share = find.byKey(const ValueKey('kute-sal-header-button'));
+    expect(share, findsOneWidget);
+    expect(find.descendant(of: header, matching: share), findsNothing);
+    final shareRect = tester.getRect(share);
+    final priceRect = tester.getRect(find.byType(HlTickPrice));
+    expect(shareRect.center.dy, closeTo(priceRect.center.dy, 2));
+    expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
+    expect(shareRect.left, greaterThanOrEqualTo(priceRect.right));
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
@@ -589,6 +594,21 @@ void main() {
           .descendant(of: header.first, matching: find.byType(HlCoinIcon))
           .first);
       expect(icon.size, 32);
+      // The star stays in the header; Sal's Share pill ends the price's
+      // row under it, centred on the price and right against the 20 pt
+      // gutter (founder, 31 October 2026).
+      expect(
+          find.descendant(of: header.first, matching: find.byType(HlWatchStar)),
+          findsOneWidget);
+      final share = find.byKey(const ValueKey('kute-sal-header-button'));
+      expect(share, findsOneWidget);
+      expect(find.descendant(of: header.first, matching: share), findsNothing);
+      final shareRect = tester.getRect(share);
+      final priceRect =
+          tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
+      expect(shareRect.center.dy, closeTo(priceRect.center.dy, 2));
+      expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
+      expect(shareRect.left, greaterThanOrEqualTo(priceRect.right));
       expect(tester.takeException(), isNull);
     });
 
@@ -626,15 +646,14 @@ void main() {
             of: find.byType(KuteCircleBackButton), matching: find.byType(Row))
         .first;
 
-    testWidgets('a calm market (+1.5% today): the same one quiet row, no '
-        'question pill, no button', (tester) async {
+    testWidgets('a calm market (+1.5% today): no "Why is it moving?" row, '
+        'no question pill, no button; About stays', (tester) async {
       await pumpScreen(tester, const HlMarketDetailSheet(market: btc),
           ai: true);
-      expect(row, findsOneWidget);
-      expect(find.text('Why is it moving?'), findsOneWidget);
+      // The row is gone (31 October 2026): the question is the Sal
+      // sheet's first chip, nothing under the chart.
+      expect(find.text('Why is it moving?'), findsNothing);
       expect(find.byType(AskSalChip), findsNothing);
-      expect(find.descendant(of: row, matching: find.byType(SalSprite)),
-          findsOneWidget);
       expect(find.text('What drives the price of BTC?'), findsNothing);
       expect(find.textContaining('protect'), findsNothing);
       expect(aboutRow, findsOneWidget);
@@ -642,9 +661,9 @@ void main() {
     });
 
     for (final width in [320.0, 375.0]) {
-      testWidgets('a big move at ${width.toInt()} wide, text x1.3: one quiet '
-          '"Why is it moving?" row under the chart, a one-colour dog, never '
-          'cut', (tester) async {
+      testWidgets('a big move at ${width.toInt()} wide, text x1.3: the star '
+          'in the header, no "Why is it moving?" row under the chart, About '
+          'stays', (tester) async {
         await loadInter(tester);
         await pumpScreen(tester, const HlMarketDetailSheet(market: moving),
             ai: true,
@@ -656,83 +675,21 @@ void main() {
         expect(find.descendant(of: header, matching: find.byType(HlWatchStar)),
             findsOneWidget);
         expect(find.byType(AskSalChip), findsNothing);
-        await tester.ensureVisible(row);
-        await tester.pump();
-        expect(row, findsOneWidget);
-        expect(find.text('Why is it moving?'), findsOneWidget);
-        // Under the chart (and its interval row), above About.
-        expect(tester.getRect(row).top,
-            greaterThanOrEqualTo(
-                tester.getRect(find.byType(HlCandleChart)).bottom));
-        expect(tester.getRect(row).top,
-            lessThan(tester.getRect(find.text('About Bitcoin')).top));
-        // The dog as a one-colour glyph in the title's colour, no ring.
-        // Sal's 3D face, curious, the one-colour dog behind it as the
-        // fallback in the title's colour.
-        final sal = tester.widget<SalSprite>(
-            find.descendant(of: row, matching: find.byType(SalSprite)));
-        expect(sal.clip, 'curious');
-        expect((sal.fallback as KuteDogGlance).color,
-            AppColorsExtension.light().textPrimary);
+        // The row is gone (31 October 2026): nothing between the chart
+        // and About asks the question.
+        expect(find.text('Why is it moving?'), findsNothing);
         expect(find.byType(SalAiRing), findsNothing);
-        final paragraph = tester.renderObject<RenderParagraph>(find.descendant(
-            of: row, matching: find.text('Why is it moving?')));
-        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(aboutRow, findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       });
     }
 
-    testWidgets('the row opens Sal already asking why it is moving, from '
-        'market_why_moving', (tester) async {
-      OpenOnce.reset();
-      addTearDown(OpenOnce.reset);
-      final events = <(String, Map<String, Object>?)>[];
-      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
-      addTearDown(() => TrackingService.debugTrackObserver = null);
-      final prompts = <AdvisorPrompt?>[];
-      await tester.runAsync(() => AdvisorInputGuard.isSafe('Public question'));
+    testWidgets('a big move with Sal on: no "Why is it moving?" row to tap '
+        '(the question lives in the Sal sheet)', (tester) async {
       await pumpScreen(tester, const HlMarketDetailSheet(market: moving),
-          ai: true,
-          extra: [
-            ...movingOverrides,
-            advisorStreamRequestProvider.overrideWithValue((
-                {required query,
-                context,
-                history = const [],
-                required cancellation,
-                locale,
-                prompt}) {
-              prompts.add(prompt);
-              return Stream.value(const AdvisorStreamEvent.done(
-                  AdvisorResponse(blocks: [
-                AdvisorBlock(
-                    id: 'answer',
-                    kind: AdvisorBlockKind.answer,
-                    markdown: 'Bitcoin moved on the rate decision.')
-              ])));
-            }),
-          ]);
-      await tester.ensureVisible(row);
-      await tester.pump();
-      await tester.tap(row);
-      await tester.pump();
-      await tester.runAsync(() async {});
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(prompts.single?.template, 'hl.moving_today');
-      expect(find.text('Why is BTC moving today?'), findsWidgets);
-      expect(find.textContaining('Bitcoin moved on the rate decision.'),
-          findsOneWidget);
-      final opened = events.firstWhere((e) => e.$1 == 'sal_opened').$2!;
-      expect(opened['entry'], 'market_why_moving');
-      expect(opened['surface'], 'hl_market_detail');
-      final asked = events.firstWhere((e) => e.$1 == 'sal_question_asked').$2!;
-      expect(asked['input'], 'suggested');
-      expect(asked['template'], 'hl.moving_today');
-      expect(asked['chip_index'], 0);
-      expect(asked['entry_source'], 'market_why_moving');
-      await tester.pumpWidget(const SizedBox.shrink());
+          ai: true, extra: movingOverrides);
+      expect(find.text('Why is it moving?'), findsNothing);
     });
 
     testWidgets('Sal switched off: no row even on a big move, About stays',

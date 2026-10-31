@@ -43,8 +43,11 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 // PageRouteBuilder, opaque: false, fullscreenDialog) so the two tabs
 // share one navigation grammar.
 //
-// Content: live header (WS mid via HlTickPrice: primary colour, a brief
-// green/red flash on a tick),
+// Content: the title row (back, logo, ticker, watchlist star), the live
+// price large under it (WS mid via HlTickPrice: primary colour, a brief
+// green/red flash on a tick) with Sal's Share pill at the end of its row
+// (founder, 31 October 2026: next to the big number, not in the title
+// row) and the change today under the price,
 // HlCandleChart (TradingView model for every style: an interval row
 // 1m…1W, the user's pan and zoom, older bars loaded on demand, one global
 // style and interval for all markets — fed by WIRE coin, the one mapping
@@ -315,6 +318,27 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       }
     }
 
+    // The page's Sal context, placed in its header (no bottom bar): held
+    // by the scope around the watchlist star while the header is up; its
+    // control, the Share pill (KuteSalHeaderButton), sits beside the price.
+    final bar = marketBarContext(
+      context,
+      title: widget.market.coin,
+      venue: kMarketLinkInvesting,
+      slug: widget.market.coin,
+      price: formatHlPrice(
+          widget.market.midPx > 0 ? widget.market.midPx : widget.market.markPx,
+          decimalCap: widget.market.pxDecimalCap),
+      // The pick: Long, the side this page opens on.
+      outcome: context.l10n.longLabel,
+      side: 'long',
+      actionRowHeight: _advancedChart ? 0 : _kInvestRowHeight,
+      position: false,
+      category: SearchCategory.perpetuals,
+      searchHint: context.l10n.searchInvestmentsHint,
+      source: 'trading',
+      placement: KuteBarPlacement.header,
+    );
     return Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       body: Container(
@@ -359,46 +383,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
-                      // Sal's share circle (KuteSalHeaderButton; founder,
-                      // 31 October 2026: the floating pill is away on a
-                      // market page, the control sits here) and the
-                      // watchlist star. The page's bar context is held
-                      // here with its `header` placement.
-                      Builder(builder: (context) {
-                        final bar = marketBarContext(
-                          context,
-                          title: widget.market.coin,
-                          venue: kMarketLinkInvesting,
-                          slug: widget.market.coin,
-                          price: formatHlPrice(
-                              widget.market.midPx > 0
-                                  ? widget.market.midPx
-                                  : widget.market.markPx,
-                              decimalCap: widget.market.pxDecimalCap),
-                          // The pick: Long, the side this page opens on.
-                          outcome: context.l10n.longLabel,
-                          side: 'long',
-                          actionRowHeight:
-                              _advancedChart ? 0 : _kInvestRowHeight,
-                          position: false,
-                          category: SearchCategory.perpetuals,
-                          searchHint: context.l10n.searchInvestmentsHint,
-                          source: 'trading',
-                          placement: KuteBarPlacement.header,
-                        );
-                        return KuteBarContextScope(
-                          barContext: bar,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              KuteSalHeaderButton(barContext: bar),
-                              SizedBox(width: 8.w),
-                              HlWatchStar(
-                                  market: m, size: 22, source: 'detail'),
-                            ],
-                          ),
-                        );
-                      }),
+                      // The watchlist star; the page's bar context is held
+                      // here with its `header` placement. The Share pill
+                      // is beside the price, under this row.
+                      KuteBarContextScope(
+                        barContext: bar,
+                        child:
+                            HlWatchStar(market: m, size: 22, source: 'detail'),
+                      ),
                     ],
                   ),
                 ),
@@ -418,23 +410,37 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // Smaller rather than cut on a long price. The
                       // primary text colour at rest; a tick flashes green
                       // or red and fades back, so the price never sits in
-                      // a colour that argues with the change.
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: HlTickPrice(
-                          key: const ValueKey('hl-detail-price'),
-                          price: price,
-                          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 38.sp,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
-                            height: 1.1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                      // a colour that argues with the change. Sal's Share
+                      // pill at the end of the row, centred on the price
+                      // (founder, 31 October 2026: next to the big number).
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: HlTickPrice(
+                                key: const ValueKey('hl-detail-price'),
+                                price: price,
+                                text: formatHlPrice(price,
+                                    decimalCap: m.pxDecimalCap),
+                                style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontSize: 38.sp,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.0,
+                                  height: 1.1,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          SizedBox(width: 8.w),
+                          KuteSalHeaderButton(barContext: bar),
+                        ],
                       ),
                       SizedBox(height: 4.h),
                       // Wrap (not Row) so the change and the optional

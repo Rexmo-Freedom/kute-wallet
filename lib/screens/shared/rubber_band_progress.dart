@@ -604,13 +604,18 @@ class RubberBandProgressState extends State<RubberBandProgress>
 
   @override
   Widget build(BuildContext context) {
-    if (_halted) return widget.child;
+    // ONE TREE SHAPE, halted or not: a halted band once returned the bare
+    // child, and the swap as TickerMode went off under a covering page
+    // (the slip's Advanced page) rebuilt the child from scratch: its
+    // KuteBarContextScope remounted and pushed the slip's context again,
+    // over the page on top. Halted, the translation is simply 0
+    // ([stretch] reads 0 then) and nothing listens that would tick.
     return AnimatedBuilder(
       animation: Listenable.merge([_level, _breath]),
       child: widget.child,
       // Translated, never scaled: the text inside stays crisp.
       builder: (context, child) => FractionalTranslation(
-        translation: Offset(0, -stretch),
+        translation: Offset(0, _halted ? 0 : -stretch),
         child: child,
       ),
     );

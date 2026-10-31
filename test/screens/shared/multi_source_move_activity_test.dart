@@ -749,7 +749,7 @@ void main() {
     }
 
     testWidgets(
-        'Predictions to Bitcoin reads "Withdraw · from Investments", '
+        'Predictions to Bitcoin reads "Withdraw · from Dollars", '
         'the bitcoin received from the dollars spent', (tester) async {
       final pm = SwapOrderTransaction(
         id: 'ord_pm',
@@ -771,7 +771,7 @@ void main() {
       await pumpRow(
           tester, MultiSourceMoveTransaction(move: move, legRows: [pm]));
       expect(find.text('Withdraw'), findsOneWidget);
-      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(find.textContaining('from Dollars'), findsOneWidget);
       expect(find.textContaining('Predictions'), findsNothing);
       expect(find.textContaining('9,300'), findsOneWidget);
       expect(find.text('from \$50.00'), findsOneWidget);
@@ -780,7 +780,7 @@ void main() {
 
     testWidgets(
         'a plain Investing to Bitcoin move reads as the same row, '
-        '"from Investments"', (tester) async {
+        '"from Dollars"', (tester) async {
       final hl = _row('ord_hl',
               from: 'USDC',
               fromNet: 'HYPERCORE',
@@ -798,7 +798,7 @@ void main() {
           SwapOrderTransaction(
               id: hl.id, timestamp: _t0, isConfirmed: true, details: hl));
       expect(find.text('Withdraw'), findsOneWidget);
-      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(find.textContaining('from Dollars'), findsOneWidget);
       expect(find.textContaining('Investing'), findsNothing);
       expect(find.textContaining('8,002'), findsOneWidget);
     });
@@ -806,7 +806,7 @@ void main() {
     testWidgets(
         'a Buy bitcoin whose legs are still being submitted is on the '
         'Bitcoin list and Investments at once: "Withdraw · from '
-        'Investments", Pending, on top', (tester) async {
+        'Dollars", Pending, on top', (tester) async {
       // The sheet closed on submit: the move is recorded, its legs are
       // planned and none has an outcome yet.
       final now = DateTime.now();
@@ -862,7 +862,7 @@ void main() {
       await pumpRow(tester,
           MultiSourceMoveTransaction(move: submitting, legRows: const []));
       expect(find.text('Withdraw'), findsOneWidget);
-      expect(find.textContaining('from Investments'), findsOneWidget);
+      expect(find.textContaining('from Dollars'), findsOneWidget);
       expect(
           find.textContaining('On its way', findRichText: true), findsOneWidget);
       expect(find.textContaining('9.42'), findsOneWidget,
@@ -1162,7 +1162,7 @@ void main() {
       await openSheet(tester, threeLegs(),
           orders: [hlLanded(), pmRow(status: 'success', got: '14.80')]);
       // Header: the intent, then the move's own rows, once.
-      expect(find.text('from Investments to Bitcoin'), findsOneWidget);
+      expect(find.text('from Dollars to Bitcoin'), findsOneWidget);
       expect(find.text('Date'), findsOneWidget);
       expect(find.text('Status'), findsOneWidget);
       expect(rowValue('Status', find.text('Needs attention')), findsOneWidget);
@@ -1853,7 +1853,7 @@ void main() {
 
       await pump(tester, tx);
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+      expect(text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
           findsOneWidget);
       expect(text('Pending'), findsNothing);
 
@@ -1890,7 +1890,7 @@ void main() {
       expect(find.textContaining('Investing → Investments'), findsNothing);
       expect(find.text('Needs attention'), findsOneWidget);
       expect(find.text('Pending'), findsNothing);
-      expect(find.text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+      expect(find.text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
           findsOneWidget);
       // The leg's cost reads as the swap sheets' plain Fee, never a Kute
       // fee.
@@ -1917,7 +1917,7 @@ void main() {
       expect(prompts, hasLength(1));
       expect(bought, isEmpty);
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r'Your $20.23 is in Investments'), findsOneWidget);
+      expect(text(r'Your $20.23 is in Dollars'), findsOneWidget);
     });
 
     testWidgets(
@@ -2003,7 +2003,7 @@ void main() {
               surface(context, ref, onlyUsdb: true, move: move, rows: [leg]));
       expect(listed.single, isA<MultiSourceMoveTransaction>());
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r'Your $20.23 is in Investments. Tap to buy Bitcoin'),
+      expect(text(r'Your $20.23 is in Dollars. Tap to buy Bitcoin'),
           findsOneWidget);
       await pump(tester, tx,
           orders: [hlHome()],
@@ -2055,7 +2055,7 @@ void main() {
       await pump(tester, tx, orders: [hlHome()]);
       expect(text(r'Send $20.23'), findsOneWidget);
       expect(text('Needs attention'), findsOneWidget);
-      expect(text(r"Your $20.23 is in Investments. The send didn't go through"),
+      expect(text(r"Your $20.23 is in Dollars. The send didn't go through"),
           findsOneWidget);
       await tester.tap(row());
       await frames(tester);

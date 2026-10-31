@@ -11414,6 +11414,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get searchHomeClear => 'Clear';
 
   @override
+  String get searchScopeTitle => 'Search in';
+
+  @override
   String marketMetaLine(String volume, String date) {
     return '$volume · closes $date';
   }

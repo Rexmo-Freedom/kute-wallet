@@ -314,7 +314,27 @@ class KuteBarContextStack extends Notifier<List<KuteBarContext>> {
     return const [];
   }
 
-  void push(KuteBarContext ctx) => state = [...state, ctx];
+  /// Puts [ctx] on the stack IN ROUTE ORDER, not simply on top: beside
+  /// the contexts its own route already holds, and under every context of
+  /// a route that is current (or of none) when its route is not. A scope
+  /// that remounts under a covering page (a slip's, as the band under it
+  /// changed shape) must never land its context over the page on top:
+  /// the bar read the slip's button on the slip's Advanced page.
+  void push(KuteBarContext ctx) {
+    final list = [...state];
+    final route = ctx.route;
+    var at = list.length;
+    final mate = route == null ? -1 : list.lastIndexWhere((c) => c.route == route);
+    if (mate >= 0) {
+      at = mate + 1;
+    } else if (route != null && !route.isCurrent) {
+      final above =
+          list.indexWhere((c) => c.route == null || c.route!.isCurrent);
+      if (above >= 0) at = above;
+    }
+    list.insert(at, ctx);
+    state = list;
+  }
 
   void replace(KuteBarContext old, KuteBarContext next) =>
       state = [for (final c in state) c == old ? next : c];

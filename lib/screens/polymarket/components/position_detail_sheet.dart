@@ -56,6 +56,7 @@ import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -79,8 +80,11 @@ const Color _kPolyRed = AppColors.marketDown;
 // dial, the price paid a dot on its track, a long needle with a grab knob riding the track, the track filled to the
 // needle in the result's colour, the chance under the hub, drag to
 // explore: position_speedometer.dart); over it the result since the buy at
-// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one)
-// and the held side at the right; under it, until the dial's first drag on
+// the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
+// the held side, and Sal's Share pill at the row's end, centred on the
+// result's figure (founder, 31 October 2026: the pill sits next to the big
+// number, not in the title row; once settled it ends the held side's
+// line); under it, until the dial's first drag on
 // this device, a quiet "Drag the needle to see what it'd be worth" (the
 // needle leans once to show it moves),
 // and once settled the chance bar (position_chance_bar.dart). Then two
@@ -437,8 +441,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         PolymarketEvent.logoForText(headerTeams, pos.marketQuestion) ??
         pos.marketImage;
 
-    // The page's Sal context, placed in its header (KuteSalHeaderButton;
-    // the floating pill is away on a position page).
+    // The page's Sal context, placed in its header (no bottom bar), held
+    // by the scope around the close button; its control, the Share pill
+    // (KuteSalHeaderButton), sits beside the result over the dial.
     final bar = marketBarContext(
       context,
       title: widget.position.marketQuestion,
@@ -478,9 +483,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                     ),
                     SizedBox(width: 8.w),
                     // The market's icon (crest-first, see above) and its
-                    // title, as on the market sheet's header. No Sal on a
-                    // position: its rows say what is at risk and how to
-                    // protect it.
+                    // title, as on the market sheet's header; the Share
+                    // pill is beside the result, under it.
                     if (headerImage != null && headerImage.isNotEmpty) ...[
                       // PolyCrestImage (not raw CachedNetworkImage) so SVG
                       // flags / team crests render: Polymarket serves many
@@ -507,9 +511,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                       ),
                     ),
-                    SizedBox(width: 8.w),
-                    // Sal's share circle: the page's Sal control.
-                    KuteSalHeaderButton(barContext: bar),
                   ],
                 ),
               ),
@@ -588,7 +589,10 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                   children: [
                                     // Over the dial: the result at the
                                     // left (while dragging, the what-if
-                                    // one), the held side at the right.
+                                    // one), the held side, and the Share
+                                    // pill at the end, centred on the
+                                    // result's figure line (the "since"
+                                    // caption is under that line).
                                     Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -626,9 +630,27 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                           ),
                                         ),
                                         SizedBox(width: 12.w),
-                                        Padding(
-                                          padding: EdgeInsets.only(top: 3.h),
-                                          child: heldLine,
+                                        Flexible(
+                                          child: Padding(
+                                            padding:
+                                                EdgeInsets.only(top: 3.h),
+                                            child: heldLine,
+                                          ),
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        SizedBox(
+                                          height: PolyPositionResultLine
+                                              .figureLineHeight(context),
+                                          child: OverflowBox(
+                                            fit: OverflowBoxFit.deferToChild,
+                                            alignment: Alignment.center,
+                                            minHeight:
+                                                KuteSalHeaderButton.height,
+                                            maxHeight:
+                                                KuteSalHeaderButton.height,
+                                            child: KuteSalHeaderButton(
+                                                barContext: bar),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -683,7 +705,18 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                               return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  heldLine,
+                                  // Settled: the held side's line, centred
+                                  // in the room the Share pill leaves it,
+                                  // the pill at the row's end.
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(child: heldLine),
+                                      SizedBox(width: 8.w),
+                                      KuteSalHeaderButton(barContext: bar),
+                                    ],
+                                  ),
                                   SizedBox(height: 14.h),
                                   PolyPositionChanceBar(
                                     spec: spec,

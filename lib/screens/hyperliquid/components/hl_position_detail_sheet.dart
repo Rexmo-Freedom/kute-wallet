@@ -15,7 +15,9 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 //
 // The open-position screen of an Investing position, in plain words. It
 // reads like the market sheet of the same market: its header row (logo,
-// ticker), the live price as the big figure with its change today ("Low
+// ticker), the live price as the big figure, Sal's Share pill at the end
+// of its row (founder, 31 October 2026: next to the big number, not in
+// the title row), its change today under it ("Low
 // liquidity" on a thin market) and the sheet's chart, clean, with its
 // pressure bar. Under the price, what is the user's: the side and the
 // leverage ("Long · 5x") and the profit or loss with the return on what
@@ -228,10 +230,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    // The page's Sal context, placed in its header (KuteSalHeaderButton;
-    // the floating pill is away on a position page): the scope is around
-    // the whole page, so in chart-edit mode, with the header away, the
-    // bar stays away too.
+    // The page's Sal context, placed in its header (no bottom bar; its
+    // control, the Share pill, KuteSalHeaderButton, sits beside the
+    // price): the scope is around the whole page, so in chart-edit mode,
+    // with the header away, the bar stays away too.
     final bar = marketBarContext(
       context,
       title: widget.position.coin,
@@ -268,9 +270,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       const KuteCloseButton(),
                       SizedBox(width: 8.w),
                       // The market sheet's header row: logo and ticker; the
-                      // price is the big figure under it. No Sal on a
-                      // position: its rows say what is at risk and how to
-                      // protect it.
+                      // price is the big figure under it, with the Share
+                      // pill beside it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -292,9 +293,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           ),
                         ),
                       ),
-                      SizedBox(width: 8.w),
-                      // Sal's share circle: the page's Sal control.
-                      KuteSalHeaderButton(barContext: bar),
                     ],
                   ),
                 ),
@@ -315,29 +313,40 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           children: [
                             SizedBox(height: 10.h),
                             // The price now, large, as on the market screen
-                            // (a tick flashes and fades), with its change
-                            // today; then the position in plain words: its
-                            // side and leverage, and the profit or loss with
-                            // the return on what was put in.
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: HlTickPrice(
-                                key: const ValueKey('hl-position-price'),
-                                price: markPx,
-                                text: formatHlPrice(markPx,
-                                    decimalCap: m?.pxDecimalCap),
-                                style: TextStyle(
-                                  color: c.textPrimary,
-                                  fontSize: 38.sp,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -1.0,
-                                  height: 1.1,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
+                            // (a tick flashes and fades), Sal's Share pill
+                            // at the end of its row, centred on it; its
+                            // change today under it; then the position in
+                            // plain words: its side and leverage, and the
+                            // profit or loss with the return on what was
+                            // put in.
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: HlTickPrice(
+                                      key: const ValueKey('hl-position-price'),
+                                      price: markPx,
+                                      text: formatHlPrice(markPx,
+                                          decimalCap: m?.pxDecimalCap),
+                                      style: TextStyle(
+                                        color: c.textPrimary,
+                                        fontSize: 38.sp,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -1.0,
+                                        height: 1.1,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures()
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                SizedBox(width: 8.w),
+                                KuteSalHeaderButton(barContext: bar),
+                              ],
                             ),
                             SizedBox(height: 4.h),
                             Wrap(

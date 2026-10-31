@@ -54,6 +54,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _Sdk extends Mock implements BreezSdk {}
 
@@ -103,6 +104,9 @@ Future<void> _pump(WidgetTester tester,
           ReceivePaymentResponse(paymentRequest: _spark, fee: BigInt.zero));
   final wrapper = _Wrapper();
   when(() => wrapper.instance).thenReturn(sdk);
+  // The shell bar over the navigator (shell_bar_harness.dart): the
+  // "Request amount" sheet's Create request is the bar.
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -151,6 +155,8 @@ Future<void> _pump(WidgetTester tester,
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (_, __) => MaterialApp(
+        builder: shellBarBuilder,
+        navigatorObservers: shellBarObservers(),
         theme: ThemeData(
             splashFactory: NoSplash.splashFactory,
             fontFamily: 'Inter',
@@ -179,10 +185,13 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 400));
 }
 
-/// Unmounts the sheet before its 5 s balance watch fires.
+/// Unmounts the sheet before its 5 s balance watch fires, then runs the
+/// test clock past the policy's expiry: the bar's own policy read (Sal's
+/// switch) arms the expiry timer on the test clock.
 Future<void> _unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(seconds: 6));
+  await tester.pump(const Duration(minutes: 3));
 }
 
 Future<void> _format(WidgetTester tester, String label) async {
@@ -371,11 +380,19 @@ void main() {
             of: find.byType(RequestAmountSheet),
             matching: find.text(_l10n.receiveRequestAmount)),
         findsOneWidget);
+    // Its Create request is the bar (shell_bar_harness.dart), declared by
+    // the sheet and drawn once the bar has taken the context.
+    await pumpBar(tester);
+    expect(barPrimaryText(_l10n.receiveCreateRequest), findsOneWidget);
     expect(
-        find.descendant(
-            of: find.byType(RequestAmountSheet),
-            matching: find.text(_l10n.receiveCreateRequest)),
-        findsOneWidget);
+        tester
+            .widget<KuteBarContextScope>(find.descendant(
+                of: find.byType(RequestAmountSheet),
+                matching: find.byWidgetPredicate((w) =>
+                    w is KuteBarContextScope && w.barContext.isPrimary)))
+            .barContext
+            .label,
+        _l10n.receiveCreateRequest);
     final step =
         events.where((e) => e.$1 == 'receive_step').map((e) => e.$2!).toList();
     expect(

@@ -31,6 +31,7 @@ import 'package:kute/screens/polymarket/components/position_chance_bar.dart';
 import 'package:kute/screens/polymarket/components/position_awaiting.dart'
     show polyExpectedSettlementProvider;
 import 'package:kute/screens/polymarket/components/position_journey.dart';
+import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -516,6 +517,22 @@ void main() {
       expect(find.byType(PositionSidePill), findsNothing);
       expect(tester.getRect(pill).bottom,
           lessThan(tester.getRect(find.byType(PolyPositionSpeedometer)).top));
+      // Sal's Share pill ends that row (founder, 31 October 2026: next to
+      // the big number, not in the title row): after the held side,
+      // centred on the result's figure line ("▲ $9.60"), right against
+      // the 20 pt gutter.
+      final share = find.byKey(const ValueKey('kute-sal-header-button'));
+      expect(share, findsOneWidget);
+      final header = find
+          .ancestor(of: find.byType(KuteCloseButton), matching: find.byType(Row))
+          .first;
+      expect(find.descendant(of: header, matching: share), findsNothing);
+      final shareRect = tester.getRect(share);
+      final figureRect =
+          tester.getRect(find.byKey(PolyPositionResultLine.figureKey));
+      expect(shareRect.center.dy, closeTo(figureRect.center.dy, 2));
+      expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
+      expect(tester.getRect(pill).right, lessThanOrEqualTo(shareRect.left));
       expect(
           tester.getRect(find.byType(PolyPositionSpeedometer)).bottom,
           lessThan(tester

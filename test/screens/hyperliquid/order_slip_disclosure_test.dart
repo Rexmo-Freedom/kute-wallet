@@ -822,9 +822,12 @@ void main() {
       expect(position.maxScrollExtent, greaterThan(0));
       expect(position.pixels, 0);
       if (keyboard > 0) {
-        // The bar hides only while the keyboard is up
-        // (kute_bar_context.dart), and comes back when it goes.
-        expect(barIsUp(tester), isFalse);
+        // As the page's primary button the bar RIDES ABOVE the keyboard
+        // (founder, 31 October 2026; kute_shell_bar.dart): up, its
+        // bottom above the keys, and down again when they go.
+        expect(barIsUp(tester), isTrue);
+        expect(tester.getRect(barPrimaryText(_emptyOrder)).bottom,
+            lessThanOrEqualTo(700 - keyboard));
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();
       }
