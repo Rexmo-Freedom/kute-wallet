@@ -11398,4 +11398,158 @@ class AppLocalizationsCs extends AppLocalizations {
   String marketCloses(String date) {
     return 'closes $date';
   }
+
+  @override
+  String get shareSendToAnyone => 'Send to anyone';
+
+  @override
+  String get shareSendToAnyoneSubtitle => 'A link they claim with Kute';
+
+  @override
+  String get shareWhoIsItFor => 'Who is it for?';
+
+  @override
+  String get shareFirstNameHint => 'First name (optional)';
+
+  @override
+  String get shareCreateLink => 'Create link';
+
+  @override
+  String get shareCreatingLink => 'Creating link';
+
+  @override
+  String get shareCreateFailed => 'Could not create the link. Try again.';
+
+  @override
+  String shareAmountInBitcoin(String amount) {
+    return '$amount in Bitcoin';
+  }
+
+  @override
+  String shareMessageNamed(String name, String amount, String url) {
+    return '$name, I sent you $amount with Kute. Claim it here: $url';
+  }
+
+  @override
+  String shareMessageUnnamed(String amount, String url) {
+    return 'I sent you $amount with Kute. Claim it here: $url';
+  }
+
+  @override
+  String shareLinkSentWaiting(String name) {
+    return 'Link sent · waiting for $name to claim';
+  }
+
+  @override
+  String get shareLinkSentWaitingUnnamed => 'Link sent · waiting to be claimed';
+
+  @override
+  String get shareLinkClaimedReady => 'Claimed · ready to send';
+
+  @override
+  String get shareLinkPaid => 'Sent';
+
+  @override
+  String get shareLinkCancelled => 'Cancelled';
+
+  @override
+  String get shareLinkExpired => 'Expired';
+
+  @override
+  String get shareLinkCancel => 'Cancel link';
+
+  @override
+  String get shareLinkCancelFailed => 'Could not cancel the link. Try again.';
+
+  @override
+  String get shareLinkShareAgain => 'Share again';
+
+  @override
+  String get sharePendingLinksTitle => 'Links you sent';
+
+  @override
+  String shareClaimedPromptTitle(String name, String amount) {
+    return '$name claimed your $amount';
+  }
+
+  @override
+  String shareClaimedPromptTitleUnnamed(String amount) {
+    return 'Your $amount was claimed';
+  }
+
+  @override
+  String get shareClaimedPromptBody =>
+      'Send it now to finish. It leaves your wallet only when you confirm.';
+
+  @override
+  String get shareSendNow => 'Send now';
+
+  @override
+  String get shareLater => 'Later';
+
+  @override
+  String get shareSendFailed =>
+      'Could not send. Kute will ask again next time it opens.';
+
+  @override
+  String claimTitle(String sender, String amount) {
+    return '$sender sent you $amount';
+  }
+
+  @override
+  String get claimSomeone => 'Someone';
+
+  @override
+  String claimMarketLine(String market) {
+    return 'to bet on $market';
+  }
+
+  @override
+  String get claimButton => 'Claim';
+
+  @override
+  String get claimClaiming => 'Claiming';
+
+  @override
+  String get claimOnItsWay => 'On its way';
+
+  @override
+  String claimArrivesWhenOpens(String sender) {
+    return 'It arrives when $sender opens Kute.';
+  }
+
+  @override
+  String get claimOpenMarket => 'Open the market';
+
+  @override
+  String get claimAlreadyClaimed => 'This link was already claimed.';
+
+  @override
+  String get claimExpired => 'This link has expired.';
+
+  @override
+  String get claimUnavailable => 'This link is not available.';
+
+  @override
+  String get claimFailed => 'Could not claim. Try again.';
+
+  @override
+  String get claimNeedsWallet =>
+      'Your wallet is still getting ready. Try again in a moment.';
+
+  @override
+  String get shareMarketShareLink => 'Share link';
+
+  @override
+  String get shareMarketSendDollars => 'Send dollars for this';
+
+  @override
+  String shareMarketLookAt(String title, String link) {
+    return 'Look at this on Kute: $title $link';
+  }
+
+  @override
+  String shareMarketChance(String chance) {
+    return '$chance% chance';
+  }
 }

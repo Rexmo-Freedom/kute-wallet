@@ -631,6 +631,13 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_link_cancelled
+share_link_claimed
+share_link_created
+share_link_paid
+share_link_shared
+share_market_link_shared
+share_market_opened
 shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected

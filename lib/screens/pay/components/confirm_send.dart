@@ -98,6 +98,8 @@ import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -7882,6 +7884,32 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
+  /// "Send to anyone": a link the recipient claims with Kute, for someone
+  /// with no address to paste (a pending send paid from the Spark hot
+  /// wallet, see models/share_link_model.dart). One row in its own card
+  /// under the recipient field while the field is empty; a cold source
+  /// cannot pay a Spark or Lightning destination, so it gets no row.
+  Widget _sendToAnyoneCard(AppColorsExtension c) {
+    return _SendToListCard(
+      colors: c,
+      rows: [
+        _SendToListRow(
+          key: const ValueKey('send-to-anyone'),
+          colors: c,
+          leading: Icon(Icons.ios_share_rounded,
+              color: c.textPrimary, size: 20.sp),
+          title: context.l10n.shareSendToAnyone,
+          subtitle: context.l10n.shareSendToAnyoneSubtitle,
+          onTap: () => unawaited(showSendToAnyoneSheet(
+            context,
+            kind: ShareLinkKind.bitcoin,
+            entrySource: 'bitcoin_send',
+          )),
+        ),
+      ],
+    );
+  }
+
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -8036,6 +8064,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           if (_clipboardCandidate != null && addr.isEmpty) ...[
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
+          ],
+          if (addr.isEmpty && !_isColdSource) ...[
+            SizedBox(height: 24.h),
+            _sendToAnyoneCard(c),
           ],
           // Recent recipients: the last few Lightning addresses this
           // wallet paid, one tap to fill the field. Hidden once an

@@ -92,6 +92,18 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="kute.onelink.me" />
             </intent-filter>
+            <!--
+                Share-link claims: https://backend.kutewallet.com/c/{id}
+                (PUBLIC_WEB_BASE in .env) opens the Claim screen. The host
+                must serve /.well-known/assetlinks.json with the app's
+                SHA-256 fingerprints for autoVerify to hold.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="backend.kutewallet.com" android:pathPrefix="/c/" />
+            </intent-filter>
         </activity>
         <meta-data
                 android:name="flutterEmbedding"

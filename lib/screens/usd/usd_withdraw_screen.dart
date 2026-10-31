@@ -30,8 +30,10 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showMoneyMovementSheet;
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToSectionHeader;
+    show SendToListCard, SendToListRow, SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/screens/usd/usd_receive_screen.dart'
@@ -42,6 +44,7 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/orchestra_usd_send_routes.dart'
     show UsdSendDestination;
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/theme/app_theme.dart';
 
 /// The route name the Withdraw sheet carries.
 const String kUsdWithdrawRouteName = 'withdrawDollars';
@@ -159,6 +162,27 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
             balance: watchSpendingBitcoinUsd(ref),
             buttonLabel: l10n.usdWithdrawNow,
             onTap: _openToBitcoin,
+          ),
+          SizedBox(height: 24.h),
+          // Send to anyone: a link the recipient claims with Kute (a
+          // pending dollar send, models/share_link_model.dart).
+          SendToListCard(
+            colors: context.colors,
+            rows: [
+              SendToListRow(
+                key: const ValueKey('usd-withdraw-send-to-anyone'),
+                colors: context.colors,
+                leading: Icon(Icons.ios_share_rounded,
+                    color: context.colors.textPrimary, size: 20.sp),
+                title: l10n.shareSendToAnyone,
+                subtitle: l10n.shareSendToAnyoneSubtitle,
+                onTap: () => unawaited(showSendToAnyoneSheet(
+                  context,
+                  kind: ShareLinkKind.dollars,
+                  entrySource: kUsdWithdrawSheetSource,
+                )),
+              ),
+            ],
           ),
           SizedBox(height: 24.h),
           if (groups.isEmpty)
