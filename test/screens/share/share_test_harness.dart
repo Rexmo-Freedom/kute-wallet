@@ -19,6 +19,8 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../mocks/fake_share_links_api.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 class ShareTestEnv {
   ShareTestEnv(this.fake, this.events);
   final FakeShareLinksApi fake;
@@ -72,6 +74,9 @@ Future<void> pumpShareWidget(
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page, as app_widget.dart mounts it: the
+        // screens' primary buttons are the bar (kute_bar_test_support).
+        builder: withKuteShellBar,
         home: Scaffold(body: child),
         theme: ThemeData(
             splashFactory: NoSplash.splashFactory,

@@ -49,7 +49,6 @@ import 'package:kute/providers/usd_account_provider.dart'
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show BigAmountDisplay;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/money_movement_sheet.dart';
 import 'package:kute/services/funding/hot_settlement.dart';
 import 'package:kute/services/funding/settlement_funding_outcome.dart'
@@ -77,6 +76,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _ownSpark =
@@ -453,6 +453,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
       child: ScreenUtilInit(
         designSize: const Size(430, 932),
         builder: (_, __) => MaterialApp(
+          // The shell bar over the page, as app_widget.dart mounts it: the
+          // sheet's button is the bar (kute_bar_test_support.dart).
+          builder: withKuteShellBar,
           theme:
               buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -489,8 +492,9 @@ Future<void> _type(WidgetTester tester, String amount) async {
   await _frames(tester, 4);
 }
 
-Finder get _cta => find.byType(AppButton).last;
-AppButton _button(WidgetTester tester) => tester.widget<AppButton>(_cta);
+Finder get _cta => kuteBarPrimary;
+KuteBarPrimaryProbe _button(WidgetTester tester) =>
+    kuteBarPrimaryProbe(tester);
 
 Future<void> _confirm(WidgetTester tester) async {
   await tester.tap(_cta);

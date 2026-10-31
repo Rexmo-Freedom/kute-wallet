@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// Top-of-screen progress indicator for a multi-step flow. Renders
@@ -164,11 +165,24 @@ class StepPageWrapper extends StatelessWidget {
 /// where the page itself owns its primary action (Pay-with auto-tap,
 /// Review slide-to-confirm, Sign external) so the shared button is
 /// hidden there.
+///
+/// THE BAR IS THE BUTTON on the steps in [barSteps] (founder, 31 October
+/// 2026; kute_bar_context.dart): there the CTA draws no button of its
+/// own but declares the step's Continue as the floating Sal bar's primary
+/// action, and keeps the keypad clear of the bar. Both send steppers put
+/// every step there (founder: every pinned button is Sal).
 class SharedStepCta extends StatelessWidget {
   final int step;
   final AppColorsExtension colors;
   final bool enabled;
   final Set<int> visibleSteps;
+
+  /// The steps whose Continue is the shell bar (a subset of
+  /// [visibleSteps]).
+  final Set<int> barSteps;
+
+  /// The `search_opened` source of the bar's long press.
+  final String source;
 
   /// Optional label override; defaults to the localized "Continue".
   final String? label;
@@ -181,12 +195,25 @@ class SharedStepCta extends StatelessWidget {
     required this.enabled,
     required this.onContinue,
     this.visibleSteps = const {1, 2},
+    this.barSteps = const {},
+    this.source = 'step_cta',
     this.label,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!visibleSteps.contains(step)) return const SizedBox.shrink();
+    if (barSteps.contains(step)) {
+      return KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label ?? context.l10n.continueLabel,
+          onPrimary: onContinue,
+          enabled: enabled,
+          source: source,
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(top: 12.h),
       child: AppButton(

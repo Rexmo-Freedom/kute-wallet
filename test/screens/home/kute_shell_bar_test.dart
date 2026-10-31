@@ -173,6 +173,45 @@ void main() {
   });
 
   testWidgets(
+      'a short sheet hides the bar, unless its own primary is the bar: a '
+      'primary context in the same route beats the sheet\'s hidden one',
+      (tester) async {
+    await _pump(tester);
+    var done = 0;
+    // A sheet well under the short fraction, whose Done is the bar.
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: _navKey.currentContext!,
+        builder: (_) => AppBottomSheetContainer(
+              child: KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                    label: 'Done', onPrimary: () => done++),
+                child: const SizedBox(height: 120, child: Text('Short')),
+              ),
+            ));
+    await tester.pumpAndSettle();
+    expect(find.text('Short'), findsOneWidget);
+    expect(_up(tester), isTrue);
+    expect(find.byKey(const ValueKey('kute-bar-primary')), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(done, 1);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+
+    // The same short sheet with no primary: hidden, as before.
+    // ignore: unawaited_futures
+    showKuteModalSheet<void>(
+        context: _navKey.currentContext!,
+        builder: (_) => const AppBottomSheetContainer(
+            child: SizedBox(height: 120, child: Text('Short'))));
+    await tester.pumpAndSettle();
+    expect(_up(tester), isFalse);
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
       'a page\'s context reads while its route is current; a sheet over it '
       'gets the default', (tester) async {
     await _pump(tester);

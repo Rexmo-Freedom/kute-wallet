@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -13,7 +14,6 @@ import 'package:kute/screens/creation/referrer_code_screen.dart'
     show referrerCodeStepAllowed, skipReferrerCodeStep;
 import 'package:kute/screens/creation/set_pin.dart' show trackOnboardingStep;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/theme/app_theme.dart';
 
 class BetaSurveyScreen extends ConsumerStatefulWidget {
@@ -186,19 +186,8 @@ class _BetaSurveyScreenState extends ConsumerState<BetaSurveyScreen> {
                 // (slow link) says so quietly; otherwise nothing renders.
                 const PasskeyBackupSyncingNote(),
 
-                // Continue button — routed through the shared AppButton
-                // so the typography/text-color/animation match every other
-                // full-bleed CTA in the app (previously hand-rolled with
-                // hardcoded black text on accent, which diverged from the
-                // global white-on-brand rule).
-                AppButton(
-                  text: l10n.betaSurveyContinue,
-                  onPressed: _submit,
-                ),
-
-                SizedBox(height: 10.h),
-
                 // Skip — bigger / clearer so users can find how to continue.
+                // Above the bar, which is Continue.
                 Center(
                   child: GestureDetector(
                     onTap: _skip,
@@ -215,6 +204,16 @@ class _BetaSurveyScreenState extends ConsumerState<BetaSurveyScreen> {
                       ),
                     ),
                   ),
+                ),
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Continue
+                // is the floating Sal bar's primary action.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: l10n.betaSurveyContinue,
+                    onPrimary: _submit,
+                    source: 'beta_survey',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
 
                 SizedBox(height: 16.h),

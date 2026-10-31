@@ -21,6 +21,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/restart_widget.dart';
 import 'package:kute/screens/creation/set_pin.dart' show recoveryModeProvider;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/app_card.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -559,14 +560,8 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
               ),
               SizedBox(height: 12.h),
             ],
-            SizedBox(height: 12.h),
-            AppButton(
-              key: const ValueKey('restore-done'),
-              text: context.l10n.done,
-              onPressed: _done,
-            ),
             if (widget.reason != RestoreSecretsReason.storageUnavailable) ...[
-              SizedBox(height: 8.h),
+              SizedBox(height: 4.h),
               AppTextButton(
                 key: const ValueKey('restore-start-fresh'),
                 text: context.l10n.restoreStartFresh,
@@ -574,6 +569,16 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
                 onPressed: _startFresh,
               ),
             ],
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is the
+            // floating Sal bar's primary action; Start fresh sits above it.
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: context.l10n.done,
+                onPrimary: _done,
+                source: 'restore_secrets',
+              ),
+              child: SizedBox(height: kuteBarScrollClearance.h),
+            ),
           ],
         ),
       ),

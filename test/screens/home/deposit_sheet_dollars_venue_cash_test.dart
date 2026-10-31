@@ -40,7 +40,6 @@ import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart'
     show multiSourceMoveShows;
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
@@ -67,6 +66,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart' show Fixed;
 
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _usdPerBtc = 100000.0;
 const _balanceSats = 100000; // $100.00 at the sample price.
@@ -199,10 +199,12 @@ Future<ProviderContainer> _open(WidgetTester tester, MoveLockedSide side,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           navigatorKey: _nav,
+          // Reduce Motion when asked; the shell bar over the page, as
+          // app_widget.dart mounts it (kute_bar_test_support.dart).
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(disableAnimations: reduceMotion),
-            child: child!,
+            child: withKuteShellBar(context, child),
           ),
           home: routed
               ? const Scaffold(body: Text(_behind))
@@ -412,7 +414,7 @@ Future<void> _close(WidgetTester tester, ProviderContainer container) async {
   await tester.pump(const Duration(minutes: 3));
 }
 
-Finder get _cta => find.byType(AppButton).last;
+Finder get _cta => kuteBarPrimary;
 
 void main() {
   setUpAll(() {
@@ -473,7 +475,7 @@ void main() {
       await tester.pump();
     }
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     await tester.tap(_cta);
     for (var i = 0; i < 10; i++) {
@@ -842,7 +844,7 @@ void main() {
     expect(events.where((e) => e.endsWith('_cash_pulled')), isEmpty);
     expect(events, isNot(contains('multi_source_move_started')));
     // Back to the amount, quietly: no error, no spinner, no failure tap.
-    expect(tester.widget<AppButton>(_cta).isLoading, isFalse);
+    expect(kuteBarPrimaryProbe(tester).isLoading, isFalse);
     expect(find.text(_insufficient), findsNothing);
     await tester.pump(const Duration(milliseconds: 500));
     expect(_haptics('softTap'), 0, reason: 'the person said no');
@@ -952,7 +954,7 @@ void main() {
     await tester.pump();
     expect(_big(tester).amountText, '108.00');
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
     final plan = await _puller!
         .plan(neededUsd: 108, destination: VenueCashDestination.bitcoin);
     expect(plan.covers, isTrue);
@@ -965,13 +967,13 @@ void main() {
     await tester.pump();
     expect(_big(tester).amountText, '60');
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     // Exactly the shown figure: fine.
     typeAmount('108');
     await tester.pump();
     expect(find.text(_insufficient), findsNothing);
-    expect(tester.widget<AppButton>(_cta).onPressed, isNotNull);
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNotNull);
 
     // One cent above the shown figure: insufficient.
     typeAmount('108.01');

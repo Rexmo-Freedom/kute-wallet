@@ -10,11 +10,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart'
     show runSendTapBusy;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/theme/app_theme.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 /// The Review step's busy wiring, minus the rest of the screen: the
 /// button spins while `isProcessing` is up and is dead meanwhile.
@@ -56,18 +57,26 @@ class _ReviewState extends State<_Review> {
 
 Future<_ReviewState> _pump(WidgetTester tester,
     Future<void> Function(void Function(bool)) route) async {
-  await tester.pumpWidget(ScreenUtilInit(
+  // A ProviderScope for the bar's context stack.
+  await tester.pumpWidget(ProviderScope(
+      child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
+      // The shell bar over the page: Send is the bar
+      // (kute_bar_test_support.dart).
+      builder: withKuteShellBar,
       theme: ThemeData(extensions: [AppColorsExtension.light()]),
       home: _Review(route: route),
     ),
-  ));
+  )));
+  // The bar reads the page's context a frame after it mounts.
+  await tester.pump();
   return tester.state<_ReviewState>(find.byType(_Review));
 }
 
-Finder get _spinner => find.byWidgetPredicate(
-    (w) => w.runtimeType.toString().contains('StaggeredDotsWave'));
+/// The bar's progress ring while the send is busy.
+Finder get _spinner => find.descendant(
+    of: kuteBarPrimary, matching: find.byType(CircularProgressIndicator));
 
 void main() {
   test('busy goes up before the route runs and comes down after', () async {
@@ -119,12 +128,14 @@ void main() {
 
     await tester.tap(find.text('Send'));
     await tester.pump();
+    // The bar draws the busy state a frame after the page.
+    await tester.pump();
     expect(state.isProcessing, isTrue);
     expect(_spinner, findsOneWidget);
     expect(quoted, isFalse, reason: 'the balance read is still out');
 
     // A second tap while it spins dispatches nothing.
-    await tester.tap(find.byType(SendReviewAction));
+    await tester.tap(kuteBarPrimary, warnIfMissed: false);
     await tester.pump();
     expect(state.dispatches, 1);
 
@@ -156,6 +167,8 @@ void main() {
     });
     await tester.tap(find.text('Send'));
     await tester.pump();
+    // The bar draws the busy state a frame after the page.
+    await tester.pump();
     expect(_spinner, findsOneWidget);
     prompt.complete(false);
     await tester.pumpAndSettle();
@@ -163,12 +176,19 @@ void main() {
     expect(find.text('Send'), findsOneWidget);
   });
 
-  test('LoadingAnimationWidget is the spinner the button shows', () {
-    // Guards the finder above against a rename of the dots widget.
-    expect(
-        LoadingAnimationWidget.staggeredDotsWave(color: Colors.black, size: 24)
-            .runtimeType
-            .toString(),
-        contains('StaggeredDotsWave'));
+  testWidgets('the bar\'s progress ring is the spinner the button shows',
+      (tester) async {
+    // Guards the finder above: busy on the bar is the ring beside the label.
+    final state = await _pump(tester, (_) async {
+      await Completer<void>().future;
+    });
+    expect(_spinner, findsNothing);
+    await tester.tap(find.text('Send'));
+    await tester.pump();
+    // The bar draws the busy state a frame after the page.
+    await tester.pump();
+    expect(state.isProcessing, isTrue);
+    expect(kuteBarPrimaryProbe(tester).isLoading, isTrue);
+    expect(_spinner, findsOneWidget);
   });
 }

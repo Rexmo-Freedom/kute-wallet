@@ -2,6 +2,7 @@ import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -650,17 +651,21 @@ class _ExternalAddressImportScreenState
                           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
                           border: Border(top: BorderSide(color: c.border)),
                         ),
-                        child: AppButton(
-                          text: context.l10n.trackAddress,
-                          // Disabled until the address looks like a
-                          // real mainnet Bitcoin address so typos
-                          // never reach the import controller.
-                          onPressed: (importState.isLoading ||
-                                  !_isPlausibleAddress(_addressController.text))
-                              ? null
-                              : _onImportPressed,
-                          isLoading: importState.isLoading,
-                          textColor: context.ctaOnColor,
+                        // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                        // Track address is the floating Sal bar's primary
+                        // action. Disabled until the address looks like a
+                        // real mainnet Bitcoin address so typos never
+                        // reach the import controller.
+                        child: KuteBarContextScope(
+                          barContext: KuteBarContext.primary(
+                            label: context.l10n.trackAddress,
+                            onPrimary: _onImportPressed,
+                            enabled: !importState.isLoading &&
+                                _isPlausibleAddress(_addressController.text),
+                            busy: importState.isLoading,
+                            source: 'external_address_import',
+                          ),
+                          child: SizedBox(height: kuteBarScrollClearance.h),
                         ),
                       ),
                   ],

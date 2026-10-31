@@ -35,6 +35,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -1129,14 +1130,10 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                               ),
                             ),
                             SizedBox(height: 32.h),
-                            AppButton(
-                              text: l10n.recoverWithPhrase,
-                              icon: Icons.password_rounded,
-                              height: 60.h,
-                              fontSize: 17.sp,
-                              onPressed: busy ? null : _handleSeedChoice,
-                            ),
-                            SizedBox(height: 12.h),
+                            // The account restore keeps its drawn button:
+                            // the passkey lookup waits on it, as a
+                            // spinner. Recover with phrase is the bar
+                            // (kute_bar_context.dart), under it.
                             AppButton(
                               text: l10n.recoverWithAccount(Platform.isIOS
                                   ? l10n.passkeyChoiceAppleAccount
@@ -1150,6 +1147,15 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                               // on the button, not behind a full-screen
                               // overlay over this page.
                               isLoading: busy,
+                            ),
+                            KuteBarContextScope(
+                              barContext: KuteBarContext.primary(
+                                label: l10n.recoverWithPhrase,
+                                onPrimary: _handleSeedChoice,
+                                enabled: !busy,
+                                source: 'recover_choice',
+                              ),
+                              child: SizedBox(height: kuteBarScrollClearance.h),
                             ),
                           ],
                         ),

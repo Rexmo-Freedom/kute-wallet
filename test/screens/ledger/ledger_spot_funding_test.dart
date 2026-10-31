@@ -11,9 +11,9 @@ import 'package:kute/providers/hyperliquid_config_provider.dart';
 import 'package:kute/providers/ledger/ledger_executors_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_transfer_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 class _CurrencyNotifier extends StateNotifier<CurrencyState>
     implements CurrencyNotifier {
@@ -63,6 +63,9 @@ Future<void> _pump(
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // sheet's primary is the bar.
+        builder: withKuteShellBar,
         theme: ThemeData(
           fontFamily: 'Inter',
           extensions: [AppColorsExtension.light()],
@@ -90,10 +93,8 @@ void main() {
     expect(transfer.initialToPerp, isTrue);
     // Held USDC is not made available, and opening the flow cannot sign.
     expect(find.text('Available: \$20.00'), findsOneWidget);
-    final buttons = tester.widgetList<AppButton>(find.descendant(
-        of: find.byType(LedgerTransferSheet),
-        matching: find.byType(AppButton)));
-    expect(buttons.first.onPressed, isNull);
+    // Move is the bar (kute_bar_test_support.dart), off.
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -108,10 +109,8 @@ void main() {
     );
     expect(find.text('Available: \$0.00'), findsOneWidget);
     expect(find.textContaining(r'$25.00'), findsNothing);
-    final buttons = tester.widgetList<AppButton>(find.descendant(
-        of: find.byType(LedgerTransferSheet),
-        matching: find.byType(AppButton)));
-    expect(buttons.first.onPressed, isNull);
+    // Move is the bar (kute_bar_test_support.dart), off.
+    expect(kuteBarPrimaryProbe(tester).onPressed, isNull);
     expect(tester.takeException(), isNull);
   });
 

@@ -18,6 +18,7 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
 import 'package:kute/screens/shared/wallet_icon.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -1702,21 +1703,26 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               if (_hardwareBlock case final reason?)
                 CapabilityBlockNote(reason),
-              AppButton(
-                text: context.l10n.confirmImport,
-                // Disabled until the captured/typed key actually parses
-                // as an xpub or descriptor, so the CTA can never submit
-                // garbage to the import controller, and while Kute
-                // withholds hardware wallets for this account or build.
-                onPressed: (importState.isLoading ||
-                        _hardwareBlock != null ||
-                        !_isValidKey(_controller.text))
-                    ? null
-                    : () {
-                        _importMethod = 'xpub';
-                        _onImportPressed(config);
-                      },
-                isLoading: importState.isLoading,
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): Confirm
+              // import is the floating Sal bar's primary action.
+              // Disabled until the captured/typed key actually parses
+              // as an xpub or descriptor, so the CTA can never submit
+              // garbage to the import controller, and while Kute
+              // withholds hardware wallets for this account or build.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.confirmImport,
+                  onPrimary: () {
+                    _importMethod = 'xpub';
+                    _onImportPressed(config);
+                  },
+                  enabled: !importState.isLoading &&
+                      _hardwareBlock == null &&
+                      _isValidKey(_controller.text),
+                  busy: importState.isLoading,
+                  source: 'xpub_import',
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ]),
           ),

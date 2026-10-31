@@ -16,6 +16,7 @@ import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/providers/breez_config_provider.dart';
 import 'package:kute/providers/breez_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/qr_code.dart';
@@ -334,12 +335,18 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                 ),
                 SizedBox(height: 28.h),
                 Expanded(child: _body(c)),
-                AppButton(
-                  text: context.l10n.shareCodeStartUsing,
-                  onPressed:
-                      _phase == _Phase.waiting ? null : _finish,
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Start
+                // using Kute is the floating Sal bar's primary action, on
+                // once the code is there.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.shareCodeStartUsing,
+                    onPrimary: _finish,
+                    enabled: _phase != _Phase.waiting,
+                    source: 'share_code',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
-                SizedBox(height: 20.h),
               ],
             ),
           ),

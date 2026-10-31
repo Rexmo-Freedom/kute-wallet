@@ -5463,6 +5463,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         step: _step,
         colors: c,
         visibleSteps: const {_kSendToPage, _kAmountPage},
+        // Both steps' Continue is the bar (kute_shell_bar.dart; founder:
+        // every pinned button is Sal). On Send to it sits over the step's
+        // own "Send to anyone" context, which its Sal sheet still offers.
+        barSteps: const {_kSendToPage, _kAmountPage},
+        source: 'bitcoin_send_amount',
         enabled: () {
           if (_step == _kAmountPage) {
             final amount = ref.watch(sendTxProvider).amount;

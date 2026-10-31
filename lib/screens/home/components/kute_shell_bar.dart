@@ -175,6 +175,18 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         if (mounted && _morphed != on) setState(() => _morphed = on);
       });
 
+  /// A tap on the primary button acts on the LIVE top context, not the
+  /// one drawn: a page that just enabled its action (the last digit typed)
+  /// has written the stack, and the frame that redraws the bar may not
+  /// have run yet. Nothing runs while the live action is off or busy.
+  void _primaryTap() {
+    final live = kuteBarTop(ref.read(kuteBarContextProvider));
+    if (live == null || !live.isPrimary || !live.current) return;
+    if (!live.enabled || live.busy || live.onPrimary == null) return;
+    HapticFeedback.lightImpact();
+    live.onPrimary!();
+  }
+
   @override
   Widget build(BuildContext context) {
     final reduce = kuteReduceMotion(context);
@@ -240,7 +252,11 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
           ? KuteBarPrimaryButton(
               key: const ValueKey('kute-bar-primary'),
               barContext: ctx,
-              onAsk: () => _open(ctx),
+              // The page's own Sal rows (Send to anyone on the Send to
+              // step) stay one long press away.
+              onAsk: () => _open(kuteBarAskContext(
+                  ref.read(kuteBarContextProvider), ctx)),
+              onPrimaryTap: _primaryTap,
             )
           // The Builder's element is the pill's own box: its rect is
           // where the travel to the composer starts.
@@ -498,12 +514,24 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton> {
 /// label; not tappable. Busy: the label beside the progress ring; taps
 /// ignored. A tap runs [KuteBarContext.onPrimary]; a long press (600 ms)
 /// opens the Sal sheet ([onAsk]) so asking Sal stays available.
+///
+/// On a tinted slip the context carries the slip's own button look
+/// ([KuteBarContext.style]; founder: never black on the green or red
+/// slip): its fill, ink, radius and weight, the whole button at 0.35
+/// while not available, as the slip's CTA was.
 class KuteBarPrimaryButton extends StatelessWidget {
   const KuteBarPrimaryButton(
-      {super.key, required this.barContext, required this.onAsk});
+      {super.key,
+      required this.barContext,
+      required this.onAsk,
+      this.onPrimaryTap});
 
   final KuteBarContext barContext;
   final VoidCallback onAsk;
+
+  /// Runs the tap against the live context (the shell bar's); null runs
+  /// [barContext]'s own handler.
+  final VoidCallback? onPrimaryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -513,8 +541,20 @@ class KuteBarPrimaryButton extends StatelessWidget {
     final busy = ctx.busy;
     final enabled = ctx.enabled && !busy && ctx.onPrimary != null;
     final live = enabled || busy;
-    final fill = live ? c.textPrimary : c.surfaceLight;
-    final ink = live ? (isLight ? Colors.white : c.background) : c.textTertiary;
+    final style = ctx.style;
+    final Color fill;
+    final Color ink;
+    if (style != null) {
+      fill = live ? style.fill : (style.disabledFill ?? style.fill);
+      ink = live
+          ? style.foreground
+          : (style.disabledForeground ?? style.foreground);
+    } else {
+      fill = live ? c.textPrimary : c.surfaceLight;
+      ink = live ? (isLight ? Colors.white : c.background) : c.textTertiary;
+    }
+    // A styled button with no disabled colours of its own fades whole.
+    final faded = style != null && !live && style.disabledFill == null;
     final clip = busy ? 'search' : (enabled ? 'idle' : 'curious');
     final label = busy ? (ctx.busyLabel ?? ctx.label) : ctx.label;
     final reduce = kuteReduceMotion(context);
@@ -527,14 +567,21 @@ class KuteBarPrimaryButton extends StatelessWidget {
         enabled: enabled,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: enabled
-              ? () {
-                  HapticFeedback.lightImpact();
-                  ctx.onPrimary!();
-                }
-              : null,
+          // Always wired: the live context decides (see the shell bar's
+          // _primaryTap); a drawn-disabled button whose action just came
+          // on takes the tap.
+          onTap: onPrimaryTap ??
+              (enabled
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      ctx.onPrimary!();
+                    }
+                  : null),
           onLongPress: onAsk,
-          child: AnimatedContainer(
+          child: AnimatedOpacity(
+            opacity: faded ? 0.35 : 1,
+            duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+            child: AnimatedContainer(
             key: const ValueKey('kute-bar-primary-button'),
             duration: reduce ? Duration.zero : KuteMotion.chipDuration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
@@ -543,9 +590,9 @@ class KuteBarPrimaryButton extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 14.w),
             decoration: BoxDecoration(
               color: fill,
-              borderRadius: AppRadius.buttonBorder,
+              borderRadius: style?.radius ?? AppRadius.buttonBorder,
               border: Border.all(
-                color: live
+                color: live || style != null
                     ? Colors.transparent
                     : (isLight ? c.border : c.borderSubtle),
                 width: isLight ? 1.0 : 0.5,
@@ -569,7 +616,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
                     style: TextStyle(
                       color: ink,
                       fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: style?.fontWeight ?? FontWeight.w600,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -585,6 +632,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
                 ],
               ],
             ),
+          ),
           ),
         ),
       ),

@@ -24,6 +24,18 @@
 // may scroll under it. The bar hides ONLY while the keyboard is up or the
 // Sal sheet itself is open (a [hidden] context).
 //
+// EVERY PINNED PRIMARY BUTTON IS THE BAR (founder, 31 October 2026): a
+// screen or sheet whose foot had a Continue / Send / Claim / Done draws
+// none and declares it with [KuteBarContext.primary] instead (the label,
+// the enabled and busy states as the button had them), keeping its
+// content clear of the bar with [kuteBarScrollClearance]. A second pinned
+// button (Cancel, Skip) stays on the page as a text button above the bar.
+// A short sheet hides the bar (app_bottom_sheet.dart) UNLESS its own
+// primary is the bar: a primary context mounted in the same route beats
+// the sheet's hidden one ([kuteBarTop]), so the sheet is never left with
+// no button at all. Onboarding and the Claim screen are silent for the
+// default pill ([kuteBarSilentRoutes]) but show their own primary.
+//
 // A context is honoured while its own route is current: a scope records
 // the route it is mounted in, and a sheet pushed over that page (a slip
 // over a market) gets the default bar at the bottom rather than the
@@ -76,6 +88,36 @@ class KuteBarAction {
   final void Function(BuildContext sheetContext) onTap;
 }
 
+/// How a surface's primary button is painted when the bar is it (founder,
+/// 31 October 2026: NEVER black on a tinted slip). The bet slip, the sell
+/// and close sheets and the margin sheets hand the bar exactly the look
+/// their own CTA had: the slip's ink as [fill] (white on the green Yes
+/// slip, on the red No slip), the trade lettered in the side colour or a
+/// neutral action in the contrast ([foreground]), the slip's [radius] and
+/// weight. Without a style the bar is the app's primary button
+/// (textPrimary fill). A disabled styled button fades whole, as the slip's
+/// did.
+class KuteBarPrimaryStyle {
+  const KuteBarPrimaryStyle({
+    required this.fill,
+    required this.foreground,
+    this.disabledFill,
+    this.disabledForeground,
+    this.radius,
+    this.fontWeight,
+  });
+
+  final Color fill;
+  final Color foreground;
+
+  /// The fill and ink while the action is not available; the live ones at
+  /// 0.35 when null.
+  final Color? disabledFill;
+  final Color? disabledForeground;
+  final BorderRadius? radius;
+  final FontWeight? fontWeight;
+}
+
 /// What the bar is on a surface: the search / Sal pill, or the surface's
 /// PRIMARY BUTTON (founder, 31 October 2026: on amount and keypad
 /// screens and slips the bar IS the Place / Send / Continue button; the
@@ -111,7 +153,8 @@ class KuteBarContext {
         enabled = true,
         busy = false,
         onPrimary = null,
-        busyLabel = null;
+        busyLabel = null,
+        style = null;
 
   /// Where this surface's Sal control sits (see [KuteBarPlacement]).
   final KuteBarPlacement placement;
@@ -133,6 +176,7 @@ class KuteBarContext {
     this.enabled = true,
     this.busy = false,
     this.busyLabel,
+    this.style,
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -153,6 +197,10 @@ class KuteBarContext {
   final VoidCallback? onPrimary;
   final String? busyLabel;
 
+  /// The surface's own button look for the bar (a tinted slip's); null
+  /// for the app's primary button. See [KuteBarPrimaryStyle].
+  final KuteBarPrimaryStyle? style;
+
   /// A context that only hides the bar (a keyboard surface, the Sal sheet).
   const KuteBarContext.hidden()
       : label = '',
@@ -172,7 +220,8 @@ class KuteBarContext {
         busy = false,
         onPrimary = null,
         busyLabel = null,
-        placement = KuteBarPlacement.bottom;
+        placement = KuteBarPlacement.bottom,
+        style = null;
 
   /// The Sal control is the page's own header circle, not the pill.
   bool get inHeader => placement == KuteBarPlacement.header;
@@ -225,6 +274,7 @@ class KuteBarContext {
           enabled: enabled,
           busy: busy,
           busyLabel: busyLabel,
+          style: style,
           category: category,
           searchHint: searchHint,
           source: source,
@@ -292,9 +342,39 @@ final kuteBarContextProvider =
     NotifierProvider<KuteBarContextStack, List<KuteBarContext>>(
         KuteBarContextStack.new);
 
-/// The bar's current context, or null for the dock's default.
-KuteBarContext? kuteBarTop(List<KuteBarContext> stack) =>
-    stack.isEmpty ? null : stack.last;
+/// The bar's current context, or null for the dock's default. A hidden
+/// context bound to a route (a short sheet's) gives way to a primary one
+/// bound to the same route: the sheet's own button is the bar (see the
+/// file header). The Sal sheet's hidden context has no route and always
+/// wins.
+KuteBarContext? kuteBarTop(List<KuteBarContext> stack) {
+  if (stack.isEmpty) return null;
+  final top = stack.last;
+  if (top.isPrimary || top.route == null) return top;
+  // The page's own primary button is the bar, whatever else the page
+  // declared for it (its short-sheet hidden context, or a search context
+  // like the Send to step's "Send to anyone", which the long press keeps:
+  // see [kuteBarAskContext]); a page view builds its page after the
+  // frame's cta, so the order on the stack says nothing.
+  for (var i = stack.length - 2; i >= 0; i--) {
+    final c = stack[i];
+    if (c.route != top.route) break;
+    if (c.isPrimary) return c;
+  }
+  return top;
+}
+
+/// What a long press on the bar's primary button asks Sal with: the
+/// search context the same route declared (its recommended rows and
+/// prompts), else the primary context itself.
+KuteBarContext kuteBarAskContext(
+    List<KuteBarContext> stack, KuteBarContext primary) {
+  for (final c in stack.reversed) {
+    if (c.route != primary.route) continue;
+    if (!c.isPrimary && !c.hidden) return c;
+  }
+  return primary;
+}
 
 /// Holds [barContext] on the stack while mounted (see the file header),
 /// bound to the route it is mounted in.
@@ -318,8 +398,10 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
   @override
   void initState() {
     super.initState();
-    // Provider writes are illegal while the tree is building.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Provider writes are illegal while the tree is building: the stack
+    // is written in a microtask, after this frame's build (and before the
+    // next tap can land; the bar reads the live stack on a tap).
+    scheduleMicrotask(() {
       if (!mounted) return;
       // A scope inside a surface built without a ProviderScope (a widget
       // test of a keypad or a sheet on its own) holds nothing: the bar
@@ -342,7 +424,7 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     super.didUpdateWidget(old);
     final held = _held;
     if (held == null || identical(old.barContext, widget.barContext)) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    scheduleMicrotask(() {
       if (!mounted || _held != held) return;
       _held = widget.barContext.boundTo(_route);
       _stack?.replace(held, _held!);
@@ -355,7 +437,7 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     final stack = _stack;
     if (held != null && stack != null) {
       // After the frame: the stack's listeners must not rebuild mid-tear-down.
-      WidgetsBinding.instance.addPostFrameCallback((_) => stack.remove(held));
+      scheduleMicrotask(() => stack.remove(held));
     }
     super.dispose();
   }

@@ -29,6 +29,7 @@ import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/services/hardware/ledger/ledger_polymarket_executor.dart';
 import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
@@ -37,6 +38,22 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 enum LedgerClaimRowState { ready, working, submitted, pending }
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false, String source = 'ledger_claim'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class LedgerClaimSheet extends ConsumerStatefulWidget {
   const LedgerClaimSheet({
@@ -222,21 +239,17 @@ class _LedgerClaimSheetState extends ConsumerState<LedgerClaimSheet> {
       ],
       buttons: [
         if (next != null) ...[
-          AppButton(
-            text: l10n.ledgerClaimCta,
-            variant: AppButtonVariant.moneyIn,
-            isLoading: _working != null,
-            onPressed: canAct && _working == null
-                ? () => _claim(next!, account)
-                : null,
+          AppTextButton(
+            text: l10n.cancel,
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          SizedBox(height: 10.h),
-        ],
-        AppButton(
-          text: next == null ? l10n.ledgerApprovalClose : l10n.cancel,
-          variant: AppButtonVariant.secondary,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+          _bar(
+            l10n.ledgerClaimCta,
+            canAct && _working == null ? () => _claim(next!, account) : null,
+            busy: _working != null,
+          ),
+        ] else
+          _bar(l10n.ledgerApprovalClose, () => Navigator.of(context).pop()),
       ],
     );
   }

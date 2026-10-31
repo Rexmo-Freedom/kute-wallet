@@ -67,6 +67,9 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_legs_provider.dart';
 import 'package:kute/screens/shared/portfolio_builder/builder_market_card.dart';
@@ -1313,20 +1316,23 @@ class _PortfolioBuilderScreenState
           c,
           // A region block's one button asks again, never a dead one; the
           // back button still leaves.
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Check
+          // connection, or Close, is the floating Sal bar's primary
+          // action; the band keeps its taps.
           child: region
               ? RubberBandBusy(
                   busy: _checkingConnection,
                   expected: const Duration(seconds: 2),
-                  child: AppButton(
-                    key: const ValueKey('builder-check-connection'),
-                    text: l10n.checkConnection,
-                    isLoading: _checkingConnection,
-                    onPressed: _checkingConnection ? null : _checkConnection,
+                  child: _bar(
+                    label: l10n.checkConnection,
+                    onPrimary: _checkConnection,
+                    enabled: !_checkingConnection,
+                    busy: _checkingConnection,
                   ),
                 )
-              : AppButton(
-                  text: l10n.close,
-                  onPressed: () => Navigator.of(context).maybePop(),
+              : _bar(
+                  label: l10n.close,
+                  onPrimary: () => Navigator.of(context).maybePop(),
                 ),
         ),
       ],
@@ -1670,20 +1676,44 @@ class _PortfolioBuilderScreenState
     );
   }
 
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): each stage's primary (Continue with the picks, Review
+  /// portfolio, Place, Done) is the floating Sal bar's primary action,
+  /// with the label and the enabled and busy states the drawn button had;
+  /// the bottom area keeps the notes and the clearance under them.
+  Widget _bar({
+    required String label,
+    required VoidCallback? onPrimary,
+    bool enabled = true,
+    bool busy = false,
+  }) =>
+      KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          enabled: enabled && onPrimary != null,
+          busy: busy,
+          category: _isPredictions
+              ? SearchCategory.predictions
+              : SearchCategory.perpetuals,
+          source: 'portfolio_builder',
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+
   Widget _pickBottomBar(AppColorsExtension c) {
     final count = _selectedCount;
     return _bottomArea(
       c,
-      child: AppButton(
-        text: count == 0
+      child: _bar(
+        label: count == 0
             ? context.l10n.builderSelectMarkets
             : context.l10n.builderContinueSelected(count),
-        onPressed: count == 0
-            ? null
-            : () {
-                FocusScope.of(context).unfocus();
-                setState(() => _stage = 1);
-              },
+        enabled: count != 0,
+        onPrimary: () {
+          FocusScope.of(context).unfocus();
+          setState(() => _stage = 1);
+        },
       ),
     );
   }
@@ -1753,11 +1783,10 @@ class _PortfolioBuilderScreenState
                 ),
               ),
               SizedBox(height: 12.h),
-              AppButton(
-                text: context.l10n.builderReviewPortfolio,
-                onPressed: count > 0 && legsReady
-                    ? () => setState(() => _stage = 2)
-                    : null,
+              _bar(
+                label: context.l10n.builderReviewPortfolio,
+                enabled: count > 0 && legsReady,
+                onPrimary: () => setState(() => _stage = 2),
               ),
             ],
           ),
@@ -2155,8 +2184,8 @@ class _PortfolioBuilderScreenState
                   !_finished &&
                   ((insufficient && !_placing) || ledgerDepositLink))
                 CapabilityBlockNote(depositBlock),
-              AppButton(
-                text: ledgerPending || hotNeedsStatus
+              _bar(
+                label: ledgerPending || hotNeedsStatus
                     ? context.l10n.ledgerBetCheckStatus
                     : _finished
                         ? context.l10n.done
@@ -2165,11 +2194,8 @@ class _PortfolioBuilderScreenState
                             : _isPredictions
                                 ? context.l10n.builderPlacePredictions(count)
                                 : context.l10n.builderPlaceOrders(count),
-                variant: !_finished && !insufficient
-                    ? AppButtonVariant.moneyIn
-                    : AppButtonVariant.primary,
-                isLoading: _placing || _approving || _checking || ledgerLoading,
-                onPressed: _placing ||
+                busy: _placing || _approving || _checking || ledgerLoading,
+                onPrimary: _placing ||
                         _approving ||
                         _checking ||
                         ledgerLoading ||

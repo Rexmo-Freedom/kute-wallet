@@ -24,6 +24,7 @@ import 'package:kute/screens/creation/recover_choice.dart'
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -918,13 +919,18 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
   }
 
   Widget _buildSubmitButton() {
-    // Standard primary CTA: default fill/height/typography from
-    // AppButton, auto-contrast label, disabled until the grid is full.
-    return AppButton(
-      text: context.l10n.recoverAccount,
-      onPressed:
-          (_isProcessing || !_canSubmit) ? null : () => _recoverAccount(context),
-      isLoading: _isProcessing,
+    // THE BAR IS THE BUTTON (kute_bar_context.dart): Recover account is
+    // the floating Sal bar's primary action, disabled until the grid is
+    // full, busy while the account is restored.
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: context.l10n.recoverAccount,
+        onPrimary: () => _recoverAccount(context),
+        enabled: !_isProcessing && _canSubmit,
+        busy: _isProcessing,
+        source: 'recover_wallet',
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }

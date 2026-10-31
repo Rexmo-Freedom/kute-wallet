@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
@@ -53,7 +54,6 @@ import 'package:flutter/material.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/services/region_freshness.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:flutter/services.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/breez/shared_sync.dart';
@@ -8255,6 +8255,12 @@ class _VenuePull {
   final bool queued;
 }
 
+/// The sheet's primary action. THE BAR IS THE BUTTON (founder, 31 October
+/// 2026; kute_bar_context.dart): the sheet draws no button of its own but
+/// declares the action (its label, enabled and busy states exactly as the
+/// drawn button had them) as the floating Sal bar's primary, and keeps
+/// the keypad clear of the bar. This scope mounts inside the route's
+/// "Move money" scope, so it is the one the bar reads.
 class _ConvertButton extends StatelessWidget {
   final bool enabled;
   final bool processing;
@@ -8271,10 +8277,15 @@ class _ConvertButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppButton(
-      text: label,
-      onPressed: enabled ? onTap : null,
-      isLoading: processing,
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onTap,
+        enabled: enabled && !processing,
+        busy: processing,
+        source: 'move_amount',
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }
