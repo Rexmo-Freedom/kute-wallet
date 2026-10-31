@@ -29,6 +29,7 @@ import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:kute/models/advisor_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlLiveDot;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
@@ -391,9 +392,13 @@ void main() {
         expect(tester.getRect(row).top,
             greaterThanOrEqualTo(tester.getRect(chart).bottom));
       }
-      final glyph = tester.widget<KuteDogGlance>(
-          find.descendant(of: row, matching: find.byType(KuteDogGlance)));
-      expect(glyph.color, AppColorsExtension.light().textPrimary);
+      // Sal's 3D face, curious, the one-colour dog behind it as the
+      // fallback in the title's colour.
+      final sal = tester.widget<SalSprite>(
+          find.descendant(of: row, matching: find.byType(SalSprite)));
+      expect(sal.clip, 'curious');
+      expect((sal.fallback as KuteDogGlance).color,
+          AppColorsExtension.light().textPrimary);
       expect(find.byType(SalAiRing), findsNothing);
       await tester.scrollUntilVisible(find.text('Rules and resolution'), 300,
           scrollable: find.byType(Scrollable).first);

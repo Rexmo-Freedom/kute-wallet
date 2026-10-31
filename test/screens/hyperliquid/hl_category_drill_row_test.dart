@@ -201,14 +201,12 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(row.inGroup, isTrue);
       }
-      final dividers =
-          find.descendant(of: group, matching: find.byType(Divider));
-      expect(dividers, findsNWidgets(n - 1));
+      // Investing rows draw no hairline between them (the rows' own
+      // padding separates them, as Robinhood / Public do): the rows abut.
+      expect(find.descendant(of: group, matching: find.byType(Divider)),
+          findsNothing);
       for (var i = 0; i < n - 1; i++) {
-        final d = tester.widget<Divider>(dividers.at(i));
-        expect(d.indent, hlGroupRowIndent());
-        expect(d.thickness, 0.5);
-        expect(tester.getRect(dividers.at(i)).top,
+        expect(tester.getRect(rows.at(i + 1)).top,
             moreOrLessEquals(tester.getRect(rows.at(i)).bottom, epsilon: 0.5));
       }
       // The press ink of the first and last rows is clipped to the card's

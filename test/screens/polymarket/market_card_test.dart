@@ -7,6 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
+import 'package:kute/services/polymarket/market_buy_quote.dart'
+    show polymarketCentsLabel;
 import 'package:kute/screens/polymarket/components/live_game.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
@@ -165,10 +167,13 @@ void main() {
     expect(find.text('Will it rain in Lisbon?'), findsOneWidget);
     expect(_rolled('24%'), findsOneWidget);
     expect(_rolled('76%'), findsNothing);
-    expect(find.text('+6 today'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('+6 today')).style!.color,
-        AppColors.marketUp);
-    expect(find.text('Dec 31, 2030'), findsOneWidget);
+    // No day move on the row (the gauge carries the chance): one quiet
+    // meta line, the volume and when it closes, and the two side pills.
+    expect(find.textContaining('today'), findsNothing);
+    expect(find.text('Dec 31, 2030'), findsNothing);
+    expect(find.text(r'$1.5K · closes Dec 2030'), findsOneWidget);
+    expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
+    expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
   });
 
   testWidgets('a flat or unknown day shows no move', (tester) async {

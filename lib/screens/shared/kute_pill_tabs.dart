@@ -176,15 +176,18 @@ class KutePill extends StatelessWidget {
               : Colors.transparent,
           width: isLight ? 1.0 : 0.5,
         ),
-        boxShadow: selected && isLight
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        // The unselected state keeps the shadow at the same blur, only
+        // transparent: the spring overshoots past 1, and a shadow lerped
+        // towards none scales its blur negative (an assertion in debug).
+        boxShadow: [
+          BoxShadow(
+            color: selected && isLight
+                ? Colors.black.withValues(alpha: 0.04)
+                : Colors.transparent,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,

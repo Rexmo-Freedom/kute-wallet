@@ -89,18 +89,25 @@ void main() {
         ),
     ]);
     expect(tester.takeException(), isNull);
+    // A list row gives the question two lines and an ellipsis (the page
+    // has the whole of it): the text is capped, never overflowing.
     for (final q in _longest) {
-      expect(_cut(tester, q), isFalse, reason: q);
+      final text = tester.widget<Text>(find.text(q));
+      expect(text.maxLines, 2, reason: q);
+      expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // The footer is whole too.
-    expect(find.text('Oct 5, 2026'), findsNWidgets(_longest.length));
-    for (final e in find.text('+70 today').evaluate()) {
+    // The one meta line is whole: the volume and when it closes.
+    final meta = find.text(r'$2.5M · closes Oct 2026');
+    expect(meta, findsNWidgets(_longest.length));
+    for (final e in meta.evaluate()) {
       expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
     }
+    // No day move on the row any more: the gauge carries the chance.
+    expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('a many-outcomes card writes a long title whole, and outcome '
-      'names on up to two lines', (tester) async {
+  testWidgets('a many-outcomes card caps a long title at two lines, and an '
+      'outcome name at one, both with an ellipsis', (tester) async {
     const first = 'Luiz Inácio Lula da Silva and Flávio Bolsonaro';
     await _pump(tester, [
       for (final q in _longest)
@@ -117,15 +124,20 @@ void main() {
     ]);
     expect(tester.takeException(), isNull);
     for (final q in _longest) {
-      expect(_cut(tester, q), isFalse, reason: q);
+      final text = tester.widget<Text>(find.text(q));
+      expect(text.maxLines, 2, reason: q);
+      expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
+    // An outcome row is "Name …… 41%": the name keeps to its one line.
     for (final e in find.text(first).evaluate()) {
-      expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
+      final text = e.widget as Text;
+      expect(text.maxLines, 1);
+      expect(text.overflow, TextOverflow.ellipsis);
     }
   });
 
-  testWidgets('a footer that cannot hold both sides drops the year',
-      (tester) async {
+  testWidgets('a meta line that cannot hold everything ellipsizes; the '
+      'markets link stays whole', (tester) async {
     await _pump(tester, [
       MarketCard(
         title: 'Arsenal vs Chelsea',
@@ -142,9 +154,16 @@ void main() {
       ),
     ]);
     expect(tester.takeException(), isNull);
-    expect(find.text('Starts Sep 28'), findsOneWidget);
-    expect(_cut(tester, 'Starts Sep 28'), isFalse);
-    expect(find.textContaining('vol'), findsOneWidget);
+    // One line: the volume and "Starts Sep 28, 2031" share it with the
+    // link to the match's other markets; the line gives way, the link
+    // never does.
+    final meta = tester.widget<Text>(find.textContaining('Starts Sep 28'));
+    expect(meta.maxLines, 1);
+    expect(meta.overflow, TextOverflow.ellipsis);
+    final link = find.textContaining('markets');
+    expect(link, findsOneWidget);
+    expect(tester.renderObject<RenderParagraph>(link).didExceedMaxLines,
+        isFalse);
   });
 
   testWidgets('a long team name takes a second line before it is abbreviated',

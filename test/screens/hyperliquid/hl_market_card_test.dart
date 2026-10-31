@@ -137,7 +137,8 @@ void main() {
     final numbers = _numbers(tester);
     expect(numbers, hasLength(2));
     expect(numbers[0].text, formatHlPrice(85806, decimalCap: m.pxDecimalCap));
-    expect(numbers[1].text, '+2.2%');
+    // The change reads direction as a glyph, never a sign.
+    expect(numbers[1].text, '▲ 2.2%');
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     // The price is never red or green; the change is.
     expect(numbers[0].style.color, colors.textPrimary);
@@ -156,13 +157,14 @@ void main() {
         closes: [86000, 85000, 83000]);
 
     final numbers = _numbers(tester);
-    expect(numbers[1].text, '−1.4%');
+    expect(numbers[1].text, '▼ 1.4%');
     expect(numbers[1].style.color, AppColors.marketDown);
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[0].style.color, colors.textPrimary);
     final line = tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
-    expect(line.upColor, AppColors.marketDown);
-    expect(line.downColor, AppColors.marketDown);
+    final faded = AppColors.marketDown.withValues(alpha: kHlSparklineOpacity);
+    expect(line.upColor, faded);
+    expect(line.downColor, faded);
   });
 
   testWidgets('the price stays the primary colour when a tick moves it',
@@ -312,7 +314,7 @@ void main() {
             prevDayPx: 1097,
             dayNtlVlm: 1200));
     expect(_numbers(tester), hasLength(2));
-    expect(_numbers(tester)[1].text, '−4.8%');
+    expect(_numbers(tester)[1].text, '▼ 4.8%');
   });
 
   testWidgets('a market titled by its ticker does not repeat it', (tester) async {
@@ -408,7 +410,9 @@ void main() {
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[1].style.color, colors.textSecondary);
     final line = tester.widget<HlLineSparkline>(find.byType(HlLineSparkline));
-    expect(line.upColor, colors.textSecondary);
+    // The line wears the change's colour at the sparkline's opacity.
+    expect(line.upColor,
+        colors.textSecondary.withValues(alpha: kHlSparklineOpacity));
   });
 
   testWidgets('without candles the sparkline space is empty, not a shimmer',
@@ -423,7 +427,9 @@ void main() {
             matching: find.byType(CustomPaint)),
         findsNothing);
     // The space is kept, so the prices still line up down the list.
-    expect(tester.getSize(find.byType(HlLineSparkline)).width, greaterThan(50));
+    // 52 at the design width, scaled to the phone.
+    expect(tester.getSize(find.byType(HlLineSparkline)).width,
+        moreOrLessEquals(52.w, epsilon: 0.5));
   });
 
   testWidgets('a long name ellipsizes and nothing overflows on a narrow phone',
