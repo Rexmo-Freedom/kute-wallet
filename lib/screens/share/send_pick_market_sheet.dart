@@ -270,7 +270,7 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
                   SearchEmptyState(text: l10n.sendPickMarketNoResults),
                 if (predictions.isNotEmpty) ...[
                   SearchBlockHeader(text: l10n.searchHomeTrendingPredictions),
-                  SearchSheetCard(
+                  SearchRowList(
                     key: const ValueKey('send-pick-predictions'),
                     children: [
                       for (final e in predictions)
@@ -283,7 +283,7 @@ class _SendPickMarketSheetState extends ConsumerState<SendPickMarketSheet> {
                 ],
                 if (investing.isNotEmpty) ...[
                   SearchBlockHeader(text: l10n.searchHomeMovingNow),
-                  SearchSheetCard(
+                  SearchRowList(
                     key: const ValueKey('send-pick-investing'),
                     children: [
                       for (final m in investing)
