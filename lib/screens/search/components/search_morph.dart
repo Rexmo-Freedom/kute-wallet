@@ -25,6 +25,7 @@
 // Reduce Motion never gets here: the bar opens a plain sheet.
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -65,9 +66,8 @@ abstract final class KuteSearchMorph {
   /// the composer is the content's last row.
   static Rect composerRestRect(BuildContext overlayContext) {
     final box = overlayContext.findRenderObject() as RenderBox?;
-    final size = box?.hasSize == true
-        ? box!.size
-        : MediaQuery.sizeOf(overlayContext);
+    final size =
+        box?.hasSize == true ? box!.size : MediaQuery.sizeOf(overlayContext);
     final bottomInset = MediaQuery.paddingOf(overlayContext).bottom;
     final gutter = KuteSearchComposer.gutter(overlayContext);
     final bottom = size.height - bottomInset - 16.h;
@@ -209,6 +209,10 @@ class _MorphBoxState extends State<_MorphBox>
     final hintStyle = KuteSearchComposer.hintStyle(context);
     final opening = widget.opening;
     final rectTween = RectTween(begin: widget.from, end: widget.to);
+    // The row inside is laid out at the wider end's width throughout and
+    // clipped by the box, so a narrow start (the folded pill, the header
+    // circle) never squeezes it.
+    final wide = math.max(widget.from.width, widget.to.width);
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _t,
@@ -219,8 +223,12 @@ class _MorphBoxState extends State<_MorphBox>
           final k = (opening ? t : 1 - t).clamp(0.0, 1.0);
           final rect = rectTween.evaluate(_t) ?? widget.to;
           final radius = lerpDouble(pillRadius, composerRadius, k)!;
-          final sprite = lerpDouble(pillSprite, composerSprite, k)!;
-          final lead = lerpDouble(pillLead, composerLead, k)!;
+          // Sal never taller than the box leaves him (a 40 circle holds
+          // him at 30), centred in it.
+          final sprite = math.min(lerpDouble(pillSprite, composerSprite, k)!,
+              math.max(0.0, rect.height - 10));
+          final lead = math.min(lerpDouble(pillLead, composerLead, k)!,
+              math.max(0.0, (rect.height - sprite) / 2));
           // The pill's text fades through the first half, the hint rises
           // through the second, so the two never lie over each other.
           final labelOpacity = (1 - k * 2).clamp(0.0, 1.0);
@@ -234,46 +242,51 @@ class _MorphBoxState extends State<_MorphBox>
                       borderRadius: radius),
                   clipBehavior: Clip.antiAlias,
                   padding: EdgeInsets.only(left: lead),
-                  child: Row(
-                    children: [
-                      SalSprite(
-                        clip: 'search',
-                        size: sprite,
-                        fallback: SvgPicture.asset(kuteDogAsset(context),
-                            width: sprite, height: sprite),
-                      ),
-                      SizedBox(width: lerpDouble(6.w, 10.w, k)),
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.centerLeft,
-                          children: [
-                            if (labelOpacity > 0)
-                              Opacity(
-                                opacity: labelOpacity,
-                                child: Text(
-                                  widget.label,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.fade,
-                                  style: pillLabel,
-                                ),
-                              ),
-                            if (hintOpacity > 0)
-                              Opacity(
-                                opacity: hintOpacity,
-                                child: Text(
-                                  widget.hint,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.fade,
-                                  style: hintStyle,
-                                ),
-                              ),
-                          ],
+                  child: OverflowBox(
+                    alignment: Alignment.centerLeft,
+                    minWidth: wide,
+                    maxWidth: wide,
+                    child: Row(
+                      children: [
+                        SalSprite(
+                          clip: 'search',
+                          size: sprite,
+                          fallback: SvgPicture.asset(kuteDogAsset(context),
+                              width: sprite, height: sprite),
                         ),
-                      ),
-                      SizedBox(width: 18.w),
-                    ],
+                        SizedBox(width: lerpDouble(6.w, 10.w, k)),
+                        Expanded(
+                          child: Stack(
+                            alignment: Alignment.centerLeft,
+                            children: [
+                              if (labelOpacity > 0)
+                                Opacity(
+                                  opacity: labelOpacity,
+                                  child: Text(
+                                    widget.label,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.fade,
+                                    style: pillLabel,
+                                  ),
+                                ),
+                              if (hintOpacity > 0)
+                                Opacity(
+                                  opacity: hintOpacity,
+                                  child: Text(
+                                    widget.hint,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.fade,
+                                    style: hintStyle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 18.w),
+                      ],
+                    ),
                   ),
                 ),
               ),

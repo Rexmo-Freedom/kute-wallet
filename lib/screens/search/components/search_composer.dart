@@ -94,64 +94,63 @@ class KuteSearchComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: gutter(context)),
-      child: Container(
-        height: height,
-        decoration: decoration(context),
-        padding: EdgeInsets.only(left: leading(context), right: 8.w),
-        child: Row(
-          children: [
-            if (aiEnabled)
-              SalSprite(
-                clip: 'search',
-                size: spriteSize,
-                fallback: SvgPicture.asset(kuteDogAsset(context),
-                    width: spriteSize, height: spriteSize),
-              )
-            else
-              Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                onChanged: onChanged,
-                onSubmitted: (_) => onSubmit(),
-                textInputAction:
-                    aiEnabled ? TextInputAction.send : TextInputAction.search,
-                autocorrect: false,
-                textAlignVertical: TextAlignVertical.center,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
-                ),
-                cursorColor: c.accent,
-                decoration: InputDecoration(
-                  isDense: true,
-                  isCollapsed: true,
-                  border: InputBorder.none,
-                  hintText: hint ??
-                      (aiEnabled
-                          ? context.l10n.searchOrAskSalShort
-                          : context.l10n.searchYourWallet),
-                  hintStyle: hintStyle(context),
-                  contentPadding: EdgeInsets.zero,
-                ),
+    // The field itself is the root (no gutters here): the sheet insets
+    // it, and the morph measures this box.
+    return Container(
+      height: height,
+      decoration: decoration(context),
+      padding: EdgeInsets.only(left: leading(context), right: 8.w),
+      child: Row(
+        children: [
+          if (aiEnabled)
+            SalSprite(
+              clip: 'search',
+              size: spriteSize,
+              fallback: SvgPicture.asset(kuteDogAsset(context),
+                  width: spriteSize, height: spriteSize),
+            )
+          else
+            Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              onSubmitted: (_) => onSubmit(),
+              textInputAction:
+                  aiEnabled ? TextInputAction.send : TextInputAction.search,
+              autocorrect: false,
+              textAlignVertical: TextAlignVertical.center,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
+              ),
+              cursorColor: c.accent,
+              decoration: InputDecoration(
+                isDense: true,
+                isCollapsed: true,
+                border: InputBorder.none,
+                hintText: hint ??
+                    (aiEnabled
+                        ? context.l10n.searchOrAskSalShort
+                        : context.l10n.searchYourWallet),
+                hintStyle: hintStyle(context),
+                contentPadding: EdgeInsets.zero,
               ),
             ),
-            SizedBox(width: 6.w),
-            // Only the button follows the text: typing never rebuilds the
-            // sheet around the composer.
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) =>
-                  _trailing(context, value.text.trim().isNotEmpty),
-            ),
-          ],
-        ),
+          ),
+          SizedBox(width: 6.w),
+          // Only the button follows the text: typing never rebuilds the
+          // sheet around the composer.
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) =>
+                _trailing(context, value.text.trim().isNotEmpty),
+          ),
+        ],
       ),
     );
   }

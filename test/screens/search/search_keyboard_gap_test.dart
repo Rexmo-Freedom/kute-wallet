@@ -18,7 +18,7 @@ import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/ask_sal_sheet.dart'
     show SalSuggestionButton;
-import 'package:kute/screens/shared/kute_composer.dart';
+import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/trade_notification_store.dart'
     show TradeNotification;
@@ -114,7 +114,7 @@ void main() {
       // The sheets' bottom baseline (16.h on the 932 design height).
       final gap = 16 * screen.height / 932;
       final keyboardTop = screen.height - keyboard;
-      final composer = tester.getRect(find.byType(KuteComposer));
+      final composer = tester.getRect(find.byType(KuteSearchComposer));
       expect(composer.bottom, moreOrLessEquals(keyboardTop - gap, epsilon: 0.5));
       // Before the fix it rested on the keys (a 0dp gap).
       expect(keyboardTop - composer.bottom, greaterThan(9));
@@ -134,7 +134,7 @@ void main() {
     await _close(tester);
     bool focused() => tester
         .widget<EditableText>(find.descendant(
-            of: find.byType(KuteComposer),
+            of: find.byType(KuteSearchComposer),
             matching: find.byType(EditableText)))
         .focusNode
         .hasFocus;
@@ -143,7 +143,7 @@ void main() {
     // Mid-slide (250 ms): the composer is on screen, not focused, so the
     // keyboard never rises against a moving sheet.
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byType(KuteComposer), findsOneWidget);
+    expect(find.byType(KuteSearchComposer), findsOneWidget);
     expect(focused(), isFalse);
     await tester.pump(const Duration(milliseconds: 100));
     expect(focused(), isFalse);
@@ -158,7 +158,7 @@ void main() {
       (tester) async {
     tester.view.padding = const FakeViewPadding(bottom: 34);
     await _open(tester, const Size(430, 932), 0);
-    final composer = tester.getRect(find.byType(KuteComposer));
+    final composer = tester.getRect(find.byType(KuteSearchComposer));
     // Home indicator plus the same 16dp baseline.
     expect(composer.bottom, moreOrLessEquals(932 - 34 - 16, epsilon: 0.5));
     await _close(tester);

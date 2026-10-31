@@ -88,7 +88,12 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
     show KuteSkeleton, SkeletonBar, SkeletonCard, SkeletonCircle;
 import 'package:kute/screens/shared/kute_motion.dart'
-    show ArrivalSwitcher, KutePressable, KuteStaggerIn, kuteMotion, kuteReduceMotion;
+    show
+        ArrivalSwitcher,
+        KutePressable,
+        KuteStaggerIn,
+        kuteMotion,
+        kuteReduceMotion;
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/search/search_result_order.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
@@ -283,20 +288,23 @@ Future<void> showKuteSearch(
   }
   try {
     kuteSearchSheetOpen.value = true;
-    await OpenOnce.run(_kSearchSheetKey, () => showAppBottomSheet<void>(
-      context: context,
-      builder: (_) => UnifiedSearchSurface(
-        initialCategory: effectiveCategory,
-        searchFirst: searchFirst || ledgerMarkets,
-        lockCategory: walletId != null || ledgerMarkets || lockCategory,
-        scopedTabs: walletId == null && !ledgerMarkets ? scopedTabs : null,
-        walletId: walletId,
-        searchHint: searchHint,
-        barContext: barContext,
-        initialQuestion: initialQuestion,
-        composerKey: composerKey,
-      ),
-    ));
+    await OpenOnce.run(
+        _kSearchSheetKey,
+        () => showAppBottomSheet<void>(
+              context: context,
+              builder: (_) => UnifiedSearchSurface(
+                initialCategory: effectiveCategory,
+                searchFirst: searchFirst || ledgerMarkets,
+                lockCategory: walletId != null || ledgerMarkets || lockCategory,
+                scopedTabs:
+                    walletId == null && !ledgerMarkets ? scopedTabs : null,
+                walletId: walletId,
+                searchHint: searchHint,
+                barContext: barContext,
+                initialQuestion: initialQuestion,
+                composerKey: composerKey,
+              ),
+            ));
   } finally {
     if (travels) {
       // The way back, as the sheet drops: from the composer where it
@@ -602,8 +610,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     if (q.isEmpty) return;
     HapticFeedback.lightImpact();
     // Kept in Recent (on the device only).
-    unawaited(SearchRecentStore.record(SearchRecentEntry(
-        kind: SearchRecentKind.query, id: q, label: q)));
+    unawaited(SearchRecentStore.record(
+        SearchRecentEntry(kind: SearchRecentKind.query, id: q, label: q)));
     _focusNode.unfocus();
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
@@ -784,8 +792,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       // and unlabelled (the pill already names it).
       if (gi > 0) resultChildren.add(SizedBox(height: kSearchBlockGap.h));
       if (labelGroups) {
-        resultChildren.add(SearchBlockHeader(
-            key: ValueKey('header-${g.key}'), text: g.label));
+        resultChildren.add(
+            SearchBlockHeader(key: ValueKey('header-${g.key}'), text: g.label));
       }
       resultChildren.add(ArrivalSwitcher(
         key: ValueKey('group-${g.key}'),
@@ -871,8 +879,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         shrink: _contextScreen,
         onRecentQuery: (q) {
           _controller.text = q;
-          _controller.selection =
-              TextSelection.collapsed(offset: q.length);
+          _controller.selection = TextSelection.collapsed(offset: q.length);
           _onChanged(q);
         },
       );
@@ -880,10 +887,8 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     }
     // A context screen with nothing typed fits its content: no tall empty
     // area under the rows.
-    final fitContent = _contextScreen &&
-        widget.walletId == null &&
-        query.isEmpty &&
-        !hasDraft;
+    final fitContent =
+        _contextScreen && widget.walletId == null && query.isEmpty && !hasDraft;
 
     return _buildSheet(
       context,
@@ -925,22 +930,26 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
           valueListenable: kuteSearchMorphing,
           builder: (context, morphing, child) =>
               Opacity(opacity: morphing ? 0 : 1, child: child),
-          child: KuteSearchComposer(
-            key: widget.composerKey,
-            controller: _controller,
-            focusNode: _focusNode,
-            onChanged: _onChanged,
-            onSubmit: _submit,
-            aiEnabled: aiEnabled,
-            sendLabel: context.l10n.salSendQuestion,
-            // With Sal available the field names both jobs, the words the
-            // pill wears; search-only keeps the scoped hint.
-            hint: aiEnabled
-                ? context.l10n.searchOrAskSalShort
-                : (widget.initialCategory == SearchCategory.perpetuals ||
-                        widget.initialCategory == SearchCategory.predictions)
-                    ? context.l10n.searchMarketsHint
-                    : context.l10n.searchYourWallet,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: KuteSearchComposer.gutter(context)),
+            child: KuteSearchComposer(
+              key: widget.composerKey,
+              controller: _controller,
+              focusNode: _focusNode,
+              onChanged: _onChanged,
+              onSubmit: _submit,
+              aiEnabled: aiEnabled,
+              sendLabel: context.l10n.salSendQuestion,
+              // With Sal available the field names both jobs, the words the
+              // pill wears; search-only keeps the scoped hint.
+              hint: aiEnabled
+                  ? context.l10n.searchOrAskSalShort
+                  : (widget.initialCategory == SearchCategory.perpetuals ||
+                          widget.initialCategory == SearchCategory.predictions)
+                      ? context.l10n.searchMarketsHint
+                      : context.l10n.searchYourWallet,
+            ),
           ),
         ),
         // Sal's disclaimer sits under its answers, once; the search
@@ -985,9 +994,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween<Offset>(
-                  begin: const Offset(0, 0.04), end: Offset.zero)
-              .animate(curved),
+          position:
+              Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+                  .animate(curved),
           child: child,
         ),
       );
@@ -1081,7 +1090,9 @@ class _WalletFilterChips extends ConsumerWidget {
         onTap: (index) {
           HapticFeedback.selectionClick();
           final next = effective[index].$1;
-          if (next != selected) TrackingService.searchCategoryChanged(next.name);
+          if (next != selected) {
+            TrackingService.searchCategoryChanged(next.name);
+          }
           ref.read(selectedSearchCategoryProvider.notifier).state = next;
         },
       ),
@@ -1519,8 +1530,8 @@ class _SearchHome extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final showInvesting = category == SearchCategory.all ||
-        category == SearchCategory.perpetuals;
+    final showInvesting =
+        category == SearchCategory.all || category == SearchCategory.perpetuals;
     final showPredictions = category == SearchCategory.all ||
         category == SearchCategory.predictions;
     final gutters = EdgeInsets.fromLTRB(
@@ -1686,8 +1697,9 @@ class _SearchHome extends ConsumerWidget {
   /// "See all ›" on Moving now: the sheet closes and Investing opens on
   /// its Trending category.
   void _openInvestingTrending(BuildContext context, WidgetRef ref) {
-    ref.read(hlBrowseSelectionProvider.notifier).update(
-        (s) => s.copyWith(tab: HlBrowseTab.trending));
+    ref
+        .read(hlBrowseSelectionProvider.notifier)
+        .update((s) => s.copyWith(tab: HlBrowseTab.trending));
     final router = GoRouter.maybeOf(context);
     Navigator.of(context).maybePop();
     router?.go('/hyperliquid');
@@ -1861,8 +1873,8 @@ class _ContextActionRow extends StatelessWidget {
       title: a.label,
       titleLines: 1,
       subtitle: a.sublabel,
-      trailing: Icon(Icons.chevron_right_rounded,
-          size: 22.sp, color: c.textTertiary),
+      trailing:
+          Icon(Icons.chevron_right_rounded, size: 22.sp, color: c.textTertiary),
       onTap: () {
         a.onTap(context);
         Navigator.of(context).maybePop();

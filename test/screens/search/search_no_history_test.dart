@@ -20,10 +20,8 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
-import 'package:kute/screens/polymarket/components/position_card.dart';
+import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/investment_market_browser.dart'
-    show PredictionBrowseCard;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/trade_notification_store.dart'
@@ -203,11 +201,11 @@ Future<void> _pickTab(WidgetTester tester, String label) async {
 
 /// A past bet, drawn with the Portfolio's position card.
 Finder _bet(String s) => find
-    .byWidgetPredicate((w) => w is PolyPositionCard && w.question.contains(s));
+    .byWidgetPredicate((w) => w is SearchPositionRow && w.position.marketQuestion.contains(s));
 
 /// A market, drawn with the Predictions list's card.
 Finder _marketCard(String s) => find.byWidgetPredicate(
-    (w) => w is PredictionBrowseCard && w.event.title.contains(s));
+    (w) => w is SearchPredictionRow && w.event.title.contains(s));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
