@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart'
@@ -112,7 +113,7 @@ class InvestmentMarketBrowser<T> extends StatelessWidget {
     TrackingService.track('investment_category_opened',
         params: {'product': product, 'source': 'account'});
     Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
+      KutePageRoute<void>(
         builder: (_) => _CategoryPage<T>(
           title: section.label,
           groups: groups,

@@ -34,6 +34,11 @@
 //
 // Reduce Motion: the full pill, still, above the action row; it still
 // slides in and out with the keyboard and the Sal sheet, at once.
+//
+// SAL REACTS (sal_reactions.dart): the pill's Sal plays the one-shot a
+// hook asked for (money in, a fill, an error, a long load) and comes back
+// to the context's clip; the bar only subscribes, and reports its own
+// primary button's busy as a load.
 
 import 'dart:async';
 
@@ -56,7 +61,7 @@ import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
-import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
 
@@ -121,6 +126,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     _idle?.cancel();
     _entry.dispose();
     _nudge.dispose();
+    // The load this bar reported ends with it.
+    SalReactions.loading(_KuteShellBarState, false);
     super.dispose();
   }
 
@@ -229,6 +236,9 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
 
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
     final collapsed = _collapsed && !reduce;
+    // A primary action busy for 2 s: Sal thinks (sal_reactions.dart; the
+    // pill's Sal plays it).
+    SalReactions.loading(_KuteShellBarState, show && ctx.isPrimary && ctx.busy);
     // The pill, or the primary button, cross-fading on the settle; the
     // folded circle keeps to the right.
     final Widget switcher = AnimatedSwitcher(
@@ -403,7 +413,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
             ),
             child: Row(
               children: [
-                SalSprite(
+                SalReactionSprite(
                   key: ValueKey('primary-sal-$clip'),
                   clip: clip,
                   size: 28,

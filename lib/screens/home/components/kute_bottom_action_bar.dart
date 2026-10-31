@@ -10,6 +10,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart'
     show kuteSearchLoading, kuteSearchSheetOpen;
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
@@ -686,7 +687,9 @@ class KuteSalPill extends StatelessWidget {
 /// while results load, `happy` for 600 ms when they land, then `search`
 /// again. The static glyph until the sheets exist. A [cue] (the bar
 /// arriving on a market page) plays the clip from its start once at 1.3x,
-/// then looping.
+/// then looping. A reaction ([SalReactions], sal_reactions.dart: a cheer
+/// for money in, a wink for a fill, a shake for an error, a think for a
+/// long load) plays once over whatever he wears and crossfades back.
 class _SalPillGlyph extends StatefulWidget {
   const _SalPillGlyph(
       {required this.lensColor, this.clip = 'search', this.cue = 0});
@@ -708,13 +711,28 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
   bool _happy = false;
   bool _intro = false;
   Timer? _happyTimer;
+  SalReactionEvent? _reaction;
 
   @override
   void initState() {
     super.initState();
     _loading = kuteSearchLoading.value;
     kuteSearchLoading.addListener(_onLoading);
+    SalReactions.current.addListener(_onReaction);
+    _reaction = SalReactions.current.value;
     _intro = widget.cue != 0;
+  }
+
+  void _onReaction() {
+    final event = SalReactions.current.value;
+    if (event == null || event == _reaction) return;
+    setState(() => _reaction = event);
+  }
+
+  /// The reaction played (or could not be read): back to the context's clip.
+  void _reactionDone(SalReactionEvent event) {
+    SalReactions.clear(event);
+    if (mounted && _reaction == event) setState(() => _reaction = null);
   }
 
   @override
@@ -731,6 +749,8 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
   void _onLoading() {
     final loading = kuteSearchLoading.value;
     if (loading == _loading) return;
+    // A search that lasts 2 s: Sal thinks (sal_reactions.dart).
+    SalReactions.loading(kuteSearchLoading, loading);
     final landed = _loading && !loading;
     setState(() {
       _loading = loading;
@@ -748,6 +768,9 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
   void dispose() {
     _happyTimer?.cancel();
     kuteSearchLoading.removeListener(_onLoading);
+    SalReactions.current.removeListener(_onReaction);
+    // A load this glyph reported ends with it.
+    SalReactions.loading(kuteSearchLoading, false);
     super.dispose();
   }
 
@@ -755,27 +778,40 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
   Widget build(BuildContext context) {
     final rig = KuteStillWhenCovered(
         child: KuteDogMagnifier(size: 34, lensColor: widget.lensColor));
-    final clip = _loading ? 'search' : (_happy ? 'happy' : widget.clip);
-    final intro = _intro && clip == widget.clip;
+    final reaction = _reaction;
+    final clip = reaction != null
+        ? reaction.clip
+        : _loading
+            ? 'search'
+            : (_happy ? 'happy' : widget.clip);
+    final intro = reaction == null && _intro && clip == widget.clip;
+    final oneShot = intro || reaction != null;
     // The clip switch crossfades over 150 ms (at once under Reduce Motion).
     // A new cue restarts the clip (its key), so the intro begins at
     // frame 0; once through, the same sprite loops on from its last frame.
+    // A reaction is keyed by its number, so the same one twice plays twice.
     return AnimatedSwitcher(
       duration: kuteMotion(context, const Duration(milliseconds: 150)),
       child: SalSprite(
-        key: ValueKey('$clip#${widget.cue}'),
+        key: ValueKey(reaction != null
+            ? 'reaction-$clip#${reaction.seq}'
+            : '$clip#${widget.cue}'),
         clip: clip,
         size: 38,
-        speed: _loading ? 1.4 : (intro ? 1.3 : 1.0),
-        loop: intro ? false : null,
-        onComplete: intro
-            ? () {
-                if (mounted) setState(() => _intro = false);
-              }
-            : null,
+        speed: _loading && reaction == null ? 1.4 : (intro ? 1.3 : 1.0),
+        loop: oneShot ? false : null,
+        onComplete: reaction != null
+            ? () => _reactionDone(reaction)
+            : intro
+                ? () {
+                    if (mounted) setState(() => _intro = false);
+                  }
+                : null,
+        // A reaction clip that is not there: back to the context's clip.
+        onUnavailable: reaction != null ? () => _reactionDone(reaction) : null,
         // `share` is still being rendered: `happy` stands in, the rig
         // under that.
-        fallback: clip == 'share'
+        fallback: clip == 'share' || reaction != null
             ? SalSprite(clip: 'happy', size: 38, fallback: rig)
             : rig,
       ),

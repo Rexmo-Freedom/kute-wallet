@@ -19,6 +19,14 @@
 // springs its chrome on the chip spring (KuteMotion.chip; at once under
 // Reduce Motion), with the app's press under a finger ([KutePressable]).
 //
+// A TABS ROW OF THREE OR FEWER (the Bitcoin | Investments halves, the
+// Activity / Balance / Price pills) has ONE white pill that SLIDES between
+// the tabs on the chip spring (founder, 31 October 2026: "attention to the
+// animations on everything"; [_SlidingIndicator]) instead of each tab
+// fading its own chrome in and out: the pills themselves are flat
+// ([KutePill.flat]) and only their labels change weight and colour. At
+// once under Reduce Motion.
+//
 // A pill that holds more (the Investments pills, founder 31 October
 // 2026: "it should be more clear that we have much more context here")
 // carries its context after its name in the quieter weight ("Investing ·
@@ -124,6 +132,10 @@ class KutePill extends StatelessWidget {
   final String? detail;
   final bool menu;
 
+  /// No chrome of its own (a row whose white pill slides under the tabs,
+  /// [KutePillTabs]): the label still reads selected or not.
+  final bool flat;
+
   const KutePill({
     super.key,
     required this.label,
@@ -137,12 +149,40 @@ class KutePill extends StatelessWidget {
     this.semanticLabel,
     this.detail,
     this.menu = false,
+    this.flat = false,
   });
+
+  /// The selected pill's card chrome, shared with the sliding indicator.
+  static BoxDecoration chrome(BuildContext context, {required bool selected}) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return BoxDecoration(
+      color: selected ? (isLight ? Colors.white : c.surface) : Colors.transparent,
+      borderRadius: BorderRadius.circular(12.r),
+      border: Border.all(
+        color: selected
+            ? (isLight ? c.border : c.borderSubtle)
+            : Colors.transparent,
+        width: isLight ? 1.0 : 0.5,
+      ),
+      // The unselected state keeps the shadow at the same blur, only
+      // transparent: the spring overshoots past 1, and a shadow lerped
+      // towards none scales its blur negative (an assertion in debug).
+      boxShadow: [
+        BoxShadow(
+          color: selected && isLight
+              ? Colors.black.withValues(alpha: 0.04)
+              : Colors.transparent,
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
     final fg = selected ? c.textPrimary : c.textTertiary;
     final reduce = kuteReduceMotion(context);
     // The chrome springs between its two states (KuteMotion.chip).
@@ -165,30 +205,9 @@ class KutePill extends StatelessWidget {
       curve: curve,
       padding:
           EdgeInsets.symmetric(horizontal: size.hPad.w, vertical: size.vPad.h),
-      decoration: BoxDecoration(
-        color: selected
-            ? (isLight ? Colors.white : c.surface)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: selected
-              ? (isLight ? c.border : c.borderSubtle)
-              : Colors.transparent,
-          width: isLight ? 1.0 : 0.5,
-        ),
-        // The unselected state keeps the shadow at the same blur, only
-        // transparent: the spring overshoots past 1, and a shadow lerped
-        // towards none scales its blur negative (an assertion in debug).
-        boxShadow: [
-          BoxShadow(
-            color: selected && isLight
-                ? Colors.black.withValues(alpha: 0.04)
-                : Colors.transparent,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      // Flat: the border still takes its room, so the label sits where it
+      // does in a pill with chrome.
+      decoration: KutePill.chrome(context, selected: selected && !flat),
       child: Row(
         mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment:
@@ -347,29 +366,54 @@ class _KutePillTabsState extends State<KutePillTabs> {
     // the labels under equal widths ("Activit", "Balanc"), so longer
     // strips side-scroll at natural width instead.
     if (widget.selectedIndex != null && items.length <= 3 && !widget.scroll) {
+      final selected = widget.selectedIndex!.clamp(0, items.length - 1);
+      final reduce = kuteReduceMotion(context);
       return SizedBox(
         height: height,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: pad),
-          child: Row(
-            children: [
-              for (int i = 0; i < items.length; i++) ...[
-                Expanded(
-                  child: KutePill(
-                    label: items[i].label,
-                    icon: items[i].icon,
-                    leading: items[i].leading,
-                    detail: items[i].detail,
-                    menu: items[i].menu,
-                    selected: _isSelected(i),
-                    fillWidth: true,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final n = items.length;
+              final pillWidth = (box.maxWidth - gap * (n - 1)) / n;
+              return Stack(
+                children: [
+                  // The one white pill, sliding to the selected tab on the
+                  // chip spring (at once under Reduce Motion), under the
+                  // flat pills.
+                  _SlidingIndicator(
+                    left: selected * (pillWidth + gap),
+                    width: pillWidth,
+                    rowHeight: box.maxHeight,
+                    duration:
+                        reduce ? Duration.zero : KuteMotion.chipDuration,
+                    curve: reduce ? Curves.linear : KuteMotion.chip,
                     size: widget.size,
-                    onTap: () => widget.onTap(i),
                   ),
-                ),
-                if (i < items.length - 1) SizedBox(width: gap),
-              ],
-            ],
+                  Row(
+                    children: [
+                      for (int i = 0; i < items.length; i++) ...[
+                        Expanded(
+                          child: KutePill(
+                            label: items[i].label,
+                            icon: items[i].icon,
+                            leading: items[i].leading,
+                            detail: items[i].detail,
+                            menu: items[i].menu,
+                            selected: _isSelected(i),
+                            fillWidth: true,
+                            flat: true,
+                            size: widget.size,
+                            onTap: () => widget.onTap(i),
+                          ),
+                        ),
+                        if (i < items.length - 1) SizedBox(width: gap),
+                      ],
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       );
@@ -423,6 +467,49 @@ class _KutePillTabsState extends State<KutePillTabs> {
           if (_canScrollLeft) fade(left: true),
           if (_canScrollRight) fade(left: false),
         ],
+      ),
+    );
+  }
+}
+
+/// The sliding white pill's key, for tests.
+const Key kutePillIndicatorKey = ValueKey('kute-pill-indicator');
+
+/// The white pill under a tabs row of three or fewer: the selected chrome
+/// ([KutePill.chrome]) as one card that slides between the tabs. Its
+/// height is a pill's own ([KutePillSize.height]), centred in the row.
+class _SlidingIndicator extends StatelessWidget {
+  const _SlidingIndicator({
+    required this.left,
+    required this.width,
+    required this.rowHeight,
+    required this.duration,
+    required this.curve,
+    required this.size,
+  });
+
+  final double left;
+  final double width;
+  final double rowHeight;
+  final Duration duration;
+  final Curve curve;
+  final KutePillSize size;
+
+  @override
+  Widget build(BuildContext context) {
+    final pillHeight = math.min(rowHeight, size.height.h);
+    return AnimatedPositioned(
+      key: kutePillIndicatorKey,
+      duration: duration,
+      curve: curve,
+      left: left,
+      width: width,
+      top: (rowHeight - pillHeight) / 2,
+      height: pillHeight,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: KutePill.chrome(context, selected: true),
+        ),
       ),
     );
   }

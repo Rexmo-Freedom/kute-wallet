@@ -676,8 +676,10 @@ class _IntroCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(color: c.borderSubtle, width: 0.5),
             ),
+            // The Settings icon family (kute_list_row.dart): monochrome,
+            // textPrimary, 20 px on the surface tile.
             child: Icon(Icons.shield_rounded,
-                color: c.textSecondary, size: 22.sp),
+                color: c.textPrimary, size: 20.sp),
           ),
           SizedBox(width: 12.w),
           Expanded(

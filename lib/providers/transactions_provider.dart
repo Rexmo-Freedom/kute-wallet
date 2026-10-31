@@ -19,6 +19,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/models/outlogic_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity, ActivityType;
@@ -805,7 +806,11 @@ class TransactionNotifier extends StateNotifier<Transaction> {
     // Money landed in Bitcoin: one pattern however many receives this
     // snapshot holds. The helper keeps it quiet in the background and
     // right after a success overlay already marked the moment.
-    if (arrivedNow) KuteHaptics.play(KuteHaptic.moneyIn);
+    if (arrivedNow) {
+      KuteHaptics.play(KuteHaptic.moneyIn);
+      // Sal in the bar cheers with it (sal_reactions.dart).
+      SalReactions.play(SalReaction.cheer);
+    }
     if (anyReceiveFired) {
       // Drive the mascot into `incoming` for ~1.6s. Single wag
       // regardless of how many receives landed in this snapshot.

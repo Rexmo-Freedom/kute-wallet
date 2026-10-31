@@ -33,6 +33,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
@@ -227,6 +228,9 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
         ctrl.add(f);
       }
     }
+    // Sal in the bar winks at a fill (one wink per live batch;
+    // sal_reactions.dart).
+    if (fillsIn.isNotEmpty) SalReactions.play(SalReaction.wink);
   }
 
   void _handleOrderUpdates(List<HlOrderUpdate> updates) {

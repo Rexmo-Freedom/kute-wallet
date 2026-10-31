@@ -18,6 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
@@ -78,8 +79,7 @@ class ComboDetailSheet extends ConsumerWidget {
   static void show(BuildContext context, {required String conditionId}) {
     TrackingService.screenView('combo_detail');
     // ignore: discarded_futures
-    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-      fullscreenDialog: true,
+    Navigator.of(context, rootNavigator: true).push(KuteSheetPageRoute(
       builder: (_) => ComboDetailSheet(conditionId: conditionId),
     ));
   }

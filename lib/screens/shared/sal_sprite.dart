@@ -32,13 +32,37 @@
 // UNTIL A SHEET EXISTS the widget must not break the screen: a missing
 // manifest or sheet falls back to [fallback], the rig drawing that site
 // wore before (kute_dog_rig.dart / kute_dog_scenes.dart stay in place for
-// that), so the app runs either way.
+// that), so the app runs either way. A clip that is in the manifest but
+// cannot be read says so once through [onUnavailable], so a director can
+// drop it from its pool and move on.
+//
+// THE SECOND CLIP BATCH (founder, 31 October 2026) adds a `group` to each
+// manifest entry, read through [SalSpriteCache.groups] / [SalSpriteCache.group]:
+//
+//   * `hero`: one-shots cut into the `body_hero` loop (`hero_stretch`,
+//     `hero_look_around`, `hero_scratch`, `hero_tail_chase`), the
+//     `hero_sleep` loop and the `hero_wake` one-shot;
+//   * `waiting`: the money journey's waits (`body_dig`, `body_pace`,
+//     `body_sniff_trail`, `body_point`, `body_think`, `body_nod`,
+//     `body_shake_no`, `body_shake_off`, `body_jump`);
+//   * `reaction`: face one-shots the bar plays (`wink`, `yawn`, `nod`,
+//     `shake_no`, `think`, `cheer`; sal_reactions.dart).
+//
+// [SalIdleDirector] is the hero loop with a life: `body_hero`, and every
+// 6–12 s one `hero` one-shot (never the same twice in a row), then the
+// loop again; after 60 s without a touch anywhere in the app he sleeps
+// (`hero_sleep`), and the next pointer wakes him (`hero_wake`, then
+// hero). A clip the manifest lacks, or that fails to read, is skipped;
+// nothing ever crashes for a missing clip. Reduce Motion: `body_hero`'s
+// first frame, nothing else.
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -102,6 +126,61 @@ abstract final class SalSpriteCache {
       return null;
     }
   }
+
+  /// Tests: a manifest of their own (null: none), the decoded clips let go.
+  @visibleForTesting
+  static void debugSetManifest(Map<String, dynamic>? manifest) {
+    _manifest = Future<Map<String, dynamic>?>.value(manifest);
+    _clips.clear();
+    _ready.clear();
+  }
+
+  /// Tests: [clip] stands as decoded under [name] at [density] (a
+  /// synthetic image; no sheet read).
+  @visibleForTesting
+  static void debugPutClip(String name, int density, SalClip clip) {
+    _clips['$name@$density'] = Future<SalClip?>.value(clip);
+    _ready['$name@$density'] = clip;
+  }
+
+  /// Tests: back to the bundle's manifest, nothing decoded.
+  @visibleForTesting
+  static void debugReset() {
+    _manifest = null;
+    _clips.clear();
+    _ready.clear();
+  }
+
+  /// The manifest's groups: group name → clip names, in manifest order.
+  /// Empty when there is no manifest (or no entry names a group).
+  static Future<Map<String, List<String>>> groups() async {
+    final manifest = await SalSpriteCache.manifest();
+    final out = <String, List<String>>{};
+    if (manifest == null) return out;
+    for (final e in manifest.entries) {
+      final v = e.value;
+      if (v is Map && v['group'] is String) {
+        out.putIfAbsent(v['group'] as String, () => []).add(e.key);
+      }
+    }
+    return out;
+  }
+
+  /// The clips of [group]; falls back to [defaults] (the names the
+  /// contract promises) filtered to the clips the manifest has, so code
+  /// written against the contract runs before the sheets land and after.
+  static Future<List<String>> group(String name,
+      {List<String> defaults = const []}) async {
+    final manifest = await SalSpriteCache.manifest();
+    if (manifest == null) return const [];
+    final grouped = (await groups())[name];
+    if (grouped != null && grouped.isNotEmpty) return grouped;
+    return [for (final d in defaults) if (manifest.containsKey(d)) d];
+  }
+
+  /// Whether the manifest names [clip] (not whether its sheet reads).
+  static Future<bool> exists(String clip) async =>
+      (await SalSpriteCache.manifest())?.containsKey(clip) ?? false;
 
   /// [density] is 2 or 3: which sheet to read.
   static Future<SalClip?> clip(String name, int density) =>
@@ -172,6 +251,7 @@ class SalSprite extends StatefulWidget {
     this.speed = 1.0,
     this.loop,
     this.onComplete,
+    this.onUnavailable,
     required this.fallback,
   });
 
@@ -204,6 +284,10 @@ class SalSprite extends StatefulWidget {
   /// Called once when a one-shot reaches its last frame.
   final VoidCallback? onComplete;
 
+  /// Called once when [clip] cannot be read (not in the manifest, no
+  /// sheet): the [fallback] is on screen, and a director can move on.
+  final VoidCallback? onUnavailable;
+
   /// Drawn when the sheet cannot be read (not rendered yet, not
   /// registered): the rig drawing the site wore before.
   final Widget fallback;
@@ -220,7 +304,10 @@ class _SalSpriteState extends State<SalSprite>
   bool _completed = false;
   final ValueNotifier<int> _frame = ValueNotifier<int>(0);
   Duration _elapsed = Duration.zero;
-  Duration _last = Duration.zero;
+
+  /// The last tick's time; null before the first tick after a start (a
+  /// first tick at exactly zero, as in a test, is a tick like any other).
+  Duration? _last;
   int _density = 2;
   bool _reduce = false;
 
@@ -271,6 +358,7 @@ class _SalSpriteState extends State<SalSprite>
         _failed = c == null;
       });
       _sync();
+      if (c == null) widget.onUnavailable?.call();
     }));
   }
 
@@ -292,7 +380,7 @@ class _SalSpriteState extends State<SalSprite>
     }
     final play = !_reduce && frames > 1 && !_completed;
     if (play && !ticker.isActive) {
-      _last = Duration.zero;
+      _last = null;
       ticker.start();
     } else if (!play && ticker.isActive) {
       ticker.stop();
@@ -303,7 +391,8 @@ class _SalSpriteState extends State<SalSprite>
   void _tick(Duration now) {
     final clip = _clip;
     if (clip == null) return;
-    if (_last != Duration.zero) _elapsed += (now - _last) * widget.speed;
+    final last = _last;
+    if (last != null) _elapsed += (now - last) * widget.speed;
     _last = now;
     final raw = ((_elapsed.inMicroseconds / 1e6) * clip.fps).floor();
     if (_loops) {
@@ -373,6 +462,235 @@ class _SalSpriteState extends State<SalSprite>
     final ink = DefaultTextStyle.of(context).style.color;
     if (ink == null) return false;
     return ink.computeLuminance() > 0.5;
+  }
+}
+
+
+/// The hero clips the contract promises (see the file header); the
+/// manifest's `hero` group wins when it names any.
+const List<String> kSalHeroOneShots = [
+  'hero_stretch',
+  'hero_look_around',
+  'hero_scratch',
+  'hero_tail_chase',
+];
+const String kSalHeroLoop = 'body_hero';
+const String kSalHeroSleep = 'hero_sleep';
+const String kSalHeroWake = 'hero_wake';
+
+/// The hero loop with a life (see the file header): `body_hero`, a `hero`
+/// one-shot every [minGap]–[maxGap], sleep after [sleepAfter] without a
+/// pointer anywhere, wake on the next one. Every empty state that shows
+/// `body_hero` uses this.
+class SalIdleDirector extends StatefulWidget {
+  const SalIdleDirector({
+    super.key,
+    required this.size,
+    required this.fallback,
+    this.minGap = const Duration(seconds: 6),
+    this.maxGap = const Duration(seconds: 12),
+    this.sleepAfter = const Duration(seconds: 60),
+    this.random,
+  });
+
+  final double size;
+
+  /// What [SalSprite] draws when the hero sheet itself is missing.
+  final Widget fallback;
+  final Duration minGap;
+  final Duration maxGap;
+  final Duration sleepAfter;
+
+  /// The picks' source; tests pass a seeded one.
+  final math.Random? random;
+
+  /// The last pointer anywhere in the app, for the sleep timer: a global
+  /// pointer route, so a scroll or a tap on the page above wakes him.
+  static DateTime lastInput = DateTime.now();
+
+  @override
+  State<SalIdleDirector> createState() => _SalIdleDirectorState();
+}
+
+enum _DirectorPhase { hero, oneShot, sleeping, waking }
+
+class _SalIdleDirectorState extends State<SalIdleDirector> {
+  late final math.Random _random = widget.random ?? math.Random();
+  List<String> _pool = const [];
+  bool _hasSleep = false;
+  bool _hasWake = false;
+  _DirectorPhase _phase = _DirectorPhase.hero;
+  String _clip = kSalHeroLoop;
+  String? _last;
+  Timer? _timer;
+  Timer? _sleepTimer;
+  bool _reduce = false;
+  int _cue = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
+    unawaited(_loadPool());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (reduce != _reduce) {
+      _reduce = reduce;
+      if (reduce) {
+        _timer?.cancel();
+        _sleepTimer?.cancel();
+        _phase = _DirectorPhase.hero;
+        _clip = kSalHeroLoop;
+      } else {
+        _armNext();
+        _armSleep();
+      }
+    }
+  }
+
+  Future<void> _loadPool() async {
+    final pool = await SalSpriteCache.group('hero', defaults: kSalHeroOneShots);
+    final sleep = await SalSpriteCache.exists(kSalHeroSleep);
+    final wake = await SalSpriteCache.exists(kSalHeroWake);
+    if (!mounted) return;
+    setState(() {
+      // The loop clips are not one-shots to cut in.
+      _pool = [
+        for (final c in pool)
+          if (c != kSalHeroLoop && c != kSalHeroSleep && c != kSalHeroWake) c
+      ];
+      _hasSleep = sleep;
+      _hasWake = wake;
+    });
+    _armNext();
+    _armSleep();
+  }
+
+  void _onPointer(PointerEvent event) {
+    if (event is! PointerDownEvent &&
+        event is! PointerMoveEvent &&
+        event is! PointerSignalEvent) {
+      return;
+    }
+    SalIdleDirector.lastInput = DateTime.now();
+    if (!mounted || _reduce) return;
+    if (_phase == _DirectorPhase.sleeping) {
+      _wake();
+    } else {
+      _armSleep();
+    }
+  }
+
+  /// The next one-shot, [minGap]–[maxGap] from now.
+  void _armNext() {
+    _timer?.cancel();
+    if (_reduce || _pool.isEmpty || _phase != _DirectorPhase.hero) return;
+    final span = widget.maxGap.inMilliseconds - widget.minGap.inMilliseconds;
+    final wait = widget.minGap.inMilliseconds +
+        (span > 0 ? _random.nextInt(span + 1) : 0);
+    _timer = Timer(Duration(milliseconds: wait), _playOneShot);
+  }
+
+  void _armSleep() {
+    _sleepTimer?.cancel();
+    if (_reduce || !_hasSleep) return;
+    _sleepTimer = Timer(widget.sleepAfter, _sleep);
+  }
+
+  void _playOneShot() {
+    if (!mounted || _phase != _DirectorPhase.hero || _pool.isEmpty) return;
+    // Never the same twice in a row (one clip alone repeats, there is
+    // nothing else).
+    final choices = _pool.length > 1
+        ? [for (final c in _pool) if (c != _last) c]
+        : _pool;
+    final pick = choices[_random.nextInt(choices.length)];
+    setState(() {
+      _phase = _DirectorPhase.oneShot;
+      _clip = pick;
+      _last = pick;
+      _cue++;
+    });
+  }
+
+  void _sleep() {
+    if (!mounted || !_hasSleep || _phase == _DirectorPhase.sleeping) return;
+    _timer?.cancel();
+    setState(() {
+      _phase = _DirectorPhase.sleeping;
+      _clip = kSalHeroSleep;
+      _cue++;
+    });
+  }
+
+  void _wake() {
+    if (!mounted) return;
+    if (_hasWake) {
+      setState(() {
+        _phase = _DirectorPhase.waking;
+        _clip = kSalHeroWake;
+        _cue++;
+      });
+    } else {
+      _backToHero();
+    }
+    _armSleep();
+  }
+
+  void _backToHero() {
+    if (!mounted) return;
+    setState(() {
+      _phase = _DirectorPhase.hero;
+      _clip = kSalHeroLoop;
+      _cue++;
+    });
+    _armNext();
+  }
+
+  /// A clip that cannot be read leaves the pool, and the loop goes on.
+  void _unavailable(String clip) {
+    if (!mounted) return;
+    if (clip == kSalHeroSleep) _hasSleep = false;
+    if (clip == kSalHeroWake) _hasWake = false;
+    _pool = [for (final c in _pool) if (c != clip) c];
+    if (_clip == clip) _backToHero();
+  }
+
+  /// The clip on screen now (tests).
+  String get clip => _clip;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _sleepTimer?.cancel();
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = _clip;
+    final oneShot =
+        _phase == _DirectorPhase.oneShot || _phase == _DirectorPhase.waking;
+    return SalSprite(
+      // A new cue starts the clip at its first frame.
+      key: ValueKey('sal-director-$clip#$_cue'),
+      clip: clip,
+      size: widget.size,
+      loop: oneShot ? false : null,
+      onComplete: oneShot ? _backToHero : null,
+      onUnavailable: () => _unavailable(clip),
+      fallback: clip == kSalHeroLoop
+          ? widget.fallback
+          // A missing one-shot: the loop stands in while [_unavailable]
+          // puts it back for good.
+          : SalSprite(
+              clip: kSalHeroLoop, size: widget.size, fallback: widget.fallback),
+    );
   }
 }
 

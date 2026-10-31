@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,8 @@ void showMessageSnackBar({
   if (error) {
     icon = Icons.error_rounded;
     color = AppColors.error;
+    // Sal in the bar shakes his head with the toast (sal_reactions.dart).
+    SalReactions.play(SalReaction.shakeNo);
   } else if (info) {
     icon = Icons.info_rounded;
     color = AppColors.info;
@@ -174,8 +177,9 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
   @override
   void initState() {
     super.initState();
-    // The toast comes in on the sheet spring and leaves on the settle
-    // easing (lib/theme/kute_motion.dart).
+    // The toast comes in on the sheet spring ([KuteMotion.sheetIn]) and
+    // leaves on the settle easing ([KuteMotion.sheetOut]), the one motion
+    // every sheet has (lib/theme/kute_motion.dart).
     _controller = AnimationController(
       vsync: this,
       duration: KuteMotion.sheetInDuration,

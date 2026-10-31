@@ -3,11 +3,12 @@
 // Portfolio view (Open, Orders, Activity, Statistics), each with its own
 // headline. Kept in one place so every surface stays identical.
 //
-// Sal used to be a GIF here, on a loop nobody authored and with a
-// `_dogController` that was started, repeated and disposed without a single
-// widget ever reading it. He is now the painted rig, idling: breathing,
-// wagging, blinking, flicking an ear and glancing around on a ten second
-// cycle, sharp at any size and quiet when Reduce Motion is on.
+// Sal is the 3D hero here (founder, 31 October 2026): `body_hero` with a
+// life ([SalIdleDirector], sal_sprite.dart): a hero one-shot every 6–12 s,
+// asleep after a minute without a touch, awake on the next one. Until that
+// sheet exists he sits down and sits (`body_sit_down` → `body_sit`), and
+// the painted rig idles until any sheet exists. Quiet under Reduce
+// Motion.
 
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async';
@@ -139,11 +140,11 @@ class _NoActivityStateState extends State<NoActivityState>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // The 3D Sal (founder, 31 October 2026): `body_hero`, sitting
-            // and looking at you; until that sheet lands he sits down and
-            // sits (`body_sit`), and the rig idles until any sheet exists.
-            SalSprite(
-              clip: 'body_hero',
+            // The 3D Sal (founder, 31 October 2026): the hero loop with
+            // its one-shots, sleep and wake; until that sheet lands he
+            // sits down and sits (`body_sit`), and the rig idles until any
+            // sheet exists.
+            SalIdleDirector(
               size: salSize,
               fallback: SalSprite.sequence(
                 first: 'body_sit_down',
