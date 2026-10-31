@@ -6932,5 +6932,20 @@
   "searchHomeRecent": "Recent",
   "@searchHomeRecent": {"description": "Search sheet, before any text: the small label over the last things opened or typed."},
   "searchHomeClear": "Clear",
-  "@searchHomeClear": {"description": "Search sheet, Recent: clears the list."}
+  "@searchHomeClear": {"description": "Search sheet, Recent: clears the list."},
+  "marketMetaLine": "{volume} · closes {date}",
+  "@marketMetaLine": {
+    "description": "Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.",
+    "placeholders": {
+      "volume": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "marketCloses": "closes {date}",
+  "@marketCloses": {
+    "description": "Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  }
 }
