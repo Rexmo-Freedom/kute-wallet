@@ -15,6 +15,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -66,16 +67,14 @@ Finder _earnCopy() => find.textContaining(
         r'No payments yet|Rewards start once'),
     skipOffstage: false);
 
-/// Opens the Portfolio pill, then its P&L charts section (Positions is
-/// the first).
+/// Opens the Portfolio's P&L charts section (Balances is the first).
+///
+/// The Portfolio is its own screen (portfolio_screen.dart, route
+/// `/portfolio`), pushed by the Dollars row's middle square through the
+/// app's router, which this harness has not; the test mounts the screen
+/// itself ([pumpInvestments] with `child: PortfolioScreen()`) and picks
+/// the section here.
 Future<void> _openStatistics(WidgetTester tester) async {
-  // The Portfolio is the action square in the middle of the Dollars row
-  // (Add · Portfolio · Send); it opens the Portfolio screen, whose
-  // section pill picks P&L charts.
-  await tester.tap(find.text('Portfolio').last);
-  for (var i = 0; i < 8; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
   await tester
       .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')).last);
   for (var i = 0; i < 8; i++) {
@@ -112,7 +111,9 @@ void main() {
         'rewards read', (tester) async {
       final events = recordEvents();
       final api = await pumpInvestments(tester,
-          earn: earn, estimatedSatsToday: 1234);
+          earn: earn,
+          estimatedSatsToday: 1234,
+          child: const PortfolioScreen());
       expect(_earnCopy(), findsNothing);
       await _openStatistics(tester);
       await _scrollToEnd(tester);

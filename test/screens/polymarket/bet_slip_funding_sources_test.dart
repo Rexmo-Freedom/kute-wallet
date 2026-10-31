@@ -11,13 +11,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -54,12 +52,12 @@ import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/money_steps_finders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 const _ownSpark =
     'spark1pgss93sy072yrmtad5cy2srwjhq8ekzuw78yhr808jn6htqfh9w8p8h9mfwlv9';
@@ -262,6 +260,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -299,25 +298,17 @@ Future<void> _pumpSlip(WidgetTester tester,
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
           funderFor: (_) => _funder, dollarsUsd: () => 5)),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: 'Inter',
-            extensions: [AppColorsExtension.light()]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: BetSlipSheet(
-                marketQuestion: 'Will it rain?',
-                marketSlug: slug,
-                outcomes: _outcomes,
-                initialAmountUsd: initialAmountUsd),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: BetSlipSheet(
+              marketQuestion: 'Will it rain?',
+              marketSlug: slug,
+              outcomes: _outcomes,
+              initialAmountUsd: initialAmountUsd),
         ),
       ),
     ),
@@ -334,6 +325,14 @@ Future<void> _frames(WidgetTester tester, [int n = 10]) async {
 
 PolySlipCta _cta(WidgetTester tester) =>
     tester.widget<PolySlipCta>(find.byType(PolySlipCta));
+
+/// The slip's one button is the bar: it reads what the slip declared, and
+/// the tap lands there. One frame, never settle: the tap starts the steps.
+Future<void> _tapCta(WidgetTester tester) async {
+  expect(barPrimaryLabel(tester), _cta(tester).label);
+  expect(barPrimaryEnabled(tester), isTrue);
+  await tapBarPrimary(tester, settle: false);
+}
 
 ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)));
@@ -419,7 +418,7 @@ void main() {
       expect(approvals, isEmpty);
       expect(_funder.sent, isEmpty);
       expect(_container(tester).read(pendingPolymarketBetProvider), isNull);
-      await tester.tap(find.byType(PolySlipCta));
+      await _tapCta(tester);
       await _frames(tester, 10);
       expect(approvals, hasLength(1));
       expect(approvals.single.action, SensitiveAction.pmBet);
@@ -451,7 +450,7 @@ void main() {
     expect(find.byKey(const ValueKey('bet-slip-deposit-door')), findsNothing);
     expect(_cta(tester).label, isNot(startsWith(r'Add $')));
 
-    await tester.tap(find.byType(PolySlipCta));
+    await _tapCta(tester);
     await _frames(tester, 10);
 
     expect(sheets, isEmpty);
@@ -490,7 +489,7 @@ void main() {
     await _pumpSlip(tester);
     expect(find.byKey(const ValueKey('bet-slip-deposit-door')), findsNothing);
 
-    await tester.tap(find.byType(PolySlipCta));
+    await _tapCta(tester);
     await _frames(tester, 10);
 
     expect(sheets, isEmpty);
@@ -509,7 +508,15 @@ void main() {
         ['leg:investing', 'leg:dollars']);
     expect(findMoneyStepContaining('from Investing'), findsOneWidget);
     expect(findMoneyStepContaining('from Dollars'), findsOneWidget);
-    expect(find.text('Getting your prediction ready'), findsOneWidget);
+    // The step list names the active step once; the bar (the slip's busy
+    // button) reads it too.
+    expect(
+        find.descendant(
+            of: find.byType(SlipFundingSteps),
+            matching: find.text('Getting your prediction ready')),
+        findsOneWidget);
+    expect(barPrimaryBusy(tester), isTrue);
+    expect(barPrimaryLabel(tester), 'Getting your prediction ready');
     expect(find.text('Placing \$10.00 on Yes'), findsOneWidget);
     final pending = _container(tester).read(pendingPolymarketBetProvider)!;
     expect(pending.status, PendingBetStatus.awaitingBalance);
@@ -540,7 +547,7 @@ void main() {
       expect(_cta(tester).label,
           typed == null ? 'Place minimum on Yes' : r'Minimum $1.00');
 
-      await tester.tap(find.byType(PolySlipCta));
+      await _tapCta(tester);
       await _frames(tester, 10);
 
       expect(sheets, isEmpty);
