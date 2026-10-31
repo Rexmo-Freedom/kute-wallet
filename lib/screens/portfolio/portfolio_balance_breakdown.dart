@@ -403,10 +403,15 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     required this.predictions,
     this.overview = false,
     this.venues = const {},
+    this.sharesHeader = false,
   });
 
   final bool trading;
   final bool predictions;
+
+  /// The Portfolio screen's shares block over the venues, instead of
+  /// Available to invest and Move money (BalancesOverview.sharesHeader).
+  final bool sharesHeader;
 
   /// The Balances section's layout: Buying power with the ring, Move
   /// money, then Invested with each venue's positions
@@ -719,6 +724,7 @@ class _PortfolioBalanceBreakdownState
         steps: steps,
         venues: widget.venues,
         firstReadDone: _firstReadDone,
+        sharesHeader: widget.sharesHeader,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),

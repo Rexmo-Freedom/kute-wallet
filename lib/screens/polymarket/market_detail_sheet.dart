@@ -1,6 +1,8 @@
 import 'package:kute/screens/shared/fitted_title.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -695,18 +697,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                               // resolution keep their own row below. Own
                               // Consumer: the live score feed is read for
                               // this alone.
-                              Consumer(
-                                builder: (context, salRef, _) =>
-                                    SalWhyMovingRow(
-                                  advisorContext: _salContext,
-                                  question: salWhyMovingPm(context.l10n,
-                                      oddsChange1d: event.oneDayPriceChange,
-                                      liveGame: _isGameLive(
-                                          _liveMatchUpdate(salRef))),
-                                  chipSignals: salSignalsForPolyEvent(event),
-                                  padding: EdgeInsets.only(bottom: 8.h),
-                                ),
-                              ),
+                              // (The "Why is it moving?" row is gone:
+                              // that question is the first Ask Sal chip
+                              // in the bar's Sal sheet; founder, 31
+                              // October 2026.)
                               // Count markets: the running tally, refreshed
                               // while open.
                               if (event.tweetCount != null)
@@ -749,6 +743,15 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
                       _fitChartToScreen(constraints);
                       return const SliverToBoxAdapter(child: SizedBox.shrink());
                     }),
+                    // The last rows (the outcomes, Rules) scroll clear of
+                    // the floating bar (kute_bar_context.dart).
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                          height: kuteBarScrollClearance.h +
+                              (event.isBinary
+                                  ? 0
+                                  : MediaQuery.viewPaddingOf(context).bottom)),
+                    ),
                   ],
                 ),
               ),
@@ -760,26 +763,35 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Sal's grounding: this public event and, when every outcome is one
-  /// market, that market.
-  AdvisorContext get _salContext => AdvisorContext(
-      surface: 'polymarket_market_detail',
-      marketVenue: 'polymarket',
-      marketId: event.slug,
-      submarketId:
-          event.outcomes.map((o) => o.gammaMarketId).toSet().length == 1
-              ? event.outcomes.firstOrNull?.gammaMarketId
-              : null);
-
   /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the "Why is it moving?" row under the
-  /// chart, when there is a move worth explaining.
+  /// watchlist star. Sal's door is the bar under the page.
   Widget _buildHeader(AppColorsExtension c) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
         children: [
-          const KuteCloseButton(),
+          // The bar reads "Share with your friends" while this page is up.
+          KuteBarContextScope(
+            barContext: marketBarContext(
+              context,
+              title: event.title,
+              venue: kMarketLinkPredictions,
+              slug: event.slug,
+              chance: event.isBinary ? event.yesPrice * 100 : null,
+              // The pick: the leading outcome, the side this page shows.
+              outcome: polymarketLeadingPick(event)?.label,
+              outcomeIndex: polymarketLeadingPick(event)?.index,
+              outcomeChance: polymarketLeadingPick(event)?.chance,
+              side: 'buy',
+              imageUrl: event.displayIconUrl,
+              actionRowHeight: event.isBinary ? _kStickyActionsHeight : 0,
+              position: false,
+              category: SearchCategory.predictions,
+              searchHint: context.l10n.searchPredictionsHint,
+              source: 'predictions',
+            ),
+            child: const KuteCloseButton(),
+          ),
           SizedBox(width: 8.w),
           // The SAME resolver the cards use (team crest for a gaming /
           // esports "vs" market the sports detector didn't catch, the
@@ -2474,6 +2486,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }
     return polymarketSideLabels(name);
   }
+
+  /// The sticky pair's height for the bar to clear (kute_bar_context.dart,
+  /// actionRowHeight): its padding, the buttons and the hairline above.
+  double get _kStickyActionsHeight => 12.h + 60.h + 8.h + 0.5;
 
   Widget _buildStickyActions(AppColorsExtension c) {
     // Multi-outcome has no sticky bar — tapping a candidate opens its own

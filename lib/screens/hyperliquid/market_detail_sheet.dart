@@ -1,4 +1,7 @@
 import 'package:kute/screens/shared/fitted_title.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -19,7 +22,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -291,14 +293,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
   HlMarket get market => hlSheetMarket(ref, widget.market);
 
-  /// What Sal is told about this screen: public market facts only.
-  AdvisorContext _salContext(HlMarket m) => AdvisorContext(
-        surface: 'hl_market_detail',
-        marketVenue: 'hyperliquid',
-        marketId: m.wireCoin,
-        marketDisplayName: m.coin,
-      );
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -378,8 +372,36 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
-                      // is the "Why is it moving?" row under the chart.
-                      HlWatchStar(market: m, size: 22, source: 'detail'),
+                      // is the "Why is it moving?" row under the chart;
+                      // the bar reads "Share with your friends".
+                      // The watchlist star (the bar reads "Share with your
+                      // friends" while this page is up; its context is
+                      // held here). Sal's one door on this screen is the
+                      // "Why is it moving?" row under the chart.
+                      KuteBarContextScope(
+                        barContext: marketBarContext(
+                          context,
+                          title: widget.market.coin,
+                          venue: kMarketLinkInvesting,
+                          slug: widget.market.coin,
+                          price: formatHlPrice(
+                              widget.market.midPx > 0
+                                  ? widget.market.midPx
+                                  : widget.market.markPx,
+                              decimalCap: widget.market.pxDecimalCap),
+                          // The pick: Long, the side this page opens on.
+                          outcome: context.l10n.longLabel,
+                          side: 'long',
+                          actionRowHeight:
+                              _advancedChart ? 0 : _kInvestRowHeight,
+                          position: false,
+                          category: SearchCategory.perpetuals,
+                          searchHint: context.l10n.searchInvestmentsHint,
+                          source: 'trading',
+                        ),
+                        child:
+                            HlWatchStar(market: m, size: 22, source: 'detail'),
+                      ),
                     ],
                   ),
                 ),
@@ -496,7 +518,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         20.w,
                         10.h,
                         20.w,
-                        24.h +
+                        // The foot scrolls clear of the floating bar.
+                        kuteBarScrollClearance.h +
                             (_advancedChart
                                 ? MediaQuery.viewPaddingOf(context).bottom
                                 : 0)),
@@ -532,16 +555,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             onTap: () =>
                                 HlCandleChart.openAdvanced(_chartHostKey),
                           ),
-                        // Sal's one quiet door on this screen, under the
-                        // Advanced chart row: "Why is it moving?",
-                        // on every market (perp, spot, HIP-3), calm or not.
-                        if (!_advancedChart)
-                          SalWhyMovingRow(
-                            advisorContext: _salContext(m),
-                            question: salWhyMovingHl(context.l10n,
-                                label: m.coin),
-                            chipSignals: salSignalsForHlMarket(m),
-                          ),
+                        // (The "Why is it moving?" row is gone: that
+                        // question is the first Ask Sal chip in the bar's
+                        // Sal sheet; founder, 31 October 2026.)
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
@@ -622,6 +638,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the CTA routes through LedgerActions, which hands the SAME order slip
   /// that wallet id: one ticket, signed by the device instead of the hot
   /// account.
+  /// The pinned row's height for the bar to clear (kute_bar_context.dart,
+  /// actionRowHeight): its padding, the buttons and the hairline above.
+  double get _kInvestRowHeight => 12.h + 56.h + 8.h + 0.5;
+
   Widget _buildInvestRow(HlMarket m, double spotHeld) {
     final l10n = context.l10n;
     final showOtherSide = !m.isSpot || spotHeld > 0;

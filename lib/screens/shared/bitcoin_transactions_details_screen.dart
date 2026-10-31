@@ -14,6 +14,7 @@ import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -96,7 +97,16 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
         ),
       );
     }
-    return Scaffold(
+    // The bar explains the receipt (founder, 31 October 2026).
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barReceiptLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barReceiptQuestion,
+        source: 'receipt',
+      ),
+      child: Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: context.colors.background,
       appBar: AppBar(
@@ -139,7 +149,7 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
 

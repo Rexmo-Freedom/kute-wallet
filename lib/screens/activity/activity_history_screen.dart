@@ -20,10 +20,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivityList;
+import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -82,11 +85,21 @@ class ActivityHistoryScreen extends StatelessWidget {
         child: investments
             ? const PortfolioActivityList()
             : SingleChildScrollView(
-                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
-                child: TransactionList(
-                  walletIdOverride: walletIdOverride,
-                  onlyUsdb: onlyUsdb,
-                  showAll: true,
+                // The last rows scroll clear of the floating bar.
+                padding: EdgeInsets.only(
+                    top: 8.h, bottom: 24.h + kuteBarScrollClearance.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Share links this wallet sent and nobody has claimed
+                    // or that still wait to be paid: not transactions yet.
+                    if (walletIdOverride == null) const PendingShareLinksCard(),
+                    TransactionList(
+                      walletIdOverride: walletIdOverride,
+                      onlyUsdb: onlyUsdb,
+                      showAll: true,
+                    ),
+                  ],
                 ),
               ),
       ),

@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'trailing_stop_sheet.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
@@ -143,7 +144,7 @@ class HlClosePositionSheet extends ConsumerStatefulWidget {
       'margin_mode': position.leverageType,
     });
     // Exact mirror of SellSheet.show — same flags, same options.
-    unawaited(OpenOnce.run(routeName, () => showModalBottomSheet(
+    unawaited(OpenOnce.run(routeName, () => showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,

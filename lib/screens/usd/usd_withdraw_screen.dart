@@ -30,6 +30,11 @@ import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/money_movement_sheet.dart'
     show MoneyMovementAccount, showMoneyMovementSheet;
 import 'package:kute/screens/shared/receive_surface.dart';
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteMarketBarAction;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
@@ -112,7 +117,29 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return ReceiveSheetFrame(
+    // Send to anyone lives in the bar only (founder, 31 October 2026):
+    // "Send to anyone" over "A link they claim with Kute", its Sal
+    // sheet's top row opening the sheet for dollars.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: l10n.shareSendToAnyone,
+        sublabel: l10n.shareSendToAnyoneSubtitle,
+        clip: 'share',
+        source: kUsdWithdrawSheetSource,
+        actions: [
+          KuteMarketBarAction(
+            label: l10n.shareSendToAnyone,
+            sublabel: l10n.shareSendToAnyoneSubtitle,
+            salClip: 'share',
+            onTap: (_) => unawaited(showSendToAnyoneSheet(
+              context,
+              kind: ShareLinkKind.dollars,
+              entrySource: kUsdWithdrawSheetSource,
+            )),
+          ),
+        ],
+      ),
+      child: ReceiveSheetFrame(
       leading:
           KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
       // The balance the money leaves from, read-only, where the Deposit
@@ -126,6 +153,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
         child: _buildFirstStep(context),
+      ),
       ),
     );
   }

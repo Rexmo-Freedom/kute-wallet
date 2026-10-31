@@ -6594,7 +6594,7 @@ abstract class AppLocalizations {
   /// No description provided for @usdAccountTab.
   ///
   /// In en, this message translates to:
-  /// **'Investments'**
+  /// **'Dollars'**
   String get usdAccountTab;
 
   /// No description provided for @activityFromAmount.
@@ -10663,7 +10663,7 @@ abstract class AppLocalizations {
   /// The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon.
   ///
   /// In en, this message translates to:
-  /// **'Investments deposit'**
+  /// **'Dollars deposit'**
   String get dollarDeposit;
 
   /// The other side of dollarDeposit: money leaving the dollar balance. Same mark.
@@ -11551,13 +11551,13 @@ abstract class AppLocalizations {
   /// Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin.
   ///
   /// In en, this message translates to:
-  /// **'Investments'**
+  /// **'Dollars'**
   String get assetDollars;
 
   /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
   /// In en, this message translates to:
-  /// **'Pay with your Investments balance'**
+  /// **'Pay with your Dollars balance'**
   String get moveSourceDollarsSubtitle;
 
   /// Placeholder for the recipient field when the send destination is a dollar balance.
@@ -11972,7 +11972,7 @@ abstract class AppLocalizations {
   /// Second line on the Investments row of the withdrawal destination picker.
   ///
   /// In en, this message translates to:
-  /// **'Into your Investments balance'**
+  /// **'Into your Dollars balance'**
   String get moveDestDollarsSubtitle;
 
   /// Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one.
@@ -13923,13 +13923,13 @@ abstract class AppLocalizations {
   /// No description provided for @betAutofireFundsTimeout.
   ///
   /// In en, this message translates to:
-  /// **'The prediction couldn\'t be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.'**
+  /// **'The prediction couldn\'t be placed automatically. Your money stays available in Dollars, and placing it again uses it first. It should be instant.'**
   String get betAutofireFundsTimeout;
 
   /// No description provided for @betAutofireBookUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.'**
+  /// **'Could not reach Polymarket to place the prediction. Your money stays available in Dollars, and trying again uses it first.'**
   String get betAutofireBookUnavailable;
 
   /// No description provided for @moveInvestingDepositsUnavailable.
@@ -18035,96 +18035,6 @@ abstract class AppLocalizations {
   /// **'Financial hub and settings'**
   String get financialHubAndSettings;
 
-  /// Bitcoin home analytics strip tab (beside Activity and Balance): the bitcoin that came in and went out, by month or year, in plain words. Short: it is a pill.
-  ///
-  /// In en, this message translates to:
-  /// **'In & out'**
-  String get analyticsInOutTab;
-
-  /// In & out tab: the small pill that shows one calendar month at a time.
-  ///
-  /// In en, this message translates to:
-  /// **'Month'**
-  String get inOutMonth;
-
-  /// In & out tab: the small pill that shows one calendar year at a time.
-  ///
-  /// In en, this message translates to:
-  /// **'Year'**
-  String get inOutYear;
-
-  /// In & out tab: label over the total bitcoin that came in during the selected period (shown as +amount). Tapping it lists where it came from.
-  ///
-  /// In en, this message translates to:
-  /// **'In'**
-  String get inOutIn;
-
-  /// In & out tab: label over the total bitcoin that went out during the selected period (shown as −amount). Tapping it lists where it went.
-  ///
-  /// In en, this message translates to:
-  /// **'Out'**
-  String get inOutOut;
-
-  /// In & out tab: small heading over the list of where the money that went out went (Sent to people, Into Investments, Into Dollars, Fees).
-  ///
-  /// In en, this message translates to:
-  /// **'Where it went'**
-  String get inOutWhereItWent;
-
-  /// In & out tab: small heading over the list of where the money that came in came from (From people, From Investments, From Dollars, Bought).
-  ///
-  /// In en, this message translates to:
-  /// **'Where it came from'**
-  String get inOutWhereItCameFrom;
-
-  /// In & out tab, money out: bitcoin paid to other people, whatever the network.
-  ///
-  /// In en, this message translates to:
-  /// **'Sent to people'**
-  String get inOutSentToPeople;
-
-  /// In & out tab, money out: bitcoin moved into the person's own Investments (Investing or Predictions). Investments is the product name.
-  ///
-  /// In en, this message translates to:
-  /// **'Into Investments'**
-  String get inOutIntoInvestments;
-
-  /// In & out tab, money out: bitcoin converted into the person's own Dollars balance.
-  ///
-  /// In en, this message translates to:
-  /// **'Into Dollars'**
-  String get inOutIntoDollars;
-
-  /// In & out tab, money in: bitcoin received from other people or from outside the app.
-  ///
-  /// In en, this message translates to:
-  /// **'From people'**
-  String get inOutFromPeople;
-
-  /// In & out tab, money in: money brought home from the person's own Investments (Investing or Predictions). Investments is the product name.
-  ///
-  /// In en, this message translates to:
-  /// **'From Investments'**
-  String get inOutFromInvestments;
-
-  /// In & out tab, money in: the person's own Dollars converted into bitcoin.
-  ///
-  /// In en, this message translates to:
-  /// **'From Dollars'**
-  String get inOutFromDollars;
-
-  /// In & out tab, money in: bitcoin bought with money (e.g. Cash App).
-  ///
-  /// In en, this message translates to:
-  /// **'Bought'**
-  String get inOutBought;
-
-  /// In & out tab: headline when nothing came in or went out in the selected month or year (the period's name is shown above).
-  ///
-  /// In en, this message translates to:
-  /// **'No money in or out'**
-  String get inOutEmpty;
-
   /// Statistics tab of the Predictions and Investing portfolios: the small pill for what is open now (open positions by category, open P&L, amount at stake, open positions).
   ///
   /// In en, this message translates to:
@@ -18256,7 +18166,7 @@ abstract class AppLocalizations {
   /// Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Add {amount} to Investments'**
+  /// **'Add {amount} to Dollars'**
   String slipAddToInvestments(String amount);
 
   /// A buy slip's button before an amount is typed: the side and the market's coin ('Long ETH', 'Buy BTC').
@@ -18346,7 +18256,7 @@ abstract class AppLocalizations {
   /// No description provided for @addMoneyToInvestments.
   ///
   /// In en, this message translates to:
-  /// **'Add money to Investments'**
+  /// **'Add money to Dollars'**
   String get addMoneyToInvestments;
 
   /// No description provided for @depositFromSpendingWallet.
@@ -18466,7 +18376,7 @@ abstract class AppLocalizations {
   /// Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Adding {amount} to Investments'**
+  /// **'Adding {amount} to Dollars'**
   String slipStepAddingToInvestments(String amount);
 
   /// Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments.
@@ -18502,13 +18412,13 @@ abstract class AppLocalizations {
   /// Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Your {amount} is in Investments. Tap to place.'**
+  /// **'Your {amount} is in Dollars. Tap to place.'**
   String slipFundingReadyToPlace(String amount);
 
   /// Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet.
   ///
   /// In en, this message translates to:
-  /// **'Adding to Investments didn\'t go through. Your bitcoin is coming back.'**
+  /// **'Adding to Dollars didn\'t go through. Your bitcoin is coming back.'**
   String get slipFundingBitcoinBack;
 
   /// Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is.
@@ -18568,7 +18478,7 @@ abstract class AppLocalizations {
   /// Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.
   ///
   /// In en, this message translates to:
-  /// **'Your {amount} is in Investments. Tap to add margin.'**
+  /// **'Your {amount} is in Dollars. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
 
   /// A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move.
@@ -18950,6 +18860,604 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'entry {price}'**
   String portfolioRowEntry(String price);
+
+  /// Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get investmentsAdd;
+
+  /// Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way'**
+  String get activityOnItsWay;
+
+  /// Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon.
+  ///
+  /// In en, this message translates to:
+  /// **'Traditional'**
+  String get investingTradfi;
+
+  /// Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin).
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase'**
+  String get purchaseShort;
+
+  /// Investments category sheet: the small label over the first card, the starred, trending, breaking, new and live categories of a venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get categoryGroupDiscover;
+
+  /// Investments category sheet, Investing: the label over the card of market categories (Traditional, Crypto, Perps, Spot, Pre-launch).
+  ///
+  /// In en, this message translates to:
+  /// **'Markets'**
+  String get categoryGroupMarkets;
+
+  /// Investments category sheet, Predictions: the label over the card of subject categories (Politics, Sports, Crypto…).
+  ///
+  /// In en, this message translates to:
+  /// **'Topics'**
+  String get categoryGroupTopics;
+
+  /// Category sheet tile, second line: how many markets the category holds. {count} is the number.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 market} other{{count} markets}}'**
+  String categoryStatMarkets(int count);
+
+  /// Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'.
+  ///
+  /// In en, this message translates to:
+  /// **'Most active'**
+  String get categoryStatMostActive;
+
+  /// Category sheet, the Trending tile's second line tail, after the median move: '▲ 1.8% today'. Lowercase mid-line.
+  ///
+  /// In en, this message translates to:
+  /// **'today'**
+  String get categoryStatToday;
+
+  /// Category sheet, a Predictions tile's second line: the loaded events' 24h volume added up. {amount} is compact money ($12M).
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} vol today'**
+  String categoryStatVolToday(String amount);
+
+  /// Category sheet, the wide tile at the top of a group's subcategory grid: the whole group, no subcategory ('All Traditional', 'All Politics'). {group} is the group's name.
+  ///
+  /// In en, this message translates to:
+  /// **'All {group}'**
+  String categoryAllOf(String group);
+
+  /// Search sheet, before any text: the small label over the row of chips with the day's biggest Investing moves.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving now'**
+  String get searchHomeMovingNow;
+
+  /// Search sheet, before any text: the small label over three trending prediction rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending predictions'**
+  String get searchHomeTrendingPredictions;
+
+  /// The floating Sal bar while the category grid sheet is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a market group'**
+  String get barPickMarketGroup;
+
+  /// Second line of the floating Sal bar while the category grid sheet is open.
+  ///
+  /// In en, this message translates to:
+  /// **'or ask Sal to find one'**
+  String get barPickMarketGroupSub;
+
+  /// The floating Sal bar on a market or position page: the recommended action.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with your friends'**
+  String get barShareWithFriends;
+
+  /// Second line of the floating Sal bar on a market page.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the market or your prediction'**
+  String get barShareMarketSub;
+
+  /// Second line of the floating Sal bar on a position page.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the market or your position'**
+  String get barSharePositionSub;
+
+  /// Action row on a market page: shares a link to the market.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the market'**
+  String get shareTheMarket;
+
+  /// Second line of the Share the market row.
+  ///
+  /// In en, this message translates to:
+  /// **'A link they can open, with your code'**
+  String get shareTheMarketSub;
+
+  /// Action row on a position page: shares the market and how the position is doing.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this position'**
+  String get shareThisPosition;
+
+  /// Second line of the Share this position row.
+  ///
+  /// In en, this message translates to:
+  /// **'The market and how you\'re doing'**
+  String get shareThisPositionSub;
+
+  /// Action row on a Predictions market or position page, and the send sheet's title: sends the pick (outcome and amount) as a link the recipient places.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this prediction'**
+  String get sendThisPrediction;
+
+  /// Action row on an Investing market or position page, and the send sheet's title: sends the pick (Long / Short and amount) as a link the recipient places.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this investment'**
+  String get sendThisInvestment;
+
+  /// Second line of the Send this prediction / investment row and the send sheet's subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'They get your pick, ready to place'**
+  String get sendThisPickSub;
+
+  /// The pick line: the outcome ('Yes', 'Long') on the market's title. Shown above the amount on the send sheet and on the Claim screen's preview card.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} on {title}'**
+  String sharePickOn(String outcome, String title);
+
+  /// Portfolio screen, Sal sheet: the second line of the Move money action row.
+  ///
+  /// In en, this message translates to:
+  /// **'Between Dollars, Investing and Predictions'**
+  String get portfolioMoveMoneySub;
+
+  /// The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen.
+  ///
+  /// In en, this message translates to:
+  /// **'What is this?'**
+  String get barWhatIsThis;
+
+  /// Second line of the bar on the Receive sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Sal explains how receiving works'**
+  String get barReceiveExplainSub;
+
+  /// The question the Receive sheet's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means'**
+  String get barReceiveQuestion;
+
+  /// The bar on the scanner.
+  ///
+  /// In en, this message translates to:
+  /// **'What can I scan?'**
+  String get barScannerLabel;
+
+  /// The question the scanner's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?'**
+  String get barScannerQuestion;
+
+  /// The bar on Backup and recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Why back up?'**
+  String get barBackupLabel;
+
+  /// The question the Backup screen's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?'**
+  String get barBackupQuestion;
+
+  /// The bar on a transaction receipt.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened here?'**
+  String get barReceiptLabel;
+
+  /// The question a receipt's bar sends to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain this transaction receipt: what moved, the fees, the status and what each line means'**
+  String get barReceiptQuestion;
+
+  /// Second line of the bar on an informational screen other than Receive.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal about this screen'**
+  String get barAskSalSub;
+
+  /// The floating Sal bar over the Move money screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Move money'**
+  String get barMoveMoney;
+
+  /// Second line of the floating Sal bar over the Move money screen.
+  ///
+  /// In en, this message translates to:
+  /// **'ask Sal where it should go'**
+  String get barMoveMoneySub;
+
+  /// The floating Sal bar over a receipt or a pending result.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal what happens next'**
+  String get barAskWhatNext;
+
+  /// The floating Sal bar over Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal about Kute'**
+  String get barAskAboutKute;
+
+  /// Search sheet, before any text: the small label over the last things opened or typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get searchHomeRecent;
+
+  /// Search sheet, Recent: clears the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get searchHomeClear;
+
+  /// Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.
+  ///
+  /// In en, this message translates to:
+  /// **'{volume} · closes {date}'**
+  String marketMetaLine(String volume, String date);
+
+  /// Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.
+  ///
+  /// In en, this message translates to:
+  /// **'closes {date}'**
+  String marketCloses(String date);
+
+  /// Recipient option on Send: a link anyone can claim with Kute.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to anyone'**
+  String get shareSendToAnyone;
+
+  /// No description provided for @shareSendToAnyoneSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A link they claim with Kute'**
+  String get shareSendToAnyoneSubtitle;
+
+  /// No description provided for @shareWhoIsItFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Who is it for?'**
+  String get shareWhoIsItFor;
+
+  /// No description provided for @shareFirstNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'First name (optional)'**
+  String get shareFirstNameHint;
+
+  /// No description provided for @shareCreateLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Create link'**
+  String get shareCreateLink;
+
+  /// No description provided for @shareCreatingLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating link'**
+  String get shareCreatingLink;
+
+  /// No description provided for @shareCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the link. Try again.'**
+  String get shareCreateFailed;
+
+  /// An amount of bitcoin stated in the user's currency.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Bitcoin'**
+  String shareAmountInBitcoin(String amount);
+
+  /// The text put in the OS share sheet when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you {amount} with Kute. Claim it here: {url}'**
+  String shareMessageNamed(String name, String amount, String url);
+
+  /// The text put in the OS share sheet when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you {amount} with Kute. Claim it here: {url}'**
+  String shareMessageUnnamed(String amount, String url);
+
+  /// The OS share text for a prediction link when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The OS share text for a prediction link when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url);
+
+  /// The OS share text for an Investing link when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The OS share text for an Investing link when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url);
+
+  /// No description provided for @shareLinkSentWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Link sent · waiting for {name} to claim'**
+  String shareLinkSentWaiting(String name);
+
+  /// No description provided for @shareLinkSentWaitingUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Link sent · waiting to be claimed'**
+  String get shareLinkSentWaitingUnnamed;
+
+  /// No description provided for @shareLinkClaimedReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Claimed · ready to send'**
+  String get shareLinkClaimedReady;
+
+  /// No description provided for @shareLinkPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get shareLinkPaid;
+
+  /// No description provided for @shareLinkCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get shareLinkCancelled;
+
+  /// No description provided for @shareLinkExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get shareLinkExpired;
+
+  /// No description provided for @shareLinkCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel link'**
+  String get shareLinkCancel;
+
+  /// No description provided for @shareLinkCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel the link. Try again.'**
+  String get shareLinkCancelFailed;
+
+  /// No description provided for @shareLinkShareAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Share again'**
+  String get shareLinkShareAgain;
+
+  /// No description provided for @sharePendingLinksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Links you sent'**
+  String get sharePendingLinksTitle;
+
+  /// No description provided for @shareClaimedPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} claimed your {amount}'**
+  String shareClaimedPromptTitle(String name, String amount);
+
+  /// No description provided for @shareClaimedPromptTitleUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {amount} was claimed'**
+  String shareClaimedPromptTitleUnnamed(String amount);
+
+  /// No description provided for @shareClaimedPromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it now to finish. It leaves your wallet only when you confirm.'**
+  String get shareClaimedPromptBody;
+
+  /// No description provided for @shareSendNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Send now'**
+  String get shareSendNow;
+
+  /// No description provided for @shareLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get shareLater;
+
+  /// No description provided for @shareSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send. Kute will ask again next time it opens.'**
+  String get shareSendFailed;
+
+  /// Claim screen headline. sender is a first name or "Someone".
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you {amount}'**
+  String claimTitle(String sender, String amount);
+
+  /// Stands in for the sender's name when the link carries none.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get claimSomeone;
+
+  /// No description provided for @claimMarketLine.
+  ///
+  /// In en, this message translates to:
+  /// **'to bet on {market}'**
+  String claimMarketLine(String market);
+
+  /// No description provided for @claimButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim'**
+  String get claimButton;
+
+  /// No description provided for @claimClaiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Claiming'**
+  String get claimClaiming;
+
+  /// No description provided for @claimOnItsWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On its way'**
+  String get claimOnItsWay;
+
+  /// No description provided for @claimArrivesWhenOpens.
+  ///
+  /// In en, this message translates to:
+  /// **'It arrives when {sender} opens Kute.'**
+  String claimArrivesWhenOpens(String sender);
+
+  /// Claim screen headline for a link that carries a prediction pick. sender is a first name or "Someone".
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you a prediction'**
+  String claimSentPrediction(String sender);
+
+  /// Claim screen headline for a link that carries an Investing pick.
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you an investment'**
+  String claimSentInvestment(String sender);
+
+  /// Claim screen preview card, the line under the market's title: the outcome and the amount ('Yes · $12.00').
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} · {amount}'**
+  String claimPickAmount(String outcome, String amount);
+
+  /// Claim screen after the claim of a pick, until the money has arrived in Dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {sender} to send it'**
+  String claimWaitingForSender(String sender);
+
+  /// Claim screen headline once the claimed money has arrived.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} is in your Dollars'**
+  String claimArrivedInDollars(String amount);
+
+  /// Claim screen button once the money arrived: opens the bet slip prefilled with the pick. Nothing is placed without the tap in the slip.
+  ///
+  /// In en, this message translates to:
+  /// **'Place the prediction'**
+  String get claimPlacePrediction;
+
+  /// Claim screen button for an Investing pick once the money arrived: opens the order slip on the pick's side.
+  ///
+  /// In en, this message translates to:
+  /// **'Place the investment'**
+  String get claimPlaceInvestment;
+
+  /// No description provided for @claimOpenMarket.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the market'**
+  String get claimOpenMarket;
+
+  /// No description provided for @claimAlreadyClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'This link was already claimed.'**
+  String get claimAlreadyClaimed;
+
+  /// No description provided for @claimExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This link has expired.'**
+  String get claimExpired;
+
+  /// No description provided for @claimUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This link is not available.'**
+  String get claimUnavailable;
+
+  /// No description provided for @claimFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not claim. Try again.'**
+  String get claimFailed;
+
+  /// No description provided for @claimNeedsWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wallet is still getting ready. Try again in a moment.'**
+  String get claimNeedsWallet;
+
+  /// No description provided for @shareMarketShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link'**
+  String get shareMarketShareLink;
+
+  /// No description provided for @shareMarketLookAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Look at this on Kute: {title} {link}'**
+  String shareMarketLookAt(String title, String link);
+
+  /// No description provided for @shareMarketChance.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance}% chance'**
+  String shareMarketChance(String chance);
 }
 
 class _AppLocalizationsDelegate

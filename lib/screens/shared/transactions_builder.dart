@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/cctp_refund_outcome.dart'
     show CctpRefundOutcome;
@@ -683,6 +684,26 @@ Widget buildWalletActivityRow({
 /// One-line activity row title ("Deposit", "Sold · G2", "Long BTC").
 Widget activityRowTitle(String text) => _RowTitle(text);
 
+/// How dense an Activity list draws its rows. Home's list is compact: one
+/// line of context and one figure per row; the second figure, the fee and
+/// the rail wait in the row's detail sheet. Every other list keeps both
+/// figures.
+class ActivityRowStyle extends InheritedWidget {
+  const ActivityRowStyle(
+      {super.key, required this.compact, required super.child});
+
+  final bool compact;
+
+  static bool compactOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<ActivityRowStyle>()
+          ?.compact ??
+      false;
+
+  @override
+  bool updateShouldNotify(ActivityRowStyle old) => old.compact != compact;
+}
+
 class _TransactionRow extends ConsumerWidget {
   final Widget leading;
   final Widget title;
@@ -754,10 +775,12 @@ class _TransactionRow extends ConsumerWidget {
     final valuesVisible = !maskValues ||
         ref.watch(settingsProvider.select((s) => s.transactionValuesVisible));
     final shownAmount = valuesVisible ? _signed(amount) : '••••';
-    final shownFiat = valuesVisible ? fiatAmount : '';
+    final compact = ActivityRowStyle.compactOf(context);
+    final shownFiat = valuesVisible && !compact ? fiatAmount : '';
     final row = Container(
       color: Colors.transparent,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      padding: EdgeInsets.symmetric(
+          horizontal: 16.w, vertical: compact ? 13.h : 14.h),
       child: TransactionRowContent(
         leading: _RowIconTile(child: leading),
         title: title,
@@ -3041,7 +3064,9 @@ Widget _buildSwapOrderItem(
     statusLabel = context.l10n.expired;
     statusColor = AppColors.marketDown;
   } else if (awaitingCredit) {
-    statusLabel = context.l10n.pending;
+    // Money between the person's own places, not yet landed: "On its
+    // way", a row that moves, never a wall.
+    statusLabel = context.l10n.activityOnItsWay;
   } else {
     switch (details.status) {
       case 'success':
@@ -3075,7 +3100,7 @@ Widget _buildSwapOrderItem(
         statusLabel = context.l10n.activityReturnRequested;
         break;
       default:
-        statusLabel = context.l10n.pending;
+        statusLabel = context.l10n.activityOnItsWay;
     }
   }
 
@@ -5895,10 +5920,14 @@ Widget buildNoTransactionsFound([BuildContext? context]) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(
-            context != null ? kuteDogAsset(context) : kuteDogLightAsset,
-            width: 48.sp,
-            height: 48.sp,
+          SalSprite(
+            clip: 'idle',
+            size: 48.sp,
+            fallback: SvgPicture.asset(
+              context != null ? kuteDogAsset(context) : kuteDogLightAsset,
+              width: 48.sp,
+              height: 48.sp,
+            ),
           ),
           SizedBox(height: 12.h),
           Text(
@@ -6370,7 +6399,7 @@ class _MultiSourceMoveDetailSheetState
         ? (text: l10n.activityNeedsAttention, color: AppColors.marketDown)
         : tx.complete
             ? (text: l10n.completed, color: AppColors.success)
-            : (text: l10n.pending, color: c.warning);
+            : (text: l10n.activityOnItsWay, color: c.warning);
     // The Dollars balance by its own name, as the Portfolio breakdown
     // names it: "Investing → Dollars", never "Investing → Investments".
     final dollarsName = l10n.portfolioBalanceDollars;

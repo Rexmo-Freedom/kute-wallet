@@ -89,6 +89,7 @@
 // surface. Reduce Motion: the same states at once, no glide, walk,
 // breath, idle activity or replay; the haptics still play.
 
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async' show Timer, unawaited;
 import 'dart:math' as math;
 
@@ -2409,6 +2410,57 @@ String? _waitKeyOf(_Scene s, double now) {
   return '$st|${_spotOf(s, now)}|${_allLandedAt(s, st) != null}';
 }
 
+/// Draws the 3D Sal for the journey (see the call site); false when the
+/// clip is not decoded yet, so the rig draws him instead.
+bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
+    double now,
+    {required bool still, required bool walking, required SalMood mood}) {
+  final dpr = WidgetsBinding.instance.platformDispatcher.implicitView
+          ?.devicePixelRatio ??
+      2.0;
+  final density = SalSpriteCache.densityFor(dpr);
+  String name;
+  double? frameTime;
+  if (still) {
+    name = 'body_idle';
+    frameTime = 0;
+  } else if (s.outcome == _Outcome.failure) {
+    name = 'body_sad';
+  } else if (s.outcome == _Outcome.success || _hopping(s, now)) {
+    name = 'body_wag';
+  } else if (walking || mood == SalMood.fetch) {
+    name = 'body_walk';
+  } else if (mood == SalMood.sniff) {
+    name = 'body_sniff';
+  } else if (mood == SalMood.settle) {
+    // Sitting down once, from the moment settling began, then sitting.
+    final e = now - (s.waitSince ?? now) - _kSettleAt;
+    final sitDown = SalSpriteCache.peek('body_sit_down', density);
+    if (sitDown != null && e < sitDown.frames / sitDown.fps * 1000) {
+      name = 'body_sit_down';
+      frameTime = e;
+    } else {
+      name = 'body_sit';
+    }
+  } else {
+    name = 'body_idle';
+  }
+  final clip = SalSpriteCache.peek(name, density);
+  if (clip == null) return false;
+  final t = frameTime ?? now;
+  final raw = (t / 1000 * clip.fps).floor();
+  final frame = clip.loop && frameTime == null
+      ? raw % clip.frames
+      : raw.clamp(0, clip.frames - 1);
+  canvas.drawImageRect(
+    clip.image,
+    clip.cell(frame),
+    Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u),
+    Paint()..filterQuality = FilterQuality.medium,
+  );
+  return true;
+}
+
 /// Sal's mood at [now].
 SalMood _moodOf(_Scene s, double now) {
   if (s.stopMood case final m?) return m;
@@ -3042,6 +3094,17 @@ class MoneyJourneyPainter extends CustomPainter {
     }
     s.salBob = (pose.bodyBob - pose.lift) * u;
     final origin = Offset(x - 8 * u + (frame?.dx ?? 0), y - 0.75 - 15 * u);
+    // THE 3D SAL (founder, 31 October 2026, "even on the deposit flow"):
+    // the body clips in the rig's 16-unit box, by what he is doing: a
+    // failure is sad, a success (and the hop of a step landing) wags,
+    // walking and fetching walk, the sniff sniffs, settling sits down
+    // then sits, the rest idles. Frame 0 under Reduce Motion. The journey
+    // around him is painted as ever; only the dog is the render. Until a
+    // sheet is decoded (or without one) the rig below draws him.
+    if (_paintSalSprite(canvas, s, origin, u, now,
+        still: still, walking: walking, mood: mood)) {
+      return;
+    }
     if (frame != null && frame.lying) {
       paintKuteDogLying(canvas,
           origin: origin,

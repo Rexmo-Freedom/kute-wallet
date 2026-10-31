@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'dart:async';
 
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
@@ -1502,7 +1503,7 @@ class _ConfirmReceiveState extends ConsumerState<ConfirmReceive> {
   // ─── Username edit modal (ported verbatim from old widget) ────
 
   void _showEditUsernameModal(String currentUsername) {
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

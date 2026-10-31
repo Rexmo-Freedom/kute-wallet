@@ -16,7 +16,15 @@
 // pills, all in this one boxed chip (see PolyDrillRow). Every pill is
 // announced as a button with its selection (a link row's never), keeps
 // a 44 pt hit target wherever its row is [kutePillRowHeight] tall, and
-// eases its chrome over 180 ms (at once under Reduce Motion).
+// springs its chrome on the chip spring (KuteMotion.chip; at once under
+// Reduce Motion), with the app's press under a finger ([KutePressable]).
+//
+// A pill that holds more (the Investments pills, founder 31 October
+// 2026: "it should be more clear that we have much more context here")
+// carries its context after its name in the quieter weight ("Investing ·
+// Trending", [KutePillItem.detail]) and a chevron in a small filled
+// circle at its end ([KutePillItem.menu]), so it reads as a control and
+// not as decoration.
 
 import 'dart:math' as math;
 
@@ -24,6 +32,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// One entry of a [KutePillTabs] row.
 class KutePillItem {
@@ -34,7 +43,21 @@ class KutePillItem {
   /// height; see [KutePill.leading].
   final Widget? leading;
 
-  const KutePillItem({required this.label, this.icon, this.leading});
+  /// The pill's context after its name, in the quieter weight ("Trending",
+  /// "Politics · Live"); null for the plain name.
+  final String? detail;
+
+  /// A chevron in a small filled circle at the pill's end: the pill opens
+  /// a pick when tapped again.
+  final bool menu;
+
+  const KutePillItem({
+    required this.label,
+    this.icon,
+    this.leading,
+    this.detail,
+    this.menu = false,
+  });
 }
 
 /// A pill's size: the row's height, the pill's padding, its label and
@@ -97,6 +120,10 @@ class KutePill extends StatelessWidget {
   /// Tradfi"); null reads the label.
   final String? semanticLabel;
 
+  /// See [KutePillItem.detail] and [KutePillItem.menu].
+  final String? detail;
+  final bool menu;
+
   const KutePill({
     super.key,
     required this.label,
@@ -108,6 +135,8 @@ class KutePill extends StatelessWidget {
     this.size = KutePillSize.regular,
     this.link = false,
     this.semanticLabel,
+    this.detail,
+    this.menu = false,
   });
 
   @override
@@ -115,7 +144,10 @@ class KutePill extends StatelessWidget {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final fg = selected ? c.textPrimary : c.textTertiary;
-    final duration = kuteMotion(context, const Duration(milliseconds: 180));
+    final reduce = kuteReduceMotion(context);
+    // The chrome springs between its two states (KuteMotion.chip).
+    final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
+    final curve = reduce ? Curves.linear : KuteMotion.chip;
     // Merged onto the inherited style: AnimatedDefaultTextStyle replaces
     // it, and would drop the theme's Inter for the platform font.
     final textStyle = DefaultTextStyle.of(context).style.merge(TextStyle(
@@ -125,10 +157,12 @@ class KutePill extends StatelessWidget {
           letterSpacing: 0.1,
           height: 1.0,
         ));
+    final detailStyle = textStyle.copyWith(
+        fontWeight: FontWeight.w500, color: c.textSecondary);
 
     final chip = AnimatedContainer(
       duration: duration,
-      curve: Curves.easeOut,
+      curve: curve,
       padding:
           EdgeInsets.symmetric(horizontal: size.hPad.w, vertical: size.vPad.h),
       decoration: BoxDecoration(
@@ -142,15 +176,18 @@ class KutePill extends StatelessWidget {
               : Colors.transparent,
           width: isLight ? 1.0 : 0.5,
         ),
-        boxShadow: selected && isLight
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
+        // The unselected state keeps the shadow at the same blur, only
+        // transparent: the spring overshoots past 1, and a shadow lerped
+        // towards none scales its blur negative (an assertion in debug).
+        boxShadow: [
+          BoxShadow(
+            color: selected && isLight
+                ? Colors.black.withValues(alpha: 0.04)
+                : Colors.transparent,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
@@ -169,10 +206,15 @@ class KutePill extends StatelessWidget {
           Flexible(
             child: AnimatedDefaultTextStyle(
               duration: duration,
-              curve: Curves.easeOut,
+              curve: curve,
               style: textStyle,
-              child: Text(
-                label,
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: label),
+                  // The context after the name, quieter.
+                  if (detail != null)
+                    TextSpan(text: ' · $detail', style: detailStyle),
+                ]),
                 semanticsLabel: semanticLabel,
                 maxLines: 1,
                 overflow: TextOverflow.clip,
@@ -180,6 +222,12 @@ class KutePill extends StatelessWidget {
               ),
             ),
           ),
+          // A small plain chevron (founder, 31 October 2026: no circle).
+          if (menu) ...[
+            SizedBox(width: 4.w),
+            Icon(Icons.expand_more_rounded,
+                size: size.icon.sp, color: c.textSecondary),
+          ],
         ],
       ),
     );
@@ -187,17 +235,19 @@ class KutePill extends StatelessWidget {
     return Semantics(
       button: true,
       selected: link ? null : selected,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        // The tap reaches 44 pt wherever the row gives it the room
-        // ([kutePillRowHeight]); the chip keeps its own size, centred.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          child: Align(
-            widthFactor: fillWidth ? null : 1,
-            heightFactor: 1,
-            child: chip,
+      child: KutePressable(
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          // The tap reaches 44 pt wherever the row gives it the room
+          // ([kutePillRowHeight]); the chip keeps its own size, centred.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            child: Align(
+              widthFactor: fillWidth ? null : 1,
+              heightFactor: 1,
+              child: chip,
+            ),
           ),
         ),
       ),
@@ -226,6 +276,11 @@ class KutePillTabs extends StatefulWidget {
   /// [kutePillRowHeight] gives each pill a 44 pt hit target.
   final double? height;
 
+  /// Natural-width pills in a side-scrolling row even with three or
+  /// fewer tabs: for a row whose selected pill carries a longer label
+  /// (the Investments pills, which name their category when picked).
+  final bool scroll;
+
   const KutePillTabs({
     super.key,
     required this.items,
@@ -234,6 +289,7 @@ class KutePillTabs extends StatefulWidget {
     this.horizontalPadding = 4,
     this.size = KutePillSize.regular,
     this.height,
+    this.scroll = false,
   });
 
   @override
@@ -290,7 +346,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
     // each equal width so they're evenly spaced. Four or more truncated
     // the labels under equal widths ("Activit", "Balanc"), so longer
     // strips side-scroll at natural width instead.
-    if (widget.selectedIndex != null && items.length <= 3) {
+    if (widget.selectedIndex != null && items.length <= 3 && !widget.scroll) {
       return SizedBox(
         height: height,
         child: Padding(
@@ -303,6 +359,8 @@ class _KutePillTabsState extends State<KutePillTabs> {
                     label: items[i].label,
                     icon: items[i].icon,
                     leading: items[i].leading,
+                    detail: items[i].detail,
+                    menu: items[i].menu,
                     selected: _isSelected(i),
                     fillWidth: true,
                     size: widget.size,
@@ -354,6 +412,8 @@ class _KutePillTabsState extends State<KutePillTabs> {
               label: items[i].label,
               icon: items[i].icon,
               leading: items[i].leading,
+              detail: items[i].detail,
+              menu: items[i].menu,
               selected: _isSelected(i),
               size: widget.size,
               link: link,

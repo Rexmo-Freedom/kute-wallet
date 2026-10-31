@@ -98,6 +98,11 @@ import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
+import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteMarketBarAction;
+import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/transaction_modal.dart';
@@ -5377,7 +5382,30 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       pages: [
         SendStepPage(
           title: context.l10n.sendTo,
-          child: _sendToPage(c),
+          // Send to anyone lives in the bar only (founder, 31 October
+          // 2026): "Send to anyone" over "A link they claim with Kute",
+          // its Sal sheet's top row opening the sheet for bitcoin.
+          child: KuteBarContextScope(
+            barContext: KuteBarContext(
+              label: context.l10n.shareSendToAnyone,
+              sublabel: context.l10n.shareSendToAnyoneSubtitle,
+              clip: 'share',
+              source: 'bitcoin_send',
+              actions: [
+                KuteMarketBarAction(
+                  label: context.l10n.shareSendToAnyone,
+                  sublabel: context.l10n.shareSendToAnyoneSubtitle,
+                  salClip: 'share',
+                  onTap: (_) => unawaited(showSendToAnyoneSheet(
+                    context,
+                    kind: ShareLinkKind.bitcoin,
+                    entrySource: 'bitcoin_send',
+                  )),
+                ),
+              ],
+            ),
+            child: _sendToPage(c),
+          ),
         ),
         SendStepPage(
           title: context.l10n.amount,

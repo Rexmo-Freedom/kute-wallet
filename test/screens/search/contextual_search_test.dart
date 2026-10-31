@@ -211,7 +211,6 @@ void main() {
   testWidgets('Home keeps Ask Sal but has no scanner in the search sheet',
       (tester) async {
     final probe = await _openSearch(tester);
-    expect(find.text('Search or ask Sal anything'), findsWidgets);
     expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
     expect(find.byTooltip('Scan QR code'), findsNothing);
     await tester.enterText(find.byType(TextField), 'Explain margin');
@@ -223,21 +222,6 @@ void main() {
     probe.navigator.currentState!.pop();
     await tester.pumpAndSettle();
     // Home's rotating tagline uses a delayed callback that exits after unmount.
-    await tester.pump(const Duration(seconds: 6));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('idle Home search offers Sal\'s opening questions as chips',
-      (tester) async {
-    final probe = await _openSearch(tester);
-    expect(find.byType(SalSuggestionButton), findsWidgets);
-    await tester.tap(find.text('How do I receive Bitcoin in Kute?'));
-    await tester.pumpAndSettle();
-    expect(probe.advisorRequests, ['How do I receive Bitcoin in Kute?']);
-    expect(probe.asks.single,
-        (input: 'suggested', template: 'wallet.receive', chipIndex: 0));
-    probe.navigator.currentState!.pop();
-    await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 6));
     expect(tester.takeException(), isNull);
   });

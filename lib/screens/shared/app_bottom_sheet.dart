@@ -1,11 +1,53 @@
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+/// EVERY modal bottom sheet in the app opens through this (founder, 31
+/// October 2026): Flutter's [showModalBottomSheet] with the same
+/// arguments and defaults, plus the one motion every sheet shares
+/// ([KuteMotion.sheetStyle]: the spring in, a hair past its rest and
+/// settled; the settle easing out; a plain line under Reduce Motion).
+/// [showAppBottomSheet] is this with the app's sheet chrome; a sheet with
+/// its own chrome (a slip, a picker, a menu) calls this directly so its
+/// look is untouched and only its motion is shared. Nothing in lib/ calls
+/// [showModalBottomSheet] itself.
+Future<T?> showKuteModalSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  Color? backgroundColor,
+  Color? barrierColor,
+  ShapeBorder? shape,
+  bool isScrollControlled = false,
+  bool isDismissible = true,
+  bool enableDrag = true,
+  bool useSafeArea = false,
+  bool useRootNavigator = false,
+  RouteSettings? routeSettings,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    builder: builder,
+    backgroundColor: backgroundColor,
+    barrierColor: barrierColor,
+    shape: shape,
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    useSafeArea: useSafeArea,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    sheetAnimationStyle: KuteMotion.sheetStyle(context),
+  );
+}
+
 /// Unified bottom sheet matching the Ledger device picker design language.
 /// Clean, organized layout with drag handle, header, and scrollable content.
+/// Opens through [showKuteModalSheet], so it rises on the app's spring.
 Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required Widget Function(BuildContext) builder,
@@ -30,7 +72,7 @@ Future<T?> showAppBottomSheet<T>({
   // screen (Receive): the route observers keep seeing that name.
   RouteSettings? routeSettings,
 }) {
-  return showModalBottomSheet<T>(
+  return showKuteModalSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: isScrollControlled,
@@ -52,7 +94,15 @@ Future<T?> showAppBottomSheet<T>({
 
 /// The container widget for unified bottom sheets.
 /// Matches the Ledger picker design language.
-class AppBottomSheetContainer extends StatelessWidget {
+///
+/// The floating Sal bar (kute_shell_bar.dart) floats over every sheet;
+/// nothing here reserves room for it (founder, 31 October 2026: the
+/// content may scroll under it). A SHORT sheet, content-sized under
+/// [kuteBarShortSheetFraction] of the screen (a menu, a picker, a
+/// confirm, the Financial hub), hides the bar while it is up instead: the
+/// bar sat on its last row with nowhere to scroll it. The height is
+/// measured after the first layout and re-read on every size change.
+class AppBottomSheetContainer extends StatefulWidget {
   final Widget child;
   final double? maxHeight;
 
@@ -78,9 +128,34 @@ class AppBottomSheetContainer extends StatelessWidget {
   });
 
   @override
+  State<AppBottomSheetContainer> createState() =>
+      _AppBottomSheetContainerState();
+}
+
+/// Under this share of the screen a sheet is short (see the container).
+const double kuteBarShortSheetFraction = 0.6;
+
+class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
+  bool? _short;
+
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final screen = MediaQuery.sizeOf(context).height;
+    final short = box.size.height < screen * kuteBarShortSheetFraction;
+    if (short != _short) setState(() => _short = short);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedMaxHeight = maxHeight != null && maxHeight! <= 1.0
-        ? MediaQuery.sizeOf(context).height * maxHeight!
+    final child = widget.child;
+    final maxHeight = widget.maxHeight;
+    final followKeyboard = widget.followKeyboard;
+    final color = widget.color;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    final resolvedMaxHeight = maxHeight != null && maxHeight <= 1.0
+        ? MediaQuery.sizeOf(context).height * maxHeight
         : maxHeight;
     // Keyboard-aware shift: when an editable inside the sheet gains
     // focus, `MediaQuery.viewInsets.bottom` reports the keyboard
@@ -110,12 +185,12 @@ class AppBottomSheetContainer extends StatelessWidget {
       top: true,
       bottom: !keyboardOpen,
       child: Padding(
-        padding:
-            EdgeInsets.only(bottom: keyboardOpen && !followKeyboard ? 0 : 16.h),
+        padding: EdgeInsets.only(
+            bottom: keyboardOpen && !followKeyboard ? 0 : 16.h),
         child: child,
       ),
     );
-    return Container(
+    final sheet = Container(
       constraints: resolvedMaxHeight != null
           ? BoxConstraints(maxHeight: resolvedMaxHeight)
           : null,
@@ -132,6 +207,18 @@ class AppBottomSheetContainer extends StatelessWidget {
               padding: padding,
               child: content,
             ),
+    );
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(
+        child: _short == true
+            ? KuteBarContextScope(
+                barContext: const KuteBarContext.hidden(), child: sheet)
+            : sheet,
+      ),
     );
   }
 }
@@ -356,7 +443,10 @@ class AppBottomSheetListTile extends StatelessWidget {
     final glyphColor = isSelected ? onColor : c.textSecondary;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-      child: InkWell(
+      // The app's press: 0.98 while held, back on the press spring.
+      child: KutePressable(
+        enabled: onTap != null,
+        child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Container(
@@ -439,6 +529,7 @@ class AppBottomSheetListTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

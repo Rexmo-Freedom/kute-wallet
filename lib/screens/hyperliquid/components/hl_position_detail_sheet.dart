@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -237,7 +240,24 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    return Scaffold(
+    // The bar reads "Share with your friends" while this page is up, in
+    // chart-edit mode too (the scope is around the whole page).
+    return KuteBarContextScope(
+      barContext: marketBarContext(
+        context,
+        title: widget.position.coin,
+        venue: kMarketLinkInvesting,
+        slug: widget.position.coin,
+        // The pick: this position's side.
+        outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
+        side: pos.isLong ? 'long' : 'short',
+        actionRowHeight: editing ? 0 : 12.h + 60.h + 8.h + 0.5,
+        position: true,
+        category: SearchCategory.perpetuals,
+        searchHint: context.l10n.searchInvestmentsHint,
+        source: 'trading',
+      ),
+      child: Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       resizeToAvoidBottomInset: false,
       body: Container(
@@ -293,7 +313,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     ? HlChartEditBody(chart: _chart(m, fillHeight: true))
                     : SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                        padding: EdgeInsets.fromLTRB(
+                            20.w, 0, 20.w, kuteBarScrollClearance.h),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -554,6 +575,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
           ),
         ),
       ),
+    ),
     );
   }
 

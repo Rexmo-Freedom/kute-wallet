@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -301,7 +302,11 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                   // "Invite friends, earn together" is good news and asks
                   // nobody to check a number, so Sal gets to be pleased
                   // about it instead of standing there.
-                  child: KuteDogCheer(size: 48.sp),
+                  child: SalSprite(
+                    clip: 'happy',
+                    size: 48.sp,
+                    fallback: KuteDogCheer(size: 48.sp),
+                  ),
                 ),
                 SizedBox(height: 24.h),
                 Text(

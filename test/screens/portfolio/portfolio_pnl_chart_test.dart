@@ -29,8 +29,8 @@ import 'package:kute/theme/app_theme.dart';
 /// hairline at zero, the line, its one soft fade and its solid end dot in
 /// the range's result colour, a quiet change line (never a percent), the
 /// scrubbed P&L written there, a calm empty state, the Balance charts'
-/// pinch, and the spending account's one block (the ring row, the rows,
-/// the plot).
+/// pinch, and the spending account's one block (the realised figure, the
+/// plot, the ranges, the venue lines).
 void main() {
   // Inter loaded before any layout here (see loadAppFonts): its figures
   // change colour alone, which a font landing mid-test turns into
@@ -361,9 +361,8 @@ void main() {
       for (var i = 1; i < pts.length; i++) {
         expected += (pts[i] - pts[i - 1]).distance;
       }
-      final length = path
-          .computeMetrics()
-          .fold<double>(0, (sum, m) => sum + m.length);
+      final length =
+          path.computeMetrics().fold<double>(0, (sum, m) => sum + m.length);
       expect(length, closeTo(expected, 0.01));
       // The monotone curve the chart drew before is longer: it bends.
       final curve = kuteMonotonePath(pts)
@@ -400,8 +399,8 @@ void main() {
       // Under the line, half way to the bottom of the plot, where the line
       // is above zero: the fade is red there too (one colour, not green
       // above zero).
-      final i = indices.firstWhere(
-          (i) => i >= w.start && i <= w.end && values[i] > 10);
+      final i = indices
+          .firstWhere((i) => i >= w.start && i <= w.end && values[i] > 10);
       final x = w.xOf(i.toDouble(), size.width);
       final yLine = kuteLineY(values[i], size.height, d);
       final o = (((yLine + size.height) / 2).round() * width + x.round()) * 4;
@@ -427,14 +426,16 @@ void main() {
           AppColorsExtension.light().textTertiary);
       expect(pnlResultColor(AppColorsExtension.light(), -0.01),
           AppColors.marketDown);
-      expect(pnlResultColor(AppColorsExtension.light(), 0.01),
-          AppColors.marketUp);
+      expect(
+          pnlResultColor(AppColorsExtension.light(), 0.01), AppColors.marketUp);
       await settle(tester);
     });
 
     testWidgets(
-        'the one block: the ring, then the caption, figure and change line '
-        'beside it, the pair at the end, the rows between, then the plot',
+        'the one block (founder, 28 October 2026): the caption and the '
+        'realised figure, the plot directly under them, the ranges, a '
+        'hairline and the footer; no change line; a scrub writes the P&L '
+        'under the finger and when, release puts the realised figure back',
         (tester) async {
       tester.view.physicalSize = const Size(390, 1200);
       tester.view.devicePixelRatio = 1;
@@ -456,12 +457,9 @@ void main() {
                   venue: null,
                   data: upThenDown(),
                   now: now,
-                  leading: const SizedBox(
-                      key: ValueKey('ring'), width: 50, height: 50),
-                  trailing: const SizedBox(
-                      key: ValueKey('pair'), width: 100, height: 30),
-                  middle: const SizedBox(
-                      key: ValueKey('rows'), width: 10, height: 120),
+                  figureUsd: -6.39,
+                  footer: const SizedBox(
+                      key: ValueKey('lines'), width: 10, height: 60),
                 ),
               ]),
             ),
@@ -470,20 +468,25 @@ void main() {
       ));
       await tester.pump(const Duration(milliseconds: 400));
       Rect at(String key) => tester.getRect(find.byKey(ValueKey(key)));
-      final ring = at('ring');
-      final pair = at('pair');
-      final rows = at('rows');
+      final caption = at('statistics-pnl-caption');
       final figure = at('statistics-pnl-headline');
-      final line = at('statistics-pnl-header');
+      final lines = at('lines');
       final plot = tester.getRect(find.byType(KuteLineChart));
-      // One row: the ring, the figure and its change line, the pair.
-      expect(figure.left, greaterThan(ring.right));
-      expect(line.left, greaterThan(ring.right));
-      expect(line.top, greaterThan(figure.bottom - 1));
-      expect(pair.left, greaterThan(figure.right));
+      final ranges = tester.getRect(find.byType(KuteRangePills));
       expect(find.text('Profit and loss'), findsOneWidget);
-      // The rows under it, the plot under them, the ranges under that.
-      expect(rows.top, greaterThan(line.bottom));
+      // The realised figure, in the result colour; no change line.
+      expect(headline(tester), '−\$6.39');
+      expect(
+          tester
+              .widget<RollingNumberText>(
+                  find.byKey(const ValueKey('statistics-pnl-headline')))
+              .style
+              .color,
+          AppColors.marketDown);
+      expect(find.byKey(const ValueKey('statistics-pnl-header')), findsNothing);
+      expect(find.textContaining('past month'), findsNothing);
+      // Top down: caption, figure, plot, ranges, the footer.
+      expect(figure.top, greaterThan(caption.bottom - 1));
       final plotTop = tester
           .getRect(find
               .descendant(
@@ -491,11 +494,28 @@ void main() {
                   matching: find.byType(RepaintBoundary))
               .first)
           .top;
-      expect(plotTop, greaterThan(rows.bottom));
-      expect(tester.getTopLeft(find.byType(KuteRangePills)).dy,
-          greaterThan(plot.bottom - 1));
-      // The plot keeps its height under the rows.
+      expect(plotTop, greaterThan(figure.bottom - 1));
+      expect(plotTop - figure.bottom, lessThan(40));
+      expect(ranges.top, greaterThan(plot.bottom - 1));
+      expect(lines.top, greaterThan(ranges.bottom));
       expect(plot.bottom - plotTop, greaterThan(150));
+
+      // A scrub: the P&L under the finger and when, in the caption.
+      final touch =
+          await tester.startGesture(plot.centerRight.translate(-2, 0));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(headline(tester), '−\$6.38');
+      expect(
+          tester
+              .widget<Text>(
+                  find.byKey(const ValueKey('statistics-pnl-caption')))
+              .data,
+          allOf(startsWith('Profit and loss · '), contains('Oct 25')));
+      await touch.up();
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(headline(tester), '−\$6.39');
+      expect(find.text('Profit and loss'), findsOneWidget);
       await settle(tester);
     });
 

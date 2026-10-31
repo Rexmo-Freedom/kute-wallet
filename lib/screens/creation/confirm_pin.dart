@@ -31,7 +31,7 @@ class ConfirmPin extends ConsumerStatefulWidget {
 }
 
 class _ConfirmPinState extends ConsumerState<ConfirmPin>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, PinSalMoodMixin {
   String confirmPin = '';
 
   /// The last attempt did not match. Clears on the next key, so the
@@ -166,6 +166,8 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
     if (!reduceMotion) {
       _animationController.forward(from: 0.0);
     }
+    // Sal is sad once, with the shake (his still frame under Reduce Motion).
+    salSad();
     HapticFeedback.heavyImpact();
     // No snackbar. A mismatch is about the screen the person is on, so
     // it belongs on that screen, in the line that was telling them what
@@ -198,6 +200,9 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
           // instead of arriving as a snackbar over a screen that reads as
           // if nothing went wrong.
           title: context.l10n.confirmYourPin,
+          salMood: confirmPin.length == 6 && confirmPin == originalPin
+              ? 'happy'
+              : salMoodFor(confirmPin.length),
           subtitle: _mismatched ? context.l10n.pinsDoNotMatchRetry : null,
           subtitleIsError: _mismatched,
           dots: AnimatedBuilder(

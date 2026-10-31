@@ -1,9 +1,9 @@
 // Render harness for Investments → Portfolio → P&L charts (founder review,
-// 28 October 2026): the one block (the bare ring with the figure and the
-// Active | Historic pair, the venue rows that pick the series, the chart
-// and its ranges) and the resting orders under it, All, Predictions
-// picked and Historic, at the top and scrolled to the orders, at 390 x
-// 844 in the app's real themes and Inter, light and dark. Writes PNGs.
+// 28 October 2026, Historic only): the one card ("Profit and loss" and
+// the realised figure, the chart and its ranges, a hairline, one line per
+// venue that picks the series) and the resting orders under it, All and
+// Predictions picked, at the top and scrolled to the orders, at 390 x 844
+// in the app's real themes and Inter, light and dark. Writes PNGs.
 //
 // Not part of the normal suite; it only runs when asked:
 //
@@ -546,23 +546,19 @@ void main() {
     }
   });
 
-  // Nothing open anywhere (founder, 28 October 2026): Active draws no
-  // chart; Historic does. Light only.
-  testWidgets('nothing open: Active and Historic, light', (tester) async {
+  // Nothing open anywhere: the history still charts. Light only.
+  testWidgets('nothing open, light', (tester) async {
     tester.view.devicePixelRatio = _dpr;
     tester.view.physicalSize = _size * _dpr;
     addTearDown(tester.view.reset);
     await _mount(tester, false, nothingOpen: true);
-    await _png(tester, 'nothing_open_active_light');
-    await tester.tap(find.byKey(const ValueKey('statistics-historic')));
-    await _settle(tester);
-    await _png(tester, 'nothing_open_historic_light');
+    await _png(tester, 'nothing_open_light');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 
-  // All, Predictions picked (its row tapped), Historic.
-  for (final shot in ['all', 'predictions', 'historic']) {
+  // All, Predictions picked (its line tapped).
+  for (final shot in ['all', 'predictions']) {
     testWidgets('$shot, light and dark, top and orders', (tester) async {
       tester.view.devicePixelRatio = _dpr;
       tester.view.physicalSize = _size * _dpr;
@@ -573,10 +569,6 @@ void main() {
         if (shot == 'predictions') {
           await tester
               .tap(find.byKey(const ValueKey('pnl-venue-predictions-pick')));
-          await _settle(tester);
-        }
-        if (shot == 'historic') {
-          await tester.tap(find.byKey(const ValueKey('statistics-historic')));
           await _settle(tester);
         }
         await _png(tester, '${shot}_top_$theme');

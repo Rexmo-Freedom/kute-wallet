@@ -476,7 +476,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                     // in: the row becomes "‹ Category" and its
                     // subcategories. Both filter the list below in place,
                     // like Predictions.
-                    if (canBrowse && availableTabs.isNotEmpty)
+                    // Inside Investments the page's own pill carries the
+                    // category (investments_category_sheet.dart): no row.
+                    if (canBrowse && availableTabs.isNotEmpty && !embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
@@ -555,6 +557,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               items: markets,
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
+                              divider: hlGroupRowDivider,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(

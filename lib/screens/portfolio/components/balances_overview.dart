@@ -6,19 +6,21 @@
 // Revolut's "Total wealth"), and since 27 October 2026 the positions
 // themselves under their venue (the Positions pill is gone). Top down:
 //
-//   * one row: a small bare RING on the left (the engine's KuteDonutChart,
-//     nothing in its hole: the hero above the pills carries the total),
-//     its slices in each category's FIXED colour of the muted chart
-//     palette (Available to invest indigo, Investing teal, Predictions
-//     amber: AppColorsExtension.chartCategorical), the same as the dots,
-//     so there is no legend; next to it "● Available to invest" (the
-//     venues' title size; "Buying power" until the founder's 27 October
-//     2026 review, the l10n key and widget keys keep the old name) with
-//     the spare cash (Dollars + Hyperliquid cash + Polymarket cash) and a
-//     chevron under the label, a tap opening where that cash sits, largest
-//     first, under the row (a Rebalance note under a place opens it by
-//     itself); Move money, a large pill like the selected section pill,
-//     at the row's end; its [steps] under the row while a move runs;
+//   * the lead row, lighter (founder, 28 October 2026): a SMALL bare RING
+//     on the left (40, the engine's KuteDonutChart, nothing in its hole:
+//     the hero above the pills carries the total), its slices in each
+//     category's FIXED colour of the muted chart palette (Available to
+//     invest indigo, Investing teal, Predictions amber:
+//     AppColorsExtension.chartCategorical), the same as the dots, so
+//     there is no legend; next to it ONE line, "● Available to invest"
+//     (the venues' title size; "Buying power" until the founder's 27
+//     October 2026 review, the l10n key and widget keys keep the old
+//     name) with the spare cash (Dollars + Hyperliquid cash + Polymarket
+//     cash) and its chevron at the line's END, a tap opening where that
+//     cash sits, largest first, under the row (a Rebalance note under a
+//     place opens it by itself); Move money, a large pill like the
+//     selected section pill, under that line, starting where the label
+//     does; its [steps] under the row while a move runs;
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
@@ -31,6 +33,12 @@
 //     each one's sheet; then "● Investing  N" the same way. A venue with
 //     nothing open reads "No open positions" in its header row and lists
 //     nothing; what open orders hold there is named under its header.
+//     Each venue's card lists its 3 largest open rows (founder, 28
+//     October 2026: the same live rows, fewer of them), then a quiet
+//     "See all  N ›" row (N: every row the venue has, settled ones
+//     included) that opens the rest in place, the other open rows and
+//     then the settled ones, and turns into "Show less"; a venue with 3
+//     rows or fewer and nothing settled lists them all, no fold row.
 //
 // The first load (founder, 28 October 2026): until both venues' positions
 // are known (a list still read with nothing in it, a venue's figures never
@@ -46,14 +54,19 @@
 // the same sweep while it refreshes; never a confident $0.00. While any
 // part of the total is unknown the ring shows its track only.
 //
-// The frame is shared (founder, 28 October 2026): the P&L charts section
-// (portfolio_statistics.dart, PortfolioStatisticsOverview) draws its
-// figures under the chart with the same pieces, so the two sections stay
-// identical: [BalancesRing], the lead block beside it ([BalancesLead]),
-// the venue header rows ([BalancesVenueHeader]) and the indented quiet
-// sub-rows under them ([BalancesSubRow]).
+// The venue lines are shared: the P&L charts section
+// (portfolio_statistics.dart, PortfolioStatisticsOverview) draws its one
+// line per venue under the chart with [BalancesVenueHeader], so the two
+// sections name and colour the venues the same way.
+//
+// Analytics: `portfolio_available_to_invest_toggled` {open} (the split),
+// `portfolio_balances_empty_shown` {surface} (Sal, once per mount),
+// `portfolio_venue_positions_expanded` {venue: predictions | investing,
+// open} (a venue's See all / Show less).
 
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
@@ -66,8 +79,12 @@ import 'package:kute/screens/shared/kute_motion.dart'
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show showMoneyMovementSheet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// The three accounts the figures come from.
 enum BalancesPart { dollars, investing, predictions }
@@ -78,13 +95,20 @@ enum BalancesCategory { buyingPower, predictions, investing }
 /// Under this a figure is nothing ("$0.00"): no slice.
 const double kBalancesCentUsd = 0.005;
 
-/// The ring's size: small, at the end of the Buying power row (the
-/// Breakdown card's ring is 184 on a row of its own).
-const double kBalancesRingDiameter = 58;
-const double kBalancesRingThickness = 6;
+/// The ring's size: small and bare, at the start of the lead row (founder,
+/// 28 October 2026: lighter; the Breakdown card's ring is 184 on a row of
+/// its own).
+const double kBalancesRingDiameter = 40;
+const double kBalancesRingThickness = 5;
 
-/// The gap between the ring and the lead block beside it.
-const double kBalancesRingGap = 14;
+/// The Portfolio screen's shares ring.
+const double kBalancesSharesRingDiameter = 72;
+
+/// How many of a venue's open rows its card lists before "See all".
+const int kBalancesVenueRowsShown = 3;
+
+/// The gap between the ring and the dot that starts the lead line.
+const double kBalancesRingGap = 10;
 
 /// A figure as the breakdown resolved it: its text (masked when balances
 /// are hidden, a dash when never read), whether it is still refreshing,
@@ -254,18 +278,30 @@ List<BalancesEntry> balancesBuyingPowerPlaces(List<BalancesEntry> entries) =>
         return bySize != 0 ? bySize : a.part.index - b.part.index;
       });
 
-/// What Balances lists under a venue's header: its position [rows], in
-/// order (the breakdown's caller builds them, open_investments_screen.dart),
-/// the venue's P&L beside its value ([pnl]), and shimmer rows while the
-/// venue is still read with nothing listed ([loading]).
+/// What Balances lists under a venue's header: its open position [rows],
+/// largest first (the breakdown's caller builds them,
+/// open_investments_screen.dart), its [settled] rows (listed only once
+/// "See all" opens the card, after the open ones), the venue's P&L beside
+/// its value ([pnl]), and shimmer rows while the venue is still read with
+/// nothing listed ([loading]).
 @immutable
 class BalancesVenueList {
   const BalancesVenueList(
-      {this.rows = const [], this.pnl, this.loading = false});
+      {this.rows = const [],
+      this.settled = const [],
+      this.pnl,
+      this.loading = false});
 
   final List<Widget> rows;
+  final List<Widget> settled;
   final Widget? pnl;
   final bool loading;
+
+  /// Every row the venue has, open and settled.
+  int get count => rows.length + settled.length;
+
+  /// Anything listed at all.
+  bool get any => rows.isNotEmpty || settled.isNotEmpty;
 
   static const BalancesVenueList empty = BalancesVenueList();
 }
@@ -286,7 +322,16 @@ class BalancesOverview extends StatefulWidget {
     this.steps,
     this.venues = const {},
     this.firstReadDone = true,
+    this.sharesHeader = false,
   });
+
+  /// The Portfolio screen's top (founder, 31 October 2026: "no Available
+  /// to invest; Portfolio is just open positions. On top, instead of the
+  /// balance, show the shares with the pie chart on the left"): the ring
+  /// at 72 on the left and the shares as rows ("● Investing  $1,126.50 ·
+  /// 64%") on the right, no total, no Available to invest, no Move money
+  /// and no split; then the venues with their positions as ever.
+  final bool sharesHeader;
 
   final List<BalancesEntry> entries;
   final String Function(double usd) money;
@@ -328,6 +373,44 @@ class _BalancesOverviewState extends State<BalancesOverview> {
   /// Where Buying power sits, opened with its chevron.
   bool _split = false;
 
+  /// The venues whose card is opened past its first rows ("See all").
+  final Set<BalancesCategory> _expanded = {};
+
+  /// A venue's rows folded: its first [kBalancesVenueRowsShown] open ones
+  /// (only settled rows and nothing open: the first settled ones, never an
+  /// empty card).
+  static List<Widget> _folded(BalancesVenueList list) =>
+      (list.rows.isEmpty ? list.settled : list.rows)
+          .take(kBalancesVenueRowsShown)
+          .toList();
+
+  /// A venue's rows as its card lists them: folded, or, opened, every open
+  /// row and then the settled ones.
+  List<Widget> _shownRows(BalancesCategory category, BalancesVenueList list) =>
+      _expanded.contains(category)
+          ? [...list.rows, ...list.settled]
+          : _folded(list);
+
+  /// "See all  N ›" under a venue's first rows, "Show less" once opened;
+  /// null when the folded card lists everything anyway.
+  Widget? _foldRow(BalancesCategory category, BalancesVenueList list) {
+    if (list.count <= _folded(list).length) return null;
+    final open = _expanded.contains(category);
+    return _FoldRow(
+      key: ValueKey('portfolio-balance-${category.name}-see-all'),
+      open: open,
+      count: list.count,
+      onTap: () {
+        setState(
+            () => open ? _expanded.remove(category) : _expanded.add(category));
+        TrackingService.track('portfolio_venue_positions_expanded', params: {
+          'venue': category.name,
+          'open': !open,
+        });
+      },
+    );
+  }
+
   /// Both venues' positions were known once for this mount: from then on
   /// the venue area follows the figures, a refresh never brings the
   /// skeleton (or a venue's loading rows) back.
@@ -368,7 +451,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     bool venueKnown(BalancesCategory category, BalancesEntry? e) {
       if (e == null) return true;
       final list = widget.venues[category] ?? BalancesVenueList.empty;
-      if (list.rows.isNotEmpty) return true;
+      if (list.any) return true;
       return !list.loading && (e.read || widget.firstReadDone);
     }
 
@@ -378,7 +461,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     bool venueEmpty(BalancesCategory category, BalancesEntry? e) {
       if (e == null) return true;
       final list = widget.venues[category] ?? BalancesVenueList.empty;
-      final open = e.positionCount > 0 || list.rows.isNotEmpty;
+      final open = e.positionCount > 0 || list.any;
       final held = e.reservedCashUsd >= kBalancesCentUsd ||
           (!open &&
               e.positions?.usd != null &&
@@ -388,7 +471,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
 
     Widget venue(BalancesCategory category, BalancesEntry e) {
       final list = widget.venues[category] ?? BalancesVenueList.empty;
-      final open = e.positionCount > 0 || list.rows.isNotEmpty;
+      final open = e.positionCount > 0 || list.any;
       final f = figure(categories[category]!);
       // Nothing open: what open orders hold when that is all there is,
       // else "No open positions" in the header's place for a figure.
@@ -418,11 +501,14 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           ),
           // A count the rows have not caught up with yet: their shimmer
           // rows; never an empty venue's while a refresh reloads its list.
-          if (list.rows.isNotEmpty || (open && list.loading))
+          if (list.any || (open && list.loading))
             Padding(
               key: ValueKey('portfolio-balance-${category.name}-positions'),
               padding: EdgeInsets.only(top: 8.h),
-              child: _VenueCard(rows: list.rows, loading: list.loading),
+              child: _VenueCard(
+                  rows: _shownRows(category, list),
+                  loading: list.loading,
+                  fold: _foldRow(category, list)),
             ),
         ],
       );
@@ -447,55 +533,116 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(height: 8.h),
-        // One row (founder, 27 October 2026): the small bare ring (the
-        // hero above the pills carries the total), "Available to invest"
-        // next to it with its amount under the label, and Move money on
-        // the right, where the amount used to be.
-        Row(
-          children: [
-            BalancesRing(
-              categories: categories.keys.toList(),
-              shares: shares,
-              semantics: [
-                '${l10n.total} ${totalFigure.text}',
-                if (shares.isNotEmpty)
-                  for (final k in categories.keys)
-                    '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
-              ].join(', '),
-            ),
-            SizedBox(width: kBalancesRingGap.w),
-            Expanded(
-              child: BalancesLead(
-                key: const ValueKey('portfolio-balance-category-buyingPower'),
-                toggleKey: const ValueKey('portfolio-balance-split-toggle'),
-                amountKey: const ValueKey(
-                    'portfolio-balance-category-buyingPower-amount'),
-                color: balancesCategoryColor(c, BalancesCategory.buyingPower),
-                label: l10n.portfolioBuyingPower,
-                figure: buyingPower,
-                open: split,
-                onToggle: places.any((e) => e.footer.isNotEmpty)
-                    ? null
-                    : () {
-                        setState(() => _split = !_split);
-                        TrackingService.track(
-                            'portfolio_available_to_invest_toggled',
-                            params: {'open': _split});
-                      },
+        if (widget.sharesHeader) ...[
+          // The Portfolio screen's shares block (see [sharesHeader]).
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              BalancesRing(
+                categories: categories.keys.toList(),
+                shares: shares,
+                diameter: kBalancesSharesRingDiameter,
+                thickness: 9,
+                semantics: [
+                  '${l10n.total} ${totalFigure.text}',
+                  if (shares.isNotEmpty)
+                    for (final k in categories.keys)
+                      '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+                ].join(', '),
               ),
-            ),
-            if (widget.action case final action?) ...[
-              SizedBox(width: 12.w),
-              action,
+              SizedBox(width: 18.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final k in const [
+                      BalancesCategory.investing,
+                      BalancesCategory.predictions,
+                      BalancesCategory.buyingPower,
+                    ])
+                      if (categories.containsKey(k))
+                        _ShareRow(
+                          key: ValueKey('portfolio-share-${k.name}'),
+                          color: balancesCategoryColor(c, k),
+                          label: k == BalancesCategory.buyingPower
+                              ? l10n.assetDollars
+                              : label(k),
+                          figure: figure(categories[k]!),
+                          share: shares.isEmpty ? null : shares[k] ?? 0,
+                        ),
+                  ],
+                ),
+              ),
             ],
-          ],
+          ),
+          // Move money, right-aligned under the shares (founder, 31
+          // October 2026: "where is the button to move money?"): the
+          // Dollars tab's own pill, always on, whatever the balance.
+          SizedBox(height: 12.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: KutePill(
+              key: const ValueKey('portfolio-move-money'),
+              label: l10n.moveTransfer,
+              size: KutePillSize.large,
+              selected: true,
+              link: true,
+              onTap: () {
+                TrackingService.track('portfolio_move_money_tapped',
+                    params: const {'surface': 'portfolio'});
+                unawaited(showMoneyMovementSheet(context));
+              },
+            ),
+          ),
+        ] else ...[
+        // The lead row (founder, 31 October 2026: "the ring belongs to
+        // Available to invest"): the small bare ring LEADS the line
+        // itself (the hero above carries the total), then "● Available to
+        // invest" with its amount and chevron on that same line, so the
+        // ring, the label and the amount read as one row; Move money
+        // under the label, starting where it does. Nothing hangs in the
+        // margin on its own.
+        BalancesLead(
+          key: const ValueKey('portfolio-balance-category-buyingPower'),
+          toggleKey: const ValueKey('portfolio-balance-split-toggle'),
+          amountKey:
+              const ValueKey('portfolio-balance-category-buyingPower-amount'),
+          leading: BalancesRing(
+            categories: categories.keys.toList(),
+            shares: shares,
+            semantics: [
+              '${l10n.total} ${totalFigure.text}',
+              if (shares.isNotEmpty)
+                for (final k in categories.keys)
+                  '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+            ].join(', '),
+          ),
+          color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+          label: l10n.portfolioBuyingPower,
+          figure: buyingPower,
+          open: split,
+          onToggle: places.any((e) => e.footer.isNotEmpty)
+              ? null
+              : () {
+                  setState(() => _split = !_split);
+                  TrackingService.track(
+                      'portfolio_available_to_invest_toggled',
+                      params: {'open': _split});
+                },
         ),
+        if (widget.action case final action?)
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+                start: balancesLeadInset(), top: 8.h),
+            child: Align(
+                alignment: AlignmentDirectional.centerStart, child: action),
+          ),
         // Where the cash sits, opened in place.
         AnimatedSize(
-          duration: kuteReduceMotion(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+          duration:
+              kuteReduceMotion(context) ? Duration.zero : KuteMotion.chipDuration,
+          curve: kuteReduceMotion(context) ? Curves.linear : KuteMotion.chip,
           alignment: Alignment.topCenter,
           child: split
               ? Padding(
@@ -521,6 +668,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
               : const SizedBox(width: double.infinity),
         ),
         if (widget.steps case final steps?) steps,
+        ],
         SizedBox(height: 16.h),
         // The first load: the venue card's skeleton rows until both
         // venues' positions are known, never headers that then go.
@@ -567,10 +715,16 @@ const double _kCardInset = 16;
 /// corners; shimmer rows while the venue is read with nothing listed.
 class _VenueCard extends StatelessWidget {
   const _VenueCard(
-      {required this.rows, required this.loading, this.skeletonRows = 2});
+      {required this.rows,
+      required this.loading,
+      this.skeletonRows = 2,
+      this.fold});
 
   final List<Widget> rows;
   final bool loading;
+
+  /// "See all" / "Show less" after the rows, past the same hairline.
+  final Widget? fold;
 
   /// How many shimmer rows [loading] draws.
   final int skeletonRows;
@@ -600,6 +754,80 @@ class _VenueCard extends StatelessWidget {
                     padding:
                         EdgeInsets.symmetric(horizontal: inset, vertical: 8.h),
                     rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
+              if (fold case final f?) ...[
+                if (rows.isNotEmpty)
+                  marketGroupDivider(context,
+                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
+                f,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "See all  N ›" at the foot of a venue's card ("Show less" once
+/// opened): the outcome lists' quiet fold row (market_detail_sheet.dart,
+/// "Show N more"), its text where the rows' titles start, the count in the
+/// venue header's quieter tone.
+class _FoldRow extends StatelessWidget {
+  const _FoldRow(
+      {super.key,
+      required this.open,
+      required this.count,
+      required this.onTap});
+
+  final bool open;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final style = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final label = open ? l10n.salShowLess : l10n.seeAll;
+    return Semantics(
+      button: true,
+      expanded: open,
+      label: open ? label : '$label, $count',
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(
+              start: PortfolioRowInset.of(context) +
+                  (kPortfolioRowImage + kPortfolioRowGap).w,
+              top: 12.h,
+              bottom: 12.h),
+          child: Row(
+            children: [
+              Text(label, style: style),
+              if (!open) ...[
+                SizedBox(width: 6.w),
+                Text('$count',
+                    key: const ValueKey('portfolio-balance-see-all-count'),
+                    style: style.copyWith(
+                        color: c.textTertiary, fontWeight: FontWeight.w500)),
+              ],
+              SizedBox(width: 2.w),
+              Icon(
+                  open
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 16.w,
+                  color: c.textTertiary),
             ],
           ),
         ),
@@ -626,6 +854,12 @@ const double kBalancesDotGap = 12;
 
 /// Where a venue's sub-rows start: after the dot and its gap.
 double balancesSubRowInset() => (kBalancesDot + kBalancesDotGap).w;
+
+/// Where the lead line's label starts: past the ring and the dot (Move
+/// money sits here, under the label).
+double balancesLeadInset() =>
+    (kBalancesRingDiameter + kBalancesRingGap + kBalancesDot + kBalancesDotGap)
+        .w;
 
 /// The amount at the end of a header row: Available to invest's, a
 /// venue's value, the P&L charts' Open P&L.
@@ -764,12 +998,18 @@ class BalancesRing extends StatelessWidget {
     required this.shares,
     required this.semantics,
     this.chartKey = const ValueKey('portfolio-balance-ring'),
+    this.diameter = kBalancesRingDiameter,
+    this.thickness = kBalancesRingThickness,
   });
 
   final List<BalancesCategory> categories;
   final Map<BalancesCategory, double> shares;
   final String semantics;
   final Key chartKey;
+
+  /// Design units; the Portfolio screen's shares block draws it larger.
+  final double diameter;
+  final double thickness;
 
   @override
   Widget build(BuildContext context) {
@@ -781,8 +1021,8 @@ class BalancesRing extends StatelessWidget {
       child: IgnorePointer(
         child: KuteDonutChart(
           key: chartKey,
-          diameter: kBalancesRingDiameter.w,
-          thickness: kBalancesRingThickness.w,
+          diameter: diameter.w,
+          thickness: thickness.w,
           trackColor: context.isDark ? c.surfaceLight : c.surfaceElevated,
           onSelected: (_) {},
           segments: [
@@ -801,14 +1041,15 @@ class BalancesRing extends StatelessWidget {
   }
 }
 
-/// The lead block beside the ring: "● Available to invest" (the venues'
-/// title size; the dot only with a [color]) with its amount under the
-/// label, in [amountColor] (the P&L charts' Open P&L in the result
-/// colour), and a chevron after it when a tap opens something
-/// ([onToggle]; null: nothing to open, or held open by a note).
+/// The lead line: [leading] (the ring) first, then "● Available to
+/// invest" (the venues' title size; the dot only with a [color]) with its
+/// amount at the line's end, in [amountColor], and a chevron after it
+/// when a tap opens something ([onToggle]; null: nothing to open, or held
+/// open by a note).
 class BalancesLead extends StatelessWidget {
   const BalancesLead({
     super.key,
+    this.leading,
     this.color,
     required this.label,
     required this.figure,
@@ -819,6 +1060,8 @@ class BalancesLead extends StatelessWidget {
     this.amountKey,
   });
 
+  /// What leads the line (the ring); null for the dot alone.
+  final Widget? leading;
   final Color? color;
   final String label;
   final BalancesFigure figure;
@@ -841,58 +1084,105 @@ class BalancesLead extends StatelessWidget {
         key: toggleKey,
         behavior: HitTestBehavior.opaque,
         onTap: onToggle,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            Row(
-              children: [
-                if (dot != null) ...[
-                  BalancesDot(color: dot),
-                  SizedBox(width: kBalancesDotGap.w),
-                ],
-                Flexible(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: balancesSectionTitle(context)),
-                ),
-              ],
+            if (leading != null) ...[
+              leading!,
+              SizedBox(width: kBalancesRingGap.w),
+            ],
+            if (dot != null) ...[
+              BalancesDot(color: dot),
+              SizedBox(width: kBalancesDotGap.w),
+            ],
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: balancesSectionTitle(context)),
             ),
-            SizedBox(height: 2.h),
-            Padding(
-              padding: EdgeInsetsDirectional.only(
-                  start: dot != null ? balancesSubRowInset() : 0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: BalancesLiveFigure(
-                        key: amountKey,
-                        figure: figure,
-                        style:
-                            balancesHeaderAmount(context, color: amountColor),
-                      ),
-                    ),
-                  ),
-                  // The chevron after the amount (founder, 27 October 2026).
-                  if (onToggle != null) ...[
-                    SizedBox(width: 2.w),
-                    AnimatedRotation(
-                      turns: open ? 0.5 : 0,
-                      duration: kuteReduceMotion(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 200),
-                      child: Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 18.w, color: c.textTertiary),
-                    ),
-                  ],
-                ],
+            SizedBox(width: 12.w),
+            // The amount at the line's end, scaled down rather than cut.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 150.w),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerEnd,
+                child: BalancesLiveFigure(
+                  key: amountKey,
+                  figure: figure,
+                  style: balancesHeaderAmount(context, color: amountColor),
+                ),
               ),
             ),
+            if (onToggle != null) ...[
+              SizedBox(width: 2.w),
+              AnimatedRotation(
+                turns: open ? 0.5 : 0,
+                duration: kuteReduceMotion(context)
+                    ? Duration.zero
+                    : KuteMotion.chipDuration,
+                curve:
+                    kuteReduceMotion(context) ? Curves.linear : KuteMotion.chip,
+                child: Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 18.w, color: c.textTertiary),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One share in the Portfolio screen's top block: "● Investing
+/// $1,126.50 · 64%", the amount tabular in the category's colour's row.
+class _ShareRow extends StatelessWidget {
+  const _ShareRow({
+    super.key,
+    required this.color,
+    required this.label,
+    required this.figure,
+    required this.share,
+  });
+
+  final Color color;
+  final String label;
+  final BalancesFigure figure;
+  final double? share;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final amount = TextStyle(
+      color: c.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.2,
+      height: 1.25,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Semantics(
+      label: '$label, ${figure.text}'
+          '${share == null ? '' : ', ${balancesPercent(share!)}'}',
+      excludeSemantics: true,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 4.h),
+        child: Row(
+          children: [
+            BalancesDot(color: color),
+            SizedBox(width: kBalancesDotGap.w),
+            Expanded(
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: balancesSectionTitle(context)),
+            ),
+            SizedBox(width: 8.w),
+            BalancesLiveFigure(figure: figure, style: amount),
+            if (share != null)
+              Text(' · ${balancesPercent(share!)}',
+                  style: amount.copyWith(
+                      color: c.textSecondary, fontWeight: FontWeight.w500)),
           ],
         ),
       ),

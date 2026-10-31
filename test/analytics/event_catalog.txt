@@ -77,8 +77,6 @@ biometric_prompt_cancelled
 biometric_prompt_shown
 biometrics_toggle_cancelled
 biometrics_toggled
-bitcoin_in_out_period_changed
-bitcoin_in_out_side_changed
 block_explorer_opened
 bottom_bar_tapped
 builder_combo_toggled
@@ -107,6 +105,7 @@ cashapp_purchase_cancelled
 cashapp_purchase_created
 category_pill_tapped
 category_row_back_tapped
+category_sheet_opened
 change_pin_blocked
 chart_autoscale_toggled
 chart_drawing_redone
@@ -464,7 +463,6 @@ polymarket_withdraw_completed
 polymarket_withdraw_failed
 polymarket_withdraw_initiated
 polymarket_withdraw_submitted
-portfolio_allocation_view_changed
 portfolio_available_to_invest_toggled
 portfolio_balances_empty_shown
 portfolio_category_slice_selected
@@ -476,6 +474,7 @@ portfolio_performance_retry_tapped
 portfolio_rebalance_tapped
 portfolio_statistics_venue_toggled
 portfolio_tab_changed
+portfolio_venue_positions_expanded
 position_protect_tapped
 predict_hero_viewed
 prediction_claim_tapped
@@ -632,6 +631,13 @@ settlement_rereview_required
 settlement_route_unavailable
 settlement_submit_attempt
 settlement_terminal
+share_link_cancelled
+share_link_claimed
+share_link_created
+share_link_paid
+share_link_shared
+share_market_link_shared
+share_market_opened
 shell_swipe_hint_shown
 shell_tab_changed
 shell_tab_reselected

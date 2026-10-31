@@ -20,6 +20,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/helpers/kute_dog_asset.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/models/advisor_model.dart';
 import 'package:kute/models/kute_state.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -1110,11 +1111,16 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-/// The Kute dog at the size a Settings tile holds its glyph.
+/// Sal at the size a Settings tile holds its glyph: the 3D face's `idle`
+/// still, the pixel dog under it until the sheets exist.
 class SalDogGlyph extends StatelessWidget {
   const SalDogGlyph({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      SvgPicture.asset(kuteDogAsset(context), width: 24.sp, height: 24.sp);
+  Widget build(BuildContext context) => SalSprite(
+        clip: 'idle',
+        size: 24.sp,
+        fallback: SvgPicture.asset(kuteDogAsset(context),
+            width: 24.sp, height: 24.sp),
+      );
 }

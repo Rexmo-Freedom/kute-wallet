@@ -6,6 +6,7 @@
 // in test/services/hive_boot_test.dart runs exactly this path.
 
 import 'package:hive_ce/hive.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_policy_snapshot_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/tx_fiat_snapshot_service.dart';
@@ -93,6 +94,7 @@ Future<void> openStartupHiveBoxes() async {
     _openHiveBoxSafe<String>('polymarket_feed_cache_v1'),
     _openHiveBoxSafe<String>('wallet_transaction_cache'),
     _openHiveBoxSafe<String>('spark_address_ring'),
+    _openHiveBoxSafe<String>(ShareLinksStore.boxName),
     _openHiveBoxSafe<String>(HiveRuntimePolicySnapshotStore.boxName),
     // Settings box: plain open, NOT _openHiveBoxSafe — the safe variant
     // deletes a corrupt box from disk, which is right for cache-tier

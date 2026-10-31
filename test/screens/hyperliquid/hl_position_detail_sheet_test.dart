@@ -37,6 +37,7 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
         HlChartEditBody,
         HlMarketDetailSheet,
         debugResetHlChartRail;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
@@ -632,7 +633,8 @@ void main() {
       expect(row, findsOneWidget);
       expect(find.text('Why is it moving?'), findsOneWidget);
       expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byType(KuteDogGlance), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.byType(SalSprite)),
+          findsOneWidget);
       expect(find.text('What drives the price of BTC?'), findsNothing);
       expect(find.textContaining('protect'), findsNothing);
       expect(aboutRow, findsOneWidget);
@@ -665,9 +667,13 @@ void main() {
         expect(tester.getRect(row).top,
             lessThan(tester.getRect(find.text('About Bitcoin')).top));
         // The dog as a one-colour glyph in the title's colour, no ring.
-        final glyph = tester.widget<KuteDogGlance>(
-            find.descendant(of: row, matching: find.byType(KuteDogGlance)));
-        expect(glyph.color, AppColorsExtension.light().textPrimary);
+        // Sal's 3D face, curious, the one-colour dog behind it as the
+        // fallback in the title's colour.
+        final sal = tester.widget<SalSprite>(
+            find.descendant(of: row, matching: find.byType(SalSprite)));
+        expect(sal.clip, 'curious');
+        expect((sal.fallback as KuteDogGlance).color,
+            AppColorsExtension.light().textPrimary);
         expect(find.byType(SalAiRing), findsNothing);
         final paragraph = tester.renderObject<RenderParagraph>(find.descendant(
             of: row, matching: find.text('Why is it moving?')));

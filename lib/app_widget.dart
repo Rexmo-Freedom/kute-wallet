@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart' show kuteBarScroll;
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
@@ -23,6 +25,8 @@ import 'package:kute/screens/home/components/wallet_cards.dart'
     show WalletCardType, persistSelectedWalletCard, selectedWalletCardProvider;
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/passkey_service.dart' show PasskeyService;
+import 'package:kute/services/share_link_claims.dart';
+import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -157,6 +161,19 @@ class _AppWidgetState extends ConsumerState<AppWidget>
     // PostHog's GoRouter observer emits a `$screen` event on every
     // route push/pop. Pairs with the `PostHogWidget` wrapper below
     // (autocapture of taps + screens) for the funnel views.
+    // Share links (services/share_link_claims.dart): the moment the
+    // session is unlocked (a cold start past the PIN, the lock overlay
+    // down, onboarding done) open a parked `/c/{id}` claim and pay the
+    // links this wallet's recipients claimed. A claim that arrives while
+    // unlocked (AppsFlyer UDL parks it) opens on the store's own signal.
+    ref.listenManual<bool>(sessionUnlockedProvider, (prev, next) {
+      if (next && prev != true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _shareLinksWhenBack('unlock');
+        });
+      }
+    });
+    ShareLinksStore.revision.addListener(_onShareLinksStoreChanged);
     _router = AppRouter.createRouter(
       '/splash',
       // No unlocked session (a cold start, or a wipe) keeps navigation on
@@ -439,10 +456,37 @@ class _AppWidgetState extends ConsumerState<AppWidget>
           // prompt); a no-op otherwise. The unlock path covers the
           // relock branch above.
           unawaited(PasskeyService.retryPendingLabels());
+          // Share links claimed while the app was away: ask to pay them.
+          _shareLinksWhenBack('resume');
         });
       }
     }
     _pauseTime = null;
+  }
+
+  /// The share-link pass for one "we are back" moment (see the listener
+  /// in initState and the resume branch). Never while locked: the unlock
+  /// is its own trigger.
+  void _shareLinksWhenBack(String trigger) {
+    if (!ref.read(sessionUnlockedProvider)) return;
+    BuildContext? rootContext() => AppRouter.rootNavigatorKey.currentContext;
+    if (ShareLinkClaims.openParkedClaim(rootContext())) return;
+    unawaited(ShareLinkClaims.check(
+      read: ref.read,
+      contextOf: rootContext,
+      trigger: trigger,
+    ));
+  }
+
+  void _onShareLinksStoreChanged() {
+    if (!mounted || ShareLinksStore.parkedClaimId == null) return;
+    if (!ref.read(sessionUnlockedProvider)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ShareLinkClaims.openParkedClaim(
+            AppRouter.rootNavigatorKey.currentContext);
+      }
+    });
   }
 
   void _handleAppPause() {
@@ -457,6 +501,7 @@ class _AppWidgetState extends ConsumerState<AppWidget>
   @override
   void dispose() {
     _capabilities?.removeListener(_onCapabilitiesChanged);
+    ShareLinksStore.revision.removeListener(_onShareLinksStoreChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -549,10 +594,18 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                       ),
                       child: Stack(
                         children: [
-                          child!,
+                          // The pages' vertical scroll reaches the bar
+                          // (kute_bar_context.dart, kuteBarScroll).
+                          NotificationListener<ScrollNotification>(
+                            onNotification: kuteBarScroll.report,
+                            child: child!,
+                          ),
                           // Picture-in-picture livestream — persists across
                           // routes so the user can watch while betting.
                           const FloatingStreamPlayer(),
+                          // The context-aware Sal bar over every pushed
+                          // page and sheet (kute_shell_bar.dart).
+                          const KuteShellBar(),
                           // In-place app lock: covers the live navigation
                           // stack when the background gap exceeded the
                           // auto-lock grace; unlocking dismisses it in

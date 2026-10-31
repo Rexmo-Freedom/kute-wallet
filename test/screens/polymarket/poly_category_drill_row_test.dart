@@ -63,12 +63,14 @@ void main() {
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
 
-    await pumpInvestments(tester, browsePredictions: true, overrides: [
-      polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
-    ]);
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
-    await tapAndPump(tester, investmentsPill(l10n.predictions));
+    // The drill row is the venue screen's own (a Ledger's Predictions
+    // tab); inside Investments the page's pill carries the category.
+    await pumpInvestments(tester,
+        browsePredictions: true,
+        child: const Scaffold(body: PolymarketScreen()),
+        overrides: [
+          polyBrowseFeedProvider.overrideWith(_EmptyFeed.new),
+        ]);
     final container = ProviderScope.containerOf(
         tester.element(find.byType(PolymarketScreen)));
 
@@ -135,13 +137,11 @@ void main() {
     await pumpInvestments(tester,
         browsePredictions: true,
         size: const Size(390, 2400),
+        child: const Scaffold(body: PolymarketScreen()),
         overrides: [
           polyBrowseFeedProvider.overrideWith(_ThreeMarkets.new),
           ...offlineVenueOverrides,
         ]);
-    final l10n =
-        AppLocalizations.of(tester.element(find.byType(KutePillTabs).first));
-    await tapAndPump(tester, investmentsPill(l10n.predictions));
 
     for (final pill in ['Trending', 'New']) {
       if (pill != 'Trending') {
@@ -195,7 +195,10 @@ void main() {
       expect(tester.getRect(trump).bottom,
           lessThan(at('Rain in London tomorrow?').top));
       // No title over the 5-minute card either, big or small.
-      expect(_inBrowser(find.text(l10n.predictionsCryptoMarkets)),
+      expect(
+          _inBrowser(find.text(AppLocalizations.of(
+                  tester.element(find.byType(PolymarketScreen)))
+              .predictionsCryptoMarkets)),
           findsNothing);
     }
 

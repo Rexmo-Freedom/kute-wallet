@@ -19,6 +19,14 @@
 //     again.
 //   * [KutePressScale]: something tappable that is not a card or a button
 //     (the Investments balance) gives the cards' press feedback.
+//   * [KuteStaggerIn]: a list's first rows (markets, activity) fade and
+//     rise in, 20 ms apart, the first time they are painted; a row past
+//     the eighth, or one that arrives later, is drawn at once.
+//   * [KutePressable]: THE press feedback (founder, 31 October 2026, after
+//     Orchestra): 0.98 while held, back on the press spring
+//     (KuteMotion.press, lib/theme/kute_motion.dart). Wrapped around a
+//     pill, a soft row, an action button: a Listener only, so the child's
+//     own tap, ink, hit area and semantics are untouched.
 //   * [FoldAway] / [StepsReveal]: a slip or sheet whose money steps show
 //     under its button folds its keypad and amount chips away (the
 //     amount cannot change then) and the steps grow into that room and
@@ -27,12 +35,14 @@
 // Every one of them honours Reduce Motion: with it on, the end state is
 // drawn at once.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kute/screens/shared/rolling_number_text.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// Whether the person asked the system for less motion.
 bool kuteReduceMotion(BuildContext context) =>
@@ -500,11 +510,164 @@ class _KutePressScaleState extends State<KutePressScale> {
         HapticFeedback.lightImpact();
         widget.onTap();
       },
+      // Down quick and plain, up on the press spring (KuteMotion).
       child: AnimatedScale(
         scale: _pressed && !reduceMotion ? 0.97 : 1.0,
-        duration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 110),
-        curve: Curves.easeOut,
+        duration: reduceMotion
+            ? Duration.zero
+            : (_pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
+        curve: _pressed ? Curves.easeOut : KuteMotion.press,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// The app's press feedback on anything already tappable: the child eases
+/// to [KuteMotion.pressScale] while a finger is down and springs back
+/// ([KuteMotion.press]) on release. A [Listener] under the child's own
+/// gesture handling, so its tap, ink, hit area and semantics are exactly
+/// as they were; a finger that moves on (a scroll) lets go at once. Under
+/// Reduce Motion nothing moves. [enabled] false: nothing moves either (a
+/// disabled button).
+class KutePressable extends StatefulWidget {
+  final Widget child;
+  final bool enabled;
+
+  /// The scale held while pressed; [KuteMotion.pressScale] unless a surface
+  /// asks for a deeper press (the category tiles, 0.97).
+  final double scale;
+
+  const KutePressable(
+      {super.key,
+      required this.child,
+      this.enabled = true,
+      this.scale = KuteMotion.pressScale});
+
+  @override
+  State<KutePressable> createState() => _KutePressableState();
+}
+
+class _KutePressableState extends State<KutePressable> {
+  bool _down = false;
+  Offset? _start;
+
+  /// Travel past which the touch is a drag, not a press.
+  static const double _slop = 10;
+
+  void _set(bool value) {
+    if (_down != value && mounted) setState(() => _down = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = !widget.enabled || kuteReduceMotion(context);
+    final pressed = _down && !still;
+    return Listener(
+      onPointerDown: still
+          ? null
+          : (e) {
+              _start = e.position;
+              _set(true);
+            },
+      onPointerMove: still
+          ? null
+          : (e) {
+              final start = _start;
+              if (start != null && (e.position - start).distance > _slop) {
+                _set(false);
+              }
+            },
+      onPointerUp: still ? null : (_) => _set(false),
+      onPointerCancel: still ? null : (_) => _set(false),
+      child: AnimatedScale(
+        scale: pressed ? widget.scale : 1.0,
+        duration: still
+            ? Duration.zero
+            : (pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
+        curve: pressed ? Curves.easeOut : KuteMotion.press,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// How many rows of a list stagger in, and the step between them.
+const int kStaggerRows = 8;
+const Duration kStaggerStep = Duration(milliseconds: 20);
+
+/// A row's arrival on first paint (founder, 31 October 2026): opacity and
+/// a 10 px rise, settled on the app's settle easing, starting
+/// [kStaggerStep] times [index] after the first row. Rows at [index]
+/// [kStaggerRows] or more, and every row under Reduce Motion, are drawn
+/// at once. Runs once per mount: a rebuild with new data does not replay.
+class KuteStaggerIn extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  /// The step between rows, the rise in pixels and how many rows stagger
+  /// (the rest draw at once): the list defaults, or a surface's own (the
+  /// category tiles: 16 ms, 6 px, every tile).
+  final Duration step;
+  final double rise;
+  final int limit;
+
+  const KuteStaggerIn({
+    super.key,
+    required this.index,
+    required this.child,
+    this.step = kStaggerStep,
+    this.rise = 10,
+    this.limit = kStaggerRows,
+  });
+
+  @override
+  State<KuteStaggerIn> createState() => _KuteStaggerInState();
+}
+
+class _KuteStaggerInState extends State<KuteStaggerIn>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+  bool _decided = false;
+
+  /// The wait before this row's rise, cancelled with the row (a delayed
+  /// future outlived a sheet closed in a test: "timers pending").
+  Timer? _wait;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_decided) return;
+    _decided = true;
+    if (widget.index >= widget.limit || kuteReduceMotion(context)) return;
+    final c = AnimationController(
+        vsync: this, duration: KuteMotion.settleDuration);
+    _controller = c;
+    _wait = Timer(widget.step * widget.index, () {
+      if (mounted && !c.isAnimating && c.value == 0) c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _wait?.cancel();
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _controller;
+    if (c == null) return widget.child;
+    final curved = CurvedAnimation(parent: c, curve: KuteMotion.settle);
+    return FadeTransition(
+      opacity: curved,
+      child: AnimatedBuilder(
+        animation: curved,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, widget.rise * (1 - curved.value)),
+          child: child,
+        ),
         child: widget.child,
       ),
     );

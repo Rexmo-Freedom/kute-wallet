@@ -19,8 +19,11 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 // deep links, etc.) stays a top-level GoRoute OUTSIDE this shell and pushes
 // full-screen over it, exactly as before.
 
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_trade_alerts_host.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteShellMounted;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -241,11 +244,16 @@ class _AppShellState extends ConsumerState<AppShell>
       {bool settle = false, Duration? duration}) async {
     final transition = ++_pageTransition;
     try {
+      // The tab switch on the app's spring (founder, 31 October 2026;
+      // lib/theme/kute_motion.dart); at once under Reduce Motion.
+      final reduce = KuteMotion.reduce(context);
       await _page
           .animateTo(
             target.toDouble(),
-            duration: duration ?? const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
+            duration: reduce
+                ? Duration.zero
+                : (duration ?? KuteMotion.sheetInDuration),
+            curve: reduce ? Curves.linear : KuteMotion.sheetIn,
           )
           .orCancel;
     } on TickerCanceled {
@@ -274,6 +282,11 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    // The shell-level Sal bar is up while the shell is (kute_bar_context.dart);
+    // flipped after the frame, never mid-build (the bar rebuilds on it).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) kuteShellMounted.value = true;
+    });
     _lastBranch = widget.navigationShell.currentIndex;
     _page = AnimationController(
       vsync: this,
@@ -381,6 +394,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => kuteShellMounted.value = false);
     _page.dispose();
     super.dispose();
   }
@@ -480,6 +495,11 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Widget _branchPage(int branch, int visibleIndex, double page) {
     final shown = visibleIndex >= 0 && (visibleIndex - page).abs() < 1.0;
+    // The incoming page settles from 0.97 to 1 as it arrives (and the
+    // outgoing one shrinks the same way as it leaves); none under Reduce
+    // Motion.
+    final away = visibleIndex < 0 ? 0.0 : (visibleIndex - page).abs();
+    final scale = _reduceMotion ? 1.0 : 1 - 0.03 * away.clamp(0.0, 1.0);
     return Offstage(
       key: ValueKey(_kShellTabs[branch]),
       offstage: !shown,
@@ -487,14 +507,21 @@ class _AppShellState extends ConsumerState<AppShell>
         enabled: shown,
         child: FractionalTranslation(
           translation: Offset(visibleIndex < 0 ? 0 : visibleIndex - page, 0),
-          child: widget.children[branch],
+          child: Transform.scale(
+            scale: scale,
+            child: widget.children[branch],
+          ),
         ),
       ),
     );
   }
 
+  /// Read in [build], for [_branchPage].
+  bool _reduceMotion = false;
+
   @override
   Widget build(BuildContext context) {
+    _reduceMotion = KuteMotion.reduce(context);
     final int currentIndex = widget.navigationShell.currentIndex;
     // An Investments pill change while that tab is on screen swaps the
     // venue sockets over, the way a tab change does.

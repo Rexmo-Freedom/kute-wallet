@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
@@ -125,7 +126,7 @@ class SellSheet extends ConsumerStatefulWidget {
     // AND another inside the build's `Container(padding: ...)` — double
     // keyboard inset, which is what overflowed the sheet by 233 px when
     // the numpad opened. The build container alone handles the inset.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -1627,7 +1628,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // Nothing inside the tinted subtree opens a sheet of its own. The
     // step-up PIN gate, the geoblock wall and the error snackbars are all
     // raised from `State.context`, which sits ABOVE this wrapper, so the
-    // theme `showModalBottomSheet` captures for them is the app's real
+    // theme `showKuteModalSheet` captures for them is the app's real
     // palette rather than translucent ink meant for a red surface.
     const sideColor = AppColors.marketDown;
     final tc = sideTintPalette(c, sideColor);

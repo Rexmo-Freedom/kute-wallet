@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -173,10 +174,12 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
   @override
   void initState() {
     super.initState();
+    // The toast comes in on the sheet spring and leaves on the settle
+    // easing (lib/theme/kute_motion.dart).
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
-      reverseDuration: const Duration(milliseconds: 220),
+      duration: KuteMotion.sheetInDuration,
+      reverseDuration: KuteMotion.sheetOutDuration,
     );
 
     // Calm, single-spring entrance — the old elasticOut + scale-back
@@ -185,8 +188,8 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
     // eye without the "boing".
     final curvedAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: KuteMotion.sheetIn,
+      reverseCurve: KuteMotion.sheetOut,
     );
 
     _slideAnimation = Tween<Offset>(

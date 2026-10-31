@@ -14,7 +14,7 @@
 // lives in Portfolio; its shared rows below use this Ledger's records only.
 
 import 'package:kute/screens/polymarket/components/market_card.dart'
-    show polyCardGroups, polyGroupRowIndent;
+    show polyCardGroups, polyCardOpenSlip, polyGroupRowDivider, polyGroupRowIndent;
 import 'package:kute/screens/polymarket/components/position_card.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
@@ -270,9 +270,19 @@ class _LedgerPredictionsDiscovery extends ConsumerWidget {
               leading: fiveMinute,
               sections: sections,
               cardBuilder: (event, onTap, inGroup) => PredictionBrowseCard(
-                  event: event, onTap: onTap, inGroup: inGroup),
+                  event: event,
+                  onTap: onTap,
+                  inGroup: inGroup,
+                  // The row's Yes / No pills open the slip on that side,
+                  // for the Ledger wallet.
+                  onPickSide: (side) => polyCardOpenSlip(context,
+                      event: event,
+                      side: side,
+                      ledgerWalletId: walletId,
+                      source: 'ledger')),
               groups: (e) => polyCardGroups(e.title, e.outcomes),
               groupRowIndent: polyGroupRowIndent,
+              groupDivider: polyGroupRowDivider,
               onOpenMarket: (event) {
                 if (!context.mounted) return;
                 MarketDetailSheet.show(context,

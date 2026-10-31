@@ -23,7 +23,7 @@ import 'package:kute/services/runtime_capabilities_service.dart'
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/helpers/kute_dog_asset.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 // [ActiveNavTab] used to be defined here; it moved to
 // providers/active_shell_tab_provider.dart so the live-price notifiers
@@ -119,11 +119,12 @@ class _FloatingActionPillState extends ConsumerState<FloatingActionPill> {
       isSigner: wallet.isSigner,
       isDark: context.isDark,
     );
-    var asset = visual.svgAsset;
-    if (asset == 'lib/assets/kute_dog.svg') asset = kuteDogAsset(context);
+    final asset = visual.svgAsset;
     final mono = visual.color == Colors.white ||
         visual.color == const Color(0xFF333333);
     return ServiceTabData(
+      // The dog is the 3D Sal (BrandMark); any other mark is its SVG.
+      glyph: isKuteDogAsset(asset) ? BrandMark(asset: asset!, size: 24.sp) : null,
       svgAsset: asset,
       icon: visual.icon,
       tintSvg: mono,

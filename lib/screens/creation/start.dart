@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -215,7 +216,13 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                               // animated; Sal himself was a still GIF loop.
                               // He now breathes, wags, blinks and glances
                               // around inside the same burst.
-                              KuteDogIdle(size: 160.w),
+                              // The 3D Sal idling; the rig until the
+                              // sheets exist.
+                              SalSprite(
+                                clip: 'body_idle',
+                                size: 160.w,
+                                fallback: KuteDogIdle(size: 160.w),
+                              ),
                             ],
                           ),
                         ),

@@ -69,14 +69,15 @@ Finder _earnCopy() => find.textContaining(
 /// Opens the Portfolio pill, then its P&L charts section (Positions is
 /// the first).
 Future<void> _openStatistics(WidgetTester tester) async {
-  await tester.tap(find.text('Portfolio').first);
+  // The Portfolio is the action square in the middle of the Dollars row
+  // (Add · Portfolio · Send); it opens the Portfolio screen, whose
+  // section pill picks P&L charts.
+  await tester.tap(find.text('Portfolio').last);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
-  final charts = find.byKey(const ValueKey('portfolio-section-pill-charts'));
-  await tester.ensureVisible(charts);
-  await tester.pump();
-  await tester.tap(charts);
+  await tester
+      .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')).last);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }

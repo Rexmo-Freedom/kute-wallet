@@ -12,6 +12,7 @@
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,7 +28,6 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
 import 'package:kute/screens/shared/amount_unit_picker.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/receive_surface.dart'
     show ReceiveSheetHeader;
@@ -271,16 +271,17 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
             maxDecimals: _decimalsFor(currency),
             onChanged: (value) => setState(() => _typed = value),
           ),
-          SizedBox(height: 16.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              onPressed: positive && error == null && !_waiting
-                  ? () => _submit((amount: typed, currency: currency))
-                  : null,
-              isLoading: _waiting,
-              text: context.l10n.receiveCreateRequest,
+          // The bar is the Create request button (kute_shell_bar.dart);
+          // the keypad keeps clear of it.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.receiveCreateRequest,
+              onPrimary: () => _submit((amount: typed, currency: currency)),
+              enabled: positive && error == null && !_waiting,
+              busy: _waiting,
+              source: 'receive_request',
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),

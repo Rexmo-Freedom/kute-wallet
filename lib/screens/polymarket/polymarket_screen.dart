@@ -630,6 +630,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       // under the balance. A category with subcategories
                       // drills in: the row becomes "‹ Category" and its
                       // subcategories. Both filter the list below in place.
+                      // Inside Investments the page's own pill carries
+                      // the category (investments_category_sheet.dart).
+                      if (!embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),
@@ -977,6 +980,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         items: events,
         groups: (e) => polyCardGroups(e.title, e.outcomes),
         dividerIndent: polyGroupRowIndent(),
+        divider: polyGroupRowDivider,
         build: (market, inGroup) {
           final row = rowOf(market);
           return _PolyFeedCard(
@@ -1144,6 +1148,17 @@ class _PolyFeedCard extends ConsumerWidget {
               source: 'feed_card',
             );
           },
+          // A Yes / No pill opens the slip straight on that side, the
+          // way the market page's own pair does.
+          onPickSide: (side) => polyCardOpenSlip(
+            context,
+            event: market,
+            side: side,
+            onDeposit: () async {
+              if (context.mounted) _openPredictionsDeposit(context, ref);
+            },
+            source: 'feed_card',
+          ),
         ),
       ),
     );

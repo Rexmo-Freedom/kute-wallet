@@ -144,6 +144,7 @@ class _GroupLandingScreenState extends ConsumerState<GroupLandingScreen> {
                       items: events,
                       groups: (e) => polyCardGroups(e.title, e.outcomes),
                       dividerIndent: polyGroupRowIndent(),
+                      divider: polyGroupRowDivider,
                       build: (market, inGroup) =>
                           _GroupFeedCard(market: market, inGroup: inGroup),
                     ),
@@ -293,6 +294,8 @@ class _GroupFeedCard extends ConsumerWidget {
           MarketDetailSheet.show(context,
               event: market, source: 'group_landing');
         },
+        onPickSide: (side) => polyCardOpenSlip(context,
+            event: market, side: side, source: 'group_landing'),
       ),
     );
   }

@@ -25,8 +25,8 @@ import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/receive/receive_sheet.dart' show ReceiveSheets;
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart'
-    show SalSuggestionButton;
+import 'package:kute/screens/shared/bitcoin_wallet_actions.dart'
+    show bitcoinWalletDockActions;
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
 import 'package:kute/screens/shared/open_once.dart';
@@ -310,31 +310,52 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock is Deposit, Withdraw and search; Deposit opens '
-      'the Dollars receive screen from the dock', (tester) async {
+      'the Investments money verbs are one compact row, Add and Send, and '
+      'the dock is search alone; Add opens the Dollars receive screen',
+      (tester) async {
     final events = <(String, Map<String, Object>?)>[];
     TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
     addTearDown(() => TrackingService.debugTrackObserver = null);
     var receiveOpened = 0;
     UsdAccountActionBar.debugReceiveOpener = (_) => receiveOpened++;
     addTearDown(() => UsdAccountActionBar.debugReceiveOpener = null);
-    await _pump(tester, const UsdAccountActionBar());
+    await _pump(
+        tester,
+        const Column(mainAxisSize: MainAxisSize.min, children: [
+          UsdAccountActionRow(),
+          UsdAccountActionBar(),
+        ]));
     final bar =
         tester.widget<KuteBottomActionBar>(find.byType(KuteBottomActionBar));
-    // Money in on the left, money out on the right, with the Bitcoin
-    // dock's arrows and action keys; Investments says Deposit and
-    // Withdraw, never Receive and Send.
-    expect(bar.actions.map((a) => a.label), ['Deposit', 'Withdraw']);
-    expect(bar.actions.map((a) => a.trackingId), ['receive', 'send']);
-    expect(bar.actions.map((a) => a.icon),
-        [Icons.south_west_rounded, Icons.north_east_rounded]);
-    expect(bar.actions.map((a) => a.onTap), everyElement(isNotNull));
+    // The dock carries no money verb and no pill of its own: the ONE
+    // pill is the shell bar (kute_shell_bar.dart); the dock keeps the
+    // pill's room so the lists clear it.
+    expect(bar.actions, isEmpty);
     expect(bar.source, 'usd');
+    expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
+    expect(find.byType(KuteDogMagnifier), findsNothing);
+    // The row: money in on the left, the Portfolio in the middle
+    // (founder, 31 October 2026), money out on the right, with the
+    // Bitcoin dock's arrows and action keys; Investments says Add and
+    // Send (dollars can leave as a coin too, so never "To Bitcoin").
+    final actions = UsdAccountActionBar.moneyActions(
+        tester.element(find.byType(UsdAccountActionRow)));
+    expect(actions.map((a) => a.label), ['Add', 'Portfolio', 'Send']);
+    expect(actions.map((a) => a.trackingId), ['receive', 'portfolio', 'send']);
+    expect(actions.map((a) => a.icon), [
+      Icons.south_west_rounded,
+      InvestmentsTab.positions.icon,
+      Icons.north_east_rounded
+    ]);
+    expect(actions.map((a) => a.onTap), everyElement(isNotNull));
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('Send'), findsOneWidget);
     expect(find.text('Receive'), findsNothing);
-    expect(find.text('Send'), findsNothing);
-    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Withdraw'), findsNothing);
 
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Add'));
     await tester.pump();
     expect(receiveOpened, 1);
     expect(events.where((e) => e.$1 == 'quick_action_tapped').single.$2,
@@ -344,12 +365,12 @@ void main() {
   });
 
   testWidgets(
-      'the Investments dock\'s Deposit opens the Dollars receive as a '
+      'the Investments row\'s Add opens the Dollars receive as a '
       'bottom sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugUsdBody = (_) => const Text('usd receive body');
     addTearDown(() => ReceiveSheets.debugUsdBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const UsdAccountActionBar(), routes: [
+    await _pump(tester, const UsdAccountActionRow(), routes: [
       GoRoute(
         path: '/receive_dollars',
         name: 'receiveDollars',
@@ -359,25 +380,31 @@ void main() {
         },
       ),
     ]);
-    await tester.tap(find.text('Deposit'));
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
     expect(pushed, isEmpty);
     expect(find.text('usd receive body'), findsOneWidget);
     final route = ModalRoute.of(tester.element(find.text('usd receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receiveDollars');
-    // The dock is still underneath.
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    // The row is still underneath.
+    expect(find.byType(UsdAccountActionRow), findsOneWidget);
     expect(TrackingService.takeEntrySource('usd_receive'), 'usd_dock');
   });
 
   testWidgets(
-      'the Bitcoin dock\'s Receive opens the Bitcoin receive as a bottom '
+      'the Bitcoin row\'s Receive opens the Bitcoin receive as a bottom '
       'sheet over the screen, not a route push', (tester) async {
     ReceiveSheets.debugBitcoinBody = (_) => const Text('btc receive body');
     addTearDown(() => ReceiveSheets.debugBitcoinBody = null);
     final pushed = <Uri>[];
-    await _pump(tester, const HomeDock(), routes: [
+    // Home's row: the dock's own Receive and Send, under the balance.
+    final row = Consumer(
+        builder: (context, ref, _) => KuteActionRow(
+            source: 'home',
+            actions: bitcoinWalletDockActions(
+                context, ref, _settings().wallets.single)));
+    await _pump(tester, row, routes: [
       GoRoute(
         path: '/receive',
         name: 'receive',
@@ -394,26 +421,21 @@ void main() {
     final route = ModalRoute.of(tester.element(find.text('btc receive body')));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, 'receive');
-    expect(find.byType(KuteBottomActionBar), findsOneWidget);
+    expect(find.byType(KuteActionRow), findsOneWidget);
   });
 
-  testWidgets('the Portfolio pill\'s dock opens search on All',
+  testWidgets('the Portfolio pill\'s dock draws no pill: the shell bar is the one',
       (tester) async {
     final container =
         await _pump(tester, const UsdAccountActionBar());
-    // The Portfolio pill's square opens the whole search on All, never
-    // the spending wallet's history alone (founder, 27 October 2026); a
-    // venue pill's searches that venue's markets.
+    // Search and Sal are the shell bar's (kute_shell_bar_test.dart); the
+    // dock only keeps the room under the lists.
     container.read(investmentsTabProvider.notifier).state =
         InvestmentsTab.positions;
-    expect(find.byType(KuteDogMagnifier), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(KuteDogMagnifier), findsNothing);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
-    await tester.tap(find.byType(KuteDogMagnifier));
-    await tester.pumpAndSettle();
-    expect(find.byType(UnifiedSearchSurface), findsOneWidget);
-    expect(container.read(searchWalletScopeProvider), isNull);
-    expect(container.read(selectedSearchCategoryProvider),
-        SearchCategory.all);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -504,28 +526,14 @@ void main() {
     }
   });
 
-  testWidgets('home and Investing dock searches open the same sheet',
+  testWidgets(
+      'the Home dock draws no pill; a venue dock with verbs keeps its '
+      'search square, opening the results-first sheet on its venue',
       (tester) async {
-    // Owner report: Home's search square opened a different screen (the
-    // Sal intro) from the venue's. Every dock opens the one results-first
-    // search sheet; only the category differs.
-    UnifiedSearchSurface opened(WidgetTester tester) {
-      final surface = tester
-          .widget<UnifiedSearchSurface>(find.byType(UnifiedSearchSurface));
-      expect(find.byType(SalSuggestionButton), findsNothing);
-      return surface;
-    }
-
+    // The Home pill is the shell bar's (kute_shell_bar_test.dart).
     await _pump(tester, const HomeDock());
-    await tester.tap(find.byType(KuteDogMagnifier));
-    await tester.pumpAndSettle();
-    final home = opened(tester);
-    expect(find.text('Search transactions, Predictions and Investing'),
-        findsOneWidget);
-    // The field names both jobs, the square's own words.
-    expect(
-        tester.widget<TextField>(find.byType(TextField)).decoration!.hintText,
-        'Search or ask Sal');
+    expect(find.byType(KuteDogMagnifier), findsNothing);
+    expect(find.byKey(const ValueKey('dock-bar-room')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     OpenOnce.reset();
 
@@ -533,15 +541,13 @@ void main() {
         const InvestmentActionBar(product: InvestmentsProduct.trading));
     await tester.tap(find.byType(KuteDogMagnifier));
     await tester.pumpAndSettle();
-    final investing = opened(tester);
-
-    expect(home.runtimeType, investing.runtimeType);
-    expect(home.searchFirst, isTrue);
+    final investing = tester
+        .widget<UnifiedSearchSurface>(find.byType(UnifiedSearchSurface));
     expect(investing.searchFirst, isTrue);
-    expect(home.lockCategory, investing.lockCategory);
-    expect(home.walletId, investing.walletId);
-    expect(home.initialCategory, SearchCategory.all);
     expect(investing.initialCategory, SearchCategory.perpetuals);
+    expect(
+        tester.widget<TextField>(find.byType(TextField)).decoration!.hintText,
+        'Search or ask Sal');
     expect(tester.takeException(), isNull);
   });
 }

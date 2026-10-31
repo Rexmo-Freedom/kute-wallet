@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/polymarket/components/outcome_leading.dart'
     show polyOutcomeFill;
@@ -575,7 +576,7 @@ class BetSlipSheet extends ConsumerStatefulWidget {
     // (a long-standing Flutter gap) — that let a user swipe the sheet
     // away mid-placement. Dismissal is via tap-outside (isDismissible),
     // which DOES go through PopScope, so the placing-state lock holds.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,

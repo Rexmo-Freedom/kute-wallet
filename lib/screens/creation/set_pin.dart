@@ -56,7 +56,7 @@ class SetPin extends ConsumerStatefulWidget {
   _SetPinState createState() => _SetPinState();
 }
 
-class _SetPinState extends ConsumerState<SetPin> {
+class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
   String pin = '';
   final Stopwatch _elapsed = Stopwatch()..start();
 
@@ -99,6 +99,8 @@ class _SetPinState extends ConsumerState<SetPin> {
     return KutePinScaffold(
       leading: const KuteBackButton(fallbackRoute: '/start'),
       title: context.l10n.createAPin,
+      // Happy once the six digits are in, before Next is tapped.
+      salMood: pin.length == 6 ? 'happy' : salMoodFor(pin.length),
       dots: PinProgressIndicator(currentLength: pin.length),
       keypad: CustomKeypad(
         chromed: true,

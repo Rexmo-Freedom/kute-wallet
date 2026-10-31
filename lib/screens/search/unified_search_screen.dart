@@ -37,9 +37,19 @@
 // `UnifiedSearchSurface`, which a host can also embed (the "+" sheet grows
 // into it) by pairing `beginKuteSearchSession` / `endKuteSearchSession`.
 
+import 'package:kute/services/search_recent_store.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
+import 'dart:math' as math;
+import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:flutter/services.dart';
@@ -47,7 +57,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
@@ -68,7 +77,6 @@ import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/after_route_transition.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/components/kute_list_row.dart';
 import 'package:kute/screens/shared/kute_composer.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
     show
@@ -78,7 +86,9 @@ import 'package:kute/screens/shared/kute_skeleton.dart'
         SkeletonCardList,
         SkeletonCircle,
         SkeletonRowList;
-import 'package:kute/screens/shared/kute_motion.dart' show ArrivalSwitcher;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show ArrivalSwitcher, KutePressable, KuteStaggerIn, kuteReduceMotion;
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/search/search_result_order.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
@@ -87,12 +97,11 @@ import 'package:kute/screens/polymarket/components/position_card.dart'
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
     show polyPositionEnd;
 import 'package:kute/screens/shared/investment_market_browser.dart'
-    show InvestmentSectionHeader, PredictionBrowseCard;
+    show PredictionBrowseCard;
 import 'package:kute/models/hyperliquid_market.dart'
     show HlMarket, HlMarketKind, kHlLowLiquidityDayVolumeUsd;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
     show livePriceProvider;
-import 'package:kute/screens/shared/kute_taglines.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
@@ -103,7 +112,6 @@ import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/screens/shared/ask_sal_sheet.dart';
-import 'package:kute/providers/sal_chip_signals.dart' show searchSalSignals;
 import 'package:kute/services/advisor/sal_chip_catalogue.dart';
 
 // ── Search analytics ──
@@ -213,6 +221,13 @@ Future<void> showKuteSearch(
   // [walletId] (the transactions-only scope).
   String? ledgerWalletId,
   String? searchHint,
+  // The bar's context (kute_bar_context.dart): its recommended rows and
+  // prompts on top of the sheet, the composer scoped to its venue.
+  KuteBarContext? barContext,
+  // A question sent to Sal the moment the sheet has slid in (an
+  // informational screen's "What is this?" bar): the answer streams in
+  // through the ordinary advisor path; nothing else is special.
+  String? initialQuestion,
 }) async {
   assert(walletId == null || ledgerWalletId == null);
   // One search sheet at a time: a second tap while it slides in must not
@@ -237,7 +252,11 @@ Future<void> showKuteSearch(
   // sits above tab-scoped routes, with the surface drawn by the shared
   // AppBottomSheetContainer, which lifts the field + results with the
   // keyboard frame for frame.
+  // The shell bar hides while this sheet is up (a hidden bar context).
+  const hiddenBar = KuteBarContext.hidden();
+  container.read(kuteBarContextProvider.notifier).push(hiddenBar);
   try {
+    kuteSearchSheetOpen.value = true;
     await OpenOnce.run(_kSearchSheetKey, () => showAppBottomSheet<void>(
       context: context,
       builder: (_) => UnifiedSearchSurface(
@@ -247,14 +266,29 @@ Future<void> showKuteSearch(
         scopedTabs: walletId == null && !ledgerMarkets ? scopedTabs : null,
         walletId: walletId,
         searchHint: searchHint,
+        barContext: barContext,
+        initialQuestion: initialQuestion,
       ),
     ));
   } finally {
+    container.read(kuteBarContextProvider.notifier).remove(hiddenBar);
+    kuteSearchSheetOpen.value = false;
+    kuteSearchLoading.value = false;
     endKuteSearchSession(container);
   }
 }
 
 const _kSearchSheetKey = 'kute_search';
+
+/// True while the search sheet is up. The dock's "Search or ask Sal" pill
+/// shrinks and fades while it is (kute_bottom_action_bar.dart), and
+/// springs back when it closes.
+final ValueNotifier<bool> kuteSearchSheetOpen = ValueNotifier<bool>(false);
+
+/// True while the open search sheet is reading results for a query. The
+/// dock's Sal sweeps faster while it is and is happy for a beat when it
+/// turns false again.
+final ValueNotifier<bool> kuteSearchLoading = ValueNotifier<bool>(false);
 
 /// Seeds the providers [UnifiedSearchSurface] reads and starts a clean Sal
 /// session, exactly as the surface expects on entry. [showKuteSearch] calls
@@ -346,6 +380,12 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
   final String? walletId;
   final String? searchHint;
   final bool embedded;
+
+  /// The bar's context this sheet opened with (kute_bar_context.dart).
+  final KuteBarContext? barContext;
+
+  /// Sent to Sal once the sheet has slid in (see [showKuteSearch]).
+  final String? initialQuestion;
   const UnifiedSearchSurface({
     super.key,
     this.initialCategory = SearchCategory.all,
@@ -355,6 +395,8 @@ class UnifiedSearchSurface extends ConsumerStatefulWidget {
     this.walletId,
     this.searchHint,
     this.embedded = false,
+    this.barContext,
+    this.initialQuestion,
   });
 
   @override
@@ -379,8 +421,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
   final FocusNode _focusNode = FocusNode();
   VoidCallback? _cancelFocus;
   // Sal's opening questions for this open, chosen once per language from
-  // the public movers and starred markets already loaded.
-  (Locale, List<SalChip>)? _salChips;
   @override
   void initState() {
     super.initState();
@@ -392,15 +432,39 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // Focus the composer once the sheet has slid in (never mid-slide:
     // afterRouteTransition), so the keyboard rises against a settled
     // sheet. Nothing else runs on open: results, and the live sports feed
-    // they use, wait for the first query.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _cancelFocus = requestFocusAfterTransition(context, _focusNode);
-    });
+    // they use, wait for the first query. A context screen (the bar on a
+    // market page: a preview card and action rows) opens with the keyboard
+    // down; it rises when the person taps the field.
+    final question = widget.initialQuestion?.trim() ?? '';
+    if (question.isNotEmpty) {
+      // The question, asked as soon as the sheet has settled.
+      _controller.text = question;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _initialQuestion = Timer(KuteMotion.sheetInDuration, () {
+          if (mounted) unawaited(_submit());
+        });
+      });
+    } else if (!_contextScreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _cancelFocus = requestFocusAfterTransition(context, _focusNode);
+      });
+    }
   }
+
+  Timer? _initialQuestion;
+
+  /// A sheet opened from the bar on a screen with its own action rows
+  /// (kute_bar_context.dart): the market page's preview card and rows take
+  /// the top, the filter pills (search scoping) stay out, and the sheet
+  /// fits its content while nothing is typed.
+  bool get _contextScreen =>
+      widget.barContext != null && widget.barContext!.hasRecommendations;
 
   @override
   void dispose() {
+    _initialQuestion?.cancel();
     _cancelFocus?.call();
     _queryDebounce?.cancel();
     _settleTimer?.cancel();
@@ -486,6 +550,9 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     final q = _controller.text.trim();
     if (q.isEmpty) return;
     HapticFeedback.lightImpact();
+    // Kept in Recent (on the device only).
+    unawaited(SearchRecentStore.record(SearchRecentEntry(
+        kind: SearchRecentKind.query, id: q, label: q)));
     _focusNode.unfocus();
     final aiEnabled = ref.read(aiEnabledProvider).valueOrNull ?? true;
     if (!mounted) return;
@@ -521,25 +588,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     ref.read(searchQueryProvider.notifier).state = '';
   }
 
-  List<SalChip> _chips(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    final cached = _salChips;
-    if (cached != null && cached.$1 == locale) return cached.$2;
-    // The market questions are Investing ones: a Predictions search keeps
-    // to the general questions.
-    final chips = SalChipCatalogue.select(
-      const AdvisorContext(surface: 'search'),
-      context.l10n,
-      signals: widget.initialCategory == SearchCategory.predictions
-          ? const SalChipSignals()
-          : searchSalSignals(ProviderScope.containerOf(context, listen: false)),
-    );
-    _salChips = (locale, chips);
-    return chips;
-  }
-
-  /// A tapped opening question asks Sal like a submitted one. A market
-  /// question carries that public market so Sal answers about it.
   void _askChip(SalChip chip, int index) {
     HapticFeedback.lightImpact();
     _focusNode.unfocus();
@@ -705,8 +753,20 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       final rows = [for (final build in shown) build(pos++)];
       final waiting = rows.isEmpty && g.loading;
       if (labelGroups) {
-        resultChildren.add(InvestmentSectionHeader(
-            key: ValueKey('header-${g.key}'), label: g.label));
+        // A small header (the search home's), not the browsers' big one.
+        resultChildren.add(Padding(
+          key: ValueKey('header-${g.key}'),
+          padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 6.h),
+          child: Text(
+            g.label,
+            style: TextStyle(
+              color: context.colors.textTertiary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ));
       }
       resultChildren.add(ArrivalSwitcher(
         key: ValueKey('group-${g.key}'),
@@ -738,6 +798,14 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         if (g.rows.isNotEmpty) g.key,
     ];
     _resultsLoading = localAsync.isLoading || globalLoading || hlLoading;
+    // The dock's Sal follows (faster while loading, a beat when results
+    // land); after the frame, never from inside the build.
+    final loadingNow = _resultsLoading && query.isNotEmpty;
+    if (kuteSearchLoading.value != loadingNow) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) kuteSearchLoading.value = loadingNow;
+      });
+    }
 
     // Warm the HL universe while the Investing result leg can show, so
     // tapping a searched market resolves to the detail sheet
@@ -769,34 +837,36 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 );
     } else if (hasDraft) {
       body = _EmptyState(prompt: context.l10n.searchSearching);
-    } else if (widget.searchFirst) {
-      // Results-first idle: the chips row is already showing above; keep
-      // the body a plain quiet prompt so the surface reads as search, not
-      // as the Sal intro. A market-scoped open (a venue) names markets; an
-      // open on everything (Home's bitcoin cards) names what it covers.
-      body = _EmptyState(
-          prompt: widget.initialCategory == SearchCategory.perpetuals ||
-                  widget.initialCategory == SearchCategory.predictions
-              ? context.l10n.searchTypeToSearchMarkets
-              : context.l10n.searchIdlePrompt);
-    } else if (aiEnabled) {
-      body = _EmptyState(
-        prompt: widget.searchHint ?? context.l10n.searchOrAskSal,
-        showMascot: true,
-        chips: [
-          for (final (index, chip) in _chips(context).indexed)
-            SalSuggestionButton(
-              text: chip.text,
-              onPressed: () => _askChip(chip, index),
-            ),
-        ],
-      );
     } else {
-      body = _EmptyState(prompt: context.l10n.searchIdlePrompt);
+      // The search home (founder, 31 October 2026: content, not a
+      // magnifier and a sentence): what is moving, the trending
+      // predictions and Sal's prompts, scoped by the pills. On a context
+      // screen it is the market's preview card, the action rows and
+      // Sal's chips, sized to its content.
+      body = _SearchHome(
+        category: category,
+        aiEnabled: aiEnabled,
+        barContext: widget.barContext,
+        shrink: _contextScreen,
+        onAsk: (text, index) => _askChip(SalChip(null, text), index),
+        onRecentQuery: (q) {
+          _controller.text = q;
+          _controller.selection =
+              TextSelection.collapsed(offset: q.length);
+          _onChanged(q);
+        },
+      );
     }
+    // A context screen with nothing typed fits its content: no tall empty
+    // area under the rows.
+    final fitContent = _contextScreen &&
+        widget.walletId == null &&
+        query.isEmpty &&
+        !hasDraft;
 
     return _buildSheet(
       context,
+      fitContent: fitContent,
       children: [
         // While a query is being typed (or in search-only mode) the
         // compact filter "tabs" (All · Predictions · Investing ·
@@ -804,19 +874,16 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         // no header row — the drag handle sits straight above the chat /
         // intro, so there's no empty gap. A pool-scoped sheet renders
         // its OWN tab set even under
-        // lockCategory.
+        // lockCategory. A context screen has none: the pills scope a
+        // search, which is not what its rows are.
         if (widget.scopedTabs != null) ...[
           _WalletFilterChips(selected: category, tabs: widget.scopedTabs),
           SizedBox(height: 4.h),
-        ] else if (!widget.lockCategory &&
-            (hasDraft ||
-                query.isNotEmpty ||
-                !aiEnabled ||
-                widget.searchFirst)) ...[
+        ] else if (!widget.lockCategory && !_contextScreen) ...[
           _WalletFilterChips(selected: category),
           SizedBox(height: 4.h),
         ],
-        Expanded(child: body),
+        if (fitContent) body else Expanded(child: body),
         SizedBox(height: 8.h),
         // The composer searches while typing and asks Sal on submit.
         KuteComposer(
@@ -848,23 +915,48 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     BuildContext context, {
     required List<Widget> children,
     bool chat = false,
+    bool fitContent = false,
   }) {
     // Embedded: the host sheet already draws the surface, the drag handle
     // and the keyboard / bottom inset (AppBottomSheetContainer), so the
     // surface is only its content column. Adding any of it again would
     // double the padding and stack two handles.
     if (widget.embedded) {
-      return Column(children: children);
+      return Column(
+          mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
+          children: children);
     }
     // The shared sheet: AppBottomSheetContainer owns the surface, the
     // keyboard (followed frame by frame) and the home-indicator inset.
     // Searching keeps only the drag handle, where the shared header draws
     // it; a conversation wears the shared header with its close X, as the
     // Ask Sal sheet does.
+    // The content rises a little and fades in, staggered 80 ms after the
+    // sheet starts (its route animation, from a fifth in), on the settle
+    // easing; at once under Reduce Motion.
+    final route = ModalRoute.of(context);
+    Widget entrance(Widget child) {
+      final animation = route?.animation;
+      if (animation == null || kuteReduceMotion(context)) return child;
+      final curved = CurvedAnimation(
+          parent: animation,
+          curve: const Interval(0.2, 1.0, curve: KuteMotion.settle));
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+                  begin: const Offset(0, 0.04), end: Offset.zero)
+              .animate(curved),
+          child: child,
+        ),
+      );
+    }
+
     return AppBottomSheetContainer(
       maxHeight: .92,
       followKeyboard: true,
       child: Column(
+        mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
         children: [
           if (chat)
             AppBottomSheetHeader(
@@ -897,7 +989,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 ],
               ),
             ),
-          ...children,
+          if (fitContent)
+            entrance(Column(mainAxisSize: MainAxisSize.min, children: children))
+          else
+            Expanded(child: entrance(Column(children: children))),
         ],
       ),
     );
@@ -939,6 +1034,7 @@ class _WalletFilterChips extends ConsumerWidget {
       padding: EdgeInsets.symmetric(vertical: 4.h),
       child: KutePillTabs(
         horizontalPadding: 16,
+        size: KutePillSize.compact,
         selectedIndex: effective.indexWhere((tab) => tab.$1 == selected),
         items: [for (final tab in effective) KutePillItem(label: tab.$2)],
         onTap: (index) {
@@ -1178,6 +1274,12 @@ class _GlobalMarketRow extends ConsumerWidget {
           _trackSearchResultTap(ref, 'global_market',
               position: position,
               target: ledgerWalletId != null ? 'ledger' : null);
+          // ignore: discarded_futures
+          SearchRecentStore.record(SearchRecentEntry(
+              kind: SearchRecentKind.prediction,
+              id: e.slug,
+              label: e.title,
+              image: e.imageUrl));
           MarketDetailSheet.show(context,
               event: e, ledgerWalletId: ledgerWalletId, source: 'search');
         },
@@ -1262,6 +1364,12 @@ class _HlMarketRow extends ConsumerWidget {
       return;
     }
     _trackSearchResultTap(ref, 'hyperliquid_market', position: position);
+    // ignore: discarded_futures
+    SearchRecentStore.record(SearchRecentEntry(
+        kind: SearchRecentKind.investing,
+        id: result.coin,
+        label: result.coin,
+        image: result.iconUrl));
     if (market != null) {
       HlMarketDetailSheet.show(context, market: market, source: 'search');
     } else {
@@ -1311,7 +1419,7 @@ class _MarketCardSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+        padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
         child: RepaintBoundary(child: child),
       );
 }
@@ -1409,78 +1517,655 @@ class _SeeAllRow extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   final String prompt;
 
-  /// Show the animated Sal mascot (the same looping GIF as the home screen)
-  /// above the prompt — used for the fresh-open state before the user has
-  /// typed anything.
-  final bool showMascot;
-
-  /// Sal's opening questions under the prompt (idle with Sal available).
-  final List<Widget> chips;
-
-  const _EmptyState(
-      {required this.prompt, this.showMascot = false, this.chips = const []});
+  const _EmptyState({required this.prompt});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // Keep the idle illustration compact when the keyboard is visible.
-    final compact = showMascot && MediaQuery.viewInsetsOf(context).bottom > 0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-              horizontal: chips.isEmpty ? 32.w : 20.w, vertical: 8.h),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showMascot)
-                  // Sal waiting to be asked something, idling on the rig
-                  // rather than looping a GIF that never matched the theme.
-                  // Bounded like every other open surface: a sheet left open
-                  // settles on a calm frame instead of repainting forever.
-                  KuteDogIdle(size: compact ? 72.sp : 120.sp, cycles: 3)
-                else
-                  Icon(Icons.search_rounded,
-                      size: 40.sp, color: c.textTertiary),
-                SizedBox(height: showMascot ? (compact ? 12.h : 18.h) : 12.h),
-                Text(
-                  prompt,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: showMascot ? c.textPrimary : c.textSecondary,
-                    fontSize: showMascot ? (compact ? 17.sp : 19.sp) : 15.sp,
-                    fontWeight: showMascot ? FontWeight.w700 : FontWeight.w500,
-                    letterSpacing: -0.3,
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 8.h),
+        child: Text(
+          prompt,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: c.textSecondary,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The search sheet before any text (founder, 31 October 2026): content
+/// under the pinned pills, scoped by them. "Moving now": eight chips, the
+/// largest 24h moves of the loaded Investing universe (illiquid markets
+/// skipped), a tap opening the market over the sheet. "Trending
+/// predictions": three rows from the loaded trending feed (question and
+/// chance), a tap opening the event. "Ask Sal": four prompts that go to
+/// Sal at once. Rows rise in staggered on first paint (KuteStaggerIn).
+/// "Recent" (the last things opened from search) is not built yet.
+class _SearchHome extends ConsumerWidget {
+  const _SearchHome(
+      {required this.category,
+      required this.aiEnabled,
+      required this.onAsk,
+      required this.onRecentQuery,
+      this.barContext,
+      this.shrink = false});
+
+  final SearchCategory category;
+  final bool aiEnabled;
+  final void Function(String text, int index) onAsk;
+
+  /// A recent query tapped: back into the field, searched again.
+  final ValueChanged<String> onRecentQuery;
+
+  /// The bar's context: with action rows, the context screen (the
+  /// market's preview card, the rows in one card, Sal's chips in a row)
+  /// in place of the Home content, and its prompts in place of Home's.
+  final KuteBarContext? barContext;
+
+  /// Sized to the content (a context screen), not the sheet.
+  final bool shrink;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final showInvesting = category == SearchCategory.all ||
+        category == SearchCategory.perpetuals;
+    final showPredictions = category == SearchCategory.all ||
+        category == SearchCategory.predictions;
+
+    Widget header(String text) => Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 8.h),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: c.textTertiary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            ),
+          ),
+        );
+
+    // Moving now: the biggest moves, liquid markets only.
+    final universe =
+        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ?? const [];
+    final movers = [
+      for (final m in universe)
+        if (m.prevDayPx > 0 &&
+            m.markPx > 0 &&
+            m.dayNtlVlm >= kHlLowLiquidityDayVolumeUsd)
+          m,
+    ]..sort((a, b) => (b.markPx / b.prevDayPx - 1)
+        .abs()
+        .compareTo((a.markPx / a.prevDayPx - 1).abs()));
+    final moving = movers.take(8).toList();
+
+    // Trending predictions: the trending feed as it is loaded.
+    final trending = showPredictions
+        ? ref
+            .watch(polyBrowseFeedProvider(
+                const PolyFeedQuery(pill: PolyPill.trending)))
+            .events
+            .take(3)
+            .toList()
+        : const <PolymarketEvent>[];
+
+    final ctx = barContext;
+    final recommended = ctx != null && ctx.hasRecommendations;
+
+    var row = 0;
+    Widget rise(Widget child) => KuteStaggerIn(index: row++, child: child);
+
+    if (recommended) {
+      // The context screen (founder, 31 October 2026: one designed screen,
+      // not a list of rows): the market's preview card, ONE soft card
+      // with the action rows, then "Ask Sal" as a row of pill chips.
+      // 16 between blocks; sized to the content.
+      final preview =
+          ctx is KuteMarketBarContext ? ctx.preview : null;
+      return ListView(
+        shrinkWrap: shrink,
+        physics: shrink ? const NeverScrollableScrollPhysics() : null,
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          if (preview != null) ...[
+            rise(_ContextPreviewCard(preview: preview)),
+            SizedBox(height: 16.h),
+          ],
+          rise(_ContextActionsCard(actions: ctx.actions)),
+          // No Ask Sal chips (founder, 31 October 2026): the composer is
+          // the way to Sal.
+        ],
+      );
+    }
+
+    // ignore: discarded_futures
+    SearchRecentStore.load();
+
+    return ListView(
+      padding: EdgeInsets.only(bottom: 12.h),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        ValueListenableBuilder<List<SearchRecentEntry>>(
+            valueListenable: SearchRecentStore.entries,
+            builder: (context, recent, _) => recent.isEmpty
+                ? const SizedBox.shrink()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      rise(Padding(
+                        padding: EdgeInsets.fromLTRB(20.w, 14.h, 12.w, 4.h),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l10n.searchHomeRecent,
+                                style: TextStyle(
+                                  color: c.textTertiary,
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.1,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                // ignore: discarded_futures
+                                SearchRecentStore.clear();
+                              },
+                              child: Text(l10n.searchHomeClear,
+                                  style: TextStyle(
+                                      color: c.textSecondary,
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      )),
+                      for (final e in recent)
+                        rise(_RecentRow(
+                            entry: e,
+                            onQuery: onRecentQuery,
+                            universe: universe)),
+                    ],
                   ),
-                ),
-                // Rotating brand-voice taglines — only when there's room (no
-                // keyboard); they'd otherwise push the prompts off-screen.
-                if (showMascot && !compact) ...[
-                  SizedBox(height: 14.h),
-                  RotatingTagline(
-                    height: 56.h,
+          ),
+        if (showInvesting && moving.isNotEmpty) ...[
+          rise(header(l10n.searchHomeMovingNow)),
+          rise(SizedBox(
+            height: 40.h,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              physics: const BouncingScrollPhysics(),
+              itemCount: moving.length,
+              separatorBuilder: (_, __) => SizedBox(width: 8.w),
+              itemBuilder: (context, i) => _MoverChip(market: moving[i]),
+            ),
+          )),
+        ],
+        if (trending.isNotEmpty) ...[
+          rise(header(l10n.searchHomeTrendingPredictions)),
+          for (final e in trending) rise(_TrendingRow(event: e)),
+        ],
+        // No Ask Sal chips (founder, 31 October 2026): the composer is the
+        // way to Sal.
+      ],
+    );
+  }
+}
+
+/// A Recent row: the logo (a coin's, an event's, a magnifier for a query),
+/// the name, and its ✕. Tapped: the market, the event (read by its slug),
+/// or the query back in the field.
+class _RecentRow extends ConsumerWidget {
+  const _RecentRow(
+      {required this.entry, required this.onQuery, required this.universe});
+
+  final SearchRecentEntry entry;
+  final ValueChanged<String> onQuery;
+  final List<HlMarket> universe;
+
+  Future<void> _open(BuildContext context, WidgetRef ref) async {
+    HapticFeedback.selectionClick();
+    switch (entry.kind) {
+      case SearchRecentKind.query:
+        onQuery(entry.id);
+      case SearchRecentKind.investing:
+        final market = universe.where((m) => m.coin == entry.id).firstOrNull;
+        if (market != null) {
+          HlMarketDetailSheet.show(context, market: market, source: 'search');
+        }
+      case SearchRecentKind.prediction:
+        PolymarketEvent? event;
+        try {
+          event =
+              await ref.read(polymarketEventDetailsProvider(entry.id).future);
+        } catch (_) {
+          event = null;
+        }
+        if (event != null && context.mounted) {
+          MarketDetailSheet.show(context,
+              event: event,
+              ledgerWalletId: ref.read(searchLedgerWalletIdProvider),
+              source: 'search');
+        }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final image = entry.image;
+    final Widget logo = switch (entry.kind) {
+      SearchRecentKind.query =>
+        Icon(Icons.search_rounded, size: 20, color: c.textTertiary),
+      SearchRecentKind.investing => HlCoinIcon(
+          coin: entry.id, iconUrl: image, size: 28),
+      SearchRecentKind.prediction => image != null && image.isNotEmpty
+          ? PolyCrestImage(url: image, size: 28, radius: 8)
+          : Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  borderRadius: BorderRadius.circular(8))),
+    };
+    return Semantics(
+      button: true,
+      label: entry.label,
+      child: KutePressable(
+        child: InkWell(
+          onTap: () => _open(context, ref),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 6.h, 8.w, 6.h),
+            child: Row(
+              children: [
+                SizedBox(width: 28, height: 28, child: Center(child: logo)),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    entry.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: c.textTertiary,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                      height: 1.4,
+                      color: c.textPrimary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                ],
-                if (chips.isNotEmpty) ...[
-                  SizedBox(height: 18.h),
-                  // The Ask Sal sheet's question rows, in their card.
-                  KuteListGroup(children: chips),
+                ),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+                  icon: Icon(Icons.close_rounded, size: 18, color: c.textTertiary),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    // ignore: discarded_futures
+                    SearchRecentStore.remove(entry);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The context screen's preview card: the market's picture (32), its
+/// title on up to two lines and the pick or the price at the end, in the
+/// market lists' row style, on a soft card.
+class _ContextPreviewCard extends StatelessWidget {
+  const _ContextPreviewCard({required this.preview});
+
+  final KuteBarPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final image = preview.imageUrl;
+    final coin = preview.coin;
+    final Widget leading;
+    if (coin != null && coin.isNotEmpty) {
+      leading = HlCoinIcon(coin: coin, wireCoin: coin, size: 32);
+    } else if (image != null && image.isNotEmpty) {
+      leading = PolyCrestImage(url: image, size: 32, radius: 8);
+    } else {
+      leading = Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+            color: c.surface, borderRadius: BorderRadius.circular(8)),
+      );
+    }
+    final line = preview.line;
+    return Container(
+      key: const ValueKey('context-preview-card'),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          leading,
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              preview.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                height: 1.25,
+              ),
+            ),
+          ),
+          if (line != null && line.isNotEmpty) ...[
+            SizedBox(width: 12.w),
+            Text(
+              line,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The context screen's action rows in ONE soft card (the Settings
+/// group card), a hairline between them.
+class _ContextActionsCard extends StatelessWidget {
+  const _ContextActionsCard({required this.actions});
+
+  final List<KuteBarAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      key: const ValueKey('context-actions-card'),
+      decoration: AppDecorations.card(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, a) in actions.indexed) ...[
+              if (i > 0)
+                Padding(
+                  padding: EdgeInsets.only(left: 16.w + 32.sp + 12.w),
+                  child: Container(height: 0.5, color: c.borderSubtle),
+                ),
+              _ContextActionRow(action: a),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One action row: a 32 tinted circle with the row's glyph (Sal's face
+/// for a row that sends a pick, an icon otherwise), the title, the line
+/// under it and the chevron. Tapped, it runs and the sheet closes.
+class _ContextActionRow extends StatelessWidget {
+  const _ContextActionRow({required this.action});
+
+  final KuteBarAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final a = action;
+    final clip = a is KuteMarketBarAction ? a.salClip : null;
+    final icon = a is KuteMarketBarAction
+        ? (a.icon ?? Icons.arrow_forward_rounded)
+        : Icons.arrow_forward_rounded;
+    return Semantics(
+      button: true,
+      label: a.sublabel == null ? a.label : '${a.label}, ${a.sublabel}',
+      child: KutePressable(
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            a.onTap(context);
+            Navigator.of(context).maybePop();
+          },
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Container(
+                  width: 32.sp,
+                  height: 32.sp,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: c.accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: clip != null
+                      ? SalSprite(
+                          clip: clip,
+                          size: 20.sp,
+                          fallback:
+                              KuteDogGlance(size: 20.sp, color: c.accent),
+                        )
+                      : Icon(icon, size: 18.sp, color: c.accent),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        a.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      if (a.sublabel != null) ...[
+                        SizedBox(height: 2.h),
+                        Text(
+                          a.sublabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Icon(Icons.chevron_right_rounded,
+                    size: 22.sp, color: c.textTertiary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A "Moving now" chip: logo, ticker, the day's move; tapped, the market.
+class _MoverChip extends StatelessWidget {
+  const _MoverChip({required this.market});
+
+  final HlMarket market;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = !context.isDark;
+    final change = market.markPx / market.prevDayPx - 1;
+    final up = change >= 0;
+    final pct = (change.abs() * 100).toStringAsFixed(1);
+    return Semantics(
+      button: true,
+      label: '${market.coin}, ${up ? '+' : '-'}$pct%',
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            HlMarketDetailSheet.show(context, market: market, source: 'search');
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w),
+            decoration: BoxDecoration(
+              color: isLight ? Colors.white : c.surface,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: isLight ? c.border : c.borderSubtle,
+                width: isLight ? 1.0 : 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                HlCoinIcon(
+                    coin: market.coin,
+                    wireCoin: market.wireCoin,
+                    iconUrl: market.iconUrl,
+                    category: market.category,
+                    size: 18),
+                SizedBox(width: 6.w),
+                Text(
+                  market.coin,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+                SizedBox(width: 6.w),
+                Text(
+                  '${up ? '▲' : '▼'} $pct%',
+                  style: TextStyle(
+                    color: up ? AppColors.marketUp : AppColors.marketDown,
+                    fontSize: 12.5.sp,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A trending prediction: its image, the question on one line, and the
+/// leading chance; tapped, the event over the sheet.
+class _TrendingRow extends ConsumerWidget {
+  const _TrendingRow({required this.event});
+
+  final PolymarketEvent event;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final price = event.outcomes.isEmpty
+        ? null
+        : event.outcomes.map((o) => o.price).reduce(math.max);
+    final chance = price == null ? null : '${(price * 100).round()}%';
+    final image = event.imageUrl;
+    return Semantics(
+      button: true,
+      label: chance == null ? event.title : '${event.title}, $chance',
+      child: KutePressable(
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            MarketDetailSheet.show(context,
+                event: event,
+                ledgerWalletId: ref.read(searchLedgerWalletIdProvider),
+                source: 'search');
+          },
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+            child: Row(
+              children: [
+                if (image != null && image.isNotEmpty)
+                  PolyCrestImage(url: image, size: 28, radius: 8)
+                else
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                        color: c.surfaceLight,
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    event.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+                if (chance != null) ...[
+                  SizedBox(width: 12.w),
+                  Text(
+                    chance,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ],
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

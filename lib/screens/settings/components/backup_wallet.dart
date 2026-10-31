@@ -19,6 +19,7 @@ import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -387,7 +388,18 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return SecureScreen(
+    // The bar explains the screen (founder, 31 October 2026): "Why back
+    // up?", tapping sends the backup question to Sal. The reveal step's
+    // Continue is the bar too (its own primary scope, deeper).
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: context.l10n.barBackupLabel,
+        sublabel: context.l10n.barAskSalSub,
+        clip: 'curious',
+        question: context.l10n.barBackupQuestion,
+        source: 'backup',
+      ),
+      child: SecureScreen(
       surface: 'backup_wallet',
       child: Scaffold(
       backgroundColor: c.background,
@@ -461,7 +473,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           ],
         ),
       ),
-    ));
+    )));
   }
 
   /// Shared sticky-footer inset for both steps so the footer chrome does
@@ -567,17 +579,21 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                   ],
                 ),
               ),
-              SizedBox(height: 14.h),
-              AppButton(
-                text: context.l10n.continueLabel,
-                onPressed: _revealAcknowledged
-                    ? () {
-                        TrackingService.backupRevealAcknowledged();
-                        TrackingService.backupVerifyViewed();
-                        TrackingService.setFlowStep('verify');
-                        setState(() => _step = _BackupStep.verify);
-                      }
-                    : null,
+              // The bar is Continue (kute_shell_bar.dart), on once the
+              // phrase is acknowledged; Sal is curious until then.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.continueLabel,
+                  enabled: _revealAcknowledged,
+                  onPrimary: () {
+                    TrackingService.backupRevealAcknowledged();
+                    TrackingService.backupVerifyViewed();
+                    TrackingService.setFlowStep('verify');
+                    setState(() => _step = _BackupStep.verify);
+                  },
+                  source: 'backup_reveal',
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ],
           ),
