@@ -459,13 +459,10 @@ class _WalletMark extends StatelessWidget {
     if (visual.svgAsset != null) {
       final mono = visual.color == Colors.white ||
           visual.color == const Color(0xFF333333);
-      return SvgPicture.asset(
-        visual.svgAsset!,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-        colorFilter:
-            mono ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn) : null,
+      return BrandMark(
+        asset: visual.svgAsset!,
+        size: size,
+        tint: mono ? c.textPrimary : null,
       );
     }
     return Icon(visual.icon, size: size, color: visual.color);

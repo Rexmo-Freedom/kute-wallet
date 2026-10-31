@@ -790,6 +790,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               venue: kMarketLinkPredictions,
               slug: event.slug,
               chance: event.isBinary ? event.yesPrice * 100 : null,
+              actionRowHeight: event.isBinary ? _kStickyActionsHeight : 0,
               position: false,
               category: SearchCategory.predictions,
               searchHint: context.l10n.searchPredictionsHint,
@@ -2496,6 +2497,10 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     }
     return polymarketSideLabels(name);
   }
+
+  /// The sticky pair's height for the bar to clear (kute_bar_context.dart,
+  /// actionRowHeight): its padding, the buttons and the hairline above.
+  double get _kStickyActionsHeight => 12.h + 60.h + 8.h + 0.5;
 
   Widget _buildStickyActions(AppColorsExtension c) {
     // Multi-outcome has no sticky bar — tapping a candidate opens its own

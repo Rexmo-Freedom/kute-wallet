@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart' show kuteBarScroll;
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
@@ -593,7 +594,12 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                       ),
                       child: Stack(
                         children: [
-                          child!,
+                          // The pages' vertical scroll reaches the bar
+                          // (kute_bar_context.dart, kuteBarScroll).
+                          NotificationListener<ScrollNotification>(
+                            onNotification: kuteBarScroll.report,
+                            child: child!,
+                          ),
                           // Picture-in-picture livestream — persists across
                           // routes so the user can watch while betting.
                           const FloatingStreamPlayer(),

@@ -252,6 +252,10 @@ class _SalSpriteState extends State<SalSprite>
       _completed = false;
       _clip = null;
       _load();
+    } else if (old.loop != widget.loop && _completed && _loops) {
+      // A one-shot that is now asked to loop plays on from where it
+      // stopped (the bar's `share`: once at 1.3x, then looping).
+      _completed = false;
     }
     _sync();
   }

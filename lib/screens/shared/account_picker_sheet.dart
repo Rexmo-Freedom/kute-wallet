@@ -269,13 +269,12 @@ class _AccountRow extends StatelessWidget {
         : null;
     Widget leadingIcon;
     if (visual?.svgAsset != null) {
-      leadingIcon = SvgPicture.asset(
-        visual!.svgAsset!,
-        width: 28.sp,
-        height: 28.sp,
-        colorFilter: visual.color == Colors.white ||
+      leadingIcon = BrandMark(
+        asset: visual!.svgAsset!,
+        size: 28.sp,
+        tint: visual.color == Colors.white ||
                 visual.color == const Color(0xFF333333)
-            ? ColorFilter.mode(c.textPrimary, BlendMode.srcIn)
+            ? c.textPrimary
             : null,
       );
     } else if (visual != null) {

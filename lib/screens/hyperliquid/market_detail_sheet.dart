@@ -398,6 +398,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                                   ? widget.market.midPx
                                   : widget.market.markPx,
                               decimalCap: widget.market.pxDecimalCap),
+                          actionRowHeight:
+                              _advancedChart ? 0 : _kInvestRowHeight,
                           position: false,
                           category: SearchCategory.perpetuals,
                           searchHint: context.l10n.searchInvestmentsHint,
@@ -526,9 +528,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         20.w,
                         10.h,
                         20.w,
-                        // Room for the bar over the foot.
-                        AppBottomSheetContainer.barRoom.h +
-                            24.h +
+                        24.h +
                             (_advancedChart
                                 ? MediaQuery.viewPaddingOf(context).bottom
                                 : 0)),
@@ -654,6 +654,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   /// the CTA routes through LedgerActions, which hands the SAME order slip
   /// that wallet id: one ticket, signed by the device instead of the hot
   /// account.
+  /// The pinned row's height for the bar to clear (kute_bar_context.dart,
+  /// actionRowHeight): its padding, the buttons and the hairline above.
+  double get _kInvestRowHeight => 12.h + 56.h + 8.h + 0.5;
+
   Widget _buildInvestRow(HlMarket m, double spotHeld) {
     final l10n = context.l10n;
     final showOtherSide = !m.isSpot || spotHeld > 0;

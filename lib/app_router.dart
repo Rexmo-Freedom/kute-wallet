@@ -32,6 +32,8 @@ import 'package:kute/screens/home/components/search_modal.dart';
 import 'package:kute/screens/settings/components/backup_wallet.dart';
 import 'package:kute/screens/ledger/ledger_investing_setup_screen.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarRouteObserver;
 import 'package:kute/screens/portfolio/portfolio_screen.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
@@ -292,7 +294,9 @@ class AppRouter {
       // PostHog's `PosthogObserver` is wired in `app_widget.dart` via
       // `extraObservers`. Firebase Analytics' routeObserver is gone;
       // legacy `TrackingService.routeObserver` is now a no-op.
-      observers: [...extraObservers],
+      // The bar's count of what is over the tabs (kute_bar_context.dart):
+      // one observer here, one on each tab's navigator below.
+      observers: [...extraObservers, KuteBarRouteObserver()],
       redirect:
           redirectFor(sessionLocked: sessionLocked, initialRoute: initialRoute),
       routes: [
@@ -463,6 +467,7 @@ class AppRouter {
           branches: [
             // ── Branch 0: Home (+ its full sub-route tree) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _homeBranchKey,
               routes: [
                 GoRoute(
@@ -660,6 +665,7 @@ class AppRouter {
             ),
             // ── Branch 1: Bank (coming soon placeholder page) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _bankBranchKey,
               routes: [
                 GoRoute(
@@ -675,6 +681,7 @@ class AppRouter {
             // ── Branch 2: USD (the spending account's dollars) ──
             // Occupies the strip slot the hidden Bank tab used to hold.
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _usdBranchKey,
               routes: [
                 GoRoute(
@@ -704,6 +711,7 @@ class AppRouter {
             ),
             // ── Branch 3: Trading (Hyperliquid) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _tradingBranchKey,
               routes: [
                 GoRoute(
@@ -727,6 +735,7 @@ class AppRouter {
             ),
             // ── Branch 4: Predictions (Polymarket) ──
             StatefulShellBranch(
+              observers: [KuteBarRouteObserver()],
               navigatorKey: _predictionsBranchKey,
               routes: [
                 GoRoute(

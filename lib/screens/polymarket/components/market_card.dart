@@ -1055,8 +1055,10 @@ class _HalfRingPainter extends CustomPainter {
 }
 
 /// A Yes / No price pill under a single market's row: small (72 by 28),
-/// the side's label and price ("Yes 29¢") in the side's market colour on
-/// its lightest tint. Taps [onTap]; with none it is part of the row.
+/// the side's label and price ("Yes 29¢") in white on the side's solid
+/// market colour, the market page's big Yes / No buttons in miniature (no
+/// tint: solid fills or neutral grey only). Taps [onTap]; with none it is
+/// part of the row.
 class _SidePill extends StatelessWidget {
   final String text;
   final Color color;
@@ -1070,8 +1072,8 @@ class _SidePill extends StatelessWidget {
       height: 28.h,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8.r),
+        color: color,
+        borderRadius: BorderRadius.circular(9.r),
       ),
       child: Text(
         text,
@@ -1079,9 +1081,9 @@ class _SidePill extends StatelessWidget {
         softWrap: false,
         overflow: TextOverflow.fade,
         style: TextStyle(
-          color: color,
+          color: Colors.white,
           fontSize: 11.sp,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),

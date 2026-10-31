@@ -70,6 +70,7 @@ KuteBarContext marketBarContext(
   required List<String> prompts,
   double? chance,
   String? price,
+  double actionRowHeight = 0,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -82,6 +83,7 @@ KuteBarContext marketBarContext(
     searchHint: searchHint,
     source: source,
     prompts: prompts,
+    actionRowHeight: actionRowHeight,
     actions: [
       KuteBarAction(
         label: position ? l10n.shareThisPosition : l10n.shareTheMarket,

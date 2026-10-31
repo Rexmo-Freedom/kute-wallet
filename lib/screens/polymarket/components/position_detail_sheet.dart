@@ -472,6 +472,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         title: widget.position.marketQuestion,
                         venue: kMarketLinkPredictions,
                         slug: widget.position.eventSlug,
+                        actionRowHeight: pos.isResolved && pos.won == true
+                            ? 0
+                            : 12.h + 56.h + 16.h,
                         position: true,
                         category: SearchCategory.predictions,
                         searchHint: context.l10n.searchPredictionsHint,
@@ -520,9 +523,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  // Room for the bar over the foot.
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w,
-                      28.h + AppBottomSheetContainer.barRoom.h),
+                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
