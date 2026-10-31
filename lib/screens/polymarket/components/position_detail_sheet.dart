@@ -472,6 +472,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         title: widget.position.marketQuestion,
                         venue: kMarketLinkPredictions,
                         slug: widget.position.eventSlug,
+                        // The pick: this position's outcome.
+                        outcome: pos.outcome,
+                        outcomeChance: pos.currentPrice * 100,
+                        side: 'buy',
+                        imageUrl: headerImage,
                         position: true,
                         category: SearchCategory.predictions,
                         searchHint: context.l10n.searchPredictionsHint,

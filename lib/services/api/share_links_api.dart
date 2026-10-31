@@ -39,11 +39,17 @@ class ShareLinkApiException implements Exception {
 }
 
 abstract class ShareLinksApi {
+  /// `POST /links`. The pick ([venue], [outcome], [outcomeIndex], [side];
+  /// see ShareLink) rides along when the link carries one.
   Future<CreatedShareLink> create({
     required ShareLinkKind kind,
     required int amountMinor,
     String? marketSlug,
     String? senderLabel,
+    String? venue,
+    String? outcome,
+    int? outcomeIndex,
+    String? side,
   });
 
   Future<ShareLink> read(String id);
@@ -94,6 +100,10 @@ class BackendShareLinksApi implements ShareLinksApi {
     required int amountMinor,
     String? marketSlug,
     String? senderLabel,
+    String? venue,
+    String? outcome,
+    int? outcomeIndex,
+    String? side,
   }) async {
     final body = await _send('POST', '', body: {
       'kind': kind.name,
@@ -102,6 +112,11 @@ class BackendShareLinksApi implements ShareLinksApi {
       if (marketSlug != null && marketSlug.isNotEmpty) 'marketSlug': marketSlug,
       if (senderLabel != null && senderLabel.trim().isNotEmpty)
         'senderLabel': senderLabel.trim(),
+      if (venue != null && venue.isNotEmpty) 'venue': venue,
+      if (outcome != null && outcome.trim().isNotEmpty)
+        'outcome': outcome.trim(),
+      if (outcomeIndex != null) 'outcomeIndex': outcomeIndex,
+      if (side != null && side.isNotEmpty) 'side': side,
     });
     final created = CreatedShareLink.fromJson(body);
     if (created == null) throw const ShareLinkApiException(200);

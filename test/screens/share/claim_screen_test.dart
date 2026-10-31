@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/usd_account_provider.dart'
+    show usdBalanceProvider;
 import 'package:kute/screens/share/claim_screen.dart';
 import 'package:kute/services/share_links_store.dart';
 
@@ -16,6 +18,10 @@ ShareLink _link({
   int amountMinor = 1250,
   String? sender = 'Ana',
   String? market,
+  String? venue,
+  String? outcome,
+  int? outcomeIndex,
+  String? side,
   ShareLinkStatus status = ShareLinkStatus.open,
 }) =>
     ShareLink(
@@ -24,6 +30,10 @@ ShareLink _link({
       amountMinor: amountMinor,
       senderLabel: sender,
       marketSlug: market,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
       status: status,
       rawStatus: status.name,
       expiresAt: DateTime.now().add(const Duration(days: 7)),
@@ -87,6 +97,63 @@ void main() {
       expect(
           e.$2?.values.map((v) => '$v'), isNot(anyElement(contains('lnk_1'))));
     }
+  });
+
+  testWidgets(
+      'a prediction pick: the headline, the preview card, then Waiting '
+      'until the link reads paid, then Place the prediction',
+      (tester) async {
+    env.fake.seed(_link(
+        market: 'gemini-carbon',
+        venue: 'polymarket',
+        outcome: 'Yes',
+        outcomeIndex: 0,
+        side: 'buy'));
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
+        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+
+    expect(find.text('Ana sent you a prediction'), findsOneWidget);
+    expect(find.byKey(const ValueKey('claim-pick-card')), findsOneWidget);
+    // The slug's words until the event is read; the outcome and amount.
+    expect(find.text('gemini carbon'), findsOneWidget);
+    expect(find.text('Yes · \$12.50'), findsOneWidget);
+    expect(find.text('to bet on gemini carbon'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('claim-button')));
+    await settle(tester);
+    expect(find.text('On its way'), findsOneWidget);
+    expect(find.text('Waiting for Ana to send it'), findsWidgets);
+    final place = find.byKey(const ValueKey('claim-place-pick'));
+    expect(place, findsOneWidget);
+    expect(find.text('Place the prediction'), findsNothing);
+    expect(find.byKey(const ValueKey('claim-open-market')), findsNothing);
+
+    // The sender's app pays: the next read says paid.
+    env.fake.seed(_link(
+        market: 'gemini-carbon',
+        venue: 'polymarket',
+        outcome: 'Yes',
+        outcomeIndex: 0,
+        side: 'buy',
+        status: ShareLinkStatus.paid));
+    await tester.pump(ClaimScreen.paidPollInterval);
+    await settle(tester);
+    expect(find.text('\$12.50 is in your Dollars'), findsOneWidget);
+    expect(find.text('Place the prediction'), findsOneWidget);
+    expect(find.text('Waiting for Ana to send it'), findsNothing);
+    expect(env.fake.callNames, containsAllInOrder(['read', 'claim', 'read']));
+    // Nothing was placed: no slip opened without a tap.
+    expect(find.byKey(const ValueKey('claim-done')), findsOneWidget);
+  });
+
+  testWidgets('an investment pick reads as an investment', (tester) async {
+    env.fake.seed(_link(
+        market: 'BTC', venue: 'hyperliquid', outcome: 'Long', side: 'long'));
+    await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
+        overrides: [usdBalanceProvider.overrideWithValue(0)]);
+    expect(find.text('Ana sent you an investment'), findsOneWidget);
+    expect(find.text('BTC'), findsOneWidget);
+    expect(find.text('Long · \$12.50'), findsOneWidget);
   });
 
   testWidgets('without a market the claimed state offers Done', (tester) async {

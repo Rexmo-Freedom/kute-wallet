@@ -116,7 +116,12 @@ class _PendingShareLinkDetailState
     final amount =
         shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
     final text = shareLinkMessage(context,
-        name: row.label, amount: amount, url: row.url);
+        name: row.label,
+        amount: amount,
+        url: row.url,
+        outcome: row.outcome,
+        title: row.marketTitle,
+        venue: row.venue);
     final box = context.findRenderObject() as RenderBox?;
     final origin = box != null
         ? (box.localToGlobal(ui.Offset.zero) & box.size)

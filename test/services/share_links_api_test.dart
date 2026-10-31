@@ -93,6 +93,63 @@ void main() {
       });
     });
 
+    test('create with a pick posts venue, outcome, outcomeIndex and side',
+        () async {
+      routes['POST /api/v1/share/links'] = (_) => http.Response(
+          jsonEncode({'id': 'lnk_2', 'url': 'https://web.test/c/lnk_2'}),
+          201);
+      await api.create(
+        kind: ShareLinkKind.dollars,
+        amountMinor: 2000,
+        marketSlug: 'gemini-carbon',
+        venue: 'polymarket',
+        outcome: ' Yes ',
+        outcomeIndex: 0,
+        side: 'buy',
+      );
+      expect(jsonDecode(requests.single.body), {
+        'kind': 'dollars',
+        'asset': 'USDB',
+        'amountMinor': 2000,
+        'marketSlug': 'gemini-carbon',
+        'venue': 'polymarket',
+        'outcome': 'Yes',
+        'outcomeIndex': 0,
+        'side': 'buy',
+      });
+    });
+
+    test('read keeps the pick when the backend sends it, none otherwise',
+        () async {
+      routes['GET /api/v1/share/links/lnk_9'] = (_) => http.Response(
+          jsonEncode({
+            'id': 'lnk_9',
+            'kind': 'dollars',
+            'amountMinor': 2000,
+            'marketSlug': 'gemini-carbon',
+            'venue': 'polymarket',
+            'outcome': 'Yes',
+            'outcomeIndex': 0,
+            'side': 'buy',
+            'status': 'open',
+          }),
+          200);
+      final link = await api.read('lnk_9');
+      expect(link.hasPick, isTrue);
+      expect(link.venue, 'polymarket');
+      expect(link.outcome, 'Yes');
+      expect(link.outcomeIndex, 0);
+      expect(link.side, 'buy');
+      final plain = ShareLink.fromJson({
+        'id': 'lnk_8',
+        'kind': 'dollars',
+        'amountMinor': 100,
+        'status': 'open',
+      })!;
+      expect(plain.hasPick, isFalse);
+      expect(plain.outcomeIndex, isNull);
+    });
+
     test('create for bitcoin sends BTC and leaves optional fields out',
         () async {
       routes['POST /api/v1/share/links'] = (_) => http.Response(

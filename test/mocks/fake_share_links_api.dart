@@ -34,6 +34,10 @@ class FakeShareLinksApi implements ShareLinksApi {
     required int amountMinor,
     String? marketSlug,
     String? senderLabel,
+    String? venue,
+    String? outcome,
+    int? outcomeIndex,
+    String? side,
   }) async {
     _record('create', {
       'kind': kind.name,
@@ -41,6 +45,10 @@ class FakeShareLinksApi implements ShareLinksApi {
       'amountMinor': amountMinor,
       'marketSlug': marketSlug,
       'senderLabel': senderLabel,
+      if (venue != null) 'venue': venue,
+      if (outcome != null) 'outcome': outcome,
+      if (outcomeIndex != null) 'outcomeIndex': outcomeIndex,
+      if (side != null) 'side': side,
     });
     final id = 'lnk_${++_seq}';
     links[id] = ShareLink(
@@ -48,6 +56,10 @@ class FakeShareLinksApi implements ShareLinksApi {
       kind: kind,
       amountMinor: amountMinor,
       marketSlug: marketSlug,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
       senderLabel: senderLabel,
       status: ShareLinkStatus.open,
       rawStatus: 'open',
@@ -82,6 +94,10 @@ class FakeShareLinksApi implements ShareLinksApi {
       kind: link.kind,
       amountMinor: link.amountMinor,
       marketSlug: link.marketSlug,
+      venue: link.venue,
+      outcome: link.outcome,
+      outcomeIndex: link.outcomeIndex,
+      side: link.side,
       senderLabel: link.senderLabel,
       referralCode: link.referralCode,
       status: ShareLinkStatus.claimed,

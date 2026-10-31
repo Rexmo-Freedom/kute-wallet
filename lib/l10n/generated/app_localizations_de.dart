@@ -11426,13 +11426,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get barShareWithFriends => 'Share with your friends';
 
   @override
-  String get barShareMarketSub => 'Send this market or dollars to bet on it';
+  String get barShareMarketSub => 'Send the market or your prediction';
 
   @override
   String get barSharePositionSub => 'Send the market or your position';
-
-  @override
-  String get searchRecommended => 'Recommended';
 
   @override
   String get shareTheMarket => 'Share the market';
@@ -11447,10 +11444,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get shareThisPositionSub => 'The market and how you\'re doing';
 
   @override
-  String get sendDollarsForMarket => 'Send dollars for this market';
+  String get sendThisPrediction => 'Send this prediction';
 
   @override
-  String get sendDollarsForMarketSub => 'They get dollars pointed at this bet';
+  String get sendThisInvestment => 'Send this investment';
+
+  @override
+  String get sendThisPickSub => 'They get your pick, ready to place';
+
+  @override
+  String sharePickOn(String outcome, String title) {
+    return '$outcome on $title';
+  }
+
+  @override
+  String get searchAskSal => 'Ask Sal';
 
   @override
   String get salPromptTakeProfit => 'Should I take profit?';
@@ -11523,6 +11531,30 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String shareMessageUnnamed(String amount, String url) {
     return 'I sent you $amount with Kute. Claim it here: $url';
+  }
+
+  @override
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+  }
+
+  @override
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+  }
+
+  @override
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url) {
+    return '$name, I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+  }
+
+  @override
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url) {
+    return 'I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
   }
 
   @override
@@ -11609,6 +11641,37 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String claimSentPrediction(String sender) {
+    return '$sender sent you a prediction';
+  }
+
+  @override
+  String claimSentInvestment(String sender) {
+    return '$sender sent you an investment';
+  }
+
+  @override
+  String claimPickAmount(String outcome, String amount) {
+    return '$outcome · $amount';
+  }
+
+  @override
+  String claimWaitingForSender(String sender) {
+    return 'Waiting for $sender to send it';
+  }
+
+  @override
+  String claimArrivedInDollars(String amount) {
+    return '$amount is in your Dollars';
+  }
+
+  @override
+  String get claimPlacePrediction => 'Place the prediction';
+
+  @override
+  String get claimPlaceInvestment => 'Place the investment';
+
+  @override
   String get claimOpenMarket => 'Open the market';
 
   @override
@@ -11629,9 +11692,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get shareMarketShareLink => 'Share link';
-
-  @override
-  String get shareMarketSendDollars => 'Send dollars for this';
 
   @override
   String shareMarketLookAt(String title, String link) {

@@ -57,12 +57,40 @@ String shareLinkStatusLabel(BuildContext context, PendingShareLink row) {
   }
 }
 
-/// The OS share sheet text for a created link.
-String shareLinkMessage(BuildContext context,
-    {required String? name, required String amount, required String url}) {
+/// The OS share sheet text for a created link. With a pick ([outcome] and
+/// [title]) it says what was sent: "a prediction" (an "investment" when
+/// [venue] is Hyperliquid), the outcome on the market and the amount.
+String shareLinkMessage(
+  BuildContext context, {
+  required String? name,
+  required String amount,
+  required String url,
+  String? outcome,
+  String? title,
+  String? venue,
+}) {
   final l10n = context.l10n;
   final n = name?.trim() ?? '';
+  final pick = outcome?.trim() ?? '';
+  final market = title?.trim() ?? '';
+  if (pick.isNotEmpty && market.isNotEmpty) {
+    final investing = venue == 'hyperliquid';
+    if (n.isEmpty) {
+      return investing
+          ? l10n.shareMessageInvestmentUnnamed(pick, market, amount, url)
+          : l10n.shareMessagePredictionUnnamed(pick, market, amount, url);
+    }
+    return investing
+        ? l10n.shareMessageInvestmentNamed(n, pick, market, amount, url)
+        : l10n.shareMessagePredictionNamed(n, pick, market, amount, url);
+  }
   return n.isEmpty
       ? l10n.shareMessageUnnamed(amount, url)
       : l10n.shareMessageNamed(n, amount, url);
 }
+
+/// "{outcome} on {title}": the pick line the send sheet and the Claim
+/// screen show.
+String sharePickLine(BuildContext context,
+    {required String outcome, required String title}) =>
+    context.l10n.sharePickOn(outcome, title);

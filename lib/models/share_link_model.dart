@@ -65,6 +65,10 @@ class ShareLink {
     required this.kind,
     required this.amountMinor,
     this.marketSlug,
+    this.venue,
+    this.outcome,
+    this.outcomeIndex,
+    this.side,
     this.senderLabel,
     this.referralCode,
     required this.status,
@@ -76,6 +80,16 @@ class ShareLink {
   final ShareLinkKind kind;
   final int amountMinor;
   final String? marketSlug;
+
+  /// THE PICK the sender put on the link (kute_share_actions.dart): the
+  /// venue (`polymarket` | `hyperliquid`), the outcome's label ("Yes", a
+  /// candidate, "Long"), its index in the event's outcomes and the side
+  /// (`buy`, `long` | `short`). All optional: a plain dollars link has
+  /// none, and a backend that does not send them yet reads as none.
+  final String? venue;
+  final String? outcome;
+  final int? outcomeIndex;
+  final String? side;
   final String? senderLabel;
   final String? referralCode;
   final ShareLinkStatus status;
@@ -83,6 +97,9 @@ class ShareLink {
   final DateTime? expiresAt;
 
   String get asset => kind.asset;
+
+  /// Whether the link carries a pick to place after the claim.
+  bool get hasPick => outcome != null && outcome!.isNotEmpty;
 
   /// Whether a recipient can still claim it.
   bool get claimable =>
@@ -102,6 +119,10 @@ class ShareLink {
       kind: kind,
       amountMinor: amount,
       marketSlug: _string(json['marketSlug']),
+      venue: _string(json['venue']),
+      outcome: _string(json['outcome']),
+      outcomeIndex: _int(json['outcomeIndex']),
+      side: _string(json['side']),
       senderLabel: _string(json['senderLabel']),
       referralCode: _string(json['referralCode']),
       status: ShareLinkStatus.parse(json['status']),
@@ -189,6 +210,9 @@ class PendingShareLink {
     required this.amountMinor,
     this.label,
     this.marketSlug,
+    this.marketTitle,
+    this.venue,
+    this.outcome,
     required this.url,
     required this.createdAt,
     required this.status,
@@ -203,6 +227,12 @@ class PendingShareLink {
   /// The recipient's first name, as the sender typed it. Optional.
   final String? label;
   final String? marketSlug;
+
+  /// The pick on the link, as the share text says it: the market's title,
+  /// the venue and the outcome's label (see [ShareLink.outcome]).
+  final String? marketTitle;
+  final String? venue;
+  final String? outcome;
 
   /// Empty when the link was created on another device (the claim came
   /// from the backend with no local row to match).
@@ -231,6 +261,9 @@ class PendingShareLink {
         amountMinor: amountMinor,
         label: label,
         marketSlug: marketSlug,
+        marketTitle: marketTitle,
+        venue: venue,
+        outcome: outcome,
         url: url,
         createdAt: createdAt,
         status: status ?? this.status,
@@ -247,6 +280,9 @@ class PendingShareLink {
         'amountMinor': amountMinor,
         if (label != null) 'label': label,
         if (marketSlug != null) 'marketSlug': marketSlug,
+        if (marketTitle != null) 'marketTitle': marketTitle,
+        if (venue != null) 'venue': venue,
+        if (outcome != null) 'outcome': outcome,
         'url': url,
         'createdAt': createdAt.toUtc().toIso8601String(),
         'status': status.name,
@@ -270,6 +306,9 @@ class PendingShareLink {
       amountMinor: amount,
       label: _string(json['label']),
       marketSlug: _string(json['marketSlug']),
+      marketTitle: _string(json['marketTitle']),
+      venue: _string(json['venue']),
+      outcome: _string(json['outcome']),
       url: url,
       createdAt: _date(json['createdAt']) ?? DateTime.now(),
       status: ShareLinkStatus.parse(json['status']),

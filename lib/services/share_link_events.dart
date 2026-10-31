@@ -22,11 +22,13 @@ abstract final class ShareLinkEvents {
       };
 
   /// The sender created a link (the backend row exists; nothing moved).
+  /// [outcome] is the pick's label only ("Yes", "Long"), never an id.
   static void created(ShareLinkKind kind, int amountMinor,
-      {String? marketSlug}) {
+      {String? marketSlug, String? outcome}) {
     TrackingService.track('share_link_created', params: {
       ..._money(kind, amountMinor),
       if (marketSlug != null && marketSlug.isNotEmpty) 'market': marketSlug,
+      if (outcome != null && outcome.isNotEmpty) 'outcome': outcome,
     });
   }
 
