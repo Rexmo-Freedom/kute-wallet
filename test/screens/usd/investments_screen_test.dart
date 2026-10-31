@@ -38,10 +38,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/models/hyperliquid_market.dart'
-    show HlOpenOrder, HlPerpPosition;
+    show HlMarket, HlMarketKind, HlOpenOrder, HlPerpPosition;
 import 'package:kute/models/polymarket_model.dart' show Activity;
 import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/hyperliquid_trading_provider.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show PolyPill, PolyPillX;
 import 'package:kute/providers/polymarket_open_orders_provider.dart';
 import 'package:kute/providers/polymarket_order_metadata_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
@@ -79,6 +81,8 @@ import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/shared/venue_deposit_button.dart';
+import 'package:kute/screens/usd/investments_category_sheet.dart'
+    show hlTileMovers;
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -570,6 +574,77 @@ void main() {
         before);
     expect(events.last.$1, 'category_sheet_opened');
     expect(events.last.$2, {'surface': 'investments', 'section': 'predictions'});
+
+    // The picked tile (Trending, the wide one) wears the picked
+    // treatment: the accent at 8% over the surface, a 1 px ring in the
+    // accent at 60%, the name a step bolder and ONE inline check, nothing
+    // at a corner. No other tile has a check.
+    final accent = AppColorsExtension.light().accent;
+    const check = ValueKey<String>('category-tile-check');
+    final trendingTile = find.byKey(ValueKey('category-tile-${PolyPill.trending.key}'));
+    expect(trendingTile, findsOneWidget);
+    expect(find.byKey(check), findsOneWidget);
+    expect(find.descendant(of: trendingTile, matching: find.byKey(check)),
+        findsOneWidget);
+    expect(find.descendant(of: trendingTile, matching: find.byType(Positioned)),
+        findsNothing);
+    final trendingBox = tester
+        .widget<AnimatedContainer>(find.descendant(
+            of: trendingTile, matching: find.byType(AnimatedContainer)))
+        .decoration as BoxDecoration;
+    expect(trendingBox.color,
+        Color.alphaBlend(accent.withValues(alpha: 0.08), Colors.white));
+    expect(trendingBox.border!.top.color, accent.withValues(alpha: 0.6));
+    expect(trendingBox.border!.top.width, 1.0);
+    expect(
+        tester
+            .widget<Text>(find.descendant(
+                of: trendingTile, matching: find.text(l10n.polyPillTrending)))
+            .style!
+            .fontWeight,
+        FontWeight.w600);
+    expect(
+        tester.getSemantics(trendingTile),
+        isSemantics(isButton: true, isSelected: true));
+
+    // A topic whose feed is not loaded is a compact 56 px row: its
+    // rounded icon in a tinted circle, the name at w500, no count, no
+    // check, and the unpicked surface with no accent ring.
+    final politics =
+        find.byKey(ValueKey('category-tile-${PolyPill.politics.key}'));
+    final politicsBox = find.descendant(
+        of: politics, matching: find.byType(AnimatedContainer));
+    expect(tester.getSize(politicsBox).height, 56);
+    expect(
+        find.descendant(
+            of: politics, matching: find.byIcon(Icons.how_to_vote_rounded)),
+        findsOneWidget);
+    expect(find.descendant(of: politics, matching: find.byKey(check)),
+        findsNothing);
+    expect(
+        find.descendant(of: politics, matching: find.textContaining('market')),
+        findsNothing);
+    expect(
+        tester
+            .widget<Text>(find.descendant(
+                of: politics, matching: find.text(l10n.polyPillPolitics)))
+            .style!
+            .fontWeight,
+        FontWeight.w500);
+    final politicsDecoration =
+        tester.widget<AnimatedContainer>(politicsBox).decoration
+            as BoxDecoration;
+    expect(politicsDecoration.color, Colors.white);
+    expect(politicsDecoration.border!.top.color,
+        isNot(accent.withValues(alpha: 0.6)));
+    // Every topic carries its own icon; Elections a ballot.
+    expect(
+        find.descendant(
+            of: find.byKey(
+                ValueKey('category-tile-${PolyPill.elections.key}')),
+            matching: find.byIcon(Icons.ballot_rounded)),
+        findsOneWidget);
+
     await tapAndPump(tester, find.byType(KuteCloseButton));
     expect(find.text(l10n.polyPillPolitics), findsNothing);
 
@@ -635,6 +710,49 @@ void main() {
         InvestmentsTab.investing);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);
+  });
+
+  test(
+      'a tile\'s stack is its group\'s three biggest movers, skipping coins '
+      'a tile above shows while the group has others', () {
+    HlMarket m(String coin, double prev, double mark, [double vlm = 1]) =>
+        HlMarket(
+            coin: coin,
+            wireCoin: coin,
+            assetId: coin.hashCode,
+            kind: HlMarketKind.perp,
+            szDecimals: 2,
+            maxLeverage: 1,
+            onlyIsolated: false,
+            markPx: mark,
+            midPx: mark,
+            prevDayPx: prev,
+            dayNtlVlm: vlm);
+    final group = [
+      m('BTC', 100, 101), // +1%
+      m('ETH', 100, 95), // −5%
+      m('HYPE', 100, 112), // +12%
+      m('SOL', 100, 103), // +3%
+      m('NEW', 0, 10), // no yesterday: last
+    ];
+    // Nothing shown above: the three largest |moves|, sign ignored.
+    final shown = <String>{};
+    expect(hlTileMovers(group, shown).map((x) => x.coin),
+        ['HYPE', 'ETH', 'SOL']);
+    expect(shown, {'HYPE', 'ETH', 'SOL'});
+    // Trending already shows BTC, HYPE and ETH: the next ones are taken.
+    final after = {'BTC', 'HYPE', 'ETH'};
+    expect(hlTileMovers(group, after).map((x) => x.coin),
+        ['SOL', 'NEW', 'HYPE']);
+    expect(after, containsAll(['BTC', 'HYPE', 'ETH', 'SOL', 'NEW']));
+    // A small group still fills its stack with what a tile above shows.
+    expect(hlTileMovers([m('BTC', 100, 101), m('ETH', 100, 95)], {'BTC'})
+        .map((x) => x.coin), ['ETH', 'BTC']);
+    // Ties go by volume.
+    expect(hlTileMovers([m('A', 100, 102, 5), m('B', 100, 102, 9)], {})
+        .map((x) => x.coin), ['B', 'A']);
+    // The count is what was asked for.
+    expect(hlTileMovers(group, {}, take: 2).length, 2);
   });
 
   test('the pill keys are the link and analytics vocabulary', () {
