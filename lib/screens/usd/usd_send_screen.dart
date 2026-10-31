@@ -293,9 +293,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   /// [UsdSendScreen.initialRecipient] while it still waits for a coin.
   String? _pendingRecipient;
 
-  /// The contact picked on Send to (send_recipient_step.dart), kept so a
-  /// pick made after it ("Send a prediction or investment") carries the
-  /// label. Never leaves the device.
+  /// The contact picked from "Send to a friend" (send_recipient_step
+  /// .dart), kept so a pick made after it ("Send a prediction or
+  /// investment") carries the label. Never leaves the device.
   SendContact? _pickedContact;
 
   /// The EIP-155 chain id the committed payment request named, if any.
@@ -1082,9 +1082,13 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     return true;
   }
 
-  /// Send to: the coin grid until a coin is picked, then the picked coin
-  /// as a chip over the recipient field, its Paste and Scan, and the
-  /// recents for that coin.
+  /// Send to: the coin grid until a coin is picked (with the link rows
+  /// under it, [_coinStep]), then the picked coin as a chip over the
+  /// recipient field, its Paste and Scan, and the recents for that coin.
+  /// ADDRESSES ONLY from here (founder, 31 October 2026): a coin on a
+  /// network is a destination a friend's link does not have, so neither
+  /// the friend row, the prediction row nor the contacts appear on this
+  /// step.
   Widget _sendToPage(AppColorsExtension c) {
     final catalog = ref.watch(orchestraSupportedRoutesProvider);
     final offered = _offeredDestinations(catalog);
@@ -1114,7 +1118,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
       }
     }
     // While the field is not an address it is a search: it filters the
-    // recents and the contacts by name.
+    // recents by their short address.
     final query = accepted || looksLikeAddress ? '' : addr;
     final recents = [
       for (final r in _recentRecipients(offered.offered, destination))
@@ -1171,25 +1175,21 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               }),
             ),
           ],
-          if (!accepted && error == null) ...[
-            if (recents.isNotEmpty) ...[
-              SizedBox(height: 20.h),
-              SendSectionLabel(l10n.sendRecentRecipients),
-              SendRecentCircles(items: recents),
-            ],
+          if (!accepted && error == null && recents.isNotEmpty) ...[
             SizedBox(height: 20.h),
-            SendContactsSection(query: query, onPick: _pickContact),
-            SizedBox(height: 20.h),
-            _sendToCard(c),
+            SendSectionLabel(l10n.sendRecentRecipients),
+            SendRecentCircles(items: recents),
           ],
         ],
       ),
     );
   }
 
-  /// The Send to card: a prediction or investment on a link, and a plain
-  /// link (send_pick_market_sheet.dart, send_to_anyone_sheet.dart). A
-  /// contact picked before carries its label into both.
+  /// The Send to card of the coin step: a prediction or investment on a
+  /// link (send_pick_market_sheet.dart) and "Send to a friend" (the
+  /// contacts picker, "Someone else" at its top, then
+  /// send_to_anyone_sheet.dart). A contact picked before carries its label
+  /// into the prediction row.
   Widget _sendToCard(AppColorsExtension c) {
     final l10n = context.l10n;
     return Column(
@@ -1207,12 +1207,11 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                 recipientPhone: _pickedContact?.phone,
               ))),
             ),
-            SendToAnyoneRow(
-              onTap: () => unawaited(_afterLink(showSendToAnyoneSheet(
+            SendToFriendRow(
+              onPick: _pickContact,
+              onSomeoneElse: () => unawaited(_afterLink(showSendToAnyoneSheet(
                 context,
                 kind: ShareLinkKind.dollars,
-                senderLabel: _pickedContact?.firstName,
-                recipientPhone: _pickedContact?.phone,
                 entrySource: 'dollar_send',
               ))),
             ),
@@ -1222,9 +1221,9 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
     );
   }
 
-  /// A contact picked on Send to: Send to anyone for dollars with the
-  /// first name as the link's label and the number kept in the local row
-  /// (send_contacts_service.dart).
+  /// A contact picked from "Send to a friend": Send to anyone for dollars
+  /// with the first name as the link's label and the number kept in the
+  /// local row (send_contacts_service.dart).
   Future<void> _pickContact(SendContact contact) {
     trackSendRecipientPicked('contact');
     setState(() => _pickedContact = contact);

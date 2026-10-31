@@ -1417,7 +1417,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // an older unit alive, and runs after the first frame so the
     // autoDispose default is not fought during build.
     // The contacts permission as it stands (never a prompt here): the
-    // Contacts section of the Send to step says what it can.
+    // Send to step's "Send to a friend" row asks on its first tap.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(ref.read(sendContactsProvider.notifier).refresh());
@@ -5312,8 +5312,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       pages: [
         SendStepPage(
           title: context.l10n.sendTo,
-          // The bar is this step's Continue, so Send to anyone is a row of
-          // the step's own Send to card (send_recipient_step.dart).
+          // The bar is this step's Continue, so the link row ("Send to a
+          // friend") is on the step's own Send to card
+          // (send_recipient_step.dart).
           child: _sendToPage(c),
         ),
         SendStepPage(
@@ -5373,8 +5374,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         colors: c,
         visibleSteps: const {_kSendToPage, _kAmountPage},
         // Both steps' Continue is the bar (kute_shell_bar.dart; founder:
-        // every pinned button is Sal). On Send to it sits over the step's
-        // own "Send to anyone" context, which its Sal sheet still offers.
+        // every pinned button is Sal): the plain primary context, no style
+        // of its own, so its disabled look is the bar's (the `curious`
+        // face, the quiet label).
         barSteps: const {_kSendToPage, _kAmountPage},
         source: 'bitcoin_send_amount',
         enabled: () {
@@ -7717,10 +7719,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           ),
       ];
 
-  /// A contact picked on the Send to step: Send to anyone for bitcoin
-  /// with the first name as the link's label and the number kept in the
-  /// local row (send_contacts_service.dart). A created link closes the
-  /// send: the money is on the link now.
+  /// A contact picked from the "Send to a friend" row: Send to anyone for
+  /// bitcoin with the first name as the link's label and the number kept
+  /// in the local row (send_contacts_service.dart). A created link closes
+  /// the send: the money is on the link now.
   Future<void> _pickContact(SendContact contact) async {
     trackSendRecipientPicked('contact');
     final created = await showSendToAnyoneSheet(
@@ -7729,6 +7731,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       senderLabel: contact.firstName,
       recipientPhone: contact.phone,
       entrySource: 'bitcoin_send_contact',
+    );
+    if (created == true && mounted) _closeAndReset();
+  }
+
+  /// "Someone else" in the contacts picker: the plain Send to anyone
+  /// sheet, the name typed there. A created link closes the send too.
+  Future<void> _sendToSomeoneElse() async {
+    final created = await showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.bitcoin,
+      entrySource: 'bitcoin_send',
     );
     if (created == true && mounted) _closeAndReset();
   }
@@ -7843,8 +7856,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// The recipient-first Send to step (send_recipient_step.dart): the
-  /// search field, the destination it holds resolved as one row, Recent,
-  /// Contacts and the Send to card.
+  /// search field, the destination it holds resolved as one row, the
+  /// contacts matching a typed name under it, Recent and the Send to card
+  /// ("Send to a friend", "Also sends to").
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7894,7 +7908,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       showSignerWarning = isLnLike && !dstIsLightning;
     }
     // While the field is not a destination it is a search: it filters
-    // the recents and the contacts by name.
+    // the recents and the contacts by name or number.
     final query = resolved || needsPick ? '' : addr;
     final recents = [
       for (final item in _recentItems(_recentRecipients()))
@@ -7907,11 +7921,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             detected.label == 'LNURL' ||
             detected.label == 'Spark address');
     // Cross-chain is only offered where Orchestra can route it: from
-    // the Spark hot wallet, never from a cold source. Send to anyone is
+    // the Spark hot wallet, never from a cold source. A friend's link is
     // a Spark link: the same source.
     final hot = !_isColdSource;
     final showSendToCard = !bitcoinDestination && (hot || needsPick);
-    // Scrollable so the recents, the contacts and the card never
+    // Scrollable so the matches, the recents and the card never
     // overflow on a short screen or at a large text scale.
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: 8.h),
@@ -7945,6 +7959,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
+          // The phone book's matches for a typed name or number, inline
+          // under the field (a link to a friend's phone, from the spending
+          // wallet); nothing while the field is empty or a destination.
+          if (hot) SendContactMatches(query: query, onPick: _pickContact),
           if (resolved) ...[
             SizedBox(height: 12.h),
             SendResolvedRow(
@@ -7999,11 +8017,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SendSectionLabel(context.l10n.sendRecentRecipients),
             SendRecentCircles(items: recents),
           ],
-          // Contacts: a link to a friend's phone, from the spending wallet.
-          if (!resolved && !needsPick && hot) ...[
-            SizedBox(height: 20.h),
-            SendContactsSection(query: query, onPick: _pickContact),
-          ],
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
             SendSectionLabel(context.l10n.sendToLabel),
@@ -8015,12 +8028,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               emphasized: needsPick,
               rows: [
                 if (hot && !needsPick)
-                  SendToAnyoneRow(
-                    onTap: () => unawaited(showSendToAnyoneSheet(
-                      context,
-                      kind: ShareLinkKind.bitcoin,
-                      entrySource: 'bitcoin_send',
-                    )),
+                  SendToFriendRow(
+                    onPick: _pickContact,
+                    onSomeoneElse: () => unawaited(_sendToSomeoneElse()),
                   ),
                 if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
               ],

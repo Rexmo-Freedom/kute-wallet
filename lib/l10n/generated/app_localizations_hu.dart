@@ -11705,7 +11705,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendToAFriend => 'Send to a friend';
 
   @override
-  String get sendToAFriendSub => 'Pick a contact to send them a link';
+  String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
+
+  @override
+  String get sendSomeoneElse => 'Someone else';
 
   @override
   String get sendAllowContactsInSettings => 'Allow contacts in Settings';

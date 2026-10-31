@@ -12,18 +12,29 @@
 //     words ([SendResolvedRow]); the bar's Continue acts on it;
 //   * "Recent": the people and addresses this wallet paid, as circles
 //     with the name or short address under ([SendRecentCircles]);
-//   * "Contacts": the phone book, behind its permission
-//     ([SendContactsSection]; services/contacts/send_contacts_service.dart);
-//   * one soft "Send to" card: Send to anyone, a prediction or investment
-//     on the dollar send, and the coins an address can land as.
+//   * the phone book's matches for a typed name or number, inline under
+//     the field with no header ([SendContactMatches];
+//     services/contacts/send_contacts_service.dart);
+//   * one soft "Send to" card: "Send to a friend", a prediction or
+//     investment on the dollar send, and the coins an address can land as.
+//
+// SEND TO ANYONE IS SEND TO A CONTACT (founder, 31 October 2026): one row,
+// "Send to a friend" with Sal's `share` face ([SendToFriendRow]), asks the
+// contacts permission on its first tap (never on open) and opens the
+// contacts picker ([showSendContactsPicker]) with "Someone else" at its
+// top, the plain name field of Send to anyone (send_to_anyone_sheet.dart)
+// for a friend who is not in the book. There is no separate Send to
+// anyone row and no Contacts section. On the dollar send the friend and
+// prediction rows live on the coin step only: once a coin and network are
+// chosen the address step is addresses only (usd_send_screen.dart).
 //
 // No step bar: the sheet's title says where the person is. The floating
-// Sal bar is the step's Continue (kute_bar_context.dart), so the card
-// carries the Send to anyone row the bar used to.
+// Sal bar is the step's Continue (kute_bar_context.dart; the plain
+// primary context, no style of its own).
 //
-// Presentation only, with one exception: the contacts section drives
-// `sendContactsProvider` (the permission prompt, the book) because every
-// send mounts it the same way. No money call here.
+// Presentation only, with one exception: the friend row and the picker
+// drive `sendContactsProvider` (the permission prompt, the book) because
+// every send mounts them the same way. No money call here.
 
 import 'dart:async';
 
@@ -298,7 +309,7 @@ class SendInlineError extends StatelessWidget {
       );
 }
 
-/// The 12 sp section header ("Recent", "Contacts", "Send to").
+/// The 12 sp section header ("Recent", "Send to").
 class SendSectionLabel extends StatelessWidget {
   const SendSectionLabel(this.text, {super.key, this.trailing});
 
@@ -479,7 +490,8 @@ class SendInitialsCircle extends StatelessWidget {
   }
 }
 
-/// Sal's `share` face at 32, the glyph of the Send to anyone rows.
+/// Sal's `share` face at 32, the glyph of the link rows (Send to a friend,
+/// Send a prediction or investment).
 class SendSalShareGlyph extends StatelessWidget {
   const SendSalShareGlyph({super.key, this.size = 32});
 
@@ -494,13 +506,13 @@ class SendSalShareGlyph extends StatelessWidget {
       );
 }
 
-/// "Contacts" on the Send to step, in every state of the permission
-/// (see the file header). [query] is the field's text: with the book in
-/// hand the card lists the matches, five at most, "See all" opening the
-/// full picker. [onPick] starts the flow's Send to anyone with the
-/// contact.
-class SendContactsSection extends ConsumerWidget {
-  const SendContactsSection({
+/// The phone book's matches for what is typed, inline under the field:
+/// up to [maxRows] rows and no header. Nothing while the field is empty,
+/// while the book is not granted, or when nothing matches; the book
+/// itself opens from the "Send to a friend" row ([SendToFriendRow]).
+/// [onPick] starts the flow's Send to anyone with the contact.
+class SendContactMatches extends ConsumerWidget {
+  const SendContactMatches({
     super.key,
     required this.query,
     required this.onPick,
@@ -513,115 +525,43 @@ class SendContactsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final c = context.colors;
+    if (query.trim().isEmpty) return const SizedBox.shrink();
     final state = ref.watch(sendContactsProvider);
-    final notifier = ref.read(sendContactsProvider.notifier);
-
-    Widget card(List<Widget> rows) => SendToListCard(colors: c, rows: rows);
-
-    switch (state.permission) {
-      case SendContactsPermission.unknown:
-      case SendContactsPermission.denied:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SendSectionLabel(l10n.sendContacts),
-            card([
-              SendToListRow(
-                key: const ValueKey('send-contacts-ask'),
-                colors: c,
-                leading: Icon(Icons.contacts_rounded,
-                    color: c.textPrimary, size: 24.sp),
-                title: l10n.sendToAFriend,
-                subtitle: l10n.sendToAFriendSub,
-                onTap: () => unawaited(notifier.request()),
-              ),
-            ]),
-          ],
-        );
-      case SendContactsPermission.blocked:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SendSectionLabel(l10n.sendContacts),
-            card([
-              SendToListRow(
-                key: const ValueKey('send-contacts-settings'),
-                colors: c,
-                leading: Icon(Icons.contacts_rounded,
-                    color: c.textSecondary, size: 24.sp),
-                title: l10n.sendAllowContactsInSettings,
-                subtitle: l10n.sendAllowContactsInSettingsSub,
-                onTap: () => unawaited(notifier.openSettings()),
-              ),
-            ]),
-          ],
-        );
-      case SendContactsPermission.granted:
-        final matches = state.matching(query, limit: maxRows);
-        final more = state.matching(query).length > maxRows;
-        if (state.contacts.isEmpty && !state.loading) {
-          return const SizedBox.shrink();
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SendSectionLabel(
-              l10n.sendContacts,
-              trailing: more || query.trim().isEmpty
-                  ? GestureDetector(
-                      key: const ValueKey('send-contacts-see-all'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => unawaited(showSendContactsPicker(context,
-                          initialQuery: query, onPick: onPick)),
-                      child: Text(
-                        l10n.seeAll,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  : null,
+    if (!state.granted) return const SizedBox.shrink();
+    final matches = state.matching(query, limit: maxRows);
+    if (matches.isEmpty) return const SizedBox.shrink();
+    final c = context.colors;
+    return Padding(
+      padding: EdgeInsets.only(top: 12.h),
+      child: SendToListCard(
+        key: const ValueKey('send-contact-matches'),
+        colors: c,
+        rows: [
+          for (final contact in matches)
+            SendToListRow(
+              key: ValueKey('send-contact-${contact.id}'),
+              colors: c,
+              leading: SendInitialsCircle(contact.initials),
+              title: contact.displayName,
+              subtitle: contact.phone,
+              onTap: () => onPick(contact),
             ),
-            if (matches.isEmpty)
-              Padding(
-                padding: EdgeInsets.only(left: 4.w),
-                child: Text(
-                  state.loading ? '…' : l10n.sendNoContactsMatch,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              )
-            else
-              card([
-                for (final contact in matches)
-                  SendToListRow(
-                    key: ValueKey('send-contact-${contact.id}'),
-                    colors: c,
-                    leading: SendInitialsCircle(contact.initials),
-                    title: contact.displayName,
-                    subtitle: contact.phone,
-                    onTap: () => onPick(contact),
-                  ),
-              ]),
-          ],
-        );
-    }
+        ],
+      ),
+    );
   }
 }
 
-/// The full contacts picker: a search field over the whole book,
-/// alphabetical. Closes on a pick and hands it to [onPick].
+/// The contacts picker: "Someone else" at the top (a plain link with a
+/// typed name, [onSomeoneElse]), then the book, alphabetical, under a
+/// search field; with the permission refused for good, the Settings row
+/// instead, and with a refusal the system can ask again, a row that asks
+/// again. Closes on a pick and hands it to [onPick].
 Future<void> showSendContactsPicker(
   BuildContext context, {
   String initialQuery = '',
   required ValueChanged<SendContact> onPick,
+  required VoidCallback onSomeoneElse,
 }) =>
     showAppBottomSheet<void>(
       context: context,
@@ -631,15 +571,23 @@ Future<void> showSendContactsPicker(
           Navigator.of(sheetCtx).pop();
           onPick(contact);
         },
+        onSomeoneElse: () {
+          Navigator.of(sheetCtx).pop();
+          onSomeoneElse();
+        },
       ),
     );
 
 class _SendContactsPickerSheet extends ConsumerStatefulWidget {
-  const _SendContactsPickerSheet(
-      {required this.initialQuery, required this.onPick});
+  const _SendContactsPickerSheet({
+    required this.initialQuery,
+    required this.onPick,
+    required this.onSomeoneElse,
+  });
 
   final String initialQuery;
   final ValueChanged<SendContact> onPick;
+  final VoidCallback onSomeoneElse;
 
   @override
   ConsumerState<_SendContactsPickerSheet> createState() =>
@@ -662,7 +610,49 @@ class _SendContactsPickerSheetState
     final l10n = context.l10n;
     final c = context.colors;
     final state = ref.watch(sendContactsProvider);
-    final rows = state.matching(_query.text);
+    final notifier = ref.read(sendContactsProvider.notifier);
+    final granted = state.granted;
+    final matches = granted ? state.matching(_query.text) : const <SendContact>[];
+    // "Someone else" first, then the book (or what stands in for it).
+    final rows = <Widget>[
+      SendToListRow(
+        key: const ValueKey('send-contacts-someone-else'),
+        colors: c,
+        leading: const SendInitialsCircle(''),
+        title: l10n.sendSomeoneElse,
+        onTap: widget.onSomeoneElse,
+      ),
+      if (state.permission == SendContactsPermission.blocked)
+        SendToListRow(
+          key: const ValueKey('send-contacts-settings'),
+          colors: c,
+          leading: Icon(Icons.contacts_rounded,
+              color: c.textSecondary, size: 24.sp),
+          title: l10n.sendAllowContactsInSettings,
+          subtitle: l10n.sendAllowContactsInSettingsSub,
+          onTap: () => unawaited(notifier.openSettings()),
+        )
+      else if (!granted)
+        SendToListRow(
+          key: const ValueKey('send-contacts-ask'),
+          colors: c,
+          leading: Icon(Icons.contacts_rounded,
+              color: c.textPrimary, size: 24.sp),
+          title: l10n.sendContacts,
+          subtitle: l10n.sendAllowContactsInSettingsSub,
+          onTap: () => unawaited(notifier.request()),
+        )
+      else
+        for (final contact in matches)
+          SendToListRow(
+            key: ValueKey('send-contact-pick-${contact.id}'),
+            colors: c,
+            leading: SendInitialsCircle(contact.initials),
+            title: contact.displayName,
+            subtitle: contact.phone,
+            onTap: () => widget.onPick(contact),
+          ),
+    ];
     return AppBottomSheetContainer(
       maxHeight: MediaQuery.sizeOf(context).height * 0.9,
       followKeyboard: true,
@@ -671,87 +661,78 @@ class _SendContactsPickerSheetState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppBottomSheetHeader(
-            title: l10n.sendContacts,
+            title: l10n.sendToAFriend,
             icon: Icons.contacts_rounded,
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w),
-              decoration: BoxDecoration(
-                color: c.surfaceLight,
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: c.borderSubtle, width: 0.5),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search_rounded,
-                      color: c.textSecondary, size: 20.sp),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('send-contacts-picker-search'),
-                      controller: _query,
-                      autofocus: widget.initialQuery.isEmpty,
-                      onChanged: (_) => setState(() {}),
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: l10n.sendContactsSearchHint,
-                        hintStyle: TextStyle(
-                          color: c.textSecondary,
+          if (granted)
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: c.borderSubtle, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded,
+                        color: c.textSecondary, size: 20.sp),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('send-contacts-picker-search'),
+                        controller: _query,
+                        autofocus: widget.initialQuery.isEmpty,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          color: c.textPrimary,
                           fontSize: 15.sp,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                        decoration: InputDecoration(
+                          hintText: l10n.sendContactsSearchHint,
+                          hintStyle: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           Flexible(
-            child: rows.isEmpty
-                ? Padding(
-                    padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 32.h),
-                    child: Text(
-                      l10n.sendNoContactsMatch,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
-                    itemCount: rows.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 0.5,
-                      thickness: 0.5,
-                      color: c.borderSubtle,
-                      indent: 52.w,
-                    ),
-                    itemBuilder: (context, i) {
-                      final contact = rows[i];
-                      return SendToListRow(
-                        key: ValueKey('send-contact-pick-${contact.id}'),
-                        colors: c,
-                        leading: SendInitialsCircle(contact.initials),
-                        title: contact.displayName,
-                        subtitle: contact.phone,
-                        onTap: () => widget.onPick(contact),
-                      );
-                    },
-                  ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+              itemCount: rows.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 0.5,
+                thickness: 0.5,
+                color: c.borderSubtle,
+                indent: 52.w,
+              ),
+              itemBuilder: (context, i) => rows[i],
+            ),
           ),
+          if (granted && matches.isEmpty)
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 32.h),
+              child: Text(
+                l10n.sendNoContactsMatch,
+                style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -763,23 +744,45 @@ class _SendContactsPickerSheetState
 void trackSendRecipientPicked(String kind) =>
     TrackingService.track('send_recipient_picked', params: {'kind': kind});
 
-/// The "Send to anyone" row of the Send to card.
-class SendToAnyoneRow extends StatelessWidget {
-  const SendToAnyoneRow({super.key, required this.onTap});
+/// "Send to a friend", the one link row of the Send to card (see the
+/// file header): Sal's `share` face, "They claim it with Kute, no wallet
+/// needed". The tap asks the contacts permission the first time (and
+/// again after a refusal the system allows to ask again), then opens the
+/// contacts picker with "Someone else" at its top: a contact picked goes
+/// to [onPick], "Someone else" to [onSomeoneElse] (the flow's plain Send
+/// to anyone sheet). Refused for good, the picker offers Settings.
+class SendToFriendRow extends ConsumerWidget {
+  const SendToFriendRow({
+    super.key,
+    required this.onPick,
+    required this.onSomeoneElse,
+  });
 
-  final VoidCallback onTap;
+  final ValueChanged<SendContact> onPick;
+  final VoidCallback onSomeoneElse;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     return SendToListRow(
-      key: const ValueKey('send-to-anyone-row'),
+      key: const ValueKey('send-to-friend-row'),
       colors: context.colors,
       leading: const SendSalShareGlyph(),
-      title: l10n.shareSendToAnyone,
-      subtitle: l10n.shareSendToAnyoneSubtitle,
-      onTap: onTap,
+      title: l10n.sendToAFriend,
+      subtitle: l10n.sendToAFriendSub,
+      onTap: () => unawaited(_open(context, ref)),
     );
+  }
+
+  Future<void> _open(BuildContext context, WidgetRef ref) async {
+    final permission = ref.read(sendContactsProvider).permission;
+    if (permission == SendContactsPermission.unknown ||
+        permission == SendContactsPermission.denied) {
+      await ref.read(sendContactsProvider.notifier).request();
+    }
+    if (!context.mounted) return;
+    await showSendContactsPicker(context,
+        onPick: onPick, onSomeoneElse: onSomeoneElse);
   }
 }
 

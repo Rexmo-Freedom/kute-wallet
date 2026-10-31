@@ -35,6 +35,9 @@ import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill;
+import 'package:kute/screens/shared/send/send_recipient_step.dart'
+    show SendSalShareGlyph;
+import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
     show UsdAccountActionRow;
@@ -402,6 +405,9 @@ void main() {
 
   setUp(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
+    // No sprite sheets: a decoded loop would tick for ever under
+    // pumpAndSettle; the glyphs fall back to their icons.
+    SalSpriteCache.debugSetManifest(null);
     AffiliateService.debugSessionToken = 'test-session';
     final policy = runtimePolicyFixture();
     RuntimeCapabilitiesService.debugInstance = policy;
@@ -414,6 +420,7 @@ void main() {
 
   tearDown(() {
     RuntimeCapabilitiesService.debugInstance = null;
+    SalSpriteCache.debugReset();
     AffiliateService.debugSessionToken = null;
   });
 
@@ -453,7 +460,48 @@ void main() {
     expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
     // A link needs no coin: the Send to card sits under the grid.
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
-    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsOneWidget);
+  });
+
+  testWidgets(
+      'the coin step\'s Send to card: one "Send to a friend" row with Sal\'s '
+      'share face and the prediction row; no Send to anyone, no Contacts',
+      (tester) async {
+    await _pump(tester);
+    final friend = find.byKey(const ValueKey('send-to-friend-row'));
+    expect(friend, findsOneWidget);
+    expect(find.text(_l10n.sendToAFriend), findsOneWidget);
+    expect(find.text(_l10n.sendToAFriendSub), findsOneWidget);
+    expect(find.descendant(of: friend, matching: find.byType(SendSalShareGlyph)),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
+    expect(find.text(_l10n.shareSendToAnyone), findsNothing);
+    expect(find.text(_l10n.sendContacts), findsNothing);
+    expect(find.byKey(const ValueKey('send-contacts-ask')), findsNothing);
+  });
+
+  testWidgets(
+      'the address step is addresses only: the chip, the field and Paste '
+      'and Scan, none of the friend, prediction or contact rows',
+      (tester) async {
+    await _pump(tester);
+    await _pickCoin(tester, 'arbitrum', 'USDC');
+    expect(_chip, findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byTooltip(_l10n.paste), findsOneWidget);
+    expect(find.byTooltip(_l10n.scan), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
+    expect(find.text(_l10n.sendToLabel), findsNothing);
+    expect(find.text(_l10n.sendContacts), findsNothing);
+    expect(find.byKey(const ValueKey('send-contact-matches')), findsNothing);
+    // A typed name is a search of the recents only: no contact rows.
+    await tester.enterText(find.byType(TextField), 'mar');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('send-contact-matches')), findsNothing);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
   });
 
   testWidgets(

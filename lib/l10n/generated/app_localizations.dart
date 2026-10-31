@@ -19558,8 +19558,14 @@ abstract class AppLocalizations {
   /// No description provided for @sendToAFriendSub.
   ///
   /// In en, this message translates to:
-  /// **'Pick a contact to send them a link'**
+  /// **'They claim it with Kute, no wallet needed'**
   String get sendToAFriendSub;
+
+  /// No description provided for @sendSomeoneElse.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone else'**
+  String get sendSomeoneElse;
 
   /// No description provided for @sendAllowContactsInSettings.
   ///
