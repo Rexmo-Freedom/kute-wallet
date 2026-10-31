@@ -4,6 +4,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/hyperliquid_model.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 
 HyperliquidCandle _bar(int i,
@@ -69,14 +70,23 @@ void main() {
   });
 
   group('opening ladder', () {
-    test('climbs 1m to 1D and stops there; 1W is left alone', () {
+    test('climbs 1m to 1D through the picker\'s intervals and stops there; '
+        '1W is left alone', () {
       expect(hlCoarserOpeningInterval('1m'), '5m');
-      expect(hlCoarserOpeningInterval('5m'), '15m');
-      expect(hlCoarserOpeningInterval('15m'), '1h');
-      expect(hlCoarserOpeningInterval('1h'), '4h');
-      expect(hlCoarserOpeningInterval('4h'), '1d');
+      expect(hlCoarserOpeningInterval('5m'), '1h');
+      expect(hlCoarserOpeningInterval('1h'), '1d');
       expect(hlCoarserOpeningInterval('1d'), isNull);
       expect(hlCoarserOpeningInterval('1w'), isNull);
+      // Retired intervals are not on it.
+      expect(hlCoarserOpeningInterval('15m'), isNull);
+      expect(hlCoarserOpeningInterval('4h'), isNull);
+    });
+
+    test('every rung is an interval the picker shows', () {
+      final picker = kHlCandleIntervals.map((iv) => iv.interval).toSet();
+      for (final rung in kHlOpeningLadder) {
+        expect(picker, contains(rung));
+      }
     });
 
     test('a liquid market opens on the saved interval, in one look', () {
@@ -92,22 +102,18 @@ void main() {
       expect(
           opening.onTapeLoaded(saved: '5m', candles: _thin(240, traded: 2)),
           isTrue);
-      expect(opening.intervalFor('5m'), '15m');
-      expect(opening.settled, isFalse);
-      expect(
-          opening.onTapeLoaded(saved: '5m', candles: _thin(240, traded: 4)),
-          isTrue);
       expect(opening.intervalFor('5m'), '1h');
+      expect(opening.settled, isFalse);
       expect(
           opening.onTapeLoaded(saved: '5m', candles: _thin(240, traded: 12)),
           isTrue);
-      expect(opening.intervalFor('5m'), '4h');
-      // Enough of the 4h bars traded: this is where it opens.
+      expect(opening.intervalFor('5m'), '1d');
+      // Enough of the 1D bars traded: this is where it opens.
       expect(
           opening.onTapeLoaded(saved: '5m', candles: _thin(240, traded: 45)),
           isFalse);
       expect(opening.settled, isTrue);
-      expect(opening.intervalFor('5m'), '4h');
+      expect(opening.intervalFor('5m'), '1d');
     });
 
     test('a market thin on every interval stops at 1D', () {
@@ -118,15 +124,15 @@ void main() {
         looks++;
       }
       expect(opening.intervalFor('1m'), '1d');
-      expect(looks, 6);
+      expect(looks, 4);
     });
 
     test('a young market keeps the interval with more traded bars', () {
-      // Listed a day ago: 15 traded 5m bars, which 15m merges into 6.
+      // Listed a day ago: 15 traded 5m bars, which 1h merges into 2.
       final opening = HlChartOpening();
       expect(opening.onTapeLoaded(saved: '5m', candles: _liquid(15)), isTrue);
-      expect(opening.intervalFor('5m'), '15m');
-      expect(opening.onTapeLoaded(saved: '5m', candles: _liquid(6)), isTrue);
+      expect(opening.intervalFor('5m'), '1h');
+      expect(opening.onTapeLoaded(saved: '5m', candles: _liquid(2)), isTrue);
       expect(opening.settled, isTrue);
       expect(opening.stepped, isFalse);
       expect(opening.intervalFor('5m'), '5m');
@@ -143,7 +149,7 @@ void main() {
     test('a pick after a step returns to the saved layout for good', () {
       final opening = HlChartOpening();
       opening.onTapeLoaded(saved: '5m', candles: _thin(240, traded: 2));
-      expect(opening.intervalFor('5m'), '15m');
+      expect(opening.intervalFor('5m'), '1h');
       opening.userPicked();
       expect(opening.intervalFor('5m'), '5m');
       expect(opening.intervalFor('1m'), '1m');
