@@ -18831,6 +18831,54 @@ abstract class AppLocalizations {
   /// **'Your balance over time shows here once you hold dollars'**
   String get balanceChartEmptyDollars;
 
+  /// Trend charts (P&L, Bitcoin Balance, Dollars balance): the period named after the change line's figures for the 1W range, e.g. '▲ $31.84 · Past week'.
+  ///
+  /// In en, this message translates to:
+  /// **'Past week'**
+  String get chartPeriodPastWeek;
+
+  /// Trend charts: the period after the change for the 1M range.
+  ///
+  /// In en, this message translates to:
+  /// **'Past month'**
+  String get chartPeriodPastMonth;
+
+  /// Trend charts: the period after the change for the 3M range.
+  ///
+  /// In en, this message translates to:
+  /// **'Past 3 months'**
+  String get chartPeriodPast3Months;
+
+  /// Trend charts: the period after the change for the 1Y range.
+  ///
+  /// In en, this message translates to:
+  /// **'Past year'**
+  String get chartPeriodPastYear;
+
+  /// Trend charts: the period after the change for the ALL range (the whole history).
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get chartPeriodAllTime;
+
+  /// Trend charts: the change line when the value is the same at both ends of the period, e.g. 'No change · Past month'.
+  ///
+  /// In en, this message translates to:
+  /// **'No change'**
+  String get chartNoChange;
+
+  /// Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Your P&L shows up after your first position.'**
+  String get pnlChartNoHistory;
+
+  /// Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance history starts with your first transaction.'**
+  String get balanceChartNoHistory;
+
   /// Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction.
   ///
   /// In en, this message translates to:

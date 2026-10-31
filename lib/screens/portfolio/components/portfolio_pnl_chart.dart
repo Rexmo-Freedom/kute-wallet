@@ -4,48 +4,44 @@
 // account one chart for Investing and Predictions together (their series
 // added, [PortfolioPerformance.combine]) or one venue's when its row is
 // picked (portfolio_statistics.dart); on a Ledger the venue's own. It is
-// drawn as the Bitcoin and Dollars Balance charts are
-// (balance_history_chart.dart, the same KuteLineChart), a brokerage app's
-// P&L view (founder, option A, 28 October 2026):
+// drawn through the modern line chart ([KuteTrendChart], founder, 31
+// October 2026: "make the graph modern"), as the Bitcoin and Dollars
+// Balance charts are (balance_history_chart.dart):
 //
-//   * the caption, then the P&L now as the figure (the balance type,
-//     [AppTextStyles.balance]) in the up / down colour;
-//   * a range row under the plot (1W 1M 3M 1Y ALL, the app's range
-//     pills), 1M to start and remembered for the session; a range shows
-//     its stretch ending now, never reaching back past a short lead-in
-//     before the first trade (see [pnlSeries]), and tapping a range (the
-//     selected one too) puts a pinched or panned view back on it;
-//   * the line is the closing P&L of each bucket the window on screen
-//     calls for (a quarter hour to a week), its last point the P&L now, so
-//     a swing inside a bucket never spikes it, drawn as STRAIGHT segments
-//     through those points only (no curve, so never a bump or a dip that
-//     did not happen), with one soft fade under it, both in the RESULT
-//     colour of the range ([pnlResultColor]: red when the P&L over the
-//     range fell, green when it rose, the neutral grey when flat), and
-//     the end dot solid in that colour;
-//   * no scale and no gridlines: a plain solid hairline at zero, the
-//     P&L's own reference, always on the scale;
-//   * one quiet line under the figure: the change over the window
-//     ("+$12.40 past month"), only the amount coloured; never a percent (a
-//     P&L series has no base to take one of). While a finger scrubs (long
-//     press, then slide) the line says the P&L under it and when
-//     ("−$6.38 · Oct 16 14:00"); after a pinch or pan, the change since
-//     the window's first day or between its dates;
-//   * a range where the P&L is zero throughout (nothing traded or
-//     predicted yet) draws a calm flat line with one quiet sentence;
-//   * pinch (around the fingers, 4 hours to the whole history) and pan
-//     move inside the whole history, re-bucketing as they go, with the
-//     time axis under the plot and the one-time zoom nudge; another series
-//     (a venue row picked) or another range opens afresh;
+//   * the caption ("Profit and loss"), then the P&L now as the figure
+//     (the balance type, [AppTextStyles.balance]) in the up / down colour,
+//     then one quiet change line: "▲ $31.84 · Past month", the arrow and
+//     the amount in the change's colour, the period after a middle dot;
+//     never a percent (a P&L series has no base to take one of); flat:
+//     "No change · Past month";
+//   * the plot: the closing P&L of each bucket the range calls for (a
+//     quarter hour to a week), its last point the P&L now, so a swing
+//     inside a bucket never spikes it; ONE line in the RESULT colour of
+//     the range ([pnlResultColor]: red when the P&L fell over it, green
+//     when it rose, the text colour when flat), its fill, a dashed
+//     hairline at the range's first value; no axes, no grid, no labels;
+//   * a range row 16 px under the plot (1W 1M 3M 1Y ALL, the small white
+//     pill), 1M to start and remembered for the session; picking a range
+//     morphs the line;
+//   * SCRUB: a horizontal drag (or a long press, then slide) puts the P&L
+//     under the finger in the figure and its change since the range's
+//     start and its moment in the change line ("▼ $6.38 · Oct 16 14:00");
+//     release puts the P&L now back;
+//   * NO HISTORY (nothing traded or predicted yet, every point zero): no
+//     chart and no range row, only the headline ($0.00) and one quiet
+//     caption under it ("Your P&L shows up after your first position.");
 //   * the spending account's card is ONE block (founder, 28 October 2026,
 //     lighter: what is done only): with a [PortfolioPnlChart.footer] (the
 //     venue lines, which pick the series) the caption and the REALISED
 //     P&L ([PortfolioPnlChart.figureUsd]) lead in the result colour, no
-//     change line; the plot directly under them, the range pills, then a
+//     change line; the plot directly under them, the range row, then a
 //     hairline and the footer. While a finger scrubs, the figure is the
 //     P&L under it and the caption says when ("Profit and loss · Oct 16
 //     14:00"). Without a footer (a Ledger) the figure is the P&L now with
-//     its change line over the plot.
+//     its change line;
+//   * extra venue lines ([PortfolioPnlChart.venueLines]), when the host
+//     asks for one line per venue: 1.5 px in the venue's colour, no fill,
+//     on the same scale; the footer's rows are their legend.
 //
 // With balances hidden the figures are dots, as on the home header.
 //
@@ -53,12 +49,11 @@
 // scrub gesture; venue is the chart's [PortfolioPnlChart.eventVenue] when
 // given (the spending account's series: `all`, `hyperliquid` or
 // `polymarket`), else `trading`, `predictions`, or `all` for a combined
-// chart. Ranges, zoom and pan send nothing, as on the Balance charts.
+// chart. Ranges send nothing, as on the Balance charts.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -67,33 +62,25 @@ import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
-import 'package:kute/screens/shared/charts/kute_chart_viewport.dart'
-    show KuteIndexWindow;
-import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
-/// The height of the chart: the quiet line above the plot, the plot and
-/// its time axis. Fixed, so a tall hero (large text) never squeezes the
-/// line: the card grows instead.
-const double kPnlChartPlotHeight = 252;
-
-/// The plot and its time axis under the lead row and the venue rows (the
-/// spending account's one block): the rows above take their own height.
-const double kPnlChartBlockPlotHeight = 200;
+/// The plot's height on the P&L card.
+const double kPnlChartPlotHeight = kKuteTrendPlotHeight;
 
 /// The line's colour: the result over the range, [change] being the P&L
 /// at the range's end less its start. Red when it fell, green when it
-/// rose, the neutral grey when it did not move.
+/// rose, the text colour when it did not move.
 Color pnlResultColor(AppColorsExtension c, double change) => change > 0
     ? AppColors.marketUp
     : change < 0
         ? AppColors.marketDown
-        : c.textTertiary;
+        : c.textPrimary;
 
 /// The range the P&L chart shows, for the rest of the session: the past
 /// month to start. One choice for every series (the toggle keeps it).
@@ -109,6 +96,7 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
     this.footer,
     this.figureUsd,
     this.eventVenue,
+    this.venueLines = const [],
   });
 
   /// The venue charted; null for Investing and Predictions together (the
@@ -116,13 +104,13 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
   final PortfolioPerformanceVenue? venue;
 
   /// The P&L series. With no observations (or none off zero) the chart is
-  /// its empty state.
+  /// its no-history state.
   final PortfolioPerformance data;
 
   /// The moment the line ends on; now unless a test pins it.
   final DateTime? now;
 
-  /// Under the range pills, past a hairline (the venue lines, which pick
+  /// Under the range row, past a hairline (the venue lines, which pick
   /// the series drawn). With it the card is the spending account's one
   /// block: the caption and [figureUsd] over the plot, no change line.
   final Widget? footer;
@@ -135,18 +123,16 @@ class PortfolioPnlChart extends ConsumerStatefulWidget {
   /// null.
   final String? eventVenue;
 
+  /// One extra line per venue, in the venue's colour, over the same range.
+  final List<(Color, PortfolioPerformance)> venueLines;
+
   @override
   ConsumerState<PortfolioPnlChart> createState() => _PortfolioPnlChartState();
 }
 
 class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
-  /// Bumped by a range tap, so the same range tapped again also puts a
-  /// pinched or panned view back on it.
-  int _rangeTaps = 0;
-
-  /// The placeholder the change line is written around, so the amount
-  /// alone takes the colour whatever the language puts around it.
-  static const String _slot = '\u0001';
+  /// The point under the finger; null at rest.
+  KuteTrendPoint? _scrub;
 
   String get _venueName => widget.eventVenue ?? widget.venue?.name ?? 'all';
 
@@ -157,56 +143,50 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
     final l10n = context.l10n;
     final range = ref.watch(pnlChartRangeProvider);
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    String amount(double value) => !visible
-        ? '••••••'
-        : '${kuteChangeSign(value)}${formatPolyAmount(ref, value.abs())}';
+    String money(double value) =>
+        !visible ? '••••••' : formatPolyAmount(ref, value.abs());
+    String signed(double value) =>
+        !visible ? '••••••' : '${kuteChangeSign(value)}${money(value)}';
     Color signColor(double v) => v > 0
         ? AppColors.marketUp
         : v < 0
             ? AppColors.marketDown
             : c.textPrimary;
 
-    final series = pnlSeries(data, widget.now ?? DateTime.now());
-    final values = series.values;
-    final times = series.times;
+    final now = widget.now ?? DateTime.now();
+    final series = pnlSeries(data, now);
+    final hasHistory = series.values.any((v) => v != 0);
     final span = series.spanFor(range);
-    final buckets =
-        KuteLineBuckets(strideFor: series.strideFor, phase: series.phase);
-
-    /// The drawn values inside [w].
-    List<double> drawnIn(KuteIndexWindow w) => [
-          for (final i in buckets.indicesFor(values.length, w))
-            if (i >= w.start - 1e-6 && i <= w.end + 1e-6) values[i]
-        ];
-    bool zeroIn(KuteIndexWindow w) => drawnIn(w).every((v) => v == 0);
-    final rangeWindow = KuteIndexWindow(series.extent - span, series.extent);
-    final empty = zeroIn(rangeWindow);
-    // The result over the range: the line's colour.
-    final inRange = drawnIn(rangeWindow);
-    final lineColor =
-        pnlResultColor(c, inRange.isEmpty ? 0 : inRange.last - inRange.first);
+    final shown = kuteTrendWindow(series, span);
+    final values = shown.values;
+    final times = shown.times;
     final block = widget.footer != null;
-
-    // The hero: the P&L now, the line's last point.
-    final headline = values.last;
-    final headlineColor = !visible ? c.textPrimary : signColor(headline);
+    final scrub = _scrub;
+    final scrubbing = scrub != null && scrub.index < values.length;
 
     final locale = kuteChartLocale(context);
-    // On a daily grid a point at midnight closes the day before; finer
-    // grids say when in the day.
-    final daily = series.cellMinutes >= 1440;
-    DateTime dayOf(DateTime t) => daily && t.hour == 0 && t.minute == 0
-        ? t.subtract(const Duration(minutes: 1))
-        : t;
-    String timeOf(DateTime t) =>
-        daily ? kuteChartDay(dayOf(t), locale) : kuteChartDayTime(t, locale);
-    // A date inside a sentence: the year only when it is not this one.
-    String dateOf(DateTime t) {
-      final d = dayOf(t);
-      return d.year == times.last.year
-          ? DateFormat.MMMd(locale).format(d)
-          : DateFormat.yMMMd(locale).format(d);
+    // On daily (or coarser) buckets a point at midnight closes the day
+    // before; finer buckets say when in the day.
+    final daily = series.strideFor(span) * series.cellMinutes >= 1440;
+    String timeOf(DateTime t) {
+      final d = daily && t.hour == 0 && t.minute == 0
+          ? t.subtract(const Duration(minutes: 1))
+          : t;
+      return daily ? kuteChartDay(d, locale) : kuteChartDayTime(t, locale);
     }
+
+    // The result over the range: the line's colour.
+    final lineColor = values.isEmpty
+        ? c.textPrimary
+        : pnlResultColor(c, values.last - values.first);
+
+    // The hero: the P&L now (the line's last point), the P&L under the
+    // finger while scrubbing, or the block's realised figure at rest.
+    final double? restFigure = block ? widget.figureUsd : series.values.last;
+    final double? headline = scrubbing ? scrub.value : restFigure;
+    final headlineText = headline == null ? '—' : signed(headline);
+    final headlineColor =
+        headline == null || !visible ? c.textPrimary : signColor(headline);
 
     final quiet = TextStyle(
       color: c.textSecondary,
@@ -215,213 +195,119 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    Widget headerRow(InlineSpan span) => Padding(
-          padding: EdgeInsets.only(left: 2.w, bottom: 8.h),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text.rich(span,
-                key: const ValueKey('statistics-pnl-header'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: quiet),
-          ),
-        );
-
-    final caption =
-        Text(l10n.portfolioProfitLoss, style: portfolioCardCaptionStyle(c));
     // The figure leads: the balance type, scaled down rather than cut on a
     // narrow phone or under large text.
-    Widget figureOf(String text, Color color) => FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: RollingNumberText(
-            key: const ValueKey('statistics-pnl-headline'),
-            text: text,
-            duration: const Duration(milliseconds: 350),
-            dimColor: c.textTertiary,
-            style: AppTextStyles.balance(context).copyWith(color: color),
-          ),
-        );
-    final figure = figureOf(amount(headline), headlineColor);
+    final figure = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: RollingNumberText(
+        key: const ValueKey('statistics-pnl-headline'),
+        text: headlineText,
+        duration: Duration(milliseconds: scrubbing ? 120 : 350),
+        dimColor: c.textTertiary,
+        style: AppTextStyles.balance(context).copyWith(color: headlineColor),
+      ),
+    );
 
-    Widget changeLine(KuteLineView view) {
-      final touched = view.touched;
-      if (touched != null) {
-        final v = values[touched];
-        return headerRow(TextSpan(children: [
-          TextSpan(
-            text: amount(v),
-            style: TextStyle(
-                color: visible ? signColor(v) : c.textPrimary,
-                fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' · ${timeOf(times[touched])}'),
-        ]));
-      }
-      // Nothing on screen but zero: the plot says so; the row keeps its
-      // height so the plot never shifts.
-      if (zeroIn(view.window)) return headerRow(const TextSpan(text: ' '));
-
-      final delta = values[view.last] - values[view.first];
-      final live = view.window.end >= series.extent - 1e-6;
-      final start = times[view.first];
-      if (delta == 0) {
-        final text = view.isDefault && range != BalanceRange.all
-            ? switch (range) {
-                BalanceRange.week => l10n.balanceNoChangePastWeek,
-                BalanceRange.month => l10n.balanceNoChangePastMonth,
-                BalanceRange.threeMonths => l10n.balanceNoChangePast3Months,
-                _ => l10n.balanceNoChangePastYear,
-              }
-            : live
-                ? l10n.balanceNoChangeSince(dateOf(start))
-                : l10n.balanceNoChangeBetween(
-                    dateOf(start), dateOf(times[view.last]));
-        return headerRow(TextSpan(text: text));
-      }
-
-      final sentence = view.isDefault
-          ? switch (range) {
-              BalanceRange.week => l10n.balanceChangePastWeek(_slot),
-              BalanceRange.month => l10n.balanceChangePastMonth(_slot),
-              BalanceRange.threeMonths => l10n.balanceChangePast3Months(_slot),
-              BalanceRange.year => l10n.balanceChangePastYear(_slot),
-              BalanceRange.all => l10n.balanceChangeAllTime(_slot),
-            }
-          : live
-              ? l10n.balanceChangeSince(_slot, dateOf(start))
-              : l10n.balanceChangeBetween(
-                  _slot, dateOf(start), dateOf(times[view.last]));
-      final parts = sentence.split(_slot);
-      // No percent: a change in P&L has no base to be a share of (the
-      // P&L at the window's start can be zero, tiny or of either sign).
-      return headerRow(TextSpan(children: [
-        TextSpan(text: parts.first),
-        TextSpan(
-          text: amount(delta),
-          style: TextStyle(
-              color: delta > 0 ? AppColors.marketUp : AppColors.marketDown,
-              fontWeight: FontWeight.w700),
-        ),
-        if (parts.length > 1) TextSpan(text: parts.sublist(1).join()),
-      ]));
-    }
-
-    // The one block's lead: the caption and the realised P&L over the
-    // plot; while a finger scrubs, the P&L under it and when. Rebuilt with
-    // the chart on every scrub step, so it follows the finger.
-    Widget blockHeader(KuteLineView view) {
-      final touched = view.touched;
-      final realised = widget.figureUsd;
-      final String text;
-      final Color color;
-      if (touched != null) {
-        final v = values[touched];
-        text = amount(v);
-        color = visible ? signColor(v) : c.textPrimary;
-      } else {
-        text = realised == null ? '—' : amount(realised);
-        color =
-            realised == null || !visible ? c.textPrimary : signColor(realised);
-      }
+    // The change line: the change over the range (or to the finger) and
+    // the period (or the moment under the finger). Never a percent.
+    Widget changeLine() {
+      if (values.length < 2) return const SizedBox.shrink();
+      final to = scrubbing ? scrub.value : values.last;
+      final delta = to - values.first;
+      final tail = scrubbing
+          ? timeOf(scrub.time ?? times.last)
+          : kuteTrendPeriodLabel(l10n, range);
+      final color = delta > 0
+          ? AppColors.marketUp
+          : delta < 0
+              ? AppColors.marketDown
+              : c.textSecondary;
       return Padding(
-        key: const ValueKey('statistics-pnl-lead'),
-        padding: EdgeInsets.only(bottom: 12.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-                touched == null
-                    ? l10n.portfolioProfitLoss
-                    : '${l10n.portfolioProfitLoss} · ${timeOf(times[touched])}',
-                key: const ValueKey('statistics-pnl-caption'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: portfolioCardCaptionStyle(c)),
-            SizedBox(height: 4.h),
-            figureOf(text, color),
-          ],
+        padding: EdgeInsets.only(top: 4.h),
+        child: Text.rich(
+          TextSpan(children: [
+            if (delta == 0 && visible)
+              TextSpan(text: l10n.chartNoChange)
+            else
+              TextSpan(
+                // Hidden: dots alone, no arrow to read a direction from.
+                text: visible
+                    ? '${kuteTrendArrow(delta)}${money(delta)}'
+                    : money(delta),
+                style: TextStyle(
+                    color: visible ? color : c.textPrimary,
+                    fontWeight: FontWeight.w700),
+              ),
+            TextSpan(text: ' · $tail'),
+          ]),
+          key: const ValueKey('statistics-pnl-header'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: quiet,
         ),
       );
     }
 
-    final chart = KuteLineChart(
-      key: const ValueKey('statistics-pnl-chart'),
-      values: values,
-      // The result over the range: one colour for the line, its soft fade
-      // and its end dot, as the Balance charts draw theirs.
-      lineColor: lineColor,
-      showFill: !empty,
-      straight: true,
-      filledEndpoint: true,
-      baselineAt: 0,
-      solidBaseline: true,
-      plotHeight: block ? kPnlChartBlockPlotHeight.h : null,
-      buckets: buckets,
-      defaultSpan: span,
-      minSpan: series.minSpan,
-      zoomAroundFingers: true,
-      // The series gains a point as time passes: the window stays where
-      // the user left it. Another series (a venue row), another range, the
-      // range tapped again, or another history opens afresh.
-      resetViewOnLengthChange: false,
-      viewResetKey: (
-        _venueName,
-        times.first,
-        series.cellMinutes,
-        range,
-        _rangeTaps,
-      ),
-      // A morph would draw the whole history for a beat before the
-      // window: new data lands in place instead.
-      animateChanges: false,
-      timeAxis: KuteLineTimeAxis(
-        timeAt: (i) => times[i],
-        nowLabel: l10n.betNow,
-        locale: locale,
-      ),
-      zoomHint: true,
-      headerBuilder: block ? blockHeader : changeLine,
-      plotOverlay: (window) => !zeroIn(window)
-          ? const SizedBox.shrink()
-          : Align(
-              alignment: const Alignment(0, -0.4),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: Text(
-                  l10n.pnlChartEmpty,
-                  key: const ValueKey('statistics-pnl-empty'),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
+    final captionText = block && scrubbing
+        ? '${l10n.portfolioProfitLoss} · ${timeOf(scrub.time ?? times.last)}'
+        : l10n.portfolioProfitLoss;
+    final header = Padding(
+      key: ValueKey(block ? 'statistics-pnl-lead' : 'statistics-pnl-head'),
+      padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(captionText,
+              key: const ValueKey('statistics-pnl-caption'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: portfolioCardCaptionStyle(c)),
+          SizedBox(height: 4.h),
+          figure,
+          if (!block && hasHistory) changeLine(),
+          if (!hasHistory)
+            Padding(
+              padding: EdgeInsets.only(top: 4.h),
+              child: Text(
+                l10n.pnlChartNoHistory,
+                key: const ValueKey('statistics-pnl-empty'),
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-      // The scrubbed point is written in the header, not on a card.
-      onScrub: (_) {},
+        ],
+      ),
+    );
+
+    final chart = KuteTrendChart(
+      key: const ValueKey('statistics-pnl-chart'),
+      values: hasHistory ? values : const [],
+      times: hasHistory ? times : null,
+      lineColor: lineColor,
+      lines: [
+        for (final (color, perf) in widget.venueLines)
+          KuteTrendLine(
+            values: kuteTrendWindow(pnlSeries(perf, now), span).values,
+            color: color,
+          ),
+      ],
+      height: kPnlChartPlotHeight.h,
+      onScrub: (p) => setState(() => _scrub = p),
       // Once per scrub gesture.
       onScrubStart: () => TrackingService.track(
           'portfolio_performance_chart_scrubbed',
           params: {'venue': _venueName}),
-    );
-
-    final ranges = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14.w),
-      child: KuteRangePills(
-        key: const ValueKey('statistics-pnl-ranges'),
-        labels: [for (final r in BalanceRange.values) r.label],
-        selectedIndex: range.index,
-        onSelected: (i) {
-          ref.read(pnlChartRangeProvider.notifier).state =
-              BalanceRange.values[i];
-          setState(() => _rangeTaps++);
-        },
-      ),
+      rangeLabels: [for (final r in BalanceRange.values) r.label],
+      selectedRange: range.index,
+      onRangeSelected: (i) {
+        ref.read(pnlChartRangeProvider.notifier).state =
+            BalanceRange.values[i];
+      },
     );
 
     return Container(
@@ -431,33 +317,21 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (block)
-            SizedBox(height: 16.h)
-          else ...[
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [caption, SizedBox(height: 4.h), figure],
-              ),
-            ),
+          header,
+          if (hasHistory) ...[
             SizedBox(height: 12.h),
+            // The plot on the card's own insets, so the end dot and the
+            // scrub hairline never meet the card's clip.
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: chart,
+            ),
           ],
-          // The plot on the card's own insets, so the endpoint dot and the
-          // scrub hairline never meet the card's clip.
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: block
-                ? chart
-                : SizedBox(height: kPnlChartPlotHeight.h, child: chart),
-          ),
-          SizedBox(height: 8.h),
-          ranges,
-          SizedBox(height: 12.h),
+          SizedBox(height: 16.h),
           // The venue lines under a hairline, which pick the series.
           if (widget.footer case final lines?)
             Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 12.h),
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,

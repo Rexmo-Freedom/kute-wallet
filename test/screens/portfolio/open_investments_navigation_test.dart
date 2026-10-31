@@ -53,8 +53,7 @@ import 'package:kute/providers/portfolio_performance_provider.dart'
     show portfolioPerformanceProvider;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
-import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/screens/shared/investment_action_bar.dart';
@@ -622,8 +621,8 @@ void main() {
       expect(find.byType(PortfolioStatistics), findsNothing);
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       // Charted at once: no Active | Historic pair to pick first.
-      expect(find.byType(KuteLineChart), findsOneWidget);
-      expect(find.byType(KuteRangePills), findsOneWidget);
+      expect(find.byType(KuteTrendChart), findsOneWidget);
+      expect(find.byType(KuteChartRangeRow), findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
       expect(find.text('Profit and loss'), findsOneWidget);
       String headline() => tester
@@ -648,7 +647,7 @@ void main() {
       // All: the venues added on the moments either published,
       // Investing's 15 and Predictions' 4.
       double lineEnd() =>
-          tester.widget<KuteLineChart>(find.byType(KuteLineChart)).values.last;
+          tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last;
       expect(lineEnd(), 19);
       await tester.ensureVisible(
           find.byKey(const ValueKey('pnl-venue-predictions-pick')));
@@ -669,7 +668,7 @@ void main() {
         'never traded and nothing in the Activity: the one empty state, no '
         'pills over nothing', (tester) async {
       await _pump(tester, home: const OpenInvestmentsScreen(source: 'test'));
-      expect(find.byType(KuteLineChart), findsNothing);
+      expect(find.byType(KuteTrendChart), findsNothing);
       expect(
           find.byKey(const ValueKey('statistics-chart-empty')), findsOneWidget);
       expect(find.byType(NoActivityState), findsOneWidget);
@@ -698,9 +697,7 @@ void main() {
       expect(
           find.byKey(const ValueKey('pnl-venue-investing-pick')), findsNothing);
       // The scrub event names the one venue charted (a press on the plot).
-      await tester.longPress(find.byWidgetPredicate((w) =>
-          w is CustomPaint &&
-          w.painter.runtimeType.toString() == '_KuteLinePainter'));
+      await tester.longPress(find.byKey(const ValueKey('trend-chart-plot')));
       await tester.pumpAndSettle();
       expect(
           events
@@ -761,7 +758,7 @@ void main() {
         expect(find.byKey(const ValueKey('statistics-chart-empty')),
             findsOneWidget);
         expect(find.byType(NoActivityState), findsOneWidget);
-        expect(find.byType(KuteLineChart), findsNothing);
+        expect(find.byType(KuteTrendChart), findsNothing);
         expect(find.text('Earn', skipOffstage: false), findsNothing);
         expect(events.where((e) => e.$1.startsWith('usd_earn_')), isEmpty);
         expect(events.where((e) => e.$1 == 'usd_chart_range_changed'), isEmpty);

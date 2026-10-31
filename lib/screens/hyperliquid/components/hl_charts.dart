@@ -6,12 +6,19 @@
 // the same whether the bars are REST-seeded history or a live-ticking WS
 // feed.
 //
-//   * [HlCandlestickChart] — the detail-sheet chart. A proper candlestick
-//     chart: per-bar body (open→close, green up / red down) + high-low
-//     wick, a dashed last-price line with its price tag, optional
-//     volume bars along the bottom, and a touch-scrub crosshair (shared
-//     KuteChartCrosshair layer: hairline + value bubble + bottom time
-//     chip, with the richer readout staying in the header row). Line mode
+//   * [HlCandlestickChart] — the detail-sheet chart. A modern candlestick
+//     chart (founder, 31 October 2026: "it looks like old fintech"): per-bar
+//     body (open→close, green up / red down, 1 px rounded corners, never
+//     under 3 px wide) + a 1 px high-low wick; a window with more bars
+//     than fit at that width is drawn from merged bars (hlResampleCandles)
+//     so 1W never turns to noise. NO grid: the price axis is at most three
+//     faint round-number labels at the right edge (hlPriceAxisLabels,
+//     never under zero, never "-0"), plus the live price as a small filled
+//     pill in the last bar's colour with a 1 px dashed hairline from the
+//     last bar to it. Volume is a low band under the bars (40 px at
+//     most, 60% of the bar colours, no baseline). A touch-scrub crosshair
+//     (shared KuteChartCrosshair layer: hairline + value bubble + bottom
+//     time chip, with the richer readout staying in the header row). Line mode
 //     renders through the shared chart engine (monotone cubic smoothing,
 //     cached gradient fill, endpoint dot + live pulse) and supports the
 //     animated timeframe morph via [HlCandlestickChart.morphKey]. Handles
@@ -163,10 +170,22 @@ class _HlLiveDotState extends State<HlLiveDot>
 /// between autoscale targets, or holds a manual one.
 typedef HlPriceDomain = ({double lo, double hi, bool log});
 
-/// Height of the price area once the volume strip and its gap are taken
+/// The volume band under the bars: never taller than this.
+const double kHlVolumeBandMax = 40.0;
+
+/// The room between the price area and the volume band.
+const double _hlVolumeBandGap = 6.0;
+
+/// The volume band's height on a plot [height] tall: a low band, 16% of
+/// the plot up to [kHlVolumeBandMax].
+double hlVolumeBandHeight(double height) =>
+    math.max(0.0, math.min(kHlVolumeBandMax, height * 0.16));
+
+/// Height of the price area once the volume band and its gap are taken
 /// off the bottom.
-double _hlPriceAreaHeight(double height, bool showVolume) =>
-    showVolume ? height * 0.80 : height;
+double _hlPriceAreaHeight(double height, bool showVolume) => showVolume
+    ? math.max(1.0, height - hlVolumeBandHeight(height) - _hlVolumeBandGap)
+    : height;
 
 /// Price-area layout + y-domain for one paint/resolve pass. Both the data
 /// painter and the crosshair/pulse resolvers derive their coordinates from
@@ -742,14 +761,16 @@ List<double> hlNiceLevels(double lo, double hi, {bool log = false}) {
   return out;
 }
 
-/// The y-axis price scale layer: 4-6 nice-number labels in the chart's
-/// tag column ([hlChartTagGutter]), each level with its value, and faint
-/// hairlines at those levels across the plot. The labels sit past the end
-/// of the data, so none covers a candle or the line; one that would
-/// cover the latest price's tag, or does not fit the column whole, is
-/// left out. The price geometry every other layer shares is untouched,
-/// so drawings / crosshair / markers stay in register. The host fades
-/// this layer: always on in Advanced mode, scrub-only otherwise.
+/// The y-axis price scale layer: at most three round-number labels
+/// ([hlPriceAxisLabels], the asset's own decimals) in the chart's tag
+/// column ([hlChartTagGutter]), right-aligned with the live price's pill,
+/// 11 sp in the tertiary text colour, and NO hairlines across the plot.
+/// The labels sit past the end of the data, so none covers a candle or
+/// the line; one that would cover the latest price's tag, or does not
+/// fit the column whole, is left out. The price geometry every other
+/// layer shares is untouched, so drawings / crosshair / markers stay in
+/// register. The host keeps this layer on in the reading view and in
+/// Advanced mode, and fades it in on a scrub anywhere else.
 class _HlPriceScalePainter extends CustomPainter {
   final List<HyperliquidCandle> candles;
   final bool renderAsLine;
@@ -759,7 +780,6 @@ class _HlPriceScalePainter extends CustomPainter {
   final List<double>? morphSeries;
   final int? decimalCap;
   final Color labelColor;
-  final Color hairlineColor;
 
   /// The shown (autoscaled or manual) domain; the labels follow it.
   final HlPriceDomain? domain;
@@ -780,7 +800,6 @@ class _HlPriceScalePainter extends CustomPainter {
     required this.morphSeries,
     required this.decimalCap,
     required this.labelColor,
-    required this.hairlineColor,
     this.domain,
     this.tagGutter = 0,
     this.lastValue,
@@ -829,17 +848,19 @@ class _HlPriceScalePainter extends CustomPainter {
     final loPrice = geom.log ? math.exp(geom.loP) : geom.loP;
     final hiPrice =
         geom.log ? math.exp(geom.loP + geom.rangeP) : geom.loP + geom.rangeP;
-    final levels = hlNiceLevels(loPrice, hiPrice, log: geom.log);
-    if (levels.isEmpty) return;
-    final labels = hlAxisLabels(levels);
+    final labels = hlPriceAxisLabels(
+      loPrice,
+      hiPrice,
+      decimals: hlPriceDecimals(hiPrice, decimalCap: decimalCap),
+    );
+    if (labels.isEmpty) return;
 
-    final linePaint = Paint()
-      ..color = hairlineColor.withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-    final fontSize = 10.5.sp;
+    final fontSize = 11.sp;
     final plotW = hlPlotWidth(size.width, tagGutter);
-    // The labels line up with the price tags' text in the column.
-    final labelLeft = plotW + kPolyTagLead + 5.w;
+    // In the column, past the data, their digits ending where the live
+    // price pill's do.
+    final minLeft = plotW + kPolyTagLead;
+    final right = size.width - 5.w;
     // The latest price's tag, where the data painter puts it: no label
     // goes over it.
     double? lastTop, lastBottom;
@@ -852,15 +873,14 @@ class _HlPriceScalePainter extends CustomPainter {
       lastTop = (ly - h / 2).clamp(0.0, math.max(0.0, priceH - h)).toDouble();
       lastBottom = lastTop + h;
     }
-    for (var i = 0; i < levels.length; i++) {
-      final level = levels[i];
+    for (final l in labels) {
       final y = priceH *
-          (1 - (_hlMapPrice(level, geom.log) - geom.loP) / geom.rangeP);
+          (1 - (_hlMapPrice(l.value, geom.log) - geom.loP) / geom.rangeP);
       if (y < 0 || y > priceH) continue;
-      canvas.drawLine(Offset(0, y), Offset(plotW, y), linePaint);
-      final tp = _tp(labels[i], labelColor, fontSize);
+      final tp = _tp(l.text, labelColor, fontSize);
       // Whole in the column, or not at all.
-      if (labelLeft + tp.width > size.width + 0.5) continue;
+      final left = right - tp.width;
+      if (left < minLeft - 0.5) continue;
       final ty = (y - tp.height / 2)
           .clamp(0.0, math.max(0.0, priceH - tp.height))
           .toDouble();
@@ -869,7 +889,7 @@ class _HlPriceScalePainter extends CustomPainter {
           ty + tp.height > lastTop - 2) {
         continue;
       }
-      tp.paint(canvas, Offset(labelLeft, ty));
+      tp.paint(canvas, Offset(left, ty));
     }
   }
 
@@ -883,7 +903,6 @@ class _HlPriceScalePainter extends CustomPainter {
       !identical(old.morphSeries, morphSeries) ||
       old.decimalCap != decimalCap ||
       old.labelColor != labelColor ||
-      old.hairlineColor != hairlineColor ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
       old.lastValue != lastValue;
@@ -971,6 +990,108 @@ List<String> hlAxisLabels(List<double> levels, {int maxChars = 6}) {
     if (widest(m) < widest(best)) best = m;
   }
   return best;
+}
+
+/// The price axis (both views): at most [maxLabels] round values between
+/// [lo] and [hi], each written with the asset's own [decimals]
+/// ([hlPriceDecimals] of the price under [decimalCap]), thousands
+/// grouped, no dollar sign ("86,200", "3,912.5", "0.0125"). The values
+/// climb the 1-2-5 ladder, never finer than the asset's precision, so two
+/// labels never read the same; none is under zero, and zero is written
+/// "0", never "-0" or "-0.00". Empty on a degenerate range, or when the
+/// precision is coarser than the range.
+List<({double value, String text})> hlPriceAxisLabels(
+  double lo,
+  double hi, {
+  required int decimals,
+  int maxLabels = 3,
+}) {
+  if (!lo.isFinite || !hi.isFinite || !(hi > lo) || maxLabels < 1) {
+    return const [];
+  }
+  final floor = math.max(0.0, lo);
+  if (!(hi > floor)) return const [];
+  final d = decimals.clamp(0, 8);
+  final unit = math.pow(10.0, -d).toDouble();
+  var mag = math
+      .pow(10.0, (math.log((hi - floor) / maxLabels) / math.ln10).floor())
+      .toDouble();
+  if (mag < unit) mag = unit;
+  const mults = [1.0, 2.0, 5.0];
+  final f = NumberFormat(d == 0 ? '#,##0' : '#,##0.${'0' * d}', 'en_US');
+  // Up the ladder until the multiples in range fit the label count.
+  for (var decade = 0; decade < 20; decade++) {
+    for (final m in mults) {
+      final step = mag * m;
+      final first = (floor / step - 1e-9).ceil();
+      final last = (hi / step + 1e-9).floor();
+      if (last - first + 1 > maxLabels) continue;
+      return [
+        for (var i = first; i <= last; i++)
+          () {
+            final v = i == 0 ? 0.0 : i * step;
+            var text = f.format(v);
+            if (v == 0 && text.startsWith('-')) text = text.substring(1);
+            return (value: v, text: text);
+          }(),
+      ];
+    }
+    mag *= 10;
+  }
+  return const [];
+}
+
+/// A candle body is never thinner than this (px) …
+const double kHlMinBodyWidth = 3.0;
+
+/// … so a bar needs this much of the plot's width (the body and a pixel
+/// of air); a window with more bars than fit is drawn from merged bars.
+const double kHlMinBarSlot = 4.0;
+
+/// How many bars a plot [plotWidth] wide draws at most.
+int hlMaxBars(double plotWidth) =>
+    math.max(1, (plotWidth / kHlMinBarSlot).floor());
+
+/// How many consecutive bars are merged into one so [count] bars fit in
+/// [maxBars]: 1 when they already do.
+int hlResampleGroup(int count, int maxBars) {
+  final cap = math.max(1, maxBars);
+  return count <= cap ? 1 : (count / cap).ceil();
+}
+
+/// [candles] merged in consecutive groups ([hlResampleGroup]) so no more
+/// than [maxBars] remain: each merged bar opens on its first bar's open,
+/// closes on its last bar's close, spans the highest high and the lowest
+/// low, sums the volume, and runs from the first bar's open time to the
+/// last one's close time. The list itself when it already fits.
+List<HyperliquidCandle> hlResampleCandles(
+    List<HyperliquidCandle> candles, int maxBars) {
+  final n = candles.length;
+  final group = hlResampleGroup(n, maxBars);
+  if (group <= 1) return candles;
+  final out = <HyperliquidCandle>[];
+  for (var i = 0; i < n; i += group) {
+    final end = math.min(n, i + group);
+    var high = candles[i].high;
+    var low = candles[i].low;
+    var volume = 0.0;
+    for (var j = i; j < end; j++) {
+      final k = candles[j];
+      if (k.high > high) high = k.high;
+      if (k.low < low) low = k.low;
+      volume += k.volume;
+    }
+    out.add(HyperliquidCandle(
+      openTime: candles[i].openTime,
+      closeTime: candles[end - 1].closeTime,
+      open: candles[i].open,
+      high: high,
+      low: low,
+      close: candles[end - 1].close,
+      volume: volume,
+    ));
+  }
+  return out;
 }
 
 /// An indicator pane's value (MACD, ATR, ...) as its tag column writes
@@ -1176,13 +1297,12 @@ class HlCandlestickChart extends StatefulWidget {
   /// Called when a signal's tag is tapped, with its id.
   final ValueChanged<String>? onSignalTapped;
 
-  /// The Investing screens' reading chart: no latest price line or pill
-  /// and no tag column (the header has the price), so the plot spans the
-  /// whole width and the line ends in its dot. A few price levels sit
-  /// inside the plot at its right edge, and the position's entry and
-  /// liquidation are captions at the plot's left ("Your entry $64,000"),
-  /// as the Predictions position writes its average, instead of tags.
-  /// Working orders' and signal levels' tags sit at the right edge.
+  /// The Investing screens' reading chart: the live price's pill and the
+  /// axis' few labels sit in the tag column as everywhere, but the
+  /// position's entry and liquidation are captions at the plot's left
+  /// ("Your entry $64,000"), as the Predictions position writes its
+  /// average, instead of tags. Working orders' and signal levels' tags
+  /// stay in the column.
   final bool cleanView;
 
   /// The position screen's [cleanView]: the entry is held in the
@@ -2984,13 +3104,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     fills: widget.fills,
                                     entryPx: widget.entryPx,
                                     entryIsLong: widget.entryIsLong,
-                                    // The clean view: no latest price
-                                    // tag, price levels inside the plot,
-                                    // and the entry and liquidation as
-                                    // captions.
-                                    showLastPrice: !widget.cleanView,
-                                    priceLevels: widget.cleanView,
-                                    levelColor: c.textTertiary,
+                                    // The clean view: the entry and the
+                                    // liquidation as captions.
                                     captions: _captionsFor(candles, c),
                                     captionHalo: c.background,
                                     leadingClose: leadingClose,
@@ -3006,17 +3121,17 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                 ),
                               ),
                             ),
-                            // ── Price scale (labels in the tag column +
-                            // faint hairlines). Always on in Advanced mode;
-                            // outside it, it rides the crosshair's 120ms
-                            // fade while the user scrubs. The shared price
-                            // geometry never shifts. The clean view writes
-                            // its levels inside the plot instead.
-                            if (!widget.cleanView)
-                              Positioned.fill(
+                            // ── Price scale (at most three labels in the
+                            // tag column, no hairlines). Always on in the
+                            // reading view and in Advanced mode; anywhere
+                            // else it rides the crosshair's 120ms fade
+                            // while the user scrubs. The shared price
+                            // geometry never shifts.
+                            Positioned.fill(
                                 child: IgnorePointer(
                                   child: AnimatedOpacity(
                                     opacity: (widget.drawingMode ||
+                                            widget.cleanView ||
                                             scrubbing ||
                                             !_autoScale ||
                                             _axisDragging)
@@ -3038,7 +3153,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           morphSeries: morphSeries,
                                           decimalCap: widget.decimalCap,
                                           labelColor: c.textTertiary,
-                                          hairlineColor: c.textPrimary,
                                           domain: domain,
                                           tagGutter: gutter,
                                           lastValue: morphSeries != null &&
@@ -3113,11 +3227,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     child: CustomPaint(
                                       painter: KuteChartTradeLinesPainter(
                                         // Tags in the tag column, past
-                                        // the end of the data; at the
-                                        // right edge without a column.
-                                        tagColumn: widget.cleanView
-                                            ? null
-                                            : gutter,
+                                        // the end of the data.
+                                        tagColumn: gutter,
                                         tagLead: kPolyTagLead,
                                         lines: _taggedLines,
                                         dragging: _tradeDrag,
@@ -3563,8 +3674,6 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   /// ([hlChartTagGutter]): the price tags, the trade lines' tags and the
   /// price scale's labels sit in it, and the data ends where it starts.
   double _gutterFor(double width) {
-    // The clean view keeps no column: the plot spans the width.
-    if (widget.cleanView) return 0;
     final tape = _styledFull;
     if (!identical(_rangeSource, tape)) {
       _rangeSource = tape;
@@ -3982,16 +4091,6 @@ class _HlCandlePainter extends CustomPainter {
   /// [kPolyTagLead] past the end of the data, so no tag covers a candle.
   final double tagGutter;
 
-  /// False drops the dashed last-price line and its pill (the clean
-  /// view, whose screen header has the price).
-  final bool showLastPrice;
-
-  /// The clean view's price levels: 3-4 of the Advanced axis' levels as
-  /// faint hairlines, each labelled in [levelColor] inside the plot at
-  /// its right edge, just over its line.
-  final bool priceLevels;
-  final Color? levelColor;
-
   /// The clean view's captioned price lines (the entry, the liquidation):
   /// a dashed line and a small caption at the plot's left.
   final List<_HlChartCaption> captions;
@@ -4022,9 +4121,6 @@ class _HlCandlePainter extends CustomPainter {
     this.volumeMa = const [],
     this.domain,
     this.tagGutter = 0,
-    this.showLastPrice = true,
-    this.priceLevels = false,
-    this.levelColor,
     this.captions = const [],
     this.captionHalo,
   });
@@ -4087,13 +4183,25 @@ class _HlCandlePainter extends CustomPainter {
     double toY(double v) =>
         priceH * (1 - (_hlMapPrice(v, logMap) - loP) / rangeP);
 
-    var maxVol = 0.0;
-    for (final k in candles) {
-      if (k.volume > maxVol) maxVol = k.volume;
+    final slot = w / n;
+    // Bars never thinner than kHlMinBodyWidth: a window with more bars
+    // than fit at that width is drawn from merged bars
+    // (hlResampleCandles), each centred on the bars it stands for, so
+    // every other layer keeps mapping through the window's own bar
+    // index (slot).
+    final group = hlResampleGroup(n, hlMaxBars(w));
+    final bars = group > 1 ? hlResampleCandles(candles, hlMaxBars(w)) : candles;
+    final bodyW = (slot * group * 0.62).clamp(kHlMinBodyWidth, 22.0);
+    double barX(int j) {
+      final first = j * group;
+      final span = math.min(group, n - first);
+      return (first + span / 2) * slot;
     }
 
-    final slot = w / n;
-    final bodyW = (slot * 0.62).clamp(1.0, 22.0);
+    var maxVol = 0.0;
+    for (final k in bars) {
+      if (k.volume > maxVol) maxVol = k.volume;
+    }
 
     // ── The clean view's captions and levels, laid out first ─────────
     // The entry and the liquidation as the Predictions position writes
@@ -4137,55 +4245,25 @@ class _HlCandlePainter extends CustomPainter {
         halo: placed.halo,
       ));
     }
-    // The price levels: each labelled at the plot's right edge, just over
-    // its line. A level whose label would cover the latest point (the
-    // line's end dot, the last candle) or a caption is left out whole.
-    final levelCol = levelColor;
-    final placedLevels = <({double y, TextPainter text, Rect rect})>[];
-    if (priceLevels && levelCol != null) {
-      final latest = _latestRect(w, toY, bodyW);
-      for (final l in _levels(geom, priceH)) {
-        final tp = _cachedTp(l.label, levelCol, 10.sp, FontWeight.w600);
-        final rect = Rect.fromLTWH(
-            w - tp.width - 6, l.y - tp.height - 1, tp.width + 4, tp.height);
-        if (rect.top < 0 ||
-            rect.inflate(4).overlaps(latest) ||
-            taken.any((t) => t.inflate(2).overlaps(rect))) {
-          continue;
-        }
-        placedLevels.add((y: l.y, text: tp, rect: rect));
-      }
-      // Their hairlines, faint, under the data.
-      final hairline = Paint()
-        ..color = labelFg.withValues(alpha: 0.06)
-        ..strokeWidth = 1.0;
-      for (final l in placedLevels) {
-        canvas.drawLine(Offset(0, l.y), Offset(w, l.y), hairline);
-      }
-    }
+    // (The price axis' labels are the scale layer's, in the tag column:
+    // _HlPriceScalePainter. Nothing crosses the plot.)
 
-    // ── Volume strip (both modes) ────────────────────────────────────
+    // ── Volume band (both modes) ─────────────────────────────────────
+    // A low band under the bars (hlVolumeBandHeight), the bars at 60% of
+    // the candle colours, no baseline and no axis line.
     if (showVolume && maxVol > 0 && priceH < h) {
-      // Hairline baseline under the strip anchors the bars visually.
-      canvas.drawLine(
-        Offset(0, h - 0.25),
-        Offset(w, h - 0.25),
-        Paint()
-          ..color = gridColor.withValues(alpha: 0.35)
-          ..strokeWidth = 0.5,
-      );
-      const volRadius = Radius.circular(1.5);
-      final volAreaH = h * 0.16;
+      const volRadius = Radius.circular(1.0);
+      final volAreaH = hlVolumeBandHeight(h);
       // Autoscaled to the visible bars: maxVol spans only what is on
-      // screen. Two paints for the whole strip, not one per bar.
-      final volUp = Paint()..color = upColor.withValues(alpha: 0.28);
-      final volDown = Paint()..color = downColor.withValues(alpha: 0.28);
-      for (var i = 0; i < n; i++) {
-        final k = candles[i];
+      // screen. Two paints for the whole band, not one per bar.
+      final volUp = Paint()..color = upColor.withValues(alpha: 0.6);
+      final volDown = Paint()..color = downColor.withValues(alpha: 0.6);
+      for (var j = 0; j < bars.length; j++) {
+        final k = bars[j];
         final vh = (k.volume / maxVol) * volAreaH;
         // Zero/near-zero buckets: nothing to show — skip the draw call.
         if (vh < 0.5) continue;
-        final cx = (i + 0.5) * slot;
+        final cx = barX(j);
         canvas.drawRRect(
           RRect.fromRectAndCorners(
             Rect.fromLTWH(cx - bodyW / 2, h - vh, bodyW, vh),
@@ -4294,25 +4372,32 @@ class _HlCandlePainter extends CustomPainter {
           isDark: labelBg == Colors.black);
     } else {
       // ── Candlestick bodies + wicks ─────────────────────────────────
+      // 1 px wicks, bodies never under kHlMinBodyWidth with 1 px rounded
+      // corners, antialiased; [bars] are the window's bars, merged where
+      // more would not fit (see above).
       final wickPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.0, bodyW * 0.14)
-        ..strokeCap = StrokeCap.round;
+        ..strokeWidth = 1.0
+        ..isAntiAlias = true;
       final wickUp = upColor.withValues(alpha: 0.9);
       final wickDown = downColor.withValues(alpha: 0.9);
-      final bodyUp = Paint()..color = upColor;
-      final bodyDown = Paint()..color = downColor;
+      final bodyUp = Paint()
+        ..color = upColor
+        ..isAntiAlias = true;
+      final bodyDown = Paint()
+        ..color = downColor
+        ..isAntiAlias = true;
       final stem = Paint()
-        ..strokeWidth = math.max(1.0, bodyW * 0.18)
+        ..strokeWidth = 1.0
         ..strokeCap = StrokeCap.round;
       final hollowUp = Paint()
         ..color = upColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.0, bodyW * 0.16);
+        ..strokeWidth = 1.0;
 
-      for (var i = 0; i < n; i++) {
-        final k = candles[i];
-        final cx = (i + 0.5) * slot;
+      for (var j = 0; j < bars.length; j++) {
+        final k = bars[j];
+        final cx = barX(j);
         final up = k.close >= k.open;
         final col = up ? upColor : downColor;
 
@@ -4346,7 +4431,7 @@ class _HlCandlePainter extends CustomPainter {
         final bodyH = math.max(bottom - top, 2.0);
         final rrect = RRect.fromRectAndRadius(
           Rect.fromLTWH(cx - bodyW / 2, top, bodyW, bodyH),
-          Radius.circular(math.min(2.0, bodyW / 3)),
+          const Radius.circular(1.0),
         );
         if (style == HlChartStyle.hollow && up) {
           // Hollow: an up candle is an outline, a down candle stays filled.
@@ -4356,9 +4441,8 @@ class _HlCandlePainter extends CustomPainter {
         }
       }
 
-      // The old right-edge hi/mid/lo rails are gone — the price scale
-      // layer (_HlPriceScalePainter, in the tag column) carries the
-      // spatial context now, in both candle and line modes.
+      // The price scale layer (_HlPriceScalePainter, in the tag column)
+      // carries the spatial context, in both candle and line modes.
     }
     canvas.restore();
 
@@ -4464,14 +4548,8 @@ class _HlCandlePainter extends CustomPainter {
       }
       _paintLabel(canvas, c.text, c.rect, c.halo);
     }
-    // The levels' labels, over the data; one the series runs through
-    // gets a halo.
-    for (final l in placedLevels) {
-      _paintLabel(canvas, l.text, l.rect, _seriesNear(l.rect, w, toY));
-    }
 
-    // ── Last-price line + its tag in the column ──────────────────────
-    if (!showLastPrice) return;
+    // ── Live price: a dashed hairline from the last bar to its pill ──
     final lastK = candles.last;
     // Colour by the last candle's direction for candles, the overall line
     // direction (first→last) when rendering as a line.
@@ -4484,10 +4562,15 @@ class _HlCandlePainter extends CustomPainter {
         : (renderAsLine ? (leadingClose ?? lastK.close) : lastK.close);
     final ly = toY(lyValue).clamp(0.0, priceH);
 
+    // 1 px dashes in the border colour, from just past the last bar (the
+    // line's end dot) to the pill: a pointer, not a grid line.
     final dashPaint = Paint()
-      ..color = lineColor.withValues(alpha: 0.55)
+      ..color = gridColor
       ..strokeWidth = 1.0;
-    for (double x = 0; x < lineEnd; x += 6) {
+    final dashFrom = renderAsLine
+        ? w - slot / 2 + 6
+        : barX(bars.length - 1) + bodyW / 2 + 3;
+    for (double x = dashFrom; x < lineEnd; x += 6) {
       canvas.drawLine(
           Offset(x, ly), Offset(math.min(x + 3, lineEnd), ly), dashPaint);
     }
@@ -4510,9 +4593,10 @@ class _HlCandlePainter extends CustomPainter {
     var tagY = ly - tagH / 2;
     tagY = tagY.clamp(0.0, math.max(0.0, priceH - tagH));
     final tagX = tagLeft(tagW);
+    // A small filled pill (fully rounded) in the last bar's colour.
     final tagRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(tagX, tagY, tagW, tagH),
-      Radius.circular(4.r),
+      Radius.circular(tagH / 2),
     );
     canvas.drawRRect(tagRect, Paint()..color = lineColor);
     tag.paint(canvas, Offset(tagX + tagPadH, tagY + tagPadV));
@@ -4543,59 +4627,8 @@ class _HlCandlePainter extends CustomPainter {
       old.logScale != logScale ||
       old.domain != domain ||
       old.tagGutter != tagGutter ||
-      old.showLastPrice != showLastPrice ||
-      old.priceLevels != priceLevels ||
-      old.levelColor != levelColor ||
       !listEquals(old.captions, captions) ||
       old.captionHalo != captionHalo;
-
-  /// The clean view's levels on [geom]'s scale: the Advanced axis'
-  /// levels and labels ([hlNiceLevels], [hlAxisLabels]), every other one
-  /// past four so 3-4 stay evenly spaced, those whose label fits over
-  /// its line preferred.
-  List<({double y, String label})> _levels(
-      ({double priceH, double loP, double rangeP, bool log}) geom,
-      double priceH) {
-    final lo = geom.log ? math.exp(geom.loP) : geom.loP;
-    final hi = geom.log
-        ? math.exp(geom.loP + geom.rangeP)
-        : geom.loP + geom.rangeP;
-    final all = hlNiceLevels(lo, hi, log: geom.log);
-    if (all.isEmpty) return const [];
-    final labels = hlAxisLabels(all);
-    final room = 10.sp * 1.4;
-    List<({double y, String label})> pick(int start, int stride) => [
-          for (var i = start; i < all.length; i += stride)
-            (
-              y: priceH *
-                  (1 - (_hlMapPrice(all[i], geom.log) - geom.loP) / geom.rangeP),
-              label: labels[i],
-            ),
-        ]..removeWhere((l) => l.y < room || l.y > priceH);
-    if (all.length <= 4) return pick(0, 1);
-    final a = pick(0, 2);
-    final b = pick(1, 2);
-    return b.length > a.length ? b : a;
-  }
-
-  /// Where the latest point is drawn: the line's end dot, or the last
-  /// candle ([bodyW] wide).
-  Rect _latestRect(double w, double Function(double) toY, double bodyW) {
-    final series = renderAsLine ? morphSeries : null;
-    if (series != null && series.length >= 2) {
-      final slot = w / series.length;
-      return Rect.fromCircle(
-          center: Offset(w - slot / 2, toY(series.last)), radius: 6);
-    }
-    final last = candles.last;
-    final x = w - w / candles.length / 2;
-    if (renderAsLine) {
-      return Rect.fromCircle(
-          center: Offset(x, toY(leadingClose ?? last.close)), radius: 6);
-    }
-    return Rect.fromLTRB(
-        x - bodyW / 2, toY(last.high), x + bodyW / 2, toY(last.low));
-  }
 
   /// Whether the price series passes within [clear] of [r]: each line
   /// segment, or each candle's wick, that reaches into its stretch.

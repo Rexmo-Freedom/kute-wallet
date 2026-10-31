@@ -1,48 +1,45 @@
 // lib/screens/analytics/components/balance_history_chart.dart
 //
 // The Balance chart of a Bitcoin wallet (spending, hardware, watch-only,
-// Ledger) and of the Dollars account, in the style of a brokerage app's
-// balance chart:
+// Ledger) and of the Dollars account, drawn through the modern line chart
+// ([KuteTrendChart], founder, 31 October 2026: "make the graph modern"):
 //
-//   * a range row under the plot (1W 1M 3M 1Y ALL, the app's range
-//     pills), 1M to start and remembered for the session; a range shows
-//     its stretch ending now, never reaching back before the account
-//     first held money (see balance_history.dart), and tapping a range
-//     (the selected one too) puts a pinched or panned view back on it;
-//   * the line is the closing balance of each bucket the window on screen
-//     calls for (a quarter hour to a week), so money passing through
-//     within a bucket never spikes it, drawn as the other line charts draw
-//     theirs (the monotone curve, a soft fill of its own hue) in the
-//     neutral chart colour, never red or green by direction;
-//   * no scale and no gridlines: a faint dotted baseline at the first
-//     value on screen says whether the line ended up or down;
-//   * above the plot one quiet line: the change over the window
-//     ("+₿6,938 past month (+12.4%)"), only the figures coloured, no
-//     percent from a start of zero or for a change of 100% or more; while
-//     a finger scrubs (long press, then slide) the line says the balance
-//     under it and when ("₿28,104 · Oct 16 14:00"), and the hairline and
-//     dot follow the finger;
-//   * a range where the balance is zero throughout draws a calm flat line
-//     with one quiet sentence above it, and nothing else;
-//   * with balances hidden the figures are dots, as on the home header;
-//   * pinch (around the fingers) and pan move inside the whole history,
-//     with the time axis under the plot (when the window starts, and
-//     "Now" or when it ends) and the one-time zoom nudge. A rebuild never
-//     moves a window the user zoomed or panned: the series only grows at
-//     its newest end as time passes.
+//   * a header the chart owns: the balance as the headline (the balance
+//     now, or the balance under a scrubbing finger), an optional second
+//     line under it ([BalanceHistoryChart.secondary]: the fiat worth of a
+//     bitcoin balance), then one quiet change line "▲ ₿6,938 (12.4%) ·
+//     Past month": the arrow, the amount and a small percent in the
+//     change's colour (no percent from a start of zero or for a change of
+//     100% or more), the period after a middle dot; while a finger scrubs
+//     the change is to the point under it and the tail is its moment
+//     ("Oct 16 14:00"); flat: "No change · Past month";
+//   * the plot: the closing balance of each bucket the range calls for (a
+//     quarter hour to a week), so money passing through within a bucket
+//     never spikes it; ONE line in the result colour of the range (up,
+//     down, the text colour when flat), its fill, a dashed hairline at
+//     the range's first value; no axes, no grid, no labels;
+//   * a range row 16 px under the plot (1W 1M 3M 1Y ALL, the small white
+//     pill), 1M to start and remembered per chart for the session;
+//     picking a range morphs the line;
+//   * NO HISTORY (the account never held money): no chart and no range
+//     row, the headline and one quiet caption under it ("Your balance
+//     history starts with your first transaction.");
+//   * with balances hidden the figures are dots, as on the home header.
+//
+// Analytics: `analytics_chart_scrubbed` {chart, view: line}, once per
+// scrub gesture. Ranges send nothing.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
-import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
-import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_window.dart';
+import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -56,12 +53,13 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
   /// (sats for bitcoin, dollars).
   final BalanceHistory history;
 
-  /// Writes an amount without a sign ("₿17,520", "$12.30"): the scrubbed
-  /// balance and the size of the change.
+  /// Writes an amount without a sign ("₿17,520", "$12.30"): the headline,
+  /// the scrubbed balance and the size of the change.
   final String Function(double value) format;
 
-  /// The sentence over a range where the balance is zero throughout.
-  final String emptyMessage;
+  /// Writes the second line under the headline for a balance (its fiat
+  /// worth); null draws none.
+  final String? Function(double value)? secondary;
 
   /// Which session range this chart remembers ('bitcoin', 'dollars').
   final String rangeKey;
@@ -76,8 +74,8 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
     super.key,
     required this.history,
     required this.format,
-    required this.emptyMessage,
     required this.trackingChart,
+    this.secondary,
     this.rangeKey = 'bitcoin',
     this.now,
   });
@@ -88,13 +86,8 @@ class BalanceHistoryChart extends ConsumerStatefulWidget {
 }
 
 class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
-  /// Bumped by a range tap, so the same range tapped again also puts a
-  /// pinched or panned view back on it.
-  int _rangeTaps = 0;
-
-  /// The placeholder the change line is written around, so the amount
-  /// alone takes the colour whatever the language puts around it.
-  static const String _slot = '\u0001';
+  /// The point under the finger; null at rest.
+  KuteTrendPoint? _scrub;
 
   @override
   Widget build(BuildContext context) {
@@ -106,39 +99,32 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
     final visible =
         ref.watch(settingsProvider.select((s) => s.balanceVisible));
     String amount(double v) => visible ? widget.format(v) : '••••••';
-    final series = balanceSeries(widget.history, widget.now ?? DateTime.now());
-    final values = series.values;
-    final times = series.times;
+    final history = widget.history;
+    final hasHistory = history.changes.isNotEmpty || history.opening > 0;
+    final series = balanceSeries(history, widget.now ?? DateTime.now());
     final span = series.spanFor(range);
-    final buckets =
-        KuteLineBuckets(strideFor: series.strideFor, phase: series.phase);
-
-    /// The drawn values inside [w].
-    List<double> drawnIn(KuteIndexWindow w) => [
-          for (final i in buckets.indicesFor(values.length, w))
-            if (i >= w.start - 1e-6 && i <= w.end + 1e-6) values[i]
-        ];
-    bool zeroIn(KuteIndexWindow w) => drawnIn(w).every((v) => v == 0);
-    final empty =
-        zeroIn(KuteIndexWindow(series.extent - span, series.extent));
+    final shown = kuteTrendWindow(series, span);
+    final values = shown.values;
+    final times = shown.times;
+    final scrub = _scrub;
+    final scrubbing = scrub != null && scrub.index < values.length;
 
     final locale = kuteChartLocale(context);
-    // On a daily grid a point at midnight closes the day before; finer
-    // grids say when in the day.
-    final daily = series.cellMinutes >= 1440;
-    DateTime dayOf(DateTime t) => daily && t.hour == 0 && t.minute == 0
-        ? t.subtract(const Duration(minutes: 1))
-        : t;
-    String timeOf(DateTime t) => daily
-        ? kuteChartDay(dayOf(t), locale)
-        : kuteChartDayTime(t, locale);
-    // A date inside a sentence: the year only when it is not this one.
-    String dateOf(DateTime t) {
-      final d = dayOf(t);
-      return d.year == times.last.year
-          ? DateFormat.MMMd(locale).format(d)
-          : DateFormat.yMMMd(locale).format(d);
+    // On daily (or coarser) buckets a point at midnight closes the day
+    // before; finer buckets say when in the day.
+    final daily = series.strideFor(span) * series.cellMinutes >= 1440;
+    String timeOf(DateTime t) {
+      final d = daily && t.hour == 0 && t.minute == 0
+          ? t.subtract(const Duration(minutes: 1))
+          : t;
+      return daily ? kuteChartDay(d, locale) : kuteChartDayTime(t, locale);
     }
+
+    // The headline: the balance now, or under the finger.
+    final headline = scrubbing
+        ? scrub.value
+        : (values.isNotEmpty ? values.last : history.current);
+    final secondaryText = widget.secondary?.call(headline);
 
     final quiet = TextStyle(
       color: c.textSecondary,
@@ -147,169 +133,128 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    Widget headerRow(InlineSpan span) => Padding(
-          padding: EdgeInsets.only(left: 2.w, bottom: 8.h),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text.rich(span,
-                key: const ValueKey('balance-chart-header'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: quiet),
-          ),
-        );
-
-    Widget header(KuteLineView view) {
-      final touched = view.touched;
-      if (touched != null) {
-        return headerRow(TextSpan(children: [
-          TextSpan(
-            text: amount(values[touched]),
-            style:
-                TextStyle(color: c.textPrimary, fontWeight: FontWeight.w700),
-          ),
-          TextSpan(text: ' · ${timeOf(times[touched])}'),
-        ]));
-      }
-      // Nothing held on screen: the plot says so; the row keeps its
-      // height so the plot never shifts.
-      if (zeroIn(view.window)) return headerRow(const TextSpan(text: ' '));
-
-      final base = values[view.first];
-      final delta = values[view.last] - base;
-      final live = view.window.end >= series.extent - 1e-6;
-      final start = times[view.first];
-      if (delta == 0) {
-        final text = view.isDefault && range != BalanceRange.all
-            ? switch (range) {
-                BalanceRange.week => l10n.balanceNoChangePastWeek,
-                BalanceRange.month => l10n.balanceNoChangePastMonth,
-                BalanceRange.threeMonths => l10n.balanceNoChangePast3Months,
-                _ => l10n.balanceNoChangePastYear,
-              }
-            : live
-                ? l10n.balanceNoChangeSince(dateOf(start))
-                : l10n.balanceNoChangeBetween(
-                    dateOf(start), dateOf(times[view.last]));
-        return headerRow(TextSpan(text: text));
-      }
-
-      final sentence = view.isDefault
-          ? switch (range) {
-              BalanceRange.week => l10n.balanceChangePastWeek(_slot),
-              BalanceRange.month => l10n.balanceChangePastMonth(_slot),
-              BalanceRange.threeMonths => l10n.balanceChangePast3Months(_slot),
-              BalanceRange.year => l10n.balanceChangePastYear(_slot),
-              BalanceRange.all => l10n.balanceChangeAllTime(_slot),
-            }
-          : live
-              ? l10n.balanceChangeSince(_slot, dateOf(start))
-              : l10n.balanceChangeBetween(
-                  _slot, dateOf(start), dateOf(times[view.last]));
-      final color = delta > 0 ? AppColors.marketUp : AppColors.marketDown;
+    Widget changeLine() {
+      if (values.length < 2) return const SizedBox.shrink();
+      final base = values.first;
+      final to = scrubbing ? scrub.value : values.last;
+      final delta = to - base;
       final percent = base != 0 ? delta / base.abs() * 100 : null;
-      final parts = sentence.split(_slot);
-      return headerRow(TextSpan(children: [
-        TextSpan(text: parts.first),
-        TextSpan(
-          text: visible
-              ? '${kuteChangeSign(delta)}${amount(delta.abs())}'
-              : amount(delta.abs()),
-          style: TextStyle(color: color, fontWeight: FontWeight.w700),
+      final tail = scrubbing
+          ? timeOf(scrub.time ?? times.last)
+          : kuteTrendPeriodLabel(l10n, range);
+      final color = delta > 0
+          ? AppColors.marketUp
+          : delta < 0
+              ? AppColors.marketDown
+              : c.textSecondary;
+      return Padding(
+        padding: EdgeInsets.only(top: 4.h),
+        child: Text.rich(
+          TextSpan(children: [
+            if (delta == 0 && visible)
+              TextSpan(text: l10n.chartNoChange)
+            else ...[
+              TextSpan(
+                // Hidden: dots alone, no arrow to read a direction from.
+                text: visible
+                    ? '${kuteTrendArrow(delta)}${amount(delta.abs())}'
+                    : amount(delta.abs()),
+                style: TextStyle(
+                    color: visible ? color : c.textPrimary,
+                    fontWeight: FontWeight.w700),
+              ),
+              // A small percent, only where it means something: never
+              // from zero, never "-100.0%" for an account emptied.
+              if (visible && percent != null && percent.abs() < 100)
+                TextSpan(
+                  text: ' (${kuteSignedPercent(percent)})',
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600),
+                ),
+            ],
+            TextSpan(text: ' · $tail'),
+          ]),
+          key: const ValueKey('balance-chart-header'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: quiet,
         ),
-        if (parts.length > 1) TextSpan(text: parts.sublist(1).join()),
-        // A small percent after the sentence, only where it means
-        // something: never from zero, never "-100.0%" for an account
-        // emptied.
-        if (visible && percent != null && percent.abs() < 100)
-          TextSpan(
-            text: ' (${kuteSignedPercent(percent)})',
-            style: TextStyle(
-                color: color, fontSize: 11.sp, fontWeight: FontWeight.w600),
-          ),
-      ]));
+      );
     }
 
-    final chart = KuteLineChart(
-      values: values,
-      // The neutral chart colour: a balance is not a gain or a loss.
-      lineColor: c.accent,
-      showFill: !empty,
-      startBaseline: true,
-      buckets: buckets,
-      // A balance that barely moved reads as barely moving.
-      minScaleShare: 0.2,
-      defaultSpan: span,
-      minSpan: series.minSpan,
-      zoomAroundFingers: true,
-      // The series gains a point as time passes: the window stays where
-      // the user left it. Another range, the range tapped again, or
-      // another history (another wallet, older history landing, a coarser
-      // grid) opens afresh.
-      resetViewOnLengthChange: false,
-      viewResetKey: (
-        widget.history.changes.isEmpty
-            ? null
-            : widget.history.changes.first.$1,
-        widget.history.opening > 0,
-        series.cellMinutes,
-        range,
-        _rangeTaps,
-      ),
-      // A morph would draw the whole history for a beat before the
-      // window: new data lands in place instead.
-      animateChanges: false,
-      timeAxis: KuteLineTimeAxis(
-        timeAt: (i) => times[i],
-        nowLabel: l10n.betNow,
-        locale: locale,
-      ),
-      zoomHint: true,
-      headerBuilder: header,
-      plotOverlay: (window) => !zeroIn(window)
-          ? const SizedBox.shrink()
-          : Align(
-              alignment: const Alignment(0, -0.4),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: Text(
-                  widget.emptyMessage,
-                  key: const ValueKey('balance-chart-empty'),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RollingNumberText(
+          key: const ValueKey('balance-chart-headline'),
+          text: amount(headline),
+          duration: Duration(milliseconds: scrubbing ? 120 : 350),
+          dimColor: c.textTertiary,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            height: 1.0,
+          ),
+        ),
+        if (secondaryText != null) ...[
+          SizedBox(height: 2.h),
+          RollingNumberText(
+            key: const ValueKey('balance-chart-secondary'),
+            text: visible ? secondaryText : '••••••',
+            duration: Duration(milliseconds: scrubbing ? 120 : 350),
+            style: TextStyle(
+              color: c.textTertiary,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-      // The scrubbed point is written in the header, not on a card.
-      onScrub: (_) {},
-      onScrubStart: () => TrackingService.analyticsChartScrubbed(
-          chart: widget.trackingChart, view: 'line'),
-    );
-
-    return Padding(
-      padding: EdgeInsets.only(top: 4.h),
-      child: Column(
-        children: [
-          Expanded(child: chart),
-          SizedBox(height: 8.h),
-          KuteRangePills(
-            key: const ValueKey('balance-chart-ranges'),
-            labels: [for (final r in BalanceRange.values) r.label],
-            selectedIndex: range.index,
-            onSelected: (i) {
-              ref
-                  .read(balanceChartRangeProvider(widget.rangeKey).notifier)
-                  .state = BalanceRange.values[i];
-              setState(() => _rangeTaps++);
-            },
           ),
         ],
-      ),
+        if (hasHistory) changeLine(),
+        if (!hasHistory)
+          Padding(
+            padding: EdgeInsets.only(top: 4.h),
+            child: Text(
+              l10n.balanceChartNoHistory,
+              key: const ValueKey('balance-chart-empty'),
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final chart = KuteTrendChart(
+      key: const ValueKey('balance-chart'),
+      values: hasHistory ? values : const [],
+      times: hasHistory ? times : null,
+      height: kKuteTrendPlotHeight.h,
+      onScrub: (p) => setState(() => _scrub = p),
+      onScrubStart: () => TrackingService.analyticsChartScrubbed(
+          chart: widget.trackingChart, view: 'line'),
+      rangeLabels: [for (final r in BalanceRange.values) r.label],
+      selectedRange: range.index,
+      onRangeSelected: (i) {
+        ref.read(balanceChartRangeProvider(widget.rangeKey).notifier).state =
+            BalanceRange.values[i];
+      },
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        header,
+        if (hasHistory) ...[SizedBox(height: 12.h), chart],
+      ],
     );
   }
 }

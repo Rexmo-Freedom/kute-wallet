@@ -3,18 +3,18 @@
 // The Dollars tab's Balance tab: the dollar balance over time.
 //
 // It is the bitcoin Balance tab part for part: the same card, the same
-// [BalanceHistoryChart], the same scrub card. The ONLY difference is the
-// series: dollars held on the spending account instead of the bitcoin
-// balance. Like the bitcoin one it has its range row under the plot (1W
-// to ALL, 1M to start, its own choice remembered for the session) and
-// draws each bucket's closing balance (see balance_history.dart).
+// [BalanceHistoryChart] (the modern line chart with its own headline and
+// change line). The ONLY difference is the series: dollars held on the
+// spending account instead of the bitcoin balance. Like the bitcoin one it
+// has its range row under the plot (1W to ALL, 1M to start, its own
+// choice remembered for the session) and draws each bucket's closing
+// balance (see balance_history.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/analytics/components/analytics_card.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
@@ -36,13 +36,11 @@ class UsdBalanceChart extends ConsumerWidget {
       height: 400.h,
       child: Padding(
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
-        // The balance now is the hero card at the top of the screen; the
-        // chart's own header line writes the change over the range, or
-        // the moment under a scrubbing finger.
+        // The chart's own header: the balance (the one under a scrubbing
+        // finger), and the change over the range or to that moment.
         child: BalanceHistoryChart(
           history: history,
           format: dollars.format,
-          emptyMessage: context.l10n.balanceChartEmptyDollars,
           rangeKey: 'dollars',
           trackingChart: 'valuation',
         ),

@@ -11,6 +11,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/analytics/components/balance_history_chart.dart';
 import 'package:kute/screens/shared/charts/kute_chart_viewport.dart';
 import 'package:kute/screens/shared/charts/kute_line_chart.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How the Balance charts open and zoom (the founder's 2026-10-25
@@ -398,7 +399,6 @@ void main() {
                 child: BalanceHistoryChart(
                   history: founder(),
                   format: (v) => '₿${v.round()}',
-                  emptyMessage: 'Nothing held yet',
                   trackingChart: 'valuation',
                   now: now,
                 ),
@@ -408,37 +408,18 @@ void main() {
         ),
       ));
       await tester.pump(const Duration(milliseconds: 400));
-      final chart = tester.widget<KuteLineChart>(find.byType(KuteLineChart));
-      expect(chart.stepped, isFalse);
-      expect(chart.animateChanges, isFalse);
-      expect(chart.zoomAroundFingers, isTrue);
-      expect(chart.resetViewOnLengthChange, isFalse);
-      final w = KuteIndexWindow(
-          chart.values.length - 1 - chart.defaultSpan!,
-          (chart.values.length - 1).toDouble());
-      final drawn = [
-        for (final i in chart.buckets!.indicesFor(chart.values.length, w))
-          if (i >= w.start - 1e-6) chart.values[i]
-      ];
-      // Nothing, then what stayed; never the 110,000 that passed on.
-      expect(drawn.toSet(), {0, 6938});
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('kute-time-axis-start')))
-              .data,
-          'Oct 24');
-      expect(
-          tester
-              .widget<Text>(find.byKey(const ValueKey('kute-time-axis-end')))
-              .data,
-          'Now');
+      final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
+      // The month's bucket closes: nothing, then what stayed; never the
+      // 110,000 that passed on.
+      expect(chart.values.toSet(), {0, 6938});
+      expect(chart.values.last, 6938);
       // Up from nothing this month: the amount, no percent.
       expect(
           tester
               .widget<Text>(find.byKey(const ValueKey('balance-chart-header')))
               .textSpan!
               .toPlainText(),
-          '+₿6938 past month');
+          '\u25B2 ₿6938 · Past month');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 8));
     });
