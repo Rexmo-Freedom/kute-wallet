@@ -30,6 +30,7 @@
 // scrub gesture. Ranges send nothing.
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -101,6 +102,20 @@ class _BalanceHistoryChartState extends ConsumerState<BalanceHistoryChart> {
     String amount(double v) => visible ? widget.format(v) : '••••••';
     final history = widget.history;
     final hasHistory = history.changes.isNotEmpty || history.opening > 0;
+    // Nothing ever on this balance (founder, 31 October 2026: "no balance
+    // should also show Sal"): the same empty state as Activity, Sal
+    // centred with the title and its line, no headline and no empty plot.
+    // A balance with no points but an opening keeps the headline and the
+    // chart's own caption.
+    if (!hasHistory) {
+      return NoActivityState(
+        key: const ValueKey('balance-chart-no-history'),
+        title: l10n.balanceNoHistoryTitle,
+        subtitle: l10n.balanceNoHistorySub,
+        cycles: 3,
+        compact: true,
+      );
+    }
     final series = balanceSeries(history, widget.now ?? DateTime.now());
     final span = series.spanFor(range);
     final shown = kuteTrendWindow(series, span);

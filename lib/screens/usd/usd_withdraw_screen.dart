@@ -117,19 +117,20 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    // Send to anyone lives in the bar only (founder, 31 October 2026):
-    // "Send to anyone" over "A link they claim with Kute", its Sal
-    // sheet's top row opening the sheet for dollars.
+    // The friend link lives in the bar too (founder, 31 October 2026):
+    // "Send to a friend" over "They claim it with Kute, no wallet needed",
+    // as the coin step's row reads, its Sal sheet's top row opening the
+    // sheet for dollars.
     return KuteBarContextScope(
       barContext: KuteBarContext(
-        label: l10n.shareSendToAnyone,
-        sublabel: l10n.shareSendToAnyoneSubtitle,
+        label: l10n.sendToAFriend,
+        sublabel: l10n.sendToAFriendSub,
         clip: 'share',
         source: kUsdWithdrawSheetSource,
         actions: [
           KuteMarketBarAction(
-            label: l10n.shareSendToAnyone,
-            sublabel: l10n.shareSendToAnyoneSubtitle,
+            label: l10n.sendToAFriend,
+            sublabel: l10n.sendToAFriendSub,
             salClip: 'share',
             onTap: (_) => unawaited(showSendToAnyoneSheet(
               context,

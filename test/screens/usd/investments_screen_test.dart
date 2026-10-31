@@ -33,6 +33,7 @@ import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
@@ -902,22 +903,30 @@ void main() {
     expect(legend, findsOneWidget);
     expect(tester.getRect(legend).top,
         greaterThan(tester.getRect(hero).bottom));
-    for (final (share, name) in [
-      ('investing', l10n.trading),
-      ('predictions', l10n.predictions),
-      ('buyingPower', l10n.assetDollars),
+    // "● Invested $0.00   ● Available $25.00": Investing + Predictions at
+    // work (nothing open in the harness), the Dollars cash alone (the
+    // venues' own cash is not available here).
+    for (final (key, name, amount) in [
+      ('portfolio-legend-invested', l10n.portfolioInvestedLabel, '\$0.00'),
+      ('portfolio-legend-available', l10n.portfolioAvailableLabel, '\$25.00'),
     ]) {
-      final dot = find.byKey(ValueKey('portfolio-legend-$share'));
-      expect(dot, findsOneWidget);
-      expect(find.descendant(of: dot, matching: find.text(name)),
+      final figure = find.byKey(ValueKey(key));
+      expect(figure, findsOneWidget);
+      expect(find.descendant(of: figure, matching: find.text(name)),
           findsOneWidget);
+      // The amount rolls glyph by glyph (BalancesLiveFigure): read its text.
+      expect(
+          tester
+              .widget<BalancesLiveFigure>(find.descendant(
+                  of: figure, matching: find.byType(BalancesLiveFigure)))
+              .figure
+              .text,
+          amount,
+          reason: '$name reads $amount');
     }
-    // Names only: no share or amount under the ring.
+    // No share percentages anywhere under the ring.
     expect(find.text('100%'), findsNothing);
     expect(find.text('0%'), findsNothing);
-    expect(
-        find.descendant(of: legend, matching: find.textContaining('\$')),
-        findsNothing);
     expect(
         tester
             .getRect(find.byKey(const ValueKey('portfolio-section-pill-charts')))
@@ -926,7 +935,7 @@ void main() {
     expect(find.text(l10n.portfolioBuyingPower), findsNothing);
     expect(find.text('Total investments'), findsNothing);
     expect(find.text('Ready for any trade or prediction'), findsNothing);
-    expect(find.text(l10n.betInvested), findsNothing);
+    // "Invested" is the line under the ring now, not a tile.
 
     // P&L charts: the one card, Historic only (founder, 28 October 2026:
     // no Active | Historic pair); neither Balances nor the activity.

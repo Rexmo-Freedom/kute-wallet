@@ -48,10 +48,15 @@ class NoActivityState extends StatefulWidget {
       {super.key,
       this.padding,
       this.title,
+      this.subtitle,
       this.compact = false,
       this.cycles,
       this.salSize,
       this.titleSize});
+
+  /// A fixed line under the title instead of the rotating taglines (an
+  /// empty balance's "It starts with your first transaction.").
+  final String? subtitle;
 
   @override
   State<NoActivityState> createState() => _NoActivityStateState();
@@ -99,6 +104,8 @@ class _NoActivityStateState extends State<NoActivityState>
   }
 
   void _scheduleRotation() {
+    // A fixed line never rotates.
+    if (widget.subtitle != null) return;
     // A timer the state owns, cancelled on dispose: a delayed future
     // outlived the widget.
     _rotation = Timer(const Duration(seconds: 6), () {
@@ -177,8 +184,8 @@ class _NoActivityStateState extends State<NoActivityState>
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: Text(
-                  kuteTaglines(context.l10n)[_currentIndex],
-                  key: ValueKey(_currentIndex),
+                  widget.subtitle ?? kuteTaglines(context.l10n)[_currentIndex],
+                  key: ValueKey(widget.subtitle ?? _currentIndex),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: c.textTertiary,

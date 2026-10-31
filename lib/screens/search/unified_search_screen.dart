@@ -89,7 +89,7 @@ import 'package:kute/screens/shared/animations/bouncy_touch.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart'
-    show KuteSkeleton, SkeletonBar, SkeletonCircle;
+    show KuteSkeleton, SkeletonBar, SkeletonCircle, SkeletonRowList;
 import 'package:kute/screens/shared/kute_motion.dart'
     show
         ArrivalSwitcher,
@@ -1620,15 +1620,18 @@ class _SearchHome extends ConsumerWidget {
         ? movers.take(SearchMoverGrid.count).toList()
         : const <HlMarket>[];
 
-    // Trending predictions: the trending feed as it is loaded.
-    final trending = showPredictions
-        ? ref
-            .watch(polyBrowseFeedProvider(
-                const PolyFeedQuery(pill: PolyPill.trending)))
-            .events
-            .take(3)
-            .toList()
-        : const <PolymarketEvent>[];
+    // Trending predictions: the trending feed as it is loaded. While it
+    // is still on its way (a cold start) the block stands with skeleton
+    // rows and the rows land in place: it never vanishes (founder, 31
+    // October 2026, the sheet showing Moving now alone).
+    final trendingFeed = showPredictions
+        ? ref.watch(polyBrowseFeedProvider(
+            const PolyFeedQuery(pill: PolyPill.trending)))
+        : null;
+    final trending =
+        trendingFeed?.events.take(3).toList() ?? const <PolymarketEvent>[];
+    final trendingLoading =
+        trendingFeed != null && trending.isEmpty && trendingFeed.loading;
 
     // ignore: discarded_futures
     SearchRecentStore.load();
@@ -1680,7 +1683,10 @@ class _SearchHome extends ConsumerWidget {
                         },
                       ),
                     ),
-                    if (moving.isNotEmpty || trending.isNotEmpty) gap,
+                    if (moving.isNotEmpty ||
+                        trending.isNotEmpty ||
+                        trendingLoading)
+                      gap,
                   ],
                 ),
         ),
@@ -1700,9 +1706,19 @@ class _SearchHome extends ConsumerWidget {
               onTap: () => _openInvestingTrending(context, ref),
             ),
           ),
-          if (trending.isNotEmpty) gap,
+          if (trending.isNotEmpty || trendingLoading) gap,
         ],
-        if (trending.isNotEmpty)
+        if (trendingLoading)
+          block(
+            2,
+            l10n.searchHomeTrendingPredictions,
+            SkeletonRowList(
+              key: const ValueKey('search-home-trending-loading'),
+              count: 3,
+              padding: EdgeInsets.zero,
+            ),
+          )
+        else if (trending.isNotEmpty)
           block(
             2,
             l10n.searchHomeTrendingPredictions,

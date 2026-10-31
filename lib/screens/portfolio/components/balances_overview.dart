@@ -75,11 +75,13 @@
 //     under it until a real one exists (none does: no cost base for the
 //     combined figure), and no "Today": no provider publishes a
 //     day-change figure, nothing is invented;
-//   * 10 under it, ONE quiet legend line, centred (founder, 31 October
-//     2026: "only auto managed", the three allocation tiles and the Move
-//     money button are gone; money moves from the Add and Send flows):
-//     "● Investing  ● Predictions  ● Dollars", 11 in the quiet colour,
-//     the dots in the ring's colours, names only, no amounts;
+//   * 10 under it, ONE line, centred (founder, 31 October 2026: "only
+//     auto managed", the three allocation tiles and the Move money button
+//     are gone; money moves from the Add and Send flows): "● Invested
+//     $1,131.25   ● Available $17.64", 13, the labels in the quiet
+//     colour, the amounts w600 tabular; the first dot in the Investing
+//     colour, the second in the Dollars colour; Invested is Investing
+//     plus Predictions at work, Available the Dollars cash;
 //   * 14, then the section switch (Portfolio | P&L Charts | Activity, the
 //     home strip: equal thirds, the picked one the white pill with the
 //     hairline and the shadow; [sectionSwitch], the Portfolio page hands
@@ -606,6 +608,23 @@ class _BalancesOverviewState extends State<BalancesOverview> {
     final investing = entryOf(BalancesPart.investing);
     final buyingPower = figure(categories[BalancesCategory.buyingPower]!);
     final anyVenue = predictions != null || investing != null;
+    // The line under the ring (sharesHeader): Invested = Investing +
+    // Predictions at work; Available = the Dollars cash.
+    final investedUsd = [
+      categories[BalancesCategory.investing],
+      categories[BalancesCategory.predictions],
+    ].where((f) => f != null).toList();
+    final investedKnown = investedUsd.every((f) => f!.usd != null);
+    final investedFigure = investedKnown
+        ? BalancesFigure(
+            money(investedUsd.fold<double>(0, (t, f) => t + f!.usd!)),
+            stale: investedUsd.any((f) => f!.stale),
+            usd: investedUsd.fold<double>(0, (t, f) => t + f!.usd!))
+        : const BalancesFigure('—', stale: true);
+    final dollarsEntry = entryOf(BalancesPart.dollars);
+    final availableFigure = dollarsEntry == null
+        ? const BalancesFigure('—', stale: true)
+        : dollarsEntry.cash;
     if (!_venuesKnown &&
         venueKnown(BalancesCategory.predictions, predictions) &&
         venueKnown(BalancesCategory.investing, investing)) {
@@ -643,28 +662,37 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             ),
           ),
           SizedBox(height: 10.h),
-          // The legend line (see the file header): names only, the dots
-          // in the ring's colours.
-          Row(
-            key: const ValueKey('portfolio-shares-legend'),
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (final (i, k) in const [
-                BalancesCategory.investing,
-                BalancesCategory.predictions,
-                BalancesCategory.buyingPower,
-              ].indexed)
-                if (categories.containsKey(k)) ...[
-                  if (i > 0) SizedBox(width: 14.w),
-                  _LegendDot(
-                    key: ValueKey('portfolio-legend-${k.name}'),
-                    color: balancesCategoryColor(c, k),
-                    label: k == BalancesCategory.buyingPower
-                        ? l10n.assetDollars
-                        : label(k),
+          // ONE line under the ring (founder, 31 October 2026): what is
+          // invested and what is available. Invested is Investing plus
+          // Predictions at work (a dash, dimmed, while either is
+          // unknown); Available is the Dollars cash.
+          // Scaled down past the width rather than cut (a large text
+          // size); never animated in size.
+          Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                key: const ValueKey('portfolio-shares-legend'),
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _LegendFigure(
+                    key: const ValueKey('portfolio-legend-invested'),
+                    color:
+                        balancesCategoryColor(c, BalancesCategory.investing),
+                    label: l10n.portfolioInvestedLabel,
+                    figure: investedFigure,
+                  ),
+                  SizedBox(width: 16.w),
+                  _LegendFigure(
+                    key: const ValueKey('portfolio-legend-available'),
+                    color: balancesCategoryColor(
+                        c, BalancesCategory.buyingPower),
+                    label: l10n.portfolioAvailableLabel,
+                    figure: availableFigure,
                   ),
                 ],
-            ],
+              ),
+            ),
           ),
           // The section switch, under the legend.
           if (widget.sectionSwitch case final strip?) ...[
@@ -1242,39 +1270,63 @@ class BalancesLead extends StatelessWidget {
   }
 }
 
-/// One entry of the legend line under the Portfolio screen's hero: the
-/// dot in the category's ring colour and its name, 11 in the quiet
-/// colour. Names only: the amounts are the ring's and the venues' own.
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({super.key, required this.color, required this.label});
+/// One figure of the line under the Portfolio screen's hero: the dot in
+/// the category's ring colour, its label in the quiet colour and the
+/// amount (13, w600, tabular, rolling in place; dimmed and sweeping while
+/// unknown or stale).
+class _LegendFigure extends StatelessWidget {
+  const _LegendFigure({
+    super.key,
+    required this.color,
+    required this.label,
+    required this.figure,
+  });
 
   final Color color;
   final String label;
+  final BalancesFigure figure;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6.w,
-          height: 6.w,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        SizedBox(width: 5.w),
-        Text(
-          label,
-          maxLines: 1,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.1,
-            height: 1.2,
+    return Semantics(
+      container: true,
+      label: '$label ${figure.text}',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6.w,
+            height: 6.w,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-        ),
-      ],
+          SizedBox(width: 5.w),
+          Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+              height: 1.2,
+            ),
+          ),
+          SizedBox(width: 4.w),
+          BalancesLiveFigure(
+            figure: figure,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              height: 1.2,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

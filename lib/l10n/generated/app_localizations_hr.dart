@@ -11420,6 +11420,21 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
+  String get portfolioInvestedLabel => 'Invested';
+
+  @override
+  String get portfolioAvailableLabel => 'Available';
+
+  @override
+  String get balanceNoHistoryTitle => 'No balance history yet';
+
+  @override
+  String get balanceNoHistorySub => 'It starts with your first transaction.';
+
+  @override
+  String get pnlNoHistoryTitle => 'No P&L yet';
+
+  @override
   String get portfolioAllTime => 'All time';
 
   @override

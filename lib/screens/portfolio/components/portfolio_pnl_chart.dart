@@ -52,6 +52,7 @@
 // chart. Ranges send nothing, as on the Balance charts.
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -317,7 +318,22 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          header,
+          // No P&L ever (founder, 31 October 2026): Sal, centred, "No P&L
+          // yet" and the chart's own caption under it, instead of the
+          // headline and an empty plot; the venue lines stay under.
+          if (hasHistory)
+            header
+          else
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              child: NoActivityState(
+                key: const ValueKey('statistics-pnl-no-history'),
+                title: l10n.pnlNoHistoryTitle,
+                subtitle: l10n.pnlChartNoHistory,
+                cycles: 3,
+                compact: true,
+              ),
+            ),
           if (hasHistory) ...[
             SizedBox(height: 12.h),
             // The plot on the card's own insets, so the end dot and the

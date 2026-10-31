@@ -19089,6 +19089,36 @@ abstract class AppLocalizations {
   /// **'{outcome} on {title}'**
   String sharePickOn(String outcome, String title);
 
+  /// Portfolio screen, the line under the hero ring: the label before what is invested (Investing + Predictions at work).
+  ///
+  /// In en, this message translates to:
+  /// **'Invested'**
+  String get portfolioInvestedLabel;
+
+  /// Portfolio screen, the line under the hero ring: the label before the Dollars cash.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get portfolioAvailableLabel;
+
+  /// Bitcoin Balance tab and Dollars balance chart, empty: the title over Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'No balance history yet'**
+  String get balanceNoHistoryTitle;
+
+  /// Bitcoin Balance tab and Dollars balance chart, empty: the line under the title.
+  ///
+  /// In en, this message translates to:
+  /// **'It starts with your first transaction.'**
+  String get balanceNoHistorySub;
+
+  /// Portfolio P&L Charts, empty: the title over Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'No P&L yet'**
+  String get pnlNoHistoryTitle;
+
   /// Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss ("All time ▲ $120.10").
   ///
   /// In en, this message translates to:
