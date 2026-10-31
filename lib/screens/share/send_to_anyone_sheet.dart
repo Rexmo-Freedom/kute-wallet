@@ -44,6 +44,7 @@ import 'package:kute/providers/currency_conversions_provider.dart'
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
+import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/app_text_field.dart';
@@ -72,6 +73,8 @@ Future<bool?> showSendToAnyoneSheet(
   String? outcome,
   int? outcomeIndex,
   String? side,
+  String? senderLabel,
+  String? recipientPhone,
   required String entrySource,
 }) {
   TrackingService.markEntrySource('share_link', entrySource);
@@ -86,6 +89,8 @@ Future<bool?> showSendToAnyoneSheet(
       outcome: outcome,
       outcomeIndex: outcomeIndex,
       side: side,
+      senderLabel: senderLabel,
+      recipientPhone: recipientPhone,
     ),
   );
 }
@@ -100,10 +105,21 @@ class SendToAnyoneSheet extends ConsumerStatefulWidget {
     this.outcome,
     this.outcomeIndex,
     this.side,
+    this.senderLabel,
+    this.recipientPhone,
   });
 
   final ShareLinkKind kind;
   final String? marketSlug;
+
+  /// The name field prefilled (a contact picked on the Send screen, its
+  /// first name). The person can still change it.
+  final String? senderLabel;
+
+  /// The picked contact's number, kept in the local row only (see
+  /// PendingShareLink.recipientPhone); offers WhatsApp and SMS on the
+  /// receipt with it prefilled. Never posted, never tracked.
+  final String? recipientPhone;
 
   /// The pick (see the file header); all null for a plain send.
   final String? marketTitle;
@@ -130,7 +146,8 @@ enum _Step { amount, name, done }
 class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   _Step _step = _Step.amount;
   String _typed = '';
-  final TextEditingController _name = TextEditingController();
+  late final TextEditingController _name =
+      TextEditingController(text: widget.senderLabel?.trim() ?? '');
   bool _creating = false;
   String? _error;
   PendingShareLink? _created;
@@ -192,6 +209,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         url: created.url,
         createdAt: DateTime.now(),
         status: ShareLinkStatus.open,
+        recipientPhone: widget.recipientPhone?.trim().isEmpty ?? true
+            ? null
+            : widget.recipientPhone!.trim(),
       );
       ShareLinksStore.put(row);
       ShareLinkEvents.created(kind, amountMinor,
@@ -453,6 +473,22 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           rows: [PendingShareLinkRow(row: row, onTap: () {})],
         ),
         SizedBox(height: 12.h),
+        // The contact's number, kept on the phone, prefilled in WhatsApp
+        // and the SMS composer (share_link_resend.dart).
+        if (row.recipientPhone != null) ...[
+          AppTextButton(
+            key: const ValueKey('share-again-whatsapp'),
+            text: l10n.shareSendAgainWhatsApp,
+            onPressed: () => unawaited(resendShareLinkVia(context, ref, row,
+                ShareLinkResendChannel.whatsapp)),
+          ),
+          AppTextButton(
+            key: const ValueKey('share-again-sms'),
+            text: l10n.shareSendAgainSms,
+            onPressed: () => unawaited(resendShareLinkVia(
+                context, ref, row, ShareLinkResendChannel.sms)),
+          ),
+        ],
         AppTextButton(
           key: const ValueKey('share-again'),
           text: l10n.shareLinkShareAgain,

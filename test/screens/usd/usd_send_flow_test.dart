@@ -31,7 +31,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
-import 'package:kute/screens/shared/account_switcher_pill.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart'
     show CoinAssetPickerSheet;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
@@ -43,7 +42,7 @@ import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show UsdWithdrawScreen, kUsdWithdrawRouteName;
 import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteBareCloseButton;
+    show KuteCloseButton;
 import 'package:kute/services/continuous_haptics.dart';
 import 'package:kute/services/kute_haptics.dart';
 import 'package:kute/services/orchestra_usd_send_routes.dart';
@@ -451,8 +450,10 @@ void main() {
     expect(find.text(_l10n.sendClipboardAddressFound), findsNothing);
     expect(_continueEnabled(tester), isFalse);
     // No visible step heading; the step is announced by name only.
-    expect(find.text(_l10n.sendTo), findsNothing);
     expect(find.text(_l10n.sendWhereShouldItLand), findsNothing);
+    // A link needs no coin: the Send to card sits under the grid.
+    expect(find.byKey(const ValueKey('send-pick-market-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsOneWidget);
   });
 
   testWidgets(
@@ -511,14 +512,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(_step(_l10n.sendReview), findsOneWidget);
     expect(find.text(_l10n.sendReview), findsNothing);
-    // "Investments" twice: the sheet's title (the balance the dollars
-    // leave from, never the spending wallet) and Review's From line.
-    expect(find.text(_l10n.assetDollars), findsNWidgets(2));
-    expect(
-        find.descendant(
-            of: find.byType(AccountSwitcherPill),
-            matching: find.text(_l10n.assetDollars)),
-        findsOneWidget);
+    // "Investments" on Review's From line (the balance the dollars leave
+    // from, never the spending wallet); the title says "Send USDC".
+    expect(find.text(_l10n.assetDollars), findsOneWidget);
+    expect(find.text(_l10n.sendCoinTitle('USDC')), findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     // Route params name the coin and its network; never the address.
     final step = events.lastWhere((e) => e.$1 == 'usd_send_step').$2!;
@@ -583,7 +580,7 @@ void main() {
     await _paste(tester, 'ethereum:$_evm@8453');
     expect(_field(tester), _evm);
     expect(
-        find.text(_l10n.usdSendAddressWrongNetwork(
+        find.text(_l10n.usdSendNotNetworkAddress(
             _dest('arbitrum', 'USDC').chainDisplayName)),
         findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
@@ -593,7 +590,7 @@ void main() {
     await tester.pumpAndSettle();
     await _paste(tester, _tron);
     expect(
-        find.text(_l10n.usdSendAddressWrongNetwork(
+        find.text(_l10n.usdSendNotNetworkAddress(
             _dest('arbitrum', 'USDC').chainDisplayName)),
         findsOneWidget);
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
@@ -887,7 +884,7 @@ void main() {
         containsPair('preselected', true));
 
     // Closing the send comes back to the Withdraw sheet as it was.
-    await tester.tap(find.byType(KuteBareCloseButton));
+    await tester.tap(find.byType(KuteCloseButton).last);
     await tester.pumpAndSettle();
     expect(find.byType(UsdSendScreen), findsNothing);
     expect(withdraw, findsOneWidget);
@@ -1062,7 +1059,7 @@ void main() {
     expect(_continueEnabled(tester), isTrue);
 
     // Outside the field: keyboard away, sheet kept.
-    await tester.tap(find.text(_l10n.sendDetectedEthereumStyleAddress));
+    await tester.tap(find.text(_l10n.sendCoinTitle('USDC')));
     await tester.pump();
     expect(FocusManager.instance.primaryFocus?.context?.widget,
         isNot(isA<EditableText>()));

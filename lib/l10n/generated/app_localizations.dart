@@ -19518,6 +19518,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{chance}% chance'**
   String shareMarketChance(String chance);
+
+  /// No description provided for @sendRecipientSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name, address, Lightning or @user'**
+  String get sendRecipientSearchHint;
+
+  /// No description provided for @usdSendRecipientSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name, address or ENS'**
+  String get usdSendRecipientSearchHint;
+
+  /// No description provided for @sendDollarsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send dollars'**
+  String get sendDollarsTitle;
+
+  /// No description provided for @sendCoinTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send {coin}'**
+  String sendCoinTitle(String coin);
+
+  /// No description provided for @sendContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get sendContacts;
+
+  /// No description provided for @sendToAFriend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to a friend'**
+  String get sendToAFriend;
+
+  /// No description provided for @sendToAFriendSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a contact to send them a link'**
+  String get sendToAFriendSub;
+
+  /// No description provided for @sendAllowContactsInSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow contacts in Settings'**
+  String get sendAllowContactsInSettings;
+
+  /// No description provided for @sendAllowContactsInSettingsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Kute can only show contacts you allow'**
+  String get sendAllowContactsInSettingsSub;
+
+  /// No description provided for @sendNoContactsMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts match'**
+  String get sendNoContactsMatch;
+
+  /// No description provided for @sendContactsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search contacts'**
+  String get sendContactsSearchHint;
+
+  /// No description provided for @sendRailBitcoinOnchain.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitcoin · on-chain'**
+  String get sendRailBitcoinOnchain;
+
+  /// No description provided for @sendRailLightning.
+  ///
+  /// In en, this message translates to:
+  /// **'Lightning'**
+  String get sendRailLightning;
+
+  /// No description provided for @sendRailSpark.
+  ///
+  /// In en, this message translates to:
+  /// **'Spark'**
+  String get sendRailSpark;
+
+  /// No description provided for @usdSendNotNetworkAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Not an {network} address'**
+  String usdSendNotNetworkAddress(String network);
+
+  /// No description provided for @usdSendResolvedRail.
+  ///
+  /// In en, this message translates to:
+  /// **'{network} · {asset}'**
+  String usdSendResolvedRail(String network, String asset);
+
+  /// No description provided for @sendAlsoSendsToMore.
+  ///
+  /// In en, this message translates to:
+  /// **'{names} and {count} more'**
+  String sendAlsoSendsToMore(String names, int count);
+
+  /// No description provided for @sendAlsoSendsToList.
+  ///
+  /// In en, this message translates to:
+  /// **'{names} and {last}'**
+  String sendAlsoSendsToList(String names, String last);
+
+  /// No description provided for @sendPickMarket.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a prediction or investment'**
+  String get sendPickMarket;
+
+  /// No description provided for @sendPickMarketSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a market, they get it ready to place'**
+  String get sendPickMarketSub;
+
+  /// No description provided for @sendPickMarketSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search predictions and investing'**
+  String get sendPickMarketSearchHint;
+
+  /// No description provided for @sendPickMarketNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches'**
+  String get sendPickMarketNoResults;
+
+  /// No description provided for @sendPickSideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which side?'**
+  String get sendPickSideTitle;
+
+  /// No description provided for @sendPickSideSub.
+  ///
+  /// In en, this message translates to:
+  /// **'What they get, ready to place'**
+  String get sendPickSideSub;
+
+  /// No description provided for @shareSendAgainWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send again via WhatsApp'**
+  String get shareSendAgainWhatsApp;
+
+  /// No description provided for @shareSendAgainSms.
+  ///
+  /// In en, this message translates to:
+  /// **'Send again via SMS'**
+  String get shareSendAgainSms;
+
+  /// No description provided for @sendToLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to'**
+  String get sendToLabel;
 }
 
 class _AppLocalizationsDelegate

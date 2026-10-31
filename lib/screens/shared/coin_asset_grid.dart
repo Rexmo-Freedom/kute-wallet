@@ -152,6 +152,7 @@ class CoinAssetGrid extends StatelessWidget {
     required this.onPick,
     required this.emptyLabel,
     this.selectedKey,
+    this.shrinkWrap = false,
   });
 
   final List<CoinAssetGroup> groups;
@@ -162,6 +163,10 @@ class CoinAssetGrid extends StatelessWidget {
   final ValueChanged<CoinAssetGroup> onPick;
   final String emptyLabel;
   final String? selectedKey;
+
+  /// Sized to its tiles and never scrolling itself, for a grid that sits
+  /// in a scrolling step with other cards (the dollar send's coin step).
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +188,8 @@ class CoinAssetGrid extends StatelessWidget {
       );
     }
     return GridView.builder(
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: EdgeInsets.only(bottom: 8.h),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,

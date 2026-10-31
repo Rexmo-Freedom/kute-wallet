@@ -74,6 +74,8 @@
 		</array>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>NSContactsUsageDescription</key>
+		<string>Kute shows your contacts so you can send to a friend. Contacts stay on your phone.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Allow Kute to use the camera to scan QR codes for Bitcoin addresses, Lightning invoices, and hardware wallet pairing.</string>
 		<key>NSFaceIDUsageDescription</key>

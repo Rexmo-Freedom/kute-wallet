@@ -181,6 +181,7 @@ dependencies:
   convert: any
   barcode: any
   audioplayers: ^6.6.0
+  flutter_contacts: ^2.6.0
 dependency_overrides:
   vector_math: 2.2.0
   pointycastle: ^4.0.0

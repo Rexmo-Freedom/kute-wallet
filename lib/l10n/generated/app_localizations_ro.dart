@@ -11716,4 +11716,96 @@ class AppLocalizationsRo extends AppLocalizations {
   String shareMarketChance(String chance) {
     return '$chance% chance';
   }
+
+  @override
+  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+
+  @override
+  String get usdSendRecipientSearchHint => 'Name, address or ENS';
+
+  @override
+  String get sendDollarsTitle => 'Send dollars';
+
+  @override
+  String sendCoinTitle(String coin) {
+    return 'Send $coin';
+  }
+
+  @override
+  String get sendContacts => 'Contacts';
+
+  @override
+  String get sendToAFriend => 'Send to a friend';
+
+  @override
+  String get sendToAFriendSub => 'Pick a contact to send them a link';
+
+  @override
+  String get sendAllowContactsInSettings => 'Allow contacts in Settings';
+
+  @override
+  String get sendAllowContactsInSettingsSub =>
+      'Kute can only show contacts you allow';
+
+  @override
+  String get sendNoContactsMatch => 'No contacts match';
+
+  @override
+  String get sendContactsSearchHint => 'Search contacts';
+
+  @override
+  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+
+  @override
+  String get sendRailLightning => 'Lightning';
+
+  @override
+  String get sendRailSpark => 'Spark';
+
+  @override
+  String usdSendNotNetworkAddress(String network) {
+    return 'Not an $network address';
+  }
+
+  @override
+  String usdSendResolvedRail(String network, String asset) {
+    return '$network · $asset';
+  }
+
+  @override
+  String sendAlsoSendsToMore(String names, int count) {
+    return '$names and $count more';
+  }
+
+  @override
+  String sendAlsoSendsToList(String names, String last) {
+    return '$names and $last';
+  }
+
+  @override
+  String get sendPickMarket => 'Send a prediction or investment';
+
+  @override
+  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+
+  @override
+  String get sendPickMarketSearchHint => 'Search predictions and investing';
+
+  @override
+  String get sendPickMarketNoResults => 'Nothing matches';
+
+  @override
+  String get sendPickSideTitle => 'Which side?';
+
+  @override
+  String get sendPickSideSub => 'What they get, ready to place';
+
+  @override
+  String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
+
+  @override
+  String get shareSendAgainSms => 'Send again via SMS';
+
+  @override
+  String get sendToLabel => 'Send to';
 }
