@@ -493,10 +493,11 @@ void main() {
     final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
     // The result colour (up over the month), one line.
     expect(chart.lineColor, AppColors.marketUp);
-    // From zero before the first trade to the P&L now.
-    expect(chart.values.first, 0);
+    // The month's bucket closes, ending on the P&L now (the lead-in's
+    // zero sits before the month).
+    expect(chart.values.first, -5);
     expect(chart.values.last, 16);
-    expect(chart.values.toSet(), containsAll(<double>[0, -5, 9, 15, 16]));
+    expect(chart.values.toSet(), containsAll(<double>[-5, 9, 15, 16]));
     // The range row under the plot, 1M to start.
     expect(find.byType(KuteChartRangeRow), findsOneWidget);
     for (final pill in ['1W', '1M', '3M', '1Y', 'ALL']) {
@@ -1599,9 +1600,7 @@ void main() {
       double bottom(Finder f) => tester.getBottomLeft(f).dy;
       final caption = find.byKey(const ValueKey('statistics-pnl-caption'));
       final figure = find.byKey(const ValueKey('statistics-pnl-headline'));
-      final plot = find.byWidgetPredicate((w) =>
-          w is CustomPaint &&
-          w.painter.runtimeType.toString() == '_KuteLinePainter');
+      final plot = find.byKey(const ValueKey('trend-chart-plot'));
       final ranges = find.byType(KuteChartRangeRow);
       final hairline =
           find.descendant(of: _chartCard, matching: find.byType(Divider));
