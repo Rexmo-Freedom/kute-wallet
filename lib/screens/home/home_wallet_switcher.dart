@@ -124,13 +124,13 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
                 shape: BoxShape.circle,
                 border: Border.all(color: c.borderSubtle, width: 0.5),
               ),
-              // Sal in the circle (founder, 31 October 2026): a blink as
-              // the card appears, then his curious face; the shield until
-              // the sheets exist.
+              // Sal in the circle (founder, 31 October 2026): surprised
+              // once as the card appears, then held on that last frame;
+              // the shield until the sheets exist.
               child: ClipOval(
-                child: SalSprite.sequence(
-                  first: 'blink',
-                  then: 'curious',
+                child: SalSprite(
+                  clip: 'surprise',
+                  loop: false,
                   size: 36.sp,
                   fallback: Icon(Icons.shield_outlined,
                       color: c.textSecondary, size: 18.sp),

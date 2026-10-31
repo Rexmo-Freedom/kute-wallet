@@ -458,5 +458,28 @@
         "height": 3072
       }
     }
+  },
+  "body_hero": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 160,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_hero@2x.webp",
+        "cell": 320,
+        "width": 1920,
+        "height": 2560
+      },
+      "3x": {
+        "file": "body_hero@3x.webp",
+        "cell": 480,
+        "width": 2880,
+        "height": 3840
+      }
+    }
   }
 }

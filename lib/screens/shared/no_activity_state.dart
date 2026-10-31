@@ -82,8 +82,7 @@ class _NoActivityStateState extends State<NoActivityState>
     // Honour the OS "reduce motion" setting: the tagline cross-fade below
     // is decorative, so it becomes an instant swap. Sal handles the setting
     // himself inside the rig. Safe here — inherited widgets are available.
-    _reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
   }
 
   void _scheduleRotation() {
@@ -97,7 +96,8 @@ class _NoActivityStateState extends State<NoActivityState>
       } else {
         _fadeController.reverse().then((_) {
           if (!mounted) return;
-          setState(() => _currentIndex = (_currentIndex + 1) % kKuteTaglineCount);
+          setState(
+              () => _currentIndex = (_currentIndex + 1) % kKuteTaglineCount);
           _fadeController.forward();
         });
       }
@@ -117,55 +117,66 @@ class _NoActivityStateState extends State<NoActivityState>
     final c = context.colors;
     final compact = widget.compact;
 
+    final salSize = compact ? 120.sp : 160.sp;
+    // Centred whatever the parent column's alignment (the Dollars tab's
+    // starts its children at the left).
     return Padding(
       padding: widget.padding ?? EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 8.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // The 3D Sal (founder, 31 October 2026): he sits down, then
-          // sits; the rig idles in his place until the sheets exist.
-          SalSprite.sequence(
-            first: 'body_sit_down',
-            then: 'body_sit',
-            size: compact ? 72.sp : 112.sp,
-            fallback: KuteDogIdle(
-              size: compact ? 72.sp : 112.sp,
-              shadowColor: c.textPrimary.withValues(alpha: 0.10),
-              cycles: widget.cycles,
-            ),
-          ),
-          SizedBox(height: compact ? 12.h : 18.h),
-          Text(
-            widget.title ?? 'No activity yet',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: c.textPrimary,
-              fontSize: compact ? 17.sp : 22.sp,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              height: 1.1,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          SizedBox(
-            height: compact ? 40.h : 56.h,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Text(
-                kuteTaglines(context.l10n)[_currentIndex],
-                key: ValueKey(_currentIndex),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.1,
-                  height: 1.4,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // The 3D Sal (founder, 31 October 2026): `body_hero`, sitting
+            // and looking at you; until that sheet lands he sits down and
+            // sits (`body_sit`), and the rig idles until any sheet exists.
+            SalSprite(
+              clip: 'body_hero',
+              size: salSize,
+              fallback: SalSprite.sequence(
+                first: 'body_sit_down',
+                then: 'body_sit',
+                size: salSize,
+                fallback: KuteDogIdle(
+                  size: salSize,
+                  shadowColor: c.textPrimary.withValues(alpha: 0.10),
+                  cycles: widget.cycles,
                 ),
               ),
             ),
-          ),
-        ],
+            SizedBox(height: compact ? 12.h : 18.h),
+            Text(
+              widget.title ?? 'No activity yet',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: compact ? 17.sp : 22.sp,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                height: 1.1,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            SizedBox(
+              height: compact ? 40.h : 56.h,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Text(
+                  kuteTaglines(context.l10n)[_currentIndex],
+                  key: ValueKey(_currentIndex),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: c.textTertiary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

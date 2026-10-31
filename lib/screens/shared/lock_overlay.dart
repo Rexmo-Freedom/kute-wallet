@@ -57,7 +57,7 @@ class LockOverlay extends ConsumerStatefulWidget {
 }
 
 class _LockOverlayState extends ConsumerState<LockOverlay>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, PinSalMoodMixin {
   final LocalAuthentication _localAuth = LocalAuthentication();
   String _pin = '';
   bool _verifying = false;
@@ -240,6 +240,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
       TrackingService.track('pin_check_rejected',
           params: {'result': check.name});
       _shake.forward(from: 0);
+      salSad();
       HapticFeedback.heavyImpact();
       setState(() {
         _pin = '';
@@ -268,6 +269,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   /// not be a softer target than the cold-start screen.
   Future<void> _handleWrongPin(AuthModel auth) async {
     _shake.forward(from: 0);
+    salSad();
     HapticFeedback.heavyImpact();
     final outcome = await PinAttemptGuard(auth).recordFailure(
       surface: PinSurface.lockScreen,
@@ -297,6 +299,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
   }
 
   void _finishUnlock({required String method}) {
+    salHappy();
     // app_unlocked {method} fires in completeUnlock for both surfaces;
     // this one names the resume overlay.
     TrackingService.track('lock_overlay_unlocked', params: {'method': method});
@@ -345,6 +348,7 @@ class _LockOverlayState extends ConsumerState<LockOverlay>
     return Positioned.fill(
       child: KutePinScaffold(
         title: context.l10n.welcomeBack,
+        salMood: salMoodFor(_pin.length),
         subtitle: _lockedOut
             ? (ref.watch(pinSheetLockedProvider)
                 ? '${context.l10n.pinSheetLocked}\n'

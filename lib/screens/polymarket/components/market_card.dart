@@ -1069,9 +1069,11 @@ class _SidePill extends StatelessWidget {
       width: 72.w,
       height: 28.h,
       alignment: Alignment.center,
+      // Solid, as the market page's big Yes / No buttons (founder, 31
+      // October 2026: no tinted chips anywhere in the app).
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8.r),
+        color: color,
+        borderRadius: BorderRadius.circular(9.r),
       ),
       child: Text(
         text,
@@ -1079,9 +1081,9 @@ class _SidePill extends StatelessWidget {
         softWrap: false,
         overflow: TextOverflow.fade,
         style: TextStyle(
-          color: color,
+          color: Colors.white,
           fontSize: 11.sp,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
           fontFeatures: const [FontFeature.tabularFigures()],
         ),

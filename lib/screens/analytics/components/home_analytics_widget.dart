@@ -364,14 +364,11 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   KutePillItem _pillItem(AnalyticsTab tab) {
     switch (tab) {
       case AnalyticsTab.activity:
-        // Already showing it: the pill stops naming the tab and starts
-        // naming what a second tap does.
-        final seeAll = _selectedTab == AnalyticsTab.activity &&
-            widget.onSeeAllActivity != null;
+        // Always its name (founder, 31 October 2026: never "→ See all");
+        // a second tap on it opens the full list all the same.
         return KutePillItem(
-          label: seeAll ? context.l10n.seeAll : context.l10n.activity,
-          icon:
-              seeAll ? Icons.arrow_forward_rounded : Icons.receipt_long_rounded,
+          label: context.l10n.activity,
+          icon: Icons.receipt_long_rounded,
         );
       case AnalyticsTab.balance:
       case AnalyticsTab.valuation:
