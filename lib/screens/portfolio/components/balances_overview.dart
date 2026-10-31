@@ -64,6 +64,7 @@
 // `portfolio_venue_positions_expanded` {venue: predictions | investing,
 // open} (a venue's See all / Show less).
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -78,6 +79,9 @@ import 'package:kute/screens/shared/kute_motion.dart'
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
+import 'package:kute/screens/shared/kute_pill_tabs.dart';
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show showMoneyMovementSheet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -571,6 +575,25 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 ),
               ),
             ],
+          ),
+          // Move money, right-aligned under the shares (founder, 31
+          // October 2026: "where is the button to move money?"): the
+          // Dollars tab's own pill, always on, whatever the balance.
+          SizedBox(height: 12.h),
+          Align(
+            alignment: Alignment.centerRight,
+            child: KutePill(
+              key: const ValueKey('portfolio-move-money'),
+              label: l10n.moveTransfer,
+              size: KutePillSize.large,
+              selected: true,
+              link: true,
+              onTap: () {
+                TrackingService.track('portfolio_move_money_tapped',
+                    params: const {'surface': 'portfolio'});
+                unawaited(showMoneyMovementSheet(context));
+              },
+            ),
           ),
         ] else ...[
         // The lead row (founder, 31 October 2026: "the ring belongs to
