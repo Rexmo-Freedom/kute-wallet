@@ -220,8 +220,40 @@ void main() {
     await settle(tester);
   });
 
+  testWidgets('the live dot breathes (a 1.6 s loop), not under flutter test',
+      (tester) async {
+    await pump(tester, const KuteTrendChart(values: [1, 2, 3]));
+    dynamic painter() => tester
+        .widget<CustomPaint>(find.descendant(
+            of: find.byType(KuteTrendChart),
+            matching: find.byType(CustomPaint)))
+        .painter;
+    // The runner's default: still, so pumpAndSettle settles.
+    expect(painter().breath, 0.0);
+    await tester.pumpAndSettle();
+
+    KuteTrendChart.debugBreathe = true;
+    addTearDown(() => KuteTrendChart.debugBreathe = null);
+    // pump() left 700 ms of the 1600 ms loop behind: near the top.
+    await pump(tester, const KuteTrendChart(values: [1, 2, 3, 4]));
+    expect(painter().breath, greaterThan(0.9));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(painter().breath, closeTo(0, 0.05));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(painter().breath, closeTo(0.707, 0.05));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(painter().breath, closeTo(1, 0.05));
+    // Not live: still.
+    await pump(tester,
+        const KuteTrendChart(values: [1, 2, 3, 4], live: false));
+    expect(painter().breath, 0.0);
+    await settle(tester);
+  });
+
   testWidgets('Reduce Motion: no draw-in, no morph, no breathing; it paints',
       (tester) async {
+    KuteTrendChart.debugBreathe = true;
+    addTearDown(() => KuteTrendChart.debugBreathe = null);
     await pump(tester, const KuteTrendChart(values: [1, 2, 3]),
         reduceMotion: true);
     await tester.pumpWidget(app(const KuteTrendChart(values: [3, 2, 1]),

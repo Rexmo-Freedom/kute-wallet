@@ -35,6 +35,7 @@
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
 
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -140,6 +141,16 @@ class KuteTrendChart extends StatefulWidget {
   final int selectedRange;
   final ValueChanged<int>? onRangeSelected;
 
+  /// Whether the live dot breathes. Never under `flutter test` (the loop
+  /// would keep every pumpAndSettle waiting); a test that wants the
+  /// breath sets this true.
+  @visibleForTesting
+  static bool? debugBreathe;
+
+  static final bool _inTest = Platform.environment.containsKey('FLUTTER_TEST');
+
+  static bool get _breathes => debugBreathe ?? !_inTest;
+
   const KuteTrendChart({
     super.key,
     required this.values,
@@ -239,8 +250,10 @@ class _KuteTrendChartState extends State<KuteTrendChart>
   }
 
   void _syncBreath() {
-    final breathe =
-        widget.live && !_reduceMotion && widget.values.isNotEmpty;
+    final breathe = widget.live &&
+        !_reduceMotion &&
+        widget.values.isNotEmpty &&
+        KuteTrendChart._breathes;
     if (breathe && !_breath.isAnimating) {
       _breath.repeat();
     } else if (!breathe && _breath.isAnimating) {
@@ -338,7 +351,7 @@ class _KuteTrendChartState extends State<KuteTrendChart>
               hairlineColor: c.border,
               surfaceColor: c.surface,
               drawIn: _drawInCurve.value,
-              breath: widget.live && !_reduceMotion
+              breath: _breath.isAnimating
                   ? math.sin(_breath.value * math.pi).abs()
                   : 0,
               scrubIndex: scrubbing ? ti : null,
