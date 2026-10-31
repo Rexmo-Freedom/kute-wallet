@@ -46,13 +46,16 @@
 // the topic at the left, 20 px, monochrome in textPrimary (never a
 // Material icon: the SVGs under lib/assets/polymarket_tags, pulled from
 // polymarket.com's icon set, see the folder's README; a topic Polymarket
-// draws no glyph for gets its closest one), the name, and "N markets"
-// in the quiet colour at the right only when that topic's feed is
-// loaded. A topic whose feed is loaded (the picked one,
-// or one browsed earlier and still alive; nothing is read for a tile)
-// shows its event images' stack instead of the icon, so the grid gets
-// richer as the person browses. Trending and the Watchlist stay wide
-// with their stack and numbers.
+// draws no glyph for gets its closest one), and the name. ALWAYS icon +
+// name, nothing else, in every state (founder, later that day, on a
+// grid where the loaded topic had swapped to a logo stack and a trailing
+// count that cut its name to "Br…"): never a logo stack, never a count,
+// loaded or not. Only the wide Trending tile (and the Watchlist) keeps
+// its stack and its numbers line.
+//
+// NAMES NEVER TRUNCATE (founder, 31 October 2026): a wide or grid tile
+// whose name does not fit on one line sets it on two and drops its stat
+// line instead ([_NameAndStat]); the stat goes, never the name.
 //
 // THE NUMBERS COME FROM WHAT IS ALREADY LOADED, never a new read: the
 // Investing universe (hyperliquidBrowseUniverseProvider) and the browse
@@ -791,17 +794,14 @@ class _InvestmentsCategorySheetState
           onTap: () => _pickPoly(p, PolySub(p.defaultSub)),
         );
 
-    // A topic: compact, its icon until its feed is loaded, then its
-    // event images and "N markets".
+    // A topic: compact, always its icon and its name (see the file
+    // header), whatever its feed has loaded.
     Widget tile(PolyPill p) {
-      final events = _polyLoaded(p);
       return _Tile.compact(
         key: ValueKey('category-tile-${p.key}'),
-        logos: _polyLogos(events),
         asset: _polyIconAsset(p),
         tint: _polyTint(c, p),
         name: polyPillLabel(l10n, p),
-        count: events.isEmpty ? null : events.length,
         picked: _picked(p, p.defaultSub, sel.pill == p),
         onTap: _polySubs(p).isEmpty
             ? () => _pickPoly(p, PolySub(p.defaultSub))
@@ -852,20 +852,15 @@ class _InvestmentsCategorySheetState
       _grid(first: 1, [
         for (final s in subs)
           if (s.key != p.defaultSub)
-            () {
-              final events = _polyLoaded(p, s.key);
-              return _Tile.compact(
-                key: ValueKey('category-tile-${s.key}'),
-                logos: _polyLogos(events),
-                asset: _polyIconAsset(p),
-                tint: tint,
-                name: polySubLabel(l10n, s),
-                count: events.isEmpty ? null : events.length,
-                picked:
+            _Tile.compact(
+              key: ValueKey('category-tile-${s.key}'),
+              asset: _polyIconAsset(p),
+              tint: tint,
+              name: polySubLabel(l10n, s),
+              picked:
                   _picked(p, s.key, sel.pill == p && sel.subOf(p) == s.key),
-                onTap: () => _pickPoly(p, s),
-              );
-            }(),
+              onTap: () => _pickPoly(p, s),
+            ),
       ], extent: _Tile.compactHeight),
     ];
   }
@@ -1115,19 +1110,19 @@ class _Tile extends StatelessWidget {
         count = null;
 
   /// The compact row: the topic's own glyph ([asset], an SVG) on a 28 px
-  /// surface-1 square (or the [logos] stack when there are any), the
-  /// name, and "[count] markets" at the right when [count] is known.
+  /// surface-1 square and the name; nothing else, ever (see the file
+  /// header: no logo stack, no count).
   const _Tile.compact({
     super.key,
     required this.tint,
     required this.name,
     required this.onTap,
-    this.logos = const [],
     this.asset,
-    this.count,
     this.picked = false,
   })  : shape = _TileShape.compact,
+        logos = const [],
         glyph = null,
+        count = null,
         stat = null;
 
   final Color tint;
@@ -1158,7 +1153,6 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final l10n = context.l10n;
     final isLight = !context.isDark;
     final reduce = kuteReduceMotion(context);
     final compact = shape == _TileShape.compact;
@@ -1200,57 +1194,33 @@ class _Tile extends StatelessWidget {
             : Icon(glyph, size: compact ? 16 : 14, color: tint),
       );
     }
-    final nameText = Text(
-      name,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: c.textPrimary,
-        fontSize: 15.sp,
-        fontWeight: picked ? FontWeight.w600 : FontWeight.w500,
-        letterSpacing: -0.2,
-      ),
+    final nameStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: picked ? FontWeight.w600 : FontWeight.w500,
+      letterSpacing: -0.2,
     );
     // The picked tile wears the app's own picked language (the strip's
     // picked pill: white, the hairline, the shadow); no check, no accent.
-    final check = <Widget>[];
     final body = switch (shape) {
       _TileShape.wide => Row(
           children: [
             art,
             SizedBox(width: 10.w),
             Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  nameText,
-                  if (stat != null) ...[SizedBox(height: 2.h), stat!],
-                ],
-              ),
-            ),
-            ...check,
+                child: _NameAndStat(name: name, style: nameStyle, stat: stat)),
           ],
         ),
       _TileShape.compact => Row(
           children: [
             art,
             SizedBox(width: 10.w),
-            Expanded(child: nameText),
-            if (count != null) ...[
-              SizedBox(width: 8.w),
-              Text(
-                l10n.categoryStatMarkets(count!),
-                style: TextStyle(
-                  color: c.textSecondary,
-                  fontSize: 12.5.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.1,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-            ...check,
+            Expanded(
+              child: Text(name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: nameStyle),
+            ),
           ],
         ),
       _TileShape.grid => Column(
@@ -1258,8 +1228,7 @@ class _Tile extends StatelessWidget {
           children: [
             art,
             const Spacer(),
-            Row(children: [Expanded(child: nameText), ...check]),
-            if (stat != null) ...[SizedBox(height: 2.h), stat!],
+            _NameAndStat(name: name, style: nameStyle, stat: stat),
           ],
         ),
     };
@@ -1313,6 +1282,43 @@ class _Tile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A tile's name with its stat line under it, the name never cut
+/// (founder, 31 October 2026): the name on one line and the stat under
+/// it while the name fits the width; a name that needs more runs onto a
+/// second line and the stat is dropped, not the name.
+class _NameAndStat extends StatelessWidget {
+  const _NameAndStat({required this.name, required this.style, this.stat});
+
+  final String name;
+  final TextStyle style;
+  final Widget? stat;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final painter = TextPainter(
+            text: TextSpan(text: name, style: style),
+            maxLines: 1,
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout(maxWidth: constraints.maxWidth);
+          final fits = !painter.didExceedMaxLines;
+          painter.dispose();
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name,
+                  maxLines: fits ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: style),
+              if (fits && stat != null) ...[SizedBox(height: 2.h), stat!],
+            ],
+          );
+        },
+      );
 }
 
 /// Up to three logos overlapping by a third, each ringed in the tile's
