@@ -61,7 +61,12 @@
 // at ~8 fps in short beats with rests. On confirm a little hop and he
 // drops the coin in; on a stop he stays still in the pose he was in.
 // Reduce Motion: one still pose per mood at the same thresholds; a
-// record replayed at rest has no moods. Under the row: one
+// record replayed at rest has no moods. As the 3D Sal (31 October 2026)
+// each mood rotates the clips of the second batch's `waiting` group
+// (fetch: pace, sniff the trail, dig; sniff: sniff the trail, think;
+// settle: sit, point; a success jumps then wags; a failure shakes its
+// head then is sad), never the same twice in a row, on the same mood
+// timing ([_paintSalSprite]). Under the row: one
 // status line in the step's own
 // words ("Moving $4.18 from Bitcoin", "Confirming balance", "Placed!",
 // or the surface's line saying where the money is after a stop),
@@ -894,6 +899,15 @@ class _Scene {
   /// carries; and the lines' words and states, for news while he waits.
   double salBob = 0;
   String linesSig = '';
+
+  // The 3D clip he wears ([_paintSalSprite]): what he is doing (the
+  // scene key), the clip, since when, and the one before it (never the
+  // same twice in a row); the picks' source.
+  String salScene = '';
+  String? salClip;
+  double salClipAt = 0;
+  String? salClipPrev;
+  final math.Random salRandom = math.Random();
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -2410,6 +2424,19 @@ String? _waitKeyOf(_Scene s, double now) {
   return '$st|${_spotOf(s, now)}|${_allLandedAt(s, st) != null}';
 }
 
+/// The waiting clips the contract promises (the manifest's `waiting`
+/// group; sal_sprite.dart), by what Sal does while the money waits
+/// (founder, 31 October 2026): fetching he paces, sniffs the trail or
+/// digs; sniffing he sniffs the trail or thinks; settled he sits (sitting
+/// down first) or points; a success is a jump then the wag; a failure a
+/// shake of the head then sad. Never the same clip twice in a row; a clip
+/// not decoded (not rendered yet, not registered) is skipped, and with
+/// none of a pool there the mood's own clip from the first batch stands
+/// in. The mood timing ([_moodOf]) is untouched.
+const List<String> _kFetchClips = ['body_pace', 'body_sniff_trail', 'body_dig'];
+const List<String> _kSniffClips = ['body_sniff_trail', 'body_think'];
+const List<String> _kSettleClips = ['body_sit', 'body_point'];
+
 /// Draws the 3D Sal for the journey (see the call site); false when the
 /// clip is not decoded yet, so the rig draws him instead.
 bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
@@ -2419,35 +2446,58 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
           ?.devicePixelRatio ??
       2.0;
   final density = SalSpriteCache.densityFor(dpr);
-  String name;
+  SalClip? peek(String name) => SalSpriteCache.peek(name, density);
+
+  // What he is doing: the scene, the clips it rotates, the one-shot that
+  // opens it, and the clip that stands in while none of them is decoded.
+  final String scene;
+  List<String> pool;
+  String? opener;
+  final String standIn;
   double? frameTime;
   if (still) {
-    name = 'body_idle';
+    scene = 'still';
+    pool = const [];
+    standIn = 'body_idle';
     frameTime = 0;
   } else if (s.outcome == _Outcome.failure) {
-    name = 'body_sad';
+    scene = 'failure';
+    opener = 'body_shake_no';
+    pool = const ['body_sad'];
+    standIn = 'body_sad';
   } else if (s.outcome == _Outcome.success || _hopping(s, now)) {
-    name = 'body_wag';
-  } else if (walking || mood == SalMood.fetch) {
-    name = 'body_walk';
+    scene = 'success';
+    opener = 'body_jump';
+    pool = const ['body_wag'];
+    standIn = 'body_wag';
+  } else if (walking) {
+    scene = 'walk';
+    pool = const ['body_walk'];
+    standIn = 'body_walk';
+  } else if (mood == SalMood.fetch) {
+    scene = 'fetch';
+    pool = _kFetchClips;
+    standIn = 'body_walk';
   } else if (mood == SalMood.sniff) {
-    name = 'body_sniff';
+    scene = 'sniff';
+    pool = _kSniffClips;
+    standIn = 'body_sniff';
   } else if (mood == SalMood.settle) {
-    // Sitting down once, from the moment settling began, then sitting.
-    final e = now - (s.waitSince ?? now) - _kSettleAt;
-    final sitDown = SalSpriteCache.peek('body_sit_down', density);
-    if (sitDown != null && e < sitDown.frames / sitDown.fps * 1000) {
-      name = 'body_sit_down';
-      frameTime = e;
-    } else {
-      name = 'body_sit';
-    }
+    scene = 'settle';
+    opener = 'body_sit_down';
+    pool = _kSettleClips;
+    standIn = 'body_sit';
   } else {
-    name = 'body_idle';
+    scene = 'idle';
+    pool = const ['body_idle'];
+    standIn = 'body_idle';
   }
-  final clip = SalSpriteCache.peek(name, density);
+
+  final name = _salClipRun(s, now,
+      scene: scene, pool: pool, opener: opener, standIn: standIn, peek: peek);
+  final clip = peek(name);
   if (clip == null) return false;
-  final t = frameTime ?? now;
+  final t = frameTime ?? (now - s.salClipAt);
   final raw = (t / 1000 * clip.fps).floor();
   final frame = clip.loop && frameTime == null
       ? raw % clip.frames
@@ -2459,6 +2509,60 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
     Paint()..filterQuality = FilterQuality.medium,
   );
   return true;
+}
+
+/// The clip Sal wears at [now] in [scene]: a new scene starts with its
+/// [opener] (a one-shot) when that is decoded, else a pick from [pool];
+/// a clip that has played through (a one-shot its length, a loop one
+/// cycle) gives way to another of the pool, never the one just played;
+/// [standIn] while none of the pool is decoded. A loop alone keeps
+/// looping (its start is never reset).
+String _salClipRun(_Scene s, double now,
+    {required String scene,
+    required List<String> pool,
+    String? opener,
+    required String standIn,
+    required SalClip? Function(String) peek}) {
+  final available = [for (final n in pool) if (peek(n) != null) n];
+  String pick() {
+    final choices = available.length > 1
+        ? [for (final n in available) if (n != s.salClipPrev) n]
+        : available;
+    if (choices.isEmpty) return standIn;
+    return choices[s.salRandom.nextInt(choices.length)];
+  }
+
+  final current = s.salClip;
+  if (s.salScene != scene || current == null) {
+    s.salScene = scene;
+    s.salClipPrev = null;
+    final first = opener != null && peek(opener) != null ? opener : pick();
+    s.salClip = first;
+    s.salClipAt = now;
+    return first;
+  }
+  final clip = peek(current);
+  if (clip == null) {
+    // Lost (never after a decode; defensively): on to the next.
+    final next = pick();
+    s.salClipPrev = current;
+    s.salClip = next;
+    s.salClipAt = now;
+    return next;
+  }
+  final length = clip.frames / clip.fps * 1000;
+  if (now - s.salClipAt < length) return current;
+  // Played through: the next of the pool, if there is another.
+  final next = pick();
+  if (next == current) {
+    // A loop alone goes on from where it is; a one-shot alone replays.
+    if (!clip.loop) s.salClipAt = now;
+    return current;
+  }
+  s.salClipPrev = current;
+  s.salClip = next;
+  s.salClipAt = now;
+  return next;
 }
 
 /// Sal's mood at [now].
@@ -2924,6 +3028,10 @@ class MoneyJourneyPainter extends CustomPainter {
 
   /// Whether Sal was walking at the last paint.
   bool get walking => _scene.salWalking;
+
+  /// The 3D clip Sal wore at the last paint (null while the rig draws
+  /// him), for the clip director's tests.
+  String? get salClip => _scene.salClip;
 
   /// The id of the leg line the coin travels now, null once it rests at
   /// a station (`#stage` on the stage road of a list without a graph).
