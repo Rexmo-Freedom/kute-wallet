@@ -868,18 +868,19 @@ void main() {
     // Balances: the shares block (founder, 31 October 2026: "Portfolio is
     // just open positions. On top, instead of the balance, show the
     // shares with the pie chart on the left"): the ring with the shares
-    // as rows, no Available to invest, no Move money, no button, no
-    // tagline, no Total investments.
+    // as rows, no Available to invest, the Move money pill under the
+    // shares (founder, later that day: "where is the button to move
+    // money?"), no tagline, no Total investments.
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsOneWidget);
     expect(
         find.byKey(const ValueKey('portfolio-balance-ring')), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-share-buyingPower')),
         findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-move-money')), findsNothing);
+    expect(find.byKey(const ValueKey('portfolio-move-money')), findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-balance-split-toggle')),
         findsNothing);
-    expect(find.text(l10n.moveTransfer), findsNothing);
+    expect(find.text(l10n.moveTransfer), findsOneWidget);
     expect(find.text(l10n.portfolioBuyingPower), findsNothing);
     expect(find.byType(AppButton), findsNothing);
     expect(find.text('Total investments'), findsNothing);

@@ -233,8 +233,17 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     // Provider writes are illegal while the tree is building.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // A scope inside a surface built without a ProviderScope (a widget
+      // test of a keypad or a sheet on its own) holds nothing: the bar
+      // is not there either.
+      final KuteBarContextStack stack;
+      try {
+        stack = ref.read(kuteBarContextProvider.notifier);
+      } on StateError {
+        return;
+      }
       _route = ModalRoute.of(context);
-      _stack = ref.read(kuteBarContextProvider.notifier);
+      _stack = stack;
       _held = widget.barContext.boundTo(_route);
       _stack!.push(_held!);
     });

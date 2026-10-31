@@ -282,8 +282,11 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
-    // The shell-level Sal bar is up while the shell is (kute_bar_context.dart).
-    kuteShellMounted.value = true;
+    // The shell-level Sal bar is up while the shell is (kute_bar_context.dart);
+    // flipped after the frame, never mid-build (the bar rebuilds on it).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) kuteShellMounted.value = true;
+    });
     _lastBranch = widget.navigationShell.currentIndex;
     _page = AnimationController(
       vsync: this,
@@ -391,7 +394,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
-    kuteShellMounted.value = false;
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => kuteShellMounted.value = false);
     _page.dispose();
     super.dispose();
   }
