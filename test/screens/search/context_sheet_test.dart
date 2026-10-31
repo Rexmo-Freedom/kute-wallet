@@ -49,7 +49,7 @@ void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets(
-      'a market context: preview card, one actions card, Ask Sal chips, '
+      'a market context: preview card, one actions card, no chips, '
       'no pills, no Recommended, keyboard down', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -128,8 +128,9 @@ void main() {
     expect(find.byKey(const ValueKey('context-actions-card')), findsOneWidget);
     expect(find.text('Share the market'), findsOneWidget);
     expect(find.text('Send this prediction'), findsOneWidget);
-    expect(find.text('Ask Sal'), findsOneWidget);
-    expect(find.text('Explain the odds'), findsOneWidget);
+    // No Ask Sal chips (founder, 31 October 2026).
+    expect(find.text('Ask Sal'), findsNothing);
+    expect(find.text('Explain the odds'), findsNothing);
     // Not search scoping, not the old label, no dollars wording.
     expect(find.byType(KutePillTabs), findsNothing);
     expect(find.text('Recommended'), findsNothing);
@@ -138,10 +139,6 @@ void main() {
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.focusNode!.hasFocus, isFalse);
 
-    // A chip asks Sal at once.
-    await tester.tap(find.text('Explain the odds'));
-    await tester.pumpAndSettle();
-    expect(asked, ['Explain the odds']);
     navigator.currentState!.pop();
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 6));

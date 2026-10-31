@@ -192,6 +192,32 @@ void main() {
     expect(find.text('Share with your friends'), findsOneWidget);
   });
 
+  testWidgets(
+      'a popped market page drops its context: the stack is empty and the '
+      'bar is the home default, once, with no lift', (tester) async {
+    kuteShellMounted.value = true;
+    addTearDown(() => kuteShellMounted.value = false);
+    final container = await _pump(tester);
+    // On the tab root the one pill is the default.
+    expect(find.text('Search or ask Sal'), findsOneWidget);
+
+    await _push(tester, _page(barContext: _market), name: 'market');
+    expect(find.text('Share with your friends'), findsOneWidget);
+    expect(container.read(kuteBarContextProvider), hasLength(1));
+    final lifted = tester.getRect(find.byType(KuteSalPill)).bottom;
+
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    expect(container.read(kuteBarContextProvider), isEmpty);
+    expect(find.text('Share with your friends'), findsNothing);
+    expect(find.text('Search or ask Sal'), findsOneWidget);
+    expect(find.byType(KuteSalPill), findsOneWidget);
+    expect(_up(tester), isTrue);
+    // Back at the foot: no lift kept from the popped page.
+    final rest = tester.getRect(find.byType(KuteSalPill)).bottom;
+    expect(rest - lifted, moreOrLessEquals(80, epsilon: 1));
+  });
+
   testWidgets('a declared action row lifts the bar above it',
       (tester) async {
     await _pump(tester);

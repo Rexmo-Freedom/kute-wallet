@@ -226,19 +226,4 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets('idle Home search offers Sal\'s opening questions as chips',
-      (tester) async {
-    final probe = await _openSearch(tester);
-    expect(find.byType(SalSuggestionButton), findsWidgets);
-    await tester.tap(find.text('How do I receive Bitcoin in Kute?'));
-    await tester.pumpAndSettle();
-    expect(probe.advisorRequests, ['How do I receive Bitcoin in Kute?']);
-    expect(probe.asks.single,
-        (input: 'suggested', template: 'wallet.receive', chipIndex: 0));
-    probe.navigator.currentState!.pop();
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 6));
-    expect(tester.takeException(), isNull);
-  });
 }
