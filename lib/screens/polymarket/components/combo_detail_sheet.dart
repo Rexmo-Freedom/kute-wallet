@@ -35,6 +35,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/polymarket/combos/combo_analytics.dart';
 import 'package:kute/services/polymarket/combos/combo_math.dart';
@@ -412,9 +413,16 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = position;
     if (!p.isOpen) return const SizedBox.shrink();
-    return AppButton(
-      text: context.l10n.comboClose,
-      onPressed: () => _CloseComboSheet.show(context, p),
+    // THE BAR IS THE BUTTON (kute_bar_context.dart): Close combo is the
+    // floating Sal bar's primary action. The close sheet it opens is a
+    // short sheet and keeps its own buttons.
+    return KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: context.l10n.comboClose,
+        onPrimary: () => _CloseComboSheet.show(context, p),
+        source: 'combo_detail',
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
     );
   }
 }

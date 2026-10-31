@@ -874,6 +874,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               step: _step,
               colors: c,
               visibleSteps: const {_kSendToStep, _kAmountStep},
+              // The Amount step's Continue is the bar (kute_shell_bar
+              // .dart); Send to keeps its button.
+              barSteps: const {_kAmountStep},
+              source: 'dollar_send_amount',
               enabled: _step == _kAmountStep
                   ? _amountStepValid
                   : _step == _kSendToStep && _recipientReady,

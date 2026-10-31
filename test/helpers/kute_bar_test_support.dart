@@ -1,0 +1,36 @@
+// test/helpers/kute_bar_test_support.dart
+//
+// The floating Sal bar in a widget test. Since 31 October 2026 every
+// pinned primary button is the shell bar in primary-action mode
+// (kute_bar_context.dart, KuteBarContext.primary): a screen draws no
+// button of its own, so a test that taps "Continue" or "Send" mounts the
+// bar over the harness the way app_widget.dart does ([withKuteShellBar]
+// as the MaterialApp's builder) and taps [kuteBarPrimary].
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+
+/// A MaterialApp `builder`: the app under the shell bar.
+Widget withKuteShellBar(BuildContext context, Widget? child) =>
+    Stack(children: [child!, const KuteShellBar()]);
+
+/// The bar as the primary button.
+final Finder kuteBarPrimary =
+    find.byKey(const ValueKey('kute-bar-primary-button'));
+
+/// The bar's primary button carrying [text].
+Finder kuteBarPrimaryWithText(String text) =>
+    find.descendant(of: kuteBarPrimary, matching: find.text(text));
+
+/// The context the bar's primary button is drawn from.
+KuteBarContext kuteBarPrimaryContext(WidgetTester tester) => tester
+    .widget<KuteBarPrimaryButton>(find.byType(KuteBarPrimaryButton))
+    .barContext;
+
+/// Whether the bar's primary button takes a tap.
+bool kuteBarPrimaryEnabled(WidgetTester tester) {
+  final ctx = kuteBarPrimaryContext(tester);
+  return ctx.enabled && !ctx.busy && ctx.onPrimary != null;
+}

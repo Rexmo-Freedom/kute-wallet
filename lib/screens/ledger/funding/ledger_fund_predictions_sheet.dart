@@ -42,6 +42,7 @@ import 'package:kute/screens/ledger/funding/ledger_funding_parts.dart';
 import 'package:kute/screens/ledger/funding/ledger_polymarket_funding_explainer_sheet.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
 import 'package:kute/screens/shared/route_pause_gate.dart';
@@ -379,6 +380,19 @@ class _LedgerFundPredictionsSheetState
 
   // ───────────────────────────── UI ───────────────────────────────
 
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): the step's primary (Connect, Approve, Retry) is the floating
+  /// Sal bar's primary action; Cancel is a text button above it, over the
+  /// clearance the bar floats on.
+  Widget _bar(String label, VoidCallback onPrimary) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          source: 'ledger_fund_predictions',
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+
   @override
   Widget build(BuildContext context) {
     // Keeps the wallet's service alive for the whole sheet: the refund
@@ -425,29 +439,21 @@ class _LedgerFundPredictionsSheetState
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_step == _PmFundStep.intro)
-                  AppButton(
-                    text: l10n.ledgerPmFundConnectCta,
-                    onPressed: _start,
-                  ),
-                if (_step == _PmFundStep.review)
-                  AppButton(
-                    text: l10n.ledgerFundApproveCta,
-                    onPressed: _approve,
-                  ),
-                if (_step == _PmFundStep.error)
-                  AppButton(
-                    text: l10n.retry,
-                    onPressed: _backToIntro,
-                  ),
-                SizedBox(height: 10.h),
-                AppButton(
+                AppTextButton(
                   text: l10n.cancel,
-                  variant: AppButtonVariant.secondary,
                   onPressed:
                       _busy && _step != _PmFundStep.connecting ? null : _cancel,
                 ),
+                switch (_step) {
+                  _PmFundStep.intro =>
+                    _bar(l10n.ledgerPmFundConnectCta, _start),
+                  _PmFundStep.review =>
+                    _bar(l10n.ledgerFundApproveCta, _approve),
+                  _PmFundStep.error => _bar(l10n.retry, _backToIntro),
+                  _ => SizedBox(height: kuteBarScrollClearance.h),
+                },
               ],
             ),
           ),

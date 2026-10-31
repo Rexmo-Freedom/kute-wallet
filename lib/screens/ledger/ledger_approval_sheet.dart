@@ -21,6 +21,7 @@ import 'package:kute/providers/ledger/ledger_action_controller.dart';
 import 'package:kute/providers/ledger/ledger_transports_provider.dart';
 import 'package:kute/screens/ledger/ledger_connect_steps.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -203,6 +204,12 @@ class _LedgerApprovalSheetState extends ConsumerState<LedgerApprovalSheet> {
     }
   }
 
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): a step's primary (Approve, Try again, Check status, Approve
+  /// again) is the floating Sal bar's primary action, with its secondary
+  /// (Cancel, Close) a text button above it; a step with no primary keeps
+  /// its quiet buttons drawn. The last row is the clearance the bar
+  /// floats over.
   List<Widget> _buttons(BuildContext context, LedgerApprovalState state) {
     final l10n = context.l10n;
     Widget gap() => SizedBox(height: 10.h);
@@ -211,73 +218,96 @@ class _LedgerApprovalSheetState extends ConsumerState<LedgerApprovalSheet> {
           variant: AppButtonVariant.secondary,
           onPressed: onPressed,
         );
+    Widget quiet(String text, VoidCallback onPressed) =>
+        AppTextButton(text: text, onPressed: onPressed);
+    Widget primary(String text, VoidCallback? onPressed,
+            {bool busy = false}) =>
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: text,
+            onPrimary: onPressed,
+            enabled: onPressed != null,
+            busy: busy,
+            source: 'ledger_approval',
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
+        );
+    Widget clearance() => SizedBox(height: kuteBarScrollClearance.h);
 
     switch (state.step) {
       case LedgerApprovalStep.review:
         return [
-          AppButton(text: l10n.ledgerApproveStep, onPressed: _approve),
-          gap(),
-          secondary(l10n.cancel, _cancel),
+          quiet(l10n.cancel, _cancel),
+          primary(l10n.ledgerApproveStep, _approve),
         ];
       case LedgerApprovalStep.unlock:
       case LedgerApprovalStep.installApp:
       case LedgerApprovalStep.updateApp:
         return [
-          AppButton(text: l10n.tryAgain, onPressed: _controller.retryPreflight),
-          gap(),
-          secondary(l10n.cancel, _cancel),
+          quiet(l10n.cancel, _cancel),
+          primary(l10n.tryAgain, _controller.retryPreflight),
         ];
       case LedgerApprovalStep.openApp:
         return [
           if (state.failure != null) ...[
-            AppButton(
-                text: l10n.tryAgain, onPressed: _controller.retryPreflight),
-            gap(),
+            quiet(l10n.cancel, _cancel),
+            primary(l10n.tryAgain, _controller.retryPreflight),
+          ] else ...[
+            secondary(l10n.cancel, _cancel),
+            clearance(),
           ],
-          secondary(l10n.cancel, _cancel),
         ];
       case LedgerApprovalStep.scanning:
         return [
           secondary(l10n.ledgerApprovalScanAgain, _controller.rescan),
           gap(),
           secondary(l10n.cancel, _cancel),
+          clearance(),
         ];
       case LedgerApprovalStep.submitting:
-        return [secondary(l10n.ledgerApprovalClose, _cancel)];
+        return [secondary(l10n.ledgerApprovalClose, _cancel), clearance()];
       case LedgerApprovalStep.pending:
-        return [
-          if (widget.request.reconcile != null) ...[
-            AppButton(
-              text: l10n.ledgerCheckStatus,
-              isLoading: state.checking,
-              onPressed: state.checking ? null : _controller.checkPending,
-            ),
-            gap(),
-          ],
-          secondary(
-            l10n.ledgerApprovalClose,
-            () => _close(LedgerApprovalOutcome(
+        final close = () => _close(LedgerApprovalOutcome(
               LedgerApprovalOutcomeKind.pending,
               recordId: state.recordId,
-            )),
-          ),
+            ));
+        return [
+          if (widget.request.reconcile != null) ...[
+            quiet(l10n.ledgerApprovalClose, close),
+            primary(
+              l10n.ledgerCheckStatus,
+              state.checking ? null : _controller.checkPending,
+              busy: state.checking,
+            ),
+          ] else ...[
+            secondary(l10n.ledgerApprovalClose, close),
+            clearance(),
+          ],
         ];
       case LedgerApprovalStep.failed:
         return [
           if (state.canRetry) ...[
-            AppButton(
-              text: l10n.ledgerApproveAgain,
-              onPressed: () => _controller.begin(widget.request),
+            quiet(
+              l10n.ledgerApprovalClose,
+              () => _close(LedgerApprovalOutcome(
+                LedgerApprovalOutcomeKind.failed,
+                recordId: state.recordId,
+              )),
             ),
-            gap(),
+            primary(
+              l10n.ledgerApproveAgain,
+              () => _controller.begin(widget.request),
+            ),
+          ] else ...[
+            secondary(
+              l10n.ledgerApprovalClose,
+              () => _close(LedgerApprovalOutcome(
+                LedgerApprovalOutcomeKind.failed,
+                recordId: state.recordId,
+              )),
+            ),
+            clearance(),
           ],
-          secondary(
-            l10n.ledgerApprovalClose,
-            () => _close(LedgerApprovalOutcome(
-              LedgerApprovalOutcomeKind.failed,
-              recordId: state.recordId,
-            )),
-          ),
         ];
       case LedgerApprovalStep.success:
         return const [];

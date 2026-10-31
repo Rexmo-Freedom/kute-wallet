@@ -5463,6 +5463,10 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         step: _step,
         colors: c,
         visibleSteps: const {_kSendToPage, _kAmountPage},
+        // The Amount step's Continue is the bar (kute_shell_bar.dart);
+        // Send to keeps its button, its bar being "Send to anyone".
+        barSteps: const {_kAmountPage},
+        source: 'bitcoin_send_amount',
         enabled: () {
           if (_step == _kAmountPage) {
             final amount = ref.watch(sendTxProvider).amount;

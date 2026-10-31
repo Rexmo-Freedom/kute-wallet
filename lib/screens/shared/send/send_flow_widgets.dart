@@ -25,7 +25,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show groupTypedAmount;
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -1164,7 +1164,12 @@ class SendReviewFullAddress extends StatelessWidget {
   }
 }
 
-/// The Review step's one primary action and the footnote under it.
+/// The Review step's one primary action and the footnote over it.
+///
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): Send / Continue is the floating Sal bar's primary action, with
+/// the label, the enabled state and the spinner the drawn button had;
+/// the footnote stays on the page, above the bar's clearance.
 class SendReviewAction extends StatelessWidget {
   const SendReviewAction({
     super.key,
@@ -1172,12 +1177,16 @@ class SendReviewAction extends StatelessWidget {
     required this.onPressed,
     required this.footnote,
     this.loading = false,
+    this.source = 'send_review',
   });
 
   final String label;
   final VoidCallback? onPressed;
   final String footnote;
   final bool loading;
+
+  /// The `search_opened` source of the bar's long press.
+  final String source;
 
   @override
   Widget build(BuildContext context) {
@@ -1186,8 +1195,16 @@ class SendReviewAction extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(text: label, isLoading: loading, onPressed: onPressed),
-        SizedBox(height: 8.h),
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: label,
+            onPrimary: onPressed,
+            enabled: onPressed != null && !loading,
+            busy: loading,
+            source: source,
+          ),
+          child: const SizedBox.shrink(),
+        ),
         Center(
           child: Text(
             footnote,
@@ -1199,6 +1216,8 @@ class SendReviewAction extends StatelessWidget {
             ),
           ),
         ),
+        // Clear of the bar (the frame's own bottom padding is under this).
+        SizedBox(height: kuteBarScrollClearance.h - 16.h),
       ],
     );
   }

@@ -48,6 +48,7 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart' show AmountKeypad;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/app_text_field.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill, SendToListCard, SendTypedAmountHero;
 import 'package:kute/services/api/share_links_api.dart';
@@ -361,12 +362,16 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             onChanged: (v) => setState(() => _typed = v),
           ),
         ),
-        SizedBox(height: 16.h),
-        AppButton(
-          key: const ValueKey('share-amount-continue'),
-          text: l10n.continueLabel,
-          onPressed:
-              amountMinor > 0 ? () => setState(() => _step = _Step.name) : null,
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Continue is the
+        // floating Sal bar's primary action; the keypad keeps clear of it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: l10n.continueLabel,
+            onPrimary: () => setState(() => _step = _Step.name),
+            enabled: amountMinor > 0,
+            source: 'share_amount',
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
       ],
     );
@@ -410,13 +415,19 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
             ),
           ),
         ],
-        SizedBox(height: 20.h),
-        AppButton(
-          key: const ValueKey('share-create-link'),
-          text: l10n.shareCreateLink,
-          isLoading: _creating,
-          loadingLabel: l10n.shareCreatingLink,
-          onPressed: _creating ? null : () => unawaited(_create()),
+        // Create link is the bar (kute_bar_context.dart), busy while the
+        // link is posted. The bar hides under the keyboard, so the field's
+        // return key creates the link too.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: l10n.shareCreateLink,
+            onPrimary: () => unawaited(_create()),
+            enabled: !_creating,
+            busy: _creating,
+            busyLabel: l10n.shareCreatingLink,
+            source: 'share_name',
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
       ],
     );
@@ -435,17 +446,20 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           colors: c,
           rows: [PendingShareLinkRow(row: row, onTap: () {})],
         ),
-        SizedBox(height: 20.h),
-        AppButton(
-          key: const ValueKey('share-done'),
-          text: l10n.done,
-          onPressed: () => Navigator.of(context).pop(true),
-        ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 12.h),
         AppTextButton(
           key: const ValueKey('share-again'),
           text: l10n.shareLinkShareAgain,
           onPressed: () => unawaited(_share(row)),
+        ),
+        // Done is the bar (kute_bar_context.dart); Share again sits above it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: l10n.done,
+            onPrimary: () => Navigator.of(context).pop(true),
+            source: 'share_done',
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
       ],
     );

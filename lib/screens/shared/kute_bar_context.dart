@@ -24,6 +24,18 @@
 // may scroll under it. The bar hides ONLY while the keyboard is up or the
 // Sal sheet itself is open (a [hidden] context).
 //
+// EVERY PINNED PRIMARY BUTTON IS THE BAR (founder, 31 October 2026): a
+// screen or sheet whose foot had a Continue / Send / Claim / Done draws
+// none and declares it with [KuteBarContext.primary] instead (the label,
+// the enabled and busy states as the button had them), keeping its
+// content clear of the bar with [kuteBarScrollClearance]. A second pinned
+// button (Cancel, Skip) stays on the page as a text button above the bar.
+// A short sheet hides the bar (app_bottom_sheet.dart) UNLESS its own
+// primary is the bar: a primary context mounted in the same route beats
+// the sheet's hidden one ([kuteBarTop]), so the sheet is never left with
+// no button at all. Onboarding and the Claim screen are silent for the
+// default pill ([kuteBarSilentRoutes]) but show their own primary.
+//
 // A context is honoured while its own route is current: a scope records
 // the route it is mounted in, and a sheet pushed over that page (a slip
 // over a market) gets the default bar at the bottom rather than the
@@ -273,9 +285,22 @@ final kuteBarContextProvider =
     NotifierProvider<KuteBarContextStack, List<KuteBarContext>>(
         KuteBarContextStack.new);
 
-/// The bar's current context, or null for the dock's default.
-KuteBarContext? kuteBarTop(List<KuteBarContext> stack) =>
-    stack.isEmpty ? null : stack.last;
+/// The bar's current context, or null for the dock's default. A hidden
+/// context bound to a route (a short sheet's) gives way to a primary one
+/// bound to the same route: the sheet's own button is the bar (see the
+/// file header). The Sal sheet's hidden context has no route and always
+/// wins.
+KuteBarContext? kuteBarTop(List<KuteBarContext> stack) {
+  if (stack.isEmpty) return null;
+  final top = stack.last;
+  if (!top.hidden || top.route == null) return top;
+  for (var i = stack.length - 2; i >= 0; i--) {
+    final c = stack[i];
+    if (c.route != top.route) break;
+    if (c.isPrimary) return c;
+  }
+  return top;
+}
 
 /// Holds [barContext] on the stack while mounted (see the file header),
 /// bound to the route it is mounted in.

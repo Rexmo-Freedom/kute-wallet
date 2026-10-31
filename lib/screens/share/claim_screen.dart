@@ -54,6 +54,7 @@ import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_mascot.dart';
 import 'package:kute/services/api/share_links_api.dart';
@@ -507,59 +508,50 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 24.h),
-                  child: switch (_phase) {
-                    _Phase.ready || _Phase.claiming => AppButton(
-                        key: const ValueKey('claim-button'),
-                        text: l10n.claimButton,
-                        isLoading: _phase == _Phase.claiming,
-                        loadingLabel: l10n.claimClaiming,
-                        onPressed: _phase == _Phase.ready
-                            ? () => unawaited(_claim())
-                            : null,
-                      ),
-                    _Phase.claimed when pick => Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          AppButton(
-                            key: const ValueKey('claim-place-pick'),
-                            text: _arrived
-                                ? (_investing
-                                    ? l10n.claimPlaceInvestment
-                                    : l10n.claimPlacePrediction)
-                                : l10n.claimWaitingForSender(sender),
-                            onPressed:
-                                _arrived ? () => unawaited(_placePick()) : null,
-                          ),
-                          SizedBox(height: 8.h),
-                          AppTextButton(
-                            key: const ValueKey('claim-done'),
-                            text: l10n.done,
-                            onPressed: () => context.go('/home'),
-                          ),
-                        ],
-                      ),
-                    _Phase.claimed => market != null
-                        ? AppButton(
-                            key: const ValueKey('claim-open-market'),
-                            text: l10n.claimOpenMarket,
-                            onPressed: _openMarket,
-                          )
-                        : AppButton(
-                            key: const ValueKey('claim-done'),
-                            text: l10n.done,
-                            onPressed: () => context.go('/home'),
-                          ),
-                    _Phase.error => AppButton(
-                        key: const ValueKey('claim-done'),
-                        text: l10n.done,
-                        onPressed: () => context.go('/home'),
-                      ),
-                    _Phase.loading => const SizedBox.shrink(),
-                  },
-                ),
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Claim,
+                // then Place the prediction / Open the market / Done, is
+                // the floating Sal bar's primary action, one per phase;
+                // Done under a pick is a text button above it.
+                switch (_phase) {
+                  _Phase.ready || _Phase.claiming => _bar(
+                      label: l10n.claimButton,
+                      onPrimary: () => unawaited(_claim()),
+                      enabled: _phase == _Phase.ready,
+                      busy: _phase == _Phase.claiming,
+                      busyLabel: l10n.claimClaiming,
+                    ),
+                  _Phase.claimed when pick => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppTextButton(
+                          key: const ValueKey('claim-done'),
+                          text: l10n.done,
+                          onPressed: () => context.go('/home'),
+                        ),
+                        _bar(
+                          label: _arrived
+                              ? (_investing
+                                  ? l10n.claimPlaceInvestment
+                                  : l10n.claimPlacePrediction)
+                              : l10n.claimWaitingForSender(sender),
+                          onPrimary: () => unawaited(_placePick()),
+                          enabled: _arrived,
+                        ),
+                      ],
+                    ),
+                  _Phase.claimed => market != null
+                      ? _bar(label: l10n.claimOpenMarket, onPrimary: _openMarket)
+                      : _bar(
+                          label: l10n.done,
+                          onPrimary: () => context.go('/home'),
+                        ),
+                  _Phase.error => _bar(
+                      label: l10n.done,
+                      onPrimary: () => context.go('/home'),
+                    ),
+                  _Phase.loading => const SizedBox.shrink(),
+                },
               ],
             ),
           ),
@@ -567,6 +559,27 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       ),
     );
   }
+
+  /// The phase's primary action as the bar, over the clearance the
+  /// content keeps for it.
+  Widget _bar({
+    required String label,
+    required VoidCallback onPrimary,
+    bool enabled = true,
+    bool busy = false,
+    String? busyLabel,
+  }) =>
+      KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          enabled: enabled,
+          busy: busy,
+          busyLabel: busyLabel,
+          source: 'claim',
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
 
   /// The pick's preview card: the market's picture when known, its title
   /// (two lines) and "{outcome} · {amount}". The share market sheet's

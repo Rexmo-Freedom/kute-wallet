@@ -44,6 +44,7 @@ import 'package:kute/screens/ledger/funding/ledger_deposit_source_sheet.dart';
 import 'package:kute/screens/ledger/funding/ledger_funding_parts.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
@@ -436,6 +437,20 @@ class _LedgerFundInvestingSheetState
 
   // ───────────────────────────── UI ───────────────────────────────
 
+
+  /// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+  /// .dart): the step's primary (Connect, Approve, Retry) is the floating
+  /// Sal bar's primary action; Cancel is a text button above it, over the
+  /// clearance the bar floats on.
+  Widget _bar(String label, VoidCallback onPrimary) => KuteBarContextScope(
+        barContext: KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          source: 'ledger_fund_investing',
+        ),
+        child: SizedBox(height: kuteBarScrollClearance.h),
+      );
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -481,29 +496,19 @@ class _LedgerFundInvestingSheetState
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_step == _FundStep.intro)
-                  AppButton(
-                    text: l10n.ledgerFundConnectCta,
-                    onPressed: _start,
-                  ),
-                if (_step == _FundStep.review)
-                  AppButton(
-                    text: l10n.ledgerFundApproveCta,
-                    onPressed: _approve,
-                  ),
-                if (_step == _FundStep.error)
-                  AppButton(
-                    text: l10n.retry,
-                    onPressed: _backToIntro,
-                  ),
-                SizedBox(height: 10.h),
-                AppButton(
+                AppTextButton(
                   text: l10n.cancel,
-                  variant: AppButtonVariant.secondary,
                   onPressed:
                       _busy && _step != _FundStep.connecting ? null : _cancel,
                 ),
+                switch (_step) {
+                  _FundStep.intro => _bar(l10n.ledgerFundConnectCta, _start),
+                  _FundStep.review => _bar(l10n.ledgerFundApproveCta, _approve),
+                  _FundStep.error => _bar(l10n.retry, _backToIntro),
+                  _ => SizedBox(height: kuteBarScrollClearance.h),
+                },
               ],
             ),
           ),
