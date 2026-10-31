@@ -2,6 +2,8 @@ import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
@@ -357,15 +359,13 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
-                      // The watchlist star. Sal's one door on this screen
-                      // is the "Why is it moving?" row under the chart;
-                      // the bar reads "Share with your friends".
-                      // The watchlist star (the bar reads "Share with your
-                      // friends" while this page is up; its context is
-                      // held here). Sal's one door on this screen is the
-                      // "Why is it moving?" row under the chart.
-                      KuteBarContextScope(
-                        barContext: marketBarContext(
+                      // Sal's share circle (KuteSalHeaderButton; founder,
+                      // 31 October 2026: the floating pill is away on a
+                      // market page, the control sits here) and the
+                      // watchlist star. The page's bar context is held
+                      // here with its `header` placement.
+                      Builder(builder: (context) {
+                        final bar = marketBarContext(
                           context,
                           title: widget.market.coin,
                           venue: kMarketLinkInvesting,
@@ -384,10 +384,21 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           category: SearchCategory.perpetuals,
                           searchHint: context.l10n.searchInvestmentsHint,
                           source: 'trading',
-                        ),
-                        child:
-                            HlWatchStar(market: m, size: 22, source: 'detail'),
-                      ),
+                          placement: KuteBarPlacement.header,
+                        );
+                        return KuteBarContextScope(
+                          barContext: bar,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              KuteSalHeaderButton(barContext: bar),
+                              SizedBox(width: 8.w),
+                              HlWatchStar(
+                                  market: m, size: 22, source: 'detail'),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -473,16 +484,22 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
-                    return HlChartEditBody(
-                      chart: HlCandleChart(
-                        key: _chartHostKey,
-                        market: m,
-                        height: 240,
-                        fillHeight: true,
-                        showSignals: true,
-                        ledgerWalletId: widget.ledgerWalletId,
-                        onAdvancedChanged: (on) =>
-                            setState(() => _advancedChart = on),
+                    // The header (and the page's bar context with it) is
+                    // away, so the bar is hidden outright here: nothing
+                    // over the chart tool.
+                    return KuteBarContextScope(
+                      barContext: const KuteBarContext.hidden(),
+                      child: HlChartEditBody(
+                        chart: HlCandleChart(
+                          key: _chartHostKey,
+                          market: m,
+                          height: 240,
+                          fillHeight: true,
+                          showSignals: true,
+                          ledgerWalletId: widget.ledgerWalletId,
+                          onAdvancedChanged: (on) =>
+                              setState(() => _advancedChart = on),
+                        ),
                       ),
                     );
                   }

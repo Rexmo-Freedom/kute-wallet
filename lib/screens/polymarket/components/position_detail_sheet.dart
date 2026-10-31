@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -435,6 +437,26 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         PolymarketEvent.logoForText(headerTeams, pos.marketQuestion) ??
         pos.marketImage;
 
+    // The page's Sal context, placed in its header (KuteSalHeaderButton;
+    // the floating pill is away on a position page).
+    final bar = marketBarContext(
+      context,
+      title: widget.position.marketQuestion,
+      venue: kMarketLinkPredictions,
+      slug: widget.position.eventSlug,
+      // The pick: this position's outcome.
+      outcome: pos.outcome,
+      outcomeChance: pos.currentPrice * 100,
+      side: 'buy',
+      imageUrl: headerImage,
+      actionRowHeight:
+          pos.isResolved && pos.won == true ? 0 : 12.h + 56.h + 16.h,
+      position: true,
+      category: SearchCategory.predictions,
+      searchHint: context.l10n.searchPredictionsHint,
+      source: 'predictions',
+      placement: KuteBarPlacement.header,
+    );
     return Scaffold(
       backgroundColor: context.isDark
           ? context.colors.gradientBottom
@@ -450,27 +472,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                 child: Row(
                   children: [
-                    // The bar reads "Share with your friends" while this
-                    // page is up.
                     KuteBarContextScope(
-                      barContext: marketBarContext(
-                        context,
-                        title: widget.position.marketQuestion,
-                        venue: kMarketLinkPredictions,
-                        slug: widget.position.eventSlug,
-                        // The pick: this position's outcome.
-                        outcome: pos.outcome,
-                        outcomeChance: pos.currentPrice * 100,
-                        side: 'buy',
-                        imageUrl: headerImage,
-                        actionRowHeight: pos.isResolved && pos.won == true
-                            ? 0
-                            : 12.h + 56.h + 16.h,
-                        position: true,
-                        category: SearchCategory.predictions,
-                        searchHint: context.l10n.searchPredictionsHint,
-                        source: 'predictions',
-                      ),
+                      barContext: bar,
                       child: const KuteCloseButton(),
                     ),
                     SizedBox(width: 8.w),
@@ -504,6 +507,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         ),
                       ),
                     ),
+                    SizedBox(width: 8.w),
+                    // Sal's share circle: the page's Sal control.
+                    KuteSalHeaderButton(barContext: bar),
                   ],
                 ),
               ),

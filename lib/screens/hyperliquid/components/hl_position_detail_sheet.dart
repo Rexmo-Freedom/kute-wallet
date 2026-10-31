@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -226,23 +228,27 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    // The bar reads "Share with your friends" while this page is up, in
-    // chart-edit mode too (the scope is around the whole page).
+    // The page's Sal context, placed in its header (KuteSalHeaderButton;
+    // the floating pill is away on a position page): the scope is around
+    // the whole page, so in chart-edit mode, with the header away, the
+    // bar stays away too.
+    final bar = marketBarContext(
+      context,
+      title: widget.position.coin,
+      venue: kMarketLinkInvesting,
+      slug: widget.position.coin,
+      // The pick: this position's side.
+      outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
+      side: pos.isLong ? 'long' : 'short',
+      actionRowHeight: editing ? 0 : 12.h + 60.h + 8.h + 0.5,
+      position: true,
+      category: SearchCategory.perpetuals,
+      searchHint: context.l10n.searchInvestmentsHint,
+      source: 'trading',
+      placement: KuteBarPlacement.header,
+    );
     return KuteBarContextScope(
-      barContext: marketBarContext(
-        context,
-        title: widget.position.coin,
-        venue: kMarketLinkInvesting,
-        slug: widget.position.coin,
-        // The pick: this position's side.
-        outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
-        side: pos.isLong ? 'long' : 'short',
-        actionRowHeight: editing ? 0 : 12.h + 60.h + 8.h + 0.5,
-        position: true,
-        category: SearchCategory.perpetuals,
-        searchHint: context.l10n.searchInvestmentsHint,
-        source: 'trading',
-      ),
+      barContext: bar,
       child: Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       resizeToAvoidBottomInset: false,
@@ -286,6 +292,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           ),
                         ),
                       ),
+                      SizedBox(width: 8.w),
+                      // Sal's share circle: the page's Sal control.
+                      KuteSalHeaderButton(barContext: bar),
                     ],
                   ),
                 ),
