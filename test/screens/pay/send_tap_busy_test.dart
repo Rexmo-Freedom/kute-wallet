@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart'
     show runSendTapBusy;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
@@ -56,7 +57,9 @@ class _ReviewState extends State<_Review> {
 
 Future<_ReviewState> _pump(WidgetTester tester,
     Future<void> Function(void Function(bool)) route) async {
-  await tester.pumpWidget(ScreenUtilInit(
+  // A ProviderScope for the bar's context stack.
+  await tester.pumpWidget(ProviderScope(
+      child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       // The shell bar over the page: Send is the bar
@@ -65,7 +68,9 @@ Future<_ReviewState> _pump(WidgetTester tester,
       theme: ThemeData(extensions: [AppColorsExtension.light()]),
       home: _Review(route: route),
     ),
-  ));
+  )));
+  // The bar reads the page's context a frame after it mounts.
+  await tester.pump();
   return tester.state<_ReviewState>(find.byType(_Review));
 }
 

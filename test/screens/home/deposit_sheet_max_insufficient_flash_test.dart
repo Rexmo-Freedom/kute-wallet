@@ -282,6 +282,8 @@ void main() {
               usdPerBtc: _usdPerBtc * 0.9, delay: const Duration(seconds: 2)));
       await tester.tap(find.text('Max'));
       await tester.pump();
+      // The bar's label follows the page a frame later.
+      await tester.pump();
       expect(find.text('$verb \$100'), findsOneWidget);
       expect(
           await _sawInsufficient(tester, duration: const Duration(seconds: 3)),

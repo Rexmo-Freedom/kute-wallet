@@ -21,8 +21,25 @@ import 'package:kute/screens/ledger/ledger_action_ui.dart';
 import 'package:kute/screens/ledger/ledger_approval_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/hardware/ledger/ledger_hyperliquid_executor.dart';
 import 'package:kute/services/tracking_service.dart';
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false, String source = 'ledger_transfer'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class LedgerTransferSheet extends ConsumerStatefulWidget {
   const LedgerTransferSheet({
@@ -183,18 +200,17 @@ class _LedgerTransferSheetState extends ConsumerState<LedgerTransferSheet> {
       ],
       buttons: [
         if (!_pending) ...[
-          AppButton(
-            text: l10n.ledgerMoveCta,
-            isLoading: _busy,
-            onPressed: valid && !_busy ? () => _move(paired, amount) : null,
+          AppTextButton(
+            text: l10n.cancel,
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          SizedBox(height: 10.h),
-        ],
-        AppButton(
-          text: _pending ? l10n.ledgerApprovalClose : l10n.cancel,
-          variant: AppButtonVariant.secondary,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+          _bar(
+            l10n.ledgerMoveCta,
+            valid && !_busy ? () => _move(paired, amount) : null,
+            busy: _busy,
+          ),
+        ] else
+          _bar(l10n.ledgerApprovalClose, () => Navigator.of(context).pop()),
       ],
     );
   }

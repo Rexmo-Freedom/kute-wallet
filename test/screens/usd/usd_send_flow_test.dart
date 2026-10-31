@@ -265,10 +265,12 @@ Future<void> _pump(WidgetTester tester,
 }
 
 /// The step's primary button, the bar (kute_bar_test_support.dart),
-/// reading [label].
+/// reading [label] (the page's declared label: the bar draws it a frame
+/// after the page).
 KuteBarPrimaryProbe _cta(WidgetTester tester, String label) {
-  expect(kuteBarPrimaryWithText(label), findsOneWidget);
-  return kuteBarPrimaryProbe(tester);
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, label);
+  return probe;
 }
 
 bool _continueEnabled(WidgetTester tester) =>

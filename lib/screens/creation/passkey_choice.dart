@@ -24,7 +24,7 @@ import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart' show trackOnboardingStep;
 import 'package:kute/screens/shared/custom_alert_dialog.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/receive_surface.dart' show ReceiveCaption;
@@ -666,14 +666,19 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                       ),
                       SizedBox(height: 24.h),
                       const Spacer(),
-                      AppButton(
-                        text: l10n.continueLabel,
-                        isLoading: _isProcessing,
-                        onPressed: _isProcessing ||
-                                _walletLabel.isEmpty ||
-                                _biometricsAvailable == null
-                            ? null
-                            : _continue,
+                      // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                      // Continue is the floating Sal bar's primary action.
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: l10n.continueLabel,
+                          onPrimary: _continue,
+                          enabled: !_isProcessing &&
+                              _walletLabel.isNotEmpty &&
+                              _biometricsAvailable != null,
+                          busy: _isProcessing,
+                          source: 'passkey_choice',
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
                       // The greater of a comfortable gap and the
                       // home-indicator inset, never both: PlatformSafeArea

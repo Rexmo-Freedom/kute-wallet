@@ -331,13 +331,30 @@ final kuteBarContextProvider =
 KuteBarContext? kuteBarTop(List<KuteBarContext> stack) {
   if (stack.isEmpty) return null;
   final top = stack.last;
-  if (!top.hidden || top.route == null) return top;
+  if (top.isPrimary || top.route == null) return top;
+  // The page's own primary button is the bar, whatever else the page
+  // declared for it (its short-sheet hidden context, or a search context
+  // like the Send to step's "Send to anyone", which the long press keeps:
+  // see [kuteBarAskContext]); a page view builds its page after the
+  // frame's cta, so the order on the stack says nothing.
   for (var i = stack.length - 2; i >= 0; i--) {
     final c = stack[i];
     if (c.route != top.route) break;
     if (c.isPrimary) return c;
   }
   return top;
+}
+
+/// What a long press on the bar's primary button asks Sal with: the
+/// search context the same route declared (its recommended rows and
+/// prompts), else the primary context itself.
+KuteBarContext kuteBarAskContext(
+    List<KuteBarContext> stack, KuteBarContext primary) {
+  for (final c in stack.reversed) {
+    if (c.route != primary.route) continue;
+    if (!c.isPrimary && !c.hidden) return c;
+  }
+  return primary;
 }
 
 /// Holds [barContext] on the stack while mounted (see the file header),
@@ -362,8 +379,10 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
   @override
   void initState() {
     super.initState();
-    // Provider writes are illegal while the tree is building.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Provider writes are illegal while the tree is building: the stack
+    // is written in a microtask, after this frame's build (and before the
+    // next tap can land; the bar reads the live stack on a tap).
+    scheduleMicrotask(() {
       if (!mounted) return;
       // A scope inside a surface built without a ProviderScope (a widget
       // test of a keypad or a sheet on its own) holds nothing: the bar
@@ -386,7 +405,7 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     super.didUpdateWidget(old);
     final held = _held;
     if (held == null || identical(old.barContext, widget.barContext)) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    scheduleMicrotask(() {
       if (!mounted || _held != held) return;
       _held = widget.barContext.boundTo(_route);
       _stack?.replace(held, _held!);
@@ -399,7 +418,7 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     final stack = _stack;
     if (held != null && stack != null) {
       // After the frame: the stack's listeners must not rebuild mid-tear-down.
-      WidgetsBinding.instance.addPostFrameCallback((_) => stack.remove(held));
+      scheduleMicrotask(() => stack.remove(held));
     }
     super.dispose();
   }

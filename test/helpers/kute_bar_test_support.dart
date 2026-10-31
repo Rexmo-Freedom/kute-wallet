@@ -24,10 +24,20 @@ final Finder kuteBarPrimary =
 Finder kuteBarPrimaryWithText(String text) =>
     find.descendant(of: kuteBarPrimary, matching: find.text(text));
 
-/// The context the bar's primary button is drawn from.
-KuteBarContext kuteBarPrimaryContext(WidgetTester tester) => tester
-    .widget<KuteBarPrimaryButton>(find.byType(KuteBarPrimaryButton))
-    .barContext;
+/// The primary context the page declares now: the last primary
+/// [KuteBarContextScope] in the tree, which the page's build keeps current
+/// (the bar itself redraws a frame later). The bar's own, when the scope
+/// is gone.
+KuteBarContext kuteBarPrimaryContext(WidgetTester tester) {
+  final scopes = find.byWidgetPredicate(
+      (w) => w is KuteBarContextScope && w.barContext.isPrimary);
+  if (scopes.evaluate().isNotEmpty) {
+    return tester.widget<KuteBarContextScope>(scopes.last).barContext;
+  }
+  return tester
+      .widget<KuteBarPrimaryButton>(find.byType(KuteBarPrimaryButton))
+      .barContext;
+}
 
 /// Whether the bar's primary button takes a tap.
 bool kuteBarPrimaryEnabled(WidgetTester tester) {

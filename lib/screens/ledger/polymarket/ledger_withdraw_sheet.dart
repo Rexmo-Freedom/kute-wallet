@@ -30,10 +30,27 @@ import 'package:kute/screens/ledger/ledger_connect_steps.dart';
 import 'package:kute/screens/ledger/polymarket/ledger_pm_support.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/hardware/ledger/deposit_wallet_call_allowlist.dart';
 import 'package:kute/services/hardware/ledger/ledger_polymarket_executor.dart';
 import 'package:kute/services/polymarket/polymarket_account_resolver.dart';
 import 'package:kute/services/tracking_service.dart';
+
+/// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+/// .dart): the sheet's primary is the floating Sal bar's primary action;
+/// Cancel / Close is a text button above it, over the bar's clearance.
+Widget _bar(String label, VoidCallback? onPrimary,
+        {bool busy = false, String source = 'ledger_withdraw'}) =>
+    KuteBarContextScope(
+      barContext: KuteBarContext.primary(
+        label: label,
+        onPrimary: onPrimary,
+        enabled: onPrimary != null && !busy,
+        busy: busy,
+        source: source,
+      ),
+      child: SizedBox(height: kuteBarScrollClearance.h),
+    );
 
 class LedgerWithdrawSheet extends ConsumerStatefulWidget {
   const LedgerWithdrawSheet({
@@ -238,29 +255,28 @@ class _LedgerWithdrawSheetState extends ConsumerState<LedgerWithdrawSheet> {
       ],
       buttons: [
         if (!_submittedPending) ...[
+          AppTextButton(
+            text: l10n.cancel,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           if (needsUnwrap)
-            AppButton(
-              text: l10n.ledgerWithdrawUnwrapCta,
-              isLoading: _busy,
-              onPressed: canAct && canUnwrap && !_busy
+            _bar(
+              l10n.ledgerWithdrawUnwrapCta,
+              canAct && canUnwrap && !_busy
                   ? () => _unwrap(account, shortfall)
                   : null,
+              busy: _busy,
             )
           else
-            AppButton(
-              text: l10n.ledgerWithdrawCta,
-              isLoading: _busy,
-              onPressed: canAct && !cashUnknown && !_busy
+            _bar(
+              l10n.ledgerWithdrawCta,
+              canAct && !cashUnknown && !_busy
                   ? () => _withdraw(account)
                   : null,
+              busy: _busy,
             ),
-          SizedBox(height: 10.h),
-        ],
-        AppButton(
-          text: _submittedPending ? l10n.ledgerApprovalClose : l10n.cancel,
-          variant: AppButtonVariant.secondary,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        ] else
+          _bar(l10n.ledgerApprovalClose, () => Navigator.of(context).pop()),
       ],
     );
   }

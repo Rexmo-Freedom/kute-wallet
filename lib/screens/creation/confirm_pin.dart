@@ -7,13 +7,13 @@ import 'package:kute/services/secure/secret_error_class.dart';
 import 'package:kute/providers/words_provider.dart';
 import 'package:kute/screens/creation/set_pin.dart'; // Contains pinProvider & PinProgressIndicator
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_pin_scaffold.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/helpers/user_error_copy.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -247,15 +247,18 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
             curve: Curves.easeOut,
             child: IgnorePointer(
               ignoring: confirmPin.length != 6 || isLoading,
-              child: AppButton(
-                text: isLoading
-                    ? context.l10n.creatingWallet
-                    : context.l10n.setPin,
-                color: context.ctaFill,
-                // The wait is on the button, the way the bet slip waits
-                // (user decision): no full-screen overlay after the PIN.
-                isLoading: isLoading,
-                onPressed: () {
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): Set PIN is
+              // the floating Sal bar's primary action, on with six digits.
+              // The wait is on the button, the way the bet slip waits
+              // (user decision): no full-screen overlay after the PIN.
+              child: KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                label: context.l10n.setPin,
+                busyLabel: context.l10n.creatingWallet,
+                busy: isLoading,
+                enabled: confirmPin.length == 6,
+                source: 'confirm_pin',
+                onPrimary: () {
                   if (confirmPin.length == 6) {
                     if (confirmPin == originalPin) {
                       _handleSetPin(originalPin);
@@ -264,6 +267,8 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
                     }
                   }
                 },
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ),
           ),

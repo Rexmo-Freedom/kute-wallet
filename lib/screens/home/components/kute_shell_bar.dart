@@ -156,6 +156,18 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     _nudge.forward(from: 0);
   }
 
+  /// A tap on the primary button acts on the LIVE top context, not the
+  /// one drawn: a page that just enabled its action (the last digit typed)
+  /// has written the stack, and the frame that redraws the bar may not
+  /// have run yet. Nothing runs while the live action is off or busy.
+  void _primaryTap() {
+    final live = kuteBarTop(ref.read(kuteBarContextProvider));
+    if (live == null || !live.isPrimary || !live.current) return;
+    if (!live.enabled || live.busy || live.onPrimary == null) return;
+    HapticFeedback.lightImpact();
+    live.onPrimary!();
+  }
+
   void _open(KuteBarContext ctx) {
     final navContext = AppRouter.rootNavigatorKey.currentContext;
     if (navContext == null) return;
@@ -243,7 +255,11 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
           ? KuteBarPrimaryButton(
               key: const ValueKey('kute-bar-primary'),
               barContext: ctx,
-              onAsk: () => _open(ctx),
+              // The page's own Sal rows (Send to anyone on the Send to
+              // step) stay one long press away.
+              onAsk: () => _open(kuteBarAskContext(
+                  ref.read(kuteBarContextProvider), ctx)),
+              onPrimaryTap: _primaryTap,
             )
           : KuteSalPill(
               key: const ValueKey('kute-bar-pill'),
@@ -355,10 +371,17 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
 /// while not available, as the slip's CTA was.
 class KuteBarPrimaryButton extends StatelessWidget {
   const KuteBarPrimaryButton(
-      {super.key, required this.barContext, required this.onAsk});
+      {super.key,
+      required this.barContext,
+      required this.onAsk,
+      this.onPrimaryTap});
 
   final KuteBarContext barContext;
   final VoidCallback onAsk;
+
+  /// Runs the tap against the live context (the shell bar's); null runs
+  /// [barContext]'s own handler.
+  final VoidCallback? onPrimaryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -394,12 +417,16 @@ class KuteBarPrimaryButton extends StatelessWidget {
         enabled: enabled,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: enabled
-              ? () {
-                  HapticFeedback.lightImpact();
-                  ctx.onPrimary!();
-                }
-              : null,
+          // Always wired: the live context decides (see the shell bar's
+          // _primaryTap); a drawn-disabled button whose action just came
+          // on takes the tap.
+          onTap: onPrimaryTap ??
+              (enabled
+                  ? () {
+                      HapticFeedback.lightImpact();
+                      ctx.onPrimary!();
+                    }
+                  : null),
           onLongPress: onAsk,
           child: AnimatedOpacity(
             opacity: faded ? 0.35 : 1,

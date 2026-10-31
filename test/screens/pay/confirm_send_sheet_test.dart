@@ -30,6 +30,7 @@ import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_scanner_camera.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 final _l10n = AppLocalizationsEn();
 
@@ -115,6 +116,9 @@ Future<(ProviderContainer, GoRouter)> _pump(WidgetTester tester) async {
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp.router(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // steps' Continue and Send are the bar.
+        builder: withKuteShellBar,
         routerConfig: router,
         theme: ThemeData(
             splashFactory: NoSplash.splashFactory,
