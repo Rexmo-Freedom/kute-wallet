@@ -82,6 +82,15 @@ class KuteBarAction {
 /// page draws none of its own). See [KuteBarContext.primary].
 enum KuteBarKind { search, primaryAction }
 
+/// Where a surface's Sal control sits (founder, 31 October 2026): the
+/// floating pill at the foot of the screen ([bottom], the default), or a
+/// compact circle the page draws in its own header's top-right
+/// ([header]: market, position and multi-outcome event pages, where the
+/// pill covered the Advanced chart and Rules rows). With [header] the
+/// shell bar keeps its pill away and the page renders
+/// `KuteSalHeaderButton` (kute_shell_bar.dart) with this same context.
+enum KuteBarPlacement { bottom, header }
+
 /// What the bar says and does while its surface is on screen.
 class KuteBarContext {
   const KuteBarContext({
@@ -97,11 +106,15 @@ class KuteBarContext {
     this.actionRowHeight = 0,
     this.route,
     this.question,
+    this.placement = KuteBarPlacement.bottom,
   })  : kind = KuteBarKind.search,
         enabled = true,
         busy = false,
         onPrimary = null,
         busyLabel = null;
+
+  /// Where this surface's Sal control sits (see [KuteBarPlacement]).
+  final KuteBarPlacement placement;
 
   /// An informational screen's question ("Explain this receive screen…"):
   /// tapping the bar opens the Sal sheet with it already sent.
@@ -131,7 +144,8 @@ class KuteBarContext {
         actions = const [],
         prompts = const [],
         hidden = false,
-        actionRowHeight = 0;
+        actionRowHeight = 0,
+        placement = KuteBarPlacement.bottom;
 
   final KuteBarKind kind;
   final bool enabled;
@@ -157,7 +171,11 @@ class KuteBarContext {
         enabled = true,
         busy = false,
         onPrimary = null,
-        busyLabel = null;
+        busyLabel = null,
+        placement = KuteBarPlacement.bottom;
+
+  /// The Sal control is the page's own header circle, not the pill.
+  bool get inHeader => placement == KuteBarPlacement.header;
 
   /// The bar is this surface's primary button (see [KuteBarContext.primary]).
   bool get isPrimary => kind == KuteBarKind.primaryAction;
@@ -225,6 +243,7 @@ class KuteBarContext {
           actionRowHeight: actionRowHeight,
           route: route,
           question: question,
+          placement: placement,
         );
 }
 

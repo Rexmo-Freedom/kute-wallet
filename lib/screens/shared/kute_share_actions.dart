@@ -139,6 +139,7 @@ class KuteMarketBarContext extends KuteBarContext {
     super.source,
     super.actionRowHeight,
     super.route,
+    super.placement,
     required this.preview,
   });
 
@@ -158,6 +159,7 @@ class KuteMarketBarContext extends KuteBarContext {
         source: source,
         actionRowHeight: actionRowHeight,
         route: route,
+        placement: placement,
         preview: preview,
       );
 }
@@ -208,6 +210,9 @@ KuteBarContext marketBarContext(
   String? side,
   String? imageUrl,
   double actionRowHeight = 0,
+  // The page's Sal control: the floating pill, or the circle in the page's
+  // header (market, position and event pages; see KuteBarPlacement).
+  KuteBarPlacement placement = KuteBarPlacement.bottom,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -236,6 +241,7 @@ KuteBarContext marketBarContext(
     searchHint: searchHint,
     source: source,
     prompts: prompts,
+    placement: placement,
     preview: KuteBarPreview(
       title: title,
       line: previewLine,

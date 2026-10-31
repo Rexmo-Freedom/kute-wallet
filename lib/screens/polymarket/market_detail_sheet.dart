@@ -1,6 +1,8 @@
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -763,33 +765,37 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
     );
   }
 
-  /// Close, the event's image and title (up to two lines), and the
-  /// watchlist star. Sal's door is the bar under the page.
+  /// Close, the event's image and title (up to two lines), Sal's share
+  /// circle (KuteSalHeaderButton; founder, 31 October 2026: the floating
+  /// pill is away on a market or event page) and the watchlist star.
   Widget _buildHeader(AppColorsExtension c) {
+    // The page's Sal context, placed in this header; held by the scope
+    // around the close button while the page is up.
+    final bar = marketBarContext(
+      context,
+      title: event.title,
+      venue: kMarketLinkPredictions,
+      slug: event.slug,
+      chance: event.isBinary ? event.yesPrice * 100 : null,
+      // The pick: the leading outcome, the side this page shows.
+      outcome: polymarketLeadingPick(event)?.label,
+      outcomeIndex: polymarketLeadingPick(event)?.index,
+      outcomeChance: polymarketLeadingPick(event)?.chance,
+      side: 'buy',
+      imageUrl: event.displayIconUrl,
+      actionRowHeight: event.isBinary ? _kStickyActionsHeight : 0,
+      position: false,
+      category: SearchCategory.predictions,
+      searchHint: context.l10n.searchPredictionsHint,
+      source: 'predictions',
+      placement: KuteBarPlacement.header,
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
         children: [
-          // The bar reads "Share with your friends" while this page is up.
           KuteBarContextScope(
-            barContext: marketBarContext(
-              context,
-              title: event.title,
-              venue: kMarketLinkPredictions,
-              slug: event.slug,
-              chance: event.isBinary ? event.yesPrice * 100 : null,
-              // The pick: the leading outcome, the side this page shows.
-              outcome: polymarketLeadingPick(event)?.label,
-              outcomeIndex: polymarketLeadingPick(event)?.index,
-              outcomeChance: polymarketLeadingPick(event)?.chance,
-              side: 'buy',
-              imageUrl: event.displayIconUrl,
-              actionRowHeight: event.isBinary ? _kStickyActionsHeight : 0,
-              position: false,
-              category: SearchCategory.predictions,
-              searchHint: context.l10n.searchPredictionsHint,
-              source: 'predictions',
-            ),
+            barContext: bar,
             child: const KuteCloseButton(),
           ),
           SizedBox(width: 8.w),
@@ -825,6 +831,8 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               ),
             ),
           ),
+          SizedBox(width: 8.w),
+          KuteSalHeaderButton(barContext: bar),
           SizedBox(width: 8.w),
           PolyWatchStar(event: event, size: 22, source: 'detail'),
         ],

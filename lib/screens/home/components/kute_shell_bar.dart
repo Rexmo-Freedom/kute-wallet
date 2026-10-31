@@ -27,13 +27,29 @@
 //     pill. The page's scroll reaches here through [kuteBarScroll];
 //   * arriving on a market page the pill enters from the bottom on the
 //     sheet spring and Sal plays the `share` clip once at 1.3x, then
-//     loops ([KuteSalPill.salCue]);
-//   * when the venue's live prices tick (the feed the page is already
-//     watching), the pill gives a one-frame 2 px nudge that settles on
-//     the press spring, so it feels attached to the market.
+//     loops ([KuteSalPill.salCue]). No nudge on a price tick (founder, 31
+//     October 2026: jitter).
+//
+// IN THE HEADER INSTEAD (founder, 31 October 2026; KuteBarPlacement): on
+// the Hyperliquid and Polymarket market pages, the position pages and the
+// multi-outcome event page the floating pill is away, and the page draws
+// [KuteSalHeaderButton] in its header's top-right, left of the watchlist
+// star: a 40 circle in the pill's chrome with Sal's `share` face and a
+// small share badge, opening the same Sal sheet (the context variant). It
+// travels to the composer the way the pill does.
+//
+// THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
+// search_morph.dart): a tap hands [showKuteSearch] the pill's rect
+// ([KuteSearchMorphSource]) and the pill travels to the sheet's composer
+// on the sheet spring, back again on close. While it travels and while
+// the sheet is up the bar keeps its place and draws the pill transparent
+// ([_morphed]; no slide, no hidden context, the keyboard inside the sheet
+// ignored), so the return lands exactly where the pill rests and the
+// pill is simply there again when it does.
 //
 // Reduce Motion: the full pill, still, above the action row; it still
-// slides in and out with the keyboard and the Sal sheet, at once.
+// slides in and out with the keyboard and the Sal sheet, at once, and the
+// sheet opens plain: no travel.
 
 import 'dart:async';
 
@@ -44,18 +60,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
-import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
-    show hyperliquidLivePricesProvider;
-import 'package:kute/providers/polymarket_live_prices_provider.dart'
-    show livePriceProvider;
-import 'package:kute/providers/unified_search_provider.dart'
-    show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
     show KuteSalPill;
+import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -63,9 +75,6 @@ import 'package:kute/theme/kute_motion.dart';
 /// How long a market page's scroll stays still before the folded pill
 /// opens again.
 const Duration kBarScrollIdle = Duration(milliseconds: 600);
-
-/// The nudge on a price tick, in logical pixels.
-const double kBarTickNudge = 2;
 
 class KuteShellBar extends ConsumerStatefulWidget {
   const KuteShellBar({super.key});
@@ -96,14 +105,15 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   /// Bumped when a market page's context arrives: Sal's `share` intro.
   int _salCue = 0;
 
+  /// The pill is travelling to the Sal sheet's composer, or the sheet it
+  /// became is up: the bar holds its place with the pill transparent (see
+  /// the file header).
+  bool _morphed = false;
+
   /// The entry from the bottom when a market context takes over a bar
   /// that was already up (0 → 1 on the sheet spring; 1 at rest).
   late final AnimationController _entry = AnimationController(
       vsync: this, duration: KuteMotion.sheetInDuration, value: 1);
-
-  /// The tick's nudge (0 → 1 on the press spring; 1 at rest).
-  late final AnimationController _nudge = AnimationController(
-      vsync: this, duration: KuteMotion.pressDuration, value: 1);
 
   @override
   void initState() {
@@ -120,7 +130,6 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     kuteBarScroll.removeListener(_onScroll);
     _idle?.cancel();
     _entry.dispose();
-    _nudge.dispose();
     super.dispose();
   }
 
@@ -150,27 +159,13 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     if (_collapsed && mounted) setState(() => _collapsed = false);
   }
 
-  /// A price tick: one nudge at a time (a fast feed gets one per spring).
-  void _tick() {
-    if (!mounted || _nudge.isAnimating) return;
-    _nudge.forward(from: 0);
-  }
-
-  void _open(KuteBarContext ctx) {
-    final navContext = AppRouter.rootNavigatorKey.currentContext;
-    if (navContext == null) return;
-    HapticFeedback.lightImpact();
-    // ignore: discarded_futures
-    showKuteSearch(
-      navContext,
-      initialCategory: ctx.category,
-      searchFirst: true,
-      searchHint: ctx.searchHint,
-      source: ctx.source,
-      barContext: ctx,
-      initialQuestion: ctx.question,
-    );
-  }
+  /// Opens the Sal sheet with [ctx]. With [pillContext] (the pill's own
+  /// element) and motion on, the pill travels to the sheet's composer and
+  /// back (search_morph.dart); the bar draws it transparent meanwhile.
+  Future<void> _open(KuteBarContext ctx, [BuildContext? pillContext]) =>
+      openKuteBarSheet(ctx, source: pillContext, travelling: (on) {
+        if (mounted && _morphed != on) setState(() => _morphed = on);
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -185,20 +180,28 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
         : over || kuteShellMounted.value
             ? KuteBarContext(label: context.l10n.searchOrAskSalShort)
             : null;
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final show = top != null && !top.hidden && !keyboard;
+    // While the pill has become the Sal sheet's composer the bar holds
+    // its place as it was: the sheet's keyboard, the hidden contexts the
+    // sheet pushes and its own context changes do not move it (the pill
+    // is transparent; its return lands where it rests).
+    // A context placed in the page's header (KuteBarPlacement.header)
+    // keeps the pill away: the page draws KuteSalHeaderButton instead.
+    final morphed = _morphed;
+    final keyboard = !morphed && MediaQuery.viewInsetsOf(context).bottom > 0;
+    final show = top != null &&
+        (morphed || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
     // once left a popped market page's bar hanging over the tabs).
-    _lift = show ? top.actionRowHeight : 0;
-    if (show) _last = top;
+    if (!morphed) _lift = show ? top.actionRowHeight : 0;
+    if (show && !morphed) _last = top;
     final ctx = _last;
     if (ctx == null) return const SizedBox.shrink();
 
     // A market page's context arriving: Sal's intro, and the entry from
     // the bottom when the bar was already up (a bar just rising already
     // comes from there).
-    final market = show && top.market;
+    final market = show && (morphed ? _market : top.market);
     if (market && !_market) {
       _salCue++;
       final settled = _shownAt != null &&
@@ -209,23 +212,6 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     if (show && !_shown) _shownAt = DateTime.now();
     _shown = show;
     _market = market;
-
-    // The venue's live feed, only while the page has it open: a tick
-    // nudges the pill.
-    if (market && !reduce) {
-      switch (top.category) {
-        case SearchCategory.predictions:
-          if (ref.exists(livePriceProvider)) {
-            ref.listen(livePriceProvider, (_, __) => _tick());
-          }
-        case SearchCategory.perpetuals:
-          if (ref.exists(hyperliquidLivePricesProvider)) {
-            ref.listen(hyperliquidLivePricesProvider, (_, __) => _tick());
-          }
-        default:
-          break;
-      }
-    }
 
     final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
     final collapsed = _collapsed && !reduce;
@@ -245,17 +231,28 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
               barContext: ctx,
               onAsk: () => _open(ctx),
             )
-          : KuteSalPill(
+          // The Builder's element is the pill's own box: its rect is
+          // where the travel to the composer starts.
+          : Builder(
               key: const ValueKey('kute-bar-pill'),
-              label: ctx.label,
-              sublabel: ctx.sublabel,
-              clip: ctx.clip,
-              aiEnabled: aiEnabled,
-              collapsed: collapsed,
-              salCue: _salCue,
-              onTap: () => _open(ctx),
+              builder: (pillContext) => KuteSalPill(
+                label: ctx.label,
+                sublabel: ctx.sublabel,
+                clip: ctx.clip,
+                aiEnabled: aiEnabled,
+                collapsed: collapsed,
+                salCue: _salCue,
+                onTap: () => _open(ctx, pillContext),
+              ),
             ),
     );
+    // Travelling, or the sheet it became is up: in place, transparent,
+    // taking no taps; back at once when the travel has landed.
+    final Widget bar = morphed
+        ? IgnorePointer(
+            key: const ValueKey('kute-bar-morphed'),
+            child: Opacity(opacity: 0, child: switcher))
+        : switcher;
     return Positioned(
       left: 0,
       right: 0,
@@ -286,50 +283,192 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                 end: Offset.zero,
               ).animate(
                   CurvedAnimation(parent: _entry, curve: KuteMotion.sheetIn)),
-              child: AnimatedBuilder(
-                animation: _nudge,
-                builder: (context, child) => Transform.translate(
-                  offset: Offset(
-                      0,
-                      -kBarTickNudge *
-                          (1 - KuteMotion.press.transform(_nudge.value))),
-                  child: child,
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: AnimatedPadding(
+              child: SafeArea(
+                top: false,
+                child: AnimatedPadding(
+                  duration:
+                      reduce ? Duration.zero : KuteMotion.sheetInDuration,
+                  curve: KuteMotion.sheetIn,
+                  // The pill's air; the primary button takes the
+                  // screen's 16 px gutters.
+                  padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
+                      ctx.isPrimary ? 16.w : 12.w, 2.h),
+                  // Centred; docked right while folded. As a primary
+                  // button it morphs to the full width on the sheet
+                  // spring (AnimatedSize) and back.
+                  child: AnimatedAlign(
+                    alignment:
+                        collapsed ? Alignment.centerRight : Alignment.center,
                     duration:
                         reduce ? Duration.zero : KuteMotion.sheetInDuration,
                     curve: KuteMotion.sheetIn,
-                    // The pill's air; the primary button takes the
-                    // screen's 16 px gutters.
-                    padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
-                        ctx.isPrimary ? 16.w : 12.w, 2.h),
-                    // Centred; docked right while folded. As a primary
-                    // button it morphs to the full width on the sheet
-                    // spring (AnimatedSize) and back.
-                    child: AnimatedAlign(
-                      alignment:
-                          collapsed ? Alignment.centerRight : Alignment.center,
-                      duration:
-                          reduce ? Duration.zero : KuteMotion.sheetInDuration,
-                      curve: KuteMotion.sheetIn,
-                      // The size tween of the morph; a zero-length
-                      // AnimatedSize re-dirties itself in layout (a Flutter
-                      // assertion), so Reduce Motion switches at once.
-                      child: reduce
-                          ? switcher
-                          : AnimatedSize(
-                              duration: KuteMotion.sheetInDuration,
-                              curve: KuteMotion.sheetIn,
-                              alignment: collapsed
-                                  ? Alignment.centerRight
-                                  : Alignment.center,
-                              child: switcher,
-                            ),
-                    ),
+                    // The size tween of the morph; a zero-length
+                    // AnimatedSize re-dirties itself in layout (a Flutter
+                    // assertion), so Reduce Motion switches at once.
+                    child: reduce
+                        ? bar
+                        : AnimatedSize(
+                            duration: KuteMotion.sheetInDuration,
+                            curve: KuteMotion.sheetIn,
+                            alignment: collapsed
+                                ? Alignment.centerRight
+                                : Alignment.center,
+                            child: bar,
+                          ),
                   ),
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the Sal sheet with [ctx] over the root navigator. With [source]
+/// (the element of the control that was tapped: the pill, the header
+/// circle) and motion on, the control travels to the sheet's composer and
+/// back (search_morph.dart); [travelling] is told when the control should
+/// draw itself transparent (true) and when it is itself again (false).
+Future<void> openKuteBarSheet(
+  KuteBarContext ctx, {
+  BuildContext? source,
+  ValueChanged<bool>? travelling,
+}) async {
+  final navContext = AppRouter.rootNavigatorKey.currentContext;
+  if (navContext == null) return;
+  HapticFeedback.lightImpact();
+  KuteSearchMorphSource? morph;
+  final overlay = AppRouter.rootNavigatorKey.currentState?.overlay;
+  if (source != null &&
+      source.mounted &&
+      overlay != null &&
+      !kuteReduceMotion(source)) {
+    final rect = KuteSearchMorph.rectOf(source.findRenderObject(), overlay);
+    if (rect != null) {
+      morph = KuteSearchMorphSource(
+        rect: rect,
+        label: ctx.label,
+        // Where the control rests when the sheet closes (the pill may
+        // have folded or moved meanwhile).
+        rectNow: () => source.mounted
+            ? KuteSearchMorph.rectOf(source.findRenderObject(), overlay)
+            : null,
+      );
+    }
+  }
+  if (morph != null) travelling?.call(true);
+  try {
+    await showKuteSearch(
+      navContext,
+      initialCategory: ctx.category,
+      searchFirst: true,
+      searchHint: ctx.searchHint,
+      source: ctx.source,
+      barContext: ctx,
+      initialQuestion: ctx.question,
+      morph: morph,
+    );
+  } finally {
+    if (morph != null) travelling?.call(false);
+  }
+}
+
+/// THE SAL CONTROL IN A PAGE'S HEADER (founder, 31 October 2026; see the
+/// file header): a 40 circle in the pill's chrome (white or the surface
+/// over a hairline), Sal's `share` face inside, and a 16 share badge at
+/// its bottom-right (the CTA fill, the share glyph at 10) so it reads as
+/// sharing. Tapped, it opens the Sal sheet with [barContext] (the context
+/// variant: Share the market / Send this prediction) and travels to the
+/// composer as the pill does; transparent while it travels and while the
+/// sheet is up. The page mounts it in its header's actions row, left of
+/// the watchlist star, inside the same [KuteBarContextScope] that declares
+/// the `header` placement.
+class KuteSalHeaderButton extends StatefulWidget {
+  const KuteSalHeaderButton({super.key, required this.barContext});
+
+  final KuteBarContext barContext;
+
+  /// The circle's side and the badge's.
+  static const double size = 40;
+  static const double badgeSize = 16;
+
+  @override
+  State<KuteSalHeaderButton> createState() => _KuteSalHeaderButtonState();
+}
+
+class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton> {
+  bool _travelling = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final ctx = widget.barContext;
+    return Semantics(
+      button: true,
+      label: ctx.label,
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _travelling
+              ? null
+              : () => openKuteBarSheet(ctx, source: context, travelling: (on) {
+                    if (mounted && _travelling != on) {
+                      setState(() => _travelling = on);
+                    }
+                  }),
+          child: Opacity(
+            opacity: _travelling ? 0 : 1,
+            child: SizedBox(
+              key: const ValueKey('kute-sal-header-button'),
+              width: KuteSalHeaderButton.size,
+              height: KuteSalHeaderButton.size,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: KuteSalHeaderButton.size,
+                    height: KuteSalHeaderButton.size,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isLight ? Colors.white : c.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isLight ? c.border : c.borderSubtle,
+                        width: isLight ? 1.0 : 0.5,
+                      ),
+                    ),
+                    child: SalSprite(
+                      clip: ctx.clip,
+                      size: 30,
+                      fallback: SalSprite(
+                          clip: 'happy',
+                          size: 30,
+                          fallback: KuteDogGlance(size: 26, color: c.accent)),
+                    ),
+                  ),
+                  Positioned(
+                    right: -1,
+                    bottom: -1,
+                    child: Container(
+                      width: KuteSalHeaderButton.badgeSize,
+                      height: KuteSalHeaderButton.badgeSize,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: context.ctaFill,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: isLight ? Colors.white : c.surface,
+                            width: 1.5),
+                      ),
+                      child: Icon(Icons.ios_share_rounded,
+                          size: 10, color: context.ctaOnColor),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
