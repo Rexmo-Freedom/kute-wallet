@@ -15,7 +15,6 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -132,7 +131,7 @@ void main() {
     expect(find.text('Ask Sal'), findsNothing);
     expect(find.text('Explain the odds'), findsNothing);
     // Not search scoping, not the old label, no dollars wording.
-    expect(find.byType(KutePillTabs), findsNothing);
+    expect(find.byKey(const ValueKey('search-scope-chip')), findsNothing);
     expect(find.text('Recommended'), findsNothing);
     expect(find.textContaining('dollars'), findsNothing);
     // The keyboard stays down until the field is tapped.

@@ -1,7 +1,6 @@
-// How results sit on the search sheet: the tabs' own market cards, the
-// named market first, three per group under All with a "See all" that
-// switches the filter, and skeletons holding a group's place while its
-// markets load.
+// How results sit on the search sheet: flat rows, the named market first,
+// three per group under All with a "See all" that switches the scope, and
+// skeleton rows holding a group's place while its markets load.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,7 +137,8 @@ void main() {
   testWidgets('a loading group holds its place with skeletons, no spinner',
       (tester) async {
     await _open(tester, hl: const AsyncValue.loading());
-    expect(find.byType(SkeletonCard), findsWidgets);
+    expect(find.byType(KuteSkeleton), findsWidgets);
+    expect(find.byType(SkeletonBar), findsWidgets);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Searching markets…'), findsNothing);
     expect(find.byType(SearchInvestingRow), findsNothing);

@@ -3,11 +3,12 @@
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026): tapping the
 // floating Sal pill (kute_shell_bar.dart) does not open a sheet with a
 // field in it; the pill itself travels. Its rect tweens (position, width,
-// corner) to the composer's rect at the foot of the sheet on the sheet
-// spring ([KuteMotion.sheetIn], the same curve the sheet rises on behind
-// it), Sal shrinks from the pill's 38 to the composer's 28, the pill's
-// label settles into the hint. Closing runs it back on the settle easing
-// ([KuteMotion.sheetOut]) as the sheet drops.
+// corner) to the composer LINE at the TOP of the sheet, under the drag
+// handle, on the sheet spring ([KuteMotion.sheetIn], the same curve the
+// sheet rises on behind it); the pill's fill, hairline and shadow fade to
+// the line's bare hairline underneath, Sal shrinks from the pill's 38 to
+// the line's 28, the pill's label settles into the hint. Closing runs it
+// back on the settle easing ([KuteMotion.sheetOut]) as the sheet drops.
 //
 // Built as an OVERLAY RECT TWEEN, not a Hero: a modal bottom sheet is a
 // PopupRoute, and Flutter's HeroController only flies between PageRoutes.
@@ -17,10 +18,10 @@
 // ([kuteSearchMorphing]; the bar reads it, the composer reads it), so
 // there is one object on screen at any moment. The composer's rest rect
 // is known before the sheet has laid out ([composerRestRect]: the sheet's
-// 16 baseline over the home indicator, the composer's gutters and height),
-// so the travel starts on the same frame as the sheet. Closing measures
-// both ends: the composer where it is (over the keyboard if it is up) and
-// the pill where it rests.
+// top at its 96% (or the status bar), the handle row under it, the line's
+// gutters and height), so the travel starts on the same frame as the
+// sheet. Closing measures both ends: the composer where it is and the
+// pill where it rests.
 //
 // Reduce Motion never gets here: the bar opens a plain sheet.
 
@@ -33,6 +34,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/screens/search/components/search_composer.dart';
+import 'package:kute/screens/search/components/search_rows.dart'
+    show kSearchSheetFraction, kSearchSheetHandleRow;
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -60,19 +63,22 @@ abstract final class KuteSearchMorph {
   static OverlayEntry? _entry;
   static Completer<void>? _done;
 
-  /// The composer's rect once the sheet has settled, before it exists:
-  /// the sheet ends at the overlay's foot, its content sits over the home
-  /// indicator plus the sheets' 16 baseline (AppBottomSheetContainer), and
-  /// the composer is the content's last row.
+  /// The composer line's rect once the sheet has settled, before it
+  /// exists: the sheet stands at [kSearchSheetFraction] of the screen (or
+  /// under the status bar when that is lower; the sheet opens with
+  /// useSafeArea), the handle row is its first row and the line the
+  /// second, inset by the composer's gutters.
   static Rect composerRestRect(BuildContext overlayContext) {
     final box = overlayContext.findRenderObject() as RenderBox?;
     final size =
         box?.hasSize == true ? box!.size : MediaQuery.sizeOf(overlayContext);
-    final bottomInset = MediaQuery.paddingOf(overlayContext).bottom;
+    final topInset = MediaQuery.paddingOf(overlayContext).top;
     final gutter = KuteSearchComposer.gutter(overlayContext);
-    final bottom = size.height - bottomInset - 16.h;
-    return Rect.fromLTRB(gutter, bottom - KuteSearchComposer.height,
-        size.width - gutter, bottom);
+    final sheetTop =
+        math.max(size.height * (1 - kSearchSheetFraction), topInset);
+    final top = sheetTop + kSearchSheetHandleRow.h;
+    return Rect.fromLTRB(
+        gutter, top, size.width - gutter, top + KuteSearchComposer.height);
   }
 
   /// [box]'s rect in [overlay]'s coordinates (null when either is not
@@ -137,8 +143,9 @@ abstract final class KuteSearchMorph {
   static bool get running => _entry != null;
 }
 
-/// The travelling pill: the rect, the corner, Sal's size, the inset before
-/// him and the label's style all read off one curved [AnimationController].
+/// The travelling pill: the rect, the surface (the pill's fill and
+/// hairline fading to the line's), Sal's size, the inset before him and
+/// the label's style all read off one curved [AnimationController].
 class _MorphBox extends StatefulWidget {
   const _MorphBox({
     required this.from,
@@ -203,10 +210,39 @@ class _MorphBoxState extends State<_MorphBox>
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
     );
-    final composerRadius = KuteSearchComposer.radius(context);
     const composerSprite = KuteSearchComposer.spriteSize;
     final composerLead = KuteSearchComposer.leading(context);
     final hintStyle = KuteSearchComposer.hintStyle(context);
+    // The line's end: no fill, no corner, no shadow, a uniform hairline
+    // gone to nothing (a rounded box cannot wear a one-sided border, so
+    // the line's own hairline underneath is drawn apart and fades in).
+    final lineDecoration = BoxDecoration(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.zero,
+      border: Border.all(color: Colors.transparent, width: 0),
+    );
+    final hairlineColor = c.borderSubtle;
+    final hairline = KuteSearchComposer.hairline(context);
+    // The pill's surface (kute_bottom_action_bar.dart): white over a
+    // hairline with a soft shadow in light, one step up in dark.
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final pillDecoration = BoxDecoration(
+      color: isLight ? Colors.white : c.surface,
+      borderRadius: BorderRadius.circular(pillRadius),
+      border: Border.all(
+        color: isLight ? c.border : c.borderSubtle,
+        width: isLight ? 1.0 : 0.5,
+      ),
+      boxShadow: isLight
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ]
+          : null,
+    );
     final opening = widget.opening;
     final rectTween = RectTween(begin: widget.from, end: widget.to);
     // The row inside is laid out at the wider end's width throughout and
@@ -222,7 +258,11 @@ class _MorphBoxState extends State<_MorphBox>
           // same lerps serve both directions.
           final k = (opening ? t : 1 - t).clamp(0.0, 1.0);
           final rect = rectTween.evaluate(_t) ?? widget.to;
-          final radius = lerpDouble(pillRadius, composerRadius, k)!;
+          // The pill's surface becomes the line's: the fill, the corner
+          // and the shadow go, the hairline settles under the line.
+          final decoration =
+              BoxDecoration.lerp(pillDecoration, lineDecoration, k) ??
+                  lineDecoration;
           // Sal never taller than the box leaves him (a 40 circle holds
           // him at 30), centred in it.
           final sprite = math.min(lerpDouble(pillSprite, composerSprite, k)!,
@@ -238,55 +278,74 @@ class _MorphBoxState extends State<_MorphBox>
               Positioned.fromRect(
                 rect: rect,
                 child: Container(
-                  decoration: KuteSearchComposer.decoration(context,
-                      borderRadius: radius),
+                  decoration: decoration,
                   clipBehavior: Clip.antiAlias,
-                  padding: EdgeInsets.only(left: lead),
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    minWidth: wide,
-                    maxWidth: wide,
-                    child: Row(
-                      children: [
-                        SalSprite(
-                          clip: 'search',
-                          size: sprite,
-                          fallback: SvgPicture.asset(kuteDogAsset(context),
-                              width: sprite, height: sprite),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Opacity(
+                          opacity: k,
+                          child:
+                              Container(height: hairline, color: hairlineColor),
                         ),
-                        SizedBox(width: lerpDouble(6.w, 10.w, k)),
-                        Expanded(
-                          child: Stack(
+                      ),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: EdgeInsets.only(left: lead),
+                          child: OverflowBox(
                             alignment: Alignment.centerLeft,
-                            children: [
-                              if (labelOpacity > 0)
-                                Opacity(
-                                  opacity: labelOpacity,
-                                  child: Text(
-                                    widget.label,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    overflow: TextOverflow.fade,
-                                    style: pillLabel,
+                            minWidth: wide,
+                            maxWidth: wide,
+                            child: Row(
+                              children: [
+                                SalSprite(
+                                  clip: 'search',
+                                  size: sprite,
+                                  fallback: SvgPicture.asset(
+                                      kuteDogAsset(context),
+                                      width: sprite,
+                                      height: sprite),
+                                ),
+                                SizedBox(width: lerpDouble(6.w, 12.w, k)),
+                                Expanded(
+                                  child: Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [
+                                      if (labelOpacity > 0)
+                                        Opacity(
+                                          opacity: labelOpacity,
+                                          child: Text(
+                                            widget.label,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            overflow: TextOverflow.fade,
+                                            style: pillLabel,
+                                          ),
+                                        ),
+                                      if (hintOpacity > 0)
+                                        Opacity(
+                                          opacity: hintOpacity,
+                                          child: Text(
+                                            widget.hint,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            overflow: TextOverflow.fade,
+                                            style: hintStyle,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                              if (hintOpacity > 0)
-                                Opacity(
-                                  opacity: hintOpacity,
-                                  child: Text(
-                                    widget.hint,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    overflow: TextOverflow.fade,
-                                    style: hintStyle,
-                                  ),
-                                ),
-                            ],
+                                SizedBox(width: 18.w),
+                              ],
+                            ),
                           ),
                         ),
-                        SizedBox(width: 18.w),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),

@@ -21,6 +21,8 @@ import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetListTile;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
@@ -189,14 +191,19 @@ Future<void> _close(WidgetTester tester) async {
 }
 
 Future<void> _pickTab(WidgetTester tester, String label) async {
-  // The pill row scrolls: Transactions, the last pill, can sit past the
-  // edge.
-  await tester.ensureVisible(find.text(label).first);
-  await tester.pump();
-  await tester.tap(find.text(label).first);
+  // The scope chip at the end of the composer line opens the scope menu;
+  // the scope is one of its rows.
+  await tester.tap(find.byKey(const ValueKey('search-scope-chip')));
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  await tester.tap(find.descendant(
+      of: find.byType(AppBottomSheetListTile), matching: find.text(label)));
   await tester.pump();
   await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-  await _settle(tester);
+  for (var i = 0; i < 24; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 /// A past bet, drawn with the Portfolio's position card.

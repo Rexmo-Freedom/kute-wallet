@@ -1,12 +1,15 @@
 // lib/screens/search/components/search_composer.dart
 //
 // THE SAL SHEET'S COMPOSER (founder, 31 October 2026: "it must be and look
-// much better"): one 52 px field pinned at the foot of the search sheet,
-// above the keyboard. The floating pill's own fill and hairline, squared
-// to the lists' 16 radius: the pill MORPHS into this (search_morph.dart),
-// so the two must read as one object. Sal's `search` clip at 28 on the
-// left, the hint "Search or ask Sal", and the circular send arrow at the
-// right that scales in once there is text. With Sal off (the AI kill
+// much better", then flat: no boxed input): one plain LINE pinned at the
+// TOP of the search sheet, under the drag handle. Sal's `search` clip at
+// 28 on the left, the text at 20 sp (the hint "Search or ask Sal" in
+// textTertiary), a thin hairline under the whole line, and the circular
+// send arrow at the right that scales in only once there is text. The
+// sheet's content scrolls under it. [scope] (the "All ⌄" chip while there
+// is a query) sits before the arrow. The floating pill MORPHS into this
+// line (search_morph.dart): its fill and hairline fade to the bare line
+// as it travels, so the two read as one object. With Sal off (the AI kill
 // switch) it is a plain search field with a clear ✕.
 //
 // [KuteSearchComposer.decoration] and the sizes here are what the morph
@@ -30,6 +33,7 @@ class KuteSearchComposer extends StatelessWidget {
     this.aiEnabled = true,
     this.hint,
     this.sendLabel,
+    this.scope,
   });
 
   final TextEditingController controller;
@@ -42,64 +46,55 @@ class KuteSearchComposer extends StatelessWidget {
   final String? hint;
   final String? sendLabel;
 
-  /// The field's height.
-  static const double height = 52;
+  /// The scope chip at the right of the line ("All ⌄"), only with a query.
+  final Widget? scope;
+
+  /// The line's height (the hairline included).
+  static const double height = 56;
 
   /// Sal's size at the left.
   static const double spriteSize = 28;
 
-  /// The field's inset from the sheet's edges.
+  /// The line's inset from the sheet's edges.
   static double gutter(BuildContext context) => 16.w;
 
-  /// The space before Sal.
-  static double leading(BuildContext context) => 14.w;
+  /// The space before Sal: none, he starts the line.
+  static double leading(BuildContext context) => 0;
 
-  /// The field's corner.
-  static double radius(BuildContext context) => 16.r;
+  /// The hairline under the line.
+  static double hairline(BuildContext context) => 0.5;
 
-  /// The field's surface: the floating pill's fill and hairline (white
-  /// over a hairline in light, one step up from the sheet in dark), at the
-  /// lists' corner; the morph lands on exactly this.
-  static BoxDecoration decoration(BuildContext context,
-      {double? borderRadius}) {
-    final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    return BoxDecoration(
-      color: isLight ? Colors.white : c.surfaceLight,
-      borderRadius: BorderRadius.circular(borderRadius ?? radius(context)),
-      border: Border.all(
-        color: isLight ? c.border : c.borderSubtle,
-        width: isLight ? 1.0 : 0.5,
-      ),
-      boxShadow: isLight
-          ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ]
-          : null,
-    );
-  }
-
-  /// The hint's style (the pill's label settles into it).
-  static TextStyle hintStyle(BuildContext context) => TextStyle(
-        color: context.colors.textSecondary,
-        fontSize: 15.sp,
-        fontWeight: FontWeight.w500,
-        letterSpacing: -0.2,
+  /// The line's surface: nothing but the hairline under it; the morph
+  /// lands on exactly this.
+  static BoxDecoration decoration(BuildContext context) => BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+              color: context.colors.borderSubtle, width: hairline(context)),
+        ),
       );
+
+  /// The text's style, 20 sp.
+  static TextStyle textStyle(BuildContext context) => TextStyle(
+        color: context.colors.textPrimary,
+        fontSize: 20.sp,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.4,
+      );
+
+  /// The hint's style (the pill's label settles into it): the text's
+  /// size in textTertiary.
+  static TextStyle hintStyle(BuildContext context) =>
+      textStyle(context).copyWith(color: context.colors.textTertiary);
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // The field itself is the root (no gutters here): the sheet insets
-    // it, and the morph measures this box.
+    // The line itself is the root (no gutters here): the sheet insets it,
+    // and the morph measures this box.
     return Container(
       height: height,
       decoration: decoration(context),
-      padding: EdgeInsets.only(left: leading(context), right: 8.w),
+      padding: EdgeInsets.only(left: leading(context)),
       child: Row(
         children: [
           if (aiEnabled)
@@ -110,8 +105,8 @@ class KuteSearchComposer extends StatelessWidget {
                   width: spriteSize, height: spriteSize),
             )
           else
-            Icon(Icons.search_rounded, size: 22, color: c.textTertiary),
-          SizedBox(width: 10.w),
+            Icon(Icons.search_rounded, size: 24, color: c.textTertiary),
+          SizedBox(width: 12.w),
           Expanded(
             child: TextField(
               controller: controller,
@@ -122,12 +117,7 @@ class KuteSearchComposer extends StatelessWidget {
                   aiEnabled ? TextInputAction.send : TextInputAction.search,
               autocorrect: false,
               textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.2,
-              ),
+              style: textStyle(context),
               cursorColor: c.accent,
               decoration: InputDecoration(
                 isDense: true,
@@ -142,6 +132,10 @@ class KuteSearchComposer extends StatelessWidget {
               ),
             ),
           ),
+          if (scope != null) ...[
+            SizedBox(width: 8.w),
+            scope!,
+          ],
           SizedBox(width: 6.w),
           // Only the button follows the text: typing never rebuilds the
           // sheet around the composer.
@@ -158,7 +152,7 @@ class KuteSearchComposer extends StatelessWidget {
   Widget _trailing(BuildContext context, bool hasText) {
     final c = context.colors;
     if (!aiEnabled) {
-      if (!hasText) return const SizedBox(width: 36);
+      if (!hasText) return const SizedBox.shrink();
       return GestureDetector(
         onTap: () {
           controller.clear();
