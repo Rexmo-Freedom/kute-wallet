@@ -46,7 +46,10 @@
 // The probability scale fits the lines in the window on screen
 // (polyChartDomain: a tenth of their span free above and below, never
 // under five points tall, never outside 0-100%) and fits again on every
-// range change, pan, pinch and change of lines.
+// range change, pan, pinch and change of lines. It is written as the
+// Investing chart's (founder, 31 October 2026): no grid, at most three
+// faint round levels at the plot's right edge ("20%", never "-0%"), kept
+// off the value pills.
 //
 // Motion, as on the Investing chart: a range change eases the window and
 // the scale from the old range's to the new one's over 250ms (easeInOut;
@@ -90,7 +93,7 @@ import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
-    show HlAutoScalePill, hlNiceLevels;
+    show HlAutoScalePill, hlPriceAxisLabels;
 import 'package:kute/screens/polymarket/components/poly_chart_history.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
@@ -2211,26 +2214,24 @@ class _MarketChartState extends ConsumerState<MarketChart>
                 ),
               ),
             ),
-            // ── Price scale (left-edge labels + faint hairlines), the
-            // Hyperliquid treatment: shown while scrubbing or while the
-            // scale is set by hand.
+            // ── Probability scale: at most three faint labels at the
+            // right edge, no hairlines (the Investing chart's axis),
+            // kept off the value pills.
             Positioned.fill(
               child: IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity:
-                      (scrubbing || !_autoScale || _axisDragging) ? 1 : 0,
-                  duration: _reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 120),
-                  curve: Curves.easeOut,
-                  child: RepaintBoundary(
-                    child: CustomPaint(
-                      size: Size.infinite,
-                      painter: _ScalePainter(
-                        domain: domain,
-                        labelColor: c.textTertiary,
-                        hairlineColor: c.textPrimary,
-                      ),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: _ScalePainter(
+                      domain: domain,
+                      labelColor: c.textTertiary,
+                      series: series,
+                      leads: leads,
+                      start: f.start,
+                      end: f.end,
+                      tags: tags,
+                      atLiveEdge: atLiveEdge,
+                      inset: gutter,
                     ),
                   ),
                 ),
@@ -2835,9 +2836,6 @@ class _TagsPainter extends CustomPainter {
       old.opacity != opacity;
 }
 
-/// The probability scale: 4-6 nice levels (the Hyperliquid ladder) as
-/// left-edge labels with faint full-width hairlines, inside the plot so
-/// nothing else shifts. Levels outside 0-100% are skipped.
 /// The game's event markers: a faint dashed line down the plot per marker
 /// (or cluster), topped by a dot in the scoring side's colour. A cluster
 /// shows how many events it holds; a period change is a small hollow ring.
@@ -2918,38 +2916,76 @@ class _MarkersPainter extends CustomPainter {
 String polyScaleLabel(double level, int decimals) =>
     '${(level == 0 ? 0.0 : level).toStringAsFixed(decimals)}%';
 
+/// The probability scale: at most three round levels (hlPriceAxisLabels
+/// on the 0-100 scale, written "20%", "0.5%", never "-0%") at the plot's
+/// right edge, their digits ending where the value pills' do, 11 pt in
+/// the tertiary text colour, and NO hairlines across the plot. A level
+/// whose label would sit on a value pill is left out, so nothing on the
+/// chart shifts for it.
 class _ScalePainter extends CustomPainter {
   final KuteYDomain domain;
   final Color labelColor;
-  final Color hairlineColor;
+
+  /// The lines and their value pills this frame (see _TagsPainter): the
+  /// labels keep off the pills.
+  final List<_Series> series;
+  final List<double> leads;
+  final int start;
+  final int end;
+  final _TagColumn tags;
+  final bool atLiveEdge;
+
+  /// The space right of the lines this frame (the tag column as open as
+  /// it is).
+  final double inset;
 
   _ScalePainter({
     required this.domain,
     required this.labelColor,
-    required this.hairlineColor,
+    required this.series,
+    required this.leads,
+    required this.start,
+    required this.end,
+    required this.tags,
+    required this.atLiveEdge,
+    required this.inset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final drawH = size.height - _kBottomMargin;
     if (drawH <= 0) return;
-    final levels = hlNiceLevels(domain.minY * 100, domain.maxY * 100);
-    if (levels.isEmpty) return;
-    final step = levels.length > 1 ? levels[1] - levels[0] : 1.0;
-    final decimals = step >= 1 ? 0 : (step >= 0.1 ? 1 : 2);
-    final linePaint = Paint()
-      ..color = hairlineColor.withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-    for (final level in levels) {
-      if (level < 0 || level > 100) continue;
-      final y = _yFor(level / 100, domain, drawH);
+    final lo = domain.minY * 100;
+    final hi = domain.maxY * 100;
+    final span = hi - lo;
+    final decimals = span >= 3 ? 0 : (span >= 0.3 ? 1 : 2);
+    final labels = hlPriceAxisLabels(lo, hi, decimals: decimals);
+    if (labels.isEmpty) return;
+    final pills = _valueTags(
+      series: series,
+      leads: leads,
+      start: start,
+      end: end,
+      domain: domain,
+      drawH: drawH,
+      tags: tags,
+      atLiveEdge: atLiveEdge,
+    );
+    final right = size.width - _kTagPadH;
+    for (final l in labels) {
+      if (l.value < 0 || l.value > 100) continue;
+      final y = _yFor(l.value / 100, domain, drawH);
       if (y < 0 || y > drawH) continue;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
       final tp = _endpointTp(
-          polyScaleLabel(level, decimals), labelColor, 10.5, FontWeight.w600);
-      final ty =
-          (y - tp.height - 2).clamp(0.0, math.max(0.0, drawH - tp.height));
-      tp.paint(canvas, Offset(2, ty.toDouble()));
+          polyScaleLabel(l.value, decimals), labelColor, 11, FontWeight.w600);
+      final ty = (y - tp.height / 2)
+          .clamp(0.0, math.max(0.0, drawH - tp.height))
+          .toDouble();
+      if (pills.any((t) =>
+          ty < t.top + t.height + 2 && ty + tp.height > t.top - 2)) {
+        continue;
+      }
+      tp.paint(canvas, Offset(math.max(0.0, right - tp.width), ty));
     }
   }
 
@@ -2957,7 +2993,13 @@ class _ScalePainter extends CustomPainter {
   bool shouldRepaint(covariant _ScalePainter old) =>
       old.domain != domain ||
       old.labelColor != labelColor ||
-      old.hairlineColor != hairlineColor;
+      !identical(old.series, series) ||
+      !_LinesPainter._sameLeads(old.leads, leads) ||
+      old.start != start ||
+      old.end != end ||
+      !identical(old.tags, tags) ||
+      old.atLiveEdge != atLiveEdge ||
+      old.inset != inset;
 }
 
 /// A name short enough to sit beside its figure: the whole label when it
