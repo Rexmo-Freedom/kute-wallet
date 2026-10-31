@@ -439,7 +439,7 @@ void main() {
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
     expect(actions.map((a) => a.label),
         [l10n.investmentsAdd, l10n.send, l10n.walletPortfolioAction]);
-    expect(actions.map((a) => a.trackingId), ['receive', 'send', 'portfolio']);
+    expect(actions.map((a) => a.trackingId), ['receive', 'portfolio', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.south_west_rounded,
       Icons.north_east_rounded,
