@@ -8,6 +8,7 @@
 // as the MaterialApp's builder) and taps [kuteBarPrimary].
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -34,10 +35,20 @@ KuteBarContext kuteBarPrimaryContext(WidgetTester tester) {
           (w) => w is KuteBarContextScope && w.barContext.isPrimary)
       .evaluate()
       .where((e) => ModalRoute.of(e)?.isCurrent ?? true)
+      .map((e) => (e.widget as KuteBarContextScope).barContext)
       .toList();
-  if (scopes.isNotEmpty) {
-    return (scopes.last.widget as KuteBarContextScope).barContext;
+  // The scope the bar reads now (a step just left may still be mounted
+  // behind a transition); else the last one.
+  final bar = find.byType(KuteShellBar);
+  if (bar.evaluate().isNotEmpty) {
+    final live = kuteBarTop(ProviderScope.containerOf(tester.element(bar))
+        .read(kuteBarContextProvider));
+    if (live != null && live.isPrimary) {
+      final match = scopes.where((c) => c.label == live.label).toList();
+      if (match.isNotEmpty) return match.last;
+    }
   }
+  if (scopes.isNotEmpty) return scopes.last;
   return tester
       .widget<KuteBarPrimaryButton>(find.byType(KuteBarPrimaryButton))
       .barContext;

@@ -22,7 +22,6 @@ import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/tracking_service.dart';

@@ -359,6 +359,8 @@ void main() {
       await pumpScreen(tester, result);
       expect(find.text('Try again (2s)'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
+      // The bar's label follows the screen a frame later.
+      await tester.pump();
       expect(find.text('Try again'), findsOneWidget);
     });
   });
