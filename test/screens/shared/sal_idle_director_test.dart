@@ -2,7 +2,10 @@
 // a `hero` one-shot cut in every 6–12 s and never the same twice in a row,
 // sleep after a minute without a pointer anywhere, wake on the next one;
 // a clip that cannot be read is skipped and the loop goes on; under Reduce
-// Motion the loop alone.
+// Motion the loop alone. The cut waits for the loop's boundary (the loop
+// is 2 s here), the one-shot plays through, and the loop is back: the
+// timelines below count in those 2 s beats (sal_seamless_switch_test.dart
+// checks the frames themselves).
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -88,17 +91,17 @@ void main() {
 
     final seen = <String>[];
     for (var i = 0; i < 4; i++) {
+      // Each beat: the loop from 0, the cue at 1 s (the one-shot asked
+      // for, the loop still on screen), the cut at the loop's boundary
+      // (2 s), the one-shot through (48 frames at 24 fps) at 4 s, the
+      // loop again and the next cue a second later.
       await tester.pump(const Duration(milliseconds: 1050));
       final clip = _clip(tester);
       expect(clip, isNot('body_hero'), reason: 'cut $i');
       expect(clip, anyOf('hero_stretch', 'hero_scratch'));
       seen.add(clip);
-      // The one-shot (48 frames at 24 fps) plays through, then the loop
-      // (a first tick to start its clock; the frame after the tick that
-      // completed it).
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 2100));
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 950));
+      await tester.pump(const Duration(milliseconds: 2000));
       expect(_clip(tester), 'body_hero', reason: 'back after cut $i');
     }
     for (var i = 1; i < seen.length; i++) {
@@ -154,9 +157,12 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pump();
     expect(_clip(tester), 'hero_wake');
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump(const Duration(milliseconds: 2100));
-    await tester.pump();
+    // The sleep loop took over at the hero's boundary (4 s) and comes
+    // round at 10 s: the wake cuts in there, plays through (2 s), and the
+    // hero is back at 12 s.
+    await tester.pump(const Duration(milliseconds: 1900));
+    expect(_clip(tester), 'hero_wake');
+    await tester.pump(const Duration(milliseconds: 2000));
     expect(_clip(tester), 'body_hero');
   });
 

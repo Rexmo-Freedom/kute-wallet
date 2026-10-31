@@ -105,11 +105,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(_clip(tester), 'wink');
-    // 36 frames at 24 fps, then the crossfade back (and the frame that
-    // lets the outgoing sprite go).
-    await tester.pump(const Duration(milliseconds: 1600));
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump();
+    // The wink cuts in at the idle loop's boundary (48 frames at 24 fps:
+    // 2 s), plays its 36 frames (1.5 s), and the loop is back.
+    await tester.pump(const Duration(milliseconds: 1800));
+    await tester.pump(const Duration(milliseconds: 1500));
     expect(_clip(tester), 'idle');
     expect(SalReactions.current.value, isNull, reason: 'played, cleared');
   });

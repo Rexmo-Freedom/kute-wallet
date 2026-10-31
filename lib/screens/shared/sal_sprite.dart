@@ -22,19 +22,38 @@
 // matching the device's pixel ratio is used (@3x from 2.5 up). [speed]
 // scales the clip's fps; [loop] overrides the manifest's; a one-shot holds
 // its last frame and calls [onComplete] once. [SalSprite.sequence] plays
-// a one-shot and then a loop (body_sit_down → body_sit): the renders share
-// framing, so the cut needs no crossfade. Under Reduce Motion frame 0 is
-// all there is; while an ancestor TickerMode is off the ticker is muted;
-// unmounted, it stops. On a dark background a body clip gets a 6% white
-// radial glow behind it, so the render's contact shadow does not float
-// (the renders are lit for light).
+// a one-shot and then a loop (body_sit_down → body_sit). Under Reduce
+// Motion frame 0 is all there is; while an ancestor TickerMode is off the
+// ticker is muted; unmounted, it stops. On a dark background a body clip
+// gets a 6% white radial glow behind it, so the render's contact shadow
+// does not float (the renders are lit for light).
+//
+// ONE CONTINUOUS PERFORMANCE (founder, 31 October 2026: "the animation
+// should loop, not stop and load a new one"). A clip change is never a
+// remount: the SAME sprite, the same ticker, switches clips in place
+// ([SalSprite.clip] or [SalSprite.cue] changing), and
+//
+//   * the clip on screen keeps painting until the incoming one is decoded
+//     (a clip already in [SalSpriteCache] is taken synchronously, so a
+//     cached clip never shows an empty frame, not even on mount);
+//   * the switch lands on a frame boundary of the outgoing clip: a loop
+//     gives way as it comes back to frame 0, a one-shot once its last
+//     frame has had its time ([switchAtBoundary], on by default); the
+//     incoming clip starts at frame 0 with the tick's overshoot carried
+//     over, so the beat is not lost;
+//   * the two cells cross-dissolve for [crossfade] (120 ms, an exact
+//     lerp in a layer: outgoing at 1−t, incoming added at t), so clips
+//     whose poses match pass unseen and clips whose poses differ blend
+//     instead of cutting;
+//   * Reduce Motion switches at once to frame 0, no dissolve; the
+//     directors below do not switch at all under it.
 //
 // UNTIL A SHEET EXISTS the widget must not break the screen: a missing
 // manifest or sheet falls back to [fallback], the rig drawing that site
 // wore before (kute_dog_rig.dart / kute_dog_scenes.dart stay in place for
 // that), so the app runs either way. A clip that is in the manifest but
 // cannot be read says so once through [onUnavailable], so a director can
-// drop it from its pool and move on.
+// drop it from its pool and move on; the clip on screen stays.
 //
 // THE SECOND CLIP BATCH (founder, 31 October 2026) adds a `group` to each
 // manifest entry, read through [SalSpriteCache.groups] / [SalSpriteCache.group]:
@@ -48,13 +67,18 @@
 //   * `reaction`: face one-shots the bar plays (`wink`, `yawn`, `nod`,
 //     `shake_no`, `think`, `cheer`; sal_reactions.dart).
 //
+// A director pre-decodes its whole group once on mount
+// ([SalSpriteCache.warm] / [SalSpriteCache.warmGroup]); the cache keeps
+// the images for the app's life, so a switch never waits on a read.
+//
 // [SalIdleDirector] is the hero loop with a life: `body_hero`, and every
 // 6–12 s one `hero` one-shot (never the same twice in a row), then the
 // loop again; after 60 s without a touch anywhere in the app he sleeps
 // (`hero_sleep`), and the next pointer wakes him (`hero_wake`, then
-// hero). A clip the manifest lacks, or that fails to read, is skipped;
-// nothing ever crashes for a missing clip. Reduce Motion: `body_hero`'s
-// first frame, nothing else.
+// hero). The one-shot waits for the loop to come round to frame 0, and
+// the loop resumes at frame 0 after it. A clip the manifest lacks, or
+// that fails to read, is skipped; nothing ever crashes for a missing
+// clip. Reduce Motion: `body_hero`'s first frame, nothing else.
 
 import 'dart:async';
 import 'dart:convert';
@@ -69,6 +93,9 @@ import 'package:flutter/widgets.dart';
 
 /// Where the sheets and the manifest live.
 const String kSalSpriteDir = 'lib/assets/sal';
+
+/// The cross-dissolve between two clips (see the file header).
+const Duration kSalCrossfade = Duration(milliseconds: 120);
 
 /// One clip's sheet, decoded, with its timing.
 class SalClip {
@@ -95,6 +122,10 @@ class SalClip {
 
   /// Body framing (the whole dog) rather than the face.
   final bool body;
+
+  /// One pass through the clip at its own fps.
+  Duration get duration =>
+      Duration(microseconds: math.max(1, (frames / fps * 1e6).round()));
 
   /// The source rectangle of [frame] in the sheet.
   Rect cell(int frame) {
@@ -143,6 +174,18 @@ abstract final class SalSpriteCache {
     _ready['$name@$density'] = clip;
   }
 
+  /// Tests: [name] at [density] is still decoding until [loading]
+  /// completes (a slow read, stood in for).
+  @visibleForTesting
+  static void debugPutLoading(
+      String name, int density, Future<SalClip?> loading) {
+    final key = '$name@$density';
+    _clips[key] = loading.then((c) {
+      if (c != null) _ready[key] = c;
+      return c;
+    });
+  }
+
   /// Tests: back to the bundle's manifest, nothing decoded.
   @visibleForTesting
   static void debugReset() {
@@ -186,14 +229,32 @@ abstract final class SalSpriteCache {
   static Future<SalClip?> clip(String name, int density) =>
       _clips['$name@$density'] ??= _loadClip(name, density);
 
+  /// Decodes [names] at [density] once, ahead of their use (a director's
+  /// group on mount), and keeps them for the app's life. Resolves to the
+  /// names that could not be read, so the caller can drop them.
+  static Future<List<String>> warm(Iterable<String> names, int density) async {
+    final list = names.toList();
+    final clips = await Future.wait([for (final n in list) clip(n, density)]);
+    return [for (var i = 0; i < list.length; i++) if (clips[i] == null) list[i]];
+  }
+
+  /// [warm] for the manifest's [group] (see [SalSpriteCache.group]);
+  /// resolves to the names that could not be read.
+  static Future<List<String>> warmGroup(String group,
+      {List<String> defaults = const [], required int density}) async {
+    final names = await SalSpriteCache.group(group, defaults: defaults);
+    return warm(names, density);
+  }
+
   static final Map<String, SalClip> _ready = {};
 
   /// The density for a device pixel ratio: @3x from 2.5 up.
   static int densityFor(double dpr) => dpr >= 2.5 ? 3 : 2;
 
   /// A clip already decoded, for a painter that cannot await (the money
-  /// journey's Sal): null while it is still loading (the read is started)
-  /// or when it does not exist, and the painter keeps drawing the rig.
+  /// journey's Sal, a sprite switching clips): null while it is still
+  /// loading (the read is started) or when it does not exist, and the
+  /// painter keeps drawing what it has.
   static SalClip? peek(String name, int density) {
     final key = '$name@$density';
     final ready = _ready[key];
@@ -242,6 +303,54 @@ abstract final class SalSpriteCache {
   }
 }
 
+/// What [SalSprite] paints on one frame: [clip] (named [name]) at
+/// [frame]; during a cross-dissolve the [outgoing] clip at
+/// [outgoingFrame] under it, [fade] running 0 → 1 (1: no dissolve).
+@immutable
+class SalSpriteFrame {
+  const SalSpriteFrame({
+    required this.clip,
+    required this.name,
+    required this.frame,
+    this.outgoing,
+    this.outgoingName,
+    this.outgoingFrame = 0,
+    this.fade = 1.0,
+  });
+
+  final SalClip clip;
+  final String name;
+  final int frame;
+  final SalClip? outgoing;
+  final String? outgoingName;
+  final int outgoingFrame;
+  final double fade;
+
+  /// Whether this frame dissolves two clips.
+  bool get dissolving => outgoing != null && fade < 1.0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SalSpriteFrame &&
+      identical(other.clip, clip) &&
+      other.name == name &&
+      other.frame == frame &&
+      identical(other.outgoing, outgoing) &&
+      other.outgoingName == outgoingName &&
+      other.outgoingFrame == outgoingFrame &&
+      other.fade == fade;
+
+  @override
+  int get hashCode =>
+      Object.hash(clip, name, frame, outgoing, outgoingName, outgoingFrame, fade);
+
+  @override
+  String toString() => dissolving
+      ? 'SalSpriteFrame($name#$frame over $outgoingName#$outgoingFrame '
+          '@${fade.toStringAsFixed(2)})'
+      : 'SalSpriteFrame($name#$frame)';
+}
+
 /// Sal, one clip, at [size] (see the file header).
 class SalSprite extends StatefulWidget {
   const SalSprite({
@@ -250,6 +359,9 @@ class SalSprite extends StatefulWidget {
     required this.size,
     this.speed = 1.0,
     this.loop,
+    this.cue = 0,
+    this.crossfade = kSalCrossfade,
+    this.switchAtBoundary = true,
     this.onComplete,
     this.onUnavailable,
     required this.fallback,
@@ -269,6 +381,10 @@ class SalSprite extends StatefulWidget {
           key: key, first: first, then: then, size: size, speed: speed,
           fallback: fallback);
 
+  /// Tests: every frame the painter draws goes here while it is set.
+  @visibleForTesting
+  static List<SalSpriteFrame>? debugPaintLog;
+
   /// `search`, `idle`, `happy`, `body_sit`…
   final String clip;
 
@@ -281,15 +397,29 @@ class SalSprite extends StatefulWidget {
   /// Overrides the manifest's loop flag; null follows the manifest.
   final bool? loop;
 
+  /// A changed cue plays [clip] from frame 0 again, even when it is the
+  /// clip on screen (the same reaction twice): a switch like any other.
+  final int cue;
+
+  /// How long the outgoing and incoming cells dissolve on a clip switch
+  /// (zero: a cut).
+  final Duration crossfade;
+
+  /// Whether a clip switch waits for the outgoing clip's frame boundary
+  /// (a loop back at frame 0, a one-shot through); off, it lands on the
+  /// next tick.
+  final bool switchAtBoundary;
+
   /// Called once when a one-shot reaches its last frame.
   final VoidCallback? onComplete;
 
   /// Called once when [clip] cannot be read (not in the manifest, no
-  /// sheet): the [fallback] is on screen, and a director can move on.
+  /// sheet): the clip on screen stays (or the [fallback] when there is
+  /// none), and a director can move on.
   final VoidCallback? onUnavailable;
 
-  /// Drawn when the sheet cannot be read (not rendered yet, not
-  /// registered): the rig drawing the site wore before.
+  /// Drawn when no sheet can be read (not rendered yet, not registered):
+  /// the rig drawing the site wore before.
   final Widget fallback;
 
   @override
@@ -299,17 +429,47 @@ class SalSprite extends StatefulWidget {
 class _SalSpriteState extends State<SalSprite>
     with SingleTickerProviderStateMixin {
   Ticker? _ticker;
+  int _density = 2;
+  bool _reduce = false;
+
+  // The clip on screen: its decoded sheet, its name, the loop override
+  // captured when it started, its clock (speed applied), and whether a
+  // one-shot has said it is complete.
   SalClip? _clip;
-  bool _failed = false;
-  bool _completed = false;
-  final ValueNotifier<int> _frame = ValueNotifier<int>(0);
+  String? _name;
+  bool? _loopOverride;
   Duration _elapsed = Duration.zero;
+  bool _completed = false;
+
+  /// The [SalSprite.onComplete] that came with the clip on screen: a
+  /// request made while it plays (the next reaction) must not be told
+  /// that THIS clip is through.
+  VoidCallback? _onComplete;
 
   /// The last tick's time; null before the first tick after a start (a
   /// first tick at exactly zero, as in a test, is a tick like any other).
   Duration? _last;
-  int _density = 2;
-  bool _reduce = false;
+
+  // The clip asked for and not yet on screen: its name, its sheet once
+  // decoded, the outgoing loop's cycle when it was asked for (the switch
+  // lands when a later cycle begins), and the read's generation.
+  String? _pendingName;
+  SalClip? _pendingClip;
+  int _pendingCycle = 0;
+  int _load = 0;
+
+  // The cross-dissolve: the outgoing clip frozen at its boundary frame,
+  // and how long it has run (real time).
+  SalClip? _out;
+  String? _outName;
+  int _outFrame = 0;
+  Duration _fade = Duration.zero;
+
+  /// Nothing to draw at all: the fallback.
+  bool _failed = false;
+
+  final ValueNotifier<SalSpriteFrame?> _paint =
+      ValueNotifier<SalSpriteFrame?>(null);
 
   @override
   void initState() {
@@ -322,10 +482,12 @@ class _SalSpriteState extends State<SalSprite>
     super.didChangeDependencies();
     _reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    final density = dpr >= 2.5 ? 3 : 2;
-    if (density != _density || _clip == null && !_failed) {
+    final density = SalSpriteCache.densityFor(dpr);
+    if (density != _density) {
       _density = density;
-      _load();
+      _request(widget.clip);
+    } else if (_clip == null && _pendingName == null && !_failed) {
+      _request(widget.clip);
     }
     _sync();
   }
@@ -333,87 +495,249 @@ class _SalSpriteState extends State<SalSprite>
   @override
   void didUpdateWidget(covariant SalSprite old) {
     super.didUpdateWidget(old);
-    if (old.clip != widget.clip) {
-      _elapsed = Duration.zero;
-      _frame.value = 0;
-      _completed = false;
-      _clip = null;
-      _load();
-    } else if (old.loop != widget.loop && _completed && _loops) {
-      // A one-shot that is now asked to loop plays on from where it
-      // stopped (the bar's `share`: once at 1.3x, then looping).
-      _completed = false;
+    if (old.clip != widget.clip || old.cue != widget.cue) {
+      _request(widget.clip);
+    } else if (old.loop != widget.loop) {
+      // The clip on screen asked to loop (or not) from here: a one-shot
+      // that is now asked to loop plays on from where it stopped (the
+      // bar's `share`: once at 1.3x, then looping).
+      _loopOverride = widget.loop;
+      _onComplete = widget.onComplete;
+      if (_completed && _loops) _completed = false;
     }
     _sync();
   }
 
-  void _load() {
-    final clip = widget.clip;
-    final density = _density;
+  bool get _loops => _loopOverride ?? _clip?.loop ?? true;
+
+  /// The outgoing clip's cycle count now (0 for a one-shot or nothing).
+  int get _cycle {
+    final clip = _clip;
+    if (clip == null) return 0;
+    return _elapsed.inMicroseconds ~/ clip.duration.inMicroseconds;
+  }
+
+  /// The frame [clip] shows at [_elapsed].
+  int _frameOf(SalClip clip) {
+    final raw = ((_elapsed.inMicroseconds / 1e6) * clip.fps).floor();
+    return _loops ? raw % clip.frames : raw.clamp(0, clip.frames - 1);
+  }
+
+  /// Asks for [name]: at once when its sheet is decoded, else once the
+  /// read lands; the clip on screen plays on meanwhile.
+  void _request(String name) {
     _failed = false;
-    unawaited(SalSpriteCache.clip(clip, density).then((c) {
-      if (!mounted || clip != widget.clip || density != _density) return;
-      setState(() {
-        _clip = c;
-        _failed = c == null;
-      });
-      _sync();
-      if (c == null) widget.onUnavailable?.call();
+    final density = _density;
+    _pendingName = name;
+    _pendingClip = null;
+    _pendingCycle = _cycle;
+    final ready = SalSpriteCache.peek(name, density);
+    if (ready != null) {
+      _arrive(name, ready);
+      return;
+    }
+    final load = ++_load;
+    unawaited(SalSpriteCache.clip(name, density).then((c) {
+      if (!mounted || load != _load || _pendingName != name) return;
+      if (c == null) {
+        _pendingName = null;
+        if (_clip == null) setState(() => _failed = true);
+        widget.onUnavailable?.call();
+        return;
+      }
+      _arrive(name, c);
+      // A cell where there was nothing (or a glow to add): rebuild.
+      setState(() {});
     }));
   }
 
-  bool get _loops => widget.loop ?? _clip?.loop ?? true;
+  /// [clip] is decoded: on screen at once when nothing plays (nothing
+  /// there, Reduce Motion, a held one-shot, a still, a start not yet
+  /// ticked, or no boundary asked for), else at the outgoing clip's next
+  /// boundary ([_tick]).
+  void _arrive(String name, SalClip clip) {
+    _pendingClip = clip;
+    // The boundary to wait for is the next one from here (a read that
+    // landed after one passed does not cut in mid-cycle).
+    _pendingCycle = _cycle;
+    final current = _clip;
+    final ticking = _ticker?.isActive ?? false;
+    final held = current != null &&
+        (current.frames <= 1 ||
+            (!_loops && _elapsed >= current.duration) ||
+            !ticking);
+    final fresh = _last == null && _elapsed == Duration.zero;
+    if (current == null ||
+        _reduce ||
+        !widget.switchAtBoundary ||
+        held ||
+        fresh) {
+      _switch(carry: Duration.zero, fade: current != null && !_reduce && !fresh);
+    }
+    _sync();
+  }
 
-  /// Runs the ticker only when there is something to play and motion is
-  /// on. A one-shot under Reduce Motion is its first frame, complete at
-  /// once.
+  /// The pending clip takes the screen from [carry] into its first
+  /// cycle; the outgoing clip, frozen at [outFrame], dissolves away when
+  /// [fade] is on.
+  void _switch({
+    required Duration carry,
+    required bool fade,
+    int? outFrame,
+  }) {
+    final incoming = _pendingClip;
+    final name = _pendingName;
+    if (incoming == null || name == null) return;
+    final current = _clip;
+    if (fade && current != null && widget.crossfade > Duration.zero) {
+      _out = current;
+      _outName = _name;
+      _outFrame = outFrame ?? _frameOf(current);
+      _fade = Duration.zero;
+    } else {
+      _out = null;
+      _outName = null;
+    }
+    _clip = incoming;
+    _name = name;
+    _loopOverride = widget.loop;
+    _onComplete = widget.onComplete;
+    _elapsed = carry;
+    _completed = false;
+    _pendingName = null;
+    _pendingClip = null;
+    _publish();
+  }
+
+  /// Runs the ticker only when there is something to move (a loop, a
+  /// one-shot still playing, a switch waiting for its boundary, a
+  /// dissolve) and motion is on. A one-shot under Reduce Motion is its
+  /// first frame, complete at once.
   void _sync() {
     final ticker = _ticker;
     if (ticker == null) return;
     final clip = _clip;
-    final frames = clip?.frames ?? 1;
     if (_reduce && clip != null && !_loops && !_completed) {
       _completed = true;
+      final done = _onComplete;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.onComplete?.call();
+        if (mounted) done?.call();
       });
     }
-    final play = !_reduce && frames > 1 && !_completed;
+    final moving = clip != null &&
+        clip.frames > 1 &&
+        (_loops || _elapsed < clip.duration);
+    final play = !_reduce &&
+        clip != null &&
+        (moving || _pendingClip != null || _out != null);
     if (play && !ticker.isActive) {
       _last = null;
       ticker.start();
     } else if (!play && ticker.isActive) {
       ticker.stop();
-      if (!_completed) _frame.value = 0;
+      if (!_completed) _elapsed = Duration.zero;
+      _out = null;
+      _outName = null;
+      _publish();
     }
   }
 
   void _tick(Duration now) {
-    final clip = _clip;
+    var clip = _clip;
     if (clip == null) return;
     final last = _last;
-    if (last != null) _elapsed += (now - last) * widget.speed;
+    final dt = last == null ? Duration.zero : now - last;
     _last = now;
-    final raw = ((_elapsed.inMicroseconds / 1e6) * clip.fps).floor();
-    if (_loops) {
-      final frame = raw % clip.frames;
-      if (frame != _frame.value) _frame.value = frame;
-      return;
+    // Whether the one-shot's completion was announced on an earlier tick
+    // (so its parent has had a frame to ask for what comes next).
+    final announced = _completed;
+    _elapsed += dt * widget.speed;
+    if (_out != null) {
+      _fade += dt;
+      if (_fade >= widget.crossfade) {
+        _out = null;
+        _outName = null;
+      }
     }
-    // A one-shot: hold the last frame and say so once.
-    final frame = raw.clamp(0, clip.frames - 1);
-    if (frame != _frame.value) _frame.value = frame;
-    if (raw >= clip.frames - 1 && !_completed) {
-      _completed = true;
+    // A switch waiting for the boundary: a loop as a new cycle begins, a
+    // one-shot once its length has run. The overshoot past the boundary
+    // is the incoming clip's first moments.
+    final pending = _pendingClip;
+    if (pending != null) {
+      final period = clip.duration;
+      final loops = _loops;
+      final cycle = _elapsed.inMicroseconds ~/ period.inMicroseconds;
+      final boundary = loops ? cycle > _pendingCycle : _elapsed >= period;
+      if (boundary) {
+        final end = loops ? period * cycle : period;
+        _switch(
+            carry: _elapsed - end,
+            fade: true,
+            outFrame: loops ? 0 : clip.frames - 1);
+        clip = _clip!;
+      }
+    }
+    final raw = ((_elapsed.inMicroseconds / 1e6) * clip.fps).floor();
+    final int frame;
+    if (_loops) {
+      frame = raw % clip.frames;
+    } else {
+      // A one-shot: hold the last frame and say so once.
+      frame = raw.clamp(0, clip.frames - 1);
+      if (raw >= clip.frames - 1 && !_completed) {
+        _completed = true;
+        _onComplete?.call();
+      }
+    }
+    _publish(frame);
+    // Nothing left to move: a one-shot through and announced a frame
+    // ago (a parent asking for the next clip in this frame's build keeps
+    // the ticker, and its clock, running), no switch waiting, no
+    // dissolve running.
+    if (!_loops &&
+        announced &&
+        _elapsed >= clip.duration &&
+        _pendingClip == null &&
+        _out == null) {
       _ticker?.stop();
-      widget.onComplete?.call();
     }
   }
+
+  /// Hands the painter what to draw now.
+  void _publish([int? frame]) {
+    final clip = _clip;
+    final name = _name;
+    if (clip == null || name == null) {
+      if (_paint.value != null) _paint.value = null;
+      return;
+    }
+    final out = _out;
+    final crossfade = widget.crossfade.inMicroseconds;
+    final fade = out == null || crossfade <= 0
+        ? 1.0
+        : (_fade.inMicroseconds / crossfade).clamp(0.0, 1.0);
+    final next = SalSpriteFrame(
+      clip: clip,
+      name: name,
+      frame: frame ?? _frameOf(clip),
+      outgoing: out,
+      outgoingName: _outName,
+      outgoingFrame: _outFrame,
+      fade: fade,
+    );
+    if (next != _paint.value) _paint.value = next;
+  }
+
+  /// Tests: what the painter draws now (null: nothing decoded yet).
+  SalSpriteFrame? get debugFrame => _paint.value;
+
+  /// Tests: the clip asked for and not yet on screen.
+  String? get debugPending => _pendingName;
 
   @override
   void dispose() {
     _ticker?.dispose();
-    _frame.dispose();
+    _paint.dispose();
     super.dispose();
   }
 
@@ -430,7 +754,7 @@ class _SalSpriteState extends State<SalSprite>
     final paint = RepaintBoundary(
       child: CustomPaint(
         size: Size.square(widget.size),
-        painter: _SalSpritePainter(clip: clip, frame: _frame),
+        painter: _SalSpritePainter(_paint),
       ),
     );
     if (!clip.body || !dark) return paint;
@@ -481,7 +805,9 @@ const String kSalHeroWake = 'hero_wake';
 /// The hero loop with a life (see the file header): `body_hero`, a `hero`
 /// one-shot every [minGap]–[maxGap], sleep after [sleepAfter] without a
 /// pointer anywhere, wake on the next one. Every empty state that shows
-/// `body_hero` uses this.
+/// `body_hero` uses this. One [SalSprite] for all of it: a one-shot cuts
+/// in as the loop comes back to frame 0, the loop resumes at frame 0
+/// after it, and the whole group is decoded once on mount.
 class SalIdleDirector extends StatefulWidget {
   const SalIdleDirector({
     super.key,
@@ -525,18 +851,25 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
   Timer? _timer;
   Timer? _sleepTimer;
   bool _reduce = false;
+  bool _started = false;
+  int _density = 2;
   int _cue = 0;
 
   @override
   void initState() {
     super.initState();
     GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
-    unawaited(_loadPool());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+    _density = SalSpriteCache.densityFor(dpr);
+    if (!_started) {
+      _started = true;
+      unawaited(_loadPool());
+    }
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     if (reduce != _reduce) {
       _reduce = reduce;
@@ -568,6 +901,20 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
     });
     _armNext();
     _armSleep();
+    // The whole group decoded once, now, so no cut ever waits on a read;
+    // a clip that cannot be read leaves the pool here and now.
+    final names = <String>[
+      kSalHeroLoop,
+      ..._pool,
+      if (sleep) kSalHeroSleep,
+      if (wake) kSalHeroWake,
+    ];
+    unawaited(SalSpriteCache.warm(names, _density).then((missing) {
+      if (!mounted) return;
+      for (final m in missing) {
+        if (m != kSalHeroLoop) _unavailable(m);
+      }
+    }));
   }
 
   void _onPointer(PointerEvent event) {
@@ -604,11 +951,16 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
   void _playOneShot() {
     if (!mounted || _phase != _DirectorPhase.hero || _pool.isEmpty) return;
     // Never the same twice in a row (one clip alone repeats, there is
-    // nothing else).
+    // nothing else); a clip already decoded over one still reading.
     final choices = _pool.length > 1
         ? [for (final c in _pool) if (c != _last) c]
         : _pool;
-    final pick = choices[_random.nextInt(choices.length)];
+    final decoded = [
+      for (final c in choices)
+        if (SalSpriteCache.peek(c, _density) != null) c
+    ];
+    final from = decoded.isNotEmpty ? decoded : choices;
+    final pick = from[_random.nextInt(from.length)];
     setState(() {
       _phase = _DirectorPhase.oneShot;
       _clip = pick;
@@ -676,20 +1028,16 @@ class _SalIdleDirectorState extends State<SalIdleDirector> {
     final clip = _clip;
     final oneShot =
         _phase == _DirectorPhase.oneShot || _phase == _DirectorPhase.waking;
+    // One sprite for the whole performance: the clip and a new cue ask
+    // it to switch in place, at the loop's boundary, with a dissolve.
     return SalSprite(
-      // A new cue starts the clip at its first frame.
-      key: ValueKey('sal-director-$clip#$_cue'),
       clip: clip,
+      cue: _cue,
       size: widget.size,
       loop: oneShot ? false : null,
       onComplete: oneShot ? _backToHero : null,
       onUnavailable: () => _unavailable(clip),
-      fallback: clip == kSalHeroLoop
-          ? widget.fallback
-          // A missing one-shot: the loop stands in while [_unavailable]
-          // puts it back for good.
-          : SalSprite(
-              clip: kSalHeroLoop, size: widget.size, fallback: widget.fallback),
+      fallback: widget.fallback,
     );
   }
 }
@@ -728,24 +1076,51 @@ class _SalSequenceState extends State<_SalSequence> {
       );
 }
 
+/// Draws a [SalSpriteFrame]: one cell, or during a dissolve the exact
+/// lerp of two (in a layer: outgoing at 1−t, incoming added at t), so
+/// identical poses pass unchanged and different ones blend.
 class _SalSpritePainter extends CustomPainter {
-  _SalSpritePainter({required this.clip, required this.frame})
-      : super(repaint: frame);
+  _SalSpritePainter(this.frame) : super(repaint: frame);
 
-  final SalClip clip;
-  final ValueListenable<int> frame;
+  final ValueListenable<SalSpriteFrame?> frame;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final f = frame.value;
+    if (f == null) return;
+    SalSprite.debugPaintLog?.add(f);
+    final dst = Offset.zero & size;
+    final out = f.outgoing;
+    if (out == null || f.fade >= 1.0) {
+      canvas.drawImageRect(
+        f.clip.image,
+        f.clip.cell(f.frame),
+        dst,
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+      return;
+    }
+    canvas.saveLayer(dst, Paint());
     canvas.drawImageRect(
-      clip.image,
-      clip.cell(frame.value),
-      Offset.zero & size,
-      Paint()..filterQuality = FilterQuality.medium,
+      out.image,
+      out.cell(f.outgoingFrame),
+      dst,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..color = Color.fromRGBO(255, 255, 255, 1.0 - f.fade),
     );
+    canvas.drawImageRect(
+      f.clip.image,
+      f.clip.cell(f.frame),
+      dst,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..color = Color.fromRGBO(255, 255, 255, f.fade)
+        ..blendMode = BlendMode.plus,
+    );
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _SalSpritePainter old) =>
-      old.clip != clip || old.frame != frame;
+  bool shouldRepaint(covariant _SalSpritePainter old) => old.frame != frame;
 }

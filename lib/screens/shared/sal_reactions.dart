@@ -4,7 +4,12 @@
 // animations on everything"). The bar's Sal (the pill on Home and Dollars,
 // the shell bar everywhere else, the primary button) wears the context's
 // clip; when something happens he plays ONE face one-shot over it and
-// comes back (a 150 ms crossfade each way, at once under Reduce Motion):
+// comes back. The same sprite switches clips in place (sal_sprite.dart,
+// "one continuous performance"): the reaction cuts in as the context's
+// loop comes round to frame 0, both cells dissolve for 120 ms, the loop
+// resumes at frame 0 once the reaction has played through, and the
+// `reaction` group is decoded once on mount so no cut waits on a read.
+// Under Reduce Motion there is no switching: a reaction is skipped.
 //
 //   * a deposit or payment arrived (Bitcoin or Dollars, the moment the
 //     money-in haptic plays)                               → `cheer`
@@ -103,9 +108,10 @@ abstract final class SalReactions {
 }
 
 /// A face [SalSprite] wearing [clip] that plays each reaction once over it
-/// and crossfades back (150 ms; at once under Reduce Motion): the primary
-/// button's Sal. The pill has its own glyph with the same subscription
-/// (kute_bottom_action_bar.dart).
+/// and comes back, in place (the switch at the loop's boundary, a 120 ms
+/// dissolve, the loop again at frame 0; none of it under Reduce Motion):
+/// the primary button's Sal. The pill has its own glyph with the same
+/// subscription (kute_bottom_action_bar.dart).
 class SalReactionSprite extends StatefulWidget {
   const SalReactionSprite({
     super.key,
@@ -126,6 +132,8 @@ class SalReactionSprite extends StatefulWidget {
 
 class _SalReactionSpriteState extends State<SalReactionSprite> {
   SalReactionEvent? _reaction;
+  bool _reduce = false;
+  bool _warmed = false;
 
   @override
   void initState() {
@@ -134,9 +142,33 @@ class _SalReactionSpriteState extends State<SalReactionSprite> {
     _reaction = SalReactions.current.value;
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reaction = _reaction;
+    if (_reduce && reaction != null) {
+      // No switching under Reduce Motion: the reaction is skipped.
+      _reaction = null;
+      SalReactions.clear(reaction);
+    }
+    if (!_warmed) {
+      _warmed = true;
+      // The whole reaction group decoded once, so no cut waits on a read.
+      final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+      unawaited(SalSpriteCache.warmGroup('reaction',
+          defaults: [for (final r in SalReaction.values) r.clip],
+          density: SalSpriteCache.densityFor(dpr)));
+    }
+  }
+
   void _onReaction() {
     final event = SalReactions.current.value;
     if (event == null || event == _reaction) return;
+    if (_reduce) {
+      SalReactions.clear(event);
+      return;
+    }
     setState(() => _reaction = event);
   }
 
@@ -154,26 +186,19 @@ class _SalReactionSpriteState extends State<SalReactionSprite> {
   @override
   Widget build(BuildContext context) {
     final reaction = _reaction;
-    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    return AnimatedSwitcher(
-      duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
-      child: reaction == null
-          ? SalSprite(
-              key: ValueKey('rest-${widget.clip}'),
-              clip: widget.clip,
-              size: widget.size,
-              speed: widget.speed,
-              fallback: widget.fallback,
-            )
-          : SalSprite(
-              key: ValueKey('reaction-${reaction.clip}#${reaction.seq}'),
-              clip: reaction.clip,
-              size: widget.size,
-              loop: false,
-              onComplete: () => _done(reaction),
-              onUnavailable: () => _done(reaction),
-              fallback: widget.fallback,
-            ),
+    // One sprite: the reaction's clip (numbered, so the same one twice
+    // plays twice) switches in at the loop's boundary with a dissolve,
+    // and the context's clip switches back the same way once it is
+    // through. A reaction that cannot be read leaves the loop on screen.
+    return SalSprite(
+      clip: reaction?.clip ?? widget.clip,
+      cue: reaction?.seq ?? 0,
+      size: widget.size,
+      speed: reaction == null ? widget.speed : 1.0,
+      loop: reaction == null ? null : false,
+      onComplete: reaction == null ? null : () => _done(reaction),
+      onUnavailable: reaction == null ? null : () => _done(reaction),
+      fallback: widget.fallback,
     );
   }
 }

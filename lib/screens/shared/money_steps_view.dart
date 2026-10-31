@@ -66,7 +66,12 @@
 // (fetch: pace, sniff the trail, dig; sniff: sniff the trail, think;
 // settle: sit, point; a success jumps then wags; a failure shakes its
 // head then is sad), never the same twice in a row, on the same mood
-// timing ([_paintSalSprite]). Under the row: one
+// timing ([_paintSalSprite]). One continuous performance (sal_sprite.dart's
+// rule): a parked mood's clip gives way at its loop's boundary (a one-shot
+// once through), the two cells dissolve for 120 ms, and every clip he can
+// wear is decoded once when the view mounts, so no switch waits on a
+// read; into or out of a walk, a hop or a stop the switch is at once
+// (still dissolved). Under the row: one
 // status line in the step's own
 // words ("Moving $4.18 from Bitcoin", "Confirming balance", "Placed!",
 // or the surface's line saying where the money is after a stop),
@@ -908,6 +913,12 @@ class _Scene {
   double salClipAt = 0;
   String? salClipPrev;
   final math.Random salRandom = math.Random();
+
+  // The dissolve on a clip switch (sal_sprite.dart's 120 ms): the clip
+  // before, the frame it froze on, and when the switch landed.
+  String? salFadeFrom;
+  int salFadeFrame = 0;
+  double salFadeAt = double.negativeInfinity;
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -949,6 +960,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   void initState() {
     super.initState();
     unawaited(_loadMarks());
+    unawaited(_warmSalClips());
     _sync(first: true);
   }
 
@@ -2437,6 +2449,80 @@ const List<String> _kFetchClips = ['body_pace', 'body_sniff_trail', 'body_dig'];
 const List<String> _kSniffClips = ['body_sniff_trail', 'body_think'];
 const List<String> _kSettleClips = ['body_sit', 'body_point'];
 
+/// Every clip the journey's Sal can wear ([_paintSalSprite]): decoded
+/// once when a view mounts ([_warmSalClips]), so no switch waits on a
+/// read.
+const List<String> _kSalJourneyClips = [
+  'body_idle',
+  'body_walk',
+  'body_sit_down',
+  'body_sit',
+  'body_wag',
+  'body_sad',
+  'body_sniff',
+  'body_jump',
+  'body_shake_no',
+  ..._kFetchClips,
+  ..._kSniffClips,
+  ..._kSettleClips,
+];
+
+/// The scenes between which a clip waits for its boundary before giving
+/// way: the parked moods. Into or out of a walk, a hop or a stop the
+/// switch is at once (he has moved, or stopped).
+const Set<String> _kSalSoftScenes = {'fetch', 'sniff', 'settle', 'idle'};
+
+Future<void>? _salWarming;
+
+/// Pre-decodes the `waiting` group and the first-batch clips he wears, at
+/// the device's density, once for the app's life.
+Future<void> _warmSalClips() => _salWarming ??= () async {
+      final dpr = WidgetsBinding.instance.platformDispatcher.implicitView
+              ?.devicePixelRatio ??
+          2.0;
+      final density = SalSpriteCache.densityFor(dpr);
+      await SalSpriteCache.warmGroup('waiting',
+          defaults: _kSalJourneyClips, density: density);
+      await SalSpriteCache.warm(_kSalJourneyClips, density);
+    }();
+
+/// One clip's length in ms.
+double _salClipLength(SalClip c) => c.frames / c.fps * 1000;
+
+/// How close to a boundary (ms) counts as on it: the clock is a double.
+const double _kSalBeatSlack = 1.0;
+
+/// The last boundary of a [length] ms loop at or before [elapsed] (within
+/// [_kSalBeatSlack]), from its start.
+double _salBeatBefore(double elapsed, double length) =>
+    ((elapsed + _kSalBeatSlack) / length).floor() * length;
+
+/// The first boundary of a [length] ms loop at or after [elapsed] (within
+/// [_kSalBeatSlack]), from its start.
+double _salBeatAfter(double elapsed, double length) =>
+    ((elapsed - _kSalBeatSlack) / length).ceil() * length;
+
+/// The frame [c] shows [elapsed] ms in.
+int _salFrameAt(SalClip c, double elapsed) {
+  final raw = (elapsed / 1000 * c.fps).floor();
+  return c.loop ? raw % c.frames : raw.clamp(0, c.frames - 1);
+}
+
+/// Puts [to] on at [at] (its frame 0 there), the clip before frozen on
+/// the frame it showed at [at] for the dissolve (none under Reduce Motion).
+void _salSwitch(_Scene s, String to, double at,
+    {required String? from, required SalClip? fromClip}) {
+  if (from != null && fromClip != null && !s.still) {
+    s.salFadeFrom = from;
+    s.salFadeFrame = _salFrameAt(fromClip, at - s.salClipAt);
+    s.salFadeAt = at;
+  } else {
+    s.salFadeFrom = null;
+  }
+  s.salClip = to;
+  s.salClipAt = at;
+}
+
 /// Draws the 3D Sal for the journey (see the call site); false when the
 /// clip is not decoded yet, so the rig draws him instead.
 bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
@@ -2498,16 +2584,46 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
   final clip = peek(name);
   if (clip == null) return false;
   final t = frameTime ?? (now - s.salClipAt);
-  final raw = (t / 1000 * clip.fps).floor();
-  final frame = clip.loop && frameTime == null
-      ? raw % clip.frames
-      : raw.clamp(0, clip.frames - 1);
+  final frame = frameTime == null
+      ? _salFrameAt(clip, t)
+      : (t / 1000 * clip.fps).floor().clamp(0, clip.frames - 1);
+  final dst = Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u);
+  // The dissolve from the clip before (sal_sprite.dart's rule: an exact
+  // lerp in a layer, so matching poses pass unseen); none when still.
+  final fading = s.salFadeFrom;
+  final fromClip = fading == null ? null : peek(fading);
+  final fade = fading == null
+      ? 1.0
+      : ((now - s.salFadeAt) / kSalCrossfade.inMilliseconds).clamp(0.0, 1.0);
+  if (fromClip == null || fade >= 1.0 || frameTime != null) {
+    if (fading != null) s.salFadeFrom = null;
+    canvas.drawImageRect(
+      clip.image,
+      clip.cell(frame),
+      dst,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    return true;
+  }
+  canvas.saveLayer(dst, Paint());
+  canvas.drawImageRect(
+    fromClip.image,
+    fromClip.cell(s.salFadeFrame),
+    dst,
+    Paint()
+      ..filterQuality = FilterQuality.medium
+      ..color = Color.fromRGBO(255, 255, 255, 1.0 - fade),
+  );
   canvas.drawImageRect(
     clip.image,
     clip.cell(frame),
-    Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u),
-    Paint()..filterQuality = FilterQuality.medium,
+    dst,
+    Paint()
+      ..filterQuality = FilterQuality.medium
+      ..color = Color.fromRGBO(255, 255, 255, fade)
+      ..blendMode = BlendMode.plus,
   );
+  canvas.restore();
   return true;
 }
 
@@ -2516,7 +2632,11 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
 /// a clip that has played through (a one-shot its length, a loop one
 /// cycle) gives way to another of the pool, never the one just played;
 /// [standIn] while none of the pool is decoded. A loop alone keeps
-/// looping (its start is never reset).
+/// looping (its start is never reset). Between parked moods
+/// ([_kSalSoftScenes]) a new scene waits for the clip on screen to reach
+/// its boundary (a loop back at frame 0, a one-shot through); every
+/// switch lands exactly on that boundary, the overshoot being the new
+/// clip's first moments, and sets up the dissolve ([_salSwitch]).
 String _salClipRun(_Scene s, double now,
     {required String scene,
     required List<String> pool,
@@ -2533,35 +2653,60 @@ String _salClipRun(_Scene s, double now,
   }
 
   final current = s.salClip;
+  final clip = current == null ? null : peek(current);
   if (s.salScene != scene || current == null) {
+    var at = now;
+    if (current != null &&
+        clip != null &&
+        _kSalSoftScenes.contains(s.salScene) &&
+        _kSalSoftScenes.contains(scene)) {
+      final length = _salClipLength(clip);
+      final elapsed = now - s.salClipAt;
+      final boundary = clip.loop
+          ? s.salClipAt + _salBeatAfter(elapsed, length)
+          : s.salClipAt + length;
+      // Not there yet: the mood before stays on, its clip playing on.
+      if (now < boundary - _kSalBeatSlack) return current;
+      // Within a frame of the boundary the new clip starts there; a
+      // one-shot held longer starts now.
+      at = now - boundary < 1000 / clip.fps ? boundary : now;
+    }
     s.salScene = scene;
-    s.salClipPrev = null;
+    // Never the same twice in a row: the clip on screen is the one to
+    // avoid (a pool of one keeps it).
+    s.salClipPrev = current;
     final first = opener != null && peek(opener) != null ? opener : pick();
-    s.salClip = first;
-    s.salClipAt = now;
+    _salSwitch(s, first, at, from: current, fromClip: clip);
     return first;
   }
-  final clip = peek(current);
   if (clip == null) {
     // Lost (never after a decode; defensively): on to the next.
     final next = pick();
     s.salClipPrev = current;
-    s.salClip = next;
-    s.salClipAt = now;
+    _salSwitch(s, next, now, from: null, fromClip: null);
     return next;
   }
-  final length = clip.frames / clip.fps * 1000;
-  if (now - s.salClipAt < length) return current;
-  // Played through: the next of the pool, if there is another.
+  final length = _salClipLength(clip);
+  final elapsed = now - s.salClipAt;
+  if (elapsed < length - _kSalBeatSlack) return current;
+  // Played through: the next of the pool, if there is another, from the
+  // boundary this pass ended on.
+  final boundary = clip.loop
+      ? s.salClipAt + _salBeatBefore(elapsed, length)
+      : s.salClipAt + length;
+  // Never the same twice in a row: the clip on screen is the one to
+  // avoid, so the pick is settled on this beat (a pool of one keeps it).
+  s.salClipPrev = current;
   final next = pick();
   if (next == current) {
-    // A loop alone goes on from where it is; a one-shot alone replays.
-    if (!clip.loop) s.salClipAt = now;
+    // A loop alone goes on from where it is; a one-shot alone replays
+    // from its end (or from now, held longer than a frame).
+    if (!clip.loop) {
+      s.salClipAt = elapsed - length < 1000 / clip.fps ? boundary : now;
+    }
     return current;
   }
-  s.salClipPrev = current;
-  s.salClip = next;
-  s.salClipAt = now;
+  _salSwitch(s, next, boundary, from: current, fromClip: clip);
   return next;
 }
 
