@@ -43,6 +43,18 @@ import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+/// Whether what is typed has the shape of a destination (an address, an
+/// invoice, a payment request, a Lightning address) rather than a name to
+/// search the recents and the contacts with. A short word with no scheme,
+/// no `@domain` and no address length is a search.
+bool sendTextLooksLikeAddress(String text) {
+  final t = text.trim();
+  if (t.isEmpty || t.contains(' ')) return false;
+  if (t.contains(':')) return true;
+  if (t.contains('@') && t.contains('.')) return true;
+  return t.length >= 20;
+}
+
 /// The centred title of a send step's app bar ("Send", "Send dollars",
 /// "Send USDC").
 class SendStepTitle extends StatelessWidget {
@@ -823,21 +835,24 @@ class SendAlsoSendsToRow extends StatelessWidget {
       summary = l10n.sendAlsoSendsToList(
           names.sublist(0, names.length - 1).join(', '), names.last);
     }
-    const mark = 24.0;
+    // Three marks overlapping by half, in the row's 40 px leading slot.
+    const mark = 22.0;
+    const step = 9.0;
     return SendToListRow(
       key: const ValueKey('send-also-sends-to-row'),
       colors: c,
       leading: SizedBox(
-        width: (mark + (shown.length - 1) * mark * 0.6).sp.clamp(mark.sp, 40.sp),
+        width: (mark + (shown.length - 1) * step).sp,
         height: mark.sp,
         child: Stack(
           children: [
             for (var i = 0; i < shown.length; i++)
               Positioned(
-                left: (i * mark * 0.6).sp,
+                left: (i * step).sp,
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: c.surfaceLight,
                     border: Border.all(color: c.surfaceLight, width: 1.5),
                   ),
                   child: AssetIcon(assetCode: shown[i].assetCode, size: mark.sp),

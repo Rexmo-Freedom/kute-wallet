@@ -595,11 +595,14 @@ send_approval_result
 send_asset_shortcut_tapped
 send_cold_destination_reset
 send_completed
+send_contacts_permission
 send_failed
 send_flow_abandoned
 send_flow_started
 send_invoice_fastpath
 send_max_tapped
+send_pick_market_opened
+send_recipient_picked
 send_review_shown
 send_route_details_opened
 send_step
