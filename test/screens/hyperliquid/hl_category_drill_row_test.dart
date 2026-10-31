@@ -102,7 +102,7 @@ void main() {
     expect(_pill('Stocks'), findsNothing);
 
     // Every pill on the row is the boxed chip with a 44 pt hit target.
-    expect(tester.getSize(_pill('Traditional')).height, greaterThanOrEqualTo(44));
+    expect(tester.getSize(_pill('Stocks and shares')).height, greaterThanOrEqualTo(44));
 
     // Perps has no subcategories: it selects, the row stays.
     await _tap(tester, _pill('Perps'));
@@ -112,11 +112,11 @@ void main() {
     expect(_pill('Trending'), findsOneWidget);
 
     // Tradfi drills in: "‹ Tradfi", then Stocks (selected) and Indices.
-    await _tap(tester, _pill('Traditional'));
+    await _tap(tester, _pill('Stocks and shares'));
     await _settle(tester);
     expect(_pill('Trending'), findsNothing);
     expect(_back, findsOneWidget);
-    expect(tester.widget<KutePill>(_back).label, 'Traditional');
+    expect(tester.widget<KutePill>(_back).label, 'Stocks and shares');
     expect(tester.widget<KutePill>(_back).icon, Icons.chevron_left_rounded);
     expect(_selected(tester, 'Stocks'), isTrue);
     expect(_selected(tester, 'Indices'), isFalse);
@@ -131,12 +131,12 @@ void main() {
     await _tap(tester, _back);
     await _settle(tester);
     expect(_back, findsNothing);
-    expect(_selected(tester, 'Traditional'), isTrue);
+    expect(_selected(tester, 'Stocks and shares'), isTrue);
     expect(container.read(hlBrowseSelectionProvider).tab, HlBrowseTab.tradfi);
     expect(container.read(hlBrowseSelectionProvider).sub, HlBrowseSub.all);
 
     // Tapped again, Tradfi drills in again on its first subcategory.
-    await _tap(tester, _pill('Traditional'));
+    await _tap(tester, _pill('Stocks and shares'));
     await _settle(tester);
     expect(_back, findsOneWidget);
     expect(_selected(tester, 'Stocks'), isTrue);

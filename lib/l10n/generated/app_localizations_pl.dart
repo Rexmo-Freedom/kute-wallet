@@ -10590,6 +10590,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get shareHeaderLabel => 'Share';
 
   @override
+  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+
+  @override
+  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+
+  @override
   String get searchOrAskSalShort => 'Szukaj lub zapytaj Sala';
 
   @override

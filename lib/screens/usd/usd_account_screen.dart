@@ -118,6 +118,7 @@ import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -563,76 +564,100 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     _collapseRange = expandedExtent - compactExtent;
 
     final c = context.colors;
-    return NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
-      child: RefreshIndicator(
-        onRefresh: _refresh,
-        color: c.textPrimary,
-        backgroundColor: c.surface,
-        // The pull lands on the pill's own list (the nested scroll hands
-        // the overscroll to the inner lists, every mounted one of them),
-        // so the page listens to the visible pill's list, not to the
-        // header, and not to the pills kept mounted behind the stack.
-        notificationPredicate: (n) => n.depth > 0 && _fromVisiblePill(n),
-        child: NestedScrollView(
-          controller: _outer,
-          physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics()),
-          headerSliverBuilder: (context, _) => [
-            // The hero and the pills as one collapsing header (see the
-            // file header), pinned as the compact bar, under the nav
-            // bar's room while the bar is on screen.
-            Consumer(
-              builder: (context, ref, _) => TweenAnimationBuilder<double>(
-                tween:
-                    Tween<double>(end: ref.watch(navBarHiddenProvider) ? 0 : 1),
-                duration: kuteMotion(context, kNavBarSlideDuration),
-                curve: Curves.easeOut,
-                builder: (context, room, _) {
-                  // The header's extents follow the nav bar's room and the
-                  // hero's measured height: when they SHRINK while the
-                  // outer scroll rests at its end, its pixels are past the
-                  // new maximum, and the nested scroll's next fling
-                  // asserts (`extra >= 0.0`, the red overlay the founder
-                  // saw). Clamped after the frame, with the drag and the
-                  // activity kept (forcePixels, never jumpTo).
-                  _clampOuterAfterFrame();
-                  return SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _InvestmentsHeaderDelegate(
-                      items: [for (final tab in tabs) item(tab)],
-                      selectedIndex: tabs.indexOf(selected),
-                      onTap: (i) => _pick(tabs[i]),
-                      onExpand: _expand,
-                      onExpandedHeight: _onExpandedHeight,
-                      figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
-                      expandedExtent: expandedExtent,
-                      compactExtent: compactExtent,
-                      topRoom: kShellTopBarSpacing.h * room,
-                      background: Theme.of(context).scaffoldBackgroundColor,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-          body: IndexedStack(
-            index: tabs.indexOf(selected),
-            // Every pill keeps its state; only the one on screen ticks.
-            children: [
-              for (final tab in tabs)
-                TickerMode(
-                  enabled: tab == selected,
-                  child: switch (tab) {
-                    InvestmentsTab.investing =>
-                      const HyperliquidScreen(embedded: true),
-                    InvestmentsTab.predictions =>
-                      const PolymarketScreen(embedded: true),
-                    // Its own screen now (portfolio_screen.dart).
-                    InvestmentsTab.positions => const SizedBox.shrink(),
+    // THE BAR'S LABEL FOLLOWS THE PICKED HALF (founder, 31 October 2026):
+    // "Search predictions or ask Sal" with Predictions, "Search
+    // investments or ask Sal" with Investing, scoped to that venue as the
+    // sheet already is (searchTarget); the pill morphs on the chip spring
+    // as the pill switches. Held only while this branch is on screen (the
+    // shell parks the other tab's branch with its tickers off).
+    final barTarget = UsdAccountActionBar.searchTarget(selected);
+    return KuteBarContextScope(
+      active: TickerMode.of(context),
+      barContext: KuteBarContext(
+        label: switch (selected) {
+          InvestmentsTab.predictions => l10n.searchPredictionsOrAskSal,
+          InvestmentsTab.investing => l10n.searchInvestmentsOrAskSal,
+          InvestmentsTab.positions => l10n.searchOrAskSalShort,
+        },
+        category: barTarget.category,
+        searchHint: switch (selected) {
+          InvestmentsTab.predictions => l10n.searchPredictionsHint,
+          InvestmentsTab.investing => l10n.searchInvestmentsHint,
+          InvestmentsTab.positions => null,
+        },
+        source: barTarget.source,
+      ),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          color: c.textPrimary,
+          backgroundColor: c.surface,
+          // The pull lands on the pill's own list (the nested scroll hands
+          // the overscroll to the inner lists, every mounted one of them),
+          // so the page listens to the visible pill's list, not to the
+          // header, and not to the pills kept mounted behind the stack.
+          notificationPredicate: (n) => n.depth > 0 && _fromVisiblePill(n),
+          child: NestedScrollView(
+            controller: _outer,
+            physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics()),
+            headerSliverBuilder: (context, _) => [
+              // The hero and the pills as one collapsing header (see the
+              // file header), pinned as the compact bar, under the nav
+              // bar's room while the bar is on screen.
+              Consumer(
+                builder: (context, ref, _) => TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                      end: ref.watch(navBarHiddenProvider) ? 0 : 1),
+                  duration: kuteMotion(context, kNavBarSlideDuration),
+                  curve: Curves.easeOut,
+                  builder: (context, room, _) {
+                    // The header's extents follow the nav bar's room and the
+                    // hero's measured height: when they SHRINK while the
+                    // outer scroll rests at its end, its pixels are past the
+                    // new maximum, and the nested scroll's next fling
+                    // asserts (`extra >= 0.0`, the red overlay the founder
+                    // saw). Clamped after the frame, with the drag and the
+                    // activity kept (forcePixels, never jumpTo).
+                    _clampOuterAfterFrame();
+                    return SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _InvestmentsHeaderDelegate(
+                        items: [for (final tab in tabs) item(tab)],
+                        selectedIndex: tabs.indexOf(selected),
+                        onTap: (i) => _pick(tabs[i]),
+                        onExpand: _expand,
+                        onExpandedHeight: _onExpandedHeight,
+                        figure: InvestmentBalanceHeader.oneBalanceFigure(ref),
+                        expandedExtent: expandedExtent,
+                        compactExtent: compactExtent,
+                        topRoom: kShellTopBarSpacing.h * room,
+                        background: Theme.of(context).scaffoldBackgroundColor,
+                      ),
+                    );
                   },
                 ),
+              ),
             ],
+            body: IndexedStack(
+              index: tabs.indexOf(selected),
+              // Every pill keeps its state; only the one on screen ticks.
+              children: [
+                for (final tab in tabs)
+                  TickerMode(
+                    enabled: tab == selected,
+                    child: switch (tab) {
+                      InvestmentsTab.investing =>
+                        const HyperliquidScreen(embedded: true),
+                      InvestmentsTab.predictions =>
+                        const PolymarketScreen(embedded: true),
+                      // Its own screen now (portfolio_screen.dart).
+                      InvestmentsTab.positions => const SizedBox.shrink(),
+                    },
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -18029,6 +18029,18 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get shareHeaderLabel;
 
+  /// The floating bar on the Dollars tab while Predictions is the picked half.
+  ///
+  /// In en, this message translates to:
+  /// **'Search predictions or ask Sal'**
+  String get searchPredictionsOrAskSal;
+
+  /// The floating bar on the Dollars tab while Investing is the picked half.
+  ///
+  /// In en, this message translates to:
+  /// **'Search investments or ask Sal'**
+  String get searchInvestmentsOrAskSal;
+
   /// Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal.
   ///
   /// In en, this message translates to:
@@ -18930,7 +18942,7 @@ abstract class AppLocalizations {
   /// Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon.
   ///
   /// In en, this message translates to:
-  /// **'Traditional'**
+  /// **'Stocks and shares'**
   String get investingTradfi;
 
   /// Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin).

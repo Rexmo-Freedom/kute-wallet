@@ -36,11 +36,11 @@
 // IN THE HEADER INSTEAD (founder, 31 October 2026; KuteBarPlacement): on
 // the Hyperliquid and Polymarket market pages, the position pages and the
 // multi-outcome event page the floating pill is away, and the page draws
-// [KuteSalHeaderButton] in its header's top-right, left of the watchlist
-// star: a compact pill in the pill's chrome, Sal's `share` face and the
-// word "Share" (founder: it "should say share or send"), opening the same
-// Sal sheet (the context variant). It travels to the composer the way
-// the pill does.
+// [KuteSalHeaderButton] beside its headline figure: a real button in the
+// primary look, Sal's `share` face and the word "Share" (founder: it
+// "should say share or send", then "should be more evident"), opening
+// the same Sal sheet (the context variant). It travels to the composer
+// the way the pill does.
 //
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
@@ -420,41 +420,126 @@ Future<void> openKuteBarSheet(
   }
 }
 
-/// THE SAL CONTROL IN A PAGE'S HEADER (founder, 31 October 2026; see the
-/// file header): a compact pill, 32 tall, in the pill's chrome (white or
-/// the surface over a hairline), Sal's `share` face at 24 on the left and
-/// "Share" (12, w600, the text colour) beside it, 10 of padding before
-/// Sal and 12 after the word (founder, on the merged build: the circle
-/// alone "should say share or send"). Tapped, it opens the Sal sheet with
+/// THE SHARE BUTTON BESIDE A PAGE'S BIG NUMBER (founder, 31 October 2026;
+/// see the file header): a real button in the app's primary look (the
+/// textPrimary fill, the mode's contrast ink), 40 tall, radius 20, 12
+/// before Sal's `share` face at 26 and 16 after the word "Share" (14,
+/// w600); the press spring of every button. On the page's open it
+/// enters on the sheet spring and pulses once (1.0 → 1.06 → 1.0; none
+/// under Reduce Motion). Tapped, it opens the Sal sheet with
 /// [barContext] (the context variant: Share the market / Send this
 /// prediction) and travels to the composer as the pill does; transparent
-/// while it travels and while the sheet is up. The page mounts it in its
-/// header's actions row, left of the watchlist star, inside the same
-/// [KuteBarContextScope] that declares the `header` placement.
+/// while it travels and while the sheet is up. The page mounts it on the
+/// headline figure's row, right-aligned and centred on the figure's first
+/// line, inside the same [KuteBarContextScope] that declares the `header`
+/// placement.
 class KuteSalHeaderButton extends StatefulWidget {
   const KuteSalHeaderButton({super.key, required this.barContext});
 
   final KuteBarContext barContext;
 
-  /// The pill's height, Sal's side in it, and its padding before Sal and
-  /// after the word.
-  static const double height = 32;
-  static const double salSize = 24;
-  static const double paddingStart = 10;
-  static const double paddingEnd = 12;
+  /// The button's height, Sal's side in it, and its padding before Sal
+  /// and after the word.
+  static const double height = 40;
+  static const double salSize = 26;
+  static const double paddingStart = 12;
+  static const double paddingEnd = 16;
+
+  /// The pulse on the page's open: once, to 1.06 and back.
+  static const double pulseScale = 1.06;
+  static const Duration pulseDuration = Duration(milliseconds: 360);
 
   @override
   State<KuteSalHeaderButton> createState() => _KuteSalHeaderButtonState();
 }
 
-class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton> {
+class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
+    with TickerProviderStateMixin {
   bool _travelling = false;
+
+  /// The entry (0 → 1 on the sheet spring), then the one pulse.
+  late final AnimationController _entry = AnimationController(
+      vsync: this, duration: KuteMotion.sheetInDuration);
+  late final AnimationController _pulse = AnimationController(
+      vsync: this, duration: KuteSalHeaderButton.pulseDuration);
+  late final Animation<double> _pulseScale = TweenSequence<double>([
+    TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: KuteSalHeaderButton.pulseScale)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 1),
+    TweenSequenceItem(
+        tween: Tween(begin: KuteSalHeaderButton.pulseScale, end: 1.0)
+            .chain(CurveTween(curve: KuteMotion.settle)),
+        weight: 1),
+  ]).animate(_pulse);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (kuteReduceMotion(context)) {
+      _entry.value = 1;
+      return;
+    }
+    // ignore: discarded_futures
+    _entry.forward().then((_) {
+      if (mounted) _pulse.forward(from: 0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _entry.dispose();
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final ctx = widget.barContext;
+    final ink = isLight ? Colors.white : c.background;
+    final Widget button = Container(
+      key: const ValueKey('kute-sal-header-button'),
+      height: KuteSalHeaderButton.height,
+      padding: const EdgeInsetsDirectional.only(
+        start: KuteSalHeaderButton.paddingStart,
+        end: KuteSalHeaderButton.paddingEnd,
+      ),
+      decoration: BoxDecoration(
+        color: c.textPrimary,
+        borderRadius: BorderRadius.circular(KuteSalHeaderButton.height / 2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SalSprite(
+            clip: ctx.clip,
+            size: KuteSalHeaderButton.salSize,
+            fallback: SalSprite(
+                clip: 'happy',
+                size: KuteSalHeaderButton.salSize,
+                fallback: KuteDogGlance(size: 22, color: ink)),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.shareHeaderLabel,
+            key: const ValueKey('kute-sal-header-label'),
+            maxLines: 1,
+            style: TextStyle(
+              color: ink,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
     return Semantics(
       button: true,
       label: ctx.label,
@@ -469,51 +554,25 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton> {
                       setState(() => _travelling = on);
                     }
                   }),
-          child: Opacity(
-            opacity: _travelling ? 0 : 1,
-            child: Container(
-              key: const ValueKey('kute-sal-header-button'),
-              height: KuteSalHeaderButton.height,
-              padding: const EdgeInsetsDirectional.only(
-                start: KuteSalHeaderButton.paddingStart,
-                end: KuteSalHeaderButton.paddingEnd,
-              ),
-              decoration: BoxDecoration(
-                color: isLight ? Colors.white : c.surface,
-                borderRadius:
-                    BorderRadius.circular(KuteSalHeaderButton.height / 2),
-                border: Border.all(
-                  color: isLight ? c.border : c.borderSubtle,
-                  width: isLight ? 1.0 : 0.5,
+          // The entry: from a touch below and small, on the sheet
+          // spring; then the pulse, once. ONE Opacity: the entry's fade
+          // and the travel's transparency (the morph test reads it).
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_entry, _pulse]),
+            child: button,
+            builder: (context, child) {
+              final t = KuteMotion.sheetIn.transform(_entry.value);
+              return Opacity(
+                opacity: _travelling ? 0 : t.clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, 8 * (1 - t)),
+                  child: Transform.scale(
+                    scale: (0.9 + 0.1 * t) * _pulseScale.value,
+                    child: child,
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SalSprite(
-                    clip: ctx.clip,
-                    size: KuteSalHeaderButton.salSize,
-                    fallback: SalSprite(
-                        clip: 'happy',
-                        size: KuteSalHeaderButton.salSize,
-                        fallback: KuteDogGlance(size: 20, color: c.accent)),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    context.l10n.shareHeaderLabel,
-                    key: const ValueKey('kute-sal-header-label'),
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),

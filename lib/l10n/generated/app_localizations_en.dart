@@ -10512,6 +10512,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareHeaderLabel => 'Share';
 
   @override
+  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+
+  @override
+  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+
+  @override
   String get searchOrAskSalShort => 'Search or ask Sal';
 
   @override
@@ -11253,7 +11259,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get activityOnItsWay => 'On its way';
 
   @override
-  String get investingTradfi => 'Traditional';
+  String get investingTradfi => 'Stocks and shares';
 
   @override
   String get purchaseShort => 'Purchase';

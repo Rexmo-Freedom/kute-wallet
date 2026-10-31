@@ -6297,6 +6297,10 @@
   },
   "shareHeaderLabel": "Share",
   "@shareHeaderLabel": {"description": "Market and position page headers: the word on the compact Sal pill (Sal's share face + this), left of the watchlist star, opening the Sal sheet with the share rows."},
+  "searchPredictionsOrAskSal": "Search predictions or ask Sal",
+  "@searchPredictionsOrAskSal": {"description": "The floating bar on the Dollars tab while Predictions is the picked half."},
+  "searchInvestmentsOrAskSal": "Search investments or ask Sal",
+  "@searchInvestmentsOrAskSal": {"description": "The floating bar on the Dollars tab while Investing is the picked half."},
   "searchOrAskSalShort": "Search or ask Sal",
   "@searchOrAskSalShort": {
     "description": "Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal."
@@ -6873,7 +6877,7 @@
   "@investmentsAdd": {"description": "Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'."},
   "activityOnItsWay": "On its way",
   "@activityOnItsWay": {"description": "Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows."},
-  "investingTradfi": "Traditional",
+  "investingTradfi": "Stocks and shares",
   "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."},
   "purchaseShort": "Purchase",
   "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."},
