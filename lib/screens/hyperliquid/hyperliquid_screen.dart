@@ -557,6 +557,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                               items: markets,
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
+                              divider: hlGroupRowDivider,
                               build: (market, inGroup) => RepaintBoundary(
                                 child: HlMarketCard(
                                   key: ValueKey(

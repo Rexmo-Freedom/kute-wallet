@@ -11352,4 +11352,14 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get purchaseShort => 'Αγορά';
+
+  @override
+  String marketMetaLine(String volume, String date) {
+    return '$volume · closes $date';
+  }
+
+  @override
+  String marketCloses(String date) {
+    return 'closes $date';
+  }
 }

@@ -6858,5 +6858,20 @@
   "investingTradfi": "Traditional",
   "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."},
   "purchaseShort": "Purchase",
-  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."}
+  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."},
+  "marketMetaLine": "{volume} · closes {date}",
+  "@marketMetaLine": {
+    "description": "Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.",
+    "placeholders": {
+      "volume": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "marketCloses": "closes {date}",
+  "@marketCloses": {
+    "description": "Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.",
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  }
 }

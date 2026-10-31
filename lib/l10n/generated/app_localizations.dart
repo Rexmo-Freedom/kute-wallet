@@ -18884,6 +18884,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchase'**
   String get purchaseShort;
+
+  /// Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.
+  ///
+  /// In en, this message translates to:
+  /// **'{volume} · closes {date}'**
+  String marketMetaLine(String volume, String date);
+
+  /// Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.
+  ///
+  /// In en, this message translates to:
+  /// **'closes {date}'**
+  String marketCloses(String date);
 }
 
 class _AppLocalizationsDelegate

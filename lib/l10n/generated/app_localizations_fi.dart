@@ -11284,4 +11284,14 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get purchaseShort => 'Osta';
+
+  @override
+  String marketMetaLine(String volume, String date) {
+    return '$volume · closes $date';
+  }
+
+  @override
+  String marketCloses(String date) {
+    return 'closes $date';
+  }
 }

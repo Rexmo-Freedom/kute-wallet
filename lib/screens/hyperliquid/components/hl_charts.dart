@@ -5044,6 +5044,13 @@ class HlLineSparkline extends StatelessWidget {
   final Color? upColor;
   final Color? downColor;
 
+  /// The line's width ([HlLineSparklinePainter.strokeWidth] by default).
+  final double strokeWidth;
+
+  /// Whether the faint dotted baseline (the first value's level) is drawn
+  /// under the line. The market lists leave it out: the line alone.
+  final bool baseline;
+
   const HlLineSparkline({
     super.key,
     required this.closes,
@@ -5051,6 +5058,8 @@ class HlLineSparkline extends StatelessWidget {
     this.height = 26,
     this.upColor,
     this.downColor,
+    this.strokeWidth = HlLineSparklinePainter.strokeWidth,
+    this.baseline = true,
   });
 
   /// Build from raw candles — uses each candle's close.
@@ -5086,6 +5095,8 @@ class HlLineSparkline extends StatelessWidget {
                   data: data,
                   upColor: upColor ?? AppColors.marketUp,
                   downColor: downColor ?? AppColors.marketDown,
+                  lineWidth: strokeWidth,
+                  baseline: baseline,
                 ),
               ),
             ),
@@ -5100,13 +5111,21 @@ class HlLineSparklinePainter extends CustomPainter {
   final Color upColor;
   final Color downColor;
 
+  /// The line's width, [strokeWidth] unless the widget says otherwise.
+  final double lineWidth;
+
+  /// Whether the dotted baseline is drawn under the line.
+  final bool baseline;
+
   HlLineSparklinePainter({
     required this.data,
     required this.upColor,
     required this.downColor,
+    this.lineWidth = strokeWidth,
+    this.baseline = true,
   });
 
-  /// The line's width.
+  /// The line's default width.
   static const strokeWidth = 1.5;
 
   /// The baseline: dots this wide, this far apart (centre to centre), in
@@ -5125,7 +5144,7 @@ class HlLineSparklinePainter extends CustomPainter {
   Size? _size;
   Path? _line;
   List<Offset>? _dots;
-  late final Paint _linePaint = kuteStrokePaint(color, width: strokeWidth);
+  late final Paint _linePaint = kuteStrokePaint(color, width: lineWidth);
   late final Paint _dotPaint = Paint()
     ..color = color.withValues(alpha: baselineOpacity)
     ..style = PaintingStyle.stroke
@@ -5191,8 +5210,9 @@ class HlLineSparklinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data.length < 2) return;
     _layout(size);
-    // The baseline under the line; the line only, no fill under it.
-    canvas.drawPoints(PointMode.points, _dots!, _dotPaint);
+    // The baseline under the line (when wanted); the line only, no fill
+    // under it.
+    if (baseline) canvas.drawPoints(PointMode.points, _dots!, _dotPaint);
     canvas.drawPath(_line!, _linePaint);
   }
 
@@ -5200,6 +5220,8 @@ class HlLineSparklinePainter extends CustomPainter {
   bool shouldRepaint(covariant HlLineSparklinePainter old) =>
       old.upColor != upColor ||
       old.downColor != downColor ||
+      old.lineWidth != lineWidth ||
+      old.baseline != baseline ||
       !listEquals(old.data, data);
 }
 

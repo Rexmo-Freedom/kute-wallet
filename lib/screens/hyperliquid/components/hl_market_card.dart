@@ -3,9 +3,13 @@ import 'package:kute/l10n/l10n.dart';
 //
 // The Investing browse lists' market card (Home and the Ledger tab).
 //
-// Layout: ONE row, about 72 px tall, on the app's card surface
+// Layout: ONE row, about 70 px tall, on the app's card surface
 // (AppDecorations.card); with [HlMarketCard.inGroup] a row of a grouped
-// list card instead (market_groups.dart), the Investments lists' form:
+// list card instead (market_groups.dart), the Investments lists' form.
+// Less dense since October 2026, after Robinhood / Public / Coinbase: no
+// hairline between the rows of a group ([hlGroupRowDivider] is nothing),
+// 15 of vertical padding, a 32 logo, a thin sparkline with no baseline,
+// and the change as an arrow glyph rather than a sign:
 //   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
 //   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
 //     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
@@ -13,12 +17,14 @@ import 'package:kute/l10n/l10n.dart';
 //     already is the ticker: a spot token then reads "Spot", and a perp
 //     has no caption at all (its name sits centred in the row). Never a
 //     max leverage: leverage is blocked in the app, so no row hints at it;
-//   * a small LINE sparkline (HlLineSparkline) of the daily closes, in the
-//     up / down colour of the 24h change (neutral when flat or unknown),
-//     from the device cache (one request per coin per UTC day; see
+//   * a small LINE sparkline (HlLineSparkline, 52 wide, a 1.2 line at 70%
+//     of the colour, no dotted baseline) of the daily closes, in the up /
+//     down colour of the 24h change (neutral when flat or unknown), from
+//     the device cache (one request per coin per UTC day; see
 //     hyperliquid_sparkline_provider.dart), empty until the first lands;
-//   * the LIVE price, always in the primary text colour, over the signed
-//     24h % change in the up / down colour (a dash when unknown).
+//   * the LIVE price, always in the primary text colour, over the 24h %
+//     change as "▲ 0.4%" / "▼ 3.8%" in the up / down colour (no plus or
+//     minus sign; "0.0%" when flat, a dash when unknown).
 //
 // A thinly traded market (HlMarket.isLowLiquidity) ends its caption with
 // " · Low liquidity" (on a second caption line when one cannot hold it:
@@ -53,11 +59,19 @@ import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The row's logo.
-const double kHlMarketRowIcon = 36;
+const double kHlMarketRowIcon = 32;
 
-/// Where a grouped row's text starts, for the group's hairline: the row's
-/// 16 inset, the logo and the 12 gap after it.
+/// Where a grouped row's text starts (the row's 16 inset, the logo and the
+/// 12 gap after it): where a group's hairline would start, were one drawn.
 double hlGroupRowIndent() => 16.w + kHlMarketRowIcon.w + 12.w;
+
+/// Between two Investing rows of a group: nothing. The rows' own padding
+/// separates them (Robinhood / Public / Coinbase draw no hairlines).
+Widget hlGroupRowDivider(BuildContext context, double indent) =>
+    const SizedBox.shrink();
+
+/// The sparkline's line colour: the change's, at 70%.
+const double kHlSparklineOpacity = 0.7;
 
 /// Browse card for one Hyperliquid market (perp or spot). Consumer-stateful
 /// so it can watch this coin's live mid + tick direction and register the
@@ -187,8 +201,7 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
           onTap: _openDetail,
           borderRadius: radius,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: 16.w, vertical: grouped ? 14.h : 16.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 15.h),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -234,17 +247,21 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                     ],
                   ),
                 ),
-                // The line only, no fill and no axes. Empty (same width,
-                // so the prices stay aligned) until the candles land. A
-                // thin market has none: see [thin].
+                // The line only: thin, a shade lighter than the change's
+                // colour, no baseline, no fill and no axes. Empty (same
+                // width, so the prices stay aligned) until the candles
+                // land. A thin market has none: see [thin].
                 if (!thin) ...[
                   SizedBox(width: 12.w),
                   HlLineSparkline(
                     closes: closes,
-                    width: 64,
-                    height: 28,
-                    upColor: changeColor,
-                    downColor: changeColor,
+                    width: 52,
+                    height: 24,
+                    strokeWidth: 1.2,
+                    baseline: false,
+                    upColor: changeColor.withValues(alpha: kHlSparklineOpacity),
+                    downColor:
+                        changeColor.withValues(alpha: kHlSparklineOpacity),
                   ),
                 ],
                 SizedBox(width: 12.w),
@@ -269,7 +286,7 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                       if (change != null || !thin) ...[
                         SizedBox(height: 2.h),
                         _ChangeText(
-                          text: change == null ? '—' : formatHlPct(change),
+                          text: change == null ? '—' : hlArrowPct(change),
                           color: changeColor,
                         ),
                       ],
@@ -335,12 +352,21 @@ class _ThinCaption extends StatelessWidget {
   }
 }
 
-/// Signed 24h % change under the price — plain coloured TEXT (marketUp /
+/// A 24h change (a fraction) as the row writes it: an arrow glyph for the
+/// direction and the unsigned size, "▲ 0.4%" / "▼ 3.8%" (the glyphs the
+/// transaction rows and slip tiles already use); "0.0%" alone when flat.
+String hlArrowPct(double change) {
+  final pct = (change.abs() * 100).toStringAsFixed(1);
+  if (change == 0) return '$pct%';
+  return '${change > 0 ? '▲' : '▼'} $pct%';
+}
+
+/// 24h % change under the price — plain coloured TEXT (marketUp /
 /// marketDown via greenColor / redColor), no tinted box: tinted chips are
 /// rejected app-wide (solid fills or neutral grey only; coloured text on a
-/// neutral surface is fine). [text] arrives already signed from
-/// [formatHlPct] ('+1.2%' / '−0.8%'). Rolls its digits like the position
-/// card's PnL line so a 30 s universe refresh ticks instead of snapping.
+/// neutral surface is fine). [text] arrives from [hlArrowPct] ('▲ 1.2%' /
+/// '▼ 0.8%'). Rolls its digits like the position card's PnL line so a
+/// 30 s universe refresh ticks instead of snapping.
 class _ChangeText extends StatelessWidget {
   final String text;
   final Color color;
@@ -353,7 +379,7 @@ class _ChangeText extends StatelessWidget {
       style: TextStyle(
         color: color,
         fontSize: 13.sp,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         letterSpacing: -0.1,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
