@@ -1,9 +1,17 @@
-// The placement's rubber band on the Investing close ticket (founder, 14
-// October 2026): while the close is placing the CTA is drawn up; closed,
-// it lets go with the spring snap and a light tap, and the confirmation
-// comes once the snap has played (a bounded wait); refused, it releases
-// softly with no overshoot and the reason shows; under Reduce Motion it
-// never moves and nothing waits.
+// The placement's run on the Investing close ticket (founder, 14 October
+// 2026): while the close is placing the ticket's one button is drawn busy;
+// closed, the ticket holds the close for the snap's bounded moment
+// ([RubberBand.settle]) before the confirmation comes; refused, the button
+// is the retry again with the reason shown; under Reduce Motion nothing
+// waits.
+//
+// Since 31 October 2026 the ticket draws no button of its own: `PolySlipCta`
+// declares the action and the shell bar IS the button (kute_shell_bar.dart,
+// shell_bar_harness.dart). The band the CTA wrapped around its own button
+// (`RubberBandBusy`) went with that button, and its haptics (the snap, the
+// soft tap) with it: what this file keeps is the run as the bar shows it,
+// the busy label and the ring while it places, taps ignored, the sheet's
+// outcome and its bounded wait, and the button back once it ended.
 //
 // Driven end to end on the hot path: the approval is the Kute PIN
 // (biometrics off), and the exchange call is held by the test.
@@ -41,6 +49,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
+import '../../helpers/shell_bar_harness.dart';
 import '../../services/support/fake_secret_store.dart';
 
 class _QuickAuth extends AuthModel {
@@ -161,9 +170,30 @@ Settings _settings() => Settings(
 
 final _cta = find.byType(PolySlipCta);
 
-RubberBandProgressState _band(WidgetTester tester) =>
-    tester.state<RubberBandProgressState>(
-        find.descendant(of: _cta, matching: find.byType(RubberBandProgress)));
+/// The bar's progress ring, inside its button.
+Finder _ring() => find.descendant(
+    of: findBarPrimary(), matching: find.byType(CircularProgressIndicator));
+
+/// The bar reads the close, enabled, no ring: the button at rest.
+void _expectAtRest(WidgetTester tester, String label) {
+  expect(barIsPrimary(tester), isTrue);
+  expect(barPrimaryBusy(tester), isFalse);
+  expect(barPrimaryEnabled(tester), isTrue);
+  expect(barPrimaryLabel(tester), label);
+  expect(barPrimaryText(label), findsOneWidget);
+  expect(_ring(), findsNothing);
+}
+
+/// The bar reads the busy label beside its ring, not tappable.
+void _expectClosing(WidgetTester tester) {
+  expect(barIsPrimary(tester), isTrue);
+  expect(barPrimaryBusy(tester), isTrue);
+  expect(barPrimaryEnabled(tester), isFalse);
+  expect(barPrimaryLabel(tester), 'Loading...');
+  expect(barPrimaryText('Loading...'), findsOneWidget);
+  expect(barPrimaryText('Close 100% now'), findsNothing);
+  expect(_ring(), findsOneWidget);
+}
 
 Future<void> _frames(WidgetTester tester, int n,
     [Duration step = const Duration(milliseconds: 50)]) async {
@@ -208,6 +238,8 @@ void main() {
     });
     addTearDown(() => tester.binding.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null));
+    // The bar over the ticket is the ticket's button (shell_bar_harness).
+    installShellBar();
     final trading = _Exchange();
     final container = ProviderContainer(overrides: [
       authModelProvider.overrideWith((ref) => _QuickAuth(keychain)),
@@ -234,11 +266,15 @@ void main() {
           ),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // Reduce Motion reaches the bar too: the MediaQuery wraps the
+          // bar's layer, not only the navigator (shellBarApp's `builder`
+          // wraps the navigator alone).
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(disableAnimations: reduceMotion),
-            child: child!,
+            child: shellBarBuilder(context, child),
           ),
+          navigatorObservers: shellBarObservers(),
           home: const Scaffold(
             body: HlClosePositionSheet(position: _position, market: _btc),
           ),
@@ -252,8 +288,8 @@ void main() {
   /// Taps Close and approves it with the PIN; the close is then placing,
   /// held by the test.
   Future<void> closeAndApprove(WidgetTester tester, _Exchange trading) async {
-    expect(_band(tester).stretch, 0, reason: 'at rest before the tap');
-    await tester.tap(_cta);
+    _expectAtRest(tester, 'Close 100% now');
+    await tapBarPrimary(tester, settle: false);
     for (var i = 0;
         i < 40 && find.byType(PinGateSheet).evaluate().isEmpty;
         i++) {
@@ -273,6 +309,7 @@ void main() {
     await _frames(tester, 20);
     expect(find.byType(PinGateSheet), findsNothing);
     expect(tester.widget<PolySlipCta>(_cta).isBusy, isTrue);
+    _expectClosing(tester);
   }
 
   // The whoosh and the snap, through the haptics bridge's test seam.
@@ -280,39 +317,34 @@ void main() {
       ContinuousHaptics.debugLog!.where((c) => c.method == 'snap').length;
 
   testWidgets(
-      'closing pulls the CTA up; closed, it snaps back with a light tap, '
-      'then the confirmation shows', (tester) async {
+      'closing: the bar is drawn busy; closed, the ticket holds the close '
+      'for the snap\'s moment, then the confirmation shows', (tester) async {
     final trading = await pump(tester);
     await closeAndApprove(tester, trading);
-    // Approved and sent: at least the sent step's tension, built on by
-    // time, never past full tension.
-    expect(_band(tester).stretch,
-        greaterThan(rubberBandStretchFor(0.65) - 0.005));
-    expect(
-        _band(tester).stretch,
-        lessThanOrEqualTo(
-            RubberBandProgress.defaultMaxStretch + RubberBandProgress.breath));
-    expect(_band(tester).ticking, isTrue);
+    // Approved and sent: the ticket is at the sent step, the bar busy
+    // for as long as the exchange holds it, never a dead button.
+    expect(tester.widget<PolySlipCta>(_cta).bandProgress,
+        greaterThan(0.65 - 0.005));
+    await _frames(tester, 20);
+    _expectClosing(tester);
     final tapsBefore = snapTaps();
 
     trading.answer.complete(const HlOrderResult(
         kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000));
     await tester.pump();
-    // The CTA snaps while the ticket still holds the close: no
-    // confirmation yet.
+    // The ticket still holds the close while the snap's moment plays: no
+    // confirmation yet, the bar still busy.
     final cta = tester.widget<PolySlipCta>(_cta);
     expect(cta.isBusy, isTrue);
     expect(cta.bandOutcome, RubberBandOutcome.success);
-    var min = double.infinity;
     for (var i = 0; i < 18; i++) {
       await tester.pump(const Duration(milliseconds: 16));
-      final s = _band(tester).stretch;
-      if (s < min) min = s;
+      _expectClosing(tester);
       expect(find.byType(KuteConfirmation), findsNothing,
           reason: 'not before the snap has played');
     }
-    expect(min, lessThan(0), reason: 'the snap overshoots past rest');
-    expect(snapTaps() - tapsBefore, 1);
+    // The CTA draws no band of its own any more: no snap from it.
+    expect(snapTaps() - tapsBefore, 0);
     // Bounded: the confirmation follows once the snap's moment is over.
     await tester.pump(RubberBand.snapSettle);
     await tester.pump();
@@ -322,54 +354,56 @@ void main() {
     expect(sheet.resolvedTone, KuteConfirmationTone.success);
     expect(sheet.amount, contains('0.5'));
     await _frames(tester, 40);
-    expect(_band(tester).stretch, 0);
-    expect(_band(tester).ticking, isFalse);
+    expect(find.byType(RubberBandProgress), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('refused: a soft release, never past rest, then the reason',
-      (tester) async {
+  testWidgets(
+      'refused: the bar is the retry again, never a dead button, then the '
+      'reason', (tester) async {
     final trading = await pump(tester);
     await closeAndApprove(tester, trading);
-    expect(_band(tester).stretch, greaterThan(0));
     final tapsBefore = snapTaps();
 
     trading.answer.completeError(StateError('Order rejected'));
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
-      expect(_band(tester).stretch, greaterThanOrEqualTo(-1e-9),
-          reason: 'never past rest');
+      // Never disabled on the way back: busy, or the button.
+      expect(barPrimaryBusy(tester) || barPrimaryEnabled(tester), isTrue,
+          reason: 'never a dead button');
     }
     await _frames(tester, 20);
-    expect(_band(tester).stretch, 0);
-    expect(_band(tester).ticking, isFalse);
     expect(snapTaps(), tapsBefore, reason: 'no snap tap on a refusal');
     final cta = tester.widget<PolySlipCta>(_cta);
     expect(cta.isBusy, isFalse);
     expect(cta.bandOutcome, isNull);
+    // The reason shows and the ticket's one button is the retry.
+    _expectAtRest(tester, 'Retry');
     expect(find.byType(KuteConfirmation), findsNothing);
+    expect(find.byType(RubberBandProgress), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Reduce Motion: the CTA never moves while closing',
+  testWidgets('Reduce Motion: the busy bar is drawn, nothing moves or waits',
       (tester) async {
     final trading = await pump(tester, reduceMotion: true);
     await closeAndApprove(tester, trading);
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
-      expect(_band(tester).stretch, 0);
+      _expectClosing(tester);
     }
-    expect(_band(tester).ticking, isFalse);
+    // The button's own fill tween is off: it switches at once.
+    expect(tester.widget<AnimatedContainer>(findBarPrimary()).duration,
+        Duration.zero);
+    expect(find.byType(RubberBandProgress), findsNothing);
     trading.answer.complete(const HlOrderResult(
         kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000));
     // Nothing waits for a snap that is not drawn.
     await tester.pump();
     await tester.pump();
     expect(find.byType(KuteConfirmation), findsOneWidget);
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(_band(tester).stretch, 0);
-    }
+    await _frames(tester, 20);
+    expect(find.byType(RubberBandProgress), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

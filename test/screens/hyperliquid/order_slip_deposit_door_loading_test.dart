@@ -7,10 +7,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -26,15 +24,14 @@ import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart'
     show SlipVenue, debugShowSlipReceiveSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 class _LivePrices extends HlLivePricesNotifier {
   @override
@@ -105,6 +102,7 @@ Future<void> _pumpSlip(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -128,21 +126,12 @@ Future<void> _pumpSlip(
       runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
       usdBalanceProvider.overrideWith((_) => 0),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: HlOrderSlipSheet(market: _market, initialIsLong: true),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: const Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
         ),
       ),
     ),
@@ -174,8 +163,6 @@ Future<void> _typeOnKeypad(WidgetTester tester, String amount) async {
   await _frames(tester);
 }
 
-AppButton _button(WidgetTester tester) =>
-    tester.widget<AppButton>(find.byType(AppButton));
 
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -185,18 +172,18 @@ void main() {
         (tester) async {
       final account = Completer<HlAccountSnapshot>();
       await _pumpSlip(tester, account.future);
-      expect(_button(tester).isLoading, isTrue);
-      expect(_button(tester).onPressed, isNull);
-      expect(_button(tester).loadingLabel, 'Loading your account...');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryLabel(tester), 'Loading your account...');
       expect(find.text('Loading your account...'), findsOneWidget);
       expect(find.text('Deposit to invest'), findsNothing);
 
       // The account arrives with money: the trade, never the door.
       account.complete(_snapshot(500));
       await _frames(tester);
-      expect(_button(tester).isLoading, isFalse);
-      expect(_button(tester).text, startsWith('Long '));
-      expect(_button(tester).onPressed, isNotNull);
+      expect(barPrimaryBusy(tester), isFalse);
+      expect(barPrimaryLabel(tester), startsWith('Long '));
+      expect(barPrimaryEnabled(tester), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -225,9 +212,9 @@ void main() {
       account.complete(_snapshot(0));
       await _frames(tester);
       // Nothing typed: the minimum it places; the tap tops up first.
-      expect(_button(tester).text, 'Long minimum on BTC');
-      expect(_button(tester).isLoading, isFalse);
-      expect(_button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), 'Long minimum on BTC');
+      expect(barPrimaryBusy(tester), isFalse);
+      expect(barPrimaryEnabled(tester), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
@@ -269,9 +256,9 @@ void main() {
       await _pumpSlip(tester, Future.value(_snapshot(0)));
       await _typeOnKeypad(tester, '20');
       // Only the order, never the top-up it needs.
-      expect(_button(tester).text, r'Long $20.00');
+      expect(barPrimaryLabel(tester), r'Long $20.00');
 
-      await tester.tap(find.byType(AppButton));
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
       // The $20 order needs $20.24 at the venue, grossed up for the route.
@@ -279,21 +266,21 @@ void main() {
       expect(events.where((e) => e == 'hl_order_step').length, 1);
       expect(events.where((e) => e == 'slip_top_up_opened').length, 1);
       // The sheet is open: shut, not calculating.
-      expect(_button(tester).isLoading, isFalse);
-      expect(_button(tester).onPressed, isNull);
+      expect(barPrimaryBusy(tester), isFalse);
+      expect(barPrimaryEnabled(tester), isFalse);
 
       // Repeat taps while it is open: nothing more opens.
-      await tester.tap(find.byType(AppButton), warnIfMissed: false);
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
 
       // The sheet closes without a deposit: the door again, same X.
       sheet.complete();
       await _frames(tester, 3);
-      expect(_button(tester).text, r'Long $20.00');
-      expect(_button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), r'Long $20.00');
+      expect(barPrimaryEnabled(tester), isTrue);
       sheet = Completer<void>()..complete();
-      await tester.tap(find.byType(AppButton));
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 3);
       expect(receives, [receives.first, receives.first]);
       await tester.pumpWidget(const SizedBox.shrink());

@@ -16,13 +16,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
@@ -44,6 +42,7 @@ import 'package:kute/services/polymarket/market_card_shape.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 PolymarketEvent gameFixture(String name) => PolymarketModel().parseEventsRaw([
       jsonDecode(File('test/fixtures/polymarket_games/$name.json')
@@ -212,16 +211,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // The slip the sheet opens has the bar as its button
+    // (shell_bar_harness.dart): the bar is mounted over the navigator.
+    installShellBar();
     await tester.pumpWidget(ProviderScope(
       overrides: gameOverrides(),
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: MarketDetailSheet(event: event),
-        ),
+      child: shellBarApp(
+        theme: ThemeData(extensions: [AppColorsExtension.light()]),
+        home: MarketDetailSheet(event: event),
       ),
     ));
     for (var i = 0; i < 5; i++) {
@@ -280,28 +277,25 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final event = gameFixture('leeds_man_united');
     final wdl = polyWdlOutcomes(event, polySportsTeams(event, const []))!;
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    installShellBar();
     await tester.pumpWidget(ProviderScope(
       overrides: gameOverrides(),
-      child: ScreenUtilInit(
-        designSize: const Size(430, 932),
-        builder: (_, __) => MaterialApp(
-          theme: ThemeData(extensions: [AppColorsExtension.light()]),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: BetSlipSheet(
-                marketQuestion: event.title,
-                outcomes: [
-                  for (final o in [wdl.teamA, wdl.draw, wdl.teamB])
-                    PolymarketOutcome(
-                        name: o.name, price: o.price, tokenId: o.tokenId),
-                ],
-                outcomeLabels: const ['Leeds', 'Draw', 'Man Utd'],
-                initialOutcomeIndex: 2,
-                initialAmountUsd: 10,
-              ),
+      child: shellBarApp(
+        theme: ThemeData(extensions: [AppColorsExtension.light()]),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: BetSlipSheet(
+              marketQuestion: event.title,
+              outcomes: [
+                for (final o in [wdl.teamA, wdl.draw, wdl.teamB])
+                  PolymarketOutcome(
+                      name: o.name, price: o.price, tokenId: o.tokenId),
+              ],
+              outcomeLabels: const ['Leeds', 'Draw', 'Man Utd'],
+              initialOutcomeIndex: 2,
+              initialAmountUsd: 10,
             ),
           ),
         ),
@@ -312,9 +306,12 @@ void main() {
     expect(find.text('Draw'), findsOneWidget);
     expect(find.text('Man Utd'), findsOneWidget);
     expect(find.text('United'), findsNothing);
+    // The button is the bar: it names the side picked.
+    expect(barPrimaryTextContaining('on Man Utd'), findsOneWidget);
     expect(find.textContaining('on Man Utd'), findsOneWidget);
     await tester.tap(find.text('Draw'));
     await tester.pumpAndSettle();
+    expect(barPrimaryTextContaining('on Draw'), findsOneWidget);
     expect(find.textContaining('on Draw'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

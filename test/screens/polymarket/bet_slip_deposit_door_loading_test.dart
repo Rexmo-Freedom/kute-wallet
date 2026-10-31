@@ -13,10 +13,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/polymarket_model.dart';
@@ -38,8 +36,6 @@ import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/polymarket/components/slip_chrome.dart';
 import 'package:kute/screens/shared/amount_keypad_panel.dart';
-import 'package:kute/screens/shared/side_tint_palette.dart'
-    show slipCtaLabelColor;
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
@@ -63,6 +59,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/runtime_policy_fixture.dart';
+import '../../helpers/shell_bar_harness.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
 /// ("Add \$X · \$Y on Yes", "Add \$X · Long \$Y").
@@ -238,6 +235,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((ref) => SettingsModel(Settings(
@@ -267,35 +265,25 @@ Future<void> _pumpSlip(WidgetTester tester,
         fundedOrdersProvider.overrideWith(() => _Funded(funded)),
       ...overrides,
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-            brightness: dark ? Brightness.dark : Brightness.light,
-            splashFactory: NoSplash.splashFactory,
-            fontFamily: 'Inter',
-            extensions: [
-              dark ? AppColorsExtension.dark() : AppColorsExtension.light()
-            ]),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(disableAnimations: reduceMotion),
-            child: child!),
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: BetSlipSheet(
-                marketQuestion: slug == null
-                    ? 'Will it rain?'
-                    : 'Bitcoin Up or Down - 5 minutes',
-                marketSlug: slug,
-                marketEndAt: endAt,
-                outcomes: _outcomes,
-                initialAmountUsd: initialAmountUsd),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      dark: dark,
+      builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(disableAnimations: reduceMotion),
+          child: child!),
+      home: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: BetSlipSheet(
+              marketQuestion: slug == null
+                  ? 'Will it rain?'
+                  : 'Bitcoin Up or Down - 5 minutes',
+              marketSlug: slug,
+              marketEndAt: endAt,
+              outcomes: _outcomes,
+              initialAmountUsd: initialAmountUsd),
         ),
       ),
     ),
@@ -315,10 +303,21 @@ PolySlipCta _cta(WidgetTester tester) =>
 
 Finder get _door => find.byKey(const ValueKey('bet-slip-deposit-door'));
 
-/// The colour the slip's one button letters its label in.
+/// The slip's one button is the bar (the slip declares it through
+/// [PolySlipCta], keyed as the door, the wait or the bet): a tap on any of
+/// them is a tap on the bar. One frame, never settle: a busy bar spins.
+Future<void> _tapCta(WidgetTester tester) async {
+  expect(barPrimaryLabel(tester),
+      _cta(tester).isBusy
+          ? (_cta(tester).busyLabel ?? _cta(tester).label)
+          : _cta(tester).label);
+  await tapBarPrimary(tester, settle: false);
+}
+
+/// The colour the bar letters the slip's one button in.
 Color? _ctaLabelColor(WidgetTester tester) => tester
-    .widget<Text>(find.descendant(
-        of: find.byType(PolySlipCta), matching: find.byType(Text)))
+    .widget<Text>(
+        find.descendant(of: findBarPrimary(), matching: find.byType(Text)))
     .style
     ?.color;
 
@@ -366,9 +365,14 @@ void main() {
       expect(_cta(tester).enabled, isFalse);
       expect(_cta(tester).isBusy, isTrue);
       expect(find.text('Loading your account...'), findsOneWidget);
+      // The bar is that waiting button: the wait as its label, spinning,
+      // not tappable.
+      expect(barPrimaryLabel(tester), 'Loading your account...');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(_door, findsNothing);
       // A tap while it waits does nothing.
-      await tester.tap(find.byType(PolySlipCta));
+      await _tapCta(tester);
       await _frames(tester, 2);
       expect(events, isNot(contains('prediction_place_cta_tapped')));
 
@@ -503,7 +507,7 @@ void main() {
       expect(_cta(tester).label, r'Place $10.00 on Yes');
       expect(_cta(tester).enabled, isTrue);
 
-      await tester.tap(_door);
+      await _tapCta(tester);
       await _frames(tester, 3);
       // One Receive sheet for the $3.70 missing, never the Bitcoin Move
       // sheet, nothing queued behind it: the person places the bet
@@ -522,10 +526,11 @@ void main() {
       expect(topUp['top_up_usd'], 3.70);
       expect(topUp['shortfall_usd'], greaterThan(0));
       expect(topUp.keys, containsAll(['shortfall_bucket', 'top_up_bucket']));
-      // The door is open: shut until it closes.
+      // The door is open: shut until it closes (the bar disabled).
       expect(_cta(tester).isBusy, isFalse);
       expect(_cta(tester).enabled, isFalse);
-      await tester.tap(_door);
+      expect(barPrimaryEnabled(tester), isFalse);
+      await _tapCta(tester);
       await _frames(tester, 2);
       expect(receives.length, 1);
 
@@ -558,7 +563,7 @@ void main() {
           dollars: 0);
       await _frames(tester);
       expect(_cta(tester).label, r'Place $10.00 on Yes');
-      await tester.tap(_door);
+      await _tapCta(tester);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
       // $10 plus the venue's fee ceiling, grossed up by 1%: over $10.10.
@@ -591,7 +596,7 @@ void main() {
 
       // The tap opens the Receive sheet for what is missing, queues
       // nothing, and the button keeps saying the same thing.
-      await tester.tap(_door);
+      await _tapCta(tester);
       await _frames(tester, 3);
       expect(receives, hasLength(1));
       expect(receives.single, greaterThan(0));
@@ -621,9 +626,10 @@ void main() {
 
   group('button label colour', () {
     // The order slip letters its button the same way (see
-    // order_slip_funding_test): on the sheet's white ink the trade and
-    // the funding door are both lettered dark, never in the side
-    // colour (founder decision).
+    // order_slip_funding_test): the slip's one button is the bar, inked
+    // the same for the trade and the funding door (the mode's contrast
+    // label on the textPrimary fill, kute_shell_bar.dart), never in the
+    // side colour (founder decision).
     late RuntimeCapabilitiesService policy;
     setUp(() async {
       AffiliateService.debugSessionToken = 'test-session';
@@ -638,7 +644,10 @@ void main() {
     for (final dark in [false, true]) {
       final mode = dark ? 'dark' : 'light';
       testWidgets('$mode: the door contrasts with its fill, the bet is '
-          'dark too', (tester) async {
+          'lettered the same', (tester) async {
+        // The bar's label ink on its textPrimary fill: white in light
+        // mode, the dark palette's background in dark.
+        final ink = dark ? AppColorsExtension.dark().background : Colors.white;
         expect(await policy.refresh(), isTrue);
         await _pumpSlip(tester,
             Future.value(const PolymarketTradingState(usdcBalance: 0)),
@@ -646,10 +655,11 @@ void main() {
             dark: dark);
         await _frames(tester);
         expect(_door, findsOneWidget);
-        expect(_ctaLabelColor(tester), Colors.black);
-        expect(_ctaLabelColor(tester),
-            slipCtaLabelColor(
-                fill: Colors.white, side: AppColors.marketUp, neutral: true));
+        expect(barPrimaryEnabled(tester), isTrue);
+        final doorInk = _ctaLabelColor(tester);
+        expect(doorInk, ink);
+        expect(doorInk, isNot(AppColors.marketUp));
+        expect(doorInk, isNot(AppColors.marketDown));
         await tester.pumpWidget(const SizedBox.shrink());
 
         await _pumpSlip(tester,
@@ -657,8 +667,9 @@ void main() {
             dark: dark);
         await _frames(tester);
         expect(_cta(tester).label, r'Place $10.00 on Yes');
-        // Dark on the white button, never the side colour (founder).
-        expect(_ctaLabelColor(tester), Colors.black);
+        // The same ink as the door, never the side colour (founder).
+        expect(_ctaLabelColor(tester), doorInk);
+        expect(_ctaLabelColor(tester), isNot(AppColors.marketUp));
         await tester.pumpWidget(const SizedBox.shrink());
         policy.dispose();
       });
@@ -697,7 +708,7 @@ void main() {
           findsOneWidget);
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).enabled, isFalse);
-      expect(_cta(tester).busyLabel, r'Adding $6.00 to Investments');
+      expect(_cta(tester).busyLabel, r'Adding $6.00 to Dollars');
       expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
           findsOneWidget);
       expect(find.text('Getting your prediction ready'), findsOneWidget);
@@ -739,7 +750,7 @@ void main() {
           tester, Future.value(const PolymarketTradingState(usdcBalance: 0)),
           dollars: 100, funded: [_btcBet(FundedOrderStage.ready)]);
       await _frames(tester);
-      expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
+      expect(find.text(r'Your $6.00 is in Dollars. Tap to place.'),
           findsNothing);
       expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
       expect(_cta(tester).label, r'Place $10.00 on Yes');
@@ -794,23 +805,27 @@ void main() {
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).enabled, isFalse);
       expect(_cta(tester).busyLabel, 'Getting your prediction ready');
-      // Said once, in the steps: the busy button only spins (and pulls),
-      // and a screen reader still hears the step on it.
-      expect(find.text('Getting your prediction ready'), findsOneWidget);
+      // The step list names the active step once; the slip's busy button
+      // is the bar, which spins with the step as its label, and a screen
+      // reader hears the step on it (the bar's own Semantics).
       expect(
           find.descendant(
-              of: find.byType(PolySlipCta),
+              of: find.byType(SlipFundingSteps),
               matching: find.text('Getting your prediction ready')),
-          findsNothing);
+          findsOneWidget);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), 'Getting your prediction ready');
       expect(
           find.descendant(
-              of: find.byType(PolySlipCta),
-              matching: find.byKey(const ValueKey('poly-slip-cta-busy-quiet'))),
+              of: findBarPrimary(),
+              matching: find.byType(CircularProgressIndicator)),
           findsOneWidget);
-      final quiet = tester.widget<Semantics>(
-          find.byKey(const ValueKey('poly-slip-cta-busy-quiet')));
-      expect(quiet.properties.label, 'Getting your prediction ready');
-      expect(quiet.properties.liveRegion, isTrue);
+      final button = tester.widget<Semantics>(find
+          .ancestor(of: findBarPrimary(), matching: find.byType(Semantics))
+          .first);
+      expect(button.properties.label, 'Getting your prediction ready');
+      expect(button.properties.button, isTrue);
+      expect(button.properties.enabled, isFalse);
       expect(find.bySemanticsLabel(RegExp('Getting your prediction ready')),
           findsWidgets);
       semantics.dispose();
@@ -818,7 +833,7 @@ void main() {
           findsOneWidget);
       expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
       // No Bitcoin step without a Bitcoin leg.
-      expect(find.textContaining('to Investments'), findsNothing);
+      expect(find.textContaining('to Dollars'), findsNothing);
       // The band is pulled.
       expect(band(tester).stretch, greaterThan(0));
       await release(tester);
@@ -829,7 +844,14 @@ void main() {
       final records = [_fundedBet(FundedOrderStage.placing)];
       await pumpWith(tester, records);
       expect(_cta(tester).busyLabel, r'Placing $10.00 on Yes');
-      expect(find.text(r'Placing $10.00 on Yes'), findsOneWidget);
+      // The step list names it once; the bar, the busy button, reads it.
+      expect(
+          find.descendant(
+              of: find.byType(SlipFundingSteps),
+              matching: find.text(r'Placing $10.00 on Yes')),
+          findsOneWidget);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), r'Placing $10.00 on Yes');
       expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
@@ -1012,7 +1034,7 @@ void main() {
       expect(find.byType(AmountKeypad), findsOneWidget);
       expect(find.byKey(const ValueKey('bet-slip-funded-stop')),
           findsOneWidget);
-      expect(find.textContaining('is in Investments'), findsOneWidget);
+      expect(find.textContaining('is in Dollars'), findsOneWidget);
       // The button is the same bet again, said so.
       expect(_cta(tester).label, startsWith('Try again · '));
       await release(tester);
@@ -1048,7 +1070,7 @@ void main() {
           findsOneWidget);
       expect(_cta(tester).label, r'Try again · Place $20.00 on Yes');
       expect(_door, findsNothing);
-      await tester.tap(find.byType(PolySlipCta));
+      await _tapCta(tester);
       await _frames(tester);
       // The bet itself, at the same stake, on the cash already there.
       expect(controller.amounts, [20.0]);
@@ -1214,13 +1236,16 @@ void main() {
       await _frames(tester);
       expect(_cta(tester).label, r'Place $10.00 on Yes');
 
-      await tester.tap(_door);
+      await _tapCta(tester);
       await _frames(tester, 3);
       // The balance is still being read: the door's own busy state, never
-      // a sheet.
+      // a sheet. The bar spins with it.
       expect(_cta(tester).isBusy, isTrue);
       expect(_cta(tester).busyLabel, 'Calculating…');
       expect(_cta(tester).enabled, isFalse);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), 'Calculating…');
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(chains, isEmpty);
       expect(receives, isEmpty);
       expect(sheets, isEmpty);
@@ -1249,7 +1274,7 @@ void main() {
           Future.value(const PolymarketTradingState(usdcBalance: 5)),
           dollars: 2);
       await _frames(tester);
-      await tester.tap(_door);
+      await _tapCta(tester);
       await _frames(tester, 3);
       expect(receives, [3.70]);
       expect(chains, isEmpty);

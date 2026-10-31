@@ -9,13 +9,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/auth_grant_registry.dart';
 import 'package:kute/helpers/venue_intents.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -33,7 +31,6 @@ import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show DepositSheet;
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/slip_shortfall.dart';
 import 'package:kute/services/funding/settlement_runner.dart'
     show SettlementStepUpHook;
@@ -50,11 +47,11 @@ import 'package:kute/services/one_balance/venue_cash_source.dart';
 import 'package:kute/services/one_balance/venue_funder.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 import 'package:money2/money2.dart';
 
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
 import '../../helpers/runtime_policy_fixture.dart';
 
 const _ownSpark =
@@ -242,6 +239,7 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       slipKnownEmptySourcesProvider.overrideWith((_) => () async => knownEmpty),
@@ -278,21 +276,12 @@ Future<void> _pumpSlip(WidgetTester tester, FakeHyperliquidMoveRail rail,
       orderFundingControllerProvider.overrideWithValue(OrderFundingController(
           funderFor: (_) => _funder, dollarsUsd: () => 0)),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [AppColorsExtension.light()],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: HlOrderSlipSheet(market: _market, initialIsLong: true),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      home: const Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
         ),
       ),
     ),
@@ -306,8 +295,6 @@ Future<void> _frames(WidgetTester tester, [int n = 10]) async {
   }
 }
 
-AppButton _button(WidgetTester tester) =>
-    tester.widget<AppButton>(find.byType(AppButton));
 
 ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(HlOrderSlipSheet)));
@@ -383,9 +370,9 @@ void main() {
       'minimum order in place under ONE approval, no sheet', (tester) async {
     await _pumpSlip(tester, rail);
     // Nothing typed: the order's short name; the tap adds, then places.
-    expect(_button(tester).text, 'Long minimum on BTC');
+    expect(barPrimaryLabel(tester), 'Long minimum on BTC');
 
-    await tester.tap(find.byType(AppButton));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 20);
 
     // No sheet of any kind: the ticket is still the only screen.
@@ -415,7 +402,7 @@ void main() {
     // The steps, on the ticket, under one busy button.
     expect(find.byKey(const ValueKey('order-slip-funded-progress')),
         findsOneWidget);
-    expect(_button(tester).isLoading, isTrue);
+    expect(barPrimaryBusy(tester), isTrue);
 
     // The venue credits it and the autofire places it: never a second
     // prompt.
@@ -434,7 +421,7 @@ void main() {
       (tester) async {
     debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
     await _pumpSlip(tester, rail, knownEmpty: true);
-    await tester.tap(find.byType(AppButton));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 20);
     expect(sheets, ['deposit:SlipVenue.investing']);
     expect(find.byType(HlOrderSlipSheet), findsOneWidget);
@@ -445,7 +432,7 @@ void main() {
   testWidgets('unknown sources never open the contextual deposit', (tester) async {
     debugFreshSpendingBitcoin = () async => (sats: 0, usdPerBtc: 60000.0);
     await _pumpSlip(tester, rail);
-    await tester.tap(find.byType(AppButton));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 20);
     expect(sheets, ['receive']);
     expect(approvals, isEmpty);

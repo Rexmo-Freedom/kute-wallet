@@ -10,10 +10,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
@@ -37,8 +35,6 @@ import 'package:kute/screens/shared/market_side_toggle.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/hyperliquid_fee_summary.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart';
-import 'package:kute/screens/shared/side_tint_palette.dart'
-    show slipCtaLabelColor;
 import 'package:kute/services/one_balance/bitcoin_funded_order.dart'
     show
         fundedOrderGraph,
@@ -63,6 +59,9 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/shell_bar_harness.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope;
 import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it
@@ -259,6 +258,7 @@ Future<void> _pumpSlip(WidgetTester tester,
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  installShellBar();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
@@ -289,24 +289,13 @@ Future<void> _pumpSlip(WidgetTester tester,
       if (funded != null)
         fundedOrdersProvider.overrideWith(() => _Funded(funded)),
     ],
-    child: ScreenUtilInit(
-      designSize: const Size(430, 932),
-      builder: (_, __) => MaterialApp(
-        theme: ThemeData(
-          brightness: dark ? Brightness.dark : Brightness.light,
-          splashFactory: NoSplash.splashFactory,
-          fontFamily: 'Inter',
-          extensions: [
-            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
-          ],
-        ),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: HlOrderSlipSheet(market: _market, initialIsLong: true),
-          ),
+    // The bar over the slip is the slip's button (shell_bar_harness.dart).
+    child: shellBarApp(
+      dark: dark,
+      home: const Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: HlOrderSlipSheet(market: _market, initialIsLong: true),
         ),
       ),
     ),
@@ -336,13 +325,12 @@ Future<void> _typeOnKeypad(WidgetTester tester, String amount) async {
   await _frames(tester);
 }
 
-AppButton _button(WidgetTester tester) =>
-    tester.widget<AppButton>(find.byType(AppButton));
 
-/// The colour the ticket's one button letters its label in.
+/// The colour the ticket's one button (the bar, kute_shell_bar.dart)
+/// letters its label in.
 Color? _buttonLabelColor(WidgetTester tester) => tester
-    .widget<Text>(find.descendant(
-        of: find.byType(AppButton), matching: find.byType(Text)))
+    .widget<Text>(
+        find.descendant(of: findBarPrimary(), matching: find.byType(Text)))
     .style
     ?.color;
 
@@ -388,9 +376,8 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
     await _typeOnKeypad(tester, '20');
-    final button = _button(tester);
-    expect(button.text, startsWith('Long '));
-    expect(button.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(find.text('Deposit to invest'), findsNothing);
     expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
     // The $20 order needs $20.24 at the venue; the route keeps ~0.1% and
@@ -430,15 +417,14 @@ void main() {
     addTearDown(() => debugShowSlipReceiveSheet = null);
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
     await _typeOnKeypad(tester, '20');
-    final button = _button(tester);
     // Only the order, never the top-up it needs.
-    expect(button.onPressed, isNotNull);
+    expect(barPrimaryEnabled(tester), isTrue);
     // The $20.24 need plus the engine's safety buffer (2%, ≥ $0.25) lands,
     // so $21.68 has to leave Dollars; $5 are there.
-    expect(button.text, 'Long \$20.00');
+    expect(barPrimaryLabel(tester), 'Long \$20.00');
     expect(_moveFeeRow(tester).usd, closeTo(1.03, 0.011));
 
-    await tester.tap(find.byType(AppButton));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 3);
     expect(receives, [(SlipVenue.investing, 16.68)]);
     expect(doors, isEmpty);
@@ -452,31 +438,29 @@ void main() {
     expect(topUp['shortfall_bucket'], '10-100');
     expect(topUp['top_up_bucket'], '10-100');
     // Repeat taps while the sheet is up open nothing more.
-    expect(_button(tester).onPressed, isNull);
-    await tester.tap(find.byType(AppButton), warnIfMissed: false);
+    expect(barPrimaryEnabled(tester), isFalse);
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 3);
     expect(receives, hasLength(1));
     sheet.complete();
     await _frames(tester, 3);
-    expect(_button(tester).onPressed, isNotNull);
-    expect(_button(tester).text, r'Long $20.00');
+    expect(barPrimaryEnabled(tester), isTrue);
+    expect(barPrimaryLabel(tester), r'Long $20.00');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('nothing typed on an empty account: the minimum order, or the door for it',
       (tester) async {
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
-    final funded = _button(tester);
-    expect(funded.text, startsWith('Long '));
-    expect(funded.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(_moveFeeRow(tester).usd, greaterThan(1));
     await tester.pumpWidget(const SizedBox.shrink());
 
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 0, rail: rail);
-    final door = _button(tester);
     // Nothing typed: the minimum order; the tap tops up first.
-    expect(door.text, 'Long minimum on BTC');
-    expect(door.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), 'Long minimum on BTC');
+    expect(barPrimaryEnabled(tester), isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -496,9 +480,9 @@ void main() {
         await _pumpSlip(tester, venueUsd: venue, dollarsUsd: 100, rail: rail);
         if (typed != null) {
           await _typeOnKeypad(tester, typed);
-          expect(_button(tester).text, startsWith('Minimum \$'));
+          expect(barPrimaryLabel(tester), startsWith('Minimum \$'));
         }
-        await tester.tap(find.byType(AppButton));
+        await tapBarPrimary(tester, settle: false);
         await _frames(tester, 10);
         expect(gate.checks, 1);
         expect(find.text(r'$10.26'), findsOneWidget);
@@ -516,12 +500,12 @@ void main() {
     addTearDown(() => RuntimeCapabilitiesService.debugInstance = null);
     await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
     await _typeOnKeypad(tester, '1');
-    expect(_button(tester).text, startsWith('Minimum \$'));
-    await tester.tap(find.byType(AppButton));
+    expect(barPrimaryLabel(tester), startsWith('Minimum \$'));
+    await tapBarPrimary(tester, settle: false);
     await _frames(tester, 10);
     expect(gate.checks, 0);
     expect(find.text(r'$10.26'), findsOneWidget);
-    expect(_button(tester).text, r'Long $10.26');
+    expect(barPrimaryLabel(tester), r'Long $10.26');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -530,12 +514,17 @@ void main() {
       'the minimum order from the start, the one action',
       (tester) async {
     await _pumpSlip(tester, venueUsd: 3, dollarsUsd: 0, rail: rail);
-    final door = _button(tester);
     // Nothing typed: the one action is the minimum order, no amounts;
     // its tap still tops up and places the minimum.
-    expect(door.text, 'Long minimum on BTC');
-    expect(door.onPressed, isNotNull);
-    expect(find.byType(AppButton), findsOneWidget);
+    expect(barPrimaryLabel(tester), 'Long minimum on BTC');
+    expect(barPrimaryEnabled(tester), isTrue);
+    // One action, the bar: no Add or Deposit button drawn on the ticket.
+    expect(
+        find.descendant(
+            of: find.byType(HlOrderSlipSheet),
+            matching: find.byType(AppButton)),
+        findsNothing);
+    expect(findBarPrimary(), findsOneWidget);
     expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -543,28 +532,28 @@ void main() {
   for (final dark in [false, true]) {
     final mode = dark ? 'dark' : 'light';
     // The bet slip letters its button the same way (see
-    // bet_slip_deposit_door_loading_test): on the sheet's white ink the
-    // trade and the funding door are both lettered dark, never in
-    // the side colour (founder decision).
+    // bet_slip_deposit_door_loading_test): the button is the bar
+    // (kute_shell_bar.dart), whose label ink contrasts with its fill
+    // (white in light, the background in dark) for the trade and the
+    // funding door alike, never the side colour (founder decision).
+    final ink = dark ? AppColorsExtension.dark().background : Colors.white;
     testWidgets('$mode: the door contrasts with its fill, the order is '
-        'dark too', (tester) async {
+        'inked the same', (tester) async {
       await _pumpSlip(tester,
           venueUsd: 0, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, r'Long $20.00');
-      expect(_buttonLabelColor(tester), Colors.black);
-      expect(
-          _buttonLabelColor(tester),
-          slipCtaLabelColor(
-              fill: Colors.white, side: AppColors.marketUp, neutral: true));
+      expect(barPrimaryLabel(tester), r'Long $20.00');
+      expect(_buttonLabelColor(tester), ink);
+      expect(_buttonLabelColor(tester), isNot(AppColors.marketUp));
       await tester.pumpWidget(const SizedBox.shrink());
 
       await _pumpSlip(tester,
           venueUsd: 500, dollarsUsd: 0, rail: rail, dark: dark);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, startsWith('Long '));
-      // Dark on the white button, never the side colour (founder).
-      expect(_buttonLabelColor(tester), Colors.black);
+      expect(barPrimaryLabel(tester), startsWith('Long '));
+      // The bar's ink, never the side colour (founder).
+      expect(_buttonLabelColor(tester), ink);
+      expect(_buttonLabelColor(tester), isNot(AppColors.marketUp));
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
@@ -573,8 +562,8 @@ void main() {
       (tester) async {
     await _pumpSlip(tester, venueUsd: 500, dollarsUsd: 0, rail: rail);
     await _typeOnKeypad(tester, '20');
-    expect(_button(tester).text, startsWith('Long '));
-    expect(_button(tester).onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(find.text('Move fee'), findsNothing);
     final row = _moveFeeRow(tester);
     expect(row.usd, isNull);
@@ -587,8 +576,8 @@ void main() {
     rail.estimateError = StateError('no estimate');
     await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 100, rail: rail);
     await _typeOnKeypad(tester, '20');
-    expect(_button(tester).text, startsWith('Long '));
-    expect(_button(tester).onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     // 2% of $20.24 as the fallback.
     expect(_moveFeeRow(tester).usd, closeTo(0.42, 0.011));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -607,11 +596,16 @@ void main() {
     testWidgets('adding: the first step runs, one busy button',
         (tester) async {
       await pumpAt(tester, FundedOrderStage.adding);
-      final button = _button(tester);
-      expect(button.text, r'Adding $6.00 to Investments');
-      expect(find.text(r'Adding $6.00 to Investments'), findsOneWidget);
-      expect(button.isLoading, isTrue);
-      expect(button.onPressed, isNull);
+      expect(barPrimaryLabel(tester), r'Adding $6.00 to Dollars');
+      // Once in the steps, and on the bar (the busy button reads its step).
+      expect(
+          find.descendant(
+              of: find.byType(SlipFundingSteps),
+              matching: find.text(r'Adding $6.00 to Dollars')),
+          findsOneWidget);
+      expect(barPrimaryText(r'Adding $6.00 to Dollars'), findsOneWidget);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(find.byType(SlipFundingSteps), findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-0')),
           findsOneWidget);
@@ -631,7 +625,7 @@ void main() {
     testWidgets('preparing: the first step done, the second runs',
         (tester) async {
       await pumpAt(tester, FundedOrderStage.preparing);
-      expect(_button(tester).text, 'Preparing your order');
+      expect(barPrimaryLabel(tester), 'Preparing your order');
       expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
@@ -641,7 +635,7 @@ void main() {
     testWidgets('placing: the order itself, at its fresh price',
         (tester) async {
       await pumpAt(tester, FundedOrderStage.placing);
-      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      expect(barPrimaryLabel(tester), r'Opening $20.00 Long BTC');
       expect(find.byKey(const ValueKey('slip-funding-step-done-1')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-2')),
@@ -659,8 +653,8 @@ void main() {
       expect(find.text(r'Your $6.00 is in Investments. Tap to place.'),
           findsNothing);
       expect(find.byKey(const ValueKey('slip-funding-ready')), findsNothing);
-      expect(_button(tester).text, startsWith('Long '));
-      expect(_button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), startsWith('Long '));
+      expect(barPrimaryEnabled(tester), isTrue);
       expect(find.byType(SlipFundingSteps), findsNothing);
     });
 
@@ -687,16 +681,24 @@ void main() {
           dollarsUsd: 100,
           rail: rail,
           funded: [_fundedOrder(FundedOrderStage.preparing)]);
-      final button = _button(tester);
-      expect(button.text, 'Preparing your order');
-      expect(button.isLoading, isTrue);
-      expect(button.onPressed, isNull);
-      // Said once, in the steps: the busy button only spins, and a screen
-      // reader still hears the step on it.
-      expect(button.loadingLabel, isNull);
-      expect(find.text('Preparing your order'), findsOneWidget);
+      expect(barPrimaryLabel(tester), 'Preparing your order');
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isFalse);
+      // Said once in the steps; the bar, busy with no busy label of its
+      // own, reads the same step (kute_shell_bar.dart), and a screen
+      // reader still hears it on the ticket.
+      expect(barPrimaryContext(tester).busyLabel, isNull);
+      expect(
+          find.descendant(
+              of: find.byType(SlipFundingSteps),
+              matching: find.text('Preparing your order')),
+          findsOneWidget);
+      expect(barPrimaryText('Preparing your order'), findsOneWidget);
+      // The Semantics around the ticket's bar scope (the bar is the button).
       final said = tester.widget<Semantics>(find
-          .ancestor(of: find.byType(AppButton), matching: find.byType(Semantics))
+          .ancestor(
+              of: find.byType(KuteBarContextScope),
+              matching: find.byType(Semantics))
           .first);
       expect(said.properties.label, 'Preparing your order');
       expect(said.properties.liveRegion, isTrue);
@@ -717,7 +719,7 @@ void main() {
           dollarsUsd: 100,
           rail: rail,
           funded: [_fundedOrder(FundedOrderStage.placing)]);
-      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      expect(barPrimaryLabel(tester), r'Opening $20.00 Long BTC');
       expect(find.byKey(const ValueKey('slip-funding-step-done-0')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
@@ -753,7 +755,7 @@ void main() {
           findsOneWidget);
       expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
       expect(find.byType(AmountKeypad), findsOneWidget);
-      expect(_button(tester).isLoading, isFalse);
+      expect(barPrimaryBusy(tester), isFalse);
       await _frames(tester, 20);
       expect(band(tester).stretch, 0);
       expect(band(tester).ticking, isFalse);
@@ -814,10 +816,10 @@ void main() {
       expect(find.byType(AmountKeypad), findsOneWidget);
       expect(find.byKey(const ValueKey('order-slip-funded-stop')),
           findsOneWidget);
-      expect(find.textContaining('is in Investments'), findsOneWidget);
+      expect(find.textContaining('is in Dollars'), findsOneWidget);
       expect(find.byType(MarketSideToggle), findsOneWidget);
       // The button is the same order again, said so.
-      expect(_button(tester).text, startsWith('Try again · '));
+      expect(barPrimaryLabel(tester), startsWith('Try again · '));
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -837,8 +839,8 @@ void main() {
                 message: 'Order rejected.')
           ]);
       // Nothing typed: the minimum order, again.
-      expect(_button(tester).text, 'Try again · Long minimum on BTC');
-      expect(_button(tester).onPressed, isNotNull);
+      expect(barPrimaryLabel(tester), 'Try again · Long minimum on BTC');
+      expect(barPrimaryEnabled(tester), isTrue);
       expect(find.textContaining(RegExp(r'^Add \$')), findsNothing);
       expect(rail.deposits, isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -861,7 +863,7 @@ void main() {
           funded: [_fundedOrder(FundedOrderStage.placing)]);
       expect(find.byKey(const ValueKey('slip-funding-step-active-1')),
           findsOneWidget);
-      expect(_button(tester).text, r'Opening $20.00 Long BTC');
+      expect(barPrimaryLabel(tester), r'Opening $20.00 Long BTC');
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -880,24 +882,26 @@ void main() {
       await _pumpSlip(tester,
           venueUsd: 100, dollarsUsd: 0, rail: rail, withWallet: true);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, startsWith('Long '));
+      expect(barPrimaryLabel(tester), startsWith('Long '));
       RubberBandProgressState placement() =>
           tester.state<RubberBandProgressState>(find.descendant(
               of: find.byKey(const ValueKey('order-slip-placement-band')),
               matching: find.byType(RubberBandProgress)));
       expect(placement().stretch, 0);
       expect(placement().ticking, isFalse);
-      await tester.tap(find.byType(AppButton));
+      await tapBarPrimary(tester, settle: false);
       var pulled = 0.0;
       var low = double.infinity;
       var sawBusy = false;
       for (var i = 0; i < 60; i++) {
         await tester.pump(const Duration(milliseconds: 50));
+        // The ticket's own busy flag, through its bar scope: a sheet the
+        // placement ends in (its answer) takes the bar for itself.
         final busy = tester
-            .widget<AppButton>(find.descendant(
-                of: find.byType(HlOrderSlipSheet),
-                matching: find.byType(AppButton)))
-            .isLoading;
+            .widget<KuteBarContextScope>(
+                find.byType(KuteBarContextScope).first)
+            .barContext
+            .busy;
         sawBusy = sawBusy || busy;
         final s = placement().stretch;
         if (busy && s > pulled) pulled = s;
@@ -957,15 +961,15 @@ void main() {
       debugFreshSpendingBitcoin = () => fresh.future;
       await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
       await _typeOnKeypad(tester, '20');
-      expect(_button(tester).text, r'Long $20.00');
+      expect(barPrimaryLabel(tester), r'Long $20.00');
 
-      await tester.tap(find.byType(AppButton));
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 3);
       // The balance is still being read: the door's own busy state, never
       // a sheet.
-      expect(_button(tester).isLoading, isTrue);
-      expect(_button(tester).loadingLabel, 'Calculating…');
-      expect(_button(tester).onPressed, isNull);
+      expect(barPrimaryBusy(tester), isTrue);
+      expect(barPrimaryLabel(tester), 'Calculating…');
+      expect(barPrimaryEnabled(tester), isFalse);
       expect(chains, isEmpty);
       expect(receives, isEmpty);
       expect(doors, isEmpty);
@@ -991,7 +995,7 @@ void main() {
           (sats: (16.68 / 60000 * 1e8).round(), usdPerBtc: 60000.0);
       await _pumpSlip(tester, venueUsd: 0, dollarsUsd: 5, rail: rail);
       await _typeOnKeypad(tester, '20');
-      await tester.tap(find.byType(AppButton));
+      await tapBarPrimary(tester, settle: false);
       await _frames(tester, 3);
       expect(receives, [16.68]);
       expect(chains, isEmpty);
@@ -1018,12 +1022,11 @@ void main() {
     await _pumpSlip(tester, venueUsd: 0.49, dollarsUsd: 30, rail: rail);
     await tester.tap(find.text('Max'));
     await _frames(tester, 15);
-    final button = _button(tester);
-    expect(button.text, startsWith('Long '));
-    expect(button.onPressed, isNotNull);
+    expect(barPrimaryLabel(tester), startsWith('Long '));
+    expect(barPrimaryEnabled(tester), isTrue);
     expect(find.textContaining(RegExp(r'^Add \$[^ ]+ · ')), findsNothing);
     // Most of the $30.49, less the move's and the order's costs.
-    final margin = double.parse(button.text.split(r'$').last);
+    final margin = double.parse(barPrimaryLabel(tester).split(r'$').last);
     expect(margin, greaterThan(25));
     expect(margin, lessThan(30.49));
     await tester.pumpWidget(const SizedBox.shrink());
