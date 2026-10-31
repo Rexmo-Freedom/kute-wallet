@@ -170,10 +170,6 @@ Settings _settings() => Settings(
 
 final _cta = find.byType(PolySlipCta);
 
-/// The bar's progress ring, inside its button.
-Finder _ring() => find.descendant(
-    of: findBarPrimary(), matching: find.byType(CircularProgressIndicator));
-
 /// The bar reads the close, enabled, no ring: the button at rest.
 void _expectAtRest(WidgetTester tester, String label) {
   expect(barIsPrimary(tester), isTrue);
@@ -181,7 +177,7 @@ void _expectAtRest(WidgetTester tester, String label) {
   expect(barPrimaryEnabled(tester), isTrue);
   expect(barPrimaryLabel(tester), label);
   expect(barPrimaryText(label), findsOneWidget);
-  expect(_ring(), findsNothing);
+  expect(barPrimaryRing(), findsNothing);
 }
 
 /// The bar reads the busy label beside its ring, not tappable.
@@ -192,7 +188,7 @@ void _expectClosing(WidgetTester tester) {
   expect(barPrimaryLabel(tester), 'Loading...');
   expect(barPrimaryText('Loading...'), findsOneWidget);
   expect(barPrimaryText('Close 100% now'), findsNothing);
-  expect(_ring(), findsOneWidget);
+  expect(barPrimaryRing(), findsOneWidget);
 }
 
 Future<void> _frames(WidgetTester tester, int n,

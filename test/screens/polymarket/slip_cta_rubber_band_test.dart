@@ -73,10 +73,6 @@ Future<void> _frames(WidgetTester tester, [int n = 30]) async {
   }
 }
 
-/// The bar's progress ring, inside its button.
-Finder _ring() => find.descendant(
-    of: findBarPrimary(), matching: find.byType(CircularProgressIndicator));
-
 /// The bar reads the bet, enabled, no ring: the button at rest.
 void _expectAtRest(WidgetTester tester) {
   expect(barIsPrimary(tester), isTrue);
@@ -84,7 +80,7 @@ void _expectAtRest(WidgetTester tester) {
   expect(barPrimaryEnabled(tester), isTrue);
   expect(barPrimaryLabel(tester), r'Place $10.00 on Yes');
   expect(barPrimaryText(r'Place $10.00 on Yes'), findsOneWidget);
-  expect(_ring(), findsNothing);
+  expect(barPrimaryRing(), findsNothing);
 }
 
 /// The bar reads the busy label beside its ring, not tappable.
@@ -95,7 +91,7 @@ void _expectPlacing(WidgetTester tester) {
   expect(barPrimaryLabel(tester), 'Placing order…');
   expect(barPrimaryText('Placing order…'), findsOneWidget);
   expect(barPrimaryText(r'Place $10.00 on Yes'), findsNothing);
-  expect(_ring(), findsOneWidget);
+  expect(barPrimaryRing(), findsOneWidget);
 }
 
 void main() {

@@ -314,13 +314,6 @@ Future<void> _tapCta(WidgetTester tester) async {
   await tapBarPrimary(tester, settle: false);
 }
 
-/// The colour the bar letters the slip's one button in.
-Color? _ctaLabelColor(WidgetTester tester) => tester
-    .widget<Text>(
-        find.descendant(of: findBarPrimary(), matching: find.byType(Text)))
-    .style
-    ?.color;
-
 PendingBetIntent? _queued(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(BetSlipSheet)))
         .read(pendingPolymarketBetProvider);
@@ -656,7 +649,7 @@ void main() {
         await _frames(tester);
         expect(_door, findsOneWidget);
         expect(barPrimaryEnabled(tester), isTrue);
-        final doorInk = _ctaLabelColor(tester);
+        final doorInk = barPrimaryInk(tester);
         expect(doorInk, ink);
         expect(doorInk, isNot(AppColors.marketUp));
         expect(doorInk, isNot(AppColors.marketDown));
@@ -668,8 +661,8 @@ void main() {
         await _frames(tester);
         expect(_cta(tester).label, r'Place $10.00 on Yes');
         // The same ink as the door, never the side colour (founder).
-        expect(_ctaLabelColor(tester), doorInk);
-        expect(_ctaLabelColor(tester), isNot(AppColors.marketUp));
+        expect(barPrimaryInk(tester), doorInk);
+        expect(barPrimaryInk(tester), isNot(AppColors.marketUp));
         await tester.pumpWidget(const SizedBox.shrink());
         policy.dispose();
       });

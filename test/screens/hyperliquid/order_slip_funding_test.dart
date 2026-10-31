@@ -60,8 +60,6 @@ import 'package:money2/money2.dart';
 import '../../helpers/fake_hyperliquid_move_rail.dart';
 import '../../helpers/fake_swap_orders.dart';
 import '../../helpers/shell_bar_harness.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart'
-    show KuteBarContextScope;
 import '../../helpers/runtime_policy_fixture.dart';
 
 /// The Dollars door: what is added, then the order placed right after it

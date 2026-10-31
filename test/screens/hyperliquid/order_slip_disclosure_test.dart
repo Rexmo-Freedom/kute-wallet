@@ -19,8 +19,6 @@ import 'package:kute/screens/shared/amount_keypad_panel.dart';
 import 'package:kute/screens/shared/capability_block_note.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart'
-    show KuteBarContextScope;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_rounding.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -199,21 +197,7 @@ Future<void> _pumpSlip(WidgetTester tester,
 ///
 /// The on-stage scope is the one ticket in view: the slip, or the
 /// Advanced page over it (the slip is offstage under a fullscreen route).
-KuteBarContext _ticketContext(WidgetTester tester) => tester
-    .widget<KuteBarContextScope>(find.byType(KuteBarContextScope).first)
-    .barContext;
-
-/// The label that ticket's button reads (busy label while busy).
-String _ticketLabel(WidgetTester tester) {
-  final ctx = _ticketContext(tester);
-  return ctx.busy ? (ctx.busyLabel ?? ctx.label) : ctx.label;
-}
-
-/// Whether that ticket's action runs on a tap.
-bool _ticketEnabled(WidgetTester tester) {
-  final ctx = _ticketContext(tester);
-  return ctx.enabled && !ctx.busy && ctx.onPrimary != null;
-}
+/// (Read through the harness: [scopeContext], [scopeLabel], [scopeEnabled].)
 
 /// Settles everything but the "Deposit incoming" working sign, which spins
 /// for as long as a deposit is on its way (pumpAndSettle would never end).
@@ -328,7 +312,7 @@ void main() {
     await tester.ensureVisible(reduceOnly);
     await tester.tap(reduceOnly);
     await tester.pumpAndSettle();
-    expect(_ticketLabel(tester),
+    expect(scopeLabel(tester),
         'Place Long BTC limit');
     await tester.tap(find.byType(KuteBackButton));
     await tester.pumpAndSettle();
@@ -544,7 +528,7 @@ void main() {
           isNull);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
-      expect(_ticketLabel(tester), 'Long \$${typed(tester)}');
+      expect(scopeLabel(tester), 'Long \$${typed(tester)}');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');
@@ -748,8 +732,8 @@ void main() {
 
     // Nothing typed on a Pro ticket: no order to size a Dollars move on,
     // so the plain door (it opens the Dollar deposit too).
-    expect(_ticketLabel(tester), 'Add money to Dollars');
-    expect(_ticketEnabled(tester), isTrue);
+    expect(scopeLabel(tester), 'Add money to Dollars');
+    expect(scopeEnabled(tester), isTrue);
     expect(find.text('Duration must be between 5 minutes and 7 days.'),
         findsOneWidget);
 
@@ -775,18 +759,18 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), '2');
     await tester.pumpAndSettle();
 
-    expect(_ticketLabel(tester), _dollarDoor);
-    expect(_ticketEnabled(tester), isTrue);
+    expect(scopeLabel(tester), _dollarDoor);
+    expect(scopeEnabled(tester), isTrue);
 
     await tester.enterText(find.byType(TextField).first, '100');
     await tester.pumpAndSettle();
-    expect(_ticketLabel(tester), 'Start TWAP · 2m');
-    expect(_ticketEnabled(tester), isFalse);
+    expect(scopeLabel(tester), 'Start TWAP · 2m');
+    expect(scopeEnabled(tester), isFalse);
 
     await tester.enterText(find.byType(TextField).at(1), '30');
     await tester.pumpAndSettle();
-    expect(_ticketLabel(tester), 'Start TWAP · 30m');
-    expect(_ticketEnabled(tester), isTrue);
+    expect(scopeLabel(tester), 'Start TWAP · 30m');
+    expect(scopeEnabled(tester), isTrue);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -806,8 +790,8 @@ void main() {
 
     container.read(_availableFunds.notifier).state = 0;
     await tester.pumpAndSettle();
-    expect(_ticketLabel(tester), _emptyOrder);
-    expect(_ticketEnabled(tester), isTrue);
+    expect(scopeLabel(tester), _emptyOrder);
+    expect(scopeEnabled(tester), isTrue);
     expect(_LivePrices.acquired, 1);
 
     await tester.binding.handlePopRoute();
@@ -846,7 +830,7 @@ void main() {
       }
       expect(barIsUp(tester), isTrue);
       // The empty ticket's one action (it tops up, then places). FAILS
-      // until the lib bug under [_ticketContext] is fixed: the bar shows
+      // until the lib bug under [scopeContext] is fixed: the bar shows
       // the default pill on Advanced.
       final action = barPrimaryText(_emptyOrder);
       // The long form scrolls; the action is the bar, outside it
@@ -876,7 +860,7 @@ void main() {
         .position;
     expect(position.maxScrollExtent, 0);
     // The action is the bar, resting at the foot (its 2.h of air). FAILS
-    // until the lib bug under [_ticketContext] is fixed: the bar shows the
+    // until the lib bug under [scopeContext] is fixed: the bar shows the
     // default pill on Advanced.
     expect(barPrimaryText(_emptyOrder), findsOneWidget);
     expect(tester.getRect(findBarPrimary()).bottom,
@@ -1073,7 +1057,7 @@ void main() {
       expect(typed(tester), min);
       expect(gate.checks, 1);
       expect(find.text('Investing unavailable'), findsOneWidget);
-      expect(_ticketLabel(tester), 'Long \$$min');
+      expect(scopeLabel(tester), 'Long \$$min');
       await tester.pumpWidget(const SizedBox.shrink());
       final abandoned =
           events.lastWhere((e) => e.$1 == 'hyperliquid_order_slip_abandoned');
