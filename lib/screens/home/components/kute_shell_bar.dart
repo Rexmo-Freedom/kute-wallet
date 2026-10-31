@@ -126,6 +126,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     _idle?.cancel();
     _entry.dispose();
     _nudge.dispose();
+    // The load this bar reported ends with it.
+    SalReactions.loading(_KuteShellBarState, false);
     super.dispose();
   }
 

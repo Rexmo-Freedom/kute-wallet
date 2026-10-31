@@ -769,6 +769,8 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
     _happyTimer?.cancel();
     kuteSearchLoading.removeListener(_onLoading);
     SalReactions.current.removeListener(_onReaction);
+    // A load this glyph reported ends with it.
+    SalReactions.loading(kuteSearchLoading, false);
     super.dispose();
   }
 
