@@ -16,6 +16,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
+import 'package:kute/screens/shared/app_bottom_sheet.dart'
+    show AppBottomSheetListTile;
 import 'package:kute/screens/shared/pool_balance_header.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 
@@ -69,14 +71,11 @@ Finder _earnCopy() => find.textContaining(
 /// Opens the Portfolio pill, then its P&L charts section (Positions is
 /// the first).
 Future<void> _openStatistics(WidgetTester tester) async {
-  await tester.tap(find.text('Portfolio').first);
-  for (var i = 0; i < 8; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  final charts = find.byKey(const ValueKey('portfolio-section-pill-charts'));
-  await tester.ensureVisible(charts);
-  await tester.pump();
-  await tester.tap(charts);
+  await tapPill(tester, 'Portfolio');
+  // The picked Portfolio pill opens the sections; a row picks P&L charts.
+  await tapAndPump(tester, investmentsPill('Portfolio'));
+  await tester
+      .tap(find.widgetWithText(AppBottomSheetListTile, 'P&L Charts').last);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }

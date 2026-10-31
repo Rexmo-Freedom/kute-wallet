@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "belépés {price}",
   "investmentsAdd": "Hozzáadás",
   "activityOnItsWay": "Úton",
-  "investingTradfi": "Hagyományos"
+  "investingTradfi": "Hagyományos",
+  "purchaseShort": "Vásárlás"
 }

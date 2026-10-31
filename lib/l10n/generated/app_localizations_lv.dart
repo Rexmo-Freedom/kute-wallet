@@ -11237,4 +11237,7 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradicionālie';
+
+  @override
+  String get purchaseShort => 'Pirkt';
 }

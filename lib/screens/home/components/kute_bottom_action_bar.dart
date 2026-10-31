@@ -134,8 +134,8 @@ class KuteBottomActionBar extends ConsumerWidget {
                                   child: KuteDogMagnifier(
                                       size: 34, lensColor: c.textPrimary))
                               : Padding(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 6.w),
+                                  padding:
+                                      EdgeInsets.symmetric(horizontal: 6.w),
                                   child: Icon(Icons.search_rounded,
                                       size: 22, color: c.textPrimary),
                                 ),
@@ -283,6 +283,128 @@ class KuteActionRow extends StatelessWidget {
   }
 }
 
+/// Every action of a surface in ONE compact row under its balance: a squared
+/// button with its label under it (Purchase · Scan · Receive · Send on the
+/// Bitcoin tab, Add · Send on Investments), so the actions take one row,
+/// not two or three (founder, 31 October 2026). A [KuteDockAction.solid]
+/// action wears the primary fill (Purchase); the rest the neutral chrome.
+/// Same events as the dock's buttons.
+class KuteCompactActions extends StatelessWidget {
+  const KuteCompactActions(
+      {super.key, required this.actions, required this.source});
+
+  final List<KuteDockAction> actions;
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    return Row(
+      key: const ValueKey('kute-compact-actions'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (final action in actions)
+          Expanded(
+            child: _CompactAction(
+                action: action, source: source, isLight: isLight, colors: c),
+          ),
+      ],
+    );
+  }
+}
+
+class _CompactAction extends StatelessWidget {
+  const _CompactAction(
+      {required this.action,
+      required this.source,
+      required this.isLight,
+      required this.colors});
+
+  final KuteDockAction action;
+  final String source;
+  final bool isLight;
+  final AppColorsExtension colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    final enabled = action.onTap != null;
+    final solid = action.solid;
+    final foreground = solid ? context.ctaOnColor : c.textPrimary;
+    final size = 52.0;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: action.label,
+        excludeSemantics: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: !enabled
+                ? null
+                : () {
+                    HapticFeedback.lightImpact();
+                    TrackingService.quickAction(action.trackingId,
+                        source: source);
+                    action.onTap!();
+                  },
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 4.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: solid
+                          ? context.ctaFill
+                          : (isLight ? Colors.white : c.surface),
+                      borderRadius: AppRadius.buttonBorder,
+                      border: solid
+                          ? null
+                          : Border.all(
+                              color: isLight ? c.border : c.borderSubtle,
+                              width: isLight ? 1.0 : 0.5,
+                            ),
+                      boxShadow: isLight && !solid
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(action.icon, size: 22, color: foreground),
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    action.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 12.5.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A money verb in the dock, wearing the same neutral chrome as the search
 /// square so the three controls read as one row, or, when [KuteDockAction.solid],
 /// the primary CTA's monochrome fill (ctaFill / ctaOnColor, no border, and
@@ -314,9 +436,7 @@ class KuteDockActionButton extends StatelessWidget {
       child: Container(
         height: 54,
         decoration: BoxDecoration(
-          color: solid
-              ? context.ctaFill
-              : (isLight ? Colors.white : c.surface),
+          color: solid ? context.ctaFill : (isLight ? Colors.white : c.surface),
           borderRadius: AppRadius.buttonBorder,
           border: solid
               ? null

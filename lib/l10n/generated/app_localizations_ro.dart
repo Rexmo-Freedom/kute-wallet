@@ -11327,4 +11327,7 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradițional';
+
+  @override
+  String get purchaseShort => 'Cumpără';
 }

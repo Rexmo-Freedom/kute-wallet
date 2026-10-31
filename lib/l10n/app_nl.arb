@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "instap {price}",
   "investmentsAdd": "Toevoegen",
   "activityOnItsWay": "Onderweg",
-  "investingTradfi": "Traditioneel"
+  "investingTradfi": "Traditioneel",
+  "purchaseShort": "Kopen"
 }

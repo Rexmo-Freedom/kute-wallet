@@ -1343,23 +1343,18 @@ class _HomeActions extends ConsumerWidget {
       );
     }
     if (activeWallet == null) return const SizedBox.shrink();
-    // Under the balance, each action once: Purchase Bitcoin with the
-    // scanner beside it (the row the card always had), then Receive and
-    // Send, the dock's own buttons moved up (the dock is search alone).
+    // ONE compact row under the balance, every action once: Purchase ·
+    // Scan · Receive · Send (founder, 31 October 2026: "all in one row and
+    // shrink the button"). The dock is search alone.
     if (!isUsdc) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          BitcoinWalletPrimaryActions(wallet: activeWallet, source: source),
-          SizedBox(height: 10.h),
-          KuteActionRow(
-              source: source,
-              actions: bitcoinWalletDockActions(context, ref, activeWallet)),
-        ],
-      );
+      return KuteCompactActions(source: source, actions: [
+        bitcoinPurchaseDockAction(context, ref, activeWallet, source: source),
+        bitcoinScanDockAction(context, ref, activeWallet),
+        ...bitcoinWalletDockActions(context, ref, activeWallet),
+      ]);
     }
     // The Predictions (USDC) card: Deposit · Portfolio · Withdraw.
-    return KuteActionRow(source: source, actions: [
+    return KuteCompactActions(source: source, actions: [
       KuteDockAction(
           icon: Icons.south_west_rounded,
           label: context.l10n.deposit,

@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "エントリー {price}",
   "investmentsAdd": "追加",
   "activityOnItsWay": "処理中",
-  "investingTradfi": "伝統的資産"
+  "investingTradfi": "伝統的資産",
+  "purchaseShort": "購入"
 }

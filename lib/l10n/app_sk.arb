@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "vstup {price}",
   "investmentsAdd": "Pridať",
   "activityOnItsWay": "Na ceste",
-  "investingTradfi": "Tradičné"
+  "investingTradfi": "Tradičné",
+  "purchaseShort": "Kúpiť"
 }

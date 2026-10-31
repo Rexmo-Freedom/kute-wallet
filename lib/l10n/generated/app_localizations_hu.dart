@@ -11294,4 +11294,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Hagyományos';
+
+  @override
+  String get purchaseShort => 'Vásárlás';
 }

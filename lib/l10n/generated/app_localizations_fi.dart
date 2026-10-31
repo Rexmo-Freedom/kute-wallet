@@ -11281,4 +11281,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Perinteiset';
+
+  @override
+  String get purchaseShort => 'Osta';
 }

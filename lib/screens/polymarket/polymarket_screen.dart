@@ -630,6 +630,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                       // under the balance. A category with subcategories
                       // drills in: the row becomes "‹ Category" and its
                       // subcategories. Both filter the list below in place.
+                      // Inside Investments the page's own pill carries
+                      // the category (investments_category_sheet.dart).
+                      if (!embedded)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.only(top: 4.h),

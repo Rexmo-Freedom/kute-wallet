@@ -11225,4 +11225,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Traditional';
+
+  @override
+  String get purchaseShort => 'Purchase';
 }

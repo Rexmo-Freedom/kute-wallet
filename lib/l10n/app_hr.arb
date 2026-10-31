@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "ulaz {price}",
   "investmentsAdd": "Dodaj",
   "activityOnItsWay": "Na putu",
-  "investingTradfi": "Tradicionalno"
+  "investingTradfi": "Tradicionalno",
+  "purchaseShort": "Kupi"
 }

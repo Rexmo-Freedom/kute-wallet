@@ -6856,5 +6856,7 @@
   "activityOnItsWay": "On its way",
   "@activityOnItsWay": {"description": "Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows."},
   "investingTradfi": "Traditional",
-  "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."}
+  "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."},
+  "purchaseShort": "Purchase",
+  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."}
 }

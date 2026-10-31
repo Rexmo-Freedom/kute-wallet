@@ -11319,4 +11319,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradizionale';
+
+  @override
+  String get purchaseShort => 'Compra';
 }

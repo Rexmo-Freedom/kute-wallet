@@ -39,7 +39,7 @@ import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendAmountUnitPill;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show UsdAccountActionBar, UsdAccountActionRow;
+    show UsdAccountActionRow;
 import 'package:kute/screens/usd/usd_send_screen.dart';
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show UsdWithdrawScreen, kUsdWithdrawRouteName;
@@ -830,7 +830,7 @@ void main() {
   // ─── The send sheet ───────────────────────────────────────────────
 
   testWidgets(
-      'the Investments row\'s Withdraw opens the Add sheet turned '
+      'the Investments row\'s Send opens the Add sheet turned '
       'around; a coin on it opens the send sheet at medium height on Send '
       'to, the coin picked, and closing it comes back', (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -843,7 +843,7 @@ void main() {
             body: SizedBox.expand(),
             bottomNavigationBar: UsdAccountActionRow()));
 
-    await tester.tap(find.text(_l10n.withdraw));
+    await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
     // The Withdraw sheet: the Deposit's bottom sheet, "To your wallet"

@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "avaus {price}",
   "investmentsAdd": "Lisää",
   "activityOnItsWay": "Matkalla",
-  "investingTradfi": "Perinteiset"
+  "investingTradfi": "Perinteiset",
+  "purchaseShort": "Osta"
 }

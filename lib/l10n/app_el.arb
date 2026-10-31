@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "είσοδος {price}",
   "investmentsAdd": "Προσθήκη",
   "activityOnItsWay": "Καθ' οδόν",
-  "investingTradfi": "Παραδοσιακά"
+  "investingTradfi": "Παραδοσιακά",
+  "purchaseShort": "Αγορά"
 }

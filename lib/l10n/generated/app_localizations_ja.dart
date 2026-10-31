@@ -10843,4 +10843,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get investingTradfi => '伝統的資産';
+
+  @override
+  String get purchaseShort => '購入';
 }

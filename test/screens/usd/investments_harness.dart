@@ -258,9 +258,13 @@ Future<void> tapAndPump(WidgetTester tester, Finder finder) async {
 }
 
 /// A pill of the Investments strip, by label.
+/// A pill of the strip by its name. The picked pill carries its category
+/// after the name ("Investing · Trending ⌄"), so a name matches either.
 Finder investmentsPill(String label) => find.descendant(
     of: find.byType(KutePillTabs).first,
-    matching: find.widgetWithText(KutePill, label));
+    matching: find.byWidgetPredicate((w) =>
+        w is KutePill &&
+        (w.label == label || w.label.startsWith('$label '))));
 
 /// Scrolls the pill strip (four pills side-scroll at natural width, the
 /// Home strip's rule) until the pill with [label] is built and on screen.
@@ -278,14 +282,21 @@ Future<Finder> revealPill(WidgetTester tester, String label) async {
     }
     if (pill.evaluate().isNotEmpty) break;
   }
-  await tester.ensureVisible(pill);
+  // Only when it is not already tappable: ensureVisible also aligns the
+  // page's vertical scroll, which would collapse the header.
+  if (pill.hitTestable().evaluate().isEmpty) await tester.ensureVisible(pill);
   await tester.pump();
   return pill;
 }
 
 /// Reveals and taps the pill with [label], then settles by hand.
-Future<void> tapPill(WidgetTester tester, String label) async =>
-    tapAndPump(tester, await revealPill(tester, label));
+/// Picks the pill named [label]. A pill already picked is left alone (a
+/// tap on it opens its categories, which is not a pick).
+Future<void> tapPill(WidgetTester tester, String label) async {
+  final pill = await revealPill(tester, label);
+  if (tester.widget<KutePill>(pill).selected) return;
+  await tapAndPump(tester, pill);
+}
 
 /// Every tracked event from now until the test ends.
 List<(String, Map<String, Object>?)> recordEvents() {

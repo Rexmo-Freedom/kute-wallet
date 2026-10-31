@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "intrare {price}",
   "investmentsAdd": "Adaugă",
   "activityOnItsWay": "Pe drum",
-  "investingTradfi": "Tradițional"
+  "investingTradfi": "Tradițional",
+  "purchaseShort": "Cumpără"
 }

@@ -226,6 +226,11 @@ class KutePillTabs extends StatefulWidget {
   /// [kutePillRowHeight] gives each pill a 44 pt hit target.
   final double? height;
 
+  /// Natural-width pills in a side-scrolling row even with three or
+  /// fewer tabs: for a row whose selected pill carries a longer label
+  /// (the Investments pills, which name their category when picked).
+  final bool scroll;
+
   const KutePillTabs({
     super.key,
     required this.items,
@@ -234,6 +239,7 @@ class KutePillTabs extends StatefulWidget {
     this.horizontalPadding = 4,
     this.size = KutePillSize.regular,
     this.height,
+    this.scroll = false,
   });
 
   @override
@@ -290,7 +296,7 @@ class _KutePillTabsState extends State<KutePillTabs> {
     // each equal width so they're evenly spaced. Four or more truncated
     // the labels under equal widths ("Activit", "Balanc"), so longer
     // strips side-scroll at natural width instead.
-    if (widget.selectedIndex != null && items.length <= 3) {
+    if (widget.selectedIndex != null && items.length <= 3 && !widget.scroll) {
       return SizedBox(
         height: height,
         child: Padding(

@@ -312,7 +312,7 @@ void main() {
   });
 
   testWidgets(
-      'the Investments money verbs are one row, Add and Withdraw, and '
+      'the Investments money verbs are one compact row, Add and Send, and '
       'the dock is search alone; Add opens the Dollars receive screen',
       (tester) async {
     final events = <(String, Map<String, Object>?)>[];
@@ -337,20 +337,19 @@ void main() {
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     // The row: money in on the left, money out on the right, with the
     // Bitcoin dock's arrows and action keys; Investments says Add and
-    // Withdraw (dollars can leave as a coin too, so never "To Bitcoin"),
-    // never Receive and Send.
+    // Send (dollars can leave as a coin too, so never "To Bitcoin").
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
-    expect(actions.map((a) => a.label), ['Add', 'Withdraw']);
+    expect(actions.map((a) => a.label), ['Add', 'Send']);
     expect(actions.map((a) => a.trackingId), ['receive', 'send']);
     expect(actions.map((a) => a.icon),
         [Icons.south_west_rounded, Icons.north_east_rounded]);
     expect(actions.map((a) => a.onTap), everyElement(isNotNull));
     expect(find.text('Add'), findsOneWidget);
-    expect(find.text('Withdraw'), findsOneWidget);
+    expect(find.text('Send'), findsOneWidget);
     expect(find.text('Receive'), findsNothing);
-    expect(find.text('Send'), findsNothing);
     expect(find.text('Deposit'), findsNothing);
+    expect(find.text('Withdraw'), findsNothing);
 
     await tester.tap(find.text('Add'));
     await tester.pump();

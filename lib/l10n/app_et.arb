@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "sisenemine {price}",
   "investmentsAdd": "Lisa",
   "activityOnItsWay": "Teel",
-  "investingTradfi": "Traditsiooniline"
+  "investingTradfi": "Traditsiooniline",
+  "purchaseShort": "Osta"
 }

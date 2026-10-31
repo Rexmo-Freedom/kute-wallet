@@ -11306,4 +11306,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradycyjne';
+
+  @override
+  String get purchaseShort => 'Kup';
 }

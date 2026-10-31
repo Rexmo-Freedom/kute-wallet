@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "вход {price}",
   "investmentsAdd": "Добави",
   "activityOnItsWay": "На път",
-  "investingTradfi": "Традиционни"
+  "investingTradfi": "Традиционни",
+  "purchaseShort": "Купи"
 }

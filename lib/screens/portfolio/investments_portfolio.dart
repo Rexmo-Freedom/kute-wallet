@@ -102,14 +102,21 @@ final portfolioSectionProvider =
 /// the section under them (see the file header). [onSection] is a pill
 /// tap; the Investments screen reports it and writes the section.
 class InvestmentsPortfolio extends ConsumerWidget {
-  const InvestmentsPortfolio({super.key, required this.onSection});
+  const InvestmentsPortfolio(
+      {super.key, required this.onSection, this.sectionPills = true});
 
   final ValueChanged<PortfolioSection> onSection;
+
+  /// False inside Investments, where the page's Portfolio pill carries
+  /// the section and opens the pick (investments_category_sheet.dart).
+  final bool sectionPills;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final section = ref.watch(portfolioSectionProvider);
-    final pills = _SectionPills(selected: section, onPick: onSection);
+    final Widget pills = sectionPills
+        ? _SectionPills(selected: section, onPick: onSection)
+        : const SizedBox.shrink();
     return KeyedSubtree(
       key: ValueKey('portfolio-section-${section.key}'),
       child: switch (section) {

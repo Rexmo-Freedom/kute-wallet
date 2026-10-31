@@ -102,6 +102,7 @@
 // `shellShowsUsdTab` in shell_venue_tabs.dart) — a Bitcoin-only,
 // watch-only, tracked, signer or Ledger account has no dollars.
 
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -113,13 +114,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart';
 import 'package:kute/providers/nav_bar_visibility_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/home/components/kute_bottom_action_bar.dart';
+import 'package:kute/screens/home/components/kute_dock_host.dart';
 import 'package:kute/screens/home/shell_wallet_screen.dart'
     show kShellTopBarSpacing;
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
@@ -131,11 +132,12 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showUsdReceiveSheet;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/investment_balance_header.dart';
-import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogMagnifier;
 import 'package:kute/screens/shared/kute_motion.dart'
-    show KuteStillWhenCovered, kuteMotion, kuteReduceMotion;
+    show kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
+import 'package:kute/screens/usd/investments_category_sheet.dart'
+    show investmentsCategoryLabel, showInvestmentsCategorySheet;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
@@ -285,18 +287,22 @@ class _UsdAccountScreenState extends ConsumerState<UsdAccountScreen> {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppDecorations.screenGradient(context),
-      // No dock: the tab's search and Sal are the big button under the
-      // balance ([UsdSearchButton]), and the money verbs the row under it.
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
-            // The floating nav bar's room is the top of the page's
-            // header, there only while the bar is (see the file
-            // header), never a fixed spacer here.
-            Expanded(child: InvestmentsBody()),
-          ],
+      // Home's dock mount: the one quiet pill to search and Sal at the
+      // bottom; the money verbs are the compact row under the balance.
+      child: KuteDockHost(
+        dockBuilder: (onHeightChanged) =>
+            UsdAccountActionBar(onHeightChanged: onHeightChanged),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: const [
+              // The floating nav bar's room is the top of the page's
+              // header, there only while the bar is (see the file
+              // header), never a fixed spacer here.
+              Expanded(child: InvestmentsBody()),
+            ],
+          ),
         ),
       ),
     );
@@ -384,7 +390,12 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
   void _pick(InvestmentsTab next) {
     final current = ref.read(investmentsTabProvider);
-    if (next == current) return;
+    // The pill on screen carries its category; tapping it again opens
+    // the categories of that section (one pill row, nothing under it).
+    if (next == current) {
+      unawaited(showInvestmentsCategorySheet(context, ref, next));
+      return;
+    }
     HapticFeedback.selectionClick();
     // The strip's own event, as the Home pills and the old Balance | Earn
     // pair reported, so the existing tiles keep counting. The Portfolio
@@ -503,13 +514,24 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
     _opened.add(selected);
     const tabs = InvestmentsTab.values;
 
+    // The picked pill carries its sub-context ("Investing · Trending ⌄");
+    // a tap on it opens the pick (see _pick).
     KutePillItem item(InvestmentsTab tab) => KutePillItem(
-          label: switch (tab) {
-            InvestmentsTab.investing => l10n.trading,
-            InvestmentsTab.predictions => l10n.predictions,
-            InvestmentsTab.positions => l10n.walletPortfolioAction,
-          },
-          icon: tab.icon,
+          label: () {
+            final base = switch (tab) {
+              InvestmentsTab.investing => l10n.trading,
+              InvestmentsTab.predictions => l10n.predictions,
+              InvestmentsTab.positions => l10n.walletPortfolioAction,
+            };
+            if (tab != selected) return base;
+            // At the section's default the name alone, so the three
+            // names share the row; a picked category after it.
+            final category = investmentsCategoryLabel(ref, l10n, tab);
+            return category == null ? '$base ⌄' : '$base · $category ⌄';
+          }(),
+          // No glyphs: the picked pill carries its category, and the
+          // three names must share one row with it.
+          icon: null,
         );
 
     final compactExtent = kInvestmentsCompactBarHeight.h;
@@ -575,7 +597,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
                     InvestmentsTab.predictions =>
                       const PolymarketScreen(embedded: true),
                     InvestmentsTab.positions => _opened.contains(tab)
-                        ? InvestmentsPortfolio(onSection: _pickSection)
+                        ? InvestmentsPortfolio(
+                            onSection: _pickSection, sectionPills: false)
                         : const SizedBox.shrink(),
                   },
                 ),
@@ -676,27 +699,23 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           oneBalance: true,
                         ),
                       ),
-                      // Under the balance, as the Bitcoin tab: the big
-                      // button (search and Sal), then the money verbs,
-                      // once. No dock on this tab.
+                      // ONE compact row of the money verbs under the
+                      // balance (Add · Send), as the Bitcoin tab's.
                       Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
-                        child: const UsdSearchButton(),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+                        padding: EdgeInsets.fromLTRB(40.w, 8.h, 40.w, 0),
                         child: const UsdAccountActionRow(),
                       ),
-                      // The Home strip's pills, a step bigger, on the
-                      // strip's inset with 12.h of air above (where the
-                      // deposit door used to sit) and under them.
+                      // ONE pill row: the sections, the picked one
+                      // carrying its category (its tap opens the pick).
+                      // Natural widths, side-scrolling.
                       Padding(
-                        padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+                        padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
                         child: KutePillTabs(
                           items: items,
                           selectedIndex: selectedIndex,
                           onTap: onTap,
                           size: KutePillSize.large,
+                          scroll: true,
                         ),
                       ),
                     ],
@@ -834,6 +853,7 @@ class _InvestmentsCompactBar extends StatelessWidget {
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   size: KutePillSize.compact,
+                  scroll: true,
                 ),
               ],
             ),
@@ -1037,7 +1057,7 @@ class UsdAccountActionBar extends ConsumerWidget {
         ),
         KuteDockAction(
           icon: Icons.north_east_rounded,
-          label: context.l10n.withdraw,
+          label: context.l10n.send,
           trackingId: 'send',
           // The Add sheet, turned around (usd_withdraw_screen.dart): "To
           // your wallet" over the coins; a coin opens the dollar send,
@@ -1057,85 +1077,13 @@ class UsdAccountActionBar extends ConsumerWidget {
       );
 }
 
-/// The Investments tab's big button, where the Bitcoin tab has Purchase
-/// Bitcoin: the one door to search and to Sal, full width under the
-/// balance (founder, 31 October 2026: "might as well just have a big
-/// button there"). Same primary fill as Purchase; Sal with his magnifier
-/// while AI is on, the plain magnifier otherwise. The tab carries no dock
-/// since this is here.
-class UsdSearchButton extends ConsumerWidget {
-  const UsdSearchButton({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final aiEnabled = ref.watch(aiEnabledProvider).valueOrNull ?? true;
-    final label = aiEnabled
-        ? context.l10n.searchOrAskSalShort
-        : context.l10n.searchAction;
-    final foreground = context.ctaOnColor;
-    return Semantics(
-      button: true,
-      label: label,
-      child: Container(
-        key: const ValueKey('usd-search-button'),
-        height: 54,
-        decoration: BoxDecoration(
-          color: context.ctaFill,
-          borderRadius: AppRadius.buttonBorder,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: AppRadius.buttonBorder,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            borderRadius: AppRadius.buttonBorder,
-            splashColor: foreground.withValues(alpha: 0.16),
-            highlightColor: foreground.withValues(alpha: 0.10),
-            onTap: () {
-              HapticFeedback.lightImpact();
-              TrackingService.bottomBarTapped(
-                  element: 'search_button', source: kUsdSurfaceSource);
-              UsdAccountActionBar.search(context, ref);
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (aiEnabled)
-                  KuteStillWhenCovered(
-                      child: KuteDogMagnifier(size: 36, lensColor: foreground))
-                else
-                  Icon(Icons.search_rounded, size: 22.sp, color: foreground),
-                SizedBox(width: 8.w),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: foreground,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The Investments action row under the balance: Add · Withdraw, the
-/// dock's own buttons (same chrome as the Bitcoin tab's Receive · Send ·
-/// Buy), each verb once on the screen.
+/// The Investments compact row under the balance: Add · Send, the dock's
+/// own actions in the Bitcoin tab's round buttons, each verb once.
 class UsdAccountActionRow extends StatelessWidget {
   const UsdAccountActionRow({super.key});
 
   @override
-  Widget build(BuildContext context) => KuteActionRow(
+  Widget build(BuildContext context) => KuteCompactActions(
         source: kUsdSurfaceSource,
         actions: UsdAccountActionBar.moneyActions(context),
       );

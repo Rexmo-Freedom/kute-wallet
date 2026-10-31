@@ -11288,4 +11288,7 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Традиционни';
+
+  @override
+  String get purchaseShort => 'Купи';
 }

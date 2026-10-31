@@ -18878,6 +18878,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Traditional'**
   String get investingTradfi;
+
+  /// Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin).
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase'**
+  String get purchaseShort;
 }
 
 class _AppLocalizationsDelegate

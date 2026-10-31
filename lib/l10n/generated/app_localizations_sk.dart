@@ -11275,4 +11275,7 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradičné';
+
+  @override
+  String get purchaseShort => 'Kúpiť';
 }

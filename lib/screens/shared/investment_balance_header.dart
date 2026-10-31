@@ -344,24 +344,15 @@ class _OneBalanceHeroState extends ConsumerState<_OneBalanceHero> {
     final header = PoolBalanceHeader(
       amountText: figure.text,
       stale: figure.stale,
-      // The money that is not invested is named for what it is, Dollars
-      // (held steady, not moving with Bitcoin's price), never "Available",
-      // which left the person asking whether it was safe, held or waiting.
-      availableLabel: context.l10n.portfolioBalanceDollars,
+      availableLabel: context.l10n.available,
       investedLabel: context.l10n.betInvested,
-      availableFirst: true,
       amountTrailing: arrow,
       amountTrailingWidth: arrow == null ? 0 : arrowGap + arrowSize,
-      // "Dollars $X · Invested $Y" under the total at rest; the in-flight
-      // lines in its place while anything is on a rail.
-      // The Dollars figure is the displayed total less the displayed
-      // invested, so the split always adds up to the number above it,
-      // through a refresh (the last complete figures stay together).
-      availableText: lines.isEmpty
-          ? amount(display.total - display.invested < 0
-              ? 0
-              : display.total - display.invested)
-          : null,
+      // Only "Invested $Y" under the total (founder, 28 October 2026,
+      // again 31 October: the person needs to know what is invested, and
+      // that is it); the in-flight lines in its place while anything is
+      // on a rail.
+      availableText: null,
       investedText: lines.isEmpty ? amount(display.invested) : null,
       showActionRow: false,
       investedChild: lines.isEmpty

@@ -11349,4 +11349,7 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Παραδοσιακά';
+
+  @override
+  String get purchaseShort => 'Αγορά';
 }

@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "ingång {price}",
   "investmentsAdd": "Lägg till",
   "activityOnItsWay": "På väg",
-  "investingTradfi": "Traditionella"
+  "investingTradfi": "Traditionella",
+  "purchaseShort": "Köp"
 }

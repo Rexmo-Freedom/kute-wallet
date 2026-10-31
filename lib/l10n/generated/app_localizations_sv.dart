@@ -11268,4 +11268,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Traditionella';
+
+  @override
+  String get purchaseShort => 'Köp';
 }

@@ -11260,4 +11260,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get investingTradfi => 'Tradiční';
+
+  @override
+  String get purchaseShort => 'Koupit';
 }

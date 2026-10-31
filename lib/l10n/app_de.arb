@@ -3127,5 +3127,6 @@
   "portfolioRowEntry": "Einstieg {price}",
   "investmentsAdd": "Hinzufügen",
   "activityOnItsWay": "Unterwegs",
-  "investingTradfi": "Traditionell"
+  "investingTradfi": "Traditionell",
+  "purchaseShort": "Kaufen"
 }
