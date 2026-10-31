@@ -29,7 +29,6 @@ import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
