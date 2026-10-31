@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -131,22 +132,16 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
     // Whether the dial's one-time drag hint shows on this open.
     TrackingService.predictionsPositionDetailViewed(
         dialHintShown: !PolyDialDragMemory.dragged);
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final navigator = Navigator.of(context, rootNavigator: true);
     OpenOnce.run(key, () => navigator.push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
         // Still while the sell slip (or any sheet) covers it, so its tick
         // animations never share the frames of the slip being scrolled.
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: polyIsFastBetRound(position.eventSlug),
           child: KuteStillWhenCovered(
             child: PositionDetailSheet(
@@ -155,15 +150,6 @@ class PositionDetailSheet extends ConsumerStatefulWidget {
             ),
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     ));
   }

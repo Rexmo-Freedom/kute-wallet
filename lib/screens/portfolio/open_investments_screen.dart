@@ -52,6 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -117,7 +118,7 @@ class OpenInvestmentsScreen extends ConsumerStatefulWidget {
   /// Pushes the Portfolio full screen, over the shell's nav bar and dock,
   /// with the app's standard back.
   static Future<void> show(BuildContext context, {required String source}) =>
-      Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(
+      Navigator.of(context, rootNavigator: true).push(KutePageRoute<void>(
           builder: (_) => OpenInvestmentsScreen(source: source)));
 
   @override

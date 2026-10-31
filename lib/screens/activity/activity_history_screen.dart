@@ -23,6 +23,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
 
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
     show PortfolioActivityList;
@@ -141,7 +142,7 @@ Future<void> showActivityHistory(
     'scope': scope,
   });
   return Navigator.of(context, rootNavigator: true).push<void>(
-    MaterialPageRoute<void>(
+    KutePageRoute<void>(
       settings: const RouteSettings(name: ActivityHistoryScreen.routeName),
       builder: (_) => ActivityHistoryScreen(
         walletIdOverride: walletIdOverride,

@@ -35,6 +35,7 @@ import 'package:kute/screens/home/shell_venue_tabs.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show KuteBarRouteObserver;
 import 'package:kute/screens/portfolio/portfolio_screen.dart';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
@@ -90,8 +91,10 @@ class AppRouter {
 
   /// A pushed screen's transition (founder, 31 October 2026, after
   /// Orchestra): in on the settle easing with a subtle 0.97 → 1 scale and
-  /// a fade, back on the sheets' close easing; a plain line under Reduce
-  /// Motion. The numbers live in lib/theme/kute_motion.dart.
+  /// a fade, back on the sheets' close easing, the platform back swipe
+  /// kept; a plain line under Reduce Motion. One transition for every
+  /// pushed page in the app (kute_page_route.dart; the numbers in
+  /// lib/theme/kute_motion.dart).
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
@@ -107,36 +110,8 @@ class AppRouter {
       child: child,
       transitionDuration: duration,
       reverseTransitionDuration: duration,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        final isPush = animation.status == AnimationStatus.forward;
-
-        final reduce = KuteMotion.reduce(context);
-        final curve = reduce
-            ? Curves.linear
-            : (isPush ? KuteMotion.settle : KuteMotion.sheetOut);
-
-        final fadeAnimation = CurvedAnimation(
-          parent: animation,
-          curve: curve,
-        );
-
-        final scaleAnimation =
-            Tween<double>(begin: reduce ? 1.0 : 0.97, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: curve,
-          ),
-        );
-
-        return FadeTransition(
-          opacity: fadeAnimation,
-          child: ScaleTransition(
-            scale: scaleAnimation,
-            alignment: Alignment.center,
-            child: child,
-          ),
-        );
-      },
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          kutePageTransition(context, animation, child),
     );
   }
 

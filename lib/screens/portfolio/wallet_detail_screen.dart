@@ -413,7 +413,7 @@ class WalletMenuButton extends ConsumerWidget {
               ),
               _sheetRow(
                 sheetContext,
-                icon: Icons.delete_outline_rounded,
+                icon: Icons.delete_rounded,
                 label: context.l10n.delete,
                 destructive: true,
                 onTap: () {
@@ -442,19 +442,23 @@ class WalletMenuButton extends ConsumerWidget {
   }) {
     final c = sheetContext.colors;
     final fg = destructive ? c.error : c.textPrimary;
+    // The Settings icon family (kute_list_row.dart; founder, 31 October
+    // 2026): a monochrome rounded-filled Material icon, 20 px in
+    // textPrimary (the error red for a destructive row), on the surface
+    // 44 tile with its hairline.
     return ListTile(
       dense: true,
-      contentPadding: EdgeInsets.symmetric(horizontal: 20.w),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16.w),
       leading: Container(
-        width: 36.w,
-        height: 36.w,
+        width: 44.sp,
+        height: 44.sp,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: c.surfaceLight,
-          borderRadius: BorderRadius.circular(10.r),
+          borderRadius: BorderRadius.circular(12.r),
           border: Border.all(color: c.borderSubtle, width: 0.5),
         ),
-        child: Icon(icon, size: 18.sp, color: fg),
+        child: Icon(icon, size: 20.sp, color: fg),
       ),
       title: Text(
         label,

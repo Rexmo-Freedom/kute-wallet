@@ -127,6 +127,30 @@ abstract final class SalSpriteCache {
     }
   }
 
+  /// Tests: a manifest of their own (null: none), the decoded clips let go.
+  @visibleForTesting
+  static void debugSetManifest(Map<String, dynamic>? manifest) {
+    _manifest = Future<Map<String, dynamic>?>.value(manifest);
+    _clips.clear();
+    _ready.clear();
+  }
+
+  /// Tests: [clip] stands as decoded under [name] at [density] (a
+  /// synthetic image; no sheet read).
+  @visibleForTesting
+  static void debugPutClip(String name, int density, SalClip clip) {
+    _clips['$name@$density'] = Future<SalClip?>.value(clip);
+    _ready['$name@$density'] = clip;
+  }
+
+  /// Tests: back to the bundle's manifest, nothing decoded.
+  @visibleForTesting
+  static void debugReset() {
+    _manifest = null;
+    _clips.clear();
+    _ready.clear();
+  }
+
   /// The manifest's groups: group name → clip names, in manifest order.
   /// Empty when there is no manifest (or no entry names a group).
   static Future<Map<String, List<String>>> groups() async {
@@ -280,7 +304,10 @@ class _SalSpriteState extends State<SalSprite>
   bool _completed = false;
   final ValueNotifier<int> _frame = ValueNotifier<int>(0);
   Duration _elapsed = Duration.zero;
-  Duration _last = Duration.zero;
+
+  /// The last tick's time; null before the first tick after a start (a
+  /// first tick at exactly zero, as in a test, is a tick like any other).
+  Duration? _last;
   int _density = 2;
   bool _reduce = false;
 
@@ -353,7 +380,7 @@ class _SalSpriteState extends State<SalSprite>
     }
     final play = !_reduce && frames > 1 && !_completed;
     if (play && !ticker.isActive) {
-      _last = Duration.zero;
+      _last = null;
       ticker.start();
     } else if (!play && ticker.isActive) {
       ticker.stop();
@@ -364,7 +391,8 @@ class _SalSpriteState extends State<SalSprite>
   void _tick(Duration now) {
     final clip = _clip;
     if (clip == null) return;
-    if (_last != Duration.zero) _elapsed += (now - _last) * widget.speed;
+    final last = _last;
+    if (last != null) _elapsed += (now - last) * widget.speed;
     _last = now;
     final raw = ((_elapsed.inMicroseconds / 1e6) * clip.fps).floor();
     if (_loops) {

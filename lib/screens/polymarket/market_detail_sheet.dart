@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
@@ -209,19 +210,13 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
     _prefetchChart(event);
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: MarketDetailSheet(
             event: event,
@@ -230,15 +225,6 @@ class MarketDetailSheet extends ConsumerStatefulWidget {
             source: source,
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     );
   }
@@ -3331,19 +3317,13 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
   }) {
     // Skip the slide-up transition entirely when the OS asks to reduce
     // motion (the route still appears, just without the animated slide).
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
+      // The detail sheet's rise (kute_page_route.dart): the settle easing
+      // with the 0.97 → 1 scale, down on the close easing.
+      KuteSheetPageRoute(
         settings: const RouteSettings(name: routeName),
-        opaque: false,
         barrierColor: Colors.black.withValues(alpha: 0.4),
-        fullscreenDialog: true,
-        transitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        reverseTransitionDuration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => FastBetScope(
+        builder: (_) => FastBetScope(
           active: ledgerWalletId == null && polyIsFastBetRound(event.slug),
           child: FiveMinMarketDetailSheet(
             event: event,
@@ -3351,15 +3331,6 @@ class FiveMinMarketDetailSheet extends StatelessWidget {
             ledgerWalletId: ledgerWalletId,
           ),
         ),
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: animation.drive(
-              Tween(begin: const Offset(0, 1), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeOutCubic)),
-            ),
-            child: child,
-          );
-        },
       ),
     );
   }

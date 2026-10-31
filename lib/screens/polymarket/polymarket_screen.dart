@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/polymarket_backend_service.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -1123,7 +1124,7 @@ class _PolyFeedCard extends ConsumerWidget {
                           'category': market.category.toLowerCase(),
                       });
                   Navigator.of(context, rootNavigator: true).push(
-                    MaterialPageRoute(
+                    KutePageRoute(
                       builder: (_) => GroupLandingScreen.events(
                         title: market.title,
                         events: matchSiblings,
