@@ -94,101 +94,101 @@
   "happy": {
     "framing": "face",
     "fps": 24,
-    "frames": 1,
-    "columns": 1,
-    "rows": 1,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
     "cell": 48,
-    "loop": false,
+    "loop": true,
     "files": {
       "2x": {
         "file": "happy@2x.webp",
         "cell": 96,
-        "width": 96,
-        "height": 96
+        "width": 768,
+        "height": 576
       },
       "3x": {
         "file": "happy@3x.webp",
         "cell": 144,
-        "width": 144,
-        "height": 144
+        "width": 1152,
+        "height": 864
       }
     }
   },
   "sad": {
     "framing": "face",
     "fps": 24,
-    "frames": 1,
-    "columns": 1,
-    "rows": 1,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
     "cell": 48,
-    "loop": false,
+    "loop": true,
     "files": {
       "2x": {
         "file": "sad@2x.webp",
         "cell": 96,
-        "width": 96,
-        "height": 96
+        "width": 768,
+        "height": 576
       },
       "3x": {
         "file": "sad@3x.webp",
         "cell": 144,
-        "width": 144,
-        "height": 144
+        "width": 1152,
+        "height": 864
       }
     }
   },
   "curious": {
     "framing": "face",
     "fps": 24,
-    "frames": 1,
-    "columns": 1,
-    "rows": 1,
+    "frames": 48,
+    "columns": 8,
+    "rows": 6,
     "cell": 48,
-    "loop": false,
+    "loop": true,
     "files": {
       "2x": {
         "file": "curious@2x.webp",
         "cell": 96,
-        "width": 96,
-        "height": 96
+        "width": 768,
+        "height": 576
       },
       "3x": {
         "file": "curious@3x.webp",
         "cell": 144,
-        "width": 144,
-        "height": 144
+        "width": 1152,
+        "height": 864
       }
     }
   },
-  "surprised": {
+  "surprise": {
     "framing": "face",
     "fps": 24,
-    "frames": 1,
-    "columns": 1,
-    "rows": 1,
+    "frames": 36,
+    "columns": 8,
+    "rows": 5,
     "cell": 48,
     "loop": false,
     "files": {
       "2x": {
-        "file": "surprised@2x.webp",
+        "file": "surprise@2x.webp",
         "cell": 96,
-        "width": 96,
-        "height": 96
+        "width": 768,
+        "height": 480
       },
       "3x": {
-        "file": "surprised@3x.webp",
+        "file": "surprise@3x.webp",
         "cell": 144,
-        "width": 144,
-        "height": 144
+        "width": 1152,
+        "height": 720
       }
     }
   },
   "body_idle": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -196,22 +196,22 @@
         "file": "body_idle@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_idle@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_walk": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -219,22 +219,22 @@
         "file": "body_walk@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_walk@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_sit_down": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": false,
     "files": {
@@ -242,22 +242,22 @@
         "file": "body_sit_down@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_sit_down@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_sit": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -265,22 +265,22 @@
         "file": "body_sit@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_sit@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_lie_down": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": false,
     "files": {
@@ -288,22 +288,22 @@
         "file": "body_lie_down@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_lie_down@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_lie": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -311,22 +311,22 @@
         "file": "body_lie@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_lie@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_wag": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -334,22 +334,22 @@
         "file": "body_wag@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_wag@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_cheer": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -357,22 +357,22 @@
         "file": "body_cheer@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_cheer@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_sad": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -380,22 +380,22 @@
         "file": "body_sad@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_sad@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_sniff": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -403,22 +403,22 @@
         "file": "body_sniff@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_sniff@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_nudge": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": false,
     "files": {
@@ -426,22 +426,22 @@
         "file": "body_nudge@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_nudge@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   },
   "body_search": {
     "framing": "body",
-    "fps": 10,
-    "frames": 20,
+    "fps": 24,
+    "frames": 48,
     "columns": 6,
-    "rows": 4,
+    "rows": 8,
     "cell": 128,
     "loop": true,
     "files": {
@@ -449,13 +449,13 @@
         "file": "body_search@2x.webp",
         "cell": 256,
         "width": 1536,
-        "height": 1024
+        "height": 2048
       },
       "3x": {
         "file": "body_search@3x.webp",
         "cell": 384,
         "width": 2304,
-        "height": 1536
+        "height": 3072
       }
     }
   }
