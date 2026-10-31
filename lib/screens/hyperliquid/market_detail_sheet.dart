@@ -9,7 +9,8 @@ import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart';
-import 'package:kute/screens/shared/charts/kute_chart_range_pills.dart';
+import 'package:kute/screens/shared/charts/kute_trend_chart.dart'
+    show KuteChartRangeRow;
 import 'package:kute/helpers/require_fresh_auth.dart';
 import 'package:kute/helpers/venue_intents.dart';
 import 'package:kute/helpers/auth_grant.dart';
@@ -477,13 +478,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
               // ── Body ──────────────────────────────────────────────
               Expanded(
-                child: LayoutBuilder(builder: (context, bodyCons) {
-                  // Bounded chart (540 with Details
-                  // collapsed, 300 once it opens) instead of filling the
-                  // whole viewport, and capped at 78% of the body so the
-                  // pills under it stay on screen on short phones; Details starts below. Advanced mode still grows it to
-                  // dominate. HlCandleChart applies .h internally, so the
-                  // value is handed over in design units.
+                child: Builder(builder: (context) {
+                  // The reading chart: a 260 plot (design units;
+                  // HlCandleChart applies .h) starting 12 under the change
+                  // line, its interval row right under it, and the rows
+                  // below. Advanced mode grows it to the whole screen.
                   if (_advancedChart) {
                     // Editing: the chart alone, the whole screen
                     // (HlChartEditBody, shared with the position screen).
@@ -500,9 +499,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       ),
                     );
                   }
-                  final target = 540.h;
-                  final chartHeight =
-                      math.min(target, bodyCons.maxHeight * 0.78) / 1.h;
+                  const chartHeight = 260.0;
                   return SingleChildScrollView(
                     // Drawing on the chart must not scroll the sheet, so
                     // Advanced mode pins the body until it is switched off.
@@ -516,7 +513,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     // indicator on its own.
                     padding: EdgeInsets.fromLTRB(
                         20.w,
-                        10.h,
+                        12.h,
                         20.w,
                         // The foot scrolls clear of the floating bar.
                         kuteBarScrollClearance.h +
@@ -526,7 +523,7 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Bounded chart (see chartHeight above); Advanced
+                        // The 260 plot (see chartHeight above); Advanced
                         // mode expands it (animated inside the chart).
                         HlCandleChart(
                           key: _chartHostKey,
@@ -2686,19 +2683,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// One pill of the timeframe row: the range pill every chart shares.
-  Widget _timeframePill(
-    AppColorsExtension c, {
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(right: 4.w),
-      child: KuteRangePill(label: label, selected: selected, onTap: onTap),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -2864,29 +2848,21 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     // The position screen's clean reading chart (see positionView).
     final positionView = widget.positionView && !_drawingMode;
 
-    // Candle sizes or ranges, then the chart-type button. Advanced (the
+    // The interval row, then the chart-type button. Advanced (the
     // editing mode) opens from the host screen's "Advanced chart" row.
     final pillRow =
         Row(
           children: [
-            // Candle sizes (candle charts) or ranges (line charts) scroll
-            // horizontally while the chart-type button stays pinned on
-            // the right.
+            // The five intervals share the width (the home strip's range
+            // row, KuteChartRangeRow), so every pill is whole beside the
+            // chart-type button pinned on the right.
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final iv in kHlCandleIntervals)
-                      _timeframePill(
-                        c,
-                        label: iv.label,
-                        selected: candleIv.interval == iv.interval,
-                        onTap: () => _selectCandleInterval(iv),
-                      ),
-                  ],
-                ),
+              child: KuteChartRangeRow(
+                key: const ValueKey('hl-interval-row'),
+                labels: [for (final iv in kHlCandleIntervals) iv.label],
+                selectedIndex: kHlCandleIntervals
+                    .indexWhere((iv) => iv.interval == candleIv.interval),
+                onSelected: (i) => _selectCandleInterval(kHlCandleIntervals[i]),
               ),
             ),
             SizedBox(width: 6.w),
