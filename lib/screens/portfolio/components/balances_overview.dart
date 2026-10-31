@@ -75,13 +75,11 @@
 //     under it until a real one exists (none does: no cost base for the
 //     combined figure), and no "Today": no provider publishes a
 //     day-change figure, nothing is invented;
-//   * 12 under it, THREE allocation tiles in a row (equal widths, 8
-//     apart, surface-1, radius 14, 10 of padding): the dot and the name
-//     (11, the quiet colour), the amount (14, w600, tabular), the share
-//     ("64%"; "0%" when there is nothing): Investing, Predictions,
-//     Dollars;
-//   * 12, then Move money as a full-width secondary button (the app's
-//     AppButton secondary tier at 44, the swap glyph and the label);
+//   * 10 under it, ONE quiet legend line, centred (founder, 31 October
+//     2026: "only auto managed", the three allocation tiles and the Move
+//     money button are gone; money moves from the Add and Send flows):
+//     "● Investing  ● Predictions  ● Dollars", 11 in the quiet colour,
+//     the dots in the ring's colours, names only, no amounts;
 //   * 14, then the section switch (Portfolio | P&L Charts | Activity, the
 //     home strip: equal thirds, the picked one the white pill with the
 //     hairline and the shadow; [sectionSwitch], the Portfolio page hands
@@ -93,8 +91,8 @@
 //     anywhere: Sal (`body_hero` at 96) right under the strip, "No open
 //     positions" and the tagline, no void.
 //
-// Nothing shifts under a live price: every figure is tabular, the tiles
-// are equal widths, no AnimatedSize wraps a live value.
+// Nothing shifts under a live price: every figure is tabular, no
+// AnimatedSize wraps a live value.
 //
 // Analytics: `portfolio_available_to_invest_toggled` {open} (the split),
 // `portfolio_balances_empty_shown` {surface} (Sal, once per mount),
@@ -115,16 +113,12 @@ import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioRowInset, kPortfolioRowGap, kPortfolioRowImage;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
-import 'package:kute/screens/shared/custom_button.dart'
-    show AppButton, AppButtonVariant;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
-import 'package:kute/screens/shared/money_movement_sheet.dart'
-    show showMoneyMovementSheet;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -376,13 +370,14 @@ class BalancesOverview extends StatefulWidget {
   /// The Portfolio screen's top (founder, 31 October 2026: "no Available
   /// to invest; Portfolio is just open positions. On top, instead of the
   /// balance, show the shares with the pie chart on the left"): the hero
-  /// ring with the all-time P&L in its hole, the three allocation tiles,
-  /// Move money full width, then [sectionSwitch], then the venues' open
-  /// positions under small-caps labels (see the file header). No total
-  /// (the Dollars tab has it), no Available to invest, no split.
+  /// ring with the all-time P&L in its hole, the legend line under it,
+  /// then [sectionSwitch], then the venues' open positions under
+  /// small-caps labels (see the file header). No total (the Dollars tab
+  /// has it), no Available to invest, no split, no tiles and no Move
+  /// money (founder: "only auto managed").
   final bool sharesHeader;
 
-  /// The Portfolio screen's section switch, drawn under Move money in the
+  /// The Portfolio screen's section switch, drawn under the legend in the
   /// [sharesHeader] layout (null: nothing there).
   final Widget? sectionSwitch;
 
@@ -647,52 +642,31 @@ class _BalancesOverviewState extends State<BalancesOverview> {
               ),
             ),
           ),
-          SizedBox(height: 12.h),
-          // The three allocation tiles, equal widths.
+          SizedBox(height: 10.h),
+          // The legend line (see the file header): names only, the dots
+          // in the ring's colours.
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            key: const ValueKey('portfolio-shares-legend'),
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               for (final (i, k) in const [
                 BalancesCategory.investing,
                 BalancesCategory.predictions,
                 BalancesCategory.buyingPower,
-              ].indexed) ...[
-                if (i > 0) SizedBox(width: 8.w),
-                Expanded(
-                  child: categories.containsKey(k)
-                      ? _ShareTile(
-                          key: ValueKey('portfolio-share-${k.name}'),
-                          color: balancesCategoryColor(c, k),
-                          label: k == BalancesCategory.buyingPower
-                              ? l10n.assetDollars
-                              : label(k),
-                          figure: figure(categories[k]!),
-                          share: shares.isEmpty ? null : shares[k] ?? 0,
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
+              ].indexed)
+                if (categories.containsKey(k)) ...[
+                  if (i > 0) SizedBox(width: 14.w),
+                  _LegendDot(
+                    key: ValueKey('portfolio-legend-${k.name}'),
+                    color: balancesCategoryColor(c, k),
+                    label: k == BalancesCategory.buyingPower
+                        ? l10n.assetDollars
+                        : label(k),
+                  ),
+                ],
             ],
           ),
-          SizedBox(height: 12.h),
-          // Move money, full width (founder, 31 October 2026: "where is
-          // the button to move money?"): the app's secondary button,
-          // always on, whatever the balance.
-          AppButton(
-            key: const ValueKey('portfolio-move-money'),
-            text: l10n.moveTransfer,
-            variant: AppButtonVariant.secondary,
-            icon: Icons.swap_horiz_rounded,
-            height: 44.h,
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w600,
-            onPressed: () {
-              TrackingService.track('portfolio_move_money_tapped',
-                  params: const {'surface': 'portfolio'});
-              unawaited(showMoneyMovementSheet(context));
-            },
-          ),
-          // The section switch, under Move money.
+          // The section switch, under the legend.
           if (widget.sectionSwitch case final strip?) ...[
             SizedBox(height: 14.h),
             strip,
@@ -1268,91 +1242,39 @@ class BalancesLead extends StatelessWidget {
   }
 }
 
-/// One allocation tile under the Portfolio screen's hero: the dot and the
-/// name in the quiet colour, the amount tabular (rolling in place), the
-/// share under it ("64%"; "0%" when there is nothing). Equal widths in
-/// their row, so a live amount never moves its neighbours.
-class _ShareTile extends StatelessWidget {
-  const _ShareTile({
-    super.key,
-    required this.color,
-    required this.label,
-    required this.figure,
-    required this.share,
-  });
+/// One entry of the legend line under the Portfolio screen's hero: the
+/// dot in the category's ring colour and its name, 11 in the quiet
+/// colour. Names only: the amounts are the ring's and the venues' own.
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({super.key, required this.color, required this.label});
 
   final Color color;
   final String label;
-  final BalancesFigure figure;
-  final double? share;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final quiet = TextStyle(
-      color: c.textSecondary,
-      fontSize: 11.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.2,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    final amount = TextStyle(
-      color: c.textPrimary,
-      fontSize: 14.sp,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.2,
-      height: 1.25,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    final percent = share == null ? '0%' : balancesPercent(share!);
-    return Semantics(
-      container: true,
-      label: '$label, ${figure.text}, $percent',
-      excludeSemantics: true,
-      child: Container(
-        padding: EdgeInsets.all(10.w),
-        decoration: BoxDecoration(
-          color: c.surfaceLight,
-          borderRadius: BorderRadius.circular(14.r),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6.w,
+          height: 6.w,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 6.w,
-                  height: 6.w,
-                  decoration:
-                      BoxDecoration(color: color, shape: BoxShape.circle),
-                ),
-                SizedBox(width: 6.w),
-                Flexible(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: quiet.copyWith(fontFeatures: const [])),
-                ),
-              ],
-            ),
-            SizedBox(height: 6.h),
-            // Scaled down past the tile's width rather than cut; never
-            // animated in size.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: BalancesLiveFigure(figure: figure, style: amount),
-            ),
-            SizedBox(height: 2.h),
-            Text(percent,
-                key: ValueKey('${(key as ValueKey<String>).value}-percent'),
-                maxLines: 1,
-                style: quiet),
-          ],
+        SizedBox(width: 5.w),
+        Text(
+          label,
+          maxLines: 1,
+          style: TextStyle(
+            color: c.textSecondary,
+            fontSize: 11.sp,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.1,
+            height: 1.2,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

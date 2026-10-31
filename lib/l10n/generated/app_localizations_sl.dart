@@ -10582,6 +10582,9 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
+  String get shareHeaderLabel => 'Share';
+
+  @override
   String get searchOrAskSalShort => 'Iščite ali vprašajte Sala';
 
   @override
@@ -11390,10 +11393,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get portfolioAllTime => 'All time';
-
-  @override
-  String get portfolioMoveMoneySub =>
-      'Between Dollars, Investing and Predictions';
 
   @override
   String get barWhatIsThis => 'What is this?';

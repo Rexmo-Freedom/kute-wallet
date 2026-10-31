@@ -13,9 +13,10 @@
 // redo of the same day, after a card-with-rows draft "looked so bad"),
 // top down, no card around the top block: the HERO, the allocation ring
 // big and centred (150, a 14 stroke, the three share colours) with the
-// all-time P&L in its hole; under it three allocation tiles in a row
-// (Investing, Predictions, Dollars: dot and name, the amount, the share);
-// Move money as a full-width secondary button; the section switch
+// all-time P&L in its hole; under it one quiet legend line (Investing,
+// Predictions, Dollars: dot and name, no amounts; founder, 31 October
+// 2026: "only auto managed", no allocation tiles and no Move money
+// button, money moves from the Add and Send flows); the section switch
 // (Portfolio | P&L Charts | Activity, the home strip); then the open
 // positions by venue under small-caps labels, each venue one soft card
 // (BalancesOverview.sharesHeader, components/balances_overview.dart). No
@@ -32,13 +33,7 @@
 // (surface investments, tab positions, sub / from_sub), as the Investments
 // page sent it; the screen itself adds no event (experimental branch).
 
-import 'dart:async';
-
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/kute_share_actions.dart'
-    show KuteMarketBarAction;
-import 'package:kute/screens/shared/money_movement_sheet.dart'
-    show showMoneyMovementSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,25 +97,13 @@ class PortfolioScreen extends ConsumerWidget {
           bottom: false,
           child: Material(
             color: Colors.transparent,
-            // The bar over this page: the default search and Sal.
+            // The bar over this page: the default search and Sal, no row
+            // of its own (founder, 31 October 2026: "only auto managed";
+            // money moves from the Add and Send flows).
             child: KuteBarContextScope(
               barContext: KuteBarContext(
                 label: context.l10n.searchOrAskSalShort,
                 source: 'portfolio',
-                // The Sal sheet's top row: Move money (founder, 31
-                // October 2026).
-                actions: [
-                  KuteMarketBarAction(
-                    label: context.l10n.moveTransfer,
-                    sublabel: context.l10n.portfolioMoveMoneySub,
-                    icon: Icons.swap_horiz_rounded,
-                    onTap: (_) {
-                      TrackingService.track('portfolio_move_money_tapped',
-                          params: const {'surface': 'sal_sheet'});
-                      unawaited(showMoneyMovementSheet(context));
-                    },
-                  ),
-                ],
               ),
               // The bar floats over the list (nothing reserves room); the
               // lists pad their own end by the bar's clearance, read from

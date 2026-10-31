@@ -377,12 +377,22 @@ KuteBarContext kuteBarAskContext(
 }
 
 /// Holds [barContext] on the stack while mounted (see the file header),
-/// bound to the route it is mounted in.
+/// bound to the route it is mounted in. With [active] false it holds
+/// nothing and is only its child: a surface that declares a context some
+/// of the time (a sheet that is short until the keyboard lifts it) keeps
+/// the scope in place and toggles it, so its subtree is never re-parented
+/// (a swap between "scope around the child" and "the child alone" rebuilt
+/// the sheet from scratch: the focused field lost its focus and the
+/// keyboard, and its text).
 class KuteBarContextScope extends ConsumerStatefulWidget {
   const KuteBarContextScope(
-      {super.key, required this.barContext, required this.child});
+      {super.key,
+      required this.barContext,
+      this.active = true,
+      required this.child});
 
   final KuteBarContext barContext;
+  final bool active;
   final Widget child;
 
   @override
@@ -398,11 +408,16 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
   @override
   void initState() {
     super.initState();
+    _push();
+  }
+
+  /// Puts the context on the stack, after this frame's build.
+  void _push() {
     // Provider writes are illegal while the tree is building: the stack
     // is written in a microtask, after this frame's build (and before the
     // next tap can land; the bar reads the live stack on a tap).
     scheduleMicrotask(() {
-      if (!mounted) return;
+      if (!mounted || !widget.active || _held != null) return;
       // A scope inside a surface built without a ProviderScope (a widget
       // test of a keypad or a sheet on its own) holds nothing: the bar
       // is not there either.
@@ -419,11 +434,32 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
     });
   }
 
+  /// Takes the held context off the stack, after the frame.
+  void _drop() {
+    final held = _held;
+    final stack = _stack;
+    _held = null;
+    if (held != null && stack != null) {
+      // After the frame: the stack's listeners must not rebuild mid-tear-down.
+      scheduleMicrotask(() => stack.remove(held));
+    }
+  }
+
   @override
   void didUpdateWidget(covariant KuteBarContextScope old) {
     super.didUpdateWidget(old);
+    if (!widget.active) {
+      _drop();
+      return;
+    }
     final held = _held;
-    if (held == null || identical(old.barContext, widget.barContext)) return;
+    if (held == null) {
+      // Turned on, or the first push is still pending (it reads the
+      // widget when it runs).
+      _push();
+      return;
+    }
+    if (identical(old.barContext, widget.barContext)) return;
     scheduleMicrotask(() {
       if (!mounted || _held != held) return;
       _held = widget.barContext.boundTo(_route);
@@ -433,12 +469,7 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
 
   @override
   void dispose() {
-    final held = _held;
-    final stack = _stack;
-    if (held != null && stack != null) {
-      // After the frame: the stack's listeners must not rebuild mid-tear-down.
-      scheduleMicrotask(() => stack.remove(held));
-    }
+    _drop();
     super.dispose();
   }
 

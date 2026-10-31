@@ -259,6 +259,9 @@ Future<void> _settle(WidgetTester tester) async {
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
   }
   await tester.pump(const Duration(milliseconds: 400));
+  // A sheet whose exit ended in that frame takes its bar context off the
+  // stack in the microtask after it; the bar redraws a frame later.
+  await tester.pump();
 }
 
 /// Unmounts the screens, and disposes the policy: the quote's own fresh

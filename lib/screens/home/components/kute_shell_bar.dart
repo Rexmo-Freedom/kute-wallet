@@ -10,7 +10,10 @@
 // draw their own pill in their dock) it is away. A hidden context or the
 // keyboard slides it down ([KuteMotion.sheetOut]); it springs back when
 // they go. Tapping it opens the Sal sheet with that context
-// (showKuteSearch).
+// (showKuteSearch). AS THE PRIMARY BUTTON IT RIDES ABOVE THE KEYBOARD
+// instead (founder, 31 October 2026): at the keyboard's top plus
+// [kBarKeyboardGap], full width, lifted on the sheet spring and back
+// down with the keys; a search or hidden context still slides under it.
 //
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a context's [actionRowHeight]
 // lifts the bar above the page's pinned row, the lift animated on the
@@ -34,9 +37,10 @@
 // the Hyperliquid and Polymarket market pages, the position pages and the
 // multi-outcome event page the floating pill is away, and the page draws
 // [KuteSalHeaderButton] in its header's top-right, left of the watchlist
-// star: a 40 circle in the pill's chrome with Sal's `share` face and a
-// small share badge, opening the same Sal sheet (the context variant). It
-// travels to the composer the way the pill does.
+// star: a compact pill in the pill's chrome, Sal's `share` face and the
+// word "Share" (founder: it "should say share or send"), opening the same
+// Sal sheet (the context variant). It travels to the composer the way
+// the pill does.
 //
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
@@ -81,6 +85,10 @@ import 'package:kute/theme/kute_motion.dart';
 /// How long a market page's scroll stays still before the folded pill
 /// opens again.
 const Duration kBarScrollIdle = Duration(milliseconds: 600);
+
+/// The air between the keyboard's top and the primary button riding
+/// above it (see the file header).
+const double kBarKeyboardGap = 12;
 
 class KuteShellBar extends ConsumerStatefulWidget {
   const KuteShellBar({super.key});
@@ -207,13 +215,23 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     // A context placed in the page's header (KuteBarPlacement.header)
     // keeps the pill away: the page draws KuteSalHeaderButton instead.
     final morphed = _morphed;
-    final keyboard = !morphed && MediaQuery.viewInsetsOf(context).bottom > 0;
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboard = !morphed && inset > 0;
+    // The primary button rides ABOVE the keyboard (founder, 31 October
+    // 2026): a surface typing into a field keeps its Continue in reach,
+    // the bar at the keyboard's top plus 12 px, full width, on the sheet
+    // spring. A search or hidden context still slides under it.
+    final rides = keyboard && top != null && top.isPrimary && !top.hidden;
     final show = top != null &&
-        (morphed || (!top.hidden && !top.inHeader && !keyboard));
+        (morphed || rides || (!top.hidden && !top.inHeader && !keyboard));
     // The lift follows what is shown: a bar sliding away, or one back on
     // a page without an action row, sits at the foot again (a kept lift
     // once left a popped market page's bar hanging over the tabs).
-    if (!morphed) _lift = show ? top.actionRowHeight : 0;
+    if (!morphed) {
+      _lift = show
+          ? top.actionRowHeight + (rides ? inset + kBarKeyboardGap : 0)
+          : 0;
+    }
     if (show && !morphed) _last = top;
     final ctx = _last;
     if (ctx == null) return const SizedBox.shrink();
@@ -403,23 +421,27 @@ Future<void> openKuteBarSheet(
 }
 
 /// THE SAL CONTROL IN A PAGE'S HEADER (founder, 31 October 2026; see the
-/// file header): a 40 circle in the pill's chrome (white or the surface
-/// over a hairline), Sal's `share` face inside, and a 16 share badge at
-/// its bottom-right (the CTA fill, the share glyph at 10) so it reads as
-/// sharing. Tapped, it opens the Sal sheet with [barContext] (the context
-/// variant: Share the market / Send this prediction) and travels to the
-/// composer as the pill does; transparent while it travels and while the
-/// sheet is up. The page mounts it in its header's actions row, left of
-/// the watchlist star, inside the same [KuteBarContextScope] that declares
-/// the `header` placement.
+/// file header): a compact pill, 32 tall, in the pill's chrome (white or
+/// the surface over a hairline), Sal's `share` face at 24 on the left and
+/// "Share" (12, w600, the text colour) beside it, 10 of padding before
+/// Sal and 12 after the word (founder, on the merged build: the circle
+/// alone "should say share or send"). Tapped, it opens the Sal sheet with
+/// [barContext] (the context variant: Share the market / Send this
+/// prediction) and travels to the composer as the pill does; transparent
+/// while it travels and while the sheet is up. The page mounts it in its
+/// header's actions row, left of the watchlist star, inside the same
+/// [KuteBarContextScope] that declares the `header` placement.
 class KuteSalHeaderButton extends StatefulWidget {
   const KuteSalHeaderButton({super.key, required this.barContext});
 
   final KuteBarContext barContext;
 
-  /// The circle's side and the badge's.
-  static const double size = 40;
-  static const double badgeSize = 16;
+  /// The pill's height, Sal's side in it, and its padding before Sal and
+  /// after the word.
+  static const double height = 32;
+  static const double salSize = 24;
+  static const double paddingStart = 10;
+  static const double paddingEnd = 12;
 
   @override
   State<KuteSalHeaderButton> createState() => _KuteSalHeaderButtonState();
@@ -449,50 +471,44 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton> {
                   }),
           child: Opacity(
             opacity: _travelling ? 0 : 1,
-            child: SizedBox(
+            child: Container(
               key: const ValueKey('kute-sal-header-button'),
-              width: KuteSalHeaderButton.size,
-              height: KuteSalHeaderButton.size,
-              child: Stack(
-                clipBehavior: Clip.none,
+              height: KuteSalHeaderButton.height,
+              padding: const EdgeInsetsDirectional.only(
+                start: KuteSalHeaderButton.paddingStart,
+                end: KuteSalHeaderButton.paddingEnd,
+              ),
+              decoration: BoxDecoration(
+                color: isLight ? Colors.white : c.surface,
+                borderRadius:
+                    BorderRadius.circular(KuteSalHeaderButton.height / 2),
+                border: Border.all(
+                  color: isLight ? c.border : c.borderSubtle,
+                  width: isLight ? 1.0 : 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: KuteSalHeaderButton.size,
-                    height: KuteSalHeaderButton.size,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isLight ? Colors.white : c.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isLight ? c.border : c.borderSubtle,
-                        width: isLight ? 1.0 : 0.5,
-                      ),
-                    ),
-                    child: SalSprite(
-                      clip: ctx.clip,
-                      size: 30,
-                      fallback: SalSprite(
-                          clip: 'happy',
-                          size: 30,
-                          fallback: KuteDogGlance(size: 26, color: c.accent)),
-                    ),
+                  SalSprite(
+                    clip: ctx.clip,
+                    size: KuteSalHeaderButton.salSize,
+                    fallback: SalSprite(
+                        clip: 'happy',
+                        size: KuteSalHeaderButton.salSize,
+                        fallback: KuteDogGlance(size: 20, color: c.accent)),
                   ),
-                  Positioned(
-                    right: -1,
-                    bottom: -1,
-                    child: Container(
-                      width: KuteSalHeaderButton.badgeSize,
-                      height: KuteSalHeaderButton.badgeSize,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: context.ctaFill,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: isLight ? Colors.white : c.surface,
-                            width: 1.5),
-                      ),
-                      child: Icon(Icons.ios_share_rounded,
-                          size: 10, color: context.ctaOnColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    context.l10n.shareHeaderLabel,
+                    key: const ValueKey('kute-sal-header-label'),
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                      height: 1.2,
                     ),
                   ),
                 ],

@@ -6295,6 +6295,8 @@
       }
     }
   },
+  "shareHeaderLabel": "Share",
+  "@shareHeaderLabel": {"description": "Market and position page headers: the word on the compact Sal pill (Sal's share face + this), left of the watchlist star, opening the Sal sheet with the share rows."},
   "searchOrAskSalShort": "Search or ask Sal",
   "@searchOrAskSalShort": {
     "description": "Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal."
@@ -6913,8 +6915,6 @@
   },
   "portfolioAllTime": "All time",
   "@portfolioAllTime": {"description": "Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss (\"All time ▲ $120.10\")."},
-  "portfolioMoveMoneySub": "Between Dollars, Investing and Predictions",
-  "@portfolioMoveMoneySub": {"description": "Portfolio screen, Sal sheet: the second line of the Move money action row."},
   "barWhatIsThis": "What is this?",
   "@barWhatIsThis": {"description": "The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen."},
   "barReceiveExplainSub": "Sal explains how receiving works",

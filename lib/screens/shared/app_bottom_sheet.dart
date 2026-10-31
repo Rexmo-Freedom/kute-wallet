@@ -213,11 +213,15 @@ class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
         return false;
       },
+      // The scope stays in place and is toggled (KuteBarContextScope
+      // .active): swapping it in and out re-parented the sheet, and a
+      // field focused as the keyboard lifted a short sheet past the
+      // fraction lost its focus and its text.
       child: SizeChangedLayoutNotifier(
-        child: _short == true
-            ? KuteBarContextScope(
-                barContext: const KuteBarContext.hidden(), child: sheet)
-            : sheet,
+        child: KuteBarContextScope(
+            barContext: const KuteBarContext.hidden(),
+            active: _short == true,
+            child: sheet),
       ),
     );
   }

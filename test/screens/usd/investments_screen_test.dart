@@ -872,26 +872,24 @@ void main() {
     expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
     // Balances: the shares block (founder, 31 October 2026: "Portfolio is
     // just open positions. On top, instead of the balance, show the
-    // shares with the pie chart on the left"): the ring with the shares
-    // as rows, no Available to invest, the Move money pill under the
-    // shares (founder, later that day: "where is the button to move
-    // money?"), no tagline, no Total investments.
+    // shares with the pie chart on the left"): the ring, no Available to
+    // invest, no tagline, no Total investments; and since the founder's
+    // "only auto managed" the same day, no allocation tiles and no Move
+    // money button anywhere on the screen (money moves from Add and Send).
     expect(find.byKey(const ValueKey('portfolio-balance-breakdown')),
         findsOneWidget);
     expect(
         find.byKey(const ValueKey('portfolio-balance-ring')), findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-share-buyingPower')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('portfolio-move-money')), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-move-money')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-balance-split-toggle')),
         findsNothing);
-    expect(find.text(l10n.moveTransfer), findsOneWidget);
+    expect(find.text(l10n.moveTransfer), findsNothing);
+    expect(find.byType(AppButton), findsNothing);
     // The fintech layout (31 October 2026): the hero ring with the
     // all-time P&L in its hole (the stub histories: nothing ever
-    // published, so nothing made), the three allocation tiles under it
-    // (each with its share: the harness's $42.50 all sits in Dollars),
-    // Move money under the tiles as the one button (the app's secondary
-    // tier, full width), the section strip under Move money.
+    // published, so nothing made), one quiet legend line under it (the
+    // three names with their dots, no amounts), the section strip under
+    // the legend.
     final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
     expect(hero, findsOneWidget);
     expect(
@@ -900,42 +898,32 @@ void main() {
             matching: find.byKey(const ValueKey('portfolio-all-time'))),
         findsOneWidget);
     expect(find.text(l10n.portfolioAllTime), findsOneWidget);
-    for (final (share, percent) in const [
-      ('investing', '0%'),
-      ('predictions', '0%'),
-      ('buyingPower', '100%'),
+    final legend = find.byKey(const ValueKey('portfolio-shares-legend'));
+    expect(legend, findsOneWidget);
+    expect(tester.getRect(legend).top,
+        greaterThan(tester.getRect(hero).bottom));
+    for (final (share, name) in [
+      ('investing', l10n.trading),
+      ('predictions', l10n.predictions),
+      ('buyingPower', l10n.assetDollars),
     ]) {
-      final tile = find.byKey(ValueKey('portfolio-share-$share'));
-      expect(tile, findsOneWidget);
-      expect(
-          tester
-              .widget<Text>(
-                  find.byKey(ValueKey('portfolio-share-$share-percent')))
-              .data,
-          percent);
-      expect(
-          tester.getRect(tile).top, greaterThan(tester.getRect(hero).bottom));
+      final dot = find.byKey(ValueKey('portfolio-legend-$share'));
+      expect(dot, findsOneWidget);
+      expect(find.descendant(of: dot, matching: find.text(name)),
+          findsOneWidget);
     }
-    final moveMoney =
-        tester.getRect(find.byKey(const ValueKey('portfolio-move-money')));
+    // Names only: no share or amount under the ring.
+    expect(find.text('100%'), findsNothing);
+    expect(find.text('0%'), findsNothing);
     expect(
-        moveMoney.top,
-        greaterThan(tester
-            .getRect(find.byKey(const ValueKey('portfolio-share-investing')))
-            .bottom));
+        find.descendant(of: legend, matching: find.textContaining('\$')),
+        findsNothing);
     expect(
         tester
             .getRect(find.byKey(const ValueKey('portfolio-section-pill-charts')))
             .top,
-        greaterThan(moveMoney.bottom));
+        greaterThan(tester.getRect(legend).bottom));
     expect(find.text(l10n.portfolioBuyingPower), findsNothing);
-    expect(find.byType(AppButton), findsOneWidget);
-    expect(
-        tester
-            .widget<AppButton>(
-                find.byKey(const ValueKey('portfolio-move-money')))
-            .variant,
-        AppButtonVariant.secondary);
     expect(find.text('Total investments'), findsNothing);
     expect(find.text('Ready for any trade or prediction'), findsNothing);
     expect(find.text(l10n.betInvested), findsNothing);
