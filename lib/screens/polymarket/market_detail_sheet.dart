@@ -790,6 +790,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               venue: kMarketLinkPredictions,
               slug: event.slug,
               chance: event.isBinary ? event.yesPrice * 100 : null,
+              // The pick: the leading outcome, the side this page shows.
+              outcome: polymarketLeadingPick(event)?.label,
+              outcomeIndex: polymarketLeadingPick(event)?.index,
+              outcomeChance: polymarketLeadingPick(event)?.chance,
+              side: 'buy',
+              imageUrl: event.displayIconUrl,
               position: false,
               category: SearchCategory.predictions,
               searchHint: context.l10n.searchPredictionsHint,

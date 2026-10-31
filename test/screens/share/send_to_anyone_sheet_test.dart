@@ -114,6 +114,96 @@ void main() {
         containsPair('market', 'will-it-rain'));
   });
 
+  testWidgets(
+      'a prediction pick: the pick line, the pick on the create request, '
+      'the prediction share text and the outcome on the event',
+      (tester) async {
+    await pumpShareWidget(
+        tester,
+        env,
+        const SendToAnyoneSheet(
+          kind: ShareLinkKind.dollars,
+          marketSlug: 'gemini-carbon',
+          marketTitle: 'Gemini Carbon',
+          venue: 'polymarket',
+          outcome: 'Yes',
+          outcomeIndex: 0,
+          side: 'buy',
+        ));
+    // The sheet is titled by the pick and shows it above the amount.
+    expect(find.text('Send this prediction'), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-pick-line')), findsOneWidget);
+    expect(find.text('Yes on Gemini Carbon'), findsOneWidget);
+
+    await tester.tap(find.text('2'));
+    await tester.pump();
+    await tester.tap(find.text('0'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await settle(tester);
+    await tester.enterText(
+        find.byKey(const ValueKey('share-name-field')), 'Ana');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await settle(tester);
+
+    expect(env.fake.calls.single.$2, {
+      'kind': 'dollars',
+      'asset': 'USDB',
+      'amountMinor': 2000,
+      'marketSlug': 'gemini-carbon',
+      'senderLabel': 'Ana',
+      'venue': 'polymarket',
+      'outcome': 'Yes',
+      'outcomeIndex': 0,
+      'side': 'buy',
+    });
+    expect(
+        shared.single,
+        'Ana, I sent you a prediction on Kute: Yes on Gemini Carbon, '
+        '\$20.00. Claim it: https://web.test/c/lnk_1');
+    final row = ShareLinksStore.byId('lnk_1')!;
+    expect(row.outcome, 'Yes');
+    expect(row.marketTitle, 'Gemini Carbon');
+    expect(row.venue, 'polymarket');
+    // The label only, never the index or an id.
+    expect(env.paramsOf('share_link_created').single, {
+      'kind': 'dollars',
+      'asset': 'USDB',
+      'amount': 20.0,
+      'market': 'gemini-carbon',
+      'outcome': 'Yes',
+    });
+  });
+
+  testWidgets('an investment pick says an investment', (tester) async {
+    await pumpShareWidget(
+        tester,
+        env,
+        const SendToAnyoneSheet(
+          kind: ShareLinkKind.dollars,
+          marketSlug: 'BTC',
+          marketTitle: 'BTC',
+          venue: 'hyperliquid',
+          outcome: 'Long',
+          side: 'long',
+        ));
+    expect(find.text('Send this investment'), findsOneWidget);
+    expect(find.text('Long on BTC'), findsOneWidget);
+    await tester.tap(find.text('5'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('share-amount-continue')));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('share-create-link')));
+    await settle(tester);
+    expect(env.fake.calls.single.$2['side'], 'long');
+    expect(env.fake.calls.single.$2.containsKey('outcomeIndex'), isFalse);
+    expect(
+        shared.single,
+        'I sent you an investment on Kute: Long on BTC, \$5.00. '
+        'Claim it: https://web.test/c/lnk_1');
+  });
+
   testWidgets('a backend failure keeps the name step with a note',
       (tester) async {
     env.fake.failNext['create'] = Exception('down');

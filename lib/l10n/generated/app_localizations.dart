@@ -18996,7 +18996,7 @@ abstract class AppLocalizations {
   /// Second line of the floating Sal bar on a market page.
   ///
   /// In en, this message translates to:
-  /// **'Send this market or dollars to bet on it'**
+  /// **'Send the market or your prediction'**
   String get barShareMarketSub;
 
   /// Second line of the floating Sal bar on a position page.
@@ -19005,13 +19005,7 @@ abstract class AppLocalizations {
   /// **'Send the market or your position'**
   String get barSharePositionSub;
 
-  /// Sal sheet opened from the bar on a market, position or sheet: the small label over the screen's recommended action rows.
-  ///
-  /// In en, this message translates to:
-  /// **'Recommended'**
-  String get searchRecommended;
-
-  /// Recommended row on a market page: shares a link to the market.
+  /// Action row on a market page: shares a link to the market.
   ///
   /// In en, this message translates to:
   /// **'Share the market'**
@@ -19023,7 +19017,7 @@ abstract class AppLocalizations {
   /// **'A link they can open, with your code'**
   String get shareTheMarketSub;
 
-  /// Recommended row on a position page: shares the market and how the position is doing.
+  /// Action row on a position page: shares the market and how the position is doing.
   ///
   /// In en, this message translates to:
   /// **'Share this position'**
@@ -19035,17 +19029,35 @@ abstract class AppLocalizations {
   /// **'The market and how you\'re doing'**
   String get shareThisPositionSub;
 
-  /// Recommended row on a market or position page: sends dollars pointed at this market (Send to anyone with the market on the link).
+  /// Action row on a Predictions market or position page, and the send sheet's title: sends the pick (outcome and amount) as a link the recipient places.
   ///
   /// In en, this message translates to:
-  /// **'Send dollars for this market'**
-  String get sendDollarsForMarket;
+  /// **'Send this prediction'**
+  String get sendThisPrediction;
 
-  /// Second line of the Send dollars row.
+  /// Action row on an Investing market or position page, and the send sheet's title: sends the pick (Long / Short and amount) as a link the recipient places.
   ///
   /// In en, this message translates to:
-  /// **'They get dollars pointed at this bet'**
-  String get sendDollarsForMarketSub;
+  /// **'Send this investment'**
+  String get sendThisInvestment;
+
+  /// Second line of the Send this prediction / investment row and the send sheet's subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'They get your pick, ready to place'**
+  String get sendThisPickSub;
+
+  /// The pick line: the outcome ('Yes', 'Long') on the market's title. Shown above the amount on the send sheet and on the Claim screen's preview card.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} on {title}'**
+  String sharePickOn(String outcome, String title);
+
+  /// Sal sheet on a market page: the small label over Sal's prompt chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal'**
+  String get searchAskSal;
 
   /// Sal prompt chip on a position page.
   ///
@@ -19172,6 +19184,34 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'I sent you {amount} with Kute. Claim it here: {url}'**
   String shareMessageUnnamed(String amount, String url);
+
+  /// The OS share text for a prediction link when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessagePredictionNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The OS share text for a prediction link when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessagePredictionUnnamed(
+      String outcome, String title, String amount, String url);
+
+  /// The OS share text for an Investing link when the sender named the recipient.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessageInvestmentNamed(
+      String name, String outcome, String title, String amount, String url);
+
+  /// The OS share text for an Investing link when the sender gave no name.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}'**
+  String shareMessageInvestmentUnnamed(
+      String outcome, String title, String amount, String url);
 
   /// No description provided for @shareLinkSentWaiting.
   ///
@@ -19311,6 +19351,48 @@ abstract class AppLocalizations {
   /// **'It arrives when {sender} opens Kute.'**
   String claimArrivesWhenOpens(String sender);
 
+  /// Claim screen headline for a link that carries a prediction pick. sender is a first name or "Someone".
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you a prediction'**
+  String claimSentPrediction(String sender);
+
+  /// Claim screen headline for a link that carries an Investing pick.
+  ///
+  /// In en, this message translates to:
+  /// **'{sender} sent you an investment'**
+  String claimSentInvestment(String sender);
+
+  /// Claim screen preview card, the line under the market's title: the outcome and the amount ('Yes · $12.00').
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} · {amount}'**
+  String claimPickAmount(String outcome, String amount);
+
+  /// Claim screen after the claim of a pick, until the money has arrived in Dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {sender} to send it'**
+  String claimWaitingForSender(String sender);
+
+  /// Claim screen headline once the claimed money has arrived.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} is in your Dollars'**
+  String claimArrivedInDollars(String amount);
+
+  /// Claim screen button once the money arrived: opens the bet slip prefilled with the pick. Nothing is placed without the tap in the slip.
+  ///
+  /// In en, this message translates to:
+  /// **'Place the prediction'**
+  String get claimPlacePrediction;
+
+  /// Claim screen button for an Investing pick once the money arrived: opens the order slip on the pick's side.
+  ///
+  /// In en, this message translates to:
+  /// **'Place the investment'**
+  String get claimPlaceInvestment;
+
   /// No description provided for @claimOpenMarket.
   ///
   /// In en, this message translates to:
@@ -19352,12 +19434,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share link'**
   String get shareMarketShareLink;
-
-  /// No description provided for @shareMarketSendDollars.
-  ///
-  /// In en, this message translates to:
-  /// **'Send dollars for this'**
-  String get shareMarketSendDollars;
 
   /// No description provided for @shareMarketLookAt.
   ///

@@ -6895,24 +6895,34 @@
   "@barPickMarketGroupSub": {"description": "Second line of the floating Sal bar while the category grid sheet is open."},
   "barShareWithFriends": "Share with your friends",
   "@barShareWithFriends": {"description": "The floating Sal bar on a market or position page: the recommended action."},
-  "barShareMarketSub": "Send this market or dollars to bet on it",
+  "barShareMarketSub": "Send the market or your prediction",
   "@barShareMarketSub": {"description": "Second line of the floating Sal bar on a market page."},
   "barSharePositionSub": "Send the market or your position",
   "@barSharePositionSub": {"description": "Second line of the floating Sal bar on a position page."},
-  "searchRecommended": "Recommended",
-  "@searchRecommended": {"description": "Sal sheet opened from the bar on a market, position or sheet: the small label over the screen's recommended action rows."},
   "shareTheMarket": "Share the market",
-  "@shareTheMarket": {"description": "Recommended row on a market page: shares a link to the market."},
+  "@shareTheMarket": {"description": "Action row on a market page: shares a link to the market."},
   "shareTheMarketSub": "A link they can open, with your code",
   "@shareTheMarketSub": {"description": "Second line of the Share the market row."},
   "shareThisPosition": "Share this position",
-  "@shareThisPosition": {"description": "Recommended row on a position page: shares the market and how the position is doing."},
+  "@shareThisPosition": {"description": "Action row on a position page: shares the market and how the position is doing."},
   "shareThisPositionSub": "The market and how you're doing",
   "@shareThisPositionSub": {"description": "Second line of the Share this position row."},
-  "sendDollarsForMarket": "Send dollars for this market",
-  "@sendDollarsForMarket": {"description": "Recommended row on a market or position page: sends dollars pointed at this market (Send to anyone with the market on the link)."},
-  "sendDollarsForMarketSub": "They get dollars pointed at this bet",
-  "@sendDollarsForMarketSub": {"description": "Second line of the Send dollars row."},
+  "sendThisPrediction": "Send this prediction",
+  "@sendThisPrediction": {"description": "Action row on a Predictions market or position page, and the send sheet's title: sends the pick (outcome and amount) as a link the recipient places."},
+  "sendThisInvestment": "Send this investment",
+  "@sendThisInvestment": {"description": "Action row on an Investing market or position page, and the send sheet's title: sends the pick (Long / Short and amount) as a link the recipient places."},
+  "sendThisPickSub": "They get your pick, ready to place",
+  "@sendThisPickSub": {"description": "Second line of the Send this prediction / investment row and the send sheet's subtitle."},
+  "sharePickOn": "{outcome} on {title}",
+  "@sharePickOn": {
+    "description": "The pick line: the outcome ('Yes', 'Long') on the market's title. Shown above the amount on the send sheet and on the Claim screen's preview card.",
+    "placeholders": {
+      "outcome": {"type": "String"},
+      "title": {"type": "String"}
+    }
+  },
+  "searchAskSal": "Ask Sal",
+  "@searchAskSal": {"description": "Sal sheet on a market page: the small label over Sal's prompt chips."},
   "salPromptTakeProfit": "Should I take profit?",
   "@salPromptTakeProfit": {"description": "Sal prompt chip on a position page."},
   "salPromptExplainOdds": "Explain the odds",
@@ -6992,6 +7002,48 @@
       }
     }
   },
+  "shareMessagePredictionNamed": "{name}, I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
+  "@shareMessagePredictionNamed": {
+    "description": "The OS share text for a prediction link when the sender named the recipient.",
+    "placeholders": {
+      "name": {"type": "String"},
+      "outcome": {"type": "String"},
+      "title": {"type": "String"},
+      "amount": {"type": "String"},
+      "url": {"type": "String"}
+    }
+  },
+  "shareMessagePredictionUnnamed": "I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
+  "@shareMessagePredictionUnnamed": {
+    "description": "The OS share text for a prediction link when the sender gave no name.",
+    "placeholders": {
+      "outcome": {"type": "String"},
+      "title": {"type": "String"},
+      "amount": {"type": "String"},
+      "url": {"type": "String"}
+    }
+  },
+  "shareMessageInvestmentNamed": "{name}, I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
+  "@shareMessageInvestmentNamed": {
+    "description": "The OS share text for an Investing link when the sender named the recipient.",
+    "placeholders": {
+      "name": {"type": "String"},
+      "outcome": {"type": "String"},
+      "title": {"type": "String"},
+      "amount": {"type": "String"},
+      "url": {"type": "String"}
+    }
+  },
+  "shareMessageInvestmentUnnamed": "I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
+  "@shareMessageInvestmentUnnamed": {
+    "description": "The OS share text for an Investing link when the sender gave no name.",
+    "placeholders": {
+      "outcome": {"type": "String"},
+      "title": {"type": "String"},
+      "amount": {"type": "String"},
+      "url": {"type": "String"}
+    }
+  },
   "shareLinkSentWaiting": "Link sent · waiting for {name} to claim",
   "@shareLinkSentWaiting": {
     "placeholders": {
@@ -7067,6 +7119,46 @@
       }
     }
   },
+  "claimSentPrediction": "{sender} sent you a prediction",
+  "@claimSentPrediction": {
+    "description": "Claim screen headline for a link that carries a prediction pick. sender is a first name or \"Someone\".",
+    "placeholders": {
+      "sender": {"type": "String"}
+    }
+  },
+  "claimSentInvestment": "{sender} sent you an investment",
+  "@claimSentInvestment": {
+    "description": "Claim screen headline for a link that carries an Investing pick.",
+    "placeholders": {
+      "sender": {"type": "String"}
+    }
+  },
+  "claimPickAmount": "{outcome} · {amount}",
+  "@claimPickAmount": {
+    "description": "Claim screen preview card, the line under the market's title: the outcome and the amount ('Yes · $12.00').",
+    "placeholders": {
+      "outcome": {"type": "String"},
+      "amount": {"type": "String"}
+    }
+  },
+  "claimWaitingForSender": "Waiting for {sender} to send it",
+  "@claimWaitingForSender": {
+    "description": "Claim screen after the claim of a pick, until the money has arrived in Dollars.",
+    "placeholders": {
+      "sender": {"type": "String"}
+    }
+  },
+  "claimArrivedInDollars": "{amount} is in your Dollars",
+  "@claimArrivedInDollars": {
+    "description": "Claim screen headline once the claimed money has arrived.",
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "claimPlacePrediction": "Place the prediction",
+  "@claimPlacePrediction": {"description": "Claim screen button once the money arrived: opens the bet slip prefilled with the pick. Nothing is placed without the tap in the slip."},
+  "claimPlaceInvestment": "Place the investment",
+  "@claimPlaceInvestment": {"description": "Claim screen button for an Investing pick once the money arrived: opens the order slip on the pick's side."},
   "claimOpenMarket": "Open the market",
   "claimAlreadyClaimed": "This link was already claimed.",
   "claimExpired": "This link has expired.",
@@ -7074,7 +7166,6 @@
   "claimFailed": "Could not claim. Try again.",
   "claimNeedsWallet": "Your wallet is still getting ready. Try again in a moment.",
   "shareMarketShareLink": "Share link",
-  "shareMarketSendDollars": "Send dollars for this",
   "shareMarketLookAt": "Look at this on Kute: {title} {link}",
   "@shareMarketLookAt": {
     "placeholders": {

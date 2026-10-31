@@ -40,6 +40,9 @@
 import 'package:kute/services/search_recent_store.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
+import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'dart:math' as math;
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -420,12 +423,23 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     // Focus the composer once the sheet has slid in (never mid-slide:
     // afterRouteTransition), so the keyboard rises against a settled
     // sheet. Nothing else runs on open: results, and the live sports feed
-    // they use, wait for the first query.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _cancelFocus = requestFocusAfterTransition(context, _focusNode);
-    });
+    // they use, wait for the first query. A context screen (the bar on a
+    // market page: a preview card and action rows) opens with the keyboard
+    // down; it rises when the person taps the field.
+    if (!_contextScreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _cancelFocus = requestFocusAfterTransition(context, _focusNode);
+      });
+    }
   }
+
+  /// A sheet opened from the bar on a screen with its own action rows
+  /// (kute_bar_context.dart): the market page's preview card and rows take
+  /// the top, the filter pills (search scoping) stay out, and the sheet
+  /// fits its content while nothing is typed.
+  bool get _contextScreen =>
+      widget.barContext != null && widget.barContext!.hasRecommendations;
 
   @override
   void dispose() {
@@ -804,11 +818,14 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     } else {
       // The search home (founder, 31 October 2026: content, not a
       // magnifier and a sentence): what is moving, the trending
-      // predictions and Sal's prompts, scoped by the pills.
+      // predictions and Sal's prompts, scoped by the pills. On a context
+      // screen it is the market's preview card, the action rows and
+      // Sal's chips, sized to its content.
       body = _SearchHome(
         category: category,
         aiEnabled: aiEnabled,
         barContext: widget.barContext,
+        shrink: _contextScreen,
         onAsk: (text, index) => _askChip(SalChip(null, text), index),
         onRecentQuery: (q) {
           _controller.text = q;
@@ -818,9 +835,16 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         },
       );
     }
+    // A context screen with nothing typed fits its content: no tall empty
+    // area under the rows.
+    final fitContent = _contextScreen &&
+        widget.walletId == null &&
+        query.isEmpty &&
+        !hasDraft;
 
     return _buildSheet(
       context,
+      fitContent: fitContent,
       children: [
         // While a query is being typed (or in search-only mode) the
         // compact filter "tabs" (All · Predictions · Investing ·
@@ -828,15 +852,16 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         // no header row — the drag handle sits straight above the chat /
         // intro, so there's no empty gap. A pool-scoped sheet renders
         // its OWN tab set even under
-        // lockCategory.
+        // lockCategory. A context screen has none: the pills scope a
+        // search, which is not what its rows are.
         if (widget.scopedTabs != null) ...[
           _WalletFilterChips(selected: category, tabs: widget.scopedTabs),
           SizedBox(height: 4.h),
-        ] else if (!widget.lockCategory) ...[
+        ] else if (!widget.lockCategory && !_contextScreen) ...[
           _WalletFilterChips(selected: category),
           SizedBox(height: 4.h),
         ],
-        Expanded(child: body),
+        if (fitContent) body else Expanded(child: body),
         SizedBox(height: 8.h),
         // The composer searches while typing and asks Sal on submit.
         KuteComposer(
@@ -868,13 +893,16 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     BuildContext context, {
     required List<Widget> children,
     bool chat = false,
+    bool fitContent = false,
   }) {
     // Embedded: the host sheet already draws the surface, the drag handle
     // and the keyboard / bottom inset (AppBottomSheetContainer), so the
     // surface is only its content column. Adding any of it again would
     // double the padding and stack two handles.
     if (widget.embedded) {
-      return Column(children: children);
+      return Column(
+          mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
+          children: children);
     }
     // The shared sheet: AppBottomSheetContainer owns the surface, the
     // keyboard (followed frame by frame) and the home-indicator inset.
@@ -906,6 +934,7 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
       maxHeight: .92,
       followKeyboard: true,
       child: Column(
+        mainAxisSize: fitContent ? MainAxisSize.min : MainAxisSize.max,
         children: [
           if (chat)
             AppBottomSheetHeader(
@@ -938,7 +967,10 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
                 ],
               ),
             ),
-          Expanded(child: entrance(Column(children: children))),
+          if (fitContent)
+            entrance(Column(mainAxisSize: MainAxisSize.min, children: children))
+          else
+            Expanded(child: entrance(Column(children: children))),
         ],
       ),
     );
@@ -1500,7 +1532,8 @@ class _SearchHome extends ConsumerWidget {
       required this.aiEnabled,
       required this.onAsk,
       required this.onRecentQuery,
-      this.barContext});
+      this.barContext,
+      this.shrink = false});
 
   final SearchCategory category;
   final bool aiEnabled;
@@ -1509,9 +1542,13 @@ class _SearchHome extends ConsumerWidget {
   /// A recent query tapped: back into the field, searched again.
   final ValueChanged<String> onRecentQuery;
 
-  /// The bar's context: its "Recommended" rows on top and its prompts in
-  /// place of Home's; with rows, the Home content stays out.
+  /// The bar's context: with action rows, the context screen (the
+  /// market's preview card, the rows in one card, Sal's chips in a row)
+  /// in place of the Home content, and its prompts in place of Home's.
   final KuteBarContext? barContext;
+
+  /// Sized to the content (a context screen), not the sheet.
+  final bool shrink;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1572,6 +1609,55 @@ class _SearchHome extends ConsumerWidget {
 
     var row = 0;
     Widget rise(Widget child) => KuteStaggerIn(index: row++, child: child);
+
+    if (recommended) {
+      // The context screen (founder, 31 October 2026: one designed screen,
+      // not a list of rows): the market's preview card, ONE soft card
+      // with the action rows, then "Ask Sal" as a row of pill chips.
+      // 16 between blocks; sized to the content.
+      final preview =
+          ctx is KuteMarketBarContext ? ctx.preview : null;
+      return ListView(
+        shrinkWrap: shrink,
+        physics: shrink ? const NeverScrollableScrollPhysics() : null,
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          if (preview != null) ...[
+            rise(_ContextPreviewCard(preview: preview)),
+            SizedBox(height: 16.h),
+          ],
+          rise(_ContextActionsCard(actions: ctx.actions)),
+          if (aiEnabled) ...[
+            SizedBox(height: 16.h),
+            rise(Padding(
+              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h),
+              child: Text(
+                l10n.searchAskSal,
+                style: TextStyle(
+                  color: c.textTertiary,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            )),
+            rise(SizedBox(
+              height: 40.h,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: prompts.length,
+                separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                itemBuilder: (context, i) => _SalPromptChip(
+                    text: prompts[i], onTap: () => onAsk(prompts[i], i)),
+              ),
+            )),
+          ],
+        ],
+      );
+    }
+
     // ignore: discarded_futures
     SearchRecentStore.load();
 
@@ -1579,8 +1665,7 @@ class _SearchHome extends ConsumerWidget {
       padding: EdgeInsets.only(bottom: 12.h),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
-        if (!recommended)
-          ValueListenableBuilder<List<SearchRecentEntry>>(
+        ValueListenableBuilder<List<SearchRecentEntry>>(
             valueListenable: SearchRecentStore.entries,
             builder: (context, recent, _) => recent.isEmpty
                 ? const SizedBox.shrink()
@@ -1626,35 +1711,7 @@ class _SearchHome extends ConsumerWidget {
                     ],
                   ),
           ),
-        if (recommended) ...[
-          rise(Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 8.h),
-            child: Row(
-              children: [
-                SalSprite(
-                  clip: 'share',
-                  size: 22,
-                  fallback: SalSprite(
-                      clip: 'happy',
-                      size: 22,
-                      fallback: const SizedBox.shrink()),
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  l10n.searchRecommended,
-                  style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ],
-            ),
-          )),
-          for (final a in ctx.actions) rise(_RecommendedRow(action: a)),
-        ],
-        if (!recommended && showInvesting && moving.isNotEmpty) ...[
+        if (showInvesting && moving.isNotEmpty) ...[
           rise(header(l10n.searchHomeMovingNow)),
           rise(SizedBox(
             height: 40.h,
@@ -1668,7 +1725,7 @@ class _SearchHome extends ConsumerWidget {
             ),
           )),
         ],
-        if (!recommended && trending.isNotEmpty) ...[
+        if (trending.isNotEmpty) ...[
           rise(header(l10n.searchHomeTrendingPredictions)),
           for (final e in trending) rise(_TrendingRow(event: e)),
         ],
@@ -1791,53 +1848,179 @@ class _RecentRow extends ConsumerWidget {
   }
 }
 
-/// A recommended action of the bar's context: its label and line, in the
-/// sheet's row style; tapped, it runs (a share sheet, a pick, a toast) and
-/// the sheet closes.
-class _RecommendedRow extends StatelessWidget {
-  const _RecommendedRow({required this.action});
+/// The context screen's preview card: the market's picture (32), its
+/// title on up to two lines and the pick or the price at the end, in the
+/// market lists' row style, on a soft card.
+class _ContextPreviewCard extends StatelessWidget {
+  const _ContextPreviewCard({required this.preview});
+
+  final KuteBarPreview preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final image = preview.imageUrl;
+    final coin = preview.coin;
+    final Widget leading;
+    if (coin != null && coin.isNotEmpty) {
+      leading = HlCoinIcon(coin: coin, wireCoin: coin, size: 32);
+    } else if (image != null && image.isNotEmpty) {
+      leading = PolyCrestImage(url: image, size: 32, radius: 8);
+    } else {
+      leading = Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+            color: c.surface, borderRadius: BorderRadius.circular(8)),
+      );
+    }
+    final line = preview.line;
+    return Container(
+      key: const ValueKey('context-preview-card'),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          leading,
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              preview.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                height: 1.25,
+              ),
+            ),
+          ),
+          if (line != null && line.isNotEmpty) ...[
+            SizedBox(width: 12.w),
+            Text(
+              line,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The context screen's action rows in ONE soft card (the Settings
+/// group card), a hairline between them.
+class _ContextActionsCard extends StatelessWidget {
+  const _ContextActionsCard({required this.actions});
+
+  final List<KuteBarAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      key: const ValueKey('context-actions-card'),
+      decoration: AppDecorations.card(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, a) in actions.indexed) ...[
+              if (i > 0)
+                Padding(
+                  padding: EdgeInsets.only(left: 16.w + 32.sp + 12.w),
+                  child: Container(height: 0.5, color: c.borderSubtle),
+                ),
+              _ContextActionRow(action: a),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One action row: a 32 tinted circle with the row's glyph (Sal's face
+/// for a row that sends a pick, an icon otherwise), the title, the line
+/// under it and the chevron. Tapped, it runs and the sheet closes.
+class _ContextActionRow extends StatelessWidget {
+  const _ContextActionRow({required this.action});
 
   final KuteBarAction action;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final a = action;
+    final clip = a is KuteMarketBarAction ? a.salClip : null;
+    final icon = a is KuteMarketBarAction
+        ? (a.icon ?? Icons.arrow_forward_rounded)
+        : Icons.arrow_forward_rounded;
     return Semantics(
       button: true,
-      label: action.sublabel == null
-          ? action.label
-          : '${action.label}, ${action.sublabel}',
+      label: a.sublabel == null ? a.label : '${a.label}, ${a.sublabel}',
       child: KutePressable(
         child: InkWell(
           onTap: () {
             HapticFeedback.selectionClick();
-            action.onTap(context);
+            a.onTap(context);
             Navigator.of(context).maybePop();
           },
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             child: Row(
               children: [
+                Container(
+                  width: 32.sp,
+                  height: 32.sp,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: c.accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: clip != null
+                      ? SalSprite(
+                          clip: clip,
+                          size: 20.sp,
+                          fallback:
+                              KuteDogGlance(size: 20.sp, color: c.accent),
+                        )
+                      : Icon(icon, size: 18.sp, color: c.accent),
+                ),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        action.label,
+                        a.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: c.textPrimary,
                           fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           letterSpacing: -0.2,
                         ),
                       ),
-                      if (action.sublabel != null) ...[
+                      if (a.sublabel != null) ...[
                         SizedBox(height: 2.h),
                         Text(
-                          action.sublabel!,
+                          a.sublabel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1854,6 +2037,61 @@ class _RecommendedRow extends StatelessWidget {
                 SizedBox(width: 12.w),
                 Icon(Icons.chevron_right_rounded,
                     size: 22.sp, color: c.textTertiary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One "Ask Sal" pill chip on the context screen: Sal's curious face (20)
+/// and the prompt; tapped, the question goes to Sal.
+class _SalPromptChip extends StatelessWidget {
+  const _SalPromptChip({required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      button: true,
+      label: text,
+      child: KutePressable(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: c.surfaceLight,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              border: Border.all(color: c.borderSubtle, width: 0.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SalSprite(
+                  clip: 'curious',
+                  size: 20.sp,
+                  fallback: KuteDogGlance(size: 20.sp, color: c.textSecondary),
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                  ),
+                ),
               ],
             ),
           ),

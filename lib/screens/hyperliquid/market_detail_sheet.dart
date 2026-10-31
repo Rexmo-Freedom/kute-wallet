@@ -398,6 +398,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                                   ? widget.market.midPx
                                   : widget.market.markPx,
                               decimalCap: widget.market.pxDecimalCap),
+                          // The pick: Long, the side this page opens on.
+                          outcome: context.l10n.longLabel,
+                          side: 'long',
                           position: false,
                           category: SearchCategory.perpetuals,
                           searchHint: context.l10n.searchInvestmentsHint,

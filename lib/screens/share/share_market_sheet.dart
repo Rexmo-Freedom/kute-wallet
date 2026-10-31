@@ -9,8 +9,10 @@
 //   * Share link: the OS share sheet with "Look at this on Kute: {title}
 //     {deepLink}", the sender's referral code on the link as `?ref=CODE`
 //     (the affiliate code AffiliateService already holds).
-//   * Send dollars for this: Send to anyone (send_to_anyone_sheet.dart)
-//     for dollars, the market slug on the link.
+//   * Send this prediction (Send this investment on Investing): Send to
+//     anyone (send_to_anyone_sheet.dart) for dollars with the pick on the
+//     link: the market slug and title, the venue, the outcome and side the
+//     page showed (kute_share_actions.dart).
 //
 // `share_market_opened {market}` once per open. Never the link.
 
@@ -38,6 +40,8 @@ const String kShareMarketRouteName = 'share_market';
 
 /// Opens the share sheet for one market. [chance] is 0–100 for a
 /// prediction market; [price] a formatted price for a trading market.
+/// [venue], [outcome], [outcomeIndex] and [side] are the pick the send
+/// button carries (see the file header).
 Future<void> openShareForMarket(
   BuildContext context, {
   required String title,
@@ -46,6 +50,10 @@ Future<void> openShareForMarket(
   required String? marketSlug,
   double? chance,
   String? price,
+  String? venue,
+  String? outcome,
+  int? outcomeIndex,
+  String? side,
 }) {
   ShareLinkEvents.marketOpened(marketSlug: marketSlug);
   return showAppBottomSheet<void>(
@@ -58,6 +66,10 @@ Future<void> openShareForMarket(
       marketSlug: marketSlug,
       chance: chance,
       price: price,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
     ),
   );
 }
@@ -82,6 +94,10 @@ class ShareMarketSheet extends ConsumerWidget {
     required this.marketSlug,
     this.chance,
     this.price,
+    this.venue,
+    this.outcome,
+    this.outcomeIndex,
+    this.side,
   });
 
   final String title;
@@ -90,6 +106,14 @@ class ShareMarketSheet extends ConsumerWidget {
   final String? marketSlug;
   final double? chance;
   final String? price;
+
+  /// The pick the send button carries (see the file header).
+  final String? venue;
+  final String? outcome;
+  final int? outcomeIndex;
+  final String? side;
+
+  bool get _investing => venue == 'hyperliquid';
 
   /// Test seam: what Share link hands the OS. Null opens the share sheet.
   @visibleForTesting
@@ -126,7 +150,7 @@ class ShareMarketSheet extends ConsumerWidget {
     }
   }
 
-  Future<void> _sendDollars(BuildContext context) async {
+  Future<void> _sendPick(BuildContext context) async {
     final navigator = Navigator.of(context);
     final root = Navigator.of(context, rootNavigator: true).context;
     navigator.pop();
@@ -134,6 +158,11 @@ class ShareMarketSheet extends ConsumerWidget {
       root,
       kind: ShareLinkKind.dollars,
       marketSlug: marketSlug,
+      marketTitle: title,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
       entrySource: 'share_market',
     );
   }
@@ -228,9 +257,11 @@ class ShareMarketSheet extends ConsumerWidget {
                 ),
                 SizedBox(height: 8.h),
                 AppTextButton(
-                  key: const ValueKey('share-market-send-dollars'),
-                  text: l10n.shareMarketSendDollars,
-                  onPressed: () => unawaited(_sendDollars(context)),
+                  key: const ValueKey('share-market-send-pick'),
+                  text: _investing
+                      ? l10n.sendThisInvestment
+                      : l10n.sendThisPrediction,
+                  onPressed: () => unawaited(_sendPick(context)),
                 ),
               ],
             ),

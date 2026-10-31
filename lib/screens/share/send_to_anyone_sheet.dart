@@ -18,8 +18,13 @@
 //   3. The receipt: the pending row (pending_share_links.dart), Share
 //      again and Done.
 //
-// Launched from a market (share_market_sheet.dart) the sheet carries the
-// market slug on the link; there is no market picker here in phase 1.
+// Launched from a market page's bar or the market share sheet
+// (kute_share_actions.dart, share_market_sheet.dart) the sheet carries THE
+// PICK on the link: the market slug and title, the venue, the outcome
+// ("Yes", a candidate, "Long"), its index and the side. The pick reads
+// above the amount ("Yes on Gemini Carbon"), goes to the backend with the
+// link, and the share text says "I sent you a prediction on Kute: Yes on
+// Gemini Carbon, $12.00". There is no market picker here in phase 1.
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -55,26 +60,61 @@ import 'package:kute/theme/app_theme.dart';
 const String kSendToAnyoneRouteName = 'send_to_anyone';
 
 /// Opens Send to anyone for [kind] over the current screen. Resolves to
-/// true when a link was created.
+/// true when a link was created. The pick ([marketTitle], [venue],
+/// [outcome], [outcomeIndex], [side]) is optional; see the file header.
 Future<bool?> showSendToAnyoneSheet(
   BuildContext context, {
   required ShareLinkKind kind,
   String? marketSlug,
+  String? marketTitle,
+  String? venue,
+  String? outcome,
+  int? outcomeIndex,
+  String? side,
   required String entrySource,
 }) {
   TrackingService.markEntrySource('share_link', entrySource);
   return showAppBottomSheet<bool>(
     context: context,
     routeSettings: const RouteSettings(name: kSendToAnyoneRouteName),
-    builder: (_) => SendToAnyoneSheet(kind: kind, marketSlug: marketSlug),
+    builder: (_) => SendToAnyoneSheet(
+      kind: kind,
+      marketSlug: marketSlug,
+      marketTitle: marketTitle,
+      venue: venue,
+      outcome: outcome,
+      outcomeIndex: outcomeIndex,
+      side: side,
+    ),
   );
 }
 
 class SendToAnyoneSheet extends ConsumerStatefulWidget {
-  const SendToAnyoneSheet({super.key, required this.kind, this.marketSlug});
+  const SendToAnyoneSheet({
+    super.key,
+    required this.kind,
+    this.marketSlug,
+    this.marketTitle,
+    this.venue,
+    this.outcome,
+    this.outcomeIndex,
+    this.side,
+  });
 
   final ShareLinkKind kind;
   final String? marketSlug;
+
+  /// The pick (see the file header); all null for a plain send.
+  final String? marketTitle;
+  final String? venue;
+  final String? outcome;
+  final int? outcomeIndex;
+  final String? side;
+
+  /// Whether the link carries a pick.
+  bool get hasPick =>
+      (outcome?.trim().isNotEmpty ?? false) &&
+      (marketTitle?.trim().isNotEmpty ?? false);
 
   /// Test seam: what Create link hands the OS. Null opens the share sheet.
   @visibleForTesting
@@ -128,11 +168,16 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     });
     final label = _name.text.trim();
     try {
+      final pick = widget.hasPick;
       final created = await ref.read(shareLinksApiProvider).create(
             kind: kind,
             amountMinor: amountMinor,
             marketSlug: widget.marketSlug,
             senderLabel: label.isEmpty ? null : label,
+            venue: pick ? widget.venue : null,
+            outcome: pick ? widget.outcome!.trim() : null,
+            outcomeIndex: pick ? widget.outcomeIndex : null,
+            side: pick ? widget.side : null,
           );
       final row = PendingShareLink(
         id: created.id,
@@ -140,12 +185,16 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         amountMinor: amountMinor,
         label: label.isEmpty ? null : label,
         marketSlug: widget.marketSlug,
+        marketTitle: pick ? widget.marketTitle!.trim() : null,
+        venue: pick ? widget.venue : null,
+        outcome: pick ? widget.outcome!.trim() : null,
         url: created.url,
         createdAt: DateTime.now(),
         status: ShareLinkStatus.open,
       );
       ShareLinksStore.put(row);
-      ShareLinkEvents.created(kind, amountMinor, marketSlug: widget.marketSlug);
+      ShareLinkEvents.created(kind, amountMinor,
+          marketSlug: widget.marketSlug, outcome: row.outcome);
       if (!mounted) return;
       setState(() {
         _created = row;
@@ -166,7 +215,12 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     final amount =
         shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
     final text = shareLinkMessage(context,
-        name: row.label, amount: amount, url: row.url);
+        name: row.label,
+        amount: amount,
+        url: row.url,
+        outcome: row.outcome,
+        title: row.marketTitle,
+        venue: row.venue);
     final debug = SendToAnyoneSheet.debugSharer;
     try {
       final String result;
@@ -200,9 +254,16 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           AppBottomSheetHeader(
             title: _step == _Step.name
                 ? l10n.shareWhoIsItFor
-                : l10n.shareSendToAnyone,
-            subtitle:
-                _step == _Step.amount ? l10n.shareSendToAnyoneSubtitle : null,
+                : widget.hasPick
+                    ? (widget.venue == 'hyperliquid'
+                        ? l10n.sendThisInvestment
+                        : l10n.sendThisPrediction)
+                    : l10n.shareSendToAnyone,
+            subtitle: _step == _Step.amount
+                ? (widget.hasPick
+                    ? l10n.sendThisPickSub
+                    : l10n.shareSendToAnyoneSubtitle)
+                : null,
             icon: Icons.ios_share_rounded,
           ),
           Padding(
@@ -238,6 +299,25 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.hasPick) ...[
+          // The pick, above the amount: "Yes on Gemini Carbon".
+          Text(
+            sharePickLine(context,
+                outcome: widget.outcome!.trim(),
+                title: widget.marketTitle!.trim()),
+            key: const ValueKey('share-pick-line'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              height: 1.3,
+            ),
+          ),
+          SizedBox(height: 10.h),
+        ],
         SizedBox(height: 6.h),
         Row(
           children: [

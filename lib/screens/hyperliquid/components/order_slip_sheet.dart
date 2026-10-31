@@ -308,6 +308,10 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
   /// Ledger user gets the same screen rather than a second product.
   final String? ledgerWalletId;
 
+  /// Optional amount (dollars) the ticket opens with, written as if typed
+  /// (a claimed share link's pick, claim_screen.dart). Null opens empty.
+  final double? initialUsd;
+
   const HlOrderSlipSheet({
     super.key,
     required this.market,
@@ -315,6 +319,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     this.source,
     this.entrySource,
     this.ledgerWalletId,
+    this.initialUsd,
   });
 
   /// Route name used to pop back down to the host after a fill — see
@@ -329,6 +334,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     String? source,
     String? entrySource,
     String? ledgerWalletId,
+    double? initialUsd,
   }) async {
     // The ticket always opens: markets and their tickets stay browsable,
     // and a policy that withholds new positions disables the one confirm
@@ -391,6 +397,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
         source: source,
         entrySource: entrySource,
         ledgerWalletId: ledgerWalletId,
+        initialUsd: initialUsd,
       ),
     );
   }
@@ -626,9 +633,9 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
   String _flowStep = 'amount';
   String? _stopReason;
   String? _lastErrorCategory;
-  // none (opened empty) | keypad | max | min (the under-the-minimum
-  // button wrote and placed it) | min_direct (the empty ticket's button
-  // placed the minimum)
+  // none (opened empty) | prefill (carried in) | keypad | max | min (the
+  // under-the-minimum button wrote and placed it) | min_direct (the empty
+  // ticket's button placed the minimum)
   String _amountMethod = 'none';
 
   /// The empty ticket's button wrote the minimum; the next build places
@@ -984,9 +991,14 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       }
     }
     // Opens empty, typed from zero; the button offers the minimum this
-    // order needs ([_orderMinimumUsd], [_placeMinimum]).
-    _marginUsd = 0;
-    _amountController = TextEditingController();
+    // order needs ([_orderMinimumUsd], [_placeMinimum]). A carried-in
+    // amount (a claimed pick) is written as if typed.
+    final carried = widget.initialUsd;
+    final prefilled = carried != null && carried > 0;
+    _marginUsd = prefilled ? carried : 0;
+    _amountController = TextEditingController(
+        text: prefilled ? _trimZeros(carried.toStringAsFixed(2)) : null);
+    if (prefilled) _amountMethod = 'prefill';
     _amountController.addListener(_onAmountChanged);
     _priceController = TextEditingController();
     _triggerController = TextEditingController();
@@ -1187,6 +1199,12 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
       'wallet_kind': _isLedger ? 'ledger' : 'hot',
     });
   }
+
+  /// "12.00" -> "12", "12.50" -> "12.5": the figure as the keypad would
+  /// leave it.
+  static String _trimZeros(String fixed) => fixed.contains('.')
+      ? fixed.replaceFirst(RegExp(r'\.?0+$'), '')
+      : fixed;
 
   void _onAmountChanged() {
     final parsed = double.tryParse(_amountController.text) ?? 0.0;

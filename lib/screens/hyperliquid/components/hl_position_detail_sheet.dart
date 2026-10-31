@@ -248,6 +248,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         title: widget.position.coin,
         venue: kMarketLinkInvesting,
         slug: widget.position.coin,
+        // The pick: this position's side.
+        outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
+        side: pos.isLong ? 'long' : 'short',
         position: true,
         category: SearchCategory.perpetuals,
         searchHint: context.l10n.searchInvestmentsHint,
