@@ -262,7 +262,8 @@ Future<(ProviderContainer, _Hypercore)> _open(
 Future<void> _pickDollars(WidgetTester tester) async {
   await tester.tap(find.text('Bitcoin').first);
   await tester.pumpAndSettle(const Duration(milliseconds: 50));
-  await tester.tap(find.text('Investments').last);
+  // The picker names the balance Dollars now.
+  await tester.tap(find.text('Dollars').last);
   await tester.pumpAndSettle(const Duration(milliseconds: 50));
 }
 

@@ -76,6 +76,12 @@ class KuteBarAction {
   final void Function(BuildContext sheetContext) onTap;
 }
 
+/// What the bar is on a surface: the search / Sal pill, or the surface's
+/// PRIMARY BUTTON (founder, 31 October 2026: on amount and keypad
+/// screens and slips the bar IS the Place / Send / Continue button; the
+/// page draws none of its own). See [KuteBarContext.primary].
+enum KuteBarKind { search, primaryAction }
+
 /// What the bar says and does while its surface is on screen.
 class KuteBarContext {
   const KuteBarContext({
@@ -90,7 +96,42 @@ class KuteBarContext {
     this.hidden = false,
     this.actionRowHeight = 0,
     this.route,
-  });
+  })  : kind = KuteBarKind.search,
+        enabled = true,
+        busy = false,
+        onPrimary = null,
+        busyLabel = null;
+
+  /// The bar as the surface's primary button: [label] ("Place prediction
+  /// · $10", "Continue"), [onPrimary] the exact handler the page's button
+  /// had, [enabled] false for the disabled state (surface fill, the quiet
+  /// label: "Enter an amount" or the page's own copy in [label]), [busy]
+  /// while the action runs ([busyLabel] beside the progress, else
+  /// [label]). A long press opens the Sal sheet with [category] /
+  /// [searchHint] so asking Sal stays one gesture away.
+  const KuteBarContext.primary({
+    required this.label,
+    required this.onPrimary,
+    this.enabled = true,
+    this.busy = false,
+    this.busyLabel,
+    this.category = SearchCategory.all,
+    this.searchHint,
+    this.source = 'bar',
+    this.route,
+  })  : kind = KuteBarKind.primaryAction,
+        sublabel = null,
+        clip = 'idle',
+        actions = const [],
+        prompts = const [],
+        hidden = false,
+        actionRowHeight = 0;
+
+  final KuteBarKind kind;
+  final bool enabled;
+  final bool busy;
+  final VoidCallback? onPrimary;
+  final String? busyLabel;
 
   /// A context that only hides the bar (a keyboard surface, the Sal sheet).
   const KuteBarContext.hidden()
@@ -104,7 +145,15 @@ class KuteBarContext {
         source = 'bar',
         hidden = true,
         actionRowHeight = 0,
-        route = null;
+        route = null,
+        kind = KuteBarKind.search,
+        enabled = true,
+        busy = false,
+        onPrimary = null,
+        busyLabel = null;
+
+  /// The bar is this surface's primary button (see [KuteBarContext.primary]).
+  bool get isPrimary => kind == KuteBarKind.primaryAction;
 
   final String label;
   final String? sublabel;
@@ -144,19 +193,31 @@ class KuteBarContext {
   bool get current => route == null || route!.isCurrent;
 
   /// This context bound to [route] (see [KuteBarContextScope]).
-  KuteBarContext boundTo(Route<dynamic>? route) => KuteBarContext(
-        label: label,
-        sublabel: sublabel,
-        clip: clip,
-        actions: actions,
-        prompts: prompts,
-        category: category,
-        searchHint: searchHint,
-        source: source,
-        hidden: hidden,
-        actionRowHeight: actionRowHeight,
-        route: route,
-      );
+  KuteBarContext boundTo(Route<dynamic>? route) => isPrimary
+      ? KuteBarContext.primary(
+          label: label,
+          onPrimary: onPrimary,
+          enabled: enabled,
+          busy: busy,
+          busyLabel: busyLabel,
+          category: category,
+          searchHint: searchHint,
+          source: source,
+          route: route,
+        )
+      : KuteBarContext(
+          label: label,
+          sublabel: sublabel,
+          clip: clip,
+          actions: actions,
+          prompts: prompts,
+          category: category,
+          searchHint: searchHint,
+          source: source,
+          hidden: hidden,
+          actionRowHeight: actionRowHeight,
+          route: route,
+        );
 }
 
 class KuteBarContextStack extends Notifier<List<KuteBarContext>> {

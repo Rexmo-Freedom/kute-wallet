@@ -218,6 +218,45 @@ void main() {
     expect(rest - lifted, moreOrLessEquals(80, epsilon: 1));
   });
 
+  testWidgets(
+      'as the primary button: the disabled label, then the enabled label '
+      'with the amount, a tap running the handler, a long press asking Sal',
+      (tester) async {
+    await _pump(tester);
+    var placed = 0;
+    KuteBarContext primary({required bool enabled}) => KuteBarContext.primary(
+          label: enabled ? 'Place prediction · \$10' : 'Enter an amount',
+          enabled: enabled,
+          onPrimary: () => placed++,
+        );
+    await _push(tester, _page(barContext: primary(enabled: false)),
+        name: 'slip');
+    expect(find.byKey(const ValueKey('kute-bar-primary')), findsOneWidget);
+    expect(find.byType(KuteSalPill), findsNothing);
+    expect(find.text('Enter an amount'), findsOneWidget);
+    // Full width: the screen less the 16 gutters.
+    final rect = tester.getRect(find.byKey(const ValueKey('kute-bar-primary-button')));
+    expect(rect.height, 56);
+    expect(rect.width, greaterThan(300));
+    await tester.tap(find.text('Enter an amount'));
+    await tester.pumpAndSettle();
+    expect(placed, 0);
+
+    _nav(tester).pop();
+    await tester.pumpAndSettle();
+    await _push(tester, _page(barContext: primary(enabled: true)),
+        name: 'slip');
+    expect(find.text('Place prediction · \$10'), findsOneWidget);
+    await tester.tap(find.text('Place prediction · \$10'));
+    await tester.pumpAndSettle();
+    expect(placed, 1);
+    // A long press asks Sal, never the action (the sheet itself needs
+    // the app's root navigator, which this harness has not).
+    await tester.longPress(find.text('Place prediction · \$10'));
+    await tester.pumpAndSettle();
+    expect(placed, 1);
+  });
+
   testWidgets('a declared action row lifts the bar above it',
       (tester) async {
     await _pump(tester);

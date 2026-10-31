@@ -69,11 +69,15 @@ Finder _earnCopy() => find.textContaining(
 /// Opens the Portfolio pill, then its P&L charts section (Positions is
 /// the first).
 Future<void> _openStatistics(WidgetTester tester) async {
-  await tapPill(tester, 'Portfolio');
-  // The picked Portfolio pill opens the sections; a row picks P&L charts.
-  await tapAndPump(tester, investmentsPill('Portfolio'));
-  // The sections are tiles now (investments_category_sheet.dart).
-  await tester.tap(find.text('P&L Charts').last);
+  // The Portfolio is the action square in the middle of the Dollars row
+  // (Add · Portfolio · Send); it opens the Portfolio screen, whose
+  // section pill picks P&L charts.
+  await tester.tap(find.text('Portfolio').last);
+  for (var i = 0; i < 8; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await tester
+      .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')).last);
   for (var i = 0; i < 8; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }

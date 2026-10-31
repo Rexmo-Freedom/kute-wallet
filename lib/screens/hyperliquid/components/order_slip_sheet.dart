@@ -61,6 +61,9 @@ import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,7 +115,6 @@ import 'package:kute/screens/shared/slip_stat_tiles.dart';
 import 'package:kute/screens/shared/money_fee_summary.dart'
     show MoneyFeeFigure, MoneyFeeLeg, fundingLegFeeLabel;
 import 'package:kute/screens/shared/decimal_input_formatter.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/sticky_action_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
@@ -5214,25 +5216,27 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
               child: Semantics(
                 label: bitcoinStep,
                 liveRegion: bitcoinStep != null,
-                child: AppButton(
-                // After a stop the same order again, said so; it draws on
-                // the money already moved (Available counts it), adding
-                // only what is still missing.
-                text: funded != null &&
+                // THE BAR IS THE BUTTON (kute_shell_bar.dart): the ticket
+                // declares its primary action and draws no button of its
+                // own.
+                child: KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: funded != null &&
                         funded.failed &&
                         !belowMin &&
                         (primaryKind == 'trade' || primaryKind == 'deposit')
                     ? '${_strings.walletsTryAgain} · $primaryLabel'
                     : primaryLabel,
-                onPressed: primaryAction,
-                isLoading: _ledgerBusy ||
+                    onPrimary: primaryAction,
+                    enabled: primaryAction != null,
+                    busy: _ledgerBusy ||
                     _checkingConnection ||
                     bitcoinStep != null ||
                     _isPlacing ||
                     _preparing ||
                     _depositCalculating ||
                     primaryKind == 'loading',
-                loadingLabel: primaryKind == 'loading'
+                    busyLabel: primaryKind == 'loading'
                     ? context.l10n.loadingAccount
                     : primaryKind == 'check'
                         ? context.l10n.checkConnection
@@ -5247,14 +5251,11 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                                 // moving into Investments (it is there).
                                 ? context.l10n.slipStepPreparingOrder
                                 : null),
-                color: c.textPrimary,
-                // Dark on the white button, the trade too (founder
-                // decision): never lettered in the side colour. The bet
-                // slip's button reads the same.
-                textColor: slipCtaLabelColor(
-                    fill: c.textPrimary, side: sideColor, neutral: true),
-                fontWeight: FontWeight.w800,
-              ),
+                    category: SearchCategory.perpetuals,
+                    source: 'order_slip',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
+                ),
               ),
             ),
           ),

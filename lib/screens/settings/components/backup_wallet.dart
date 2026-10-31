@@ -19,6 +19,7 @@ import 'package:kute/screens/shared/seed_word_tile.dart';
 import 'package:kute/services/passkey_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -567,17 +568,21 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                   ],
                 ),
               ),
-              SizedBox(height: 14.h),
-              AppButton(
-                text: context.l10n.continueLabel,
-                onPressed: _revealAcknowledged
-                    ? () {
-                        TrackingService.backupRevealAcknowledged();
-                        TrackingService.backupVerifyViewed();
-                        TrackingService.setFlowStep('verify');
-                        setState(() => _step = _BackupStep.verify);
-                      }
-                    : null,
+              // The bar is Continue (kute_shell_bar.dart), on once the
+              // phrase is acknowledged; Sal is curious until then.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.continueLabel,
+                  enabled: _revealAcknowledged,
+                  onPrimary: () {
+                    TrackingService.backupRevealAcknowledged();
+                    TrackingService.backupVerifyViewed();
+                    TrackingService.setFlowStep('verify');
+                    setState(() => _step = _BackupStep.verify);
+                  },
+                  source: 'backup_reveal',
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ],
           ),
