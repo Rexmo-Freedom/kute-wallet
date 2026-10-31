@@ -11433,6 +11433,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get salPromptRisk => 'What\'s the risk?';
 
   @override
+  String get portfolioMoveMoneySub =>
+      'Between Dollars, Investing and Predictions';
+
+  @override
   String get barMoveMoney => 'Move money';
 
   @override

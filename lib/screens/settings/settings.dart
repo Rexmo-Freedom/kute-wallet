@@ -217,7 +217,9 @@ class _SettingsState extends ConsumerState<Settings> {
         child: SafeArea(
           bottom: false,
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 40.h),
+            // The last rows scroll clear of the floating bar.
+            padding: EdgeInsets.fromLTRB(
+                16.w, 16.h, 16.w, 40.h + kuteBarScrollClearance.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

@@ -317,7 +317,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     ? HlChartEditBody(chart: _chart(m, fillHeight: true))
                     : SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                        padding: EdgeInsets.fromLTRB(
+                            20.w, 0, 20.w, kuteBarScrollClearance.h),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

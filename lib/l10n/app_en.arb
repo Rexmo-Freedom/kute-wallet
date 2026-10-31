@@ -6929,6 +6929,8 @@
   "@salPromptExplainOdds": {"description": "Sal prompt chip on a prediction market or position page."},
   "salPromptRisk": "What's the risk?",
   "@salPromptRisk": {"description": "Sal prompt chip on a market or position page."},
+  "portfolioMoveMoneySub": "Between Dollars, Investing and Predictions",
+  "@portfolioMoveMoneySub": {"description": "Portfolio screen, Sal sheet: the second line of the Move money action row."},
   "barMoveMoney": "Move money",
   "@barMoveMoney": {"description": "The floating Sal bar over the Move money screen."},
   "barMoveMoneySub": "ask Sal where it should go",

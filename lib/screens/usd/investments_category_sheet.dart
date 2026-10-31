@@ -368,7 +368,8 @@ class _InvestmentsCategorySheetState
       key: ValueKey<Object?>(group),
       child: ListView(
         shrinkWrap: true,
-        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+        // The grid's foot scrolls clear of the floating bar.
+        padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, kuteBarScrollClearance.h),
         children: switch (widget.tab) {
           InvestmentsTab.investing => group == null
               ? _investing(context)

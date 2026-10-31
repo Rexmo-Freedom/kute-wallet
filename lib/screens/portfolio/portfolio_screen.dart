@@ -26,7 +26,13 @@
 // (surface investments, tab positions, sub / from_sub), as the Investments
 // page sent it; the screen itself adds no event (experimental branch).
 
+import 'dart:async';
+
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteMarketBarAction;
+import 'package:kute/screens/shared/money_movement_sheet.dart'
+    show showMoneyMovementSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,11 +101,34 @@ class PortfolioScreen extends ConsumerWidget {
               barContext: KuteBarContext(
                 label: context.l10n.searchOrAskSalShort,
                 source: 'portfolio',
+                // The Sal sheet's top row: Move money (founder, 31
+                // October 2026).
+                actions: [
+                  KuteMarketBarAction(
+                    label: context.l10n.moveTransfer,
+                    sublabel: context.l10n.portfolioMoveMoneySub,
+                    icon: Icons.swap_horiz_rounded,
+                    onTap: (_) {
+                      TrackingService.track('portfolio_move_money_tapped',
+                          params: const {'surface': 'sal_sheet'});
+                      unawaited(showMoneyMovementSheet(context));
+                    },
+                  ),
+                ],
               ),
-              // The bar floats over the list (nothing reserves room).
-              child: InvestmentsPortfolio(
-                sharesHeader: true,
-                onSection: (section) => pickSection(ref, section),
+              // The bar floats over the list (nothing reserves room); the
+              // lists pad their own end by the bar's clearance, read from
+              // the MediaQuery padding they already use.
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  padding: MediaQuery.paddingOf(context).copyWith(
+                      bottom: MediaQuery.paddingOf(context).bottom +
+                          kuteBarScrollClearance.h),
+                ),
+                child: InvestmentsPortfolio(
+                  sharesHeader: true,
+                  onSection: (section) => pickSection(ref, section),
+                ),
               ),
             ),
           ),

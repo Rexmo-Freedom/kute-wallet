@@ -32,8 +32,11 @@ import 'package:kute/screens/shared/money_movement_sheet.dart'
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteMarketBarAction;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
-    show SendToListCard, SendToListRow, SendToSectionHeader;
+    show SendToSectionHeader;
 import 'package:kute/screens/shared/send/send_sheet.dart' show showSendSheet;
 import 'package:kute/screens/usd/flow/usd_flow_widgets.dart';
 import 'package:kute/screens/usd/usd_receive_screen.dart'
@@ -44,7 +47,6 @@ import 'package:kute/services/orchestra_routes.dart'
 import 'package:kute/services/orchestra_usd_send_routes.dart'
     show UsdSendDestination;
 import 'package:kute/services/tracking_service.dart';
-import 'package:kute/theme/app_theme.dart';
 
 /// The route name the Withdraw sheet carries.
 const String kUsdWithdrawRouteName = 'withdrawDollars';
@@ -115,7 +117,29 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return ReceiveSheetFrame(
+    // Send to anyone lives in the bar only (founder, 31 October 2026):
+    // "Send to anyone" over "A link they claim with Kute", its Sal
+    // sheet's top row opening the sheet for dollars.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+        label: l10n.shareSendToAnyone,
+        sublabel: l10n.shareSendToAnyoneSubtitle,
+        clip: 'share',
+        source: kUsdWithdrawSheetSource,
+        actions: [
+          KuteMarketBarAction(
+            label: l10n.shareSendToAnyone,
+            sublabel: l10n.shareSendToAnyoneSubtitle,
+            icon: Icons.ios_share_rounded,
+            onTap: (_) => unawaited(showSendToAnyoneSheet(
+              context,
+              kind: ShareLinkKind.dollars,
+              entrySource: kUsdWithdrawSheetSource,
+            )),
+          ),
+        ],
+      ),
+      child: ReceiveSheetFrame(
       leading:
           KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
       // The balance the money leaves from, read-only, where the Deposit
@@ -129,6 +153,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       child: Padding(
         padding: EdgeInsets.fromLTRB(20.w, 6.h, 20.w, 0),
         child: _buildFirstStep(context),
+      ),
       ),
     );
   }
@@ -162,27 +187,6 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
             balance: watchSpendingBitcoinUsd(ref),
             buttonLabel: l10n.usdWithdrawNow,
             onTap: _openToBitcoin,
-          ),
-          SizedBox(height: 24.h),
-          // Send to anyone: a link the recipient claims with Kute (a
-          // pending dollar send, models/share_link_model.dart).
-          SendToListCard(
-            colors: context.colors,
-            rows: [
-              SendToListRow(
-                key: const ValueKey('usd-withdraw-send-to-anyone'),
-                colors: context.colors,
-                leading: Icon(Icons.ios_share_rounded,
-                    color: context.colors.textPrimary, size: 20.sp),
-                title: l10n.shareSendToAnyone,
-                subtitle: l10n.shareSendToAnyoneSubtitle,
-                onTap: () => unawaited(showSendToAnyoneSheet(
-                  context,
-                  kind: ShareLinkKind.dollars,
-                  entrySource: kUsdWithdrawSheetSource,
-                )),
-              ),
-            ],
           ),
           SizedBox(height: 24.h),
           if (groups.isEmpty)

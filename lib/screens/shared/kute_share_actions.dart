@@ -137,10 +137,29 @@ class KuteMarketBarContext extends KuteBarContext {
     super.category,
     super.searchHint,
     super.source,
+    super.actionRowHeight,
+    super.route,
     required this.preview,
   });
 
   final KuteBarPreview preview;
+
+  /// The scope binds the context to its route (kute_bar_context.dart);
+  /// the preview rides along.
+  @override
+  KuteBarContext boundTo(Route<dynamic>? route) => KuteMarketBarContext(
+        label: label,
+        sublabel: sublabel,
+        clip: clip,
+        actions: actions,
+        prompts: prompts,
+        category: category,
+        searchHint: searchHint,
+        source: source,
+        actionRowHeight: actionRowHeight,
+        route: route,
+        preview: preview,
+      );
 }
 
 /// An action row with its leading glyph: [salClip] draws Sal's face

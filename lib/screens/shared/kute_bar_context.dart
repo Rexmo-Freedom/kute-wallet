@@ -240,6 +240,17 @@ class _KuteBarContextScopeState extends ConsumerState<KuteBarContextScope> {
   Widget build(BuildContext context) => widget.child;
 }
 
+// ── Scroll clearance ─────────────────────────────────────────────────────
+
+/// The bar's height plus 16 px: what a scroll view under the bar pads its
+/// end by, INSIDE the scrollable (founder: "we have to be able to scroll,
+/// it is paramount, so we can see and click what is under the bar"), so
+/// the last rows scroll clear of the bar and can be tapped. Nothing is
+/// reserved outside the scroll (no band under a sheet's content). A view
+/// that runs to the screen's bottom edge adds the home-indicator inset
+/// itself.
+const double kuteBarScrollClearance = 72;
+
 // ── Routes over the tabs ─────────────────────────────────────────────────
 
 /// Route names the bar stays away from: the splash, onboarding and the

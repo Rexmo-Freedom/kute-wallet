@@ -20,6 +20,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/portfolio/portfolio_activity.dart'
@@ -83,7 +85,9 @@ class ActivityHistoryScreen extends StatelessWidget {
         child: investments
             ? const PortfolioActivityList()
             : SingleChildScrollView(
-                padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+                // The last rows scroll clear of the floating bar.
+                padding: EdgeInsets.only(
+                    top: 8.h, bottom: 24.h + kuteBarScrollClearance.h),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

@@ -528,7 +528,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                  padding: EdgeInsets.fromLTRB(
+                        20.w, 0, 20.w, kuteBarScrollClearance.h),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

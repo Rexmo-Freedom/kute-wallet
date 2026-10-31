@@ -19077,6 +19077,12 @@ abstract class AppLocalizations {
   /// **'What\'s the risk?'**
   String get salPromptRisk;
 
+  /// Portfolio screen, Sal sheet: the second line of the Move money action row.
+  ///
+  /// In en, this message translates to:
+  /// **'Between Dollars, Investing and Predictions'**
+  String get portfolioMoveMoneySub;
+
   /// The floating Sal bar over the Move money screen.
   ///
   /// In en, this message translates to:

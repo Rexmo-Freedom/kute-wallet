@@ -22,7 +22,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_activity_provider.dart';
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/providers/hyperliquid_insights_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_pressure_strip.dart';
@@ -294,14 +293,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
 
   HlMarket get market => hlSheetMarket(ref, widget.market);
 
-  /// What Sal is told about this screen: public market facts only.
-  AdvisorContext _salContext(HlMarket m) => AdvisorContext(
-        surface: 'hl_market_detail',
-        marketVenue: 'hyperliquid',
-        marketId: m.wireCoin,
-        marketDisplayName: m.coin,
-      );
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -531,7 +522,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         20.w,
                         10.h,
                         20.w,
-                        24.h +
+                        // The foot scrolls clear of the floating bar.
+                        kuteBarScrollClearance.h +
                             (_advancedChart
                                 ? MediaQuery.viewPaddingOf(context).bottom
                                 : 0)),
@@ -567,16 +559,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                             onTap: () =>
                                 HlCandleChart.openAdvanced(_chartHostKey),
                           ),
-                        // Sal's one quiet door on this screen, under the
-                        // Advanced chart row: "Why is it moving?",
-                        // on every market (perp, spot, HIP-3), calm or not.
-                        if (!_advancedChart)
-                          SalWhyMovingRow(
-                            advisorContext: _salContext(m),
-                            question: salWhyMovingHl(context.l10n,
-                                label: m.coin),
-                            chipSignals: salSignalsForHlMarket(m),
-                          ),
+                        // (The "Why is it moving?" row is gone: that
+                        // question is the first Ask Sal chip in the bar's
+                        // Sal sheet; founder, 31 October 2026.)
                         // About, whose sheet holds the stats and
                         // long-form details, so the chart keeps the
                         // screen.
