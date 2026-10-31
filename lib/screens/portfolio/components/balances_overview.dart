@@ -59,6 +59,31 @@
 // line per venue under the chart with [BalancesVenueHeader], so the two
 // sections name and colour the venues the same way.
 //
+// THE PORTFOLIO SCREEN ([BalancesOverview.sharesHeader], founder, 31
+// October 2026, redone the same day on the fintech pattern (Robinhood,
+// Revolut, Wealthfront: one allocation card, the actions under it, the
+// tabs, the holdings)): ONE soft card (PremiumGroupContainer's surface,
+// radius and shadow) with the shares ring at 88 on the left and, on the
+// right, one row per share ("● Investing   $1,126.50   64%": the amount
+// tabular, the percent in its own fixed column in the quiet colour, the
+// dot in the ring's colour, so there is no legend), a hairline under the
+// rows and ONE stats line, "All time ▲ $120.10": the account's all-time
+// P&L, realised plus open, the P&L charts' own figure
+// (PortfolioPerformance.totalPnlUsd for each venue, added; a dash, dimmed
+// and sweeping, until both histories are read). No "Today": no provider
+// publishes a day-change figure for the account, and nothing is invented.
+// Under the card, right-aligned, Move money (the Dollars tab's pill);
+// then the section switch (Portfolio | P&L Charts | Activity, the home
+// strip: equal thirds, the picked one the white pill with the hairline
+// and the shadow; [sectionSwitch], the Portfolio page hands it down);
+// then the open positions by venue under small quiet headers
+// ("Investing · 3", "Predictions · 1": 12 sp, the quiet colour; the
+// value and P&L of a venue are not repeated, the card has the shares),
+// the same grouped cards (3 rows + See all), a venue with nothing open
+// left out, Sal's empty state when neither has anything; 16 between
+// blocks. Nothing shifts under a live price: every figure is tabular,
+// the percent column is fixed, no AnimatedSize wraps a live value.
+//
 // Analytics: `portfolio_available_to_invest_toggled` {open} (the split),
 // `portfolio_balances_empty_shown` {surface} (Sal, once per mount),
 // `portfolio_venue_positions_expanded` {venue: predictions | investing,
@@ -67,8 +92,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/polymarket_live_prices_provider.dart'
+    show livePriceProvider;
+import 'package:kute/providers/portfolio_performance_provider.dart';
+import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioRowInset, kPortfolioRowGap, kPortfolioRowImage;
@@ -101,8 +131,13 @@ const double kBalancesCentUsd = 0.005;
 const double kBalancesRingDiameter = 40;
 const double kBalancesRingThickness = 5;
 
-/// The Portfolio screen's shares ring.
-const double kBalancesSharesRingDiameter = 72;
+/// The Portfolio screen's shares ring, in its card (see the file header).
+const double kBalancesSharesRingDiameter = 88;
+const double kBalancesSharesRingThickness = 10;
+
+/// The width of a share row's percent column: ">99%" at its size, so a
+/// live amount never nudges the column.
+const double kBalancesPercentWidth = 44;
 
 /// How many of a venue's open rows its card lists before "See all".
 const int kBalancesVenueRowsShown = 3;
@@ -323,15 +358,22 @@ class BalancesOverview extends StatefulWidget {
     this.venues = const {},
     this.firstReadDone = true,
     this.sharesHeader = false,
+    this.sectionSwitch,
   });
 
   /// The Portfolio screen's top (founder, 31 October 2026: "no Available
   /// to invest; Portfolio is just open positions. On top, instead of the
-  /// balance, show the shares with the pie chart on the left"): the ring
-  /// at 72 on the left and the shares as rows ("● Investing  $1,126.50 ·
-  /// 64%") on the right, no total, no Available to invest, no Move money
-  /// and no split; then the venues with their positions as ever.
+  /// balance, show the shares with the pie chart on the left"): the
+  /// shares card (the ring at 88 on the left, the shares as rows on the
+  /// right, the all-time P&L under a hairline), Move money under it,
+  /// then [sectionSwitch], then the venues' open positions under small
+  /// quiet headers (see the file header). No total (the Dollars tab has
+  /// it), no Available to invest, no split.
   final bool sharesHeader;
+
+  /// The Portfolio screen's section switch, drawn under Move money in the
+  /// [sharesHeader] layout (null: nothing there).
+  final Widget? sectionSwitch;
 
   final List<BalancesEntry> entries;
   final String Function(double usd) money;
@@ -514,6 +556,42 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       );
     }
 
+    // The Portfolio screen's venue block: a quiet header ("Investing · 3")
+    // over the same grouped card; nothing of the venue's value or P&L (the
+    // card above has the shares). Only a venue with something open.
+    Widget sharesVenue(BalancesCategory category, BalancesEntry e) {
+      final list = widget.venues[category] ?? BalancesVenueList.empty;
+      final count =
+          e.positionCount > 0 ? e.positionCount : list.rows.length;
+      return Column(
+        key: ValueKey('portfolio-balance-venue-${category.name}'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SharesVenueHeader(
+            key: ValueKey('portfolio-balance-category-${category.name}'),
+            title: label(category),
+            count: count,
+          ),
+          Padding(
+            key: ValueKey('portfolio-balance-${category.name}-positions'),
+            padding: EdgeInsets.only(top: 8.h),
+            child: _VenueCard(
+                rows: _shownRows(category, list),
+                loading: list.loading,
+                fold: _foldRow(category, list)),
+          ),
+        ],
+      );
+    }
+
+    // Something open at the venue (positions counted, or rows listed).
+    bool venueOpen(BalancesCategory category, BalancesEntry? e) {
+      if (e == null) return false;
+      final list = widget.venues[category] ?? BalancesVenueList.empty;
+      return e.positionCount > 0 || list.any;
+    }
+
     final places = balancesBuyingPowerPlaces(entries);
     // A Rebalance note is never folded away.
     final split = _split || places.any((e) => e.footer.isNotEmpty);
@@ -534,49 +612,72 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       children: [
         SizedBox(height: 8.h),
         if (widget.sharesHeader) ...[
-          // The Portfolio screen's shares block (see [sharesHeader]).
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              BalancesRing(
-                categories: categories.keys.toList(),
-                shares: shares,
-                diameter: kBalancesSharesRingDiameter,
-                thickness: 9,
-                semantics: [
-                  '${l10n.total} ${totalFigure.text}',
-                  if (shares.isNotEmpty)
-                    for (final k in categories.keys)
-                      '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
-                ].join(', '),
-              ),
-              SizedBox(width: 18.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final k in const [
-                      BalancesCategory.investing,
-                      BalancesCategory.predictions,
-                      BalancesCategory.buyingPower,
-                    ])
-                      if (categories.containsKey(k))
-                        _ShareRow(
-                          key: ValueKey('portfolio-share-${k.name}'),
-                          color: balancesCategoryColor(c, k),
-                          label: k == BalancesCategory.buyingPower
-                              ? l10n.assetDollars
-                              : label(k),
-                          figure: figure(categories[k]!),
-                          share: shares.isEmpty ? null : shares[k] ?? 0,
+          // The Portfolio screen's shares card (see the file header).
+          DecoratedBox(
+            key: const ValueKey('portfolio-shares-card'),
+            decoration: PremiumGroupContainer.decorationOf(context),
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      BalancesRing(
+                        categories: categories.keys.toList(),
+                        shares: shares,
+                        diameter: kBalancesSharesRingDiameter,
+                        thickness: kBalancesSharesRingThickness,
+                        semantics: [
+                          '${l10n.total} ${totalFigure.text}',
+                          if (shares.isNotEmpty)
+                            for (final k in categories.keys)
+                              '${label(k)} ${balancesPercent(shares[k] ?? 0)}',
+                        ].join(', '),
+                      ),
+                      SizedBox(width: 16.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final k in const [
+                              BalancesCategory.investing,
+                              BalancesCategory.predictions,
+                              BalancesCategory.buyingPower,
+                            ])
+                              if (categories.containsKey(k))
+                                _ShareRow(
+                                  key: ValueKey('portfolio-share-${k.name}'),
+                                  color: balancesCategoryColor(c, k),
+                                  label: k == BalancesCategory.buyingPower
+                                      ? l10n.assetDollars
+                                      : label(k),
+                                  figure: figure(categories[k]!),
+                                  share:
+                                      shares.isEmpty ? null : shares[k] ?? 0,
+                                ),
+                          ],
                         ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  marketGroupDivider(context, 0),
+                  SizedBox(height: 10.h),
+                  _AllTimeLine(
+                    key: const ValueKey('portfolio-all-time'),
+                    trading: investing != null,
+                    predictions: predictions != null,
+                    money: money,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-          // Move money, right-aligned under the shares (founder, 31
+          // Move money, right-aligned under the card (founder, 31
           // October 2026: "where is the button to move money?"): the
           // Dollars tab's own pill, always on, whatever the balance.
           SizedBox(height: 12.h),
@@ -595,6 +696,11 @@ class _BalancesOverviewState extends State<BalancesOverview> {
               },
             ),
           ),
+          // The section switch, under Move money.
+          if (widget.sectionSwitch case final strip?) ...[
+            SizedBox(height: 16.h),
+            strip,
+          ],
         ] else ...[
         // The lead row (founder, 31 October 2026: "the ring belongs to
         // Available to invest"): the small bare ring LEADS the line
@@ -679,10 +785,14 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             child: const _VenueCard(rows: [], loading: true, skeletonRows: 3),
           )
         // Nothing open anywhere: Sal's empty state, not two empty venue
-        // rows (founder, 27 October 2026).
+        // rows (founder, 27 October 2026). The Portfolio screen asks only
+        // for open positions (what open orders hold is on P&L charts).
         else if (anyVenue &&
-            venueEmpty(BalancesCategory.predictions, predictions) &&
-            venueEmpty(BalancesCategory.investing, investing)) ...[
+            (widget.sharesHeader
+                ? !venueOpen(BalancesCategory.predictions, predictions) &&
+                    !venueOpen(BalancesCategory.investing, investing)
+                : venueEmpty(BalancesCategory.predictions, predictions) &&
+                    venueEmpty(BalancesCategory.investing, investing))) ...[
           _emptyShownOnce(),
           Padding(
             key: const ValueKey('portfolio-balance-no-positions'),
@@ -690,6 +800,15 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             child: NoActivityState(
                 title: l10n.portfolioNoOpenPositions, cycles: 3, compact: true),
           ),
+        ] else if (anyVenue && widget.sharesHeader) ...[
+          // The card's order: Investing, then Predictions; 16 between.
+          if (venueOpen(BalancesCategory.investing, investing))
+            sharesVenue(BalancesCategory.investing, investing!),
+          if (venueOpen(BalancesCategory.investing, investing) &&
+              venueOpen(BalancesCategory.predictions, predictions))
+            SizedBox(height: 16.h),
+          if (venueOpen(BalancesCategory.predictions, predictions))
+            sharesVenue(BalancesCategory.predictions, predictions!),
         ] else if (anyVenue) ...[
           if (predictions != null)
             venue(BalancesCategory.predictions, predictions),
@@ -1134,8 +1253,10 @@ class BalancesLead extends StatelessWidget {
   }
 }
 
-/// One share in the Portfolio screen's top block: "● Investing
-/// $1,126.50 · 64%", the amount tabular in the category's colour's row.
+/// One share in the Portfolio screen's card: "● Investing   $1,126.50
+/// 64%", the dot in the ring's colour, the amount tabular, the percent in
+/// its own fixed column in the quiet colour (a dash while unknown), so a
+/// live amount rolls in place and nothing beside it moves.
 class _ShareRow extends StatelessWidget {
   const _ShareRow({
     super.key,
@@ -1156,38 +1277,175 @@ class _ShareRow extends StatelessWidget {
     final amount = TextStyle(
       color: c.textPrimary,
       fontSize: 15.sp,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       height: 1.25,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+    final percent = share == null ? '—' : balancesPercent(share!);
     return Semantics(
       label: '$label, ${figure.text}'
-          '${share == null ? '' : ', ${balancesPercent(share!)}'}',
+          '${share == null ? '' : ', $percent'}',
       excludeSemantics: true,
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 4.h),
+        padding: EdgeInsets.symmetric(vertical: 5.h),
         child: Row(
           children: [
             BalancesDot(color: color),
-            SizedBox(width: kBalancesDotGap.w),
+            SizedBox(width: 10.w),
             Expanded(
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: balancesSectionTitle(context)),
+                  style: amount.copyWith(fontFeatures: const [])),
             ),
             SizedBox(width: 8.w),
             BalancesLiveFigure(figure: figure, style: amount),
-            if (share != null)
-              Text(' · ${balancesPercent(share!)}',
+            // The percent in its own fixed column.
+            SizedBox(
+              width: kBalancesPercentWidth.w,
+              child: Text(percent,
+                  key: ValueKey('${(key as ValueKey<String>).value}-percent'),
+                  maxLines: 1,
+                  textAlign: TextAlign.end,
                   style: amount.copyWith(
-                      color: c.textSecondary, fontWeight: FontWeight.w500)),
+                      color: c.textSecondary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500)),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// The card's stats line: "All time ▲ $120.10", the account's all-time
+/// P&L (realised plus open: each venue's PortfolioPerformance.totalPnlUsd
+/// as the P&L charts read it, the predictions' at the live prices, added;
+/// a venue that never published anything made nothing) in the result
+/// colour, rolling in place; a dash, dimmed and sweeping, until every
+/// venue's history is read (or where one could not be). With balances
+/// hidden the masked amount, no arrow. No "Today": no provider publishes
+/// a day-change figure, and nothing is invented.
+class _AllTimeLine extends ConsumerWidget {
+  const _AllTimeLine({
+    super.key,
+    required this.trading,
+    required this.predictions,
+    required this.money,
+  });
+
+  final bool trading;
+  final bool predictions;
+  final String Function(double usd) money;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    final venues = [
+      if (trading) PortfolioPerformanceVenue.trading,
+      if (predictions) PortfolioPerformanceVenue.predictions,
+    ];
+    double? total = 0;
+    for (final v in venues) {
+      final data = ref
+          .watch(portfolioPerformanceDisplayProvider(
+              PortfolioPerformanceRequest(venue: v)))
+          .valueOrNull;
+      if (data == null) {
+        total = null;
+        break;
+      }
+      final p = v == PortfolioPerformanceVenue.predictions
+          ? data.withLivePredictions(
+              ref.watch(livePriceProvider.select((s) => s.prices)))
+          : data;
+      // Never published anything: nothing made or lost.
+      final usd = p.points.isEmpty ? 0.0 : p.totalPnlUsd;
+      if (usd == null || !usd.isFinite) {
+        total = null;
+        break;
+      }
+      total = total! + usd;
+    }
+    final quiet = balancesQuiet(context);
+    final amount = TextStyle(
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.1,
+      height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final Widget figure;
+    final String text;
+    if (total == null) {
+      text = '—';
+      figure = StaleShimmer(
+          stale: true,
+          child: Text(text,
+              key: const ValueKey('portfolio-all-time-amount'),
+              style: amount.copyWith(color: c.textSecondary)));
+    } else if (!visible) {
+      text = money(total.abs());
+      figure = Text(text,
+          key: const ValueKey('portfolio-all-time-amount'),
+          style: amount.copyWith(color: c.textPrimary));
+    } else {
+      final up = total > kBalancesCentUsd;
+      final down = total < -kBalancesCentUsd;
+      text = '${up ? '▲ ' : down ? '▼ ' : ''}${money(total.abs())}';
+      figure = RollingFigure(
+        key: const ValueKey('portfolio-all-time-amount'),
+        text: text,
+        style: amount.copyWith(
+            color: up
+                ? AppColors.marketUp
+                : down
+                    ? AppColors.marketDown
+                    : c.textPrimary),
+      );
+    }
+    return Semantics(
+      container: true,
+      label: '${l10n.portfolioAllTime}, $text',
+      excludeSemantics: true,
+      child: Row(
+        children: [
+          Text(l10n.portfolioAllTime, style: quiet),
+          SizedBox(width: 8.w),
+          figure,
+        ],
+      ),
+    );
+  }
+}
+
+/// The Portfolio screen's venue header: "Investing · 3", small and quiet,
+/// over the venue's grouped card.
+class _SharesVenueHeader extends StatelessWidget {
+  const _SharesVenueHeader(
+      {super.key, required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        header: true,
+        label: '$title, $count',
+        excludeSemantics: true,
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(start: 4.w),
+          child: Text('$title · $count',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: balancesQuiet(context, fontSize: 12.sp)
+                  .copyWith(fontWeight: FontWeight.w600)),
+        ),
+      );
 }
 
 /// A venue's header: its dot, name and count, its value and P&L at the

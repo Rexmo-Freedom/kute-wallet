@@ -19023,6 +19023,12 @@ abstract class AppLocalizations {
   /// **'{outcome} on {title}'**
   String sharePickOn(String outcome, String title);
 
+  /// Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss ("All time ▲ $120.10").
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get portfolioAllTime;
+
   /// Portfolio screen, Sal sheet: the second line of the Move money action row.
   ///
   /// In en, this message translates to:

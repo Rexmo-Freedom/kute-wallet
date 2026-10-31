@@ -245,6 +245,7 @@ flutter:
     - lib/assets/spark-logo.svg
     - lib/assets/polymarket-logo.svg
     - lib/assets/hyperliquid-logo.svg
+    - lib/assets/polymarket_tags/
     - lib/assets/bitcoin-icon.svg
     - lib/assets/sats-icon.svg
     - lib/assets/eur-icon.svg

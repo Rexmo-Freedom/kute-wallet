@@ -11446,6 +11446,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get portfolioAllTime => 'All time';
+
+  @override
   String get portfolioMoveMoneySub =>
       'Between Dollars, Investing and Predictions';
 

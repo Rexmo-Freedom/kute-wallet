@@ -41,10 +41,14 @@
 //
 // PREDICTIONS TOPIC TILES ARE COMPACT (founder, 31 October 2026: the
 // 96 px tiles sat empty, since a topic's feed loads only once it is
-// opened): a 56 px row, a 28 px tinted circle with the topic's rounded
-// icon at the left (a bolt for Breaking, a ballot for Elections…), the
-// name, and "N markets" in the quiet colour at the right only when that
-// topic's feed is loaded. A topic whose feed is loaded (the picked one,
+// opened): a 56 px row, a 28 px surface-1 square (the Settings rows'
+// icon tile, KuteListRow, a size down) with POLYMARKET'S OWN GLYPH for
+// the topic at the left, 20 px, monochrome in textPrimary (never a
+// Material icon: the SVGs under lib/assets/polymarket_tags, pulled from
+// polymarket.com's icon set, see the folder's README; a topic Polymarket
+// draws no glyph for gets its closest one), the name, and "N markets"
+// in the quiet colour at the right only when that topic's feed is
+// loaded. A topic whose feed is loaded (the picked one,
 // or one browsed earlier and still alive; nothing is read for a tile)
 // shows its event images' stack instead of the icon, so the grid gets
 // richer as the person browses. Trending and the Watchlist stay wide
@@ -97,6 +101,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
@@ -297,28 +302,10 @@ Color _polyTint(AppColorsExtension c, PolyPill p) => switch (p) {
       PolyPill.elections => c.chartCategorical[0],
     };
 
-/// A Predictions topic's rounded icon, for its compact tile while its
-/// feed is not loaded.
-IconData _polyIcon(PolyPill p) => switch (p) {
-      PolyPill.breaking => Icons.bolt_rounded,
-      PolyPill.newest => Icons.auto_awesome_rounded,
-      PolyPill.live => Icons.sensors_rounded,
-      PolyPill.politics => Icons.how_to_vote_rounded,
-      PolyPill.sports => Icons.sports_soccer_rounded,
-      PolyPill.crypto => Icons.currency_bitcoin_rounded,
-      PolyPill.esports => Icons.sports_esports_rounded,
-      PolyPill.finance => Icons.account_balance_rounded,
-      PolyPill.geopolitics => Icons.public_rounded,
-      PolyPill.tech => Icons.memory_rounded,
-      PolyPill.culture => Icons.theater_comedy_rounded,
-      PolyPill.economy => Icons.trending_up_rounded,
-      PolyPill.weather => Icons.cloud_rounded,
-      PolyPill.elections => Icons.ballot_rounded,
-      PolyPill.watchlist ||
-      PolyPill.trending ||
-      PolyPill.mentions =>
-        Icons.category_rounded,
-    };
+/// A Predictions topic's glyph, Polymarket's own (lib/assets/polymarket_tags,
+/// one SVG per pill key; see the folder's README for where each comes
+/// from), for its compact tile while its feed is not loaded.
+String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
 
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.balances => Icons.pie_chart_rounded,
@@ -811,7 +798,7 @@ class _InvestmentsCategorySheetState
       return _Tile.compact(
         key: ValueKey('category-tile-${p.key}'),
         logos: _polyLogos(events),
-        glyph: _polyIcon(p),
+        asset: _polyIconAsset(p),
         tint: _polyTint(c, p),
         name: polyPillLabel(l10n, p),
         count: events.isEmpty ? null : events.length,
@@ -870,7 +857,7 @@ class _InvestmentsCategorySheetState
               return _Tile.compact(
                 key: ValueKey('category-tile-${s.key}'),
                 logos: _polyLogos(events),
-                glyph: _polyIcon(p),
+                asset: _polyIconAsset(p),
                 tint: tint,
                 name: polySubLabel(l10n, s),
                 count: events.isEmpty ? null : events.length,
@@ -1111,6 +1098,7 @@ class _Tile extends StatelessWidget {
     this.stat,
     this.picked = false,
   })  : shape = _TileShape.grid,
+        asset = null,
         count = null;
 
   const _Tile.wide({
@@ -1123,21 +1111,23 @@ class _Tile extends StatelessWidget {
     this.picked = false,
   })  : shape = _TileShape.wide,
         glyph = null,
+        asset = null,
         count = null;
 
-  /// The compact row: [glyph] in a 28 px tinted circle (or the [logos]
-  /// stack when there are any), the name, and "[count] markets" at the
-  /// right when [count] is known.
+  /// The compact row: the topic's own glyph ([asset], an SVG) on a 28 px
+  /// surface-1 square (or the [logos] stack when there are any), the
+  /// name, and "[count] markets" at the right when [count] is known.
   const _Tile.compact({
     super.key,
     required this.tint,
     required this.name,
     required this.onTap,
     this.logos = const [],
-    this.glyph,
+    this.asset,
     this.count,
     this.picked = false,
   })  : shape = _TileShape.compact,
+        glyph = null,
         stat = null;
 
   final Color tint;
@@ -1146,6 +1136,10 @@ class _Tile extends StatelessWidget {
   final int? count;
   final List<Widget> logos;
   final IconData? glyph;
+
+  /// A monochrome SVG for the compact row's square (the Predictions
+  /// topics' Polymarket glyphs).
+  final String? asset;
   final bool picked;
   final _TileShape shape;
   final VoidCallback onTap;
@@ -1171,6 +1165,27 @@ class _Tile extends StatelessWidget {
     final Widget art;
     if (logos.isNotEmpty) {
       art = _LogoStack(logos: logos);
+    } else if (asset case final svg?) {
+      // The topic's own glyph, monochrome, on the app's surface-1 square
+      // (KuteListRow's icon tile, a size down): no tint, no circle.
+      final slug = svg.split('/').last.replaceAll('.svg', '');
+      art = Container(
+        width: _kCompactArt,
+        height: _kCompactArt,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.surfaceLight,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: c.borderSubtle, width: 0.5),
+        ),
+        child: SvgPicture.asset(
+          svg,
+          key: ValueKey('category-tile-icon-$slug'),
+          width: 20,
+          height: 20,
+          colorFilter: ColorFilter.mode(c.textPrimary, BlendMode.srcIn),
+        ),
+      );
     } else {
       final d = compact ? _kCompactArt : _kLogo;
       art = Container(

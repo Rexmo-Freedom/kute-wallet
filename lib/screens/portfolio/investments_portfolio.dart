@@ -43,6 +43,13 @@
 // the doors that still push it (Home's Predictions card, a venue
 // browser's dock standing on its own); nothing on Investments opens it
 // any more.
+//
+// THE PORTFOLIO SCREEN (portfolio_screen.dart, [sharesHeader]): the
+// section pills are the home strip (Portfolio | P&L Charts | Activity in
+// equal thirds, the picked one the white pill with the hairline and the
+// shadow, [_SectionPills]); on the Portfolio section the strip sits under
+// the shares card and Move money (BalancesOverview.sectionSwitch, handed
+// through the breakdown), on the other two at the top of the list.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,7 +65,8 @@ import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
-import 'package:kute/screens/shared/kute_pill_tabs.dart' show KutePill;
+import 'package:kute/screens/shared/kute_pill_tabs.dart'
+    show KutePill, KutePillSize;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/transactions_builder.dart'
     show buildNoTransactionsFound;
@@ -136,9 +144,10 @@ class InvestmentsPortfolio extends ConsumerWidget {
   }
 }
 
-/// Balances | P&L charts | Activity: the Active | Historic pair's small pills
-/// at their natural width; under very large text they share the row
-/// rather than overflow it.
+/// Portfolio | P&L Charts | Activity: the home strip (KutePillTabs' tab
+/// row, the same chrome drawn here so each pill keeps its key): three
+/// pills in equal thirds across the width, the picked one the white pill
+/// with the hairline border and the shadow, the others transparent.
 class _SectionPills extends StatelessWidget {
   const _SectionPills({required this.selected, required this.onPick});
 
@@ -149,25 +158,24 @@ class _SectionPills extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sections = PortfolioSection.values;
-    // Each pill at its full label width (never clipped, even bold when
-    // picked); a row wider than the screen (a long translation, large
-    // text) scrolls sideways instead of cutting a label.
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
+    return SizedBox(
+      height: KutePillSize.regular.height.h,
       child: Row(
         children: [
           for (var i = 0; i < sections.length; i++) ...[
             if (i > 0) SizedBox(width: 6.w),
-            KutePill(
-              key: ValueKey('portfolio-section-pill-${sections[i].key}'),
-              label: switch (sections[i]) {
-                PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
-                PortfolioSection.balances => l10n.portfolioSectionBalances,
-                PortfolioSection.activity => l10n.activity,
-              },
-              selected: sections[i] == selected,
-              onTap: () => onPick(sections[i]),
+            Expanded(
+              child: KutePill(
+                key: ValueKey('portfolio-section-pill-${sections[i].key}'),
+                label: switch (sections[i]) {
+                  PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
+                  PortfolioSection.balances => l10n.portfolioSectionBalances,
+                  PortfolioSection.activity => l10n.activity,
+                },
+                selected: sections[i] == selected,
+                fillWidth: true,
+                onTap: () => onPick(sections[i]),
+              ),
             ),
           ],
         ],
@@ -215,7 +223,9 @@ class _Charts extends ConsumerWidget {
 
 /// Balances: Available to invest with the ring, Move money under it, then
 /// each venue's first positions under it (PortfolioBalanceBreakdown in its
-/// overview layout, the rows from [portfolioVenueLists]).
+/// overview layout, the rows from [portfolioVenueLists]). The Portfolio
+/// screen ([sharesHeader]): the shares card, Move money, the section
+/// strip under them, then the venues (see the file header).
 class _Balances extends ConsumerWidget {
   const _Balances({required this.pills, this.sharesHeader = false});
 
@@ -228,15 +238,16 @@ class _Balances extends ConsumerWidget {
     return CustomScrollView(
       key: const ValueKey('portfolio-balances-list'),
       slivers: [
-        _pillsSliver(pills),
+        if (!sharesHeader) _pillsSliver(pills),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+          padding: EdgeInsets.fromLTRB(16.w, sharesHeader ? 4.h : 12.h, 16.w, 0),
           sliver: SliverToBoxAdapter(
             child: PortfolioBalanceBreakdown(
                 trading: venues.trading,
                 predictions: venues.predictions,
                 overview: true,
                 sharesHeader: sharesHeader,
+                sectionSwitch: sharesHeader ? pills : null,
                 venues: portfolioVenueLists(context, ref, venues)),
           ),
         ),

@@ -404,10 +404,15 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.overview = false,
     this.venues = const {},
     this.sharesHeader = false,
+    this.sectionSwitch,
   });
 
   final bool trading;
   final bool predictions;
+
+  /// The Portfolio screen's section switch, under Move money in the
+  /// [sharesHeader] layout (BalancesOverview.sectionSwitch).
+  final Widget? sectionSwitch;
 
   /// The Portfolio screen's shares block over the venues, instead of
   /// Available to invest and Move money (BalancesOverview.sharesHeader).
@@ -725,6 +730,7 @@ class _PortfolioBalanceBreakdownState
         venues: widget.venues,
         firstReadDone: _firstReadDone,
         sharesHeader: widget.sharesHeader,
+        sectionSwitch: widget.sectionSwitch,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
