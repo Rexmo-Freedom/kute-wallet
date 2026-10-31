@@ -251,6 +251,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         // The pick: this position's side.
         outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
         side: pos.isLong ? 'long' : 'short',
+        actionRowHeight: editing ? 0 : 12.h + 60.h + 8.h + 0.5,
         position: true,
         category: SearchCategory.perpetuals,
         searchHint: context.l10n.searchInvestmentsHint,
@@ -316,9 +317,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     ? HlChartEditBody(chart: _chart(m, fillHeight: true))
                     : SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        // Room for the bar over the foot.
-                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w,
-                            28.h + AppBottomSheetContainer.barRoom.h),
+                        padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

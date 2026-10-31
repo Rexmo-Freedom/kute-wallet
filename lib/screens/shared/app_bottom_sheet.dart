@@ -1,6 +1,4 @@
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -95,14 +93,13 @@ Future<T?> showAppBottomSheet<T>({
 
 /// The container widget for unified bottom sheets.
 /// Matches the Ledger picker design language.
-class AppBottomSheetContainer extends ConsumerWidget {
+///
+/// The floating Sal bar (kute_shell_bar.dart) floats over every sheet;
+/// nothing here reserves room for it (founder, 31 October 2026: the
+/// content may scroll under it).
+class AppBottomSheetContainer extends StatelessWidget {
   final Widget child;
   final double? maxHeight;
-
-  /// Room under the content for the floating Sal bar while it is over
-  /// this sheet (kute_bar_context.dart): on when a bar context is up
-  /// and not hidden; off (no room taken) otherwise.
-  final bool barInset;
 
   /// Lift the content with the keyboard frame for frame instead of easing
   /// after it. The platform already animates the inset, so a sheet whose
@@ -123,17 +120,10 @@ class AppBottomSheetContainer extends ConsumerWidget {
     this.maxHeight,
     this.followKeyboard = false,
     this.color,
-    this.barInset = true,
   });
 
-  /// The bar's height plus its air: what a sheet leaves under its content
-  /// while the bar is over it.
-  static const double barRoom = 76;
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final top = kuteBarTop(ref.watch(kuteBarContextProvider));
-    final barUp = barInset && top != null && !top.hidden;
+  Widget build(BuildContext context) {
     final resolvedMaxHeight = maxHeight != null && maxHeight! <= 1.0
         ? MediaQuery.sizeOf(context).height * maxHeight!
         : maxHeight;
@@ -166,8 +156,7 @@ class AppBottomSheetContainer extends ConsumerWidget {
       bottom: !keyboardOpen,
       child: Padding(
         padding: EdgeInsets.only(
-            bottom: (keyboardOpen && !followKeyboard ? 0 : 16.h) +
-                (barUp && !keyboardOpen ? barRoom.h : 0)),
+            bottom: keyboardOpen && !followKeyboard ? 0 : 16.h),
         child: child,
       ),
     );

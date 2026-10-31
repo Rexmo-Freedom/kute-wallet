@@ -174,6 +174,23 @@ void main() {
     expect(find.text(r'$1.5K · closes Dec 2030'), findsOneWidget);
     expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
     expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
+    // The pills are the market page's big Yes / No buttons in miniature:
+    // solid market fills, white text, no tint.
+    final yes = tester.widget<Text>(find.text('Yes ${polymarketCentsLabel(0.24)}'));
+    final no = tester.widget<Text>(find.text('No ${polymarketCentsLabel(0.76)}'));
+    expect(yes.style?.color, Colors.white);
+    expect(no.style?.color, Colors.white);
+    expect(yes.style?.fontWeight, FontWeight.w600);
+    final yesPill = tester.widget<Container>(find.ancestor(
+        of: find.text('Yes ${polymarketCentsLabel(0.24)}'),
+        matching: find.byType(Container)).first);
+    final noPill = tester.widget<Container>(find.ancestor(
+        of: find.text('No ${polymarketCentsLabel(0.76)}'),
+        matching: find.byType(Container)).first);
+    expect((yesPill.decoration as BoxDecoration).color, AppColors.marketUp);
+    expect((noPill.decoration as BoxDecoration).color, AppColors.marketDown);
+    expect(tester.getSize(find.byWidget(yesPill)).height,
+        moreOrLessEquals(28.h, epsilon: 0.5));
   });
 
   testWidgets('a flat or unknown day shows no move', (tester) async {

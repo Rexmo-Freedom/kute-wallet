@@ -26,7 +26,6 @@
 // (surface investments, tab positions, sub / from_sub), as the Investments
 // page sent it; the screen itself adds no event (experimental branch).
 
-import 'package:kute/screens/shared/app_bottom_sheet.dart' show AppBottomSheetContainer;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -97,18 +96,10 @@ class PortfolioScreen extends ConsumerWidget {
                 label: context.l10n.searchOrAskSalShort,
                 source: 'portfolio',
               ),
-              // The lists clear the bar through the dock clearance they
-              // already read (MediaQuery padding).
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  padding: MediaQuery.paddingOf(context).copyWith(
-                      bottom: MediaQuery.paddingOf(context).bottom +
-                          AppBottomSheetContainer.barRoom.h),
-                ),
-                child: InvestmentsPortfolio(
-                  sharesHeader: true,
-                  onSection: (section) => pickSection(ref, section),
-                ),
+              // The bar floats over the list (nothing reserves room).
+              child: InvestmentsPortfolio(
+                sharesHeader: true,
+                onSection: (section) => pickSection(ref, section),
               ),
             ),
           ),

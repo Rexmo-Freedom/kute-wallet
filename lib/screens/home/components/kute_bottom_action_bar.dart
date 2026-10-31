@@ -520,6 +520,8 @@ class KuteSalPill extends StatelessWidget {
     this.sublabel,
     this.clip = 'search',
     this.aiEnabled = true,
+    this.collapsed = false,
+    this.salCue = 0,
     required this.onTap,
   });
 
@@ -527,15 +529,32 @@ class KuteSalPill extends StatelessWidget {
   final String? sublabel;
   final String clip;
   final bool aiEnabled;
+
+  /// The pill folded to Sal alone, a [collapsedSize] circle (the shell bar
+  /// while a market page scrolls down): the text slides out and the width
+  /// follows it on the chip spring; the tap still opens the same sheet.
+  final bool collapsed;
+
+  /// Bumped to play [clip] from its start once at 1.3x and then loop (the
+  /// bar arriving on a market page); 0 plays it as it is.
+  final int salCue;
   final VoidCallback onTap;
+
+  /// The collapsed circle's side.
+  static const double collapsedSize = 52;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final reduce = kuteReduceMotion(context);
-    final height = sublabel == null ? _kDockPillHeight : _kDockPillTallHeight;
-    final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
+    final height = collapsed
+        ? collapsedSize
+        : (sublabel == null ? _kDockPillHeight : _kDockPillTallHeight);
+    // Reduce Motion: the 150 ms line (an AnimatedSize given no time at all
+    // re-lays itself out mid-layout and throws).
+    final duration =
+        reduce ? KuteMotion.reducedDuration : KuteMotion.chipDuration;
     final text = Column(
       key: ValueKey('$label|$sublabel'),
       mainAxisSize: MainAxisSize.min,
@@ -603,22 +622,32 @@ class KuteSalPill extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
                 onTap: onTap,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
+                child: AnimatedPadding(
+                  duration: duration,
+                  curve: reduce ? Curves.linear : KuteMotion.settle,
+                  // Collapsed: the glyph (38) centred in the circle, the
+                  // border counted in its side.
+                  padding: collapsed
+                      ? EdgeInsets.symmetric(
+                          horizontal: (collapsedSize - 38) / 2 -
+                              (isLight ? 1.0 : 0.5))
+                      : EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       aiEnabled
                           ? _SalPillGlyph(
-                              lensColor: c.textPrimary, clip: clip)
+                              lensColor: c.textPrimary,
+                              clip: clip,
+                              cue: salCue)
                           : Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6.w),
                               child: Icon(Icons.search_rounded,
                                   size: 22, color: c.textPrimary),
                             ),
-                      SizedBox(width: 6.w),
                       // The width follows the text on the spring; the
                       // text itself slides up and out, in from below.
+                      // Collapsed, the text (and its gap) is gone.
                       Flexible(
                         child: AnimatedSize(
                           duration: duration,
@@ -630,10 +659,17 @@ class KuteSalPill extends StatelessWidget {
                                 reduce ? Curves.linear : KuteMotion.chip,
                             switchOutCurve:
                                 reduce ? Curves.linear : KuteMotion.settle,
+                            // Folding: the outgoing text is laid over
+                            // the (empty) current child rather than
+                            // beside it, so the width springs down while
+                            // the text slides out under the shrinking
+                            // edge, not after it has gone.
                             layoutBuilder: (current, previous) => Stack(
                               alignment: Alignment.centerLeft,
+                              clipBehavior: Clip.none,
                               children: [
-                                ...previous,
+                                for (final p in previous)
+                                  collapsed ? Positioned(left: 0, child: p) : p,
                                 if (current != null) current
                               ],
                             ),
@@ -650,7 +686,14 @@ class KuteSalPill extends StatelessWidget {
                                 ),
                               );
                             },
-                            child: text,
+                            child: collapsed
+                                ? const SizedBox.shrink(
+                                    key: ValueKey('sal-pill-collapsed'))
+                                : Padding(
+                                    key: text.key,
+                                    padding: EdgeInsets.only(left: 6.w),
+                                    child: text,
+                                  ),
                           ),
                         ),
                       ),
@@ -668,14 +711,20 @@ class KuteSalPill extends StatelessWidget {
 
 /// Sal in the pill (see [KuteBottomActionBar]): the `search` clip, 1.8x
 /// while results load, `happy` for 600 ms when they land, then `search`
-/// again. The static glyph until the sheets exist.
+/// again. The static glyph until the sheets exist. A [cue] (the bar
+/// arriving on a market page) plays the clip from its start once at 1.3x,
+/// then looping.
 class _SalPillGlyph extends StatefulWidget {
-  const _SalPillGlyph({required this.lensColor, this.clip = 'search'});
+  const _SalPillGlyph(
+      {required this.lensColor, this.clip = 'search', this.cue = 0});
 
   final Color lensColor;
 
   /// The context's clip at rest (`search`, `share`).
   final String clip;
+
+  /// See [KuteSalPill.salCue].
+  final int cue;
 
   @override
   State<_SalPillGlyph> createState() => _SalPillGlyphState();
@@ -684,6 +733,7 @@ class _SalPillGlyph extends StatefulWidget {
 class _SalPillGlyphState extends State<_SalPillGlyph> {
   bool _loading = false;
   bool _happy = false;
+  bool _intro = false;
   Timer? _happyTimer;
 
   @override
@@ -691,6 +741,18 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
     super.initState();
     _loading = kuteSearchLoading.value;
     kuteSearchLoading.addListener(_onLoading);
+    _intro = widget.cue != 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SalPillGlyph old) {
+    super.didUpdateWidget(old);
+    if (old.cue != widget.cue) {
+      _intro = widget.cue != 0;
+    } else if (old.clip != widget.clip) {
+      // Another clip took over mid-intro: it plays as it is.
+      _intro = false;
+    }
   }
 
   void _onLoading() {
@@ -721,14 +783,23 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
     final rig = KuteStillWhenCovered(
         child: KuteDogMagnifier(size: 34, lensColor: widget.lensColor));
     final clip = _loading ? 'search' : (_happy ? 'happy' : widget.clip);
+    final intro = _intro && clip == widget.clip;
     // The clip switch crossfades over 150 ms (at once under Reduce Motion).
+    // A new cue restarts the clip (its key), so the intro begins at
+    // frame 0; once through, the same sprite loops on from its last frame.
     return AnimatedSwitcher(
       duration: kuteMotion(context, const Duration(milliseconds: 150)),
       child: SalSprite(
-        key: ValueKey(clip),
+        key: ValueKey('$clip#${widget.cue}'),
         clip: clip,
         size: 38,
-        speed: _loading ? 1.4 : 1.0,
+        speed: _loading ? 1.4 : (intro ? 1.3 : 1.0),
+        loop: intro ? false : null,
+        onComplete: intro
+            ? () {
+                if (mounted) setState(() => _intro = false);
+              }
+            : null,
         // `share` is still being rendered: `happy` stands in, the rig
         // under that.
         fallback: clip == 'share'

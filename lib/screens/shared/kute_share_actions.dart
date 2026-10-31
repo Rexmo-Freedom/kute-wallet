@@ -188,6 +188,7 @@ KuteBarContext marketBarContext(
   double? outcomeChance,
   String? side,
   String? imageUrl,
+  double actionRowHeight = 0,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -222,6 +223,7 @@ KuteBarContext marketBarContext(
       imageUrl: investing ? null : imageUrl,
       coin: investing ? cleanSlug : null,
     ),
+    actionRowHeight: actionRowHeight,
     actions: [
       KuteMarketBarAction(
         label: position ? l10n.shareThisPosition : l10n.shareTheMarket,

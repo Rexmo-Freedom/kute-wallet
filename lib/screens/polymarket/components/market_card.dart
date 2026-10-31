@@ -1055,8 +1055,10 @@ class _HalfRingPainter extends CustomPainter {
 }
 
 /// A Yes / No price pill under a single market's row: small (72 by 28),
-/// the side's label and price ("Yes 29¢") in the side's market colour on
-/// its lightest tint. Taps [onTap]; with none it is part of the row.
+/// the side's label and price ("Yes 29¢") in white on the side's solid
+/// market colour, the market page's big Yes / No buttons in miniature (no
+/// tint: solid fills or neutral grey only). Taps [onTap]; with none it is
+/// part of the row.
 class _SidePill extends StatelessWidget {
   final String text;
   final Color color;
