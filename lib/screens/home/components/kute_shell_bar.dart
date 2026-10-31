@@ -106,12 +106,14 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
   void initState() {
     super.initState();
     KuteBarRouteObserver.over.addListener(_onRoutes);
+    kuteShellMounted.addListener(_onRoutes);
     kuteBarScroll.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     KuteBarRouteObserver.over.removeListener(_onRoutes);
+    kuteShellMounted.removeListener(_onRoutes);
     kuteBarScroll.removeListener(_onScroll);
     _idle?.cancel();
     _entry.dispose();
@@ -171,19 +173,21 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final reduce = kuteReduceMotion(context);
     final stackTop = kuteBarTop(ref.watch(kuteBarContextProvider));
     final over = KuteBarRouteObserver.over.value > 0;
-    // The stack's top while its route is current; else the default over
-    // whatever is pushed; else nothing (the tabs draw their own pill).
+    // The stack's top while its route is current; else the default: over
+    // whatever is pushed, and on the tab roots themselves (the ONE pill of
+    // the app; founder, 31 October 2026); nothing before the shell exists.
     final KuteBarContext? top = stackTop != null && stackTop.current
         ? stackTop
-        : over
+        : over || kuteShellMounted.value
             ? KuteBarContext(label: context.l10n.searchOrAskSalShort)
             : null;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final show = top != null && !top.hidden && !keyboard;
-    if (show) {
-      _last = top;
-      _lift = top.actionRowHeight;
-    }
+    // The lift follows what is shown: a bar sliding away, or one back on
+    // a page without an action row, sits at the foot again (a kept lift
+    // once left a popped market page's bar hanging over the tabs).
+    _lift = show ? top.actionRowHeight : 0;
+    if (show) _last = top;
     final ctx = _last;
     if (ctx == null) return const SizedBox.shrink();
 

@@ -484,11 +484,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         category: SearchCategory.predictions,
                         searchHint: context.l10n.searchPredictionsHint,
                         source: 'predictions',
-                        prompts: [
-                          context.l10n.salPromptTakeProfit,
-                          context.l10n.salPromptExplainOdds,
-                          context.l10n.salPromptRisk,
-                        ],
                       ),
                       child: const KuteCloseButton(),
                     ),

@@ -22,6 +22,8 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:kute/screens/hyperliquid/components/hl_trade_alerts_host.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteShellMounted;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -280,6 +282,8 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    // The shell-level Sal bar is up while the shell is (kute_bar_context.dart).
+    kuteShellMounted.value = true;
     _lastBranch = widget.navigationShell.currentIndex;
     _page = AnimationController(
       vsync: this,
@@ -387,6 +391,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    kuteShellMounted.value = false;
     _page.dispose();
     super.dispose();
   }

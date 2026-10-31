@@ -5395,7 +5395,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
                 KuteMarketBarAction(
                   label: context.l10n.shareSendToAnyone,
                   sublabel: context.l10n.shareSendToAnyoneSubtitle,
-                  icon: Icons.ios_share_rounded,
+                  salClip: 'share',
                   onTap: (_) => unawaited(showSendToAnyoneSheet(
                     context,
                     kind: ShareLinkKind.bitcoin,

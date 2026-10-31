@@ -26,6 +26,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/slip_form_body.dart' show SlipDensity;
@@ -630,7 +631,14 @@ class AmountKeypad extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      // A keypad is a keyboard-style input: the floating Sal bar hides
+      // while it is on screen (kute_bar_context.dart; founder, 31 October
+      // 2026: the bar sat on the amount sheets' primary button).
+      KuteBarContextScope(
+          barContext: const KuteBarContext.hidden(), child: _build(context));
+
+  Widget _build(BuildContext context) {
     return AbsorbPointer(
       absorbing: !enabled,
       child: Opacity(

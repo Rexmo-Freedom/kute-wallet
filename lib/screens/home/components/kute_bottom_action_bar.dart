@@ -105,49 +105,22 @@ class KuteBottomActionBar extends ConsumerWidget {
     final bottomGap =
         defaultTargetPlatform == TargetPlatform.android ? 12.h : 2.h;
     if (actions.isEmpty && onSearch != null) {
-      // No money verbs down here (they sit under the balance, once): the
-      // dock is one quiet pill, the door to search and to Sal.
-      final reduce = kuteReduceMotion(context);
-      final pill = SafeArea(
+      // No money verbs down here (they sit under the balance, once), and
+      // no pill of the dock's own either: the ONE pill of the app is the
+      // shell-level bar (kute_shell_bar.dart; founder, 31 October 2026:
+      // two bars at once on the Dollars home). The dock keeps the pill's
+      // room, so the lists under it still clear the bar.
+      final room = SafeArea(
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomGap),
-          child: Center(
-            child: ValueListenableBuilder<bool>(
-              valueListenable: kuteSearchSheetOpen,
-              builder: (context, open, child) => AnimatedScale(
-                scale: open && !reduce ? 0.96 : 1.0,
-                duration: reduce
-                    ? Duration.zero
-                    : (open
-                        ? const Duration(milliseconds: 120)
-                        : KuteMotion.pressDuration),
-                curve: open ? Curves.easeOut : KuteMotion.press,
-                child: AnimatedOpacity(
-                  opacity: open ? 0.72 : 1.0,
-                  duration:
-                      reduce ? Duration.zero : const Duration(milliseconds: 120),
-                  curve: Curves.easeOut,
-                  child: child,
-                ),
-              ),
-              child: KuteSalPill(
-                label: searchLabel,
-                aiEnabled: aiEnabled,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  TrackingService.bottomBarTapped(
-                      element: 'dock_search', source: source);
-                  onSearch!();
-                },
-              ),
-            ),
-          ),
+          child: const SizedBox(
+              key: ValueKey('dock-bar-room'), height: _kDockPillHeight),
         ),
       );
       return onHeightChanged == null
-          ? pill
-          : _DockHeightReporter(onChanged: onHeightChanged!, child: pill);
+          ? room
+          : _DockHeightReporter(onChanged: onHeightChanged!, child: room);
     }
     final dock = SafeArea(
       top: false,

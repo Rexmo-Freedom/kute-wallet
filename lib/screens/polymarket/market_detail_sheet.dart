@@ -789,11 +789,6 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               category: SearchCategory.predictions,
               searchHint: context.l10n.searchPredictionsHint,
               source: 'predictions',
-              prompts: [
-                context.l10n.salWhyMoving,
-                context.l10n.salPromptExplainOdds,
-                context.l10n.salPromptRisk,
-              ],
             ),
             child: const KuteCloseButton(),
           ),

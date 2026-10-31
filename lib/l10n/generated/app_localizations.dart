@@ -18945,36 +18945,6 @@ abstract class AppLocalizations {
   /// **'Trending predictions'**
   String get searchHomeTrendingPredictions;
 
-  /// Search sheet, before any text: the small label over Sal's four prompt chips.
-  ///
-  /// In en, this message translates to:
-  /// **'Ask Sal'**
-  String get searchHomeAskSal;
-
-  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'What\'s moving today?'**
-  String get salPromptMovingToday;
-
-  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan a \$50 strategy'**
-  String get salPromptPlanStrategy;
-
-  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'Explain my open positions'**
-  String get salPromptExplainPositions;
-
-  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'What should I watch this week?'**
-  String get salPromptWatchWeek;
-
   /// The floating Sal bar while the category grid sheet is open.
   ///
   /// In en, this message translates to:
@@ -19052,30 +19022,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{outcome} on {title}'**
   String sharePickOn(String outcome, String title);
-
-  /// Sal sheet on a market page: the small label over Sal's prompt chips.
-  ///
-  /// In en, this message translates to:
-  /// **'Ask Sal'**
-  String get searchAskSal;
-
-  /// Sal prompt chip on a position page.
-  ///
-  /// In en, this message translates to:
-  /// **'Should I take profit?'**
-  String get salPromptTakeProfit;
-
-  /// Sal prompt chip on a prediction market or position page.
-  ///
-  /// In en, this message translates to:
-  /// **'Explain the odds'**
-  String get salPromptExplainOdds;
-
-  /// Sal prompt chip on a market or position page.
-  ///
-  /// In en, this message translates to:
-  /// **'What\'s the risk?'**
-  String get salPromptRisk;
 
   /// Portfolio screen, Sal sheet: the second line of the Move money action row.
   ///

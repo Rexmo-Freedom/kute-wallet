@@ -11402,21 +11402,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get searchHomeTrendingPredictions => 'Trending predictions';
 
   @override
-  String get searchHomeAskSal => 'Ask Sal';
-
-  @override
-  String get salPromptMovingToday => 'What\'s moving today?';
-
-  @override
-  String get salPromptPlanStrategy => 'Plan a \$50 strategy';
-
-  @override
-  String get salPromptExplainPositions => 'Explain my open positions';
-
-  @override
-  String get salPromptWatchWeek => 'What should I watch this week?';
-
-  @override
   String get barPickMarketGroup => 'Pick a market group';
 
   @override
@@ -11456,18 +11441,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String sharePickOn(String outcome, String title) {
     return '$outcome on $title';
   }
-
-  @override
-  String get searchAskSal => 'Ask Sal';
-
-  @override
-  String get salPromptTakeProfit => 'Should I take profit?';
-
-  @override
-  String get salPromptExplainOdds => 'Explain the odds';
-
-  @override
-  String get salPromptRisk => 'What\'s the risk?';
 
   @override
   String get portfolioMoveMoneySub =>

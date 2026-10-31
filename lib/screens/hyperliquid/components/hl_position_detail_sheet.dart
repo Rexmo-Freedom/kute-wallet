@@ -256,10 +256,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         category: SearchCategory.perpetuals,
         searchHint: context.l10n.searchInvestmentsHint,
         source: 'trading',
-        prompts: [
-          context.l10n.salPromptTakeProfit,
-          context.l10n.salPromptRisk,
-        ],
       ),
       child: Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,

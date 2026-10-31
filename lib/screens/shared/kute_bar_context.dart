@@ -160,17 +160,44 @@ class KuteBarContext {
 }
 
 class KuteBarContextStack extends Notifier<List<KuteBarContext>> {
+  /// The live stack, for the route observer (which has no ref): the
+  /// contexts bound to a route go the moment the route goes, whatever
+  /// path popped it (back, a swipe, a barrier tap, go() away), and a
+  /// scope's late dispose then finds nothing to remove. A newer context
+  /// is a different object, so nothing of it is ever taken by mistake.
+  static KuteBarContextStack? instance;
+
   @override
-  List<KuteBarContext> build() => const [];
+  List<KuteBarContext> build() {
+    instance = this;
+    ref.onDispose(() {
+      if (instance == this) instance = null;
+    });
+    return const [];
+  }
 
   void push(KuteBarContext ctx) => state = [...state, ctx];
 
   void replace(KuteBarContext old, KuteBarContext next) =>
       state = [for (final c in state) c == old ? next : c];
 
-  void remove(KuteBarContext ctx) =>
-      state = [for (final c in state) if (c != ctx) c];
+  void remove(KuteBarContext ctx) {
+    if (!state.contains(ctx)) return;
+    state = [for (final c in state) if (c != ctx) c];
+  }
+
+  /// Every context bound to [route] (see [instance]).
+  void removeRoute(Route<dynamic> route) {
+    if (!state.any((c) => c.route == route)) return;
+    state = [for (final c in state) if (c.route != route) c];
+  }
 }
+
+/// True while the tab shell (AppShell) is mounted: the bar is the ONE
+/// pill of the app, on the tab roots too (founder, 31 October 2026: one
+/// bar instance; Home and Dollars draw none of their own). Never on
+/// onboarding or the cold-start PIN, whatever is pushed there.
+final ValueNotifier<bool> kuteShellMounted = ValueNotifier<bool>(false);
 
 /// The contexts on screen, bottom to top; the bar reads the last.
 final kuteBarContextProvider =
@@ -318,6 +345,8 @@ class KuteBarRouteObserver extends NavigatorObserver {
   }
 
   static void _drop(Route<dynamic> route) {
+    // Its contexts go with it, counted or not (see KuteBarContextStack).
+    scheduleMicrotask(() => KuteBarContextStack.instance?.removeRoute(route));
     if (!_over.remove(route)) return;
     _publish();
   }

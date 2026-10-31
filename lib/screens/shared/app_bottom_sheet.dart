@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
@@ -96,8 +97,12 @@ Future<T?> showAppBottomSheet<T>({
 ///
 /// The floating Sal bar (kute_shell_bar.dart) floats over every sheet;
 /// nothing here reserves room for it (founder, 31 October 2026: the
-/// content may scroll under it).
-class AppBottomSheetContainer extends StatelessWidget {
+/// content may scroll under it). A SHORT sheet, content-sized under
+/// [kuteBarShortSheetFraction] of the screen (a menu, a picker, a
+/// confirm, the Financial hub), hides the bar while it is up instead: the
+/// bar sat on its last row with nowhere to scroll it. The height is
+/// measured after the first layout and re-read on every size change.
+class AppBottomSheetContainer extends StatefulWidget {
   final Widget child;
   final double? maxHeight;
 
@@ -123,9 +128,34 @@ class AppBottomSheetContainer extends StatelessWidget {
   });
 
   @override
+  State<AppBottomSheetContainer> createState() =>
+      _AppBottomSheetContainerState();
+}
+
+/// Under this share of the screen a sheet is short (see the container).
+const double kuteBarShortSheetFraction = 0.6;
+
+class _AppBottomSheetContainerState extends State<AppBottomSheetContainer> {
+  bool? _short;
+
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final screen = MediaQuery.sizeOf(context).height;
+    final short = box.size.height < screen * kuteBarShortSheetFraction;
+    if (short != _short) setState(() => _short = short);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedMaxHeight = maxHeight != null && maxHeight! <= 1.0
-        ? MediaQuery.sizeOf(context).height * maxHeight!
+    final child = widget.child;
+    final maxHeight = widget.maxHeight;
+    final followKeyboard = widget.followKeyboard;
+    final color = widget.color;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    final resolvedMaxHeight = maxHeight != null && maxHeight <= 1.0
+        ? MediaQuery.sizeOf(context).height * maxHeight
         : maxHeight;
     // Keyboard-aware shift: when an editable inside the sheet gains
     // focus, `MediaQuery.viewInsets.bottom` reports the keyboard
@@ -160,7 +190,7 @@ class AppBottomSheetContainer extends StatelessWidget {
         child: child,
       ),
     );
-    return Container(
+    final sheet = Container(
       constraints: resolvedMaxHeight != null
           ? BoxConstraints(maxHeight: resolvedMaxHeight)
           : null,
@@ -177,6 +207,18 @@ class AppBottomSheetContainer extends StatelessWidget {
               padding: padding,
               child: content,
             ),
+    );
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(
+        child: _short == true
+            ? KuteBarContextScope(
+                barContext: const KuteBarContext.hidden(), child: sheet)
+            : sheet,
+      ),
     );
   }
 }

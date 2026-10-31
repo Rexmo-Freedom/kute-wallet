@@ -398,10 +398,6 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           category: SearchCategory.perpetuals,
                           searchHint: context.l10n.searchInvestmentsHint,
                           source: 'trading',
-                          prompts: [
-                            context.l10n.salWhyMoving,
-                            context.l10n.salPromptRisk,
-                          ],
                         ),
                         child:
                             HlWatchStar(market: m, size: 22, source: 'detail'),

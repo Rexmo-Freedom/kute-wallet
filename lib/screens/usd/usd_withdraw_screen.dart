@@ -130,7 +130,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
           KuteMarketBarAction(
             label: l10n.shareSendToAnyone,
             sublabel: l10n.shareSendToAnyoneSubtitle,
-            icon: Icons.ios_share_rounded,
+            salClip: 'share',
             onTap: (_) => unawaited(showSendToAnyoneSheet(
               context,
               kind: ShareLinkKind.dollars,

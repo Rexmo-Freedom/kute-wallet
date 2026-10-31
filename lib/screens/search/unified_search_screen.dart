@@ -1598,14 +1598,6 @@ class _SearchHome extends ConsumerWidget {
 
     final ctx = barContext;
     final recommended = ctx != null && ctx.hasRecommendations;
-    final prompts = ctx != null && ctx.prompts.isNotEmpty
-        ? ctx.prompts
-        : [
-            l10n.salPromptMovingToday,
-            l10n.salPromptPlanStrategy,
-            l10n.salPromptExplainPositions,
-            l10n.salPromptWatchWeek,
-          ];
 
     var row = 0;
     Widget rise(Widget child) => KuteStaggerIn(index: row++, child: child);
@@ -1628,32 +1620,8 @@ class _SearchHome extends ConsumerWidget {
             SizedBox(height: 16.h),
           ],
           rise(_ContextActionsCard(actions: ctx.actions)),
-          if (aiEnabled) ...[
-            SizedBox(height: 16.h),
-            rise(Padding(
-              padding: EdgeInsets.fromLTRB(4.w, 0, 4.w, 8.h),
-              child: Text(
-                l10n.searchAskSal,
-                style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.1,
-                ),
-              ),
-            )),
-            rise(SizedBox(
-              height: 40.h,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: prompts.length,
-                separatorBuilder: (_, __) => SizedBox(width: 8.w),
-                itemBuilder: (context, i) => _SalPromptChip(
-                    text: prompts[i], onTap: () => onAsk(prompts[i], i)),
-              ),
-            )),
-          ],
+          // No Ask Sal chips (founder, 31 October 2026): the composer is
+          // the way to Sal.
         ],
       );
     }
@@ -1729,21 +1697,8 @@ class _SearchHome extends ConsumerWidget {
           rise(header(l10n.searchHomeTrendingPredictions)),
           for (final e in trending) rise(_TrendingRow(event: e)),
         ],
-        if (aiEnabled) ...[
-          rise(header(l10n.searchHomeAskSal)),
-          rise(Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
-              children: [
-                for (final (i, text) in prompts.indexed)
-                  SalSuggestionButton(
-                      text: text, onPressed: () => onAsk(text, i)),
-              ],
-            ),
-          )),
-        ],
+        // No Ask Sal chips (founder, 31 October 2026): the composer is the
+        // way to Sal.
       ],
     );
   }
@@ -2037,61 +1992,6 @@ class _ContextActionRow extends StatelessWidget {
                 SizedBox(width: 12.w),
                 Icon(Icons.chevron_right_rounded,
                     size: 22.sp, color: c.textTertiary),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One "Ask Sal" pill chip on the context screen: Sal's curious face (20)
-/// and the prompt; tapped, the question goes to Sal.
-class _SalPromptChip extends StatelessWidget {
-  const _SalPromptChip({required this.text, required this.onTap});
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Semantics(
-      button: true,
-      label: text,
-      child: KutePressable(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              color: c.surfaceLight,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-              border: Border.all(color: c.borderSubtle, width: 0.5),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SalSprite(
-                  clip: 'curious',
-                  size: 20.sp,
-                  fallback: KuteDogGlance(size: 20.sp, color: c.textSecondary),
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.1,
-                  ),
-                ),
               ],
             ),
           ),

@@ -199,7 +199,7 @@ KuteBarContext marketBarContext(
   required SearchCategory category,
   required String? searchHint,
   required String source,
-  required List<String> prompts,
+  List<String> prompts = const [],
   double? chance,
   String? price,
   String? outcome,
