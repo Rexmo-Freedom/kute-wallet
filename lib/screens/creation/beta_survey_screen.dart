@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -98,10 +99,14 @@ class _BetaSurveyScreenState extends ConsumerState<BetaSurveyScreen> {
 
                 // Header
                 Center(
-                  child: SvgPicture.asset(
-                    kuteDogAsset(context),
-                    width: 48.sp,
-                    height: 48.sp,
+                  child: SalSprite(
+                    clip: 'idle',
+                    size: 48.sp,
+                    fallback: SvgPicture.asset(
+                      kuteDogAsset(context),
+                      width: 48.sp,
+                      height: 48.sp,
+                    ),
                   ),
                 ),
                 SizedBox(height: 24.h),

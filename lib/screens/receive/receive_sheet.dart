@@ -8,6 +8,7 @@
 // the current screen rather than a second, full-screen receive.
 
 import 'package:flutter/material.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 import 'package:kute/screens/receive/components/confirm_receive.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -82,6 +83,8 @@ class ReceiveSheetPage extends Page<void> {
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
+        // The app's sheet motion (lib/theme/kute_motion.dart).
+        sheetAnimationStyle: KuteMotion.sheetStyle(context),
         builder: (ctx) => GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

@@ -1,3 +1,5 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -482,7 +484,15 @@ Future<void> showDepositSheet(
   Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => DepositSheet(
+      // The bar reads "Move money" over "ask Sal where it should go"
+      // while this is up (kute_bar_context.dart).
+      builder: (sheetContext) => KuteBarContextScope(
+        barContext: KuteBarContext(
+          label: sheetContext.l10n.barMoveMoney,
+          sublabel: sheetContext.l10n.barMoveMoneySub,
+          source: 'move',
+        ),
+        child: DepositSheet(
         initialSourceAsset: initialSourceAsset,
         lockedSide: side,
         fiatDepositWalletId: fiatDepositWalletId,
@@ -491,6 +501,7 @@ Future<void> showDepositSheet(
         initialTargetUsd: initialTargetUsd,
         cashAppSource: cashAppSource,
         onCompleted: onCompleted,
+        ),
       ),
     ),
   );
@@ -5749,7 +5760,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     // review flagged this picker as silently untracked.
     TrackingService.buyCurrencyPickerOpened();
     final c = context.colors;
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       backgroundColor: _untintedColors(context).surface,
       shape: RoundedRectangleBorder(
@@ -8967,7 +8978,7 @@ Future<T?> _showMovePickerSheet<T>(
           BuildContext sheetCtx, RuntimeCapabilitiesService policy)
       rows,
 }) {
-  return showModalBottomSheet<T>(
+  return showKuteModalSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,

@@ -258,6 +258,7 @@ flutter:
     - lib/assets/bank-transfer-logo.svg
     - lib/assets/sounds/send.wav
     - lib/assets/sounds/success.wav
+    - lib/assets/sal/
   fonts:
     # Inter static instances (the same files google_fonts serves the app
     # UI at runtime). Embedded into the exported Activity Report PDF via
@@ -274,12 +275,15 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path_android: "lib/assets/kute_logo_white.png"
-  image_path_ios: "lib/assets/kute_logo_white.png"
+  # 3D Sal (Cycles render of the v5 rig, head and shoulders). The flat pixel
+  # Sal stays in kute_logo*.png for the notification icon.
+  image_path_android: "lib/assets/kute_logo_3d_white.png"
+  image_path_ios: "lib/assets/kute_logo_3d_white.png"
   remove_alpha_ios: true
   background_color_ios: "#FFFFFF"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "lib/assets/kute_logo_white.png"
+  # transparent render with 15% safe padding so the adaptive mask keeps the ears
+  adaptive_icon_foreground: "lib/assets/kute_logo_3d_adaptive.png"
 
 android_notification_icons:
   image_path: "lib/assets/kute_logo.png"
@@ -293,14 +297,17 @@ flutter_native_splash:
   # made iOS dark mode flash a white splash before booting into the black
   # app. Now light=white / dark=black on BOTH platforms + Android 12.
   color_dark_ios: "#000000"
-  image: lib/assets/kute_logo.png
-  image_dark: lib/assets/kute_logo.png
+  # 3D Sal (full body, idle, Cycles render of the v5 rig). Lighting is baked,
+  # so light and dark use the same render; both keys kept on purpose.
+  image: lib/assets/sal/splash.png
+  image_dark: lib/assets/sal/splash_dark.png
   web: false
   android_12:
     color: "#FFFFFF"
     color_dark: "#000000"
-    image: lib/assets/kute_logo.png
-    image_dark: lib/assets/kute_logo.png
+    # 1152 px canvas with Sal inside the centre 768 px circle (Android 12 icon mask)
+    image: lib/assets/sal/splash_android12.png
+    image_dark: lib/assets/sal/splash_android12.png
     # Icon plate color = splash background, so Android 12+ doesn't draw a
     # white circle behind the transparent logo on dark mode (the "white
     # halo" some OEMs showed). Keeps the styles fix above on regeneration.

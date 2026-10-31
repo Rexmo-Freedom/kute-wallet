@@ -1,3 +1,4 @@
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
 import 'package:kute/screens/hyperliquid/components/hl_order_controls.dart';
@@ -374,7 +375,7 @@ class HlOrderSlipSheet extends ConsumerStatefulWidget {
     // (long-standing Flutter gap) — that would let a user swipe the
     // sheet away mid-placement. Dismissal is via tap-outside
     // (isDismissible), which DOES go through PopScope.
-    showModalBottomSheet(
+    showKuteModalSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,

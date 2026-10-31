@@ -119,6 +119,10 @@ Future<void> _bootstrap() async {
   // `silent` ones (e.g. image-load noise) are skipped entirely.
   FlutterError.onError = (FlutterErrorDetails details) {
     if (details.silent) return;
+    // A debug build still prints the error to the console (the default
+    // handler did; this one replaced it and swallowed them, so a build or
+    // layout failure left a blank sheet with nothing in the run log).
+    if (kDebugMode) FlutterError.presentError(details);
     if (!kDebugMode) {
       try {
         TrackingService.recordCrash(

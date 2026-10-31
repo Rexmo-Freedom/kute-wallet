@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -61,8 +62,14 @@ class KuteComposer extends StatelessWidget {
         child: Row(
           children: [
             if (aiEnabled)
-              SvgPicture.asset(kuteDogAsset(context),
-                  width: 24.sp, height: 24.sp)
+              // The 3D Sal searching (the pill's clip); the SVG until the
+              // sheets exist.
+              SalSprite(
+                clip: 'search',
+                size: 24.sp,
+                fallback: SvgPicture.asset(kuteDogAsset(context),
+                    width: 24.sp, height: 24.sp),
+              )
             else
               Icon(Icons.search_rounded, size: 22.sp, color: c.textTertiary),
             SizedBox(width: 10.w),

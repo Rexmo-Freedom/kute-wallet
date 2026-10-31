@@ -29,6 +29,8 @@ import 'package:kute/screens/home/components/search_modal.dart';
 import 'package:kute/screens/settings/components/backup_wallet.dart';
 import 'package:kute/screens/ledger/ledger_investing_setup_screen.dart';
 import 'package:kute/screens/home/shell_venue_tabs.dart';
+import 'package:kute/screens/portfolio/portfolio_screen.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/screens/portfolio/wallet_detail_screen.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
     show PortfolioSection;
@@ -57,6 +59,10 @@ class AppRouter {
   // navigator instead — full-screen, OVER the shell (nav bar hidden), exactly
   // as before the nav shell landed. Only the 4 tab roots (/home, /bank,
   // /hyperliquid, /polymarket) stay inside the shell.
+  /// The root navigator, for a layer drawn outside it (the shell bar).
+
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
+
   static final GlobalKey<NavigatorState> _rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'root');
 
@@ -76,10 +82,14 @@ class AppRouter {
   static final GlobalKey<NavigatorState> _predictionsBranchKey =
       GlobalKey<NavigatorState>(debugLabel: 'predictionsBranch');
 
+  /// A pushed screen's transition (founder, 31 October 2026, after
+  /// Orchestra): in on the settle easing with a subtle 0.97 → 1 scale and
+  /// a fade, back on the sheets' close easing; a plain line under Reduce
+  /// Motion. The numbers live in lib/theme/kute_motion.dart.
   static CustomTransitionPage<void> _buildFadeScalePage({
     required Widget child,
     required GoRouterState state,
-    Duration duration = const Duration(milliseconds: 200),
+    Duration duration = KuteMotion.settleDuration,
   }) {
     return CustomTransitionPage<void>(
       key: state.pageKey,
@@ -94,14 +104,18 @@ class AppRouter {
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         final isPush = animation.status == AnimationStatus.forward;
 
-        final curve = isPush ? Curves.easeOutCubic : Curves.easeInCubic;
+        final reduce = KuteMotion.reduce(context);
+        final curve = reduce
+            ? Curves.linear
+            : (isPush ? KuteMotion.settle : KuteMotion.sheetOut);
 
         final fadeAnimation = CurvedAnimation(
           parent: animation,
           curve: curve,
         );
 
-        final scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+        final scaleAnimation =
+            Tween<double>(begin: reduce ? 1.0 : 0.97, end: 1.0).animate(
           CurvedAnimation(
             parent: animation,
             curve: curve,
@@ -726,6 +740,18 @@ class AppRouter {
           path: '/affiliate',
           pageBuilder: (context, state) => _buildFadeScalePage(
             child: const AffiliateScreen(),
+            state: state,
+          ),
+        ),
+        // The Portfolio, its own screen over the shell (founder, 31 October
+        // 2026): the Dollars action row's third button, and where every
+        // old `/usd?tab=portfolio|positions|orders|activity…` link lands
+        // (portfolio_screen.dart).
+        GoRoute(
+          path: PortfolioScreen.route,
+          name: 'portfolio',
+          pageBuilder: (context, state) => _buildFadeScalePage(
+            child: const PortfolioScreen(),
             state: state,
           ),
         ),

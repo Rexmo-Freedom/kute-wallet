@@ -6,6 +6,7 @@
 // Pass [onTap] to make it interactive — it gets a subtle press-scale + haptic
 // (honouring Reduce Motion). Reduce Motion is read in build(), never initState.
 
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -86,12 +87,13 @@ class _AppCardState extends State<AppCard> {
         HapticFeedback.lightImpact();
         widget.onTap!();
       },
+      // Down quick and plain, back on the press spring (KuteMotion).
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,
         duration: reduceMotion
             ? Duration.zero
-            : const Duration(milliseconds: 110),
-        curve: Curves.easeOut,
+            : (_pressed ? KuteMotion.pressInDuration : KuteMotion.pressDuration),
+        curve: _pressed ? Curves.easeOut : KuteMotion.press,
         child: card,
       ),
     );

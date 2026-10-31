@@ -7,6 +7,7 @@
 // order-wire asset id — resolved here from the order's WIRE coin
 // ('xyz:TSLA', '@107', 'PURR/USDC'), exactly, never by display name.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:flutter/material.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show KuteDockClearance, kuteDockScrollClearance;
@@ -65,7 +66,7 @@ void _showCancellationReceipt(
 
 /// Show the Hyperliquid open-orders bottom sheet.
 Future<void> showHlOpenOrdersSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showKuteModalSheet<void>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,

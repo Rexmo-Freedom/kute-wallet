@@ -22,8 +22,9 @@ enum CashAppDestination {
   /// the onramp lands in dollars rather than buying bitcoin first.
   /// The label is the only user-visible string here, and it names the
   /// balance the way every source and destination row does
-  /// ("Investments"), never the token's own name.
-  dollars(kOrchestraUsdChain, kOrchestraUsdAssetCode, 'Investments'),
+  /// ("Dollars", the top tab's name since 31 October 2026), never the
+  /// token's own name.
+  dollars(kOrchestraUsdChain, kOrchestraUsdAssetCode, 'Dollars'),
   predictions('polygon', 'USDC.e', 'Predictions'),
   investing('hypercore', 'USDC', 'Investing');
 

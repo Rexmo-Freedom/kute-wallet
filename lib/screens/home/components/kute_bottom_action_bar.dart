@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -6,10 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/advisor_provider.dart';
+import 'package:kute/screens/search/unified_search_screen.dart'
+    show kuteSearchLoading, kuteSearchSheetOpen;
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 
 /// One money verb in the dock. Each dock host supplies its own pair, because
 /// only the host knows which two verbs its surface runs (Send / Receive on a
@@ -50,6 +57,22 @@ class KuteDockAction {
 /// search at a glance, and Sal says he answers too.
 /// The one door to search and to Sal, labelled "Search or ask Sal". With AI
 /// off it is the plain magnifier.
+///
+/// THE 3D SAL (founder, 31 October 2026): the pill's glyph is the Blender
+/// Sal's `search` clip ([SalSprite], sal_sprite.dart) at the icon size,
+/// faster (1.8x) while the search sheet is loading results
+/// ([kuteSearchLoading]) and `happy` for a beat when they land, then
+/// searching again. Until the sheets land it is the static Sal glyph
+/// ([KuteDogMagnifier]). The pill is 50 high so the head reads.
+///
+/// THE PILL'S OPENING (founder, 31 October 2026, "a fintech animation"):
+/// tapped, the pill shrinks a hair and fades (1 → 0.96, 120 ms) as the
+/// search sheet rises on the app's spring (showKuteModalSheet), and
+/// springs back when the sheet closes; it follows [kuteSearchSheetOpen],
+/// which the sheet holds while it is up. Under Reduce Motion it stays
+/// put. Its frost is its own: the blur under it is the pill's bounds plus
+/// 8 px at half the old band's sigma, never a band across the screen
+/// (the host paints none for this dock: KuteDockHost.frostBand false).
 class KuteBottomActionBar extends ConsumerWidget {
   final VoidCallback? onSearch;
   final String source;
@@ -84,76 +107,39 @@ class KuteBottomActionBar extends ConsumerWidget {
     if (actions.isEmpty && onSearch != null) {
       // No money verbs down here (they sit under the balance, once): the
       // dock is one quiet pill, the door to search and to Sal.
+      final reduce = kuteReduceMotion(context);
       final pill = SafeArea(
         top: false,
         child: Padding(
           padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, bottomGap),
           child: Center(
-            child: Semantics(
-              button: true,
-              label: searchLabel,
-              child: Container(
-                key: const ValueKey('dock-search-pill'),
-                height: 46,
-                decoration: BoxDecoration(
-                  color: isLight ? Colors.white : c.surface,
-                  borderRadius: BorderRadius.circular(23),
-                  border: Border.all(
-                    color: isLight ? c.border : c.borderSubtle,
-                    width: isLight ? 1.0 : 0.5,
-                  ),
-                  boxShadow: isLight
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 12,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: kuteSearchSheetOpen,
+              builder: (context, open, child) => AnimatedScale(
+                scale: open && !reduce ? 0.96 : 1.0,
+                duration: reduce
+                    ? Duration.zero
+                    : (open
+                        ? const Duration(milliseconds: 120)
+                        : KuteMotion.pressDuration),
+                curve: open ? Curves.easeOut : KuteMotion.press,
+                child: AnimatedOpacity(
+                  opacity: open ? 0.72 : 1.0,
+                  duration:
+                      reduce ? Duration.zero : const Duration(milliseconds: 120),
+                  curve: Curves.easeOut,
+                  child: child,
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(23),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(23),
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      TrackingService.bottomBarTapped(
-                          element: 'dock_search', source: source);
-                      onSearch!();
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          aiEnabled
-                              ? KuteStillWhenCovered(
-                                  child: KuteDogMagnifier(
-                                      size: 34, lensColor: c.textPrimary))
-                              : Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(horizontal: 6.w),
-                                  child: Icon(Icons.search_rounded,
-                                      size: 22, color: c.textPrimary),
-                                ),
-                          SizedBox(width: 6.w),
-                          Text(
-                            searchLabel,
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              ),
+              child: KuteSalPill(
+                label: searchLabel,
+                aiEnabled: aiEnabled,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  TrackingService.bottomBarTapped(
+                      element: 'dock_search', source: source);
+                  onSearch!();
+                },
               ),
             ),
           ),
@@ -296,6 +282,9 @@ class KuteCompactActions extends StatelessWidget {
   final List<KuteDockAction> actions;
   final String source;
 
+  /// The action squares' side.
+  static const double squareSize = 52;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -332,7 +321,7 @@ class _CompactAction extends StatelessWidget {
     final enabled = action.onTap != null;
     final solid = action.solid;
     final foreground = solid ? context.ctaOnColor : c.textPrimary;
-    final size = 52.0;
+    const size = KuteCompactActions.squareSize;
     return Opacity(
       opacity: enabled ? 1 : 0.45,
       child: Semantics(
@@ -340,7 +329,9 @@ class _CompactAction extends StatelessWidget {
         enabled: enabled,
         label: action.label,
         excludeSemantics: true,
-        child: Material(
+        child: KutePressable(
+          enabled: enabled,
+          child: Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -400,6 +391,7 @@ class _CompactAction extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
@@ -433,7 +425,9 @@ class KuteDockActionButton extends StatelessWidget {
         : foreground;
     return Opacity(
       opacity: enabled ? 1 : (solid ? 0.35 : 0.45),
-      child: Container(
+      child: KutePressable(
+        enabled: enabled,
+        child: Container(
         height: 54,
         decoration: BoxDecoration(
           color: solid ? context.ctaFill : (isLight ? Colors.white : c.surface),
@@ -503,9 +497,278 @@ class KuteDockActionButton extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
+}
+
+/// The floating pill's height (a hair more with a second line).
+const double _kDockPillHeight = 50;
+const double _kDockPillTallHeight = 56;
+
+/// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks
+/// on Home and Dollars, the shell bar over everything else): Sal's clip,
+/// a label and an optional second line, in the pill's own frost. The
+/// text and the width change on the chip spring when the context changes
+/// (the old line slides up and fades, the new one springs in from below;
+/// at once under Reduce Motion), and Sal's clip crossfades over 150 ms.
+class KuteSalPill extends StatelessWidget {
+  const KuteSalPill({
+    super.key,
+    required this.label,
+    this.sublabel,
+    this.clip = 'search',
+    this.aiEnabled = true,
+    required this.onTap,
+  });
+
+  final String label;
+  final String? sublabel;
+  final String clip;
+  final bool aiEnabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final reduce = kuteReduceMotion(context);
+    final height = sublabel == null ? _kDockPillHeight : _kDockPillTallHeight;
+    final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
+    final text = Column(
+      key: ValueKey('$label|$sublabel'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
+        if (sublabel != null)
+          Text(
+            sublabel!,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.fade,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.1,
+            ),
+          ),
+      ],
+    );
+    return Semantics(
+      button: true,
+      label: sublabel == null ? label : '$label, $sublabel',
+      excludeSemantics: true,
+      child: _Frosted(
+        child: KutePressable(
+          child: AnimatedContainer(
+            key: const ValueKey('dock-search-pill'),
+            duration: duration,
+            curve: reduce ? Curves.linear : KuteMotion.chip,
+            height: height,
+            decoration: BoxDecoration(
+              color: isLight ? Colors.white : c.surface,
+              borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
+              border: Border.all(
+                color: isLight ? c.border : c.borderSubtle,
+                width: isLight ? 1.0 : 0.5,
+              ),
+              boxShadow: isLight
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_kDockPillTallHeight / 2),
+                onTap: onTap,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(8.w, 0, 18.w, 0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      aiEnabled
+                          ? _SalPillGlyph(
+                              lensColor: c.textPrimary, clip: clip)
+                          : Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6.w),
+                              child: Icon(Icons.search_rounded,
+                                  size: 22, color: c.textPrimary),
+                            ),
+                      SizedBox(width: 6.w),
+                      // The width follows the text on the spring; the
+                      // text itself slides up and out, in from below.
+                      Flexible(
+                        child: AnimatedSize(
+                          duration: duration,
+                          curve: reduce ? Curves.linear : KuteMotion.chip,
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedSwitcher(
+                            duration: duration,
+                            switchInCurve:
+                                reduce ? Curves.linear : KuteMotion.chip,
+                            switchOutCurve:
+                                reduce ? Curves.linear : KuteMotion.settle,
+                            layoutBuilder: (current, previous) => Stack(
+                              alignment: Alignment.centerLeft,
+                              children: [
+                                ...previous,
+                                if (current != null) current
+                              ],
+                            ),
+                            transitionBuilder: (child, animation) {
+                              final incoming = child.key == text.key;
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: Offset(0, incoming ? 0.6 : -0.6),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: text,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sal in the pill (see [KuteBottomActionBar]): the `search` clip, 1.8x
+/// while results load, `happy` for 600 ms when they land, then `search`
+/// again. The static glyph until the sheets exist.
+class _SalPillGlyph extends StatefulWidget {
+  const _SalPillGlyph({required this.lensColor, this.clip = 'search'});
+
+  final Color lensColor;
+
+  /// The context's clip at rest (`search`, `share`).
+  final String clip;
+
+  @override
+  State<_SalPillGlyph> createState() => _SalPillGlyphState();
+}
+
+class _SalPillGlyphState extends State<_SalPillGlyph> {
+  bool _loading = false;
+  bool _happy = false;
+  Timer? _happyTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loading = kuteSearchLoading.value;
+    kuteSearchLoading.addListener(_onLoading);
+  }
+
+  void _onLoading() {
+    final loading = kuteSearchLoading.value;
+    if (loading == _loading) return;
+    final landed = _loading && !loading;
+    setState(() {
+      _loading = loading;
+      if (landed) _happy = true;
+    });
+    if (landed) {
+      _happyTimer?.cancel();
+      _happyTimer = Timer(const Duration(milliseconds: 600), () {
+        if (mounted) setState(() => _happy = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _happyTimer?.cancel();
+    kuteSearchLoading.removeListener(_onLoading);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rig = KuteStillWhenCovered(
+        child: KuteDogMagnifier(size: 34, lensColor: widget.lensColor));
+    final clip = _loading ? 'search' : (_happy ? 'happy' : widget.clip);
+    // The clip switch crossfades over 150 ms (at once under Reduce Motion).
+    return AnimatedSwitcher(
+      duration: kuteMotion(context, const Duration(milliseconds: 150)),
+      child: SalSprite(
+        key: ValueKey(clip),
+        clip: clip,
+        size: 38,
+        speed: _loading ? 1.4 : 1.0,
+        // `share` is still being rendered: `happy` stands in, the rig
+        // under that.
+        fallback: clip == 'share'
+            ? SalSprite(clip: 'happy', size: 38, fallback: rig)
+            : rig,
+      ),
+    );
+  }
+}
+
+/// A floating control's own frost: the blur under its bounds plus 8 px
+/// (half the old band's sigma), never a band across the screen.
+class _Frosted extends StatelessWidget {
+  const _Frosted({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -8,
+            right: -8,
+            top: -8,
+            bottom: -8,
+            child: IgnorePointer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(31),
+                child: const KuteBlur(
+                  sigmaX: 2.0,
+                  sigmaY: 2.0,
+                  child: SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      );
 }
 
 /// Report real layout height so large text and safe areas cannot hide the

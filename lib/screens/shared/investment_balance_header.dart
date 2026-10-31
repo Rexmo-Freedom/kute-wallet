@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/money_steps_view.dart' show moneyStepLine;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:flutter/material.dart';
@@ -45,10 +46,14 @@ class InvestmentDiscoveryNotice extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ExcludeSemantics(
-              child: KuteDogNotHere(
-                width: 220,
-                ink: context.colors.textPrimary,
-                accent: context.colors.accent,
+              child: SalSprite(
+                clip: 'body_sad',
+                size: 220,
+                fallback: KuteDogNotHere(
+                  width: 220,
+                  ink: context.colors.textPrimary,
+                  accent: context.colors.accent,
+                ),
               ),
             ),
             const SizedBox(height: 16),

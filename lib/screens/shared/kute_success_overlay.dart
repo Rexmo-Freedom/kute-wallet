@@ -22,6 +22,8 @@
 // a failure plays the soft failure tap at the same moment instead.
 // Reduce Motion shows everything in its final state at once.
 
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -513,18 +515,32 @@ class _KuteConfirmationState extends State<KuteConfirmation>
             ),
             SizedBox(width: 12.w),
             ExcludeSemantics(
-              child: KuteDogConfirmation(
-                key: const ValueKey('kute-confirmation-sal'),
-                size: 42.sp,
-                awake: _salAwake,
-                mood: switch (tone) {
-                  KuteConfirmationTone.success => KuteDogMood.happy,
-                  KuteConfirmationTone.celebrate => KuteDogMood.cheer,
-                  KuteConfirmationTone.failure => KuteDogMood.sad,
+              // The 3D Sal (founder, 31 October 2026): happy, sad or the
+              // calm blink by tone; the rig until the sheets exist.
+              child: SalSprite(
+                clip: switch (tone) {
+                  KuteConfirmationTone.success ||
+                  KuteConfirmationTone.celebrate =>
+                    'happy',
+                  KuteConfirmationTone.failure => 'sad',
                   KuteConfirmationTone.pending ||
                   KuteConfirmationTone.neutral =>
-                    KuteDogMood.calm,
+                    'blink',
                 },
+                size: 42.sp,
+                fallback: KuteDogConfirmation(
+                  key: const ValueKey('kute-confirmation-sal'),
+                  size: 42.sp,
+                  awake: _salAwake,
+                  mood: switch (tone) {
+                    KuteConfirmationTone.success => KuteDogMood.happy,
+                    KuteConfirmationTone.celebrate => KuteDogMood.cheer,
+                    KuteConfirmationTone.failure => KuteDogMood.sad,
+                    KuteConfirmationTone.pending ||
+                    KuteConfirmationTone.neutral =>
+                      KuteDogMood.calm,
+                  },
+                ),
               ),
             ),
           ],
@@ -916,14 +932,19 @@ class KuteSuccessOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KuteConfirmation(
-      message: _sentenceCase(headlineLabel),
-      amount: amount.isEmpty ? null : amount,
-      contextLine: subtitle,
-      rows: rows,
-      detail: detail,
-      buttonText: ctaText,
-      onDone: onDone ?? () => Navigator.of(context).pop(),
+    // The bar reads "Ask Sal what happens next" over a receipt.
+    return KuteBarContextScope(
+      barContext: KuteBarContext(
+          label: context.l10n.barAskWhatNext, source: 'receipt'),
+      child: KuteConfirmation(
+        message: _sentenceCase(headlineLabel),
+        amount: amount.isEmpty ? null : amount,
+        contextLine: subtitle,
+        rows: rows,
+        detail: detail,
+        buttonText: ctaText,
+        onDone: onDone ?? () => Navigator.of(context).pop(),
+      ),
     );
   }
 }

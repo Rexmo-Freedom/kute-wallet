@@ -9,6 +9,7 @@
 // wagging, blinking, flicking an ear and glancing around on a ten second
 // cycle, sharp at any size and quiet when Reduce Motion is on.
 
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -121,10 +122,17 @@ class _NoActivityStateState extends State<NoActivityState>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          KuteDogIdle(
+          // The 3D Sal (founder, 31 October 2026): he sits down, then
+          // sits; the rig idles in his place until the sheets exist.
+          SalSprite.sequence(
+            first: 'body_sit_down',
+            then: 'body_sit',
             size: compact ? 72.sp : 112.sp,
-            shadowColor: c.textPrimary.withValues(alpha: 0.10),
-            cycles: widget.cycles,
+            fallback: KuteDogIdle(
+              size: compact ? 72.sp : 112.sp,
+              shadowColor: c.textPrimary.withValues(alpha: 0.10),
+              cycles: widget.cycles,
+            ),
           ),
           SizedBox(height: compact ? 12.h : 18.h),
           Text(

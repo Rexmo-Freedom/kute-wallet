@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/kute_dog_rig.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:math' as math;
 import 'package:kute/services/evm_derivation_policy.dart';
 import 'dart:async';
@@ -329,7 +330,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         ),
     ];
     var picked = false;
-    showModalBottomSheet<void>(
+    showKuteModalSheet<void>(
       context: context,
       backgroundColor: c.surface,
       // Scrollable: users with many wallets previously had entries pushed
@@ -836,7 +837,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
     };
     RestoreFlowAnalytics.step('legacy_pick', method: 'passkey');
     var picked = false;
-    showModalBottomSheet<void>(
+    showKuteModalSheet<void>(
       context: context,
       backgroundColor: c.surface,
       // Scrollable, matching _showLabelPicker: long candidate lists must
@@ -1113,10 +1114,16 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                             Expanded(
                               child: Center(
                                 child: ExcludeSemantics(
-                                  child: KuteDogAtWork(
-                                    width: 250.w,
-                                    ink: c.textPrimary,
-                                    accent: c.accent,
+                                  // The 3D Sal searching; the rig's
+                                  // trail scene until the sheets exist.
+                                  child: SalSprite(
+                                    clip: 'body_search',
+                                    size: 220.w,
+                                    fallback: KuteDogAtWork(
+                                      width: 250.w,
+                                      ink: c.textPrimary,
+                                      accent: c.accent,
+                                    ),
                                   ),
                                 ),
                               ),

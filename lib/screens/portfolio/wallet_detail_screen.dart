@@ -1,6 +1,7 @@
 // Detail and funding flows stay pinned to this wallet without changing the
 // spending account. The previous display scope is restored when leaving.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -379,7 +380,7 @@ class WalletMenuButton extends ConsumerWidget {
     // Both doors (the ⋯ button and showWalletActionsSheet) land here.
     TrackingService.track('wallet_detail_menu_opened',
         params: {'wallet_kind': _walletKind});
-    showModalBottomSheet<void>(
+    showKuteModalSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,

@@ -1,5 +1,6 @@
 import 'package:kute/services/hyperliquid/hypercore_cash.dart'
     show hypercoreMaxOrderUsd;
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/hyperliquid/components/builder_fee_consent.dart';
 // lib/screens/shared/portfolio_builder/portfolio_builder_screen.dart
 //
@@ -1273,8 +1274,12 @@ class _PortfolioBuilderScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ExcludeSemantics(
-                    child: KuteDogNotHere(
-                        width: 220, ink: c.textPrimary, accent: c.accent),
+                    child: SalSprite(
+                      clip: 'body_sad',
+                      size: 220,
+                      fallback: KuteDogNotHere(
+                          width: 220, ink: c.textPrimary, accent: c.accent),
+                    ),
                   ),
                   SizedBox(height: 16.h),
                   Text(

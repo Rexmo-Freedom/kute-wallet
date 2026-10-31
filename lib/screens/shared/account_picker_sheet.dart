@@ -18,6 +18,7 @@
 // `home_wallet_switcher.dart`'s `WalletSwitcherSheet` so the user
 // never has to relearn the layout.
 
+import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,7 +50,7 @@ class AccountPickerSheet extends ConsumerWidget {
     bool Function(Account)? filter,
     String? selectedAccountId,
   }) {
-    return showModalBottomSheet<Account>(
+    return showKuteModalSheet<Account>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,

@@ -103,9 +103,16 @@ final portfolioSectionProvider =
 /// tap; the Investments screen reports it and writes the section.
 class InvestmentsPortfolio extends ConsumerWidget {
   const InvestmentsPortfolio(
-      {super.key, required this.onSection, this.sectionPills = true});
+      {super.key,
+      required this.onSection,
+      this.sectionPills = true,
+      this.sharesHeader = false});
 
   final ValueChanged<PortfolioSection> onSection;
+
+  /// The Portfolio screen: the shares block (ring and shares) over the
+  /// positions instead of Available to invest and Move money.
+  final bool sharesHeader;
 
   /// False inside Investments, where the page's Portfolio pill carries
   /// the section and opens the pick (investments_category_sheet.dart).
@@ -120,7 +127,8 @@ class InvestmentsPortfolio extends ConsumerWidget {
     return KeyedSubtree(
       key: ValueKey('portfolio-section-${section.key}'),
       child: switch (section) {
-        PortfolioSection.balances => _Balances(pills: pills),
+        PortfolioSection.balances =>
+          _Balances(pills: pills, sharesHeader: sharesHeader),
         PortfolioSection.charts => _Charts(pills: pills),
         PortfolioSection.activity => _Activity(pills: pills),
       },
@@ -209,9 +217,10 @@ class _Charts extends ConsumerWidget {
 /// each venue's first positions under it (PortfolioBalanceBreakdown in its
 /// overview layout, the rows from [portfolioVenueLists]).
 class _Balances extends ConsumerWidget {
-  const _Balances({required this.pills});
+  const _Balances({required this.pills, this.sharesHeader = false});
 
   final Widget pills;
+  final bool sharesHeader;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -227,6 +236,7 @@ class _Balances extends ConsumerWidget {
                 trading: venues.trading,
                 predictions: venues.predictions,
                 overview: true,
+                sharesHeader: sharesHeader,
                 venues: portfolioVenueLists(context, ref, venues)),
           ),
         ),

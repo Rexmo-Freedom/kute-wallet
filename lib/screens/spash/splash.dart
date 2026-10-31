@@ -6,6 +6,7 @@ import 'package:kute/services/secure/storage_bootstrap.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/recovery/restore_secrets_screen.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/services/tracking/latency_tracker.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/models/settings_model.dart' show WalletConfig;
@@ -28,8 +29,35 @@ class Splash extends ConsumerStatefulWidget {
   ConsumerState<Splash> createState() => _SplashState();
 }
 
+/// The 3D Sal's side on the splash, in logical pixels: the body framing
+/// at the size and place the NATIVE splash still (`lib/assets/sal/
+/// splash.png`, centred) draws him, so the first Flutter frame continues
+/// the still with no cut. Tune this with that image.
+const double kSplashSalSize = 200;
+
 class _SplashState extends ConsumerState<Splash>
     with TickerProviderStateMixin {
+  /// The 3D Sal (founder, 31 October 2026): `body_idle` from its first
+  /// frame (the pose the native still was rendered from), then the idle
+  /// loop, and `body_wag` for the last beat before the app routes on. The
+  /// wordmark and text fade in under him. True once the clip is known to
+  /// exist; until then (and without the sheets) the splash is the drawing
+  /// it was: the wordmark, the escaping dot and the chasing dog.
+  bool _sal3d = false;
+  bool _salChecked = false;
+  bool _wag = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_salChecked) return;
+    _salChecked = true;
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+    unawaited(SalSpriteCache.clip('body_idle', dpr >= 2.5 ? 3 : 2).then((c) {
+      if (mounted && c != null) setState(() => _sal3d = true);
+    }));
+  }
+
   // Phase 1: Logo + text entrance
   late final AnimationController _entranceController;
   // Phase 2: Dot escapes — jumps up and bounces around
@@ -217,6 +245,8 @@ class _SplashState extends ConsumerState<Splash>
     // a finished animation for ~2s). 500ms keeps one beat of the brand
     // entrance so fast devices don't flash-cut mid-animation, while
     // giving back ~1.7s of cold-start time.
+    // The last beat: Sal wags before the app routes on.
+    if (_sal3d) setState(() => _wag = true);
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
@@ -380,8 +410,20 @@ class _SplashState extends ConsumerState<Splash>
           // app; calmer is better here. Theme background is enough.
           Container(color: bgColor),
 
-          // Main content
-          Center(
+          // The 3D Sal at the native still's place and size, from its
+          // first frame: no slide, no fade of Sal himself.
+          if (_sal3d)
+            Center(
+              child: SalSprite(
+                clip: _wag ? 'body_wag' : 'body_idle',
+                size: kSplashSalSize,
+                fallback: const SizedBox.shrink(),
+              ),
+            ),
+
+          // Main content (under Sal when he is the 3D one).
+          Align(
+            alignment: _sal3d ? const Alignment(0, 0.62) : Alignment.center,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -452,7 +494,7 @@ class _SplashState extends ConsumerState<Splash>
                           _chaseController,
                         ]),
                         builder: (_, __) {
-                          if (_chaseController.value == 0) {
+                          if (_chaseController.value == 0 || _sal3d) {
                             return const SizedBox.shrink();
                           }
                           return Transform.translate(

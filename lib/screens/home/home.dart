@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/polymarket/components/polymarket_error_copy.dart';
 import 'package:kute/screens/shared/bitcoin_wallet_actions.dart';
@@ -109,7 +110,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
     super.initState();
     _headerAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      // The chrome's hide and reveal, on the app's settle timing.
+      duration: KuteMotion.settleDuration,
       value: 1.0,
     );
     _entranceController = AnimationController(
@@ -481,6 +483,8 @@ class _HomeState extends ConsumerState<Home> with TickerProviderStateMixin {
               child: const SavingsModeAppTopTint(),
             ),
             KuteDockHost(
+              // The dock is the one search pill; it frosts itself.
+              frostBand: false,
               dockBuilder: (onHeightChanged) =>
                   HomeDock(onHeightChanged: onHeightChanged),
               body: SafeArea(
@@ -962,10 +966,9 @@ class _WalletDeckWrapper extends ConsumerWidget {
     // (sub-Orchestra-minimum residual from claims) lives on the
     // Portfolio Split tab, never on the home card.
     return AnimatedSwitcher(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 280),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      duration: reduceMotion ? Duration.zero : KuteMotion.settleDuration,
+      switchInCurve: KuteMotion.settle,
+      switchOutCurve: KuteMotion.sheetOut,
       transitionBuilder: _deckTransition,
       child: KeyedSubtree(
         key: ValueKey('front-${activeWallet?.id ?? 'none'}'),
@@ -991,8 +994,8 @@ class _WalletDeckWrapper extends ConsumerWidget {
   static Widget _deckTransition(Widget child, Animation<double> anim) {
     final eased = CurvedAnimation(
       parent: anim,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: KuteMotion.settle,
+      reverseCurve: KuteMotion.sheetOut,
     );
     return AnimatedBuilder(
       animation: eased,

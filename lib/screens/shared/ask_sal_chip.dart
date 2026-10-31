@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -65,7 +66,12 @@ class AskSalChip extends ConsumerWidget {
                 onLocalAction: onLocalAction,
               )),
       // The circle's own icon colour, like the close X beside it.
-      child: KuteDogGlance(size: 24.sp, color: context.colors.textSecondary),
+      child: SalSprite(
+        clip: 'search',
+        size: 24.sp,
+        fallback:
+            KuteDogGlance(size: 24.sp, color: context.colors.textSecondary),
+      ),
     );
   }
 }
@@ -165,10 +171,14 @@ class _SalWhyMovingRowState extends ConsumerState<SalWhyMovingRow> {
             ),
             child: Row(
               children: [
-                KuteDogGlance(
-                  key: const ValueKey('sal-why-moving-glyph'),
+                SalSprite(
+                  clip: 'curious',
                   size: 20.sp,
-                  color: title.color,
+                  fallback: KuteDogGlance(
+                    key: const ValueKey('sal-why-moving-glyph'),
+                    size: 20.sp,
+                    color: title.color,
+                  ),
                 ),
                 SizedBox(width: 10.w),
                 Expanded(

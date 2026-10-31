@@ -23,6 +23,7 @@
 // with the app in the background. Nothing scanned ever reaches analytics.
 
 import 'dart:async';
+import 'package:kute/theme/kute_motion.dart';
 
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/controllers/import_wallet_controller.dart';
@@ -128,6 +129,8 @@ class ScannerSheetPage<T> extends Page<T> {
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         barrierLabel: MaterialLocalizations.of(context).scrimLabel,
+        // The app's sheet motion (lib/theme/kute_motion.dart).
+        sheetAnimationStyle: KuteMotion.sheetStyle(context),
         builder: (_) => ScannerSheet(mode: mode),
       );
 }

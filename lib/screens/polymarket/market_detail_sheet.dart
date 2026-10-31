@@ -1,4 +1,8 @@
 import 'package:kute/screens/shared/fitted_title.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -779,7 +783,25 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
         children: [
-          const KuteCloseButton(),
+          // The bar reads "Share with your friends" while this page is up.
+          KuteBarContextScope(
+            barContext: marketBarContext(
+              context,
+              title: event.title,
+              path: '/predictions/${event.slug}',
+              code: ref.read(settingsProvider).affiliateCode,
+              position: false,
+              category: SearchCategory.predictions,
+              searchHint: context.l10n.searchPredictionsHint,
+              source: 'predictions',
+              prompts: [
+                context.l10n.salWhyMoving,
+                context.l10n.salPromptExplainOdds,
+                context.l10n.salPromptRisk,
+              ],
+            ),
+            child: const KuteCloseButton(),
+          ),
           SizedBox(width: 8.w),
           // The SAME resolver the cards use (team crest for a gaming /
           // esports "vs" market the sports detector didn't catch, the

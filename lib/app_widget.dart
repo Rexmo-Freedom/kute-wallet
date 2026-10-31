@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/providers/active_shell_tab_provider.dart'
     show ActiveNavTab, activeShellTabProvider;
 import 'package:kute/providers/auth_provider.dart';
@@ -553,6 +554,9 @@ class _AppWidgetState extends ConsumerState<AppWidget>
                           // Picture-in-picture livestream — persists across
                           // routes so the user can watch while betting.
                           const FloatingStreamPlayer(),
+                          // The context-aware Sal bar over every pushed
+                          // page and sheet (kute_shell_bar.dart).
+                          const KuteShellBar(),
                           // In-place app lock: covers the live navigation
                           // stack when the background gap exceeded the
                           // auto-lock grace; unlocking dismisses it in

@@ -1,4 +1,5 @@
 import 'package:kute/screens/shared/orchestra_swap_refund_action.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/multi_source_move_activity.dart';
 import 'package:kute/screens/shared/cctp_refund_outcome.dart'
     show CctpRefundOutcome;
@@ -5919,10 +5920,14 @@ Widget buildNoTransactionsFound([BuildContext? context]) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset(
-            context != null ? kuteDogAsset(context) : kuteDogLightAsset,
-            width: 48.sp,
-            height: 48.sp,
+          SalSprite(
+            clip: 'idle',
+            size: 48.sp,
+            fallback: SvgPicture.asset(
+              context != null ? kuteDogAsset(context) : kuteDogLightAsset,
+              width: 48.sp,
+              height: 48.sp,
+            ),
           ),
           SizedBox(height: 12.h),
           Text(

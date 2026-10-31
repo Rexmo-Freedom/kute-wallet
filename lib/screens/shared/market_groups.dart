@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
+import 'package:kute/screens/shared/kute_motion.dart' show KuteStaggerIn;
 import 'package:kute/theme/app_theme.dart';
 
 /// A run of markets drawn as one grouped card, or one market as its own
@@ -102,8 +103,13 @@ List<Widget> marketGroupSlivers<T>(
           itemCount: rows.length,
           separatorBuilder: (context, _) =>
               marketGroupDivider(context, dividerIndent),
-          itemBuilder: (_, i) => _clipped(build(rows[i], true),
-              first: i == 0, last: i == rows.length - 1),
+          // The first card's first rows arrive staggered on first paint.
+          itemBuilder: (_, i) => _clipped(
+              s == 0
+                  ? KuteStaggerIn(index: i, child: build(rows[i], true))
+                  : build(rows[i], true),
+              first: i == 0,
+              last: i == rows.length - 1),
         ),
       );
     } else {

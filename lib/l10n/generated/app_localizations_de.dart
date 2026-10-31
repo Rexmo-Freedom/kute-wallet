@@ -11358,4 +11358,129 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get purchaseShort => 'Kaufen';
+
+  @override
+  String get categoryGroupDiscover => 'Discover';
+
+  @override
+  String get categoryGroupMarkets => 'Markets';
+
+  @override
+  String get categoryGroupTopics => 'Topics';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count markets',
+      one: '1 market',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Most active';
+
+  @override
+  String get categoryStatToday => 'today';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount vol today';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'All $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Moving now';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Trending predictions';
+
+  @override
+  String get searchHomeAskSal => 'Ask Sal';
+
+  @override
+  String get salPromptMovingToday => 'What\'s moving today?';
+
+  @override
+  String get salPromptPlanStrategy => 'Plan a \$50 strategy';
+
+  @override
+  String get salPromptExplainPositions => 'Explain my open positions';
+
+  @override
+  String get salPromptWatchWeek => 'What should I watch this week?';
+
+  @override
+  String get barPickMarketGroup => 'Pick a market group';
+
+  @override
+  String get barPickMarketGroupSub => 'or ask Sal to find one';
+
+  @override
+  String get barShareWithFriends => 'Share with your friends';
+
+  @override
+  String get barShareMarketSub => 'Send this market or dollars to bet on it';
+
+  @override
+  String get barSharePositionSub => 'Send the market or your position';
+
+  @override
+  String get searchRecommended => 'Recommended';
+
+  @override
+  String get shareTheMarket => 'Share the market';
+
+  @override
+  String get shareTheMarketSub => 'A link they can open, with your code';
+
+  @override
+  String get shareThisPosition => 'Share this position';
+
+  @override
+  String get shareThisPositionSub => 'The market and how you\'re doing';
+
+  @override
+  String get sendDollarsForMarket => 'Send dollars for this market';
+
+  @override
+  String get sendDollarsForMarketSub => 'They get dollars pointed at this bet';
+
+  @override
+  String shareMarketText(String title, String link) {
+    return '$title on Kute: $link';
+  }
+
+  @override
+  String get salPromptTakeProfit => 'Should I take profit?';
+
+  @override
+  String get salPromptExplainOdds => 'Explain the odds';
+
+  @override
+  String get salPromptRisk => 'What\'s the risk?';
+
+  @override
+  String get barMoveMoney => 'Move money';
+
+  @override
+  String get barMoveMoneySub => 'ask Sal where it should go';
+
+  @override
+  String get barAskWhatNext => 'Ask Sal what happens next';
+
+  @override
+  String get barAskAboutKute => 'Ask Sal about Kute';
+
+  @override
+  String get searchHomeRecent => 'Recent';
+
+  @override
+  String get searchHomeClear => 'Clear';
 }

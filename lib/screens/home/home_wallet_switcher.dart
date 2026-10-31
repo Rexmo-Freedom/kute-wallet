@@ -1,4 +1,5 @@
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/providers/wallet_backup_provider.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -123,8 +124,18 @@ class _SecurityActionCardState extends ConsumerState<SecurityActionCard> {
                 shape: BoxShape.circle,
                 border: Border.all(color: c.borderSubtle, width: 0.5),
               ),
-              child: Icon(Icons.shield_outlined,
-                  color: c.textSecondary, size: 18.sp),
+              // Sal in the circle (founder, 31 October 2026): a blink as
+              // the card appears, then his curious face; the shield until
+              // the sheets exist.
+              child: ClipOval(
+                child: SalSprite.sequence(
+                  first: 'blink',
+                  then: 'curious',
+                  size: 36.sp,
+                  fallback: Icon(Icons.shield_outlined,
+                      color: c.textSecondary, size: 18.sp),
+                ),
+              ),
             ),
             SizedBox(width: 12.w),
             Expanded(

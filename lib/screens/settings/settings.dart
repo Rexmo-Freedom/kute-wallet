@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'dart:io';
 
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
@@ -194,7 +195,12 @@ class _SettingsState extends ConsumerState<Settings> {
         backgroundColor: Colors.transparent,
         centerTitle: true,
         elevation: 0,
-        leading: const KuteBackButton(),
+        // The bar reads "Ask Sal about Kute" over Settings.
+        leading: KuteBarContextScope(
+          barContext: KuteBarContext(
+              label: context.l10n.barAskAboutKute, source: 'settings'),
+          child: const KuteBackButton(),
+        ),
         title: Text(
           context.l10n.settings,
           style: TextStyle(

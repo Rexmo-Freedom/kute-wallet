@@ -1,4 +1,7 @@
 import 'package:kute/screens/shared/fitted_title.dart';
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -378,8 +381,30 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         ),
                       ),
                       // The watchlist star. Sal's one door on this screen
-                      // is the "Why is it moving?" row under the chart.
-                      HlWatchStar(market: m, size: 22, source: 'detail'),
+                      // is the "Why is it moving?" row under the chart;
+                      // the bar reads "Share with your friends".
+                      // The watchlist star (the bar reads "Share with your
+                      // friends" while this page is up; its context is
+                      // held here). Sal's one door on this screen is the
+                      // "Why is it moving?" row under the chart.
+                      KuteBarContextScope(
+                        barContext: marketBarContext(
+                          context,
+                          title: widget.market.coin,
+                          path: '/investing/${widget.market.coin}',
+                          code: ref.read(settingsProvider).affiliateCode,
+                          position: false,
+                          category: SearchCategory.perpetuals,
+                          searchHint: context.l10n.searchInvestmentsHint,
+                          source: 'trading',
+                          prompts: [
+                            context.l10n.salWhyMoving,
+                            context.l10n.salPromptRisk,
+                          ],
+                        ),
+                        child:
+                            HlWatchStar(market: m, size: 22, source: 'detail'),
+                      ),
                     ],
                   ),
                 ),
@@ -496,7 +521,9 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                         20.w,
                         10.h,
                         20.w,
-                        24.h +
+                        // Room for the bar over the foot.
+                        AppBottomSheetContainer.barRoom.h +
+                            24.h +
                             (_advancedChart
                                 ? MediaQuery.viewPaddingOf(context).bottom
                                 : 0)),

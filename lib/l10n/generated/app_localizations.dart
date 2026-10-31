@@ -6594,7 +6594,7 @@ abstract class AppLocalizations {
   /// No description provided for @usdAccountTab.
   ///
   /// In en, this message translates to:
-  /// **'Investments'**
+  /// **'Dollars'**
   String get usdAccountTab;
 
   /// No description provided for @activityFromAmount.
@@ -10663,7 +10663,7 @@ abstract class AppLocalizations {
   /// The ONE label for the door that funds the dollar balance (the Investments balance): the button on the Investments screen, the Move sheet title, and the payment method's second line. Shown beside the Investments arrow, the Home deposit button's icon.
   ///
   /// In en, this message translates to:
-  /// **'Investments deposit'**
+  /// **'Dollars deposit'**
   String get dollarDeposit;
 
   /// The other side of dollarDeposit: money leaving the dollar balance. Same mark.
@@ -11551,13 +11551,13 @@ abstract class AppLocalizations {
   /// Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin.
   ///
   /// In en, this message translates to:
-  /// **'Investments'**
+  /// **'Dollars'**
   String get assetDollars;
 
   /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
   /// In en, this message translates to:
-  /// **'Pay with your Investments balance'**
+  /// **'Pay with your Dollars balance'**
   String get moveSourceDollarsSubtitle;
 
   /// Placeholder for the recipient field when the send destination is a dollar balance.
@@ -11972,7 +11972,7 @@ abstract class AppLocalizations {
   /// Second line on the Investments row of the withdrawal destination picker.
   ///
   /// In en, this message translates to:
-  /// **'Into your Investments balance'**
+  /// **'Into your Dollars balance'**
   String get moveDestDollarsSubtitle;
 
   /// Note on the confirmation overlay after a transfer that has to convert. Deliberately states no arrival time, because the app is not told one.
@@ -13923,13 +13923,13 @@ abstract class AppLocalizations {
   /// No description provided for @betAutofireFundsTimeout.
   ///
   /// In en, this message translates to:
-  /// **'The prediction couldn\'t be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.'**
+  /// **'The prediction couldn\'t be placed automatically. Your money stays available in Dollars, and placing it again uses it first. It should be instant.'**
   String get betAutofireFundsTimeout;
 
   /// No description provided for @betAutofireBookUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.'**
+  /// **'Could not reach Polymarket to place the prediction. Your money stays available in Dollars, and trying again uses it first.'**
   String get betAutofireBookUnavailable;
 
   /// No description provided for @moveInvestingDepositsUnavailable.
@@ -18166,7 +18166,7 @@ abstract class AppLocalizations {
   /// Button on an order slip that moves the shortfall into the venue before placing the order. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Add {amount} to Investments'**
+  /// **'Add {amount} to Dollars'**
   String slipAddToInvestments(String amount);
 
   /// A buy slip's button before an amount is typed: the side and the market's coin ('Long ETH', 'Buy BTC').
@@ -18256,7 +18256,7 @@ abstract class AppLocalizations {
   /// No description provided for @addMoneyToInvestments.
   ///
   /// In en, this message translates to:
-  /// **'Add money to Investments'**
+  /// **'Add money to Dollars'**
   String get addMoneyToInvestments;
 
   /// No description provided for @depositFromSpendingWallet.
@@ -18376,7 +18376,7 @@ abstract class AppLocalizations {
   /// Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Adding {amount} to Investments'**
+  /// **'Adding {amount} to Dollars'**
   String slipStepAddingToInvestments(String amount);
 
   /// Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments.
@@ -18412,13 +18412,13 @@ abstract class AppLocalizations {
   /// Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.
   ///
   /// In en, this message translates to:
-  /// **'Your {amount} is in Investments. Tap to place.'**
+  /// **'Your {amount} is in Dollars. Tap to place.'**
   String slipFundingReadyToPlace(String amount);
 
   /// Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet.
   ///
   /// In en, this message translates to:
-  /// **'Adding to Investments didn\'t go through. Your bitcoin is coming back.'**
+  /// **'Adding to Dollars didn\'t go through. Your bitcoin is coming back.'**
   String get slipFundingBitcoinBack;
 
   /// Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is.
@@ -18478,7 +18478,7 @@ abstract class AppLocalizations {
   /// Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.
   ///
   /// In en, this message translates to:
-  /// **'Your {amount} is in Investments. Tap to add margin.'**
+  /// **'Your {amount} is in Dollars. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
 
   /// A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move.
@@ -18884,6 +18884,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchase'**
   String get purchaseShort;
+
+  /// Investments category sheet: the small label over the first card, the starred, trending, breaking, new and live categories of a venue.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get categoryGroupDiscover;
+
+  /// Investments category sheet, Investing: the label over the card of market categories (Traditional, Crypto, Perps, Spot, Pre-launch).
+  ///
+  /// In en, this message translates to:
+  /// **'Markets'**
+  String get categoryGroupMarkets;
+
+  /// Investments category sheet, Predictions: the label over the card of subject categories (Politics, Sports, Crypto…).
+  ///
+  /// In en, this message translates to:
+  /// **'Topics'**
+  String get categoryGroupTopics;
+
+  /// Category sheet tile, second line: how many markets the category holds. {count} is the number.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 market} other{{count} markets}}'**
+  String categoryStatMarkets(int count);
+
+  /// Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'.
+  ///
+  /// In en, this message translates to:
+  /// **'Most active'**
+  String get categoryStatMostActive;
+
+  /// Category sheet, the Trending tile's second line tail, after the median move: '▲ 1.8% today'. Lowercase mid-line.
+  ///
+  /// In en, this message translates to:
+  /// **'today'**
+  String get categoryStatToday;
+
+  /// Category sheet, a Predictions tile's second line: the loaded events' 24h volume added up. {amount} is compact money ($12M).
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} vol today'**
+  String categoryStatVolToday(String amount);
+
+  /// Category sheet, the wide tile at the top of a group's subcategory grid: the whole group, no subcategory ('All Traditional', 'All Politics'). {group} is the group's name.
+  ///
+  /// In en, this message translates to:
+  /// **'All {group}'**
+  String categoryAllOf(String group);
+
+  /// Search sheet, before any text: the small label over the row of chips with the day's biggest Investing moves.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving now'**
+  String get searchHomeMovingNow;
+
+  /// Search sheet, before any text: the small label over three trending prediction rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending predictions'**
+  String get searchHomeTrendingPredictions;
+
+  /// Search sheet, before any text: the small label over Sal's four prompt chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal'**
+  String get searchHomeAskSal;
+
+  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s moving today?'**
+  String get salPromptMovingToday;
+
+  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan a \$50 strategy'**
+  String get salPromptPlanStrategy;
+
+  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain my open positions'**
+  String get salPromptExplainPositions;
+
+  /// Search sheet, Ask Sal: a prompt chip; tapping sends it to Sal.
+  ///
+  /// In en, this message translates to:
+  /// **'What should I watch this week?'**
+  String get salPromptWatchWeek;
+
+  /// The floating Sal bar while the category grid sheet is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a market group'**
+  String get barPickMarketGroup;
+
+  /// Second line of the floating Sal bar while the category grid sheet is open.
+  ///
+  /// In en, this message translates to:
+  /// **'or ask Sal to find one'**
+  String get barPickMarketGroupSub;
+
+  /// The floating Sal bar on a market or position page: the recommended action.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with your friends'**
+  String get barShareWithFriends;
+
+  /// Second line of the floating Sal bar on a market page.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this market or dollars to bet on it'**
+  String get barShareMarketSub;
+
+  /// Second line of the floating Sal bar on a position page.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the market or your position'**
+  String get barSharePositionSub;
+
+  /// Sal sheet opened from the bar on a market, position or sheet: the small label over the screen's recommended action rows.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get searchRecommended;
+
+  /// Recommended row on a market page: shares a link to the market.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the market'**
+  String get shareTheMarket;
+
+  /// Second line of the Share the market row.
+  ///
+  /// In en, this message translates to:
+  /// **'A link they can open, with your code'**
+  String get shareTheMarketSub;
+
+  /// Recommended row on a position page: shares the market and how the position is doing.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this position'**
+  String get shareThisPosition;
+
+  /// Second line of the Share this position row.
+  ///
+  /// In en, this message translates to:
+  /// **'The market and how you\'re doing'**
+  String get shareThisPositionSub;
+
+  /// Recommended row on a market or position page: sends dollars pointed at this market (coming soon).
+  ///
+  /// In en, this message translates to:
+  /// **'Send dollars for this market'**
+  String get sendDollarsForMarket;
+
+  /// Second line of the Send dollars row.
+  ///
+  /// In en, this message translates to:
+  /// **'They get dollars pointed at this bet'**
+  String get sendDollarsForMarketSub;
+
+  /// The text handed to the OS share sheet for a market: its title and its link with the sharer's code.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} on Kute: {link}'**
+  String shareMarketText(String title, String link);
+
+  /// Sal prompt chip on a position page.
+  ///
+  /// In en, this message translates to:
+  /// **'Should I take profit?'**
+  String get salPromptTakeProfit;
+
+  /// Sal prompt chip on a prediction market or position page.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain the odds'**
+  String get salPromptExplainOdds;
+
+  /// Sal prompt chip on a market or position page.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s the risk?'**
+  String get salPromptRisk;
+
+  /// The floating Sal bar over the Move money screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Move money'**
+  String get barMoveMoney;
+
+  /// Second line of the floating Sal bar over the Move money screen.
+  ///
+  /// In en, this message translates to:
+  /// **'ask Sal where it should go'**
+  String get barMoveMoneySub;
+
+  /// The floating Sal bar over a receipt or a pending result.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal what happens next'**
+  String get barAskWhatNext;
+
+  /// The floating Sal bar over Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask Sal about Kute'**
+  String get barAskAboutKute;
+
+  /// Search sheet, before any text: the small label over the last things opened or typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get searchHomeRecent;
+
+  /// Search sheet, Recent: clears the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get searchHomeClear;
 }
 
 class _AppLocalizationsDelegate

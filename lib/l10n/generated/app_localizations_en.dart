@@ -3668,7 +3668,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get activityProcessingEllipsis => 'Processing…';
 
   @override
-  String get usdAccountTab => 'Investments';
+  String get usdAccountTab => 'Dollars';
 
   @override
   String activityFromAmount(String amount) {
@@ -6067,7 +6067,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveBuyBitcoin => 'Buy bitcoin';
 
   @override
-  String get dollarDeposit => 'Investments deposit';
+  String get dollarDeposit => 'Dollars deposit';
 
   @override
   String get dollarWithdrawal => 'Dollar withdrawal';
@@ -6593,10 +6593,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchPredictionsHint => 'Search predictions';
 
   @override
-  String get assetDollars => 'Investments';
+  String get assetDollars => 'Dollars';
 
   @override
-  String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
+  String get moveSourceDollarsSubtitle => 'Pay with your Dollars balance';
 
   @override
   String get sendDollarAccountAddressHint => 'Dollar account address';
@@ -6847,7 +6847,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pick what lands in your spending account.';
 
   @override
-  String get moveDestDollarsSubtitle => 'Into your Investments balance';
+  String get moveDestDollarsSubtitle => 'Into your Dollars balance';
 
   @override
   String get moveConversionOngoing => 'Conversion ongoing';
@@ -8010,11 +8010,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get betAutofireFundsTimeout =>
-      'The prediction couldn\'t be placed automatically. Your money stays available in Investments, and placing it again uses it first. It should be instant.';
+      'The prediction couldn\'t be placed automatically. Your money stays available in Dollars, and placing it again uses it first. It should be instant.';
 
   @override
   String get betAutofireBookUnavailable =>
-      'Could not reach Polymarket to place the prediction. Your money stays available in Investments, and trying again uses it first.';
+      'Could not reach Polymarket to place the prediction. Your money stays available in Dollars, and trying again uses it first.';
 
   @override
   String get moveInvestingDepositsUnavailable =>
@@ -10701,7 +10701,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String slipAddToInvestments(String amount) {
-    return 'Add $amount to Investments';
+    return 'Add $amount to Dollars';
   }
 
   @override
@@ -10772,7 +10772,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get slipMoveFromPredictions => 'Move from Predictions';
 
   @override
-  String get addMoneyToInvestments => 'Add money to Investments';
+  String get addMoneyToInvestments => 'Add money to Dollars';
 
   @override
   String get depositFromSpendingWallet => 'Your spending wallet';
@@ -10850,7 +10850,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String slipStepAddingToInvestments(String amount) {
-    return 'Adding $amount to Investments';
+    return 'Adding $amount to Dollars';
   }
 
   @override
@@ -10875,12 +10875,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String slipFundingReadyToPlace(String amount) {
-    return 'Your $amount is in Investments. Tap to place.';
+    return 'Your $amount is in Dollars. Tap to place.';
   }
 
   @override
   String get slipFundingBitcoinBack =>
-      'Adding to Investments didn\'t go through. Your bitcoin is coming back.';
+      'Adding to Dollars didn\'t go through. Your bitcoin is coming back.';
 
   @override
   String get slipFundingPriceMoved => 'Price moved too fast.';
@@ -10926,7 +10926,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String hlMarginFundingReady(String amount) {
-    return 'Your $amount is in Investments. Tap to add margin.';
+    return 'Your $amount is in Dollars. Tap to add margin.';
   }
 
   @override
@@ -11228,4 +11228,129 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get purchaseShort => 'Purchase';
+
+  @override
+  String get categoryGroupDiscover => 'Discover';
+
+  @override
+  String get categoryGroupMarkets => 'Markets';
+
+  @override
+  String get categoryGroupTopics => 'Topics';
+
+  @override
+  String categoryStatMarkets(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count markets',
+      one: '1 market',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get categoryStatMostActive => 'Most active';
+
+  @override
+  String get categoryStatToday => 'today';
+
+  @override
+  String categoryStatVolToday(String amount) {
+    return '$amount vol today';
+  }
+
+  @override
+  String categoryAllOf(String group) {
+    return 'All $group';
+  }
+
+  @override
+  String get searchHomeMovingNow => 'Moving now';
+
+  @override
+  String get searchHomeTrendingPredictions => 'Trending predictions';
+
+  @override
+  String get searchHomeAskSal => 'Ask Sal';
+
+  @override
+  String get salPromptMovingToday => 'What\'s moving today?';
+
+  @override
+  String get salPromptPlanStrategy => 'Plan a \$50 strategy';
+
+  @override
+  String get salPromptExplainPositions => 'Explain my open positions';
+
+  @override
+  String get salPromptWatchWeek => 'What should I watch this week?';
+
+  @override
+  String get barPickMarketGroup => 'Pick a market group';
+
+  @override
+  String get barPickMarketGroupSub => 'or ask Sal to find one';
+
+  @override
+  String get barShareWithFriends => 'Share with your friends';
+
+  @override
+  String get barShareMarketSub => 'Send this market or dollars to bet on it';
+
+  @override
+  String get barSharePositionSub => 'Send the market or your position';
+
+  @override
+  String get searchRecommended => 'Recommended';
+
+  @override
+  String get shareTheMarket => 'Share the market';
+
+  @override
+  String get shareTheMarketSub => 'A link they can open, with your code';
+
+  @override
+  String get shareThisPosition => 'Share this position';
+
+  @override
+  String get shareThisPositionSub => 'The market and how you\'re doing';
+
+  @override
+  String get sendDollarsForMarket => 'Send dollars for this market';
+
+  @override
+  String get sendDollarsForMarketSub => 'They get dollars pointed at this bet';
+
+  @override
+  String shareMarketText(String title, String link) {
+    return '$title on Kute: $link';
+  }
+
+  @override
+  String get salPromptTakeProfit => 'Should I take profit?';
+
+  @override
+  String get salPromptExplainOdds => 'Explain the odds';
+
+  @override
+  String get salPromptRisk => 'What\'s the risk?';
+
+  @override
+  String get barMoveMoney => 'Move money';
+
+  @override
+  String get barMoveMoneySub => 'ask Sal where it should go';
+
+  @override
+  String get barAskWhatNext => 'Ask Sal what happens next';
+
+  @override
+  String get barAskAboutKute => 'Ask Sal about Kute';
+
+  @override
+  String get searchHomeRecent => 'Recent';
+
+  @override
+  String get searchHomeClear => 'Clear';
 }

@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
+import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
@@ -461,7 +465,27 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                 padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
                 child: Row(
                   children: [
-                    const KuteCloseButton(),
+                    // The bar reads "Share with your friends" while this
+                    // page is up.
+                    KuteBarContextScope(
+                      barContext: marketBarContext(
+                        context,
+                        title: widget.position.marketQuestion,
+                        path:
+                            '/predictions/${widget.position.eventSlug ?? ''}',
+                        code: ref.read(settingsProvider).affiliateCode,
+                        position: true,
+                        category: SearchCategory.predictions,
+                        searchHint: context.l10n.searchPredictionsHint,
+                        source: 'predictions',
+                        prompts: [
+                          context.l10n.salPromptTakeProfit,
+                          context.l10n.salPromptExplainOdds,
+                          context.l10n.salPromptRisk,
+                        ],
+                      ),
+                      child: const KuteCloseButton(),
+                    ),
                     SizedBox(width: 8.w),
                     // The market's icon (crest-first, see above) and its
                     // title, as on the market sheet's header. No Sal on a
@@ -498,7 +522,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 28.h),
+                  // Room for the bar over the foot.
+                  padding: EdgeInsets.fromLTRB(20.w, 0, 20.w,
+                      28.h + AppBottomSheetContainer.barRoom.h),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
