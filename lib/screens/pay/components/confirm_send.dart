@@ -5298,6 +5298,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // No step bar (founder, 31 October 2026): the title says where the
       // person is, and each step is one screen.
       progress: const SizedBox.shrink(),
+      // Send to runs to the sheet's bottom edge, as the Dollars Send does
+      // (founder: "things get cut"): its one scroll flows under the bar.
+      bleedPages: const {_kSendToPage},
       // Steps advance only via the Continue/Next buttons
       // (`_confirmStep` → `animateToPage`); the frame turns
       // swiping off.
@@ -7986,8 +7989,15 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // overflow on a short screen or at a large text scale; the end clears
     // the floating bar.
     // Order: the field, the resolved row, the Send to card, Contacts.
+    // ONE scroll view to the sheet's bottom edge (the frame reserves
+    // nothing under this page, SendStepperFrame.bleedPages): the end pads
+    // by the bar's clearance and the home-indicator inset, so the last
+    // row scrolls fully clear of the floating bar.
     return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: kuteBarScrollClearance.h),
+      key: const ValueKey('send-to-scroll'),
+      padding: EdgeInsets.only(
+          bottom: kuteBarScrollClearance.h +
+              MediaQuery.viewPaddingOf(context).bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

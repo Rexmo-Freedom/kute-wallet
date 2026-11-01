@@ -373,6 +373,44 @@ void main() {
     expect(person('c2'), findsOneWidget);
   });
 
+  testWidgets(
+      'at 375 pt the Send to step is ONE scroll to the sheet\'s bottom edge: '
+      'no band reserved above the bar, and the last contact scrolls fully '
+      'clear of it', (tester) async {
+    _gateway
+      ..permission = SendContactsPermission.granted
+      ..contacts = [
+        for (var i = 0; i < 30; i++)
+          SendContact(
+              id: 'm$i',
+              displayName: 'Person ${i.toString().padLeft(2, '0')}',
+              firstName: 'Person',
+              phone: '+351 91${i.toString().padLeft(7, '0')}'),
+      ];
+    await _pump(tester);
+    tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(tester.element(find.byType(ConfirmSend)));
+    if (route is SendSheetRoute) route.sheetController.expand();
+    await tester.pumpAndSettle();
+
+    final scroll = find.byKey(const ValueKey('send-to-scroll'));
+    expect(scroll, findsOneWidget);
+    // Nothing reserved under the page: the scroll runs to the bottom.
+    expect(tester.getRect(scroll).bottom, moreOrLessEquals(812, epsilon: 1));
+
+    // To the end: the last row sits wholly above the bar.
+    await tester.drag(scroll, const Offset(0, -6000));
+    await tester.pumpAndSettle();
+    final last = find.byKey(const ValueKey('send-person-contact:m29'));
+    expect(last, findsOneWidget);
+    final row = tester.getRect(last);
+    final bar = tester.getRect(kuteBarPrimary);
+    expect(row.bottom, lessThanOrEqualTo(bar.top));
+    expect(row.top, greaterThanOrEqualTo(tester.getRect(scroll).top));
+    expect(tester.takeException(), isNull);
+  });
+
   // THE FIELD KEEPS EVERYTHING (founder): with the contacts granted, a
   // destination still resolves first and Continue works.
   for (final (what, text) in [

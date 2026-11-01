@@ -41,6 +41,7 @@ class SendStepperFrame extends StatefulWidget {
     required this.pages,
     required this.cta,
     this.onPageChanged,
+    this.bleedPages = const {},
   });
 
   /// The step progress bar (or an empty box for a one-step flow).
@@ -52,6 +53,16 @@ class SendStepperFrame extends StatefulWidget {
   /// shows one.
   final Widget cta;
   final ValueChanged<int>? onPageChanged;
+
+  /// Pages that run to the sheet's bottom edge, as the Dollars Send does
+  /// (founder, 1 November 2026: "things get cut"): while one of them is
+  /// settled on screen, nothing is reserved under the pages (no bottom
+  /// inset, no room for the Continue) and the shared [cta] takes no
+  /// height, so the page's one scroll view flows under the floating bar
+  /// and pads its own end by the bar's clearance (kuteBarScrollClearance)
+  /// plus the home-indicator inset. While pages slide, the frame keeps
+  /// its usual reserve, so the next page lays out at its final size.
+  final Set<int> bleedPages;
 
   @override
   State<SendStepperFrame> createState() => _SendStepperFrameState();
@@ -65,17 +76,51 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
   /// amount step's keypad has no room to give.
   bool _textFocus = false;
 
+  /// A [SendStepperFrame.bleedPages] page is settled on screen.
+  bool _bleeding = false;
+
   @override
   void initState() {
     super.initState();
     FocusManager.instance.addListener(_onFocus);
     _textFocus = _hasTextFocus();
+    widget.controller.addListener(_onPage);
+    _bleeding = _settledOnBleedPage();
+  }
+
+  @override
+  void didUpdateWidget(SendStepperFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onPage);
+      widget.controller.addListener(_onPage);
+    }
+    _bleeding = _settledOnBleedPage();
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_onFocus);
+    widget.controller.removeListener(_onPage);
     super.dispose();
+  }
+
+  /// Settled exactly on a bleed page: false the moment a slide starts
+  /// (the page leaving shrinks unseen, the next one is laid out at its
+  /// final size), true again only once a slide back has finished.
+  bool _settledOnBleedPage() {
+    if (widget.bleedPages.isEmpty) return false;
+    final ctrl = widget.controller;
+    final page = ctrl.hasClients && ctrl.position.haveDimensions
+        ? ctrl.page
+        : ctrl.initialPage.toDouble();
+    if (page == null || page != page.roundToDouble()) return false;
+    return widget.bleedPages.contains(page.round());
+  }
+
+  void _onPage() {
+    final next = _settledOnBleedPage();
+    if (next != _bleeding && mounted) setState(() => _bleeding = next);
   }
 
   static bool _hasTextFocus() =>
@@ -98,11 +143,13 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
     // With the keyboard up the home indicator is under it, so the CTA
     // rests a short, even gap above the keys (pinned there, frame for
     // frame with the platform's keyboard animation).
-    final bottomPad = viewInsets > 0
-        ? 12.h
-        : Platform.isAndroid
-            ? 28.h + MediaQuery.of(context).padding.bottom
-            : 44.h;
+    final bottomPad = _bleeding
+        ? 0.0
+        : viewInsets > 0
+            ? 12.h
+            : Platform.isAndroid
+                ? 28.h + MediaQuery.of(context).padding.bottom
+                : 44.h;
     return Container(
       decoration: AppDecorations.screenGradient(context),
       child: SafeArea(
@@ -127,7 +174,14 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
                   children: widget.pages,
                 ),
               ),
-              widget.cta,
+              // A bleed page reserves nothing: the Continue (the bar's
+              // scope) stays mounted, at no height. One widget type in
+              // both states, so the bar's scope is never remounted.
+              Align(
+                alignment: Alignment.bottomCenter,
+                heightFactor: _bleeding ? 0 : 1,
+                child: widget.cta,
+              ),
             ],
           ),
         ),
