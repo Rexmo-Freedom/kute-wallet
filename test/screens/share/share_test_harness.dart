@@ -12,6 +12,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketEventDetailsProvider;
+import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -45,12 +51,41 @@ ShareTestEnv setUpShareTest() {
   ShareLinksStore.debugMemory = <String, String>{};
   final events = <(String, Map<String, Object>?)>[];
   TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+  ShareCardShare.debugLineSeed = 0;
   return ShareTestEnv(FakeShareLinksApi(), events);
 }
 
 void tearDownShareTest() {
   TrackingService.debugTrackObserver = null;
   ShareLinksStore.debugMemory = null;
+  ShareCardShare.debugSharer = null;
+  ShareCardShare.debugLineSeed = null;
+}
+
+/// The venues the share cards read, empty: no network in a test
+/// (cards/share_card_sources.dart falls back on what the page handed
+/// over). A test passing its own [pumpShareWidget] overrides for these
+/// sets [cardVenues] false.
+List<Override> shareCardVenueOverrides() => [
+      polymarketEventDetailsProvider.overrideWith((ref, slug) async => null),
+      hyperliquidPerpMarketsProvider
+          .overrideWith((ref) async => const <HlMarket>[]),
+      hyperliquidSpotMarketsProvider
+          .overrideWith((ref) async => const <HlMarket>[]),
+    ];
+
+/// Taps the bar (Share) and waits on real time (the capture and the PNG,
+/// up to 5 s) until [sent] has grown.
+Future<void> shareCardAndWait(WidgetTester tester, List<Object?> sent,
+    {Finder? button}) async {
+  final before = sent.length;
+  await tester.runAsync(() async {
+    await tester.tap(button ?? kuteBarPrimary);
+    for (var i = 0; i < 100 && sent.length == before; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  });
+  await settle(tester);
 }
 
 Future<void> pumpShareWidget(
@@ -58,6 +93,7 @@ Future<void> pumpShareWidget(
   ShareTestEnv env,
   Widget child, {
   List<Override> overrides = const [],
+  bool cardVenues = true,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -69,6 +105,7 @@ Future<void> pumpShareWidget(
   await tester.pumpWidget(ProviderScope(
     overrides: [
       shareLinksApiProvider.overrideWithValue(env.fake),
+      if (cardVenues) ...shareCardVenueOverrides(),
       ...overrides,
     ],
     child: ScreenUtilInit(

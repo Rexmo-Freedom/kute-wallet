@@ -1,7 +1,7 @@
 // The share sheets' primary buttons are the floating Sal bar
 // (kute_bar_context.dart, KuteBarContext.primary; founder, 1 November
 // 2026: every big black button adapts from Sal like the search pill
-// does): the market share sheet's Send the link, the claimed prompt's
+// does): the market share sheet's Share (the card first), the claimed prompt's
 // Send now and the pending link detail's Share again. The sheets draw no
 // AppButton of their own; their second button stays as a text button.
 
@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/claimed_prompt_sheet.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
@@ -28,14 +29,15 @@ void main() {
 
   tearDown(() {
     tearDownShareTest();
-    ShareMarketSheet.debugSharer = null;
     ClaimedPromptSheet.debugPayer = null;
   });
 
-  testWidgets('market share sheet: Send the link is the bar, the pick stays '
-      'a text button', (tester) async {
+  testWidgets('market share sheet: the card first, Share is the bar, the '
+      'pick stays a text button', (tester) async {
     final shared = <String>[];
-    ShareMarketSheet.debugSharer = (text) async {
+    final names = <String>[];
+    ShareCardShare.debugSharer = (image, text) async {
+      names.add(image.name);
       shared.add(text);
       return 'success';
     };
@@ -52,12 +54,13 @@ void main() {
         ));
 
     expect(find.byType(AppButton), findsNothing);
-    expect(kuteBarPrimaryWithText('Send the link'), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-prediction_market')),
+        findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
     expect(find.text('Send this prediction'), findsOneWidget);
     expect(kuteBarPrimaryEnabled(tester), isTrue);
 
-    await tester.tap(kuteBarPrimary);
-    await settle(tester);
+    await shareCardAndWait(tester, shared);
     expect(shared.single, contains('https://web.test/m/will-it-rain'));
     expect(env.paramsOf('share_market_link_shared').single,
         containsPair('result', 'success'));

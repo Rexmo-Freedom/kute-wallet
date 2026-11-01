@@ -11,6 +11,7 @@ import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/share/send_pick_market_sheet.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/market_side_toggle.dart';
@@ -75,7 +76,7 @@ void main() {
     env = setUpShareTest();
     shared.clear();
     launched.clear();
-    SendToAnyoneSheet.debugSharer = (text) async {
+    ShareCardShare.debugSharer = (image, text) async {
       shared.add(text);
       return 'success';
     };
@@ -89,7 +90,6 @@ void main() {
 
   tearDown(() {
     tearDownShareTest();
-    SendToAnyoneSheet.debugSharer = null;
     debugShareLinkResendLauncher = null;
     SendPickMarketSheet.debugFeeds = null;
   });
@@ -161,6 +161,7 @@ void main() {
 
     await tester.tap(kuteBarPrimaryWithText(_l10n.shareCreateLink));
     await settle(tester);
+    await shareCardAndWait(tester, shared);
     final create = env.fake.calls.where((c) => c.$1 == 'create').single.$2;
     expect(create['kind'], 'dollars');
     expect(create['amountMinor'], 1200);

@@ -10,13 +10,18 @@
 //      typed in the user's currency and converted to sats by the bitcoin
 //      send's own conversion (inputToSatsProvider), with the sats shown
 //      under the figure.
-//   2. Who is it for? One text field, the first name, optional. Create
-//      link posts to the backend (nothing moves: a share link is a pending
-//      send, see models/share_link_model.dart) and opens the OS share
-//      sheet with "{name}, I sent you {amount} with Kute. Claim it here:
-//      {url}".
-//   3. The receipt: the pending row (pending_share_links.dart), Share
-//      again and Done.
+//   2. Who is it for? One text field, the first name, optional, under THE
+//      SHARE CARD live at about 60% (founder, 1 November 2026: "the card
+//      makes it feel like a gift"; cards/share_cards.dart): "{Name}, I
+//      sent you" over the amount as they type, or the pick's card (the
+//      prediction's odds, the actual stock). Create link posts to the
+//      backend (nothing moves: a share link is a pending send, see
+//      models/share_link_model.dart).
+//   3. The card in full ("Your card is ready") over the pending row
+//      (pending_share_links.dart), the bar "Share": the card as a PNG in
+//      the OS share sheet with "{name}, I sent you {amount} with Kute.
+//      Claim it here: {url}". Sharing always shows the card first; Done
+//      is a text button.
 //
 // Launched from a market page's bar or the market share sheet
 // (kute_share_actions.dart, share_market_sheet.dart) the sheet carries THE
@@ -27,21 +32,23 @@
 // Gemini Carbon, $12.00". There is no market picker here in phase 1.
 
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/providers/asset_icon_provider.dart'
     show kBitcoinMarkAsset, kUsdMarkAsset;
 import 'package:kute/providers/currency_conversions_provider.dart'
-    show conversionProvider, inputToSatsProvider;
+    show conversionProvider, conversionToFiatProvider, inputToSatsProvider;
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
+import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/pending_share_links.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
@@ -133,10 +140,6 @@ class SendToAnyoneSheet extends ConsumerStatefulWidget {
       (outcome?.trim().isNotEmpty ?? false) &&
       (marketTitle?.trim().isNotEmpty ?? false);
 
-  /// Test seam: what Create link hands the OS. Null opens the share sheet.
-  @visibleForTesting
-  static Future<String> Function(String text)? debugSharer;
-
   @override
   ConsumerState<SendToAnyoneSheet> createState() => _SendToAnyoneSheetState();
 }
@@ -149,8 +152,14 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
   late final TextEditingController _name =
       TextEditingController(text: widget.senderLabel?.trim() ?? '');
   bool _creating = false;
+  bool _sharing = false;
   String? _error;
   PendingShareLink? _created;
+
+  /// The card's capture (the last step) and Sal's line, picked once.
+  final GlobalKey _boundary = GlobalKey();
+  final GlobalKey _liveBoundary = GlobalKey();
+  final int _seed = ShareCardShare.seed();
 
   ShareLinkKind get kind => widget.kind;
   bool get _dollars => kind == ShareLinkKind.dollars;
@@ -217,12 +226,12 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
       ShareLinkEvents.created(kind, amountMinor,
           marketSlug: widget.marketSlug, outcome: row.outcome);
       if (!mounted) return;
+      // The card first (founder, 1 November 2026): Share is the bar.
       setState(() {
         _created = row;
         _step = _Step.done;
         _creating = false;
       });
-      await _share(row);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -232,7 +241,40 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     }
   }
 
-  Future<void> _share(PendingShareLink row) async {
+  /// The card for [amountMinor] to [label]: the pick's card when the
+  /// link carries one, else the money card (cards/share_card_sources.dart).
+  ShareCardData _card(int amountMinor, String? label) {
+    String? btc;
+    String? fiat;
+    if (!_dollars && amountMinor > 0) {
+      try {
+        btc = ref.watch(conversionProvider(amountMinor));
+        fiat = ref.watch(conversionToFiatProvider(amountMinor));
+      } catch (_) {
+        btc = null;
+        fiat = null;
+      }
+    }
+    final pick = widget.hasPick;
+    return shareCardForLink(
+      <T>(p) => ref.watch(p),
+      locale: context.l10n.localeName,
+      kind: kind,
+      amountMinor: amountMinor,
+      recipient: label,
+      marketSlug: pick ? widget.marketSlug : null,
+      marketTitle: pick ? widget.marketTitle : null,
+      venue: pick ? widget.venue : null,
+      outcome: pick ? widget.outcome : null,
+      side: pick ? widget.side : null,
+      bitcoinAmount: btc,
+      bitcoinFiat: fiat,
+      referralCode: AffiliateService.affiliateCode,
+    );
+  }
+
+  Future<void> _share(PendingShareLink row, ShareCardData card) async {
+    if (_sharing) return;
     final amount =
         shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
     final text = shareLinkMessage(context,
@@ -242,24 +284,11 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         outcome: row.outcome,
         title: row.marketTitle,
         venue: row.venue);
-    final debug = SendToAnyoneSheet.debugSharer;
-    try {
-      final String result;
-      if (debug != null) {
-        result = await debug(text);
-      } else {
-        final box = context.findRenderObject() as RenderBox?;
-        final origin = box != null
-            ? (box.localToGlobal(ui.Offset.zero) & box.size)
-            : (ui.Offset.zero & const ui.Size(1, 1));
-        final r = await SharePlus.instance
-            .share(ShareParams(text: text, sharePositionOrigin: origin));
-        result = r.status.name;
-      }
-      ShareLinkEvents.shared(row.kind, result: result);
-    } catch (_) {
-      ShareLinkEvents.shared(row.kind, result: 'error');
-    }
+    setState(() => _sharing = true);
+    final result =
+        await shareCardImage(context, _boundary, text: text, name: card.kind);
+    ShareLinkEvents.shared(row.kind, result: result);
+    if (mounted) setState(() => _sharing = false);
   }
 
   @override
@@ -275,7 +304,9 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           AppBottomSheetHeader(
             title: _step == _Step.name
                 ? l10n.shareWhoIsItFor
-                : widget.hasPick
+                : _step == _Step.done
+                    ? l10n.shareCardReadyTitle
+                    : widget.hasPick
                     ? (widget.venue == 'hyperliquid'
                         ? l10n.sendThisInvestment
                         : l10n.sendThisPrediction)
@@ -400,20 +431,19 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
 
   Widget _nameStep() {
     final l10n = context.l10n;
-    final c = context.colors;
-    final amount = shareLinkAmountLabel(context, ref, kind, _amountMinor());
+    final label = _name.text.trim();
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          amount,
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-          ),
+        // The card, live as the name is typed (see the file header).
+        ShareCardPreviewBox(
+          key: const ValueKey('share-live-card'),
+          data: _card(_amountMinor(), label.isEmpty ? null : label),
+          boundaryKey: _liveBoundary,
+          lineSeed: _seed,
+          widthFraction: 0.6,
+          heightFraction: 0.34,
         ),
         SizedBox(height: 14.h),
         AppTextField(
@@ -466,10 +496,18 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     final c = context.colors;
     final row = _created;
     if (row == null) return const SizedBox.shrink();
+    final card = _card(row.amountMinor, row.label);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        ShareCardPreviewBox(
+          data: card,
+          boundaryKey: _boundary,
+          lineSeed: _seed,
+          heightFraction: row.recipientPhone != null ? 0.34 : 0.42,
+        ),
+        SizedBox(height: 12.h),
         SendToListCard(
           colors: c,
           rows: [PendingShareLinkRow(row: row, onTap: () {})],
@@ -492,15 +530,17 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           ),
         ],
         AppTextButton(
-          key: const ValueKey('share-again'),
-          text: l10n.shareLinkShareAgain,
-          onPressed: () => unawaited(_share(row)),
+          key: const ValueKey('share-done'),
+          text: l10n.done,
+          onPressed: () => Navigator.of(context).pop(true),
         ),
-        // Done is the bar (kute_bar_context.dart); Share again sits above it.
+        // Share is the bar (kute_bar_context.dart): the card with the
+        // link; Done sits above it.
         KuteBarContextScope(
           barContext: KuteBarContext.primary(
-            label: l10n.done,
-            onPrimary: () => Navigator.of(context).pop(true),
+            label: l10n.share,
+            onPrimary: () => unawaited(_share(row, card)),
+            busy: _sharing,
             source: 'share_done',
             disabledLabel: null,
           ),
