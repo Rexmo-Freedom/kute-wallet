@@ -188,13 +188,13 @@ void main() {
     expect(hl.dy - btc.dy, greaterThan(icon.height));
     expect(pm.dx, greaterThan(btc.dx));
     expect(pm.dy, closeTo((btc.dy + hl.dy) / 2, 0.01));
-    // The row about 175 high with two sources (the big Sal on the arrow
-    // track, 1 November 2026: the 44 px marks on rows far enough apart
-    // for him to stand clear of the track above; the whole view about
-    // 200 with its one status line).
+    // The row about 150 high with two sources (the big Sal on the thin
+    // track, 1 November 2026: the rows far enough apart for him to stand
+    // clear of the line above, the names under the lower leg's amount;
+    // the whole view about 175 with its one status line).
     expect(
         tester.getSize(find.byKey(const ValueKey('money-steps-map'))).height,
-        lessThan(180));
+        lessThan(160));
     // One merge point on Predictions' centre line; the shared line into
     // it waits for both legs.
     final merge = tester.getTopLeft(
@@ -257,16 +257,15 @@ void main() {
             .getSize(find.byKey(const ValueKey('money-steps-station-predictions')))
             .width /
         2;
-    // The ring: 5 (scaled with the station's 22) past its edge, 2 wide.
-    final k = r / 22;
-    final ringLeft = pm2.dx - r - 5 * k - 1;
+    // The pulse: up to 9 (scaled with the station's 5.5) past its edge.
+    final k = r / 5.5;
+    final pulseLeft = pm2.dx - r - 9 * k;
     expect(sal.dy, closeTo(pm2.dy, 0.5));
     expect(sal.dx, greaterThan(merge2.dx));
-    // His right edge (0.3 of his 70 box, scaled alike) short of the
-    // arrowhead into the station (14 long, its tip 3 short of the edge),
-    // and so of the ring.
-    expect(sal.dx + 21 * k, lessThan(pm2.dx - r - 3 * k - 14 * k));
-    expect(sal.dx + 21 * k, lessThan(ringLeft));
+    // His right edge (0.3 of his 64 box, scaled alike) short of the
+    // station's dot and of its pulse.
+    expect(sal.dx + 19.2 * k, lessThan(pm2.dx - r));
+    expect(sal.dx + 19.2 * k, lessThan(pulseLeft));
     expect(_motion(tester).walking, isFalse);
     expect(find.text('Converting to pUSD'), findsNothing);
     final lines =

@@ -408,16 +408,14 @@ void main() {
     expect(lit, greaterThan(0));
     expect(lit, lessThan(1), reason: 'it waits for the leg to land');
     expect(_motion(tester).coin!.place, MoneyPlace.bitcoin);
-    // In Bitcoin it wears the app's Bitcoin mark, as the station does.
+    // In Bitcoin it wears the app's Bitcoin mark; the station itself is
+    // a plain matte dot on the line (1 November 2026), the coin the one
+    // place the balance's mark shows.
     expect(_motion(tester).coinMarkAsset, 'lib/assets/bitcoin-icon.svg');
     expect(
         find.descendant(
-            of: _station('bitcoin'),
-            matching: find.byWidgetPredicate((w) =>
-                w is SvgPicture &&
-                (w.bytesLoader as SvgAssetLoader).assetName ==
-                    'lib/assets/bitcoin-icon.svg')),
-        findsOneWidget);
+            of: _station('bitcoin'), matching: find.byType(SvgPicture)),
+        findsNothing);
     expect(find.byIcon(Icons.currency_bitcoin_rounded), findsNothing);
     // Sal walks behind the coin; once it parks he walks up and fetches
     // it, and waits with it in his mouth.
@@ -469,15 +467,14 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
     final poly = _at(tester, _station('predictions'));
     final r = tester.getSize(_station('predictions')).width / 2;
-    final k = r / 22; // the screen's scale (the station's 22)
+    final k = r / 5.5; // the screen's scale (the station's 5.5)
     expect((mapAt + beside).dy, closeTo(poly.dy, 0.5));
-    // His right edge (0.3 of his 70 box) left of the arrowhead into the
-    // station (14 long, its tip 3 short of the edge) and of the ring (5
-    // past the edge, 2 wide).
-    expect((mapAt + beside).dx + 21 * k, lessThan(poly.dx - r - 17 * k),
-        reason: 'left of the arrowhead');
-    expect((mapAt + beside).dx + 21 * k, lessThan(poly.dx - r - 5 * k - 1),
-        reason: 'left of the ring');
+    // His right edge (0.3 of his 64 box) left of the station's dot and
+    // of its pulse (up to 9 past the edge).
+    expect((mapAt + beside).dx + 19.2 * k, lessThan(poly.dx - r),
+        reason: 'left of the dot');
+    expect((mapAt + beside).dx + 19.2 * k, lessThan(poly.dx - r - 9 * k),
+        reason: 'left of the pulse');
     expect((mapAt + beside).dx, greaterThan(poly.dx - r - 60 * k));
     expect(_motion(tester).walking, isFalse);
     expect(count('lightImpact'), 1);
