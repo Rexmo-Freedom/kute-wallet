@@ -1006,5 +1006,80 @@
       }
     },
     "group": "reaction"
+  },
+  "body_carry": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": true,
+    "files": {
+      "2x": {
+        "file": "body_carry@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_carry@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "waiting",
+    "coin": "coin_anchors.json"
+  },
+  "body_pickup": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_pickup@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_pickup@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
+  },
+  "body_drop": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 48,
+    "columns": 6,
+    "rows": 8,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "body_drop@2x.webp",
+        "cell": 256,
+        "width": 1536,
+        "height": 2048
+      },
+      "3x": {
+        "file": "body_drop@3x.webp",
+        "cell": 384,
+        "width": 2304,
+        "height": 3072
+      }
+    },
+    "group": "coin",
+    "coin": "coin_anchors.json"
   }
 }
