@@ -17915,18 +17915,6 @@ abstract class AppLocalizations {
   /// **'Share and brag'**
   String get bragBarLabel;
 
-  /// Brag preview sheet: the switch that draws money amounts on the card (off by default).
-  ///
-  /// In en, this message translates to:
-  /// **'Show amounts'**
-  String get bragShowAmounts;
-
-  /// Brag preview sheet: the quiet line under bragShowAmounts.
-  ///
-  /// In en, this message translates to:
-  /// **'Off: only signs and percents leave your phone'**
-  String get bragShowAmountsSub;
-
   /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
   ///
   /// In en, this message translates to:
@@ -17939,23 +17927,89 @@ abstract class AppLocalizations {
   /// **'My portfolio'**
   String get bragMyPortfolio;
 
-  /// Portfolio brag card: small caps label over the three best open positions.
-  ///
-  /// In en, this message translates to:
-  /// **'Top positions'**
-  String get bragTopPositions;
-
-  /// Brag card footer, under the kute. wordmark.
-  ///
-  /// In en, this message translates to:
-  /// **'Trade it on Kute'**
-  String get bragTradeItOnKute;
-
   /// Brag card footer: the small label before the sharer's referral code in its chip.
   ///
   /// In en, this message translates to:
   /// **'Code'**
   String get bragCodeLabel;
+
+  /// Brag card footer, under the kute. wordmark, beside the sharer's referral code: a cocky invitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Beat me on Kute'**
+  String get bragBeatMeOnKute;
+
+  /// Position brag card: the tiny period line beside the side pill (the result is since the buy).
+  ///
+  /// In en, this message translates to:
+  /// **'Since you bought'**
+  String get bragSinceYouBought;
+
+  /// Brag card one-liner (Sal, cocky; PG, it leaves the phone): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Beat that.'**
+  String get bragLineBeatThat;
+
+  /// Brag card one-liner (Sal, cocky; PG): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Not luck. Talent.'**
+  String get bragLineNotLuck;
+
+  /// Brag card one-liner (Sal, cocky; PG): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Your move.'**
+  String get bragLineYourMove;
+
+  /// Brag card one-liner (Sal, cocky; PG): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Told you so.'**
+  String get bragLineToldYouSo;
+
+  /// Brag card one-liner (Sal, cocky; PG): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'I make this look easy.'**
+  String get bragLineLookEasy;
+
+  /// Brag card one-liner (Sal, cocky; PG): a gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Up only.'**
+  String get bragLineUpOnly;
+
+  /// Brag card one-liner (Sal, cocky; PG): a small gain.
+  ///
+  /// In en, this message translates to:
+  /// **'Small wins still count. Still better than you.'**
+  String get bragLineSmallWins;
+
+  /// Brag card one-liner (Sal, unbothered; PG): a loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Down bad. Back soon.'**
+  String get bragLineDownBad;
+
+  /// Brag card one-liner (Sal, unbothered; PG): a loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Character building.'**
+  String get bragLineCharacter;
+
+  /// Brag card one-liner (Sal, unbothered; PG): a loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy the dip, they said.'**
+  String get bragLineBuyTheDip;
+
+  /// Brag card one-liner (Sal, deadpan; PG): a flat result.
+  ///
+  /// In en, this message translates to:
+  /// **'Patience is a position.'**
+  String get bragLinePatience;
 
   /// Position brag card: small caps label over the price paid.
   ///

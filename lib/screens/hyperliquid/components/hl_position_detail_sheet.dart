@@ -53,6 +53,8 @@ import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteFigureShareRow;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart, HlChartEditBody;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -231,7 +233,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final editing = _advancedChart && m != null;
 
     // The page's Sal context, placed in its header (no bottom bar; its
-    // control is the share card under the tiles, PositionShareCard): the
+    // control is the share pill beside the price, PositionSharePill): the
     // scope is around the whole page, so in chart-edit mode, with the
     // header away, the bar stays away too.
     final bar = marketBarContext(
@@ -338,32 +340,36 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             // plain words: its side and leverage, and the
                             // profit or loss with the return on what was
                             // put in.
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: HlTickPrice(
-                                      key: const ValueKey('hl-position-price'),
-                                      price: markPx,
-                                      text: formatHlPrice(markPx,
-                                          decimalCap: m?.pxDecimalCap),
-                                      style: TextStyle(
-                                        color: c.textPrimary,
-                                        fontSize: 38.sp,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -1.0,
-                                        height: 1.1,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures()
-                                        ],
-                                      ),
-                                    ),
+                            // Sal's share pill at the row's end, the
+                            // market pages' header button (founder, 1
+                            // November 2026): "Brag about it" in profit,
+                            // else "Send to a friend"
+                            // (position_share_card.dart).
+                            KuteFigureShareRow(
+                              gap: 8.w,
+                              figure: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: HlTickPrice(
+                                  key: const ValueKey('hl-position-price'),
+                                  price: markPx,
+                                  text: formatHlPrice(markPx,
+                                      decimalCap: m?.pxDecimalCap),
+                                  style: TextStyle(
+                                    color: c.textPrimary,
+                                    fontSize: 38.sp,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1.0,
+                                    height: 1.1,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
+                              share: PositionSharePill(
+                                  bar: bar,
+                                  brag: current != null && pnl >= 0.005),
                             ),
                             SizedBox(height: 4.h),
                             Wrap(
@@ -486,12 +492,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   decimalCap: m?.pxDecimalCap,
                                 ),
                               ),
-                              // The share (founder, 1 November 2026: no
-                              // header pill on a position page): "Brag
-                              // about it" in profit, else "Send to a
-                              // friend" (position_share_card.dart).
-                              SizedBox(height: 12.h),
-                              PositionShareCard(bar: bar, brag: pnl >= 0.005),
                               SizedBox(height: 12.h),
                               if (canAdjustMargin)
                                 PositionLinkRow(

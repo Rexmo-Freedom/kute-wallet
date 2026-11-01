@@ -10491,13 +10491,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get bragBarLabel => 'Share and brag';
 
   @override
-  String get bragShowAmounts => 'Show amounts';
-
-  @override
-  String get bragShowAmountsSub =>
-      'Off: only signs and percents leave your phone';
-
-  @override
   String bragShareText(String title, String link) {
     return '$title on Kute $link';
   }
@@ -10506,13 +10499,47 @@ class AppLocalizationsBg extends AppLocalizations {
   String get bragMyPortfolio => 'My portfolio';
 
   @override
-  String get bragTopPositions => 'Top positions';
-
-  @override
-  String get bragTradeItOnKute => 'Trade it on Kute';
-
-  @override
   String get bragCodeLabel => 'Code';
+
+  @override
+  String get bragBeatMeOnKute => 'Beat me on Kute';
+
+  @override
+  String get bragSinceYouBought => 'Since you bought';
+
+  @override
+  String get bragLineBeatThat => 'Beat that.';
+
+  @override
+  String get bragLineNotLuck => 'Not luck. Talent.';
+
+  @override
+  String get bragLineYourMove => 'Your move.';
+
+  @override
+  String get bragLineToldYouSo => 'Told you so.';
+
+  @override
+  String get bragLineLookEasy => 'I make this look easy.';
+
+  @override
+  String get bragLineUpOnly => 'Up only.';
+
+  @override
+  String get bragLineSmallWins =>
+      'Small wins still count. Still better than you.';
+
+  @override
+  String get bragLineDownBad => 'Down bad. Back soon.';
+
+  @override
+  String get bragLineCharacter => 'Character building.';
+
+  @override
+  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+
+  @override
+  String get bragLinePatience => 'Patience is a position.';
 
   @override
   String get bragEntry => 'Entry';

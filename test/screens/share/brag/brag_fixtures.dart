@@ -44,6 +44,7 @@ BragPosition fakeBragLosingPosition() => const BragPosition(
       nowText: '3,576.10',
     );
 
+/// A big win: the open positions' combined return is over 10%.
 BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
     BragPortfolio(
       title: 'My portfolio',
@@ -55,10 +56,12 @@ BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
         BragSlice(part: BragSlicePart.dollars, share: 0.15),
       ],
       allTime: const BragResult(usd: 412.35, text: r'+$412.35'),
-      month: const BragResult(usd: 86.1, text: r'+$86.10'),
+      returnPercent: 24.6,
       top: const [
         BragTopPosition(
             title: 'BTC',
+            investing: true,
+            coin: 'BTC',
             result: BragResult(usd: 92.1, text: r'+$92.10', percent: 18.4)),
         BragTopPosition(
             title: 'LoL Worlds 2026: Gen.G vs T1',
@@ -68,5 +71,73 @@ BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
             title: 'Fed cuts rates in December?',
             side: 'Yes',
             result: BragResult(usd: 8.2, text: r'+$8.20', percent: 12.5)),
+      ],
+    );
+
+/// A small win: +$7.57 on a 1.2% combined return.
+BragPortfolio fakeBragSmallWinPortfolio() => const BragPortfolio(
+      title: 'My portfolio',
+      link: 'https://backend.kutewallet.com/m/investing',
+      referralCode: kBragTestCode,
+      slices: [
+        BragSlice(part: BragSlicePart.investing, share: 0.30),
+        BragSlice(part: BragSlicePart.predictions, share: 0.10),
+        BragSlice(part: BragSlicePart.dollars, share: 0.60),
+      ],
+      allTime: BragResult(usd: 7.57, text: r'+$7.57'),
+      returnPercent: 1.2,
+      top: [
+        BragTopPosition(
+            title: 'ETH',
+            investing: true,
+            coin: 'ETH',
+            result: BragResult(usd: 5.1, text: r'+$5.10', percent: 1.9)),
+        BragTopPosition(
+            title: 'Fed cuts rates in December?',
+            side: 'Yes',
+            result: BragResult(usd: 2.47, text: r'+$2.47', percent: 0.8)),
+      ],
+    );
+
+/// A loss.
+BragPortfolio fakeBragLosingPortfolio() => const BragPortfolio(
+      title: 'My portfolio',
+      link: 'https://backend.kutewallet.com/m/investing',
+      referralCode: kBragTestCode,
+      slices: [
+        BragSlice(part: BragSlicePart.investing, share: 0.70),
+        BragSlice(part: BragSlicePart.dollars, share: 0.30),
+      ],
+      allTime: BragResult(usd: -23.4, text: '−\$23.40'),
+      returnPercent: -8.1,
+      top: [
+        BragTopPosition(
+            title: 'SOL',
+            investing: true,
+            coin: 'SOL',
+            result: BragResult(usd: 3.2, text: r'+$3.20', percent: 2.4)),
+        BragTopPosition(
+            title: 'ETH',
+            investing: true,
+            coin: 'ETH',
+            result: BragResult(usd: -26.6, text: '−\$26.60', percent: -11.3)),
+      ],
+    );
+
+/// Flat: nothing made, nothing lost.
+BragPortfolio fakeBragFlatPortfolio() => const BragPortfolio(
+      title: 'My portfolio',
+      link: 'https://backend.kutewallet.com/m/investing',
+      referralCode: kBragTestCode,
+      slices: [
+        BragSlice(part: BragSlicePart.predictions, share: 0.20),
+        BragSlice(part: BragSlicePart.dollars, share: 0.80),
+      ],
+      allTime: BragResult(usd: 0, text: r'$0.00'),
+      top: [
+        BragTopPosition(
+            title: 'Will it rain in London tomorrow?',
+            side: 'No',
+            result: BragResult(usd: 0, text: r'$0.00', percent: 0)),
       ],
     );

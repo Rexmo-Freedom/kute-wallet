@@ -2,9 +2,8 @@
 //
 // THE BRAG PREVIEW (founder, 1 November 2026). A sheet with the card
 // (brag_card.dart) scaled to fit, exactly the pixels that will be sent,
-// one switch, "Show amounts" (OFF by default: a card leaves the phone, so
-// money is masked and only signs and percents show until the person turns
-// it on), and the bar as the primary button, "Share": the card captured
+// always with the real amounts (founder: "don't even give the option"),
+// and the bar as the primary button, "Share": the card captured
 // from its RepaintBoundary at 1080 × 1350 (toImage → PNG), handed to the
 // OS share sheet with "{title} on Kute {link}", the sharer's referral code
 // on the link as `?ref=CODE` (share_market_sheet.dart).
@@ -17,7 +16,7 @@
 //     card follows the live providers while the sheet is up
 //     (bragPortfolio).
 //
-// Analytics: `brag_shared {kind: position | portfolio, amounts_shown}`
+// Analytics: `brag_shared {kind: position | portfolio}`
 // once the OS share sheet has been opened and not dismissed. No market,
 // no id, no figure.
 
@@ -36,19 +35,16 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/brag_sal.dart';
 import 'package:kute/screens/share/share_market_sheet.dart'
     show shareLinkWithReferral;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The preview's route name, for the route observers.
 const String kBragPreviewRouteName = 'brag_preview';
-
-/// The density Sal's sheet is read at for the card (captured at 3x).
-const int _kSalDensity = 3;
 
 /// Opens the preview for [data] (a position page's card).
 Future<void> showBragPreviewSheet(BuildContext context, BragData data) =>
@@ -82,22 +78,29 @@ class BragPreviewSheet extends ConsumerStatefulWidget {
   @visibleForTesting
   static Future<void> Function(XFile image, String text)? debugSharer;
 
+  /// Test seam: Sal's line seed (null: random on open).
+  @visibleForTesting
+  static int? debugLineSeed;
+
   @override
   ConsumerState<BragPreviewSheet> createState() => _BragPreviewSheetState();
 }
 
 class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
   final GlobalKey _boundary = GlobalKey();
-  bool _showAmounts = false;
+
+  /// Sal's line, picked once on open so it holds while the figures move.
+  final int _lineSeed =
+      BragPreviewSheet.debugLineSeed ?? math.Random().nextInt(1 << 16);
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    // Both faces, so the card never waits on the switch of a result.
-    unawaited(SalSpriteCache.warm(
-            const [kBragWinkClip, kBragShakeNoClip], _kSalDensity)
-        .then((_) {
+    // Every still, so the card never waits on a change of tone.
+    unawaited(
+        Future.wait([for (final t in BragTone.values) BragSalStills.load(t)])
+            .then((_) {
       if (mounted) setState(() {});
     }));
   }
@@ -115,7 +118,6 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     final origin = box != null && box.hasSize
         ? (box.localToGlobal(Offset.zero) & box.size)
         : (Offset.zero & const Size(1, 1));
-    final shown = _showAmounts;
     setState(() => _busy = true);
     try {
       final image = await boundary.toImage(pixelRatio: kBragCardPixelRatio);
@@ -136,7 +138,6 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
-          'amounts_shown': shown,
         });
       }
     } catch (_) {
@@ -151,7 +152,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     final c = context.colors;
     final l10n = context.l10n;
     final data = _data(context);
-    final sal = SalSpriteCache.peek(bragSalClip(data), _kSalDensity);
+    final sal = BragSalStills.peek(data.tone);
     final size = MediaQuery.sizeOf(context);
     final width = math.min(size.width - 40,
         size.height * 0.52 * kBragCardSize.width / kBragCardSize.height);
@@ -187,57 +188,10 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: BragCard(
-                        data: data, showAmounts: _showAmounts, sal: sal),
+                    child: BragCard(data: data, sal: sal, lineSeed: _lineSeed),
                   ),
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 12.w, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.bragShowAmounts,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        l10n.bragShowAmountsSub,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // The Settings switch's look.
-                Switch(
-                  key: const ValueKey('brag-show-amounts'),
-                  value: _showAmounts,
-                  onChanged: (v) => setState(() => _showAmounts = v),
-                  activeThumbColor: context.ctaOnColor,
-                  activeTrackColor: context.ctaFill,
-                  inactiveThumbColor: c.textSecondary,
-                  inactiveTrackColor: c.surfaceLight,
-                  trackOutlineColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? Colors.transparent
-                        : c.borderSubtle,
-                  ),
-                ),
-              ],
             ),
           ),
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Share is the
@@ -252,7 +206,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
               category: SearchCategory.all,
               source: 'brag_preview',
             ),
-            child: SizedBox(height: (kuteBarScrollClearance + 8).h),
+            child: SizedBox(height: (kuteBarScrollClearance + 24).h),
           ),
         ],
       ),
