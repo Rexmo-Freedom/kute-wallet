@@ -3444,24 +3444,24 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           // Last check before the money is handed over; past here nothing
           // is checked that could stop a send already on its way.
           _ensureMovementPinned(grant.walletId);
-          usdcSent = true;
-          _movementFundingStarted = true;
-          try {
-            final txHash =
-                await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
-                      toAddress: verifiedQuote.depositAddress,
-                      amount: usd,
-                      bridged: true,
-                      exactMicroUsdc: verifiedQuote.amountIn,
-                      grant: grant,
-                    );
-            return SettlementFundingProof.relayer(txHash);
-          } on SettlementFundingNotStarted {
-            // The withdrawal said it never submitted.
-            usdcSent = false;
-            _movementFundingStarted = false;
-            rethrow;
-          }
+          final txHash =
+              await ref.read(polymarketTradingProvider.notifier).withdrawUsdc(
+                    toAddress: verifiedQuote.depositAddress,
+                    amount: usd,
+                    bridged: true,
+                    exactMicroUsdc: verifiedQuote.amountIn,
+                    grant: grant,
+                    // Told the instant the signed batch goes to the
+                    // relayer. A throw before that (a balance read that
+                    // failed, a grant that drifted) sent nothing, and the
+                    // withdrawal says so by refusing, so no flag is set
+                    // here ahead of the send.
+                    onSubmitting: () {
+                      usdcSent = true;
+                      _movementFundingStarted = true;
+                    },
+                  );
+          return SettlementFundingProof.relayer(txHash);
         },
         // The relayer withdrawal is on disk once this returns; the
         // deposit is registered behind the overlay.
@@ -3676,6 +3676,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         provider: 'orchestra',
         reason: _moveFailReason(e),
         stage: usdcSent ? 'post_send' : 'pre_send',
+        cause: e,
       );
       _trackMoveFailed(e);
       _endStoppedMove(e);

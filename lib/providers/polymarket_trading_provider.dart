@@ -20,6 +20,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/trade_notification_store.dart';
 import 'dart:async';
 import 'package:kute/helpers/polymarket_account_readiness.dart';
+import 'package:kute/helpers/polymarket_withdraw_outcome.dart';
 import 'package:kute/helpers/evm_format_settle.dart';
 import 'package:kute/helpers/formatters/polymarket_side_labels.dart';
 import 'dart:convert';
@@ -5494,6 +5495,7 @@ class PolymarketTradingNotifier
     AuthGrant? grant,
     MoveAuthorization? sweep,
     VerifiedOrchestraQuote? sweepQuote,
+    VoidCallback? onSubmitting,
   }) async {
     final sweeping = grant == null;
     if (sweeping) {
@@ -5564,8 +5566,14 @@ class PolymarketTradingNotifier
           'No spending wallet. Polymarket withdraws need the hot wallet that owns the deposit wallet.');
     }
     final onboarding = PolymarketOnboardingService();
+    // Set the instant the signed batch is handed to the relayer, and
+    // [onSubmitting] told. Before that nothing has left the deposit
+    // wallet: a throw there is a refusal the caller puts into words (a
+    // failed balance read, a locked wallet, a grant that drifted), never
+    // a transfer whose outcome is unknown.
+    var submitted = false;
     _withdrawsInFlight++;
-    return HotPolymarketWithdrawalGuard().run(
+    final run = HotPolymarketWithdrawalGuard().run(
       walletId: spending.id,
       depositWallet: proxyWallet,
       transactionState: onboarding.relayerTransactionState,
@@ -5687,11 +5695,10 @@ class PolymarketTradingNotifier
           ));
         }
 
-        // Optimistic UI deduction.
-        final preSendBalance = current.usdcBalance;
-        _setData(current.copyWith(
-          usdcBalance: (current.usdcBalance - amount).clamp(0, double.infinity),
-        ));
+        // The balance the optimistic deduction below starts from; set
+        // once the relayer has the batch, so a refusal before the POST
+        // leaves the figure the person can still spend untouched.
+        var preSendBalance = current.usdcBalance;
 
         final deadline = DateTime.now()
                 .add(const Duration(minutes: 10))
@@ -5709,8 +5716,22 @@ class PolymarketTradingNotifier
             await beforeSubmit(nonce,
                 amountMicros: amountAtomic, balanceMicros: spendable);
             checkAccount();
+            submitted = true;
+            onSubmitting?.call();
           },
-          onSubmitted: onSubmitted,
+          onSubmitted: (txId) async {
+            // Optimistic UI deduction, now that the relayer holds the
+            // batch. Before this point a throw kept the balance as it
+            // was; deducting first and failing before the POST is what
+            // showed "$0.00 available" under a balance still there.
+            final live = state.valueOrNull ?? current;
+            preSendBalance = live.usdcBalance;
+            _setData(live.copyWith(
+              usdcBalance:
+                  (live.usdcBalance - amount).clamp(0, double.infinity),
+            ));
+            await onSubmitted(txId);
+          },
         );
 
         // Fee accounting for the Uniswap leg (false branch only).
@@ -5769,7 +5790,14 @@ class PolymarketTradingNotifier
         }
         return txHash;
       },
-    ).whenComplete(() => _withdrawsInFlight--);
+    );
+    try {
+      return await run;
+    } catch (e) {
+      throw polymarketWithdrawalFailure(e, submitted: submitted);
+    } finally {
+      _withdrawsInFlight--;
+    }
   }
 
   /// The deposit wallet's pUSD and USDC.e, read side by side, or null

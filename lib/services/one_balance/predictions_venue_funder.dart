@@ -522,7 +522,6 @@ class PredictionsVenueFunder
           }
         },
         fund: (verifiedQuote, _) async {
-          usdcSent = true;
           final txHash = await pm.withdrawUsdc(
             toAddress: verifiedQuote.depositAddress,
             amount: usd,
@@ -531,6 +530,9 @@ class PredictionsVenueFunder
             grant: approved,
             sweep: auth is SweepAuthorization ? auth : null,
             sweepQuote: verifiedQuote,
+            // Told the instant the batch goes to the relayer; a throw
+            // before that sent nothing.
+            onSubmitting: () => usdcSent = true,
           );
           return SettlementFundingProof.relayer(txHash);
         },
@@ -606,6 +608,7 @@ class PredictionsVenueFunder
         'stage': usdcSent ? 'post_send' : 'pre_send',
         'purpose': purpose,
         'error_category': _failReason(e),
+        'cause_reason': TrackingService.errorReason(e),
         ...TrackingService.moneyParams(amountUsd: usd),
       });
       rethrow;
@@ -761,7 +764,6 @@ class PredictionsVenueFunder
             }
           },
           fund: (verifiedQuote, _) async {
-            usdcSent = true;
             final txHash = await pm.withdrawUsdc(
               toAddress: verifiedQuote.depositAddress,
               amount: usd,
@@ -770,6 +772,7 @@ class PredictionsVenueFunder
               grant: approved,
               sweep: auth is ApprovedLegAuthorization ? auth : null,
               sweepQuote: verifiedQuote,
+              onSubmitting: () => usdcSent = true,
             );
             return SettlementFundingProof.relayer(txHash);
           },
@@ -865,6 +868,7 @@ class PredictionsVenueFunder
         'error_category': e is DirectRouteRefused
             ? (e.reason ?? 'route_unavailable')
             : _failReason(e),
+        'cause_reason': TrackingService.errorReason(e),
         ...TrackingService.moneyParams(amountUsd: usd),
       });
       rethrow;
