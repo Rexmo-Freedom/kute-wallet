@@ -469,11 +469,16 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
     final poly = _at(tester, _station('predictions'));
     final r = tester.getSize(_station('predictions')).width / 2;
-    final k = r / 14; // the screen's scale
+    final k = r / 22; // the screen's scale (the station's 22)
     expect((mapAt + beside).dy, closeTo(poly.dy, 0.5));
-    expect((mapAt + beside).dx + 9 * k, lessThan(poly.dx - r - 4 * k - 0.75),
+    // His right edge (0.3 of his 70 box) left of the arrowhead into the
+    // station (14 long, its tip 3 short of the edge) and of the ring (5
+    // past the edge, 2 wide).
+    expect((mapAt + beside).dx + 21 * k, lessThan(poly.dx - r - 17 * k),
+        reason: 'left of the arrowhead');
+    expect((mapAt + beside).dx + 21 * k, lessThan(poly.dx - r - 5 * k - 1),
         reason: 'left of the ring');
-    expect((mapAt + beside).dx, greaterThan(poly.dx - r - 40 * k));
+    expect((mapAt + beside).dx, greaterThan(poly.dx - r - 60 * k));
     expect(_motion(tester).walking, isFalse);
     expect(count('lightImpact'), 1);
     expect(count('selectionClick'), 1);

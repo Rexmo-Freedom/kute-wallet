@@ -188,12 +188,13 @@ void main() {
     expect(hl.dy - btc.dy, greaterThan(icon.height));
     expect(pm.dx, greaterThan(btc.dx));
     expect(pm.dy, closeTo((btc.dy + hl.dy) / 2, 0.01));
-    // The row about 100 high with two sources (the whole view about 125
-    // with its one status line), so a sheet's cards stay above the
-    // keypad.
+    // The row about 175 high with two sources (the big Sal on the arrow
+    // track, 1 November 2026: the 44 px marks on rows far enough apart
+    // for him to stand clear of the track above; the whole view about
+    // 200 with its one status line).
     expect(
         tester.getSize(find.byKey(const ValueKey('money-steps-map'))).height,
-        lessThan(105));
+        lessThan(180));
     // One merge point on Predictions' centre line; the shared line into
     // it waits for both legs.
     final merge = tester.getTopLeft(
@@ -256,13 +257,16 @@ void main() {
             .getSize(find.byKey(const ValueKey('money-steps-station-predictions')))
             .width /
         2;
-    // The ring: 4 (scaled with the station's 14) past its edge, 1.5 wide.
-    final ringLeft = pm2.dx - r - 4 * r / 14 - 0.75;
+    // The ring: 5 (scaled with the station's 22) past its edge, 2 wide.
+    final k = r / 22;
+    final ringLeft = pm2.dx - r - 5 * k - 1;
     expect(sal.dy, closeTo(pm2.dy, 0.5));
     expect(sal.dx, greaterThan(merge2.dx));
-    // His right edge (0.45 of his 20 px size, scaled alike) short of
-    // the ring.
-    expect(sal.dx + 9 * r / 14, lessThan(ringLeft));
+    // His right edge (0.3 of his 70 box, scaled alike) short of the
+    // arrowhead into the station (14 long, its tip 3 short of the edge),
+    // and so of the ring.
+    expect(sal.dx + 21 * k, lessThan(pm2.dx - r - 3 * k - 14 * k));
+    expect(sal.dx + 21 * k, lessThan(ringLeft));
     expect(_motion(tester).walking, isFalse);
     expect(find.text('Converting to pUSD'), findsNothing);
     final lines =

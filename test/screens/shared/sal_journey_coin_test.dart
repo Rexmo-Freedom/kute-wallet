@@ -187,8 +187,8 @@ void main() {
 
   testWidgets('the 3D Sal carries the coin, drawn on him at his mouth',
       (tester) async {
-    // The design size, so the look is at its real scale (the coin 3.6 px
-    // across in his mouth).
+    // The design size, so the look is at its real scale (the coin about
+    // 12.6 px across in his mouth, on a 64 px Sal).
     tester.view.physicalSize = const Size(430 * 3, 932 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetPhysicalSize);
@@ -210,10 +210,12 @@ void main() {
     expect(m.salSprite, isTrue, reason: 'a clip draws him');
     final coin = m.coin!;
     final sal = m.travellerAt!;
-    // In his mouth: on his body (not beside it), above his feet.
+    // In his mouth: on his body (not beside it), above his feet (which
+    // stand on the track's top edge, 5 above its centre line at
+    // [sal.dy]); the muzzle about 4.8 of his 16 units (~21 px) up.
     expect((coin.at.dx - sal.dx).abs(), lessThan(3));
-    expect(coin.at.dy, lessThan(sal.dy));
-    expect(coin.at.dy, greaterThan(sal.dy - 16));
+    expect(coin.at.dy, lessThan(sal.dy - 5));
+    expect(coin.at.dy, greaterThan(sal.dy - 40));
 
     final image = await _render(tester);
     final bytes = (await tester.runAsync(
