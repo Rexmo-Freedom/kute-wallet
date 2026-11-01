@@ -850,11 +850,10 @@ void main() {
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Advanced prediction'), findsNothing);
-    await tester
-        .tap(find.byKey(const ValueKey('capability-unavailable-got-it')));
+    await tester.tap(findBarPrimary());
     await tester.pumpAndSettle();
     expect(find.text('Advanced prediction'), findsNothing);
     expect(find.text(r'Place $10.00 on Yes'), findsOneWidget);
@@ -867,8 +866,8 @@ void main() {
     await _pumpSlip(tester);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Advanced prediction'), findsNothing);
     expect(tester.takeException(), isNull);
   });

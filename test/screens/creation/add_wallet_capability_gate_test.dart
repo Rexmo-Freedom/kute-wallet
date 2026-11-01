@@ -19,6 +19,8 @@ import 'package:kute/services/add_wallet_capabilities.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 class _Policy extends ChangeNotifier implements RuntimeCapabilitiesService {
   _Policy(this.denied);
   final Set<String> denied;
@@ -81,6 +83,9 @@ Future<AppLocalizations> _pump(WidgetTester tester, _Policy policy) async {
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        // The shell bar over the page (kute_bar_test_support.dart): the
+        // unavailable sheet's "Got it" is the bar.
+        builder: withKuteShellBar,
         theme: ThemeData(
           fontFamily: 'Inter',
           extensions: [AppColorsExtension.light()],
@@ -145,12 +150,10 @@ void main() {
         await tester.pumpAndSettle();
         // The flow did not start: still on Add wallet (no import screen,
         // no BitcoinWalletSetup, no scan), with the unavailable sheet up.
-        expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-            findsOneWidget,
+        expect(kuteBarPrimaryWithText(l10n.gotIt), findsOneWidget,
             reason: title);
         expect(find.byType(BitcoinWalletSetup), findsNothing, reason: title);
-        await tester.tap(
-            find.byKey(const ValueKey('capability-unavailable-got-it')));
+        await tester.tap(kuteBarPrimary);
         await tester.pumpAndSettle();
         expect(find.byType(AddWallet), findsOneWidget);
       }

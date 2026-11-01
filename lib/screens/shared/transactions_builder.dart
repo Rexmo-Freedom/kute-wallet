@@ -57,6 +57,7 @@ import 'package:kute/helpers/common_operation_methods.dart';
 import 'package:kute/helpers/extension.dart';
 import 'package:kute/helpers/kute_dog_asset.dart';
 import 'package:kute/services/onramp_visibility.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
     show showBuyUnavailableSheet;
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -5589,19 +5590,8 @@ class _UnclaimedDepositSheetState
                     ? context.l10n.depositReasonFeeHigh
                     : context.l10n.depositReasonFailed),
                 SizedBox(height: 16.h),
-                // One primary action; waiting is quiet.
-                AppButton(
-                  text: quote == null
-                      ? context.l10n.activityAddToWallet
-                      : context.l10n.depositClaimNowFee(
-                          ref.watch(conversionProvider(quote))),
-                  onPressed: locked ? null : _handleClaim,
-                  isLoading: _claiming || claimElsewhere,
-                  // The variant's own contrast: white text on the dark
-                  // fill in light mode, dark text on the light one in dark.
-                  compact: true,
-                ),
-                SizedBox(height: 6.h),
+                // One primary action; waiting is quiet: the text button
+                // stays on the sheet, above the bar.
                 if (waitingForFee)
                   AppBottomSheetTextButton(
                     text: context.l10n.depositWaitForLowerFee,
@@ -5609,7 +5599,25 @@ class _UnclaimedDepositSheetState
                   ),
                 // No "Send it back" here (founder, 2026-10-26): claim now or
                 // wait; the deposit is always added in the end.
-                SizedBox(height: 4.h),
+                // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                // kute_bar_context.dart): "Add to wallet" / "Claim now ·
+                // fee" is the floating Sal bar's primary action, with the
+                // handler the drawn button had, held and busy while a
+                // claim runs here or elsewhere; the sheet keeps the room
+                // under its text button for the bar.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: quote == null
+                        ? context.l10n.activityAddToWallet
+                        : context.l10n.depositClaimNowFee(
+                            ref.watch(conversionProvider(quote))),
+                    onPrimary: _handleClaim,
+                    enabled: !locked,
+                    busy: _claiming || claimElsewhere,
+                    source: 'unclaimed_deposit',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
+                ),
               ],
             ],
           ),

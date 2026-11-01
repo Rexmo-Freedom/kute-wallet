@@ -24,20 +24,30 @@
 //
 // A region block's one button is "Check connection" instead of "Got it"
 // (founder decision, October 2026; lib/services/region_freshness.dart):
-// it asks both venues and Kute's policy again, the button busy with the
-// shared rubber band meanwhile. Allowed now: the sheet closes, answering
+// it asks both venues and Kute's policy again, the button busy
+// meanwhile. Allowed now: the sheet closes, answering
 // true when what it was opened for is allowed, so a door can go on into
 // its action. Still restricted: it stays, with a soft failure tap, and
 // the button can be tapped again after the VPN changes. The sheet closes
 // by dragging it down or tapping outside, like every sheet.
+//
+// THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context.dart):
+// the sheet draws no button of its own. "Got it" or "Check connection" is
+// the floating Sal bar's primary action ([KuteBarContext.primary]), busy
+// with the bar's progress ring while the re-check runs (the rubber band
+// the drawn button wore went with it), and the sheet keeps the room under
+// its header clear for the bar ([kuteBarScrollClearance]). The bar's long
+// press asks Sal scoped to the venue the block came from, when the sheet
+// knows one ([_category]).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/rubber_band_progress.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/investment_provider_availability.dart';
 import 'package:kute/services/region_freshness.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
@@ -90,6 +100,22 @@ class _CapabilityUnavailableSheetState
     extends State<CapabilityUnavailableSheet> {
   bool _checking = false;
 
+  /// The venue the block came from, for the bar's long press (asking Sal
+  /// scoped to Predictions or Perpetuals): the venues whose own answer
+  /// opened the sheet, else the policy capabilities' prefix
+  /// (`polymarket.deposit`, `hyperliquid.deposit`); everything otherwise.
+  SearchCategory get _category {
+    final venues = widget.venues.toSet();
+    final ids = widget.capabilities?.toList() ?? const <String>[];
+    final predictions = venues.contains(InvestmentProvider.polymarket) ||
+        ids.any((id) => id.startsWith('polymarket.'));
+    final perpetuals = venues.contains(InvestmentProvider.hyperliquid) ||
+        ids.any((id) => id.startsWith('hyperliquid.'));
+    if (predictions && !perpetuals) return SearchCategory.predictions;
+    if (perpetuals && !predictions) return SearchCategory.perpetuals;
+    return SearchCategory.all;
+  }
+
   /// "Check connection": a fresh region round, then what stands. Allowed
   /// now closes the sheet (true when what it was opened for is allowed);
   /// still restricted keeps it, with the soft failure tap.
@@ -129,25 +155,29 @@ class _CapabilityUnavailableSheetState
             subtitle: widget.message,
           ),
           SizedBox(height: 8.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: region
-                ? RubberBandBusy(
+          // THE BAR IS THE BUTTON (founder, 31 October 2026; kute_bar_context
+          // .dart): "Check connection" (busy with the bar's progress ring
+          // while the re-check runs, so it takes no second tap) or "Got
+          // it" is the floating Sal bar's primary action, with the handler
+          // the drawn button had; the sheet keeps the room under its
+          // header for the bar.
+          KuteBarContextScope(
+            barContext: region
+                ? KuteBarContext.primary(
+                    label: l10n.checkConnection,
                     busy: _checking,
-                    expected: const Duration(seconds: 2),
-                    child: AppButton(
-                      key: const ValueKey(
-                          'capability-unavailable-check-connection'),
-                      text: l10n.checkConnection,
-                      isLoading: _checking,
-                      onPressed: _checking ? null : _checkConnection,
-                    ),
+                    busyLabel: l10n.checkConnection,
+                    onPrimary: _checkConnection,
+                    category: _category,
+                    source: 'capability_unavailable',
                   )
-                : AppButton(
-                    key: const ValueKey('capability-unavailable-got-it'),
-                    text: l10n.gotIt,
-                    onPressed: () => Navigator.of(context).pop(false),
+                : KuteBarContext.primary(
+                    label: l10n.gotIt,
+                    onPrimary: () => Navigator.of(context).pop(false),
+                    category: _category,
+                    source: 'capability_unavailable',
                   ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ],
       ),

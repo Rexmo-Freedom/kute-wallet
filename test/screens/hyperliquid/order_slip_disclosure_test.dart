@@ -879,11 +879,10 @@ void main() {
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('slip-advanced-button')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('capability-unavailable-got-it')),
-        findsOneWidget);
+    // The sheet's "Got it" is the bar (kute_bar_context.dart).
+    expect(barPrimaryText('Got it'), findsOneWidget);
     expect(find.text('Long BTC · Advanced'), findsNothing);
-    await tester
-        .tap(find.byKey(const ValueKey('capability-unavailable-got-it')));
+    await tester.tap(findBarPrimary());
     await tester.pumpAndSettle();
     expect(find.text('Long BTC · Advanced'), findsNothing);
     expect(find.byKey(const ValueKey('slip-advanced-button')), findsOneWidget);
