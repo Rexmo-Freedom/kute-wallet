@@ -83,6 +83,7 @@ import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
+import 'package:kute/theme/kute_overlay_surface.dart';
 
 /// How long a market page's scroll stays still before the folded pill
 /// opens again.
@@ -274,8 +275,8 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
               barContext: ctx,
               // The page's own Sal rows (Send to anyone on the Send to
               // step) stay one long press away.
-              onAsk: () => _open(kuteBarAskContext(
-                  ref.read(kuteBarContextProvider), ctx)),
+              onAsk: () => _open(
+                  kuteBarAskContext(ref.read(kuteBarContextProvider), ctx)),
               onPrimaryTap: _primaryTap,
             )
           // The Builder's element is the pill's own box: its rect is
@@ -304,65 +305,69 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
       left: 0,
       right: 0,
       bottom: 0,
-      child: IgnorePointer(
-        ignoring: !show,
-        child: AnimatedSlide(
-          key: const ValueKey('kute-shell-bar-slide'),
-          offset: show ? Offset.zero : const Offset(0, 1.4),
-          duration: reduce
-              ? Duration.zero
-              : (show
-                  ? KuteMotion.sheetInDuration
-                  : KuteMotion.sheetOutDuration),
-          curve: show ? KuteMotion.sheetIn : KuteMotion.sheetOut,
-          // Above the page's action row, on the sheet spring.
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(end: _lift),
-            duration: reduce ? Duration.zero : KuteMotion.sheetInDuration,
-            curve: KuteMotion.sheetIn,
-            builder: (context, lift, child) => Transform.translate(
-              offset: Offset(0, -lift),
-              child: child,
-            ),
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 1.4),
-                end: Offset.zero,
-              ).animate(
-                  CurvedAnimation(parent: _entry, curve: KuteMotion.sheetIn)),
-              child: SafeArea(
-                top: false,
-                child: AnimatedPadding(
-                  duration:
-                      reduce ? Duration.zero : KuteMotion.sheetInDuration,
-                  curve: KuteMotion.sheetIn,
-                  // The pill's air; the primary button takes the
-                  // screen's 16 px gutters.
-                  padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
-                      ctx.isPrimary ? 16.w : 12.w, 2.h),
-                  // Centred; docked right while folded. As a primary
-                  // button it grows to the full width on the chip spring
-                  // (AnimatedSize; the pill's own elastic movement) and
-                  // springs back to the pill.
-                  child: AnimatedAlign(
-                    alignment:
-                        collapsed ? Alignment.centerRight : Alignment.center,
+      // Above the navigator, outside every page's Material: the theme's
+      // text, never the error style (kute_overlay_surface.dart).
+      child: KuteOverlaySurface(
+        child: IgnorePointer(
+          ignoring: !show,
+          child: AnimatedSlide(
+            key: const ValueKey('kute-shell-bar-slide'),
+            offset: show ? Offset.zero : const Offset(0, 1.4),
+            duration: reduce
+                ? Duration.zero
+                : (show
+                    ? KuteMotion.sheetInDuration
+                    : KuteMotion.sheetOutDuration),
+            curve: show ? KuteMotion.sheetIn : KuteMotion.sheetOut,
+            // Above the page's action row, on the sheet spring.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: _lift),
+              duration: reduce ? Duration.zero : KuteMotion.sheetInDuration,
+              curve: KuteMotion.sheetIn,
+              builder: (context, lift, child) => Transform.translate(
+                offset: Offset(0, -lift),
+                child: child,
+              ),
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1.4),
+                  end: Offset.zero,
+                ).animate(
+                    CurvedAnimation(parent: _entry, curve: KuteMotion.sheetIn)),
+                child: SafeArea(
+                  top: false,
+                  child: AnimatedPadding(
                     duration:
-                        reduce ? Duration.zero : KuteMotion.chipDuration,
-                    curve: KuteMotion.chip,
-                    // The size tween of the morph; a zero-length
-                    // AnimatedSize re-dirties itself in layout (a Flutter
-                    // assertion), so Reduce Motion switches at once.
-                    child: reduce
-                        ? bar
-                        : AnimatedSize(
-                            duration: KuteMotion.chipDuration,
-                            curve: KuteMotion.chip,
-                            alignment: collapsed
-                                ? Alignment.centerRight
-                                : Alignment.center,
-                            child: bar,
-                          ),
+                        reduce ? Duration.zero : KuteMotion.sheetInDuration,
+                    curve: KuteMotion.sheetIn,
+                    // The pill's air; the primary button takes the
+                    // screen's 16 px gutters.
+                    padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
+                        ctx.isPrimary ? 16.w : 12.w, 2.h),
+                    // Centred; docked right while folded. As a primary
+                    // button it grows to the full width on the chip spring
+                    // (AnimatedSize; the pill's own elastic movement) and
+                    // springs back to the pill.
+                    child: AnimatedAlign(
+                      alignment:
+                          collapsed ? Alignment.centerRight : Alignment.center,
+                      duration:
+                          reduce ? Duration.zero : KuteMotion.chipDuration,
+                      curve: KuteMotion.chip,
+                      // The size tween of the morph; a zero-length
+                      // AnimatedSize re-dirties itself in layout (a Flutter
+                      // assertion), so Reduce Motion switches at once.
+                      child: reduce
+                          ? bar
+                          : AnimatedSize(
+                              duration: KuteMotion.chipDuration,
+                              curve: KuteMotion.chip,
+                              alignment: collapsed
+                                  ? Alignment.centerRight
+                                  : Alignment.center,
+                              child: bar,
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -462,8 +467,8 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
   bool _travelling = false;
 
   /// The entry (0 → 1 on the sheet spring), then the one pulse.
-  late final AnimationController _entry = AnimationController(
-      vsync: this, duration: KuteMotion.sheetInDuration);
+  late final AnimationController _entry =
+      AnimationController(vsync: this, duration: KuteMotion.sheetInDuration);
   late final AnimationController _pulse = AnimationController(
       vsync: this, duration: KuteSalHeaderButton.pulseDuration);
   late final Animation<double> _pulseScale = TweenSequence<double>([
@@ -658,94 +663,94 @@ class KuteBarPrimaryButton extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      excludeSemantics: true,
-      child: KutePressable(
+        button: true,
         enabled: enabled,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          // Always wired: the live context decides (see the shell bar's
-          // _primaryTap); a drawn-disabled button whose action just came
-          // on takes the tap.
-          onTap: onPrimaryTap ??
-              (enabled
-                  ? () {
-                      HapticFeedback.lightImpact();
-                      ctx.onPrimary!();
-                    }
-                  : null),
-          onLongPress: onAsk,
-          child: AnimatedOpacity(
-            opacity: faded ? 0.35 : 1,
-            duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-            child: AnimatedContainer(
-            key: const ValueKey('kute-bar-primary-button'),
-            duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-            curve: reduce ? Curves.linear : KuteMotion.chip,
-            height: KuteBarPrimaryButton.height,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 14.w),
-            decoration: BoxDecoration(
-              color: fill,
-              borderRadius: style?.radius ?? KuteBarPrimaryButton.radius,
-              border: Border.all(
-                color: live || style != null
-                    ? Colors.transparent
-                    : (isLight ? c.border : c.borderSubtle),
-                width: isLight ? 1.0 : 0.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                SalReactionSprite(
-                  key: ValueKey('primary-sal-$clip'),
-                  clip: clip,
-                  size: 28,
-                  speed: busy ? 1.4 : 1.0,
-                  fallback: Icon(Icons.bolt_rounded, size: 22, color: ink),
+        label: label,
+        excludeSemantics: true,
+        child: KutePressable(
+          enabled: enabled,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Always wired: the live context decides (see the shell bar's
+            // _primaryTap); a drawn-disabled button whose action just came
+            // on takes the tap.
+            onTap: onPrimaryTap ??
+                (enabled
+                    ? () {
+                        HapticFeedback.lightImpact();
+                        ctx.onPrimary!();
+                      }
+                    : null),
+            onLongPress: onAsk,
+            child: AnimatedOpacity(
+              opacity: faded ? 0.35 : 1,
+              duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+              child: AnimatedContainer(
+                key: const ValueKey('kute-bar-primary-button'),
+                duration: reduce ? Duration.zero : KuteMotion.chipDuration,
+                curve: reduce ? Curves.linear : KuteMotion.chip,
+                height: KuteBarPrimaryButton.height,
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                decoration: BoxDecoration(
+                  color: fill,
+                  borderRadius: style?.radius ?? KuteBarPrimaryButton.radius,
+                  border: Border.all(
+                    color: live || style != null
+                        ? Colors.transparent
+                        : (isLight ? c.border : c.borderSubtle),
+                    width: isLight ? 1.0 : 0.5,
+                  ),
                 ),
-                SizedBox(width: 10.w),
-                Expanded(
-                  // The ink follows the fill on the same spring: switched
-                  // at once, a white label sat on the still-light fill.
-                  child: AnimatedDefaultTextStyle(
-                    duration:
-                        reduce ? Duration.zero : KuteMotion.chipDuration,
-                    curve: reduce ? Curves.linear : KuteMotion.chip,
-                    // The theme's own text style: this build's context is above
-                    // the Material that gives the bar one.
-                    style: (Theme.of(context).textTheme.bodyLarge ??
-                            const TextStyle())
-                        .copyWith(
+                child: Row(
+                  children: [
+                    SalReactionSprite(
+                      key: ValueKey('primary-sal-$clip'),
+                      clip: clip,
+                      size: 28,
+                      speed: busy ? 1.4 : 1.0,
+                      fallback: Icon(Icons.bolt_rounded, size: 22, color: ink),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      // The ink follows the fill on the same spring: switched
+                      // at once, a white label sat on the still-light fill.
+                      child: AnimatedDefaultTextStyle(
+                        duration:
+                            reduce ? Duration.zero : KuteMotion.chipDuration,
+                        curve: reduce ? Curves.linear : KuteMotion.chip,
+                        // The theme's own text style: this build's context is above
+                        // the Material that gives the bar one.
+                        style: (Theme.of(context).textTheme.bodyLarge ??
+                                const TextStyle())
+                            .copyWith(
                           color: ink,
                           fontSize: 16.sp,
                           fontWeight: style?.fontWeight ?? FontWeight.w600,
                           letterSpacing: -0.2,
                         ),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (busy) ...[
+                      SizedBox(width: 10.w),
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: ink),
+                      ),
+                    ],
+                  ],
                 ),
-                if (busy) ...[
-                  SizedBox(width: 10.w),
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child:
-                        CircularProgressIndicator(strokeWidth: 2, color: ink),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
-          ),
         ),
-      ),
       ),
     );
   }

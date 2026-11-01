@@ -39,6 +39,7 @@ import 'package:kute/screens/search/components/search_rows.dart'
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/theme/kute_motion.dart';
+import 'package:kute/theme/kute_overlay_surface.dart';
 
 /// True while the pill is travelling (either way). The shell bar's pill
 /// and the sheet's composer draw transparent while it is.
@@ -249,109 +250,113 @@ class _MorphBoxState extends State<_MorphBox>
     // clipped by the box, so a narrow start (the folded pill, the header
     // circle) never squeezes it.
     final wide = math.max(widget.from.width, widget.to.width);
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _t,
-        builder: (context, _) {
-          final t = _t.value;
-          // How far towards the composer's look (1 = composer), so the
-          // same lerps serve both directions.
-          final k = (opening ? t : 1 - t).clamp(0.0, 1.0);
-          final rect = rectTween.evaluate(_t) ?? widget.to;
-          // The pill's surface becomes the line's: the fill, the corner
-          // and the shadow go, the hairline settles under the line.
-          final decoration =
-              BoxDecoration.lerp(pillDecoration, lineDecoration, k) ??
-                  lineDecoration;
-          // Sal never taller than the box leaves him (a 40 circle holds
-          // him at 30), centred in it.
-          final sprite = math.min(lerpDouble(pillSprite, composerSprite, k)!,
-              math.max(0.0, rect.height - 10));
-          final lead = math.min(lerpDouble(pillLead, composerLead, k)!,
-              math.max(0.0, (rect.height - sprite) / 2));
-          // The pill's text fades through the first half, the hint rises
-          // through the second, so the two never lie over each other.
-          final labelOpacity = (1 - k * 2).clamp(0.0, 1.0);
-          final hintOpacity = (k * 2 - 1).clamp(0.0, 1.0);
-          return Stack(
-            children: [
-              Positioned.fromRect(
-                rect: rect,
-                child: Container(
-                  decoration: decoration,
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: Opacity(
-                          opacity: k,
-                          child:
-                              Container(height: hairline, color: hairlineColor),
+    // On the root overlay, outside every page's Material: the theme's
+    // text, never the error style's double underline (kute_overlay_surface.dart).
+    return KuteOverlaySurface(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _t,
+          builder: (context, _) {
+            final t = _t.value;
+            // How far towards the composer's look (1 = composer), so the
+            // same lerps serve both directions.
+            final k = (opening ? t : 1 - t).clamp(0.0, 1.0);
+            final rect = rectTween.evaluate(_t) ?? widget.to;
+            // The pill's surface becomes the line's: the fill, the corner
+            // and the shadow go, the hairline settles under the line.
+            final decoration =
+                BoxDecoration.lerp(pillDecoration, lineDecoration, k) ??
+                    lineDecoration;
+            // Sal never taller than the box leaves him (a 40 circle holds
+            // him at 30), centred in it.
+            final sprite = math.min(lerpDouble(pillSprite, composerSprite, k)!,
+                math.max(0.0, rect.height - 10));
+            final lead = math.min(lerpDouble(pillLead, composerLead, k)!,
+                math.max(0.0, (rect.height - sprite) / 2));
+            // The pill's text fades through the first half, the hint rises
+            // through the second, so the two never lie over each other.
+            final labelOpacity = (1 - k * 2).clamp(0.0, 1.0);
+            final hintOpacity = (k * 2 - 1).clamp(0.0, 1.0);
+            return Stack(
+              children: [
+                Positioned.fromRect(
+                  rect: rect,
+                  child: Container(
+                    decoration: decoration,
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Opacity(
+                            opacity: k,
+                            child: Container(
+                                height: hairline, color: hairlineColor),
+                          ),
                         ),
-                      ),
-                      Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.only(left: lead),
-                          child: OverflowBox(
-                            alignment: Alignment.centerLeft,
-                            minWidth: wide,
-                            maxWidth: wide,
-                            child: Row(
-                              children: [
-                                SalSprite(
-                                  clip: 'search',
-                                  size: sprite,
-                                  fallback: SvgPicture.asset(
-                                      kuteDogAsset(context),
-                                      width: sprite,
-                                      height: sprite),
-                                ),
-                                SizedBox(width: lerpDouble(6.w, 12.w, k)),
-                                Expanded(
-                                  child: Stack(
-                                    alignment: Alignment.centerLeft,
-                                    children: [
-                                      if (labelOpacity > 0)
-                                        Opacity(
-                                          opacity: labelOpacity,
-                                          child: Text(
-                                            widget.label,
-                                            maxLines: 1,
-                                            softWrap: false,
-                                            overflow: TextOverflow.fade,
-                                            style: pillLabel,
-                                          ),
-                                        ),
-                                      if (hintOpacity > 0)
-                                        Opacity(
-                                          opacity: hintOpacity,
-                                          child: Text(
-                                            widget.hint,
-                                            maxLines: 1,
-                                            softWrap: false,
-                                            overflow: TextOverflow.fade,
-                                            style: hintStyle,
-                                          ),
-                                        ),
-                                    ],
+                        Positioned.fill(
+                          child: Padding(
+                            padding: EdgeInsets.only(left: lead),
+                            child: OverflowBox(
+                              alignment: Alignment.centerLeft,
+                              minWidth: wide,
+                              maxWidth: wide,
+                              child: Row(
+                                children: [
+                                  SalSprite(
+                                    clip: 'search',
+                                    size: sprite,
+                                    fallback: SvgPicture.asset(
+                                        kuteDogAsset(context),
+                                        width: sprite,
+                                        height: sprite),
                                   ),
-                                ),
-                                SizedBox(width: 18.w),
-                              ],
+                                  SizedBox(width: lerpDouble(6.w, 12.w, k)),
+                                  Expanded(
+                                    child: Stack(
+                                      alignment: Alignment.centerLeft,
+                                      children: [
+                                        if (labelOpacity > 0)
+                                          Opacity(
+                                            opacity: labelOpacity,
+                                            child: Text(
+                                              widget.label,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              overflow: TextOverflow.fade,
+                                              style: pillLabel,
+                                            ),
+                                          ),
+                                        if (hintOpacity > 0)
+                                          Opacity(
+                                            opacity: hintOpacity,
+                                            child: Text(
+                                              widget.hint,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              overflow: TextOverflow.fade,
+                                              style: hintStyle,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: 18.w),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
