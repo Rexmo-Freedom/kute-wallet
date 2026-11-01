@@ -164,12 +164,18 @@ class _Trading extends PolymarketTradingNotifier {
       _deposit?.future ?? Future.value(_pmWallet);
 
   @override
-  Future<BigInt> spendableMicroUsdc() async =>
-      BigInt.from((_predictions * 1e6).round());
+  Future<BigInt> spendableMicroUsdc() async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((_predictions * 1e6).round());
+  }
 
   @override
-  Future<BigInt> payableMicroUsdc(double amount) async =>
-      BigInt.from((amount * 1e6).round());
+  Future<BigInt> payableMicroUsdc(double amount) async {
+    final failure = _readFailure;
+    if (failure != null) throw failure;
+    return BigInt.from((amount * 1e6).round());
+  }
 
   /// The account's one-time setup, asked for before a move leaves
   /// Predictions. Done, unless [_setupFailure] says it cannot finish.
@@ -188,6 +194,9 @@ bool _proxyKnown = true;
 Completer<String?>? _deposit;
 Object? _setupFailure;
 int _setupAsked = 0;
+
+/// What the live balance read throws, when it cannot be read.
+Object? _readFailure;
 double _predictions = 20;
 double _dollars = 20;
 
@@ -549,6 +558,7 @@ void main() {
     _proxyKnown = true;
     _setupFailure = null;
     _setupAsked = 0;
+    _readFailure = null;
     _deposit = null;
     _predictions = 20;
     _dollars = 20;
@@ -857,6 +867,27 @@ void main() {
     _setupFailure = null;
     await _confirm(tester);
     expect(_setupAsked, 2);
+    expect(_runner.plans, hasLength(1));
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'a live balance that cannot be read stops a Predictions move before '
+      'the quote, as unreachable, never as insufficient', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    await _type(tester, '5');
+    _readFailure =
+        const PolymarketReadException('eth_call: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(find.text('Insufficient balance'), findsNothing);
+    expect(_button(tester).text, 'Retry');
+    _readFailure = null;
+    await _confirm(tester);
     expect(_runner.plans, hasLength(1));
     await _close(tester, c);
   });

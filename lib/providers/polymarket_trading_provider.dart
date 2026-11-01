@@ -5628,12 +5628,17 @@ class PolymarketTradingNotifier
         // If the wallet also has some loose USDC.e (e.g. from a deposit
         // that hasn't been wrapped yet), include it in the spendable
         // total — no need to wrap then immediately unwrap.
+        //
+        // Read live and strictly: a read that fails throws, and the
+        // withdrawal is refused with that reason. The lenient read's 0
+        // made every failed read an "insufficient balance" refusal of
+        // money that was there.
         final balances = await Future.wait([
-          onboarding.readErc20Balance(
+          onboarding.readErc20BalanceOrThrow(
             token: PolymarketConstants.pusdAddress,
             owner: proxyWallet,
           ),
-          onboarding.readErc20Balance(
+          onboarding.readErc20BalanceOrThrow(
             token: PolymarketConstants.usdcEAddress,
             owner: proxyWallet,
           ),
@@ -6091,15 +6096,16 @@ class PolymarketTradingNotifier
 
   /// The deposit wallet's pUSD + USDC.e, in micro-USDC. The two reads are
   /// independent, so they run side by side rather than one after the
-  /// other; a failed read still throws its own error.
+  /// other; a read that fails throws ([PolymarketReadException]) so Max
+  /// and the amount check never size a send from a $0.00 nobody read.
   static Future<BigInt> _readSpendableMicroUsdc(
       PolymarketOnboardingService onboarding, String proxyWallet) async {
     final balances = await Future.wait([
-      onboarding.readErc20Balance(
+      onboarding.readErc20BalanceOrThrow(
         token: PolymarketConstants.pusdAddress,
         owner: proxyWallet,
       ),
-      onboarding.readErc20Balance(
+      onboarding.readErc20BalanceOrThrow(
         token: PolymarketConstants.usdcEAddress,
         owner: proxyWallet,
       ),

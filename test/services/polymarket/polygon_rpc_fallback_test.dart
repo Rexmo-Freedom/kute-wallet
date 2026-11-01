@@ -236,6 +236,26 @@ void main() {
     expect(failed.single.$2, {'method': 'eth_call', 'endpoints': 4});
   });
 
+  test(
+      'a balance that decides a withdrawal throws when every endpoint '
+      'fails; the lenient read still answers 0', () async {
+    final rpcs = _Rpcs(_known,
+        [_Mode.serverError, _Mode.rpcError, _Mode.serverError, _Mode.rpcError]);
+    await expectLater(
+      _with(
+          rpcs,
+          () => PolymarketOnboardingService()
+              .readErc20BalanceOrThrow(token: _token, owner: _wallet)),
+      throwsA(isA<PolymarketReadException>()),
+    );
+    expect(
+        await _with(
+            rpcs,
+            () => PolymarketOnboardingService()
+                .readErc20Balance(token: _token, owner: _wallet)),
+        BigInt.zero);
+  });
+
   test('the receipt poll asks every second for 20 s, then every 2 s', () {
     expect(PolymarketOnboardingService.receiptPollInterval(Duration.zero),
         const Duration(seconds: 1));
