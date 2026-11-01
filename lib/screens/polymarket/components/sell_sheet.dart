@@ -1163,7 +1163,11 @@ class _SellSheetState extends ConsumerState<SellSheet> {
     // second order against the now-zero balance (see `_handleSell`). A
     // limit sell that is still partly for sale keeps its shares held.
     if (!partialLimit) notifier.markTokenSold(tokenId);
-    notifier.markSoldOptimistically(tokenId: tokenId, sharesSold: sold);
+    notifier.markSoldOptimistically(
+        tokenId: tokenId,
+        sharesSold: sold,
+        heldShares: pos.size,
+        proceedsUsd: proceeds);
     notifier.refreshAfterSale();
     if (limit) ref.invalidate(polymarketOpenOrdersProvider);
 

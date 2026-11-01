@@ -1212,7 +1212,7 @@ final polymarketResolvedPositionsProvider =
   final results = <PolymarketPosition>[];
 
   results.addAll(state.openPositions
-      .where((p) => p.redeemable)
+      .where((p) => p.redeemable && p.size >= kPolyDustShares)
       .map((p) => PolymarketPosition(
             marketId: p.conditionId,
             marketQuestion: p.title,

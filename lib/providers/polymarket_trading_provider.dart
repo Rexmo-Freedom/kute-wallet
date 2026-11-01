@@ -8,6 +8,7 @@ import 'package:kute/services/polymarket/placement_diagnostics.dart';
 import 'package:kute/services/polymarket/warm_connections.dart';
 import 'package:kute/services/polymarket/placement_timeline.dart';
 import 'package:kute/services/polymarket/send_time_read.dart';
+import 'package:kute/services/polymarket/confirmed_sales.dart';
 import 'package:kute/services/polymarket/pending_fills.dart';
 import 'package:kute/services/polymarket/combos/combo_service.dart';
 import 'package:kute/services/polymarket/combos/combo_transport.dart';
@@ -169,6 +170,12 @@ class PolymarketTradingState {
   /// [usdcBalance] until a cash read shows it.
   final List<PolymarketPendingFill> pendingFills;
 
+  /// Sales the venue filled that the positions read may not have caught
+  /// up with yet (confirmed_sales.dart): a pre-sale row of a sold token is
+  /// shrunk or dropped from [openPositions], and the Portfolio's P&L moves
+  /// the shares sold from open to realised at the venue's proceeds.
+  final List<PolymarketConfirmedSale> confirmedSales;
+
   const PolymarketTradingState({
     this.isAuthenticated = false,
     this.usdcBalance = 0,
@@ -186,6 +193,7 @@ class PolymarketTradingState {
     this.balanceKnown = true,
     this.refreshing = false,
     this.pendingFills = const [],
+    this.confirmedSales = const [],
   });
 
   PolymarketTradingState copyWith({
@@ -205,6 +213,7 @@ class PolymarketTradingState {
     bool? balanceKnown,
     bool? refreshing,
     List<PolymarketPendingFill>? pendingFills,
+    List<PolymarketConfirmedSale>? confirmedSales,
   }) {
     return PolymarketTradingState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -223,6 +232,7 @@ class PolymarketTradingState {
       balanceKnown: balanceKnown ?? this.balanceKnown,
       refreshing: refreshing ?? this.refreshing,
       pendingFills: pendingFills ?? this.pendingFills,
+      confirmedSales: confirmedSales ?? this.confirmedSales,
     );
   }
 
@@ -255,6 +265,7 @@ class PolymarketTradingState {
         setEquals(clearingConditionIds, other.clearingConditionIds) &&
         _samePositionValues(openPositions, other.openPositions) &&
         listEquals(pendingFills, other.pendingFills) &&
+        listEquals(confirmedSales, other.confirmedSales) &&
         listEquals(closedPositions, other.closedPositions) &&
         listEquals(openOrders, other.openOrders);
   }
@@ -276,6 +287,7 @@ class PolymarketTradingState {
         Object.hashAll(pendingSaleTokens),
         Object.hashAll(clearingConditionIds),
         Object.hashAll(pendingFills),
+        Object.hashAll(confirmedSales),
       );
 }
 
@@ -835,6 +847,9 @@ class PolymarketTradingNotifier
         _pendingFillsWallet = wallet;
       }
       if (_pendingFills.any((f) => f.key == key)) return;
+      // Shares of the token are held again: its sale no longer explains a
+      // larger row (the state below carries the sales without it).
+      _forgetSaleOf(tokenId, publish: false);
       var listed = 0.0;
       for (final p in current.openPositions) {
         if (p.asset == tokenId && p.size.isFinite) listed += p.size;
@@ -856,6 +871,7 @@ class PolymarketTradingNotifier
         usdcBalance:
             (current.usdcBalance - costUsd).clamp(0.0, double.infinity),
         pendingFills: _pendingFills,
+        confirmedSales: _salesFor(wallet),
       ));
     } catch (_) {}
   }
@@ -901,100 +917,167 @@ class PolymarketTradingNotifier
     return true;
   }
 
-  /// Tokens whose FULL sell we've optimistically applied to state. The
-  /// Data API keeps returning the position for up to ~a minute after the
-  /// CLOB accepts a FOK sell (worst on 'delayed' fills), so without this
-  /// filter the next refresh would resurrect the card the user just
-  /// watched disappear. In-memory only on purpose: unlike a claim (whose
-  /// suppression must survive restart because the API lags for minutes),
-  /// a relaunch mid-window just briefly re-shows the row until the API
-  /// catches up — and never hides real holdings.
-  final Map<String, DateTime> _optimisticallySoldTokens = {};
+  /// Sales the venue filled, for the deposit wallet each names, until
+  /// [kConfirmedSaleTtl] (confirmed_sales.dart). The Data API keeps
+  /// returning a sold position for seconds to minutes after the trade is
+  /// on chain, and its reads do not move forward together: one read can
+  /// leave the row out and the next bring it back at the pre-sale size.
+  /// Each read is therefore held against these, never trusted to have
+  /// caught up because one read lacked the row (the old marker ended on
+  /// the first such read, and was never set when the sale had been
+  /// confirmed by the row disappearing: the founder's sold prediction then
+  /// came back as open, 2026-11-01). A buy of the token clears its sale.
+  List<PolymarketConfirmedSale> _confirmedSales = const [];
 
-  /// Bounded on purpose (same reconciliation TTL as `_pendingSaleTokens`,
-  /// chosen for the identical Data-API-settlement lag): if the sell
-  /// actually failed on-chain, the position is still in the API response
-  /// once the window lapses and reappears naturally — we never trust the
-  /// optimistic marker longer than this.
-  static const _soldSuppressionWindow = Duration(seconds: 120);
+  /// The live sales of [wallet], the expired ones dropped.
+  List<PolymarketConfirmedSale> _salesFor(String? wallet) {
+    final live = liveConfirmedSales(_confirmedSales, wallet, DateTime.now());
+    if (live.length != _confirmedSales.length) {
+      _confirmedSales = List.unmodifiable([
+        for (final s in _confirmedSales)
+          if (DateTime.now().difference(s.at) <= kConfirmedSaleTtl) s,
+      ]);
+    }
+    return live;
+  }
 
-  /// Optimistic sell reconciliation — called by the sell sheet the moment
-  /// the CLOB ACCEPTS a FOK sell ('matched' OR 'delayed'), before the Data
-  /// API has indexed anything:
+  /// A buy of [tokenId] (matched or placed): shares of it are held again,
+  /// so a row larger than what the sale left is no longer a stale one.
+  void _forgetSaleOf(String tokenId, {bool publish = true}) {
+    if (!_confirmedSales.any((s) => s.tokenId == tokenId)) return;
+    _confirmedSales = List.unmodifiable(
+        _confirmedSales.where((s) => s.tokenId != tokenId));
+    if (!publish) return;
+    final current = state.valueOrNull;
+    if (current == null) return;
+    _setData(current.copyWith(
+        confirmedSales: _salesFor(current.proxyWalletAddress)));
+  }
+
+  /// The sale of [sharesSold] of [tokenId] is on chain — called by the sell
+  /// sheet once the venue confirms the fill, before the Data API has
+  /// indexed it:
   ///
-  ///   - FULL sell (>= 95% of held size — same generous threshold as the
-  ///     sheet's `sellingAll`, because "Sell Max" rounds 10 shares down to
-  ///     ~9.96): drop the position from `openPositions` NOW and record a
-  ///     suppression marker so the refresh loop doesn't resurrect it.
-  ///   - PARTIAL sell: shrink the position in place, NO suppression — the
-  ///     row should stay, just smaller. The next refresh may briefly
-  ///     restore the API's stale larger size until it indexes the fill;
-  ///     that errs on showing more (never hides shares) and self-corrects.
+  ///   - the position drops from `openPositions` NOW when the sale closed
+  ///     it (at least 95% of the holding, the same generous threshold as
+  ///     the sheet's `sellingAll`, because "Sell Max" rounds 10 shares down
+  ///     to ~9.96; the remainder is dust), or shrinks to what is left;
+  ///   - the sale is recorded ([PolymarketConfirmedSale]) so every read
+  ///     until the Data API catches up (bounded by [kConfirmedSaleTtl]) is
+  ///     held against it, and the Portfolio's P&L counts the shares sold
+  ///     as realised at [proceedsUsd] (the venue's figure), never also at
+  ///     their price as open;
+  ///   - shares sold beyond what the positions read listed come out of the
+  ///     pending buys, so the header never counts a sold share.
   ///
-  /// Reconciliation story: `_fetchAllData` drops the marker as soon as the
-  /// Data API stops returning the position (sale settled — the natural
-  /// list is already correct) or after [_soldSuppressionWindow], whichever
-  /// comes first. A sell that silently failed on-chain therefore brings
-  /// the card back within the window instead of gaslighting the user.
+  /// [heldShares] is what was held right before the sale (the sheet's
+  /// position); without it, the listed row plus the unlisted buys. The
+  /// sale is recorded even when the row is already gone: the sheet may
+  /// have confirmed it by that very read, and a later lagging read would
+  /// otherwise bring the pre-sale row back.
   void markSoldOptimistically({
     required String tokenId,
     required double sharesSold,
+    double? heldShares,
+    double? proceedsUsd,
   }) {
     if (tokenId.isEmpty) return;
     final current = state.valueOrNull;
     if (current == null) return;
+    final wallet = current.proxyWalletAddress;
+    if (wallet == null || wallet.isEmpty) return;
     final match =
         current.openPositions.where((p) => p.asset == tokenId).firstOrNull;
-    if (match == null) return;
+    final fills = _fillsFor(wallet);
+    final unlisted = unlistedPendingShares(fills, tokenId);
+    // What the positions read listed before the sale (the sheet's
+    // position), and what was held in all: that plus the buys no read
+    // listed yet.
+    final listedBefore =
+        heldShares != null && heldShares.isFinite && heldShares > 0
+            ? heldShares
+            : match?.size ?? 0.0;
+    final held = listedBefore + unlisted;
+    final fromListed = sharesSold < listedBefore ? sharesSold : listedBefore;
+    final fromFills = sharesSold - fromListed;
+    // The shares sold at the venue's basis: the row's entry cost per share,
+    // and the pending buys' fill prices for shares no read listed yet.
+    double? cost = 0;
+    if (fromListed > 0) {
+      cost = match != null && match.size > 0 && match.initialValue.isFinite
+          ? match.initialValue / match.size * fromListed
+          : null;
+    }
+    if (cost != null && fromFills > 0.01) {
+      var left = fromFills;
+      final newestFirst = [
+        for (final f in fills)
+          if (f.tokenId == tokenId && !f.indexed && f.shares > 0) f
+      ]..sort((a, b) => b.at.compareTo(a.at));
+      for (final f in newestFirst) {
+        if (left <= 0) break;
+        final take = f.shares < left ? f.shares : left;
+        cost = cost! + take * f.price;
+        left -= take;
+      }
+      if (left > 0.01) cost = null;
+    }
+    final sale = newConfirmedSale(
+      wallet: wallet,
+      tokenId: tokenId,
+      soldShares: sharesSold,
+      heldShares: held,
+      now: DateTime.now(),
+      proceedsUsd: proceedsUsd,
+      costUsd: cost,
+      conditionId: match?.conditionId ?? '',
+      title: match?.title ?? '',
+      outcome: match?.outcome ?? '',
+      slug: match?.slug ?? '',
+      eventSlug: match?.eventSlug ?? '',
+      icon: match?.icon ?? '',
+    );
+    if (sale == null) return;
+    _confirmedSales = List.unmodifiable([
+      for (final s in _confirmedSales)
+        if (s.tokenId != tokenId) s,
+      sale,
+    ]);
+    final sales = _salesFor(wallet);
 
-    final sellingAll = sharesSold >= match.size * 0.95;
-    if (sellingAll) {
-      _optimisticallySoldTokens[tokenId] = DateTime.now();
-      _setData(current.copyWith(
-        openPositions:
-            current.openPositions.where((p) => p.asset != tokenId).toList(),
-      ));
-      return;
+    // Shares sold beyond the listed row came out of the pending buys.
+    final beyondListed = sale.soldShares - fromListed;
+    if (beyondListed > 0.01 && fills.isNotEmpty) {
+      _pendingFills = pendingFillsAfterSale(fills, tokenId, beyondListed);
     }
 
-    // Partial sell — rebuild with the sold shares removed. The package
-    // Position has no copyWith, so mirror the full-constructor rebuild
-    // used by the redeemable override in `_fetchAllData`. Value fields
-    // scale proportionally so avgPrice / curPrice / percentPnl stay
-    // invariant and the card's numbers remain internally consistent.
-    final newSize = (match.size - sharesSold).clamp(0.0, double.infinity);
-    final remainingFraction = match.size > 0 ? newSize / match.size : 0.0;
-    final shrunk = Position(
-      proxyWallet: match.proxyWallet,
-      asset: match.asset,
-      conditionId: match.conditionId,
-      size: newSize,
-      avgPrice: match.avgPrice,
-      initialValue: match.initialValue * remainingFraction,
-      currentValue: match.currentValue * remainingFraction,
-      cashPnl: match.cashPnl * remainingFraction,
-      percentPnl: match.percentPnl,
-      totalBought: match.totalBought,
-      realizedPnl: match.realizedPnl,
-      percentRealizedPnl: match.percentRealizedPnl,
-      curPrice: match.curPrice,
-      redeemable: match.redeemable,
-      mergeable: match.mergeable,
-      title: match.title,
-      slug: match.slug,
-      icon: match.icon,
-      eventSlug: match.eventSlug,
-      outcome: match.outcome,
-      outcomeIndex: match.outcomeIndex,
-      oppositeOutcome: match.oppositeOutcome,
-      oppositeAsset: match.oppositeAsset,
-      endDate: match.endDate,
-      negativeRisk: match.negativeRisk,
-    );
+    var positions = applyConfirmedSales(current.openPositions, sales);
+    // A row already showing the sale that closed the position is its dust
+    // remainder: it goes too (a larger row has new shares and stands).
+    if (sale.closesPosition) {
+      positions = positions
+          .where((p) =>
+              p.asset != tokenId || p.size > sale.remainingShares + 0.01)
+          .toList();
+    }
     _setData(current.copyWith(
-      openPositions: current.openPositions
-          .map((p) => p.asset == tokenId ? shrunk : p)
-          .toList(),
+      openPositions: positions,
+      pendingFills: _fillsFor(wallet),
+      confirmedSales: sales,
+    ));
+  }
+
+  /// A positions read [read] landing, held against the filled sales the
+  /// way every refresh holds it ([_fetchAllData]), for tests that play the
+  /// Data API's lagging reads without the network.
+  @visibleForTesting
+  void debugApplyPositionsRead(List<Position> read) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final sales = _salesFor(current.proxyWalletAddress);
+    _setData(current.copyWith(
+      openPositions: applyConfirmedSales(read, sales),
+      confirmedSales: sales,
     ));
   }
 
@@ -1218,7 +1301,9 @@ class PolymarketTradingNotifier
       usdcBalance: cached.usdcBalance,
       totalPnl: cached.totalPnl,
       totalPnlPercent: cached.totalPnlPercent,
-      openPositions: cached.openPositions,
+      openPositions: applyConfirmedSales(
+          cached.openPositions, _salesFor(cached.depositAddress)),
+      confirmedSales: _salesFor(cached.depositAddress),
       closedPositions: cached.closedPositions,
       openOrders: cached.openOrders,
       walletAddress: eoa,
@@ -2367,23 +2452,15 @@ class PolymarketTradingNotifier
       }
     }
 
-    // Optimistic full-sell suppression — the refresh-loop counterpart of
-    // `markSoldOptimistically`. First reconcile the markers: drop any the
-    // Data API has caught up on (position no longer returned → the sale
-    // settled, the natural list is already correct) and any older than
-    // the bounded window (the sell may have silently failed on-chain —
-    // let the position reappear rather than hide real holdings). Whatever
-    // survives is still lagging: filter those positions out so the
-    // just-sold card doesn't resurrect between the optimistic removal
-    // and the API indexing the fill (up to ~a minute on 'delayed' FOKs).
-    _optimisticallySoldTokens.removeWhere((tok, at) =>
-        now.difference(at) > _soldSuppressionWindow ||
-        !positions.any((p) => p.asset == tok));
-    if (_optimisticallySoldTokens.isNotEmpty) {
-      positions = positions
-          .where((p) => !_optimisticallySoldTokens.containsKey(p.asset))
-          .toList();
-    }
+    // Filled sales the Data API may not show yet — the refresh-loop
+    // counterpart of `markSoldOptimistically` (confirmed_sales.dart): a
+    // row of a sold token at its pre-sale size is shrunk to what the sale
+    // left, or dropped when the sale closed the position. A read without
+    // the row proves nothing (the next one can bring it back), so a sale
+    // is only forgotten after [kConfirmedSaleTtl] or on a new buy of the
+    // token; rows the read already shows in line are left as they are.
+    final sales = _salesFor(addr);
+    positions = applyConfirmedSales(positions, sales);
 
     // A claim opens only once the result is on chain. The Data API flags a
     // position `redeemable` when the market resolves, minutes before the
@@ -2435,6 +2512,7 @@ class PolymarketTradingNotifier
     return PolymarketTradingState(
       usdcBalance: settled.$1 ?? onChainUsdc,
       pendingFills: settled.$2,
+      confirmedSales: sales,
       totalPnl: totalPnl,
       totalPnlPercent: totalPnlPercent,
       openPositions: positions,
@@ -3791,8 +3869,14 @@ class PolymarketTradingNotifier
           }
 
           if (isCurrentAccount()) {
+            // A buy of a token sold minutes ago (matched now or resting):
+            // the shares it brings are not a stale pre-sale row.
+            if (side == OrderSide.buy) _forgetSaleOf(tokenId, publish: false);
             _setData(
-              (state.valueOrNull ?? current).copyWith(isPlacingOrder: false),
+              (state.valueOrNull ?? current).copyWith(
+                  isPlacingOrder: false,
+                  confirmedSales: _salesFor(
+                      (state.valueOrNull ?? current).proxyWalletAddress)),
             );
           }
 
