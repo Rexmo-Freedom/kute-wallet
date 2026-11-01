@@ -44,6 +44,7 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/wallet_scoped_bitcoin_config_provider.dart'
     show pickSpendingWallet;
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/venue_arrivals.dart';
 import 'package:kute/services/passkey_service.dart'
     show resolveBip39MnemonicFor;
@@ -344,7 +345,12 @@ class HlAccountNotifier extends AutoDisposeAsyncNotifier<HlAccountSnapshot> {
       if (usd == null) return;
       final rows = ref.read(swapOrdersProvider);
       if (!VenueArrivals.investingOnTheWay(rows, account: address)) return;
-      VenueArrivals.investingArrived(rows, account: address, usd: usd);
+      final row =
+          VenueArrivals.investingArrived(rows, account: address, usd: usd);
+      // The move landed: its source reads again, with Investing.
+      if (row != null) {
+        MoveSettledRefresh.settledRow(row, source: 'hypercore_credit');
+      }
     } catch (_) {}
   }
 

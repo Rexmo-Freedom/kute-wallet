@@ -67,7 +67,10 @@ import 'package:kute/services/one_balance/funding_fees.dart'
     show bitcoinSpreadFrom;
 import 'package:kute/services/one_balance/hyperliquid_venue_funder.dart'
     show hyperliquidVenueFunderProvider;
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show MoneyMovementAccount;
 import 'package:kute/services/one_balance/money_steps.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/one_balance/investments_spendable.dart'
     show VenueCashSnapshot, venueCashSnapshotProvider;
 import 'package:kute/services/one_balance/venue_readiness.dart'
@@ -431,6 +434,15 @@ void announceLegEnded(T Function<T>(ProviderListenable<T> provider) read,
     try {
       read(pendingHlOrderAutoFireProvider).creditLanded();
     } catch (_) {}
+  }
+  if (into != null) {
+    // The leg landed on the venue: its figure reads again now.
+    MoveSettledRefresh.settled({
+      switch (into) {
+        OneBalanceVenue.investing => MoneyMovementAccount.investing,
+        OneBalanceVenue.predictions => MoneyMovementAccount.predictions,
+      },
+    }, source: 'funded_leg');
   }
 }
 

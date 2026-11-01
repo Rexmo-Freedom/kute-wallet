@@ -113,6 +113,9 @@ import 'package:kute/services/hyperliquid/hypercore_transfer_proof.dart'
     show hypercorePerpUsdcWire, hypercoreUsdcToken, verifyHypercoreUsdcMetadata;
 import 'package:kute/services/hyperliquid/hyperliquid_exchange_service.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show MoneyMovementAccount;
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/orchestra_capability_requirements.dart'
     show orchestraCapabilityRequirements;
 import 'package:kute/services/orchestra/orchestra_quote_gate.dart'
@@ -1615,6 +1618,8 @@ class HypercoreCctpWithdrawal {
         from: op.stage, expectedVersion: op.version);
     if (!write.applied) return;
     if (target.isTerminal || target == SettlementStage.failed) {
+      // The move ended: Investing and its destination read again now.
+      MoveSettledRefresh.settledFlow(op.flow, source: 'cctp');
       _reportTerminal(write.operation!, target, orderId);
     }
   }
@@ -1832,6 +1837,9 @@ class HypercoreCctpWithdrawal {
                         kind: SettlementFundingKind.hyperliquid))
                 .copyWith(evmTxHash: ledgerHash, hlActionHash: ledgerHash)));
     if (!write.applied) return;
+    // The burn is on the ledger: Investing reads what left now.
+    MoveSettledRefresh.settled({MoneyMovementAccount.investing},
+        source: 'cctp_sent');
     if (op.stage == SettlementStage.notFunded) {
       // A late ledger row: the row comes back as in flight.
       final rowId = rowIdFor(operationId);

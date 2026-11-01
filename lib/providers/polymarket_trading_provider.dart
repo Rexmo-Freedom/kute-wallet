@@ -39,6 +39,9 @@ import 'package:kute/services/venue_owner_link_service.dart';
 import 'package:kute/l10n/l10n.dart' show l10nForLanguage;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/venue_intents.dart';
+import 'package:kute/services/one_balance/money_movement_route.dart'
+    show MoneyMovementAccount;
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_activity.dart';
@@ -2915,6 +2918,13 @@ class PolymarketTradingNotifier
       await refresh();
       if (!current()) return;
       final bettableAt = DateTime.now();
+      // The deposit is in: Predictions and the account it left read again
+      // now rather than on their next polls.
+      MoveSettledRefresh.settled({
+        MoneyMovementAccount.predictions,
+        if (route == 'btc_spending') MoneyMovementAccount.bitcoin,
+        if (route == 'usd') MoneyMovementAccount.dollars,
+      }, source: 'predictions_delivered');
       if (!_depositSettledController.isClosed) {
         _depositSettledController.add(null);
       }
@@ -5174,6 +5184,8 @@ class PolymarketTradingNotifier
       // The periodic poll reads it on its next tick.
     }
     if (_disposed) return;
+    MoveSettledRefresh.settled({MoneyMovementAccount.predictions},
+        source: 'predictions_arrival');
     if (!_depositSettledController.isClosed) {
       _depositSettledController.add(null);
     }
@@ -5796,6 +5808,7 @@ class PolymarketTradingNotifier
         // balance once it actually differs from preSendBalance (i.e. the
         // chain reflects the transfer). If all polls return stale, we
         // leave the optimistic value in place — a restart isn't needed.
+        var settledSeen = false;
         for (final delay in [3, 6, 10, 20, 40]) {
           Future.delayed(Duration(seconds: delay), () async {
             try {
@@ -5816,6 +5829,14 @@ class PolymarketTradingNotifier
               if (_disposed || live == null) return;
               final merged = mergePolymarketRefresh(live: live, read: data);
               if (merged != null) _setData(merged);
+              if (!settledSeen) {
+                settledSeen = true;
+                // The chain shows the send: the Predictions figure reads
+                // again now (an unguarded read before this could still be
+                // the stale one and undo the deduction above).
+                MoveSettledRefresh.settled({MoneyMovementAccount.predictions},
+                    source: 'predictions_withdrawn');
+              }
             } catch (_) {}
           });
         }

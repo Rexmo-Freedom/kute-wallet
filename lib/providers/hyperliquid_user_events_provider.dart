@@ -42,6 +42,7 @@ import 'package:kute/providers/pending_hyperliquid_order_provider.dart'
 import 'package:kute/providers/placing_hyperliquid_order_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/services/hyperliquid/hyperliquid_websocket.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/one_balance/one_balance_state.dart'
     show OneBalanceVenue;
 import 'package:kute/services/one_balance/venue_cash_released.dart';
@@ -175,7 +176,12 @@ class HlUserEventsNotifier extends AutoDisposeNotifier<HlUserEventsState> {
       try {
         final rows = ref.read(swapOrdersProvider);
         for (final usd in credits) {
-          VenueArrivals.investingArrived(rows, account: account, usd: usd);
+          final row =
+              VenueArrivals.investingArrived(rows, account: account, usd: usd);
+          // The move landed: its source reads again, with Investing.
+          if (row != null) {
+            MoveSettledRefresh.settledRow(row, source: 'hypercore_credit');
+          }
         }
       } catch (_) {}
     }
