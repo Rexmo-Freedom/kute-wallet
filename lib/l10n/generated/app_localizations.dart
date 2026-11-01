@@ -19836,6 +19836,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'chance'**
   String get predictionsChance;
+
+  /// Under an action square that is not live yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get actionSoon;
+
+  /// Dollars action row: the quiet line under Send naming what Send does: dollars, a stock pick, or to Bitcoin. Keep it very short (fits under a 52 px square).
+  ///
+  /// In en, this message translates to:
+  /// **'\$ · stocks · ₿'**
+  String get sendDollarsCaption;
+
+  /// Dollars action row: connect an AI to trade for you. Not live yet (shown with Soon).
+  ///
+  /// In en, this message translates to:
+  /// **'Connect AI'**
+  String get connectAiAction;
 }
 
 class _AppLocalizationsDelegate

@@ -11867,4 +11867,13 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get predictionsChance => 'todennäköisyys';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get connectAiAction => 'Connect AI';
 }

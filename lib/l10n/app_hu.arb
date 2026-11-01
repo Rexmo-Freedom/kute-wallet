@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Amit kapnak, leadásra készen",
   "shareSendAgainWhatsApp": "Újraküldés WhatsAppon",
   "shareSendAgainSms": "Újraküldés SMS-ben",
-  "sendToLabel": "Címzett"
+  "sendToLabel": "Címzett",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

@@ -11874,4 +11874,13 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get predictionsChance => 'шанс';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get connectAiAction => 'Connect AI';
 }

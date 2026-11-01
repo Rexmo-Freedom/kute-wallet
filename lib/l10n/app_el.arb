@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Τι λαμβάνουν, έτοιμο για καταχώριση",
   "shareSendAgainWhatsApp": "Στείλε ξανά μέσω WhatsApp",
   "shareSendAgainSms": "Στείλε ξανά μέσω SMS",
-  "sendToLabel": "Αποστολή σε"
+  "sendToLabel": "Αποστολή σε",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

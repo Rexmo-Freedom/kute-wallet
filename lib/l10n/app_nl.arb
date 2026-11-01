@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Wat ze krijgen, klaar om te plaatsen",
   "shareSendAgainWhatsApp": "Opnieuw sturen via WhatsApp",
   "shareSendAgainSms": "Opnieuw sturen via sms",
-  "sendToLabel": "Versturen naar"
+  "sendToLabel": "Versturen naar",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

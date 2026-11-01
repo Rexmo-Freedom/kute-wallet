@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Ko saņēmējs iegūst, gatavu veikšanai",
   "shareSendAgainWhatsApp": "Sūtīt vēlreiz ar WhatsApp",
   "shareSendAgainSms": "Sūtīt vēlreiz ar SMS",
-  "sendToLabel": "Saņēmējs"
+  "sendToLabel": "Saņēmējs",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

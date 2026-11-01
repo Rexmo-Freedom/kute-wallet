@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Ce primesc, gata de plasat",
   "shareSendAgainWhatsApp": "Trimite din nou prin WhatsApp",
   "shareSendAgainSms": "Trimite din nou prin SMS",
-  "sendToLabel": "Trimite către"
+  "sendToLabel": "Trimite către",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

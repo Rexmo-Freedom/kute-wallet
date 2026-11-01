@@ -11907,4 +11907,13 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get predictionsChance => 'tikimybė';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get connectAiAction => 'Connect AI';
 }

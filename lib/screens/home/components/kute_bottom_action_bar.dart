@@ -37,6 +37,8 @@ class KuteDockAction {
     required this.onTap,
     this.strongIcon = false,
     this.solid = false,
+    this.caption,
+    this.soon = false,
   });
 
   final String label;
@@ -45,6 +47,16 @@ class KuteDockAction {
   final VoidCallback? onTap;
   final bool strongIcon;
   final bool solid;
+
+  /// A second, quieter line under the label saying what the verb moves
+  /// ("\$ & stocks" under Send on Dollars), when the one word is too vague
+  /// and a longer label would not fit under a square (founder, 1 November
+  /// 2026).
+  final String? caption;
+
+  /// Not live yet: drawn at the unavailable opacity, not tappable, with
+  /// the caption reading "Soon" (Connect AI, founder 1 November 2026).
+  final bool soon;
 }
 
 /// Shared money dock: the surface's two money verbs plus the square search
@@ -266,6 +278,8 @@ class KuteCompactActions extends StatelessWidget {
     return Row(
       key: const ValueKey('kute-compact-actions'),
       mainAxisAlignment: MainAxisAlignment.center,
+      // Squares line up at the top when one label carries a caption line.
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final action in actions)
           Expanded(
@@ -292,7 +306,7 @@ class _CompactAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = colors;
-    final enabled = action.onTap != null;
+    final enabled = action.onTap != null && !action.soon;
     final solid = action.solid;
     final foreground = solid ? context.ctaOnColor : c.textPrimary;
     const size = KuteCompactActions.squareSize;
@@ -367,6 +381,22 @@ class _CompactAction extends StatelessWidget {
                       letterSpacing: -0.1,
                     ),
                   ),
+                  if (action.caption != null || action.soon)
+                    Padding(
+                      padding: EdgeInsets.only(top: 1.h),
+                      child: Text(
+                        action.soon
+                            ? context.l10n.actionSoon
+                            : action.caption!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 10.5.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Što dobivaju, spremno za postavljanje",
   "shareSendAgainWhatsApp": "Pošalji ponovno putem WhatsAppa",
   "shareSendAgainSms": "Pošalji ponovno SMS-om",
-  "sendToLabel": "Primatelj"
+  "sendToLabel": "Primatelj",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

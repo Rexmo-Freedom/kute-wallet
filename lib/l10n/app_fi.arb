@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Mitä vastaanottaja saa, valmiina tehtäväksi",
   "shareSendAgainWhatsApp": "Lähetä uudelleen WhatsAppilla",
   "shareSendAgainSms": "Lähetä uudelleen tekstiviestillä",
-  "sendToLabel": "Vastaanottaja"
+  "sendToLabel": "Vastaanottaja",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Det de får, redo att läggas",
   "shareSendAgainWhatsApp": "Skicka igen via WhatsApp",
   "shareSendAgainSms": "Skicka igen via sms",
-  "sendToLabel": "Skicka till"
+  "sendToLabel": "Skicka till",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

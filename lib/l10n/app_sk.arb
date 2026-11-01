@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Čo dostanú, pripravené na zadanie",
   "shareSendAgainWhatsApp": "Poslať znova cez WhatsApp",
   "shareSendAgainSms": "Poslať znova cez SMS",
-  "sendToLabel": "Príjemca"
+  "sendToLabel": "Príjemca",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

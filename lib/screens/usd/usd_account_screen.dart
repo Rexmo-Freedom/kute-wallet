@@ -1135,6 +1135,15 @@ class UsdAccountActionBar extends ConsumerWidget {
           // whose `usd_send_opened` fires from its initState.
           onTap: () => withdraw(context),
         ),
+        // Connect an AI to trade for you: not live yet, shown where it will
+        // live with the unavailable look (founder, 1 November 2026).
+        KuteDockAction(
+          icon: Icons.auto_awesome_rounded,
+          label: context.l10n.connectAiAction,
+          trackingId: 'connect_ai',
+          soon: true,
+          onTap: null,
+        ),
       ];
 
   @override

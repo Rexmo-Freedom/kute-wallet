@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Lo que reciben, listo para realizar",
   "shareSendAgainWhatsApp": "Volver a enviar por WhatsApp",
   "shareSendAgainSms": "Volver a enviar por SMS",
-  "sendToLabel": "Enviar a"
+  "sendToLabel": "Enviar a",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

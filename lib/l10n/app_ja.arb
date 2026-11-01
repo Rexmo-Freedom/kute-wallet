@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "相手に届く内容（すぐ注文可能）",
   "shareSendAgainWhatsApp": "WhatsAppで再送",
   "shareSendAgainSms": "SMSで再送",
-  "sendToLabel": "送金先"
+  "sendToLabel": "送金先",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Ką gaus gavėjas, paruošta pateikti",
   "shareSendAgainWhatsApp": "Siųsti dar kartą per WhatsApp",
   "shareSendAgainSms": "Siųsti dar kartą SMS žinute",
-  "sendToLabel": "Gavėjas"
+  "sendToLabel": "Gavėjas",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

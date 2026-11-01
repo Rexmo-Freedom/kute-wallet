@@ -11865,4 +11865,13 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get predictionsChance => 'šanca';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get connectAiAction => 'Connect AI';
 }

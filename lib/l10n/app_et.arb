@@ -3285,5 +3285,8 @@
   "sendPickSideSub": "Mida saaja saab, tegemiseks valmis",
   "shareSendAgainWhatsApp": "Saada uuesti WhatsAppiga",
   "shareSendAgainSms": "Saada uuesti SMS-iga",
-  "sendToLabel": "Saaja"
+  "sendToLabel": "Saaja",
+  "actionSoon": "Soon",
+  "sendDollarsCaption": "$ · stocks · ₿",
+  "connectAiAction": "Connect AI"
 }

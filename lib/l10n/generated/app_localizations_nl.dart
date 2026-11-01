@@ -11890,4 +11890,13 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get predictionsChance => 'kans';
+
+  @override
+  String get actionSoon => 'Soon';
+
+  @override
+  String get sendDollarsCaption => '\$ · stocks · ₿';
+
+  @override
+  String get connectAiAction => 'Connect AI';
 }
