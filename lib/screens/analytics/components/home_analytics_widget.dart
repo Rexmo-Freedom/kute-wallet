@@ -58,6 +58,11 @@ enum AnalyticsTab {
   fees
 }
 
+/// Whether the Activity pill reads "See all": it is the selected pill and
+/// a second tap opens the full list.
+bool activityPillSeesAll({required bool selected, required bool hasSeeAll}) =>
+    selected && hasSeeAll;
+
 class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// When true, the Split (allocation) tab is shown. Home keeps it
   /// hidden — the always-BTC architecture means a Home user only
@@ -103,19 +108,23 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// screens keep it.
   final bool showPrice;
 
-  /// When true the strip is the caller's own short strip — Activity and
-  /// Balance — whatever the
-  /// scope filters would otherwise allow. The Dollars tab passes it: a
-  /// cash account has no price chart and no coins map, so Price / Coins
   /// Tapping Activity while Activity is already showing. The pill
-  /// relabels itself to "See all" in that state, because the preview is
-  /// capped at four rows and tapping the pill again is the obvious way
-  /// to ask for the rest. Null leaves the pill inert once selected,
-  /// which is what every surface did before.
+  /// relabels itself to "See all" (with the arrow) in that state, because
+  /// the preview is capped and tapping the pill again is the obvious way
+  /// to ask for the rest; on Balance it reads Activity again. Null leaves
+  /// the pill inert once selected.
   final VoidCallback? onSeeAllActivity;
 
-  /// / Split would be dead pills. Requires [activityChild]; ignored by
-  /// the Portfolio modes, which hardcode their own tab lists.
+  /// A request to show the Activity tab (the home's `?tab=activity` link):
+  /// whenever it changes to a new non-null value, Activity is selected.
+  final Object? selectActivityRequest;
+
+  /// When true the strip is the caller's own short strip — Activity and
+  /// Balance — whatever the scope filters would otherwise allow. The
+  /// Dollars tab passes it: a cash account has no price chart and no coins
+  /// map, so Price / Coins / Split would be dead pills. Requires
+  /// [activityChild]; ignored by the Portfolio modes, which hardcode their
+  /// own tab lists.
   final bool activityAndBalanceOnly;
 
   /// Categorical analytics surface ('home' | 'wallet_detail' | 'usd' |
@@ -142,6 +151,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.showPrice = true,
     this.activityAndBalanceOnly = false,
     this.onSeeAllActivity,
+    this.selectActivityRequest,
   });
 
   @override
@@ -159,6 +169,18 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       // Activity is the landing tab everywhere else — the list is the
       // primary content, the charts are the drill-down.
       _selectedTab = AnalyticsTab.activity;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeAnalyticsWidget old) {
+    super.didUpdateWidget(old);
+    final request = widget.selectActivityRequest;
+    if (request != null &&
+        request != old.selectActivityRequest &&
+        widget.activityChild != null &&
+        _selectedTab != AnalyticsTab.activity) {
+      setState(() => _selectedTab = AnalyticsTab.activity);
     }
   }
 
@@ -364,11 +386,17 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   KutePillItem _pillItem(AnalyticsTab tab) {
     switch (tab) {
       case AnalyticsTab.activity:
-        // Always its name (founder, 31 October 2026: never "→ See all");
-        // a second tap on it opens the full list all the same.
+        // Already showing it: the pill stops naming the tab and names what
+        // a second tap does, "See all" with the arrow (founder, 1 November
+        // 2026, reversing 31 October's "always Activity"). On Balance it
+        // reads Activity again.
+        final seeAll = activityPillSeesAll(
+            selected: _selectedTab == AnalyticsTab.activity,
+            hasSeeAll: widget.onSeeAllActivity != null);
         return KutePillItem(
-          label: context.l10n.activity,
-          icon: Icons.receipt_long_rounded,
+          label: seeAll ? context.l10n.seeAll : context.l10n.activity,
+          icon:
+              seeAll ? Icons.arrow_forward_rounded : Icons.receipt_long_rounded,
         );
       case AnalyticsTab.balance:
       case AnalyticsTab.valuation:

@@ -1,5 +1,7 @@
 import 'package:kute/services/polymarket/combos/combo_feed.dart';
 import 'package:kute/services/orchestra/standing_deposit_store.dart';
+import 'package:kute/services/orchestra/own_bitcoin_deliveries.dart'
+    show orchestraBtcFieldToSats, reconcilerDeliveryLegs, tightDeliveryTolerance, kOwnDeliveryArrivalWindow;
 import 'package:kute/services/orchestra/standing_deposit_sweep.dart';
 import 'dart:async';
 import 'package:hive_ce/hive.dart';
@@ -1399,61 +1401,64 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         ],
       };
       final now = DateTime.now();
-      final synthetic = ref
-          .read(swapOrdersProvider)
-          .where((e) =>
-              orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
-          .toList();
       final alreadyHidden =
           PolymarketSparkTxsService.orchestraDeliverySnapshot();
       final cacheSnapshots =
           ref.read(walletTransactionCacheProvider).values.toList();
       // Candidate receives across every cached wallet snapshot —
       // deliveries land on the Spark spending wallet, but reading all
-      // slots keeps this correct if that mapping ever widens.
+      // slots keeps this correct if that mapping ever widens. Every
+      // receive's amount is kept so a row's linked legs can be summed.
       final receives = <SparkTransaction>[];
+      final receiveSats = <String, int>{};
       final seenRxIds = <String>{};
       for (final snapshot in cacheSnapshots) {
         for (final tx
             in snapshot.allTransactionsSorted.whereType<SparkTransaction>()) {
           if (tx.type != TransactionType.received) continue;
+          if (!seenRxIds.add(tx.id)) continue;
+          receiveSats[tx.id] = tx.amountSats.abs();
           if (tx.isPending) continue;
           if (alreadyHidden.contains(tx.id)) continue;
-          if (!seenRxIds.add(tx.id)) continue;
           receives.add(tx);
         }
       }
-      for (final ex in synthetic) {
+      final rows = ref.read(swapOrdersProvider);
+      final awaiting = <({SwapOrder row, int linkedSats, int? expectedSats})>[
+        for (final e in rows)
+          if (orchestraRowAwaitsDelivery(e, linked: linkedRows, now: now))
+            (row: e, linkedSats: 0, expectedSats: null)
+          else if (_shortOfItsLegs(e, links, receiveSats, now) case final s?)
+            s,
+      ];
+      for (final w in awaiting) {
         if (receives.isEmpty) break;
+        final ex = w.row;
         // The row's figure is a BTC decimal once polled, or Flashnet's
         // sats as the quote wrote it: read either the way the Activity
         // matcher does, never sats as bitcoin (which matched nothing).
-        final rawOut = double.tryParse(ex.withdrawalAmount) ?? 0;
-        final estSats = rawOut >= 1 && rawOut == rawOut.roundToDouble()
-            ? rawOut.round()
-            : (rawOut * 1e8).round();
-        SparkTransaction? best;
-        int? bestDeltaMs;
-        for (final rx in receives) {
-          final delta = rx.timestamp.millisecondsSinceEpoch - ex.timestamp;
-          if (delta < -2 * 60 * 1000 || delta > 90 * 60 * 1000) continue;
-          if (estSats > 0) {
-            final sats = rx.amountSats;
-            if (sats <= 0) continue;
-            final ratio = sats / estSats;
-            if (ratio < 0.5 || ratio > 1.25) continue;
-          }
-          if (bestDeltaMs == null || delta.abs() < bestDeltaMs) {
-            bestDeltaMs = delta.abs();
-            best = rx;
-          }
+        final estSats = orchestraBtcFieldToSats(ex.withdrawalAmount);
+        // A row already settled on some of its legs waits for the rest of
+        // what it said it would deliver; any other row for its figure.
+        final short = w.expectedSats != null;
+        final target = short ? w.expectedSats! - w.linkedSats : estSats;
+        final legs = reconcilerDeliveryLegs(
+          targetSats: target,
+          rowAt: DateTime.fromMillisecondsSinceEpoch(ex.timestamp),
+          receives: receives,
+          band: !short,
+        );
+        if (legs == null || legs.isEmpty) continue;
+        // A receive settles one exchange.
+        for (final rx in legs) {
+          receives.remove(rx);
         }
-        if (best == null) continue;
-        // One receive settles one exchange.
-        receives.remove(best);
-        final actualBtc = (best.amountSats / 1e8).toStringAsFixed(8);
+        final deliveredSats =
+            w.linkedSats + legs.fold<int>(0, (s, rx) => s + rx.amountSats);
+        final actualBtc = (deliveredSats / 1e8).toStringAsFixed(8);
         // A row Orchestra already reported done keeps its status and
-        // takes the delivered figure it never reported.
+        // takes the delivered figure it never reported; a payout split
+        // across transfers reads its legs' total.
         final settled = ex.copyWith(
           status: ex.isComplete ? ex.status : 'settled',
           withdrawalAmount: actualBtc,
@@ -1461,10 +1466,16 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
         // The receive is the delivery: both ends of the move read again now.
         MoveSettledRefresh.settledRow(settled, source: 'receive_settled');
-        // The link names the row, so Activity folds this receive into it
-        // (or into the move it is a leg of) on every read from now on.
-        PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
-            orderId: ex.id, operationId: ex.operationId);
+        // The link names the row, so Activity folds each leg into it (or
+        // into the move it is a leg of) on every read from now on; the
+        // figure it was matched against lets a leg still to come join it.
+        final expected = short ? w.expectedSats : (estSats > 0 ? estSats : null);
+        for (final rx in legs) {
+          PolymarketSparkTxsService.tagOrchestraDelivery(rx.id,
+              orderId: ex.id,
+              operationId: ex.operationId,
+              expectedSats: expected);
+        }
         // Surface the settled row without waiting for the next full
         // gather pass — same propagation the sweep's inserts use.
         ref
@@ -2556,6 +2567,36 @@ class _RiverpodStandingDepositRows implements StandingDepositRows {
 /// figure stayed 0, and nothing could tie the receive to it. Only rows
 /// created within [kOwnDeliveryLinkWindow] of [now] qualify: older history
 /// is never rematched.
+/// A bitcoin delivery to Spark settled on fewer legs than it said it would
+/// deliver: its linked receives add up to less than the figure the
+/// reconciler matched the first of them against (two percent short at
+/// least), and it started within [kOwnDeliveryArrivalWindow] of [now]. The
+/// rest of the payout may still land and join it; null otherwise.
+({SwapOrder row, int linkedSats, int? expectedSats})? _shortOfItsLegs(
+    SwapOrder e,
+    Map<String, OrchestraDeliveryLink> links,
+    Map<String, int> receiveSats,
+    DateTime now) {
+  if (e.coinTo.toUpperCase() != 'BTC' || e.networkTo != 'SPARK') return null;
+  if (now.difference(DateTime.fromMillisecondsSinceEpoch(e.timestamp)) >
+      kOwnDeliveryArrivalWindow) {
+    return null;
+  }
+  var linked = 0;
+  int? expected;
+  for (final MapEntry(key: rxId, value: link) in links.entries) {
+    final mine = link.orderId == e.id ||
+        (link.operationId != null && link.operationId == e.operationId);
+    if (!mine) continue;
+    linked += receiveSats[rxId] ?? 0;
+    final x = link.expectedSats;
+    if (x != null && (expected == null || x > expected)) expected = x;
+  }
+  if (linked <= 0 || expected == null) return null;
+  if (expected - linked <= tightDeliveryTolerance(expected)) return null;
+  return (row: e, linkedSats: linked, expectedSats: expected);
+}
+
 @visibleForTesting
 bool orchestraRowAwaitsDelivery(SwapOrder e,
     {required Set<String> linked, required DateTime now}) {
