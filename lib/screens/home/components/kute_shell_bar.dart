@@ -76,6 +76,8 @@ import 'package:kute/screens/home/components/kute_bottom_action_bar.dart'
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteMarketBarContext;
 import 'package:kute/screens/shared/kute_motion.dart'
     show KutePressable, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
@@ -500,11 +502,21 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
     super.dispose();
   }
 
+  void _openSheet(KuteBarContext ctx) =>
+      unawaited(openKuteBarSheet(ctx, source: context, travelling: (on) {
+        if (mounted && _travelling != on) {
+          setState(() => _travelling = on);
+        }
+      }));
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final ctx = widget.barContext;
+    // An open position's brag (kute_share_actions.dart): "Brag", a tap
+    // opens its card, the Sal sheet is a long press away.
+    final brag = ctx is KuteMarketBarContext ? ctx.primaryAction : null;
     final ink = isLight ? Colors.white : c.background;
     final Widget button = Container(
       key: const ValueKey('kute-sal-header-button'),
@@ -535,7 +547,9 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
           // of the row overflowing.
           Flexible(
             child: Text(
-              context.l10n.shareHeaderLabel,
+              brag != null
+                  ? context.l10n.bragHeaderLabel
+                  : context.l10n.shareHeaderLabel,
               key: const ValueKey('kute-sal-header-label'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -558,13 +572,9 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
       child: KutePressable(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: _travelling
-              ? null
-              : () => openKuteBarSheet(ctx, source: context, travelling: (on) {
-                    if (mounted && _travelling != on) {
-                      setState(() => _travelling = on);
-                    }
-                  }),
+          onTap: _travelling ? null : brag ?? () => _openSheet(ctx),
+          onLongPress:
+              _travelling || brag == null ? null : () => _openSheet(ctx),
           // The entry: from a touch below and small, on the sheet
           // spring; then the pulse, once. ONE Opacity: the entry's fade
           // and the travel's transparency (the morph test reads it).

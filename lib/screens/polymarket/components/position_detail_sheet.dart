@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -461,6 +462,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
       placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: pos.isResolved
+          ? null
+          : () => bragPolyPosition(ref.read,
+              position: pos,
+              costBasis: costBasis,
+              currentPrice: currentPrice,
+              imageUrl: headerImage),
     );
     return Scaffold(
       backgroundColor: context.isDark

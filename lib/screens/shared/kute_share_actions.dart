@@ -40,6 +40,15 @@
 // [KuteMarketBarContext] and [KuteMarketBarAction] extend the bar's plain
 // model (kute_bar_context.dart, untouched) with what the Sal sheet draws
 // for a market: the preview card and each row's leading glyph.
+//
+// BRAG (founder, 1 November 2026: "open positions and the portfolio should
+// also be shareable with a friend, to brag"). An OPEN position page passes
+// [marketBarContext]'s `brag`, the card's data built on demand
+// (screens/share/brag/brag_data.dart): its header pill
+// (KuteSalHeaderButton) then reads "Brag" and opens the brag preview at
+// once ([KuteMarketBarContext.primaryAction]; the Sal sheet stays a long
+// press away), and the Sal sheet gets a third row, "Show off this
+// position". A settled position passes none and keeps the send rows only.
 
 import 'dart:async';
 
@@ -50,6 +59,9 @@ import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
+import 'package:kute/screens/share/brag/brag_data.dart' show BragData;
+import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
+    show showBragPreviewSheet;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -143,9 +155,14 @@ class KuteMarketBarContext extends KuteBarContext {
     super.route,
     super.placement,
     required this.preview,
+    this.primaryAction,
   });
 
   final KuteBarPreview preview;
+
+  /// What the page's header pill does on a tap instead of opening the Sal
+  /// sheet (an open position: its brag preview); null: the Sal sheet.
+  final VoidCallback? primaryAction;
 
   /// The scope binds the context to its route (kute_bar_context.dart);
   /// the preview rides along.
@@ -163,6 +180,7 @@ class KuteMarketBarContext extends KuteBarContext {
         route: route,
         placement: placement,
         preview: preview,
+        primaryAction: primaryAction,
       );
 }
 
@@ -215,6 +233,8 @@ KuteBarContext marketBarContext(
   // The page's Sal control: the floating pill, or the circle in the page's
   // header (market, position and event pages; see KuteBarPlacement).
   KuteBarPlacement placement = KuteBarPlacement.bottom,
+  // An open position's brag card, built when asked (see the file header).
+  BragData Function()? brag,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -235,7 +255,14 @@ KuteBarContext marketBarContext(
   } else {
     previewLine = subtitle;
   }
+  void openBrag() {
+    final build = brag;
+    if (build == null || !context.mounted) return;
+    unawaited(showBragPreviewSheet(context, build()));
+  }
+
   return KuteMarketBarContext(
+    primaryAction: brag == null ? null : openBrag,
     label: l10n.barShareWithFriends,
     sublabel: position ? l10n.barSharePositionSub : l10n.barShareMarketSub,
     clip: 'share',
@@ -290,6 +317,13 @@ KuteBarContext marketBarContext(
           ));
         }),
       ),
+      if (brag != null)
+        KuteMarketBarAction(
+          label: l10n.bragPositionAction,
+          sublabel: l10n.bragPositionActionSub,
+          salClip: 'wink',
+          onTap: (_) => _afterSalSheet(context, openBrag),
+        ),
     ],
   );
 }

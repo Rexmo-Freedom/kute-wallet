@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/share/brag/brag_data.dart' show bragHlPosition;
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
     show KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -248,6 +249,21 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       searchHint: context.l10n.searchInvestmentsHint,
       source: 'trading',
       placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: current == null
+          ? null
+          : () => bragHlPosition(ref.read,
+              position: pos,
+              title: m?.coin ?? pos.coin,
+              side: pos.isLong
+                  ? context.l10n.longLabel
+                  : context.l10n.shortLabel,
+              pnl: pnl,
+              markPx: markPx,
+              wireCoin: m?.wireCoin,
+              iconUrl: m?.iconUrl,
+              category: m?.category,
+              decimalCap: m?.pxDecimalCap),
     );
     return KuteBarContextScope(
       barContext: bar,

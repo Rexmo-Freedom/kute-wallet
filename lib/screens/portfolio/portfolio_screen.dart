@@ -33,6 +33,12 @@
 // (surface investments, tab positions, sub / from_sub), as the Investments
 // page sent it; the screen itself adds no event (experimental branch).
 
+import 'dart:async';
+
+import 'package:kute/screens/share/brag/brag_data.dart'
+    show bragPortfolioAvailableProvider;
+import 'package:kute/screens/share/brag/brag_preview_sheet.dart'
+    show showBragPortfolioPreviewSheet;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -100,11 +106,22 @@ class PortfolioScreen extends ConsumerWidget {
             // The bar over this page: the default search and Sal, no row
             // of its own (founder, 31 October 2026: "only auto managed";
             // money moves from the Add and Send flows).
+            // Brag (founder, 1 November 2026): with something to brag
+            // about, the bar is "Share and brag", opening the portfolio
+            // card (screens/share/brag/); the Sal sheet stays a long press
+            // away.
             child: KuteBarContextScope(
-              barContext: KuteBarContext(
-                label: context.l10n.searchOrAskSalShort,
-                source: 'portfolio',
-              ),
+              barContext: ref.watch(bragPortfolioAvailableProvider)
+                  ? KuteBarContext.primary(
+                      label: context.l10n.bragBarLabel,
+                      onPrimary: () =>
+                          unawaited(showBragPortfolioPreviewSheet(context)),
+                      source: 'portfolio',
+                    )
+                  : KuteBarContext(
+                      label: context.l10n.searchOrAskSalShort,
+                      source: 'portfolio',
+                    ),
               // The bar floats over the list (nothing reserves room); the
               // lists pad their own end by the bar's clearance, read from
               // the MediaQuery padding they already use.
