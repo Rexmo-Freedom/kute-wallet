@@ -1,13 +1,23 @@
 // lib/screens/hyperliquid/components/hl_moving_now_strip.dart
 //
-// "Moving now": the strip of large cards above the Investing browse list
-// (founder, November 2026: "big cards of the top ones on top", the way
-// Revolut / Coinbase / Robinhood show the day's movers). One horizontal,
-// side-scrolling row of [kHlMoverCardMax] cards at most, one per market
-// with the largest absolute 24h change in the category on screen
-// ([hlMovingNow]: ties by volume; thin markets left out, their change is
-// noise), with no title over it. The list keeps its own order
-// under the strip, so a market can be both on a card and in a row.
+// The strip of large cards above the Investing browse list (founder,
+// November 2026: "big cards of the top ones on top", the way Revolut /
+// Coinbase / Robinhood show the day's names). One horizontal,
+// side-scrolling row of cards with no title over it.
+//
+// What it shows:
+//   * Trending ([hlTrendingStrip]): the hyped names, stocks and shares
+//     and commodities (founder, 1 November 2026: "stocks and shares are
+//     the best to put there, and commodities. Do not repeat ones."),
+//     ranked by [hlHypeScore], at least [kHlHypeCommoditiesMin]
+//     commodities among the [kHlHypeCardMax], one card per underlying
+//     ([hlUnderlyingKey]). With fewer than [kHlMoverCardMin] such
+//     markets loaded (the builder dexes not read yet), the movers below.
+//   * Every other category ([hlMovingNow]): its largest absolute 24h
+//     changes, ties by volume, one card per underlying.
+// Thin markets ([HlMarket.isLowLiquidity]) and markets with no 24h change
+// to show are never on it. A market on the strip, or one on the same
+// underlying, is not repeated in the list under it ([hlListUnderStrip]).
 //
 // Each card (HlMovingNowCard, about 150 × 186, the app's card surface at
 // the grouped card's 20 radius): the logo (36) top-left, the market's
@@ -19,8 +29,10 @@
 // to HlMarketDetailSheet, entry_source 'moving_now', on the app's press
 // spring (KutePressable).
 //
-// The strip is only shown when at least [kHlMoverCardMin] markets have a
-// known change: a strip of one card reads as a mistake.
+// The strip is only shown when at least [kHlMoverCardMin] markets
+// qualify: a strip of one card reads as a mistake.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +42,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlBrowseTab, hlMarketMatchesTab;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
@@ -66,15 +80,39 @@ const double _kPad = 12;
 /// The [HlMarketDetailSheet] entry source a strip card reports.
 const String kHlMovingNowSource = 'moving_now';
 
-/// The markets the strip shows for [markets] (a category's list): the
-/// [max] with the largest absolute 24h change, ties broken by 24h
-/// volume, then by their place in the list. A market with no change to
-/// show (no previous-day price) or thinly traded ([HlMarket.isLowLiquidity])
-/// is left out. Empty, so no strip, under [min] candidates.
 /// The rows the list under the strip keeps at least; with fewer, the
 /// strip is not shown and every market is a row.
 const int kHlMoverListKeeps = 3;
 
+/// The 24h change a market is ranked on: the snapshot's own (the row's,
+/// before any tick), so the strip does not reorder itself on every live
+/// frame. Null when there is none to show.
+double? _snapshotChange(HlMarket m) =>
+    m.dayChangeAtOrNull(m.midPx > 0 ? m.midPx : m.markPx);
+
+/// [ranked] (best first) with one market per underlying
+/// ([hlUnderlyingKey]): of the markets on one underlying, the most traded
+/// stays, at its own place in [ranked].
+List<HlMarket> _onePerUnderlying(List<HlMarket> ranked) {
+  final best = <String, HlMarket>{};
+  for (final m in ranked) {
+    final key = hlUnderlyingKey(m);
+    final held = best[key];
+    if (held == null || m.dayNtlVlm > held.dayNtlVlm) best[key] = m;
+  }
+  final keep = best.values.toSet();
+  return [
+    for (final m in ranked)
+      if (keep.contains(m)) m
+  ];
+}
+
+/// The markets the strip shows for [markets] (a category's list): the
+/// [max] with the largest absolute 24h change, ties broken by 24h
+/// volume, then by their place in the list, one per underlying. A market
+/// with no change to show (no previous-day price) or thinly traded
+/// ([HlMarket.isLowLiquidity]) is left out. Empty, so no strip, under
+/// [min] candidates.
 List<HlMarket> hlMovingNow(
   List<HlMarket> markets, {
   int min = kHlMoverCardMin,
@@ -84,20 +122,119 @@ List<HlMarket> hlMovingNow(
   for (var i = 0; i < markets.length; i++) {
     final m = markets[i];
     if (m.isLowLiquidity) continue;
-    // The snapshot's own change (the row's, before any tick), so the
-    // strip does not reorder itself on every live frame.
-    final change = m.dayChangeAtOrNull(m.midPx > 0 ? m.midPx : m.markPx);
+    final change = _snapshotChange(m);
     if (change == null) continue;
     ranked.add((m: m, change: change.abs(), index: i));
   }
-  if (ranked.length < min) return const [];
   ranked.sort((a, b) {
     final c = b.change.compareTo(a.change);
     if (c != 0) return c;
     final v = b.m.dayNtlVlm.compareTo(a.m.dayNtlVlm);
     return v != 0 ? v : a.index.compareTo(b.index);
   });
-  return [for (final r in ranked.take(max)) r.m];
+  final unique = _onePerUnderlying([for (final r in ranked) r.m]);
+  if (unique.length < min) return const [];
+  return unique.take(max).toList(growable: false);
+}
+
+/// How many cards the Trending strip shows at most.
+const int kHlHypeCardMax = 6;
+
+/// The commodities the Trending strip carries at least, when that many
+/// qualify.
+const int kHlHypeCommoditiesMin = 2;
+
+/// The venue classes of the "Stocks and shares" group the Trending strip
+/// draws on: equities, indices and pre-IPO companies.
+const Set<String> kHlHypeStockClasses = {'stocks', 'indices', 'preipo'};
+
+/// How hyped [m] is: its 24h notional volume, raised by its 24h move,
+/// `volume × (1 + |change %| / 10)`, so a 10 % move counts as double the
+/// volume and a liquid name with a real move leads. Null when it has no
+/// 24h change to show.
+double? hlHypeScore(HlMarket m) {
+  final change = _snapshotChange(m);
+  if (change == null) return null;
+  return m.dayNtlVlm * (1 + (change * 100).abs() / 10);
+}
+
+/// True when [m] may be a card on the Trending strip: a stocks-and-shares
+/// or commodities market of the Tradfi category, not thinly traded, with
+/// a 24h change to show.
+bool hlHypeCandidate(HlMarket m) =>
+    hlMarketMatchesTab(m, HlBrowseTab.tradfi) &&
+    (kHlHypeStockClasses.contains(m.category) ||
+        m.category == 'commodities') &&
+    !m.isLowLiquidity &&
+    _snapshotChange(m) != null;
+
+/// The Trending strip: from [universe] (every market loaded), the [max]
+/// most hyped ([hlHypeScore]) stocks-and-shares and commodities markets,
+/// one per underlying (the most traded of them), with at least
+/// [kHlHypeCommoditiesMin] commodities when that many qualify: the
+/// best-ranked stocks give way to the best-ranked commodities. Best
+/// first. With fewer than [min] qualifying underlyings (the builder
+/// dexes not read yet), the movers of [trending] (the Trending list)
+/// instead, as every other category ([hlMovingNow]).
+List<HlMarket> hlTrendingStrip(
+  List<HlMarket> universe,
+  List<HlMarket> trending, {
+  int min = kHlMoverCardMin,
+  int max = kHlHypeCardMax,
+}) {
+  final scored = <({HlMarket m, double hype, int index})>[];
+  for (var i = 0; i < universe.length; i++) {
+    final m = universe[i];
+    if (!hlHypeCandidate(m)) continue;
+    scored.add((m: m, hype: hlHypeScore(m)!, index: i));
+  }
+  scored.sort((a, b) {
+    final h = b.hype.compareTo(a.hype);
+    if (h != 0) return h;
+    final v = b.m.dayNtlVlm.compareTo(a.m.dayNtlVlm);
+    return v != 0 ? v : a.index.compareTo(b.index);
+  });
+  final unique = _onePerUnderlying([for (final s in scored) s.m]);
+  if (unique.length < min) return hlMovingNow(trending, min: min);
+
+  bool isCommodity(HlMarket m) => m.category == 'commodities';
+  final commodities = unique.where(isCommodity).toList();
+  final wantCommodities = math.min(
+      math.min(kHlHypeCommoditiesMin, commodities.length), max);
+  final picked = unique.take(max).toList();
+  var have = picked.where(isCommodity).length;
+  // Too few commodities in the top: the lowest-ranked stocks make room
+  // for the next commodities.
+  var next = 0;
+  while (have < wantCommodities) {
+    while (picked.contains(commodities[next])) {
+      next++;
+    }
+    final drop = picked.lastIndexWhere((m) => !isCommodity(m));
+    picked[drop] = commodities[next];
+    have++;
+  }
+  final rank = {for (var i = 0; i < unique.length; i++) unique[i]: i};
+  picked.sort((a, b) => rank[a]!.compareTo(rank[b]!));
+  return picked;
+}
+
+/// The list under a strip of [strip]: [markets] less the strip's markets
+/// and any other market on the same underlying (founder, 1 November
+/// 2026: the strip's names are not repeated). Null when that would leave
+/// fewer than [kHlMoverListKeeps] rows: then there is no strip and every
+/// market is a row.
+List<HlMarket>? hlListUnderStrip(List<HlMarket> markets, List<HlMarket> strip) {
+  if (strip.isEmpty) return markets;
+  final onStrip = {for (final m in strip) '${m.kind.name}:${m.wireCoin}'};
+  final underlyings = {for (final m in strip) hlUnderlyingKey(m)};
+  final rest = [
+    for (final m in markets)
+      if (!onStrip.contains('${m.kind.name}:${m.wireCoin}') &&
+          !underlyings.contains(hlUnderlyingKey(m)))
+        m,
+  ];
+  return rest.length < kHlMoverListKeeps ? null : rest;
 }
 
 /// The card's text: the name, the ticker caption, the price and the
