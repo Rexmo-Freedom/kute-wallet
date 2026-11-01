@@ -2,8 +2,10 @@
 // position_share_card.dart): an open position's context brags (a third
 // Sal row, "Show off this position", and a primary action opening the
 // card); the share card under the tiles reads "Brag about it" in profit
-// and opens the card at once, else "Send to a friend"; a settled
-// position keeps the send rows only.
+// and opens the card at once, else "Send to a friend", in the black
+// button look (textPrimary fill, white ink); the Investing page's pill
+// beside the figure is the header button's look; a settled position
+// keeps the send rows only.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,9 @@ import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
 import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteSalHeaderButton;
+import 'package:kute/theme/app_theme.dart';
 
 import '../share_test_harness.dart';
 import 'brag_fixtures.dart';
@@ -92,5 +97,69 @@ void main() {
     expect(bar.actions, hasLength(2));
     expect(bar.primaryAction, isNull);
     expect(find.text('Send to a friend'), findsOneWidget);
+  });
+
+  testWidgets(
+      'the Predictions card is the black button: textPrimary fill, '
+      'white title, sub and chevron', (tester) async {
+    late BuildContext ctx;
+    await pumpShareWidget(tester, env, Builder(builder: (context) {
+      ctx = context;
+      return Center(
+          child:
+              PositionShareCard(bar: barFor(context, open: true), brag: true));
+    }));
+    final box = tester.widget<Container>(find
+        .descendant(
+            of: find.byKey(const ValueKey('position-share-card')),
+            matching: find.byType(Container))
+        .first);
+    expect((box.decoration! as BoxDecoration).color, ctx.colors.textPrimary);
+    Color ink(String key) =>
+        tester.widget<Text>(find.byKey(ValueKey(key))).style!.color!;
+    expect(ink('position-share-card-title'), Colors.white);
+    expect(ink('position-share-card-sub').withValues(alpha: 1), Colors.white);
+    expect(
+        tester
+            .widget<Icon>(
+                find.byKey(const ValueKey('position-share-card-chevron')))
+            .color,
+        Colors.white);
+  });
+
+  testWidgets(
+      'the Investing pill: "Brag about it" in the header button look '
+      'opens the card; not in profit it is the header button', (tester) async {
+    late BuildContext ctx;
+    await pumpShareWidget(tester, env, Builder(builder: (context) {
+      ctx = context;
+      return Center(
+          child:
+              PositionSharePill(bar: barFor(context, open: true), brag: true));
+    }));
+    final pill = find.byKey(const ValueKey('position-share-pill'));
+    expect(pill, findsOneWidget);
+    expect(find.text('Brag about it'), findsOneWidget);
+    expect(tester.getSize(pill).height, KuteSalHeaderButton.height);
+    final box = tester.widget<Container>(
+        find.descendant(of: pill, matching: find.byType(Container)).first);
+    final d = box.decoration! as BoxDecoration;
+    expect(d.color, ctx.colors.textPrimary);
+    expect(
+        d.borderRadius, BorderRadius.circular(KuteSalHeaderButton.height / 2));
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+    await tester.tap(pill);
+    await settle(tester);
+    expect(find.byType(BragPreviewSheet), findsOneWidget);
+
+    await pumpShareWidget(
+        tester,
+        env,
+        Builder(
+            builder: (context) => Center(
+                child: PositionSharePill(
+                    bar: barFor(context, open: true), brag: false))));
+    expect(find.byKey(const ValueKey('position-share-pill')), findsNothing);
+    expect(find.byType(KuteSalHeaderButton), findsOneWidget);
   });
 }

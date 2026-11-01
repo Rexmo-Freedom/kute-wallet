@@ -229,16 +229,20 @@ void main() {
     // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
         findsNothing);
-    // No Share pill on a position page (founder, 1 November 2026): the
-    // share is the full-width card under the tiles.
-    expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
-    final share = find.byKey(const ValueKey('position-share-card'));
-    expect(share, findsOneWidget);
-    expect(
-        tester.getRect(share).top,
-        greaterThan(tester
-            .getRect(find.byKey(const ValueKey('hl-position-margin')))
-            .bottom));
+    // The share is the market pages' header pill at the top right beside
+    // the big figure (founder, 1 November 2026): "Brag about it" in
+    // profit, else the header button; no card under the tiles.
+    expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
+    final brag = find.byKey(const ValueKey('position-share-pill'));
+    final send = find.byKey(const ValueKey('kute-sal-header-button'));
+    expect(brag.evaluate().length + send.evaluate().length, 1);
+    final pill = brag.evaluate().isNotEmpty ? brag : send;
+    final pillRect = tester.getRect(pill);
+    final priceRect =
+        tester.getRect(find.byKey(const ValueKey('hl-position-price')));
+    expect(pillRect.center.dy, closeTo(priceRect.center.dy, 2));
+    expect(pillRect.left, greaterThanOrEqualTo(priceRect.right));
+    expect(pillRect.height, 40);
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
