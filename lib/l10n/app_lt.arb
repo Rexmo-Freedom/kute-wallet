@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Mažas likvidumas",
+  "investingMovingNow": "Juda dabar",
   "investingStats": "Statistika",
   "investingAboutMarket": "Apie {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Ieškoti investicijų",
   "searchPredictionsHint": "Ieškoti prognozių",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investicijos",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dolerių paskyros adresas",
   "hwSignKeepDeviceNearby": "Laikykite {device} šalia ir atrakintą.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Siųsti draugui",
   "shareTheMarket": "Siųsti rinką",
   "shareThisPosition": "Siųsti šią poziciją",
-  "shareMarketShareLink": "Siųsti nuorodą"
+  "shareMarketShareLink": "Siųsti nuorodą",
+  "marketMetaLine": "Baigiasi {date} · {volume}",
+  "marketCloses": "Baigiasi {date}",
+  "predictionsTopMarkets": "Populiariausios rinkos",
+  "predictionsChance": "tikimybė"
 }

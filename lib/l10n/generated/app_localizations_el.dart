@@ -6449,6 +6449,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get investingLowLiquidity => 'Χαμηλή ρευστότητα';
 
   @override
+  String get investingMovingNow => 'Σε κίνηση τώρα';
+
+  @override
   String get investingStats => 'Στατιστικά';
 
   @override
@@ -6667,6 +6670,9 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Επενδύσεις';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11550,12 +11556,12 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Κλείνει $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Κλείνει $date';
   }
 
   @override
@@ -11858,4 +11864,10 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Κορυφαίες αγορές';
+
+  @override
+  String get predictionsChance => 'πιθανότητα';
 }

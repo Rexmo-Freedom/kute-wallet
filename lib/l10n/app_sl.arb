@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Nizka likvidnost",
+  "investingMovingNow": "V gibanju zdaj",
   "investingStats": "Statistika",
   "investingAboutMarket": "O {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Iskanje naložb",
   "searchPredictionsHint": "Iskanje napovedi",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Naložbe",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Naslov dolarskega računa",
   "hwSignKeepDeviceNearby": "{device} naj bo v bližini in odklenjen.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Pošlji prijatelju",
   "shareTheMarket": "Pošlji trg",
   "shareThisPosition": "Pošlji to pozicijo",
-  "shareMarketShareLink": "Pošlji povezavo"
+  "shareMarketShareLink": "Pošlji povezavo",
+  "marketMetaLine": "Zapre se {date} · {volume}",
+  "marketCloses": "Zapre se {date}",
+  "predictionsTopMarkets": "Najboljši trgi",
+  "predictionsChance": "verjetnost"
 }

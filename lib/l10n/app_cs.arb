@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Nízká likvidita",
+  "investingMovingNow": "Právě v pohybu",
   "investingStats": "Statistiky",
   "investingAboutMarket": "O {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Hledat investice",
   "searchPredictionsHint": "Hledat predikce",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investice",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Adresa dolarového účtu",
   "hwSignKeepDeviceNearby": "Nech {device} poblíž a odemčené.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Poslat kamarádovi",
   "shareTheMarket": "Poslat trh",
   "shareThisPosition": "Poslat tuto pozici",
-  "shareMarketShareLink": "Poslat odkaz"
+  "shareMarketShareLink": "Poslat odkaz",
+  "marketMetaLine": "Končí {date} · {volume}",
+  "marketCloses": "Končí {date}",
+  "predictionsTopMarkets": "Nejlepší trhy",
+  "predictionsChance": "šance"
 }

@@ -6405,6 +6405,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get investingLowLiquidity => 'Nízka likvidita';
 
   @override
+  String get investingMovingNow => 'Práve v pohybe';
+
+  @override
   String get investingStats => 'Štatistiky';
 
   @override
@@ -6619,6 +6622,9 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Investície';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11476,12 +11482,12 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Končí $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Končí $date';
   }
 
   @override
@@ -11784,4 +11790,10 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Najlepšie trhy';
+
+  @override
+  String get predictionsChance => 'šanca';
 }

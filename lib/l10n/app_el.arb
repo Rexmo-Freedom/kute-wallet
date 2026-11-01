@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Χαμηλή ρευστότητα",
+  "investingMovingNow": "Σε κίνηση τώρα",
   "investingStats": "Στατιστικά",
   "investingAboutMarket": "Σχετικά με {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Αναζήτηση επενδύσεων",
   "searchPredictionsHint": "Αναζήτηση προβλέψεων",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Επενδύσεις",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Διεύθυνση λογαριασμού δολαρίων",
   "hwSignKeepDeviceNearby": "Κράτα το {device} κοντά και ξεκλείδωτο.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Αποστολή σε φίλο",
   "shareTheMarket": "Αποστολή της αγοράς",
   "shareThisPosition": "Αποστολή αυτής της θέσης",
-  "shareMarketShareLink": "Αποστολή συνδέσμου"
+  "shareMarketShareLink": "Αποστολή συνδέσμου",
+  "marketMetaLine": "Κλείνει {date} · {volume}",
+  "marketCloses": "Κλείνει {date}",
+  "predictionsTopMarkets": "Κορυφαίες αγορές",
+  "predictionsChance": "πιθανότητα"
 }

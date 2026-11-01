@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Ниска ликвидност",
+  "investingMovingNow": "В движение сега",
   "investingStats": "Статистика",
   "investingAboutMarket": "За {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Търси инвестиции",
   "searchPredictionsHint": "Търси прогнози",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Инвестиции",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Адрес на акаунта в долари",
   "hwSignKeepDeviceNearby": "Дръж {device} наблизо и отключен.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Изпрати на приятел",
   "shareTheMarket": "Изпрати пазара",
   "shareThisPosition": "Изпрати тази позиция",
-  "shareMarketShareLink": "Изпрати линка"
+  "shareMarketShareLink": "Изпрати линка",
+  "marketMetaLine": "Затваря {date} · {volume}",
+  "marketCloses": "Затваря {date}",
+  "predictionsTopMarkets": "Топ пазари",
+  "predictionsChance": "шанс"
 }

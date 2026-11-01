@@ -3394,6 +3394,8 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Low liquidity",
+  "investingMovingNow": "Moving now",
+  "@investingMovingNow": {"description": "Investing browse list: small title over the horizontal strip of large cards showing the markets with the biggest 24h moves in the category on screen (Revolut / Coinbase style movers)."},
   "investingStats": "Stats",
   "investingAboutMarket": "About {name}",
   "@investingAboutMarket": {
@@ -3492,6 +3494,8 @@
   "searchInvestmentsHint": "Search investments",
   "searchPredictionsHint": "Search predictions",
   "assetDollars": "Dollars",
+  "moveSourceInvestments": "Investments",
+  "@moveSourceInvestments": {"description": "The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab."},
   "@assetDollars": {
     "description": "Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin."
   },
@@ -6981,17 +6985,17 @@
   "@searchHomeClear": {"description": "Search sheet, Recent: clears the list."},
   "searchScopeTitle": "Search in",
   "@searchScopeTitle": {"description": "Search sheet: the title of the short menu the scope chip (\"All\") opens while typing, listing All / Predictions / Investing / Transactions."},
-  "marketMetaLine": "{volume} · closes {date}",
+  "marketMetaLine": "Closes {date} · {volume}",
   "@marketMetaLine": {
-    "description": "Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.",
+    "description": "Predictions list row, the one quiet line under the question: the month and year the market closes ('Jan 2027') first, then its volume, compact ('$27.8K'): 'Closes Jan 2027 · $27.8K'. Starts the line, so capitalised.",
     "placeholders": {
       "volume": {"type": "String"},
       "date": {"type": "String"}
     }
   },
-  "marketCloses": "closes {date}",
+  "marketCloses": "Closes {date}",
   "@marketCloses": {
-    "description": "Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.",
+    "description": "Predictions list row and Top markets card, the line under the question when there is no volume to show: the month and year the market closes ('Closes Jan 2027'). Starts the line, so capitalised.",
     "placeholders": {
       "date": {"type": "String"}
     }
@@ -7297,5 +7301,9 @@
   "sendPickSideSub": "What they get, ready to place",
   "shareSendAgainWhatsApp": "Send again via WhatsApp",
   "shareSendAgainSms": "Send again via SMS",
-  "sendToLabel": "Send to"
+  "sendToLabel": "Send to",
+  "predictionsTopMarkets": "Top markets",
+  "@predictionsTopMarkets": {"description": "Predictions feed: the title over the strip of big cards at the top, the markets with the most volume in the last 24 hours."},
+  "predictionsChance": "chance",
+  "@predictionsChance": {"description": "Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word."}
 }

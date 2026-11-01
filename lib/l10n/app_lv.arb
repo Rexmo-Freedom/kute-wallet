@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Zema likviditāte",
+  "investingMovingNow": "Kustībā tagad",
   "investingStats": "Statistika",
   "investingAboutMarket": "Par {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Meklēt investīcijas",
   "searchPredictionsHint": "Meklēt prognozes",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investīcijas",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dolāru konta adrese",
   "hwSignKeepDeviceNearby": "Turi {device} tuvumā un atbloķētu.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Sūtīt draugam",
   "shareTheMarket": "Sūtīt tirgu",
   "shareThisPosition": "Sūtīt šo pozīciju",
-  "shareMarketShareLink": "Sūtīt saiti"
+  "shareMarketShareLink": "Sūtīt saiti",
+  "marketMetaLine": "Beidzas {date} · {volume}",
+  "marketCloses": "Beidzas {date}",
+  "predictionsTopMarkets": "Populārākie tirgi",
+  "predictionsChance": "iespēja"
 }

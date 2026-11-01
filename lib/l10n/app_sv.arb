@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Låg likviditet",
+  "investingMovingNow": "Rör sig nu",
   "investingStats": "Statistik",
   "investingAboutMarket": "Om {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Sök investeringar",
   "searchPredictionsHint": "Sök prognoser",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investeringar",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dollarkontots adress",
   "hwSignKeepDeviceNearby": "Håll {device} nära och upplåst.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Skicka till en vän",
   "shareTheMarket": "Skicka marknaden",
   "shareThisPosition": "Skicka den här positionen",
-  "shareMarketShareLink": "Skicka länken"
+  "shareMarketShareLink": "Skicka länken",
+  "marketMetaLine": "Stänger {date} · {volume}",
+  "marketCloses": "Stänger {date}",
+  "predictionsTopMarkets": "Toppmarknader",
+  "predictionsChance": "chans"
 }

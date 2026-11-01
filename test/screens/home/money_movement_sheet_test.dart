@@ -451,7 +451,9 @@ int get _railCalls =>
 // ─── harness ────────────────────────────────────────────────────────
 
 Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
-    {Completer<String?>? hlAddress, OrchestraRoutesCatalog? catalog}) async {
+    {Completer<String?>? hlAddress,
+    OrchestraRoutesCatalog? catalog,
+    bool pinned = false}) async {
   tester.view.physicalSize = const Size(430, 932);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -505,7 +507,9 @@ Future<ProviderContainer> _open(WidgetTester tester, MoneyMovementRoute route,
     _orchestra,
   );
   unawaited(showMoneyMovementSheet(_nav.currentContext!,
-      initialSource: route.from, initialDestination: route.to));
+      initialSource: route.from,
+      initialDestination: route.to,
+      pinned: pinned));
   await _frames(tester, 12);
   container.read(sparkHypercoreFundingServiceProvider);
   return container;
@@ -619,6 +623,25 @@ void main() {
     await _type(tester, '5');
     expect(_railCalls, 0);
     expect(_approvals.intents, isEmpty);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'the withdrawal door pins the route: Investments to Bitcoin, no '
+      'pickers, no flip, and the move still runs', (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_d, _b),
+        pinned: true);
+    expect(find.text('Investments'), findsOneWidget);
+    expect(find.text('Bitcoin'), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+    expect(find.byIcon(Icons.swap_vert_rounded), findsNothing);
+    // Tapping an end picks nothing.
+    await tester.tap(find.text('Investments').first);
+    await _frames(tester);
+    expect(find.text('Move from'), findsNothing);
+    await _type(tester, '5');
+    await _confirm(tester);
+    expect(_railCalls, 1);
     await _close(tester, c);
   });
 

@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lichiditate redusă",
+  "investingMovingNow": "În mișcare acum",
   "investingStats": "Statistici",
   "investingAboutMarket": "Despre {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Caută investiții",
   "searchPredictionsHint": "Caută predicții",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investiții",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Adresa contului în dolari",
   "hwSignKeepDeviceNearby": "Ține {device} aproape și deblocat.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Trimite unui prieten",
   "shareTheMarket": "Trimite piața",
   "shareThisPosition": "Trimite această poziție",
-  "shareMarketShareLink": "Trimite linkul"
+  "shareMarketShareLink": "Trimite linkul",
+  "marketMetaLine": "Se închide {date} · {volume}",
+  "marketCloses": "Se închide {date}",
+  "predictionsTopMarkets": "Piețe de top",
+  "predictionsChance": "șanse"
 }

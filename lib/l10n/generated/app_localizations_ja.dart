@@ -6160,6 +6160,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get investingLowLiquidity => '流動性低';
 
   @override
+  String get investingMovingNow => 'いま動いている銘柄';
+
+  @override
   String get investingStats => '統計';
 
   @override
@@ -6362,6 +6365,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => '投資';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11044,12 +11050,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return '$date 終了 · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return '$date 終了';
   }
 
   @override
@@ -11352,4 +11358,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => '注目マーケット';
+
+  @override
+  String get predictionsChance => 'の確率';
 }

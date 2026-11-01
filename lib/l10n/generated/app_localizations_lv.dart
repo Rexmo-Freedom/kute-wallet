@@ -6383,6 +6383,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get investingLowLiquidity => 'Zema likviditāte';
 
   @override
+  String get investingMovingNow => 'Kustībā tagad';
+
+  @override
   String get investingStats => 'Statistika';
 
   @override
@@ -6597,6 +6600,9 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Investīcijas';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11438,12 +11444,12 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Beidzas $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Beidzas $date';
   }
 
   @override
@@ -11746,4 +11752,10 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Populārākie tirgi';
+
+  @override
+  String get predictionsChance => 'iespēja';
 }

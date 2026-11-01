@@ -9,11 +9,16 @@ export 'package:kute/services/one_balance/money_movement_route.dart';
 /// editable. Opening it, or changing its accounts, never submits a move.
 /// [entrySource] is the categorical surface it was opened from
 /// (`move_sheet_opened`'s `entry_source`).
+/// [pinned]: the route is fixed (the withdrawal door: Investments to
+/// Bitcoin), so the sheet offers no account pickers and no flip, as the
+/// Purchase Bitcoin sheet pins its ends (founder, 1 November 2026: "the
+/// withdrawal doesn't give the option to choose, just from Investments").
 Future<void> showMoneyMovementSheet(
   BuildContext context, {
   MoneyMovementAccount initialSource = MoneyMovementAccount.dollars,
   MoneyMovementAccount initialDestination = MoneyMovementAccount.bitcoin,
   String entrySource = 'portfolio',
+  bool pinned = false,
 }) async {
   final destination = initialSource == initialDestination
       ? (initialSource == MoneyMovementAccount.dollars
@@ -30,6 +35,7 @@ Future<void> showMoneyMovementSheet(
       builder: (_) => DepositSheet(
         lockedSide: MoveLockedSide.depositToUsd,
         movementRoute: route,
+        movementPinned: pinned,
       ),
     ),
   );

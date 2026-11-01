@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Poca liquidez",
+  "investingMovingNow": "En movimiento ahora",
   "investingStats": "Estadísticas",
   "investingAboutMarket": "Sobre {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Buscar inversiones",
   "searchPredictionsHint": "Buscar predicciones",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Inversiones",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dirección de la cuenta en dólares",
   "hwSignKeepDeviceNearby": "Mantén {device} cerca y desbloqueado.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Enviar a un amigo",
   "shareTheMarket": "Enviar el mercado",
   "shareThisPosition": "Enviar esta posición",
-  "shareMarketShareLink": "Enviar el enlace"
+  "shareMarketShareLink": "Enviar el enlace",
+  "marketMetaLine": "Cierra {date} · {volume}",
+  "marketCloses": "Cierra {date}",
+  "predictionsTopMarkets": "Mercados destacados",
+  "predictionsChance": "probabilidad"
 }

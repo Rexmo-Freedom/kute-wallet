@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lav likviditet",
+  "investingMovingNow": "I bevægelse nu",
   "investingStats": "Statistik",
   "investingAboutMarket": "Om {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Søg i investeringer",
   "searchPredictionsHint": "Søg i forudsigelser",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investeringer",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Adresse til dollarkonto",
   "hwSignKeepDeviceNearby": "Hold {device} i nærheden og låst op.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Send til en ven",
   "shareTheMarket": "Send markedet",
   "shareThisPosition": "Send denne position",
-  "shareMarketShareLink": "Send linket"
+  "shareMarketShareLink": "Send linket",
+  "marketMetaLine": "Lukker {date} · {volume}",
+  "marketCloses": "Lukker {date}",
+  "predictionsTopMarkets": "Topmarkeder",
+  "predictionsChance": "chance"
 }

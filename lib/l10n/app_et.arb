@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Madal likviidsus",
+  "investingMovingNow": "Liigub praegu",
   "investingStats": "Statistika",
   "investingAboutMarket": "Teave: {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Otsi investeeringuid",
   "searchPredictionsHint": "Otsi ennustusi",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Investeeringud",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dollarikonto aadress",
   "hwSignKeepDeviceNearby": "Hoia {device} lähedal ja avatuna.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Saada sõbrale",
   "shareTheMarket": "Saada turg",
   "shareThisPosition": "Saada see positsioon",
-  "shareMarketShareLink": "Saada link"
+  "shareMarketShareLink": "Saada link",
+  "marketMetaLine": "Sulgub {date} · {volume}",
+  "marketCloses": "Sulgub {date}",
+  "predictionsTopMarkets": "Tippturud",
+  "predictionsChance": "tõenäosus"
 }

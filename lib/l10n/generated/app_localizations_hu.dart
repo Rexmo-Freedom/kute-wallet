@@ -6414,6 +6414,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get investingLowLiquidity => 'Alacsony likviditás';
 
   @override
+  String get investingMovingNow => 'Most mozog';
+
+  @override
   String get investingStats => 'Statisztika';
 
   @override
@@ -6631,6 +6634,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Befektetések';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11495,12 +11501,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Zárul $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Zárul $date';
   }
 
   @override
@@ -11803,4 +11809,10 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Top piacok';
+
+  @override
+  String get predictionsChance => 'esély';
 }

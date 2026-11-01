@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Alhainen likviditeetti",
+  "investingMovingNow": "Liikkeessä nyt",
   "investingStats": "Tilastot",
   "investingAboutMarket": "Tietoja: {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Hae sijoituksia",
   "searchPredictionsHint": "Hae ennusteita",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Sijoitukset",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dollaritilin osoite",
   "hwSignKeepDeviceNearby": "Pidä {device} lähellä ja lukitus avattuna.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Lähetä ystävälle",
   "shareTheMarket": "Lähetä markkina",
   "shareThisPosition": "Lähetä tämä positio",
-  "shareMarketShareLink": "Lähetä linkki"
+  "shareMarketShareLink": "Lähetä linkki",
+  "marketMetaLine": "Sulkeutuu {date} · {volume}",
+  "marketCloses": "Sulkeutuu {date}",
+  "predictionsTopMarkets": "Suosituimmat markkinat",
+  "predictionsChance": "todennäköisyys"
 }

@@ -6421,6 +6421,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get investingLowLiquidity => 'Niska płynność';
 
   @override
+  String get investingMovingNow => 'W ruchu teraz';
+
+  @override
   String get investingStats => 'Statystyki';
 
   @override
@@ -6639,6 +6642,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Inwestycje';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11507,12 +11513,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Zamyka się $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Zamyka się $date';
   }
 
   @override
@@ -11815,4 +11821,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Najpopularniejsze rynki';
+
+  @override
+  String get predictionsChance => 'szansa';
 }

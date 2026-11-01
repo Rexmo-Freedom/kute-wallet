@@ -562,6 +562,10 @@ class DepositSheet extends ConsumerStatefulWidget {
 
   /// Explicit movement of one selected cash balance, with both ends editable.
   final MoneyMovementRoute? movementRoute;
+
+  /// [movementRoute] fixed: no account pickers, no flip; the source reads
+  /// as the Investments balance (showMoneyMovementSheet's `pinned`).
+  final bool movementPinned;
   final String? fiatDepositWalletId;
   final String? venueWalletId;
   final String? ledgerWalletId;
@@ -582,6 +586,7 @@ class DepositSheet extends ConsumerStatefulWidget {
     this.initialSourceAsset,
     required this.lockedSide,
     this.movementRoute,
+    this.movementPinned = false,
     this.fiatDepositWalletId,
     this.venueWalletId,
     this.ledgerWalletId,
@@ -948,9 +953,16 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Widget _movementRouteCard({required String? available, String? detail}) {
     final route = _movementRoute!;
     final editable = !_processing && !_movementSendLocked;
+    // A pinned route (the withdrawal door) picks nothing: the ends show
+    // no chevron and there is no flip, as on the Purchase Bitcoin sheet.
+    final pickable = editable && !widget.movementPinned;
     MoveRouteEndpoint endpoint(MoneyMovementAccount account, bool source) =>
         MoveRouteEndpoint(
-          name: _movementName(account),
+          name: widget.movementPinned &&
+                  source &&
+                  account == MoneyMovementAccount.dollars
+              ? context.l10n.moveSourceInvestments
+              : _movementName(account),
           asset: _movementAsset(account),
           available: source ? available : null,
           detail: source ? detail : null,
@@ -958,13 +970,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
           onAvailableTap: source && editable && _sourceBalanceState == null
               ? () => _applyAmountPercent(1)
               : null,
-          onTap: editable ? () => _pickMovementAccount(source: source) : null,
+          onTap: pickable ? () => _pickMovementAccount(source: source) : null,
         );
     return MoveRouteCard(
       key: const ValueKey('money-movement-route'),
       from: endpoint(route.from, true),
       to: endpoint(route.to, false),
-      onSwap: editable &&
+      hideSwap: widget.movementPinned,
+      onSwap: pickable &&
               route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)

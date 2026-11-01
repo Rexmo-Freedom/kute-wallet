@@ -11182,6 +11182,12 @@ abstract class AppLocalizations {
   /// **'Low liquidity'**
   String get investingLowLiquidity;
 
+  /// Investing browse list: small title over the horizontal strip of large cards showing the markets with the biggest 24h moves in the category on screen (Revolut / Coinbase style movers).
+  ///
+  /// In en, this message translates to:
+  /// **'Moving now'**
+  String get investingMovingNow;
+
   /// No description provided for @investingStats.
   ///
   /// In en, this message translates to:
@@ -11553,6 +11559,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Dollars'**
   String get assetDollars;
+
+  /// The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab.
+  ///
+  /// In en, this message translates to:
+  /// **'Investments'**
+  String get moveSourceInvestments;
 
   /// Second line on the Investments row in the move sheet source picker, where the dollar balance funds a venue deposit or a bitcoin buy.
   ///
@@ -19233,16 +19245,16 @@ abstract class AppLocalizations {
   /// **'Search in'**
   String get searchScopeTitle;
 
-  /// Predictions list row, the one quiet line under the question: the market's volume, compact ('$27.8K'), and the month and year it closes ('Jan 2027'). Lowercase 'closes'.
+  /// Predictions list row, the one quiet line under the question: the month and year the market closes ('Jan 2027') first, then its volume, compact ('$27.8K'): 'Closes Jan 2027 · $27.8K'. Starts the line, so capitalised.
   ///
   /// In en, this message translates to:
-  /// **'{volume} · closes {date}'**
+  /// **'Closes {date} · {volume}'**
   String marketMetaLine(String volume, String date);
 
-  /// Predictions list row, the line under the question when the market has no volume to show: the month and year it closes ('closes Jan 2027'). Lowercase.
+  /// Predictions list row and Top markets card, the line under the question when there is no volume to show: the month and year the market closes ('Closes Jan 2027'). Starts the line, so capitalised.
   ///
   /// In en, this message translates to:
-  /// **'closes {date}'**
+  /// **'Closes {date}'**
   String marketCloses(String date);
 
   /// Recipient option on Send: a link anyone can claim with Kute.
@@ -19734,6 +19746,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send to'**
   String get sendToLabel;
+
+  /// Predictions feed: the title over the strip of big cards at the top, the markets with the most volume in the last 24 hours.
+  ///
+  /// In en, this message translates to:
+  /// **'Top markets'**
+  String get predictionsTopMarkets;
+
+  /// Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word.
+  ///
+  /// In en, this message translates to:
+  /// **'chance'**
+  String get predictionsChance;
 }
 
 class _AppLocalizationsDelegate

@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lage liquiditeit",
+  "investingMovingNow": "Nu in beweging",
   "investingStats": "Statistieken",
   "investingAboutMarket": "Over {name}",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Zoek beleggingen",
   "searchPredictionsHint": "Zoek voorspellingen",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Beleggingen",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Adres dollarrekening",
   "hwSignKeepDeviceNearby": "Houd {device} in de buurt en ontgrendeld.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Stuur naar een vriend",
   "shareTheMarket": "Stuur de markt",
   "shareThisPosition": "Stuur deze positie",
-  "shareMarketShareLink": "Stuur de link"
+  "shareMarketShareLink": "Stuur de link",
+  "marketMetaLine": "Sluit {date} · {volume}",
+  "marketCloses": "Sluit {date}",
+  "predictionsTopMarkets": "Topmarkten",
+  "predictionsChance": "kans"
 }

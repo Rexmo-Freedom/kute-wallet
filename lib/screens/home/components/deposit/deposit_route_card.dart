@@ -83,7 +83,12 @@ class MoveRouteCard extends StatelessWidget {
     this.from,
     this.to,
     this.onSwap,
+    this.hideSwap = false,
   }) : assert(from != null || to != null, 'a route needs at least one end');
+
+  /// True draws no flip button at all (a pinned route that never flips),
+  /// rather than the quiet disabled one a busy sheet shows.
+  final bool hideSwap;
 
   /// Null renders the To row alone.
   final MoveRouteEndpoint? from;
@@ -129,29 +134,31 @@ class MoveRouteCard extends StatelessWidget {
                         reserveFlip: true),
                   ],
                 ),
-                Padding(
-                  padding: EdgeInsets.only(right: 14.w),
-                  child: Material(
-                    color: c.background,
-                    shape: CircleBorder(
-                      side: BorderSide(color: c.borderSubtle, width: 0.5),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: onSwap,
-                      child: SizedBox(
-                        width: 38.sp,
-                        height: 38.sp,
-                        child: Icon(
-                          Icons.swap_vert_rounded,
-                          color:
-                              onSwap == null ? c.textTertiary : c.textPrimary,
-                          size: 20.sp,
+                if (!hideSwap)
+                  Padding(
+                    padding: EdgeInsets.only(right: 14.w),
+                    child: Material(
+                      color: c.background,
+                      shape: CircleBorder(
+                        side: BorderSide(color: c.borderSubtle, width: 0.5),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: onSwap,
+                        child: SizedBox(
+                          width: 38.sp,
+                          height: 38.sp,
+                          child: Icon(
+                            Icons.swap_vert_rounded,
+                            color: onSwap == null
+                                ? c.textTertiary
+                                : c.textPrimary,
+                            size: 20.sp,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
     );

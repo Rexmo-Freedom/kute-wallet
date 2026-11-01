@@ -106,11 +106,14 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
       unawaited(open(context));
       return;
     }
+    // Pinned: Investments to Bitcoin, nothing to pick, as Purchase Bitcoin
+    // pins its ends (founder, 1 November 2026).
     unawaited(showMoneyMovementSheet(
       context,
       initialSource: MoneyMovementAccount.dollars,
       initialDestination: MoneyMovementAccount.bitcoin,
       entrySource: kUsdWithdrawBitcoinRowSource,
+      pinned: true,
     ));
   }
 

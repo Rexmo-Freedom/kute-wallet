@@ -1847,6 +1847,7 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Alacsony likviditás",
+  "investingMovingNow": "Most mozog",
   "investingStats": "Statisztika",
   "investingAboutMarket": "A(z) {name} piacról",
   "investingKindLeveraged": "Perp",
@@ -1909,6 +1910,7 @@
   "searchInvestmentsHint": "Keresés a befektetésekben",
   "searchPredictionsHint": "Keresés az előrejelzésekben",
   "assetDollars": "Investments",
+  "moveSourceInvestments": "Befektetések",
   "moveSourceDollarsSubtitle": "Pay with your Investments balance",
   "sendDollarAccountAddressHint": "Dollár fiók címe",
   "hwSignKeepDeviceNearby": "Tartsd a(z) {device} eszközt a közelben és feloldva.",
@@ -3135,5 +3137,9 @@
   "barShareWithFriends": "Küldés barátnak",
   "shareTheMarket": "Piac küldése",
   "shareThisPosition": "Pozíció küldése",
-  "shareMarketShareLink": "Link küldése"
+  "shareMarketShareLink": "Link küldése",
+  "marketMetaLine": "Zárul {date} · {volume}",
+  "marketCloses": "Zárul {date}",
+  "predictionsTopMarkets": "Top piacok",
+  "predictionsChance": "esély"
 }

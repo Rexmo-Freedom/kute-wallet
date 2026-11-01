@@ -6398,6 +6398,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get investingLowLiquidity => 'Alhainen likviditeetti';
 
   @override
+  String get investingMovingNow => 'Liikkeessä nyt';
+
+  @override
   String get investingStats => 'Tilastot';
 
   @override
@@ -6613,6 +6616,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get assetDollars => 'Investments';
+
+  @override
+  String get moveSourceInvestments => 'Sijoitukset';
 
   @override
   String get moveSourceDollarsSubtitle => 'Pay with your Investments balance';
@@ -11482,12 +11488,12 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String marketMetaLine(String volume, String date) {
-    return '$volume · closes $date';
+    return 'Sulkeutuu $date · $volume';
   }
 
   @override
   String marketCloses(String date) {
-    return 'closes $date';
+    return 'Sulkeutuu $date';
   }
 
   @override
@@ -11790,4 +11796,10 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
+
+  @override
+  String get predictionsTopMarkets => 'Suosituimmat markkinat';
+
+  @override
+  String get predictionsChance => 'todennäköisyys';
 }
