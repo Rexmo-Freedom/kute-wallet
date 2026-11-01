@@ -131,15 +131,19 @@ import 'package:kute/theme/kute_motion.dart';
 
 /// The picked pill's sub-context, for its label: the category on screen
 /// (and its subcategory when one is picked), or the Portfolio section.
-/// Always a name, the default's included ("Trending", "Balances"), so the
-/// picked pill always shows what it holds (founder, 31 October 2026: "it
-/// should be more clear that we have much more context here").
+/// Always a name, so the picked pill always shows what it holds (founder,
+/// 31 October 2026: "it should be more clear that we have much more
+/// context here"), except the default browse (Trending, no subcategory),
+/// which reads "Filter" to prompt a pick (founder, 1 November 2026).
 String investmentsCategoryLabel(
     WidgetRef ref, AppLocalizations l10n, InvestmentsTab tab) {
   switch (tab) {
     case InvestmentsTab.investing:
       final sel = ref.watch(hlBrowseSelectionProvider);
       final sub = sel.sub;
+      if (sel.tab == HlBrowseTab.trending && sub == HlBrowseSub.all) {
+        return l10n.categoryFilterPrompt;
+      }
       return sub == HlBrowseSub.all
           ? sel.tab.localizedLabel(l10n)
           : '${sel.tab.localizedLabel(l10n)} · ${sub.localizedLabel(l10n)}';
@@ -147,6 +151,9 @@ String investmentsCategoryLabel(
       final sel = ref.watch(polyBrowseSelectionProvider);
       final pill = sel.pill;
       final subKey = sel.subOf(pill);
+      if (pill == PolyPill.trending && subKey == pill.defaultSub) {
+        return l10n.categoryFilterPrompt;
+      }
       if (subKey == pill.defaultSub) return polyPillLabel(l10n, pill);
       final sub = polySubsFor(ref, pill).where((s) => s.key == subKey);
       return sub.isEmpty

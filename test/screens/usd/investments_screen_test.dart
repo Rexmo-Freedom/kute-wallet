@@ -336,7 +336,8 @@ void main() {
     // row, nothing under it.
     expect(strip.items.map((i) => i.label), [l10n.trading, l10n.predictions]);
     expect(strip.items.map((i) => i.label), ['Investing', 'Predictions']);
-    expect(strip.items.first.detail, l10n.hlPillTrending);
+    // The default browse reads "Filter" (founder, 1 November 2026).
+    expect(strip.items.first.detail, l10n.categoryFilterPrompt);
     expect(strip.items.first.menu, isTrue);
     expect(strip.items.last.detail, isNull);
     expect(strip.items.last.menu, isFalse);
@@ -568,9 +569,10 @@ void main() {
     });
     expect(events.any((e) => e.$1 == 'polymarket_tab_opened'), isTrue);
     expect(events.any((e) => e.$1 == 'hyperliquid_tab_opened'), isFalse);
-    // The picked pill now carries what it holds: Predictions · Trending.
+    // The picked pill now carries what it holds; on the default browse
+    // it prompts a pick: Predictions · Filter.
     expect(tester.widget<KutePill>(_pill(l10n.predictions)).detail,
-        l10n.polyPillTrending);
+        l10n.categoryFilterPrompt);
     expect(tester.widget<KutePill>(_pill(l10n.predictions)).menu, isTrue);
     expect(tester.widget<KutePill>(_pill(l10n.trading)).detail, isNull);
 
@@ -1451,8 +1453,9 @@ void main() {
           lessThan(text.getMaxIntrinsicHeight(double.infinity) * 1.6),
           reason: plain);
     }
-    expect(tester.widget<KutePill>(pills.at(0)).detail, l10n.hlPillTrending);
-    expect(find.text('${l10n.trading} · ${l10n.hlPillTrending}'),
+    expect(tester.widget<KutePill>(pills.at(0)).detail,
+        l10n.categoryFilterPrompt);
+    expect(find.text('${l10n.trading} · ${l10n.categoryFilterPrompt}'),
         findsOneWidget);
     expect(tester.takeException(), isNull);
     await unmountInvestments(tester);

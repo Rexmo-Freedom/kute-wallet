@@ -20400,6 +20400,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Result'**
   String get receiptResult;
+
+  /// Dollars tab: the picked half of the Investing | Predictions strip on the default browse (Trending, no subcategory), after the venue ("Investing · Filter"), prompting a pick; any other pick shows its name (founder, 1 November 2026).
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get categoryFilterPrompt;
 }
 
 class _AppLocalizationsDelegate

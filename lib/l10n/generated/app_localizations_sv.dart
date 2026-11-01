@@ -12113,4 +12113,7 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get receiptResult => 'Result';
+
+  @override
+  String get categoryFilterPrompt => 'Filter';
 }

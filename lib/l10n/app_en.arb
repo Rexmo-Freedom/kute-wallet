@@ -7529,5 +7529,7 @@
   "receiptAskWhatHappened": "What happened here?",
   "@receiptAskWhatHappened": {"description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."},
   "receiptResult": "Result",
-  "@receiptResult": {"description": "Activity receipt tile label: the realised profit or loss of a sale or payout."}
+  "@receiptResult": {"description": "Activity receipt tile label: the realised profit or loss of a sale or payout."},
+  "categoryFilterPrompt": "Filter",
+  "@categoryFilterPrompt": {"description": "Dollars tab: the picked half of the Investing | Predictions strip on the default browse (Trending, no subcategory), after the venue (\"Investing · Filter\"), prompting a pick; any other pick shows its name (founder, 1 November 2026)."}
 }
