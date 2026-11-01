@@ -94,7 +94,24 @@
 // (fetch: pace, sniff the trail, dig; sniff: sniff the trail, think;
 // settle: sit, point; a success jumps then wags; a failure shakes its
 // head then is sad), never the same twice in a row, on the same mood
-// timing ([_paintSalSprite]). One continuous performance (sal_sprite.dart's
+// timing ([_paintSalSprite]). THE COIN IN THE RENDER (founder, "Sal
+// moving around and taking the actual thing and putting it in another
+// place"; 1 November 2026): once the coin clips are decoded and their
+// per-frame anchors read ([_salCarries]: body_pickup, body_carry,
+// body_drop, rendered from the Blender rig with an orange coin in them),
+// Sal takes the coin up from the floor at the station it leaves as its
+// leg starts (body_pickup, standing still for it), walks the line with
+// it in his mouth (body_carry instead of body_walk; the travelled line
+// ends where he is, and he walks, never dashes), and where he lets it go
+// he stops and sets it down (body_drop; at the destination once its own
+// sub-steps are done, or where a leg lands with nothing more to do
+// there), the moods and the cheer after it as before. The coin is then
+// the render's: the painted coin gives way to it, and the balance's mark
+// is drawn on it at the frame's anchor (about 1.2 of its radius tall,
+// squashed as it is foreshortened, none lying flat). Reduce Motion: no
+// pick-up or drop, the held pose (body_carry's first frame) at once.
+// Until the clips are in (or without them) the painted coin glides and
+// he fetches it, as below. One continuous performance (sal_sprite.dart's
 // rule): a parked mood's clip gives way at its loop's boundary (a one-shot
 // once through), the two cells dissolve for 120 ms, and every clip he can
 // wear is decoded once when the view mounts, so no switch waits on a
@@ -557,6 +574,28 @@ class _RoadPath {
     return end;
   }
 
+  /// How far along (0..1) its point nearest [p] is.
+  double fractionNear(Offset p) {
+    if (length <= 0) return 1;
+    var best = double.infinity;
+    var at = 0.0;
+    for (var i = 1; i < points.length; i++) {
+      final a = points[i - 1];
+      final d = points[i] - a;
+      final len2 = d.dx * d.dx + d.dy * d.dy;
+      final t = len2 <= 0
+          ? 0.0
+          : (((p.dx - a.dx) * d.dx + (p.dy - a.dy) * d.dy) / len2)
+              .clamp(0.0, 1.0);
+      final dist = (p - (a + d * t)).distance;
+      if (dist < best) {
+        best = dist;
+        at = cum[i - 1] + (cum[i] - cum[i - 1]) * t;
+      }
+    }
+    return at / length;
+  }
+
   /// The line from its start to [f] of the way.
   Path upTo(double f) {
     final d = _unit(f) * length;
@@ -975,6 +1014,24 @@ class _Scene {
   String? salFadeFrom;
   int salFadeFrame = 0;
   double salFadeAt = double.negativeInfinity;
+
+  // The coin in the render ([_salCarries]): whether the coin clips could
+  // carry it at the last paint; the pick-up (when it began, where he
+  // stands for it, until when it plays); the drop (whether the render
+  // sets the coin down, when its clip began, until when it plays); the
+  // rendered coin's centre at the last paint and how much of the coin
+  // the render showed (0..1; the painted coin takes the rest); and how
+  // long the clock must run for a one-shot.
+  bool salCarries = false;
+  double? pickupAt;
+  Offset? pickupPos;
+  double pickupUntil = double.negativeInfinity;
+  bool dropInRender = false;
+  double? dropClipAt;
+  double dropUntil = double.negativeInfinity;
+  Offset? salCoinAt;
+  double salCoinFade = 0;
+  double salBusyUntil = double.negativeInfinity;
 }
 
 String _lineKey(MoneyStepLine l, int i) => l.id ?? '#$i';
@@ -1007,6 +1064,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       !_scene.still &&
       (_events.isNotEmpty ||
           now < _busyUntil ||
+          now < _scene.salBusyUntil ||
           _scene.plan.lines.any((l) => l.status == MoneyStepStatus.running));
 
   /// Something happened now: the clock runs on [_kRest] from here.
@@ -1079,6 +1137,8 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       changed = true;
     }
     if (s.waitSince != null || geo == null) return changed;
+    // Taking the coin up is not waiting yet.
+    if (_picking(s, now)) return changed;
     final aim = _salTarget(s, geo, now);
     final x = s.salX;
     final quiet = s.still ||
@@ -1096,6 +1156,40 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       s.carryFrom = s.still ? null : free?.at;
     }
     return true;
+  }
+
+  /// The coin in the render ([_salCarries]): as the coin's leg starts,
+  /// Sal, standing at its start, takes the coin up there (body_pickup,
+  /// standing still for it) and carries it on from there. Not under
+  /// Reduce Motion (he has it once he waits, [_noteWait], in the held
+  /// pose), and not without the clips (he fetches the gliding coin).
+  void _noteCarry(double now) {
+    final s = _scene;
+    final geo = s.geo;
+    final x = s.salX;
+    final y = s.salY;
+    if (s.still || s.carry || !s.live || s.outcome != _Outcome.none) return;
+    if (geo == null || x == null || y == null || _picking(s, now)) return;
+    if (_dropPending(s, now) || !_salCarries()) return;
+    final plan = s.plan;
+    final spot = _spotOf(s, now);
+    if (spot >= plan.chain.length) return;
+    final road = plan.roads[plan.chain[spot]];
+    if (!_roadRuns(plan, road)) return;
+    if ((Offset(x, y) - _salStart(s, geo, road)).distance > 1.5) return;
+    s.carry = true;
+    s.carryAt = null;
+    s.carryFrom = null;
+    s.dropAt = null;
+    s.dropClipAt = null;
+    s.dropInRender = false;
+    s.dropSink = false;
+    final len = _salOneShot(_kSalPickup);
+    if (len <= 0) return;
+    s.pickupAt = now;
+    s.pickupPos = Offset(x, y);
+    s.pickupUntil = now + len;
+    s.salBusyUntil = math.max(s.salBusyUntil, s.pickupUntil + 200);
   }
 
   /// Under Reduce Motion: on to the next mood's still pose when its
@@ -1158,7 +1252,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   void _onTick() {
     final now = _now;
     _flush(now);
-    if (!_scene.still) _noteWait(now);
+    if (!_scene.still) {
+      _noteCarry(now);
+      _noteWait(now);
+    }
     if (!_needsTick(now)) _clock.stop();
   }
 
@@ -1239,6 +1336,9 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       s.stopMood = null;
       s.dropAt = null;
       s.hopAt = null;
+      s.pickupAt = null;
+      s.dropClipAt = null;
+      s.dropInRender = false;
     }
     // Sal before the change: whether he had the coin, where it was, his
     // mood and his wait.
@@ -1343,7 +1443,11 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           s.dropPlace = heldBefore?.place;
           s.dropTo = dropTo;
           s.dropSink = sink;
-          s.hopAt = now;
+          // In the render he sets it down where he stops (body_drop),
+          // and hops once it is down ([_paintSalSprite]).
+          s.dropInRender = s.salCarries;
+          s.dropClipAt = null;
+          s.hopAt = s.dropInRender ? null : now;
         }
       }
     }
@@ -2326,6 +2430,9 @@ Offset _salTarget(_Scene s, _Geometry geo, double now) {
   final plan = s.plan;
   final look = s.look;
   final half = look.salHalf;
+  // Taking the coin up: where he stands for it.
+  final pick = s.pickupPos;
+  if (pick != null && _picking(s, now)) return pick;
   if (plan.chain.isEmpty) {
     return _besideStation(s, geo, plan.destination ?? 0);
   }
@@ -2369,6 +2476,17 @@ Offset _salTarget(_Scene s, _Geometry geo, double now) {
   return Offset(math.max(start, x), look.rowY);
 }
 
+
+/// Where Sal stands at the start of [road], before the coin leaves.
+Offset _salStart(_Scene s, _Geometry geo, JourneyRoad road) {
+  final plan = s.plan;
+  final half = s.look.salHalf;
+  if (geo.branches) {
+    final path = geo.paths[plan.roads.indexOf(road)];
+    if (path != null && path.length > 0) return path.at(half / path.length);
+  }
+  return Offset(geo.tipX(plan, road, 0) + half, s.look.rowY);
+}
 
 typedef _Coin = ({Offset at, MoneyPlace? place, double alpha, double scale});
 
@@ -2527,10 +2645,23 @@ const List<String> _kFetchClips = ['body_pace', 'body_sniff_trail', 'body_dig'];
 const List<String> _kSniffClips = ['body_sniff_trail', 'body_think'];
 const List<String> _kSettleClips = ['body_sit', 'body_point'];
 
+/// The coin clips ([_salCarries]): he takes the coin up from the floor,
+/// carries it in his mouth, sets it down; the coin is in the render.
+const String _kSalPickup = 'body_pickup';
+const String _kSalCarry = 'body_carry';
+const String _kSalDrop = 'body_drop';
+const Set<String> _kSalCoinClips = {_kSalPickup, _kSalCarry, _kSalDrop};
+
+/// How fast he walks with the coin (px a ms, for a 64 px Sal).
+const double _kSalCarrySpeed = 0.12;
+
 /// Every clip the journey's Sal can wear ([_paintSalSprite]): decoded
 /// once when a view mounts ([_warmSalClips]), so no switch waits on a
 /// read.
 const List<String> _kSalJourneyClips = [
+  _kSalPickup,
+  _kSalCarry,
+  _kSalDrop,
   'body_idle',
   'body_walk',
   'body_sit_down',
@@ -2578,16 +2709,109 @@ const Set<String> _kSalSoftScenes = {'fetch', 'sniff', 'settle', 'idle'};
 Future<void>? _salWarming;
 
 /// Pre-decodes the `waiting` group and the first-batch clips he wears, at
-/// the device's density, once for the app's life.
+/// the device's density, and reads the coin clips' anchors, once for the
+/// app's life.
 Future<void> _warmSalClips() => _salWarming ??= () async {
-      final dpr = WidgetsBinding.instance.platformDispatcher.implicitView
-              ?.devicePixelRatio ??
-          2.0;
-      final density = SalSpriteCache.densityFor(dpr);
+      final density = _salDensity();
       await SalSpriteCache.warmGroup('waiting',
           defaults: _kSalJourneyClips, density: density);
       await SalSpriteCache.warm(_kSalJourneyClips, density);
+      await SalCoinAnchors.load();
     }();
+
+/// The sheets' density on this device.
+int _salDensity() => SalSpriteCache.densityFor(
+    WidgetsBinding.instance.platformDispatcher.implicitView?.devicePixelRatio ??
+        2.0);
+
+/// Whether the render carries the coin: the carry clip decoded and its
+/// anchors read. Until then (or without them) the coin is painted and
+/// glides on its own, Sal fetching it.
+bool _salCarries() =>
+    SalSpriteCache.peek(_kSalCarry, _salDensity()) != null &&
+    SalCoinAnchors.peek(_kSalCarry, 0) != null;
+
+/// One one-shot's length in ms; 0 while it is not decoded (skipped).
+double _salOneShot(String name) {
+  final c = SalSpriteCache.peek(name, _salDensity());
+  return c == null ? 0 : _salClipLength(c);
+}
+
+/// Whether he is taking the coin up now (standing still for it).
+bool _picking(_Scene s, double now) =>
+    s.pickupAt != null && !s.still && now < s.pickupUntil;
+
+/// Whether the render still has the coin to set down: on his way to
+/// where he stops, or setting it down.
+bool _dropPending(_Scene s, double now) =>
+    s.dropInRender &&
+    !s.still &&
+    s.dropAt != null &&
+    (s.dropClipAt == null || now < s.dropUntil);
+
+/// While he carries the coin along [road] in the render, its travelled
+/// part ends where he is: the money is where he has got it to.
+bool _salLeads(_Scene s, int road, double now) {
+  if (!s.salCarries || !s.carry || s.still || s.salX == null) return false;
+  final chain = s.plan.chain;
+  final spot = _spotOf(s, now);
+  return spot < chain.length && chain[spot] == road;
+}
+
+/// The balance's mark on the coin the render carries, centred on it at
+/// [c] (its rim's radius [r] on screen): about 1.2 of its radius tall,
+/// inside the rim, squashed as the coin is foreshortened ([roundness]),
+/// none lying too flat to read (under half round). The mark the painted
+/// coin wears (never a bare "\$"); its colour alone while it loads.
+void _paintCoinMark(Canvas canvas, Offset c, double r, double roundness,
+    MoneyPlace? place, double alpha) {
+  if (alpha <= 0 || roundness < 0.5) return;
+  final mr = 0.6 * r;
+  final box = Rect.fromCircle(center: Offset.zero, radius: mr);
+  canvas
+    ..save()
+    ..translate(c.dx, c.dy)
+    ..scale(1, roundness.clamp(0.0, 1.0));
+  if (alpha < 1) {
+    canvas.saveLayer(
+        box.inflate(1), Paint()..color = Colors.white.withValues(alpha: alpha));
+  }
+  final asset = _markAssetOf(place);
+  final mark = asset == null ? null : _marks[asset];
+  if (mark != null && mark.size.width > 0 && mark.size.height > 0) {
+    final k = math.max(
+        box.width / mark.size.width, box.height / mark.size.height);
+    canvas
+      ..clipPath(Path()..addOval(box))
+      ..translate(-mark.size.width * k / 2, -mark.size.height * k / 2)
+      ..scale(k, k)
+      ..drawPicture(mark.picture);
+  } else {
+    canvas.drawCircle(Offset.zero, mr, Paint()..color = _placeColor(place));
+    if (asset == null) {
+      const glyph = Icons.arrow_outward_rounded;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: String.fromCharCode(glyph.codePoint),
+          style: TextStyle(
+            inherit: false,
+            fontFamily: glyph.fontFamily,
+            package: glyph.fontPackage,
+            fontSize: mr * 1.4,
+            fontWeight: FontWeight.w800,
+            height: 1,
+            color: Colors.white,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      tp.dispose();
+    }
+  }
+  if (alpha < 1) canvas.restore();
+  canvas.restore();
+}
 
 /// One clip's length in ms.
 double _salClipLength(SalClip c) => c.frames / c.fps * 1000;
@@ -2631,11 +2855,24 @@ void _salSwitch(_Scene s, String to, double at,
 bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
     double now,
     {required bool still, required bool walking, required SalMood mood}) {
-  final dpr = WidgetsBinding.instance.platformDispatcher.implicitView
-          ?.devicePixelRatio ??
-      2.0;
-  final density = SalSpriteCache.densityFor(dpr);
+  final density = _salDensity();
   SalClip? peek(String name) => SalSpriteCache.peek(name, density);
+  final carries = s.salCarries;
+
+  // The coin in the render: set down where he stops with it (body_drop),
+  // then the hop.
+  if (carries &&
+      !still &&
+      !walking &&
+      s.dropInRender &&
+      s.dropAt != null &&
+      s.dropClipAt == null) {
+    s.dropClipAt = now;
+    s.dropUntil = now + _salOneShot(_kSalDrop);
+    s.hopAt = s.dropUntil;
+    s.salBusyUntil = math.max(s.salBusyUntil, s.dropUntil + _kHop + 200);
+  }
+  final holding = carries && (s.carry || _dropPending(s, now));
 
   // What he is doing: the scene, the clips it rotates, the one-shot that
   // opens it, and the clip that stands in while none of them is decoded.
@@ -2645,10 +2882,27 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
   final String standIn;
   double? frameTime;
   if (still) {
-    scene = 'still';
+    // Holding the coin in the render: its held pose.
+    final held = carries && s.carry;
+    scene = held ? 'still-carry' : 'still';
     pool = const [];
-    standIn = 'body_idle';
+    standIn = held ? _kSalCarry : 'body_idle';
     frameTime = 0;
+  } else if (carries && _picking(s, now)) {
+    scene = 'pickup';
+    pool = const [_kSalPickup];
+    standIn = _kSalPickup;
+  } else if (carries &&
+      s.dropInRender &&
+      s.dropClipAt != null &&
+      now < s.dropUntil) {
+    scene = 'drop';
+    pool = const [_kSalDrop];
+    standIn = _kSalDrop;
+  } else if (holding && walking) {
+    scene = 'carry';
+    pool = const [_kSalCarry];
+    standIn = _kSalCarry;
   } else if (s.outcome == _Outcome.failure) {
     scene = 'failure';
     opener = 'body_shake_no';
@@ -2691,6 +2945,25 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
       ? _salFrameAt(clip, t)
       : (t / 1000 * clip.fps).floor().clamp(0, clip.frames - 1);
   final dst = Rect.fromLTWH(origin.dx, origin.dy, 16 * u, 16 * u);
+  // The coin a coin clip renders: the balance's mark on it at the
+  // frame's anchor, and how much of the coin is the render's.
+  final held = s.carry
+      ? _carriedPlace(s, now)
+      : (place: s.dropPlace, alpha: 1.0);
+  final cellScale = 16 * u / SalCoinAnchors.cell;
+  s.salCoinAt = null;
+  s.salCoinFade = 0;
+  void coinOn(String clipName, int clipFrame, double alpha) {
+    if (!carries || !_kSalCoinClips.contains(clipName)) return;
+    final a = SalCoinAnchors.peek(clipName, clipFrame);
+    if (a == null) return;
+    final c = origin + a.centre * cellScale;
+    s.salCoinAt ??= c;
+    s.salCoinFade = math.min(1.0, s.salCoinFade + alpha);
+    _paintCoinMark(canvas, c, a.r * cellScale, a.roundness, held.place,
+        alpha * held.alpha);
+  }
+
   // The dissolve from the clip before (sal_sprite.dart's rule: an exact
   // lerp in a layer, so matching poses pass unseen); none when still.
   final fading = s.salFadeFrom;
@@ -2706,6 +2979,7 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
       dst,
       Paint()..filterQuality = FilterQuality.medium,
     );
+    coinOn(name, frame, 1);
     return true;
   }
   canvas.saveLayer(dst, Paint());
@@ -2727,6 +3001,8 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
       ..blendMode = BlendMode.plus,
   );
   canvas.restore();
+  coinOn(name, frame, fade);
+  coinOn(fading!, s.salFadeFrame, 1 - fade);
   return true;
 }
 
@@ -2928,6 +3204,9 @@ _SalFrame _salFrameOf(_Scene s, SalMood mood, double now) {
   final x = s.salX;
   final y = s.salY;
   if (x == null || y == null) return null;
+  // In the render: the coin the clip draws, where it is this frame.
+  final rendered = s.salSprite ? s.salCoinAt : null;
+  if (rendered != null) return (at: rendered, scale: _kHeldScale);
   final look = s.look;
   // His feet stand on the track's top edge; the anchors scale with the
   // box that drew him (the 3D clip's, or the smaller rig's).
@@ -3103,7 +3382,11 @@ class _MapPainter extends CustomPainter {
         final path = geo.paths[i];
         if (path == null || path.length < minLine) continue;
         final road = plan.roads[i];
-        final f = _roadLit(s, road, now);
+        var f = _roadLit(s, road, now);
+        if (f < 1 && _salLeads(s, i, now)) {
+          f = math.min(f,
+              path.fractionNear(Offset(s.salX!, s.salY ?? path.start.dy)));
+        }
         tracks.add(_Track(path, f, stopped: stoppedRoad(road)));
         final n = road.segments.length;
         for (var k = 0; k < road.waypoints.length; k++) {
@@ -3125,9 +3408,14 @@ class _MapPainter extends CustomPainter {
         var local = 0.0;
         var stopped = false;
         if (road != null) {
-          final at = geo.gapAt(plan, road, _roadLit(s, road, now));
+          final lit = _roadLit(s, road, now);
+          final at = geo.gapAt(plan, road, lit);
           if (at != null) {
             local = at.$1 > g ? 1 : (at.$1 < g ? 0 : at.$2);
+          }
+          if (lit < 1 && _salLeads(s, r!, now)) {
+            local =
+                math.min(local, ((s.salX! - x0) / (x1 - x0)).clamp(0.0, 1.0));
           }
           stopped = stoppedRoad(road);
         }
@@ -3277,6 +3565,14 @@ class MoneyJourneyPainter extends CustomPainter {
   /// Whether a 3D clip drew him at the last paint (else the rig did).
   bool get salSprite => _scene.salSprite;
 
+  /// Whether the clip drew the coin at the last paint (the render carries
+  /// it; the painted coin gave way).
+  bool get coinInRender => _scene.salCoinFade >= 0.999;
+
+  /// The rendered coin's centre at the last paint, where its mark is
+  /// drawn; null when no coin clip drew it.
+  Offset? get renderedCoinAt => _scene.salCoinAt;
+
   /// His box (the 3D clip's), in the screen's units.
   double get salSize => _scene.look.salSize;
 
@@ -3388,6 +3684,7 @@ class MoneyJourneyPainter extends CustomPainter {
     if (s.plan.stations.isEmpty) return;
 
     // ── Sal ──
+    s.salCarries = _salCarries();
     final aim = _salTarget(s, _geo, now);
     final target = aim.dx;
     final was = s.salX;
@@ -3401,6 +3698,16 @@ class MoneyJourneyPainter extends CustomPainter {
       final wasY = s.salY ?? aim.dy;
       y = wasY + (aim.dy - wasY) * k;
       if ((aim.dy - y).abs() < 0.3) y = aim.dy;
+      if (s.salCarries && (s.carry || _dropPending(s, now))) {
+        // With the coin he walks, never dashes.
+        final step = Offset(x - was, y - wasY);
+        final most = _kSalCarrySpeed * look.salSize / 64 * dt;
+        if (step.distance > most) {
+          final f = most / step.distance;
+          x = was + step.dx * f;
+          y = wasY + step.dy * f;
+        }
+      }
     }
     final walking = !still &&
         was != null &&
@@ -3469,6 +3776,8 @@ class MoneyJourneyPainter extends CustomPainter {
     if (s.salSprite) {
       s.salBob = 0;
     } else {
+      s.salCoinAt = null;
+      s.salCoinFade = 0;
       _paintSalRig(canvas, s, frame, pose, u,
           origin: Offset(x - 8 * u + (frame?.dx ?? 0), feet - 15 * u));
     }
@@ -3533,13 +3842,14 @@ class MoneyJourneyPainter extends CustomPainter {
     }
     s.hover += ((parked ? 1.0 : 0.0) - s.hover) * (1 - math.exp(-dt / 300));
     if (still) s.hover = 0;
-    if (c == null || c.alpha <= 0) return;
+    // One coin: where the render draws it, the painted one gives way.
+    final a = (c?.alpha ?? 0) * (1 - s.salCoinFade);
+    if (c == null || a <= 0) return;
     final hover =
         s.hover * 1.5 * math.sin(2 * math.pi * (now % _kHover) / _kHover);
     final r = look.coinR * c.scale;
     final at = c.at.translate(0, hover);
     final fill = _placeColor(c.place);
-    final a = c.alpha;
     canvas.drawCircle(
         at.translate(0, 1),
         r,

@@ -169,6 +169,7 @@ abstract final class SalSpriteCache {
     _manifest = Future<Map<String, dynamic>?>.value(manifest);
     _clips.clear();
     _ready.clear();
+    SalCoinAnchors.debugSet(null);
   }
 
   /// Tests: [clip] stands as decoded under [name] at [density] (a
@@ -197,6 +198,7 @@ abstract final class SalSpriteCache {
     _manifest = null;
     _clips.clear();
     _ready.clear();
+    SalCoinAnchors.debugReset();
   }
 
   /// The manifest's groups: group name → clip names, in manifest order.
@@ -311,6 +313,98 @@ abstract final class SalSpriteCache {
       _clips.remove('$name@$density');
       return null;
     }
+  }
+}
+
+/// Where the coin a coin clip renders (body_carry, body_pickup,
+/// body_drop) sits on one frame, in the cell's logical units (0..128 from
+/// its top-left, as `coin_anchors.json` gives them): the centre of its
+/// projected rim, its semi-major radius [r] (about 8.3 held in the mouth)
+/// and its semi-minor radius [ry] (about 3.9 lying flat on the floor).
+@immutable
+class SalCoinAnchor {
+  const SalCoinAnchor(this.centre, this.r, this.ry);
+  final Offset centre;
+  final double r;
+  final double ry;
+
+  /// How round the coin reads: 1 facing the camera, small lying flat.
+  double get roundness => r <= 0 ? 0 : ry / r;
+}
+
+/// The coin clips' per-frame anchors (`coin_anchors.json`), read once
+/// for the app's life. [peek] never awaits: null while the file is
+/// still read (the read is started) or where it has no entry, and the
+/// caller draws without it.
+abstract final class SalCoinAnchors {
+  /// The cell's logical size the anchors are in.
+  static const double cell = 128;
+
+  static Future<Map<String, List<SalCoinAnchor>>?>? _loading;
+  static Map<String, List<SalCoinAnchor>>? _ready;
+
+  /// Reads the file once; resolves to null when it cannot be read (and
+  /// is asked again next time).
+  static Future<Map<String, List<SalCoinAnchor>>?> load() =>
+      _loading ??= _load();
+
+  static Future<Map<String, List<SalCoinAnchor>>?> _load() async {
+    try {
+      final text =
+          await rootBundle.loadString('$kSalSpriteDir/coin_anchors.json');
+      final json = jsonDecode(text);
+      if (json is! Map<String, dynamic>) throw const FormatException('map');
+      final minor = json['_minor'];
+      final out = <String, List<SalCoinAnchor>>{};
+      for (final e in json.entries) {
+        if (e.key.startsWith('_') || e.value is! List) continue;
+        final rows = e.value as List;
+        final ry = minor is Map && minor[e.key] is List
+            ? minor[e.key] as List
+            : const [];
+        out[e.key] = [
+          for (var i = 0; i < rows.length; i++)
+            () {
+              final v = (rows[i] as List).cast<num>();
+              final r = v[2].toDouble();
+              return SalCoinAnchor(Offset(v[0].toDouble(), v[1].toDouble()),
+                  r, i < ry.length ? (ry[i] as num).toDouble() : r);
+            }(),
+        ];
+      }
+      return _ready = out;
+    } catch (e) {
+      if (kDebugMode) debugPrint('SalCoinAnchors: not read ($e)');
+      _loading = null;
+      return null;
+    }
+  }
+
+  /// The anchor of [clip] on [frame] (clamped to its frames), null while
+  /// the file is not read or for a clip it has no entry for.
+  static SalCoinAnchor? peek(String clip, int frame) {
+    final ready = _ready;
+    if (ready == null) {
+      unawaited(load());
+      return null;
+    }
+    final list = ready[clip];
+    if (list == null || list.isEmpty) return null;
+    return list[frame.clamp(0, list.length - 1)];
+  }
+
+  /// Tests: these anchors stand as read (null: none, and none read).
+  @visibleForTesting
+  static void debugSet(Map<String, List<SalCoinAnchor>>? anchors) {
+    _ready = anchors;
+    _loading = Future.value(anchors);
+  }
+
+  /// Tests: back to the bundle's file, nothing read.
+  @visibleForTesting
+  static void debugReset() {
+    _ready = null;
+    _loading = null;
   }
 }
 
