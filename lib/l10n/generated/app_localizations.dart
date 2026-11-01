@@ -18125,6 +18125,90 @@ abstract class AppLocalizations {
   /// **'Send to a friend'**
   String get shareHeaderLabel;
 
+  /// Position pages (Predictions and Investing): the brag row in the Sal sheet and the title of the brag preview sheet: a shareable image card of the open position's result.
+  ///
+  /// In en, this message translates to:
+  /// **'Show off this position'**
+  String get bragPositionAction;
+
+  /// Under bragPositionAction in the Sal sheet's action row.
+  ///
+  /// In en, this message translates to:
+  /// **'A card with your result'**
+  String get bragPositionActionSub;
+
+  /// The title of the portfolio brag preview sheet (a shareable image card of the portfolio's P&L).
+  ///
+  /// In en, this message translates to:
+  /// **'Show off your portfolio'**
+  String get bragPortfolioAction;
+
+  /// Portfolio screen: the floating bar as its primary button, opening the portfolio brag card preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Share and brag'**
+  String get bragBarLabel;
+
+  /// Open position pages: the words on the compact Sal pill beside the big figure, opening the position's brag card preview. One short word.
+  ///
+  /// In en, this message translates to:
+  /// **'Brag'**
+  String get bragHeaderLabel;
+
+  /// Brag preview sheet: the switch that draws money amounts on the card (off by default).
+  ///
+  /// In en, this message translates to:
+  /// **'Show amounts'**
+  String get bragShowAmounts;
+
+  /// Brag preview sheet: the quiet line under bragShowAmounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Off: only signs and percents leave your phone'**
+  String get bragShowAmountsSub;
+
+  /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} on Kute {link}'**
+  String bragShareText(String title, String link);
+
+  /// Portfolio brag card: its title, and the title in the share text.
+  ///
+  /// In en, this message translates to:
+  /// **'My portfolio'**
+  String get bragMyPortfolio;
+
+  /// Portfolio brag card: small caps label over the three best open positions.
+  ///
+  /// In en, this message translates to:
+  /// **'Top positions'**
+  String get bragTopPositions;
+
+  /// Brag card footer, under the kute. wordmark.
+  ///
+  /// In en, this message translates to:
+  /// **'Trade it on Kute'**
+  String get bragTradeItOnKute;
+
+  /// Brag card footer: the small label before the sharer's referral code in its chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get bragCodeLabel;
+
+  /// Position brag card: small caps label over the price paid.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get bragEntry;
+
+  /// Position brag card: small caps label over the price now.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get bragNow;
+
   /// The floating bar on the Dollars tab while Predictions is the picked half.
   ///
   /// In en, this message translates to:
