@@ -68,6 +68,12 @@ class HlDexNames {
     return _full[m.dex] ?? m.dex.toUpperCase();
   }
 
+  /// The venue's mark on a market's logo: its first letter, in capitals.
+  static String monogramOf(HlMarket m) {
+    final v = venueOf(m).trim();
+    return v.isEmpty ? '?' : v.substring(0, 1).toUpperCase();
+  }
+
   @visibleForTesting
   static void debugReset() => _full.clear();
 }

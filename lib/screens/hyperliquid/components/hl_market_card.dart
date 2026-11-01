@@ -165,10 +165,11 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // Two venues can list a perp under one symbol (ANTH on two builder
     // dexes): the row then names its venue ("ANTH · Ventuals"), so the
     // two rows never read the same.
+    final shared = HlMarketDirectory.sharesSymbol(m);
     final caption = [
       if (name != m.coin) m.coin,
       if (m.isSpot) context.l10n.investingSpot,
-      if (HlMarketDirectory.sharesSymbol(m)) HlDexNames.venueOf(m),
+      if (shared) HlDexNames.venueOf(m),
     ].join(' · ');
     // A thinly traded market says so, and draws no sparkline: its line is
     // a few carried-forward steps, and the room goes to the caption.
@@ -220,13 +221,19 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
               children: [
                 // The REAL coin/token logo (category glyph or letter badge
                 // on a miss), cut round for this row.
-                ClipOval(
-                  child: HlCoinIcon(
-                    coin: m.coin,
-                    wireCoin: m.wireCoin,
-                    category: m.category,
-                    iconUrl: m.iconUrl,
-                    size: kHlMarketRowIcon,
+                // A symbol two venues list carries its venue's mark on
+                // the logo, the way a wallet badges a token's network.
+                HlVenueBadged(
+                  monogram: shared ? HlDexNames.monogramOf(m) : null,
+                  ring: c.surface,
+                  child: ClipOval(
+                    child: HlCoinIcon(
+                      coin: m.coin,
+                      wireCoin: m.wireCoin,
+                      category: m.category,
+                      iconUrl: m.iconUrl,
+                      size: kHlMarketRowIcon,
+                    ),
                   ),
                 ),
                 SizedBox(width: 12.w),
@@ -397,6 +404,59 @@ class _ChangeText extends StatelessWidget {
         letterSpacing: -0.1,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
+    );
+  }
+}
+
+/// A market's logo with its venue's mark: a small solid ink disc at the
+/// lower right holding the venue's first letter, ringed in [ring] (the
+/// row's surface) so it lifts off the logo. Neutral, never tinted: it
+/// tells two same-symbol rows apart without shouting. Null [monogram]
+/// draws the logo alone.
+class HlVenueBadged extends StatelessWidget {
+  final String? monogram;
+  final Color ring;
+  final Widget child;
+
+  const HlVenueBadged(
+      {super.key, required this.monogram, required this.ring, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = monogram;
+    if (mark == null) return child;
+    final c = context.colors;
+    final d = 16.sp;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -3.sp,
+          bottom: -3.sp,
+          child: Container(
+            key: const ValueKey('hl-venue-badge'),
+            width: d,
+            height: d,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: c.textPrimary,
+              shape: BoxShape.circle,
+              border: Border.all(color: ring, width: 1.5),
+            ),
+            child: Text(
+              mark,
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                color: c.background,
+                fontSize: 8.5.sp,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

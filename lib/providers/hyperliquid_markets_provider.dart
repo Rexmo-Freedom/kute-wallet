@@ -1021,19 +1021,24 @@ class HlMarketDirectory {
   /// the markets change.
   static Set<String>? _shared;
 
-  /// Whether another perp shows under [m]'s symbol, so a list row has to
-  /// name [m]'s venue to tell the two apart. A spot token says "Spot" on
-  /// its own and is not counted.
+  /// Whether another market shows under perp [m]'s symbol (a perp on
+  /// another venue, or a spot token of the same name), so a list row has
+  /// to name [m]'s venue to tell them apart. A spot token says "Spot" on
+  /// its own and never needs it.
   static bool sharesSymbol(HlMarket m) {
     if (m.isSpot) return false;
     final shared = _shared ??= () {
-      final seen = <String>{};
+      final perps = <String>{};
+      final spots = <String>{};
       final twice = <String>{};
       for (final x in _byWire.values) {
-        if (x.isSpot) continue;
-        if (!seen.add(x.coin)) twice.add(x.coin);
+        if (x.isSpot) {
+          spots.add(x.coin);
+        } else if (!perps.add(x.coin)) {
+          twice.add(x.coin);
+        }
       }
-      return twice;
+      return {...twice, ...perps.intersection(spots)};
     }();
     return shared.contains(m.coin);
   }

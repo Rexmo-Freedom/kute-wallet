@@ -253,6 +253,9 @@ void main() {
     await _pump(tester, a);
     expect(find.text('Anthropic'), findsOneWidget);
     expect(find.text('ANTH · Ventuals'), findsOneWidget);
+    // The venue's mark on the logo.
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsOneWidget);
+    expect(find.text('V'), findsOneWidget);
     // A venue whose own name was not read yet: its short id.
     await _pump(tester, b);
     expect(find.text('ANTH · KM'), findsOneWidget);
@@ -262,6 +265,22 @@ void main() {
         prevDayPx: 1380));
     expect(find.text('OpenAI'), findsOneWidget);
     expect(find.text('OAI'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsNothing);
+  });
+
+  testWidgets('a perp sharing its symbol with a spot token names its venue',
+      (tester) async {
+    final perp = _market(coin: 'ANTX', wireCoin: 'ANTX', px: 0.021,
+        prevDayPx: 0.02);
+    final spot = _market(coin: 'ANTX', wireCoin: '@9001',
+        kind: HlMarketKind.spot, px: 0.021, prevDayPx: 0.02);
+    HlMarketDirectory.remember([perp, spot]);
+    await _pump(tester, perp);
+    expect(find.text('Hyperliquid'), findsOneWidget);
+    expect(find.text('H'), findsOneWidget);
+    // The spot row says Spot and carries no venue mark.
+    await _pump(tester, spot);
+    expect(find.byKey(const ValueKey('hl-venue-badge')), findsNothing);
   });
 
   testWidgets('a spot token says Spot in the caption', (tester) async {
