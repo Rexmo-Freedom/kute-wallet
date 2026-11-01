@@ -1168,10 +1168,16 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
       curve: reduce ? Curves.linear : KuteMotion.settle,
       height: KuteBarPrimaryButton.height,
       // Its own width, at least [KuteBarPrimaryButton.minWidth]; exactly
-      // the pair's width beside a page's own pill.
+      // the pair's width beside a page's own pill. The free width is
+      // capped at the screen's, never unbounded: a context that swaps
+      // paired for free (a sheet over the onboarding pair) lerps between
+      // two finite boxes (an unbounded one cannot be interpolated).
       constraints: ctx.pairedWidth != null
           ? BoxConstraints.tightFor(width: ctx.pairedWidth)
-          : const BoxConstraints(minWidth: KuteBarPrimaryButton.minWidth),
+          : BoxConstraints(
+              minWidth: KuteBarPrimaryButton.minWidth,
+              maxWidth: MediaQuery.sizeOf(context).width,
+            ),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: radius,
