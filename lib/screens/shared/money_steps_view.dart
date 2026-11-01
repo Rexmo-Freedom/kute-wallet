@@ -9,27 +9,32 @@
 // TRACK of 1 November 2026 (a bold orange bar with an arrowhead, 44 px
 // marks) went the same day: "not fintech like; make it fintech with
 // Blender", "must be 2026 fintech like with Sal". 2026 FINTECH WITH SAL:
-// large quiet whitespace, one thin neutral line, tiny matte stations,
+// large quiet whitespace, one thin neutral line, small logo stations,
 // no boxes, chevrons or tints, and the big 3D Sal as the one character
 // (a transfer screen's progress, with our dog). One quiet row: the
-// balances the money passes through are small round STATIONS left to
-// right (`stationR` 5.5: 11 px dots on the line, in the theme's neutral
-// inks only: a hairline ring on the surface until the money is there,
-// a solid `textPrimary` dot once it is, with a tiny check in the
-// surface's colour once its part is done, a small red "!" where the
-// money stopped; never a brand colour, never a disc of colour), joined
+// balances the money passes through are STATIONS left to right. LOGO
+// STATIONS (founder on a live slip, 1 November 2026: "clear logos like
+// the Investments screens"): each is a 28 px logo disc on the line
+// (`stationR` 14; [StationLogoPainter]): the Bitcoin orange mark, the
+// Dollars green "$", the Hyperliquid logo for Investing, the
+// Polymarket logo for Predictions (an outside destination a grey disc
+// with an arrow), quiet (40%) until the money is there and at full
+// colour once it is, a small badge on its lower right once its part is
+// done (a check in the surface's colour on the ink) or a red "!" where
+// the money stopped. Under each disc its amount ("$4.18", the
+// destination's the legs' total; its name only when there is no
+// amount), never a name label ("Bitcoin · Investing" went). Joined
 // by TRACKS: a thin rounded line about 2.5 px thick (`_Look.trackH`) in
 // a hairline neutral grey (`_Look.track`), its travelled part solid
 // `textPrimary` (`_Look.fill`; a quiet grey where the leg stopped), that
 // simply ends at the station it goes into (no arrowhead, nothing past
-// the dot). Still never a diagonal. The station a leg runs to (or the
+// the disc). Still never a diagonal. The station a leg runs to (or the
 // destination while its own sub-steps run) is the one live thing on
 // the line besides Sal: a soft 1 px ring pulses out from it slowly
-// ([_kWorkBreath], on the settle curve, low alpha). The names under
-// the stations stay in the small quiet caption style, the one the
-// money is heading to in `textPrimary` semibold; a leg's amount is in
-// tabular figures. The coin wears the balance's mark as ever (the one
-// brand colour on the row). Sal is big (`salSize` 64: the 3D clips
+// ([_kWorkBreath], on the settle curve, low alpha). The amounts under
+// the stations are small, in tabular figures, the one the money is
+// heading to in `textPrimary` semibold. The coin wears the balance's mark as ever (the
+// same mark as its station's disc). Sal is big (`salSize` 64: the 3D clips
 // drawn in a 64 px box, crisp from the sheets' 128 px cells), standing
 // ON the line with his feet on its top edge, walking it with the coin
 // in his mouth, waiting with it at his paws, dropping it into the
@@ -50,13 +55,12 @@
 // (round its corner) at its own pace; the shared line fills once every
 // leg landed.
 // Under each
-// source, at the start of its leg, its amount in small quiet type
-// ("$4.18"). The status line says the legs together ("Moving $4.18
+// station's disc, its amount in small type ("$4.18"). The status line says the legs together ("Moving $4.18
 // from Bitcoin and $5.00 from Investing"), then the destination's first
 // dot waits for all of it ("Waiting for both to arrive") before anything
-// there (the conversion, the order) runs. A station is a hairline ring
-// until the money is there, then a solid dot; its check comes once its
-// part is done, a small red "!" where the money stopped. A leg's
+// there (the conversion, the order) runs. A station's logo is quiet
+// until the money is there, then at full colour; its check badge comes
+// once its part is done, a small red "!" where the money stopped. A leg's
 // sub-legs (HyperCore → Circle → Arbitrum) are small notches in its
 // track (a dot in the surface's colour on the line) that fill in as the
 // travelled part passes them. While the destination's own sub-steps run
@@ -107,8 +111,17 @@
 // sub-steps are done, or where a leg lands with nothing more to do
 // there), the moods and the cheer after it as before. The coin is then
 // the render's: the painted coin gives way to it, and the balance's mark
-// is drawn on it at the frame's anchor (about 1.2 of its radius tall,
-// squashed as it is foreshortened, none lying flat). Reduce Motion: no
+// is drawn on it at the frame's anchor ([kSalCoinMarkFill] of its
+// radius, squashed as it is foreshortened, none lying flat). THE
+// ACCOUNTANT (founder, 1 November 2026: "more like an investor and
+// accountant moving money around", still deadpan): in the coin clips
+// he wears small round reading glasses and carries a small dark-leather
+// briefcase in his mouth by its handle; the coin is a gold plate on its
+// face, 1.6x the first coin, so the mark reads ~1.6x bigger. The case
+// stands upright on the floor at the station he picks it up from (he
+// peers at it over his glasses first) and where he sets it down ("your
+// money, sir", a glasses-push nod), the mark facing the viewer there
+// too. Reduce Motion: no
 // pick-up or drop, the held pose (body_carry's first frame) at once.
 // Until the clips are in (or without them) the painted coin glides and
 // he fetches it, as below. One continuous performance (sal_sprite.dart's
@@ -441,8 +454,6 @@ class _Look {
     required this.rowY,
     required this.nameTop,
     required this.nameH,
-    required this.amountTop,
-    required this.amountH,
     required this.dotsGap,
     required this.padX,
     required this.font,
@@ -464,7 +475,7 @@ class _Look {
   /// there at, a checkpoint done, the pulse.
   final Color fill;
 
-  /// A station's dot: half of its ~11 px.
+  /// A station's logo disc: half of its 28 px.
   final double stationR;
 
   /// The line's thickness (thin: about 2.5 px).
@@ -510,19 +521,13 @@ class _Look {
   /// coin and Sal).
   final double rowY;
 
-  /// The names' top, below the icons.
+  /// The labels' top (each station's amount), below the logo discs.
   final double nameTop;
   final double nameH;
 
-  /// A leg's amount (legs from several balances): from its line's
-  /// centre to its top, and its height with the gap under it (the
-  /// column's names go under the lowest one).
-  final double amountTop;
-  final double amountH;
-
-  /// Legs from several balances: the names' top, from the column's
-  /// lowest row's centre line.
-  double get stackedNameDy => amountTop + amountH;
+  /// Legs from several balances: a station's label's top, from its
+  /// row's centre line (each station's amount under its own disc).
+  double get stackedNameDy => nameTop - rowY;
 
   /// From the names' bottom to the checkpoints' dots.
   final double dotsGap;
@@ -1030,6 +1035,7 @@ class _Scene {
   double? dropClipAt;
   double dropUntil = double.negativeInfinity;
   Offset? salCoinAt;
+  double? salCoinMarkR;
   double salCoinFade = 0;
   double salBusyUntil = double.negativeInfinity;
 }
@@ -1073,7 +1079,12 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   @override
   void initState() {
     super.initState();
-    unawaited(_loadMarks());
+    if (_marks.length < 4) {
+      // The stations' logos: one more build once they are in.
+      unawaited(_loadMarks().then((_) {
+        if (mounted) setState(() {});
+      }));
+    }
     // The sheets decode after the first paint: once they are in, one
     // more frame puts the render on, even where the clock is not
     // running (a finished record, Reduce Motion), else the rig would
@@ -1521,7 +1532,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final plan = s.plan;
     final lines = plan.lines;
     final scaler = MediaQuery.textScalerOf(context);
-    final stationR = 5.5.r;
+    final stationR = 14.r;
     final trackH = 2.5.r;
     final coinR = 9.r;
     s.look = _Look(
@@ -1550,18 +1561,16 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       corner: 8.r,
       // Stacked sources far enough apart for Sal on the lower leg to
       // stand clear of the line above him (he is about 13/16 of his box
-      // tall; the step between rows is 2 * stationR + rowGap).
-      rowGap: 53.r,
+      // tall; the step between rows is 2 * stationR + rowGap, 72 px).
+      rowGap: 44.r,
       salSize: 64.r,
       rigSize: 32.r,
       // Room above the line for Sal (his box top at the line's top edge
       // less 15/16 of his size: the cell's top is empty above his head)
       // and for the coin above a station.
       rowY: 52.r,
-      nameTop: 52.r + stationR + 9.r,
+      nameTop: 52.r + stationR + 4.r,
       nameH: scaler.scale(11.sp) * 1.2,
-      amountTop: trackH / 2 + 4.r,
-      amountH: scaler.scale(10.sp) * 1.2 + 2.r,
       dotsGap: 6.r,
       padX: 44.r,
       font: DefaultTextStyle.of(context).style,
@@ -1671,8 +1680,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                               CustomPaint(painter: _MapPainter(s, _clock, geo)),
                         ),
                       ),
-                      ..._names(context, geo, l10n, scaler),
-                      ..._amounts(context, geo),
+                      ..._labels(context, geo, l10n, scaler),
                       // Right to left, so the left one of an overlapped
                       // column sits on top.
                       for (final i in [
@@ -1788,12 +1796,28 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
       st.label ??
       (st.place == null ? l10n.recipient : moneyPlaceName(l10n, st.place!));
 
-  /// The names under each column: one station's own, or an overlapped
-  /// column's together ("Bitcoin · Dollars"), else the first and how
-  /// many more ("Bitcoin +2") when that does not fit. Quiet grey until
-  /// the money is heading to in the ink, semibold. The stations'
-  /// semantics name them, so these are only seen.
-  List<Widget> _names(BuildContext context, _Geometry geo,
+  /// What a station's label says: the amount that goes through it (in
+  /// from the roads into it, else out along the roads from it), or its
+  /// name when the surface gives no amount.
+  String _labelOf(AppLocalizations l10n, int i) {
+    final plan = _scene.plan;
+    final money = widget.money;
+    if (money != null) {
+      double sum(bool into) => plan.roads
+          .where((r) => (into ? r.to : r.from) == i)
+          .fold<double>(0, (t, r) => t + math.max(0.0, r.usd));
+      final usd = sum(true) > 0 ? sum(true) : sum(false);
+      if (usd > 0) return money((usd * 100).round() / 100);
+    }
+    return _nameOf(l10n, plan.stations[i]);
+  }
+
+  /// Under each station's logo disc, its amount ("\$4.18"; its name when
+  /// there is no amount), small, in tabular figures; an overlapped
+  /// column's together (their total). Quiet grey until the money is
+  /// heading there, then in the ink, semibold. The stations' semantics
+  /// name them, so these are only seen.
+  List<Widget> _labels(BuildContext context, _Geometry geo,
       AppLocalizations l10n, TextScaler scaler) {
     final c = context.colors;
     final s = _scene;
@@ -1801,6 +1825,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final look = s.look;
     final w = geo.size.width;
     final cols = geo.columnX.length;
+    final working = _workingStation(s);
     final out = <Widget>[];
     for (var col = 0; col < cols; col++) {
       final members = [
@@ -1808,112 +1833,92 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
           if (geo.colOf(plan, i) == col) i
       ]..sort((a, b) => plan.stations[a].row.compareTo(plan.stations[b].row));
       if (members.isEmpty) continue;
-      // Legs from several balances: under the column's lowest station.
-      final lowest = members
-          .map((i) => geo.stations[i].dy)
-          .reduce((a, b) => math.max(a, b));
       final x = geo.columnX[col];
       // Its room: from halfway to the column before (or the row's start)
-      // to halfway to the next (or the row's end), so names never meet.
-      // Centred under its icon when it fits there, else moved in from
-      // the row's edge (a long name or large text at an end of the row
-      // is not cut short).
+      // to halfway to the next (or the row's end), so labels never meet;
+      // centred under its disc when it fits there, else moved in from the
+      // row's edge.
       final lo = col == 0 ? 0.0 : (geo.columnX[col - 1] + x) / 2 + 3.r;
       final hi = col == cols - 1 ? w : (x + geo.columnX[col + 1]) / 2 - 3.r;
       final room = math.max(0.0, hi - lo);
-      // The station the money is heading to: in the ink, semibold; the
-      // rest in the quiet caption grey.
-      final live = members.contains(_workingStation(s));
-      final style = TextStyle(
-          color: live ? c.textPrimary : c.textTertiary,
-          fontSize: 11.sp,
-          fontWeight: live ? FontWeight.w600 : FontWeight.w500,
-          height: 1.2);
-      final names = [for (final i in members) _nameOf(l10n, plan.stations[i])];
-      // Measured in the style the Text draws in (the surface's font).
-      final drawn = DefaultTextStyle.of(context).style.merge(style);
-      double widthOf(String text) {
+      // Stacked rows (legs from several balances): one label under each
+      // disc. One row: an overlapped column's discs share one label.
+      final groups = geo.branches
+          ? [
+              for (final i in members) [i]
+            ]
+          : [members];
+      for (final g in groups) {
+        final live = working != null && g.contains(working);
+        final style = TextStyle(
+            color: live ? c.textPrimary : c.textSecondary,
+            fontSize: 11.sp,
+            fontWeight: live ? FontWeight.w600 : FontWeight.w500,
+            fontFeatures: const [FontFeature.tabularFigures()],
+            height: 1.2);
+        final String label;
+        if (g.length == 1) {
+          label = _labelOf(l10n, g.first);
+        } else {
+          final money = widget.money;
+          final total = g.fold<double>(
+              0,
+              (t, i) =>
+                  t +
+                  plan.roads
+                      .where((r) => r.from == i || r.to == i)
+                      .fold<double>(0, (u, r) => u + math.max(0.0, r.usd)));
+          label = money != null && total > 0
+              ? money((total * 100).round() / 100)
+              : g.map((i) => _nameOf(l10n, plan.stations[i])).join(' · ');
+        }
+        // Measured in the style the Text draws in (the surface's font).
         final tp = TextPainter(
-          text: TextSpan(text: text, style: drawn),
+          text: TextSpan(
+              text: label,
+              style: DefaultTextStyle.of(context).style.merge(style)),
           textDirection: Directionality.of(context),
           textScaler: scaler,
           maxLines: 1,
         )..layout();
-        final width = tp.width;
+        final width = math.min(tp.width.ceilToDouble() + 2, room);
         tp.dispose();
-        return width;
+        // Stacked rows: a source's amount ends at its disc's right edge
+        // (it may reach further left), clear of Sal taking the case up
+        // just right of the disc below it.
+        final right = geo.branches && plan.roads.any((r) => r.from == g.first)
+            ? math.min(hi, x + look.stationR)
+            : hi;
+        final bottom = g
+            .map((i) => geo.stations[i].dy)
+            .reduce((a, b) => math.max(a, b));
+        out.add(Positioned(
+          key: ValueKey(
+              'money-steps-station-amount-${plan.stations[g.first].id}'),
+          left: (x - width / 2).clamp(lo, math.max(lo, right - width)),
+          top: bottom + look.stackedNameDy,
+          width: width,
+          child: ExcludeSemantics(
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: style),
+          ),
+        ));
       }
-
-      var label = names.join(' · ');
-      // An overlapped column's names together only when they fit
-      // centred under it; else the first and how many more.
-      // A stacked column's names may sit off centre, moved in from the
-      // row's edge: each station is on its own row there.
-      final centred = geo.branches
-          ? room
-          : math.min(room, 2 * math.min(x - lo, hi - x));
-      if (names.length > 1 && widthOf(label) > centred) {
-        label = '${names.first} +${names.length - 1}';
-      }
-      final width = math.min(widthOf(label).ceilToDouble() + 2, room);
-      out.add(Positioned(
-        left: (x - width / 2).clamp(lo, math.max(lo, hi - width)),
-        // Legs from several balances: under the lowest leg's amount.
-        top: geo.branches
-            ? lowest + look.stackedNameDy
-            : look.nameTop,
-        width: width,
-        child: ExcludeSemantics(
-          child: Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: style),
-        ),
-      ));
     }
     return out;
   }
 
-  /// In a row of parallel legs, under the start of each source's leg:
-  /// its amount, small and quiet ("\$4.18"). Only seen: the status line
-  /// and the leg's own line say it for a screen reader.
-  List<Widget> _amounts(BuildContext context, _Geometry geo) {
-    final money = widget.money;
-    if (!geo.branches || money == null) return const [];
-    final c = context.colors;
-    final plan = _scene.plan;
-    final look = _scene.look;
-    final out = <Widget>[];
-    for (var i = 0; i < plan.roads.length; i++) {
-      final road = plan.roads[i];
-      final path = geo.paths[i];
-      if (path == null || road.usd <= 0) continue;
-      if (plan.roads.any((r) => r.to == road.from)) continue;
-      out.add(Positioned(
-        key: ValueKey('money-steps-leg-amount-${plan.stations[road.from].id}'),
-        left: path.start.dx,
-        top: path.start.dy + look.amountTop,
-        child: ExcludeSemantics(
-          child: Text(money(road.usd),
-              maxLines: 1,
-              style: TextStyle(
-                  color: c.textTertiary,
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w500,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                  height: 1.2)),
-        ),
-      ));
-    }
-    return out;
-  }
-
-  /// A station: a small dot on the line. A hairline ring on the surface
-  /// until the money is there, a solid dot in the surface's ink once it
-  /// is, with a tiny check in the surface's colour once its part is done
-  /// or a small red "!" where the money stopped. The fades are
-  /// paint-only.
+  /// A station: a 28 px logo disc on the line, the balance's own mark as
+  /// the Investments screens show it (the Bitcoin mark, the Dollars
+  /// green "\$", the Hyperliquid logo for Investing, the Polymarket logo
+  /// for Predictions; an outside destination a grey disc with an arrow).
+  /// Quiet (part see-through) until the money is there, at full colour
+  /// once it is; a small badge on its lower right once its part is done
+  /// (a check in the surface's colour on the ink) or where the money
+  /// stopped (a red "!"). The fades are paint-only.
   Widget _station(
       BuildContext context, int i, _Geometry geo, AppLocalizations l10n) {
     final s = _scene;
@@ -1924,9 +1929,10 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
     final d = 2 * r;
     final failed = _stationFailedAt(s, i) != null;
     final done = !failed && _stationDoneAt(s, i) != null;
-    // A gap in the surface's colour round a dot that overlaps another in
+    // A gap in the surface's colour round a disc that overlaps another in
     // its column (one column, several balances).
-    final halo = !geo.branches && st.rows > 1 ? 1.r : 0.0;
+    final halo = !geo.branches && st.rows > 1 ? 1.5.r : 0.0;
+    final badge = 12.r;
     return Positioned(
       left: at.dx - r,
       top: at.dy - r,
@@ -1949,27 +1955,29 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                     decoration: BoxDecoration(
                         color: look.background, shape: BoxShape.circle)),
               ),
-            // The ring, until the money is there.
+            // Under the logo, the surface (so the line never shows through
+            // the quiet disc).
             Positioned.fill(
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                    color: look.background,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: look.track, width: 1)),
-              ),
+                  decoration: BoxDecoration(
+                      color: look.background, shape: BoxShape.circle)),
             ),
-            // The dot, once it is.
             Positioned.fill(
               child: _Fade(
                 clock: _clock,
-                opacity: () => _stationAlpha(s, i, _now),
-                child: DecoratedBox(
-                    decoration: BoxDecoration(
-                        color: look.fill, shape: BoxShape.circle)),
+                opacity: () => 0.4 + 0.6 * _stationAlpha(s, i, _now),
+                child: CustomPaint(
+                  key: ValueKey('money-steps-station-logo-${st.id}'),
+                  painter: StationLogoPainter(st.place),
+                ),
               ),
             ),
             if (failed || done)
-              Positioned.fill(
+              Positioned(
+                right: -2.r,
+                bottom: -2.r,
+                width: badge,
+                height: badge,
                 child: _Fade(
                   clock: _clock,
                   opacity: () => _badgeAlpha(s, i, _now),
@@ -1979,6 +1987,7 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
                     painter: _StationMarkPainter(
                         failed: failed,
                         ink: look.background,
+                        fill: look.fill,
                         failedFill: look.failed),
                   ),
                 ),
@@ -1990,44 +1999,115 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   }
 }
 
-/// A station's mark once its part is done (a tiny check in the
-/// surface's colour on its dot) or where the money stopped (a red dot
-/// with a small "!").
+/// A station's logo disc: the balance's mark ([_markAssetOf]) clipped to
+/// a circle, its own colour alone while the mark loads (never a bare
+/// "\$"); an outside destination a grey disc with an arrow.
+@visibleForTesting
+class StationLogoPainter extends CustomPainter {
+  const StationLogoPainter(this.place);
+  final MoneyPlace? place;
+
+  /// The asset this disc wears (null: the outside world's arrow).
+  String? get asset => _markAssetOf(place);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final box = Offset.zero & size;
+    final c = box.center;
+    final r = size.shortestSide / 2;
+    final asset = this.asset;
+    final mark = asset == null ? null : _marks[asset];
+    if (mark != null && mark.size.width > 0 && mark.size.height > 0) {
+      final k = math.max(
+          size.width / mark.size.width, size.height / mark.size.height);
+      canvas
+        ..save()
+        ..clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: r)))
+        ..translate(c.dx - mark.size.width * k / 2,
+            c.dy - mark.size.height * k / 2)
+        ..scale(k, k)
+        ..drawPicture(mark.picture)
+        ..restore();
+      return;
+    }
+    canvas.drawCircle(c, r, Paint()..color = _placeColor(place));
+    if (asset != null) return;
+    const glyph = Icons.arrow_outward_rounded;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(glyph.codePoint),
+        style: TextStyle(
+          inherit: false,
+          fontFamily: glyph.fontFamily,
+          package: glyph.fontPackage,
+          fontSize: r * 1.2,
+          fontWeight: FontWeight.w800,
+          height: 1,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+    tp.dispose();
+  }
+
+  @override
+  bool shouldRepaint(StationLogoPainter old) =>
+      old.place != place ||
+      (asset != null && _marks[asset!] != null) !=
+          (old.asset != null && _marks[old.asset!] != null);
+}
+
+/// A station's badge once its part is done (a check in the surface's
+/// colour on the ink) or where the money stopped (a red disc with a small
+/// "!"), ringed in the surface's colour so it reads on the logo.
 class _StationMarkPainter extends CustomPainter {
   const _StationMarkPainter(
-      {required this.failed, required this.ink, required this.failedFill});
+      {required this.failed,
+      required this.ink,
+      required this.fill,
+      required this.failedFill});
   final bool failed;
   final Color ink;
+  final Color fill;
   final Color failedFill;
 
   @override
   void paint(Canvas canvas, Size size) {
     final d = size.shortestSide;
     final c = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(c, d / 2, Paint()..color = ink);
+    final inner = d / 2 - math.max(1.2, d * 0.12);
+    canvas.drawCircle(c, inner, Paint()..color = failed ? failedFill : fill);
+    final k = inner * 2;
     final line = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.2, d * 0.14)
+      ..strokeWidth = math.max(1.2, k * 0.16)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = ink;
     if (failed) {
-      canvas.drawCircle(c, d / 2, Paint()..color = failedFill);
-      canvas.drawLine(Offset(c.dx, c.dy - d * 0.24), Offset(c.dx, c.dy + d * 0.04), line);
-      canvas.drawCircle(Offset(c.dx, c.dy + d * 0.22), d * 0.08,
+      canvas.drawLine(Offset(c.dx, c.dy - k * 0.24),
+          Offset(c.dx, c.dy + k * 0.04), line);
+      canvas.drawCircle(Offset(c.dx, c.dy + k * 0.22), k * 0.08,
           Paint()..color = ink);
       return;
     }
     canvas.drawPath(
         Path()
-          ..moveTo(c.dx - d * 0.2, c.dy + d * 0.02)
-          ..lineTo(c.dx - d * 0.05, c.dy + d * 0.17)
-          ..lineTo(c.dx + d * 0.22, c.dy - d * 0.14),
+          ..moveTo(c.dx - k * 0.22, c.dy + k * 0.02)
+          ..lineTo(c.dx - k * 0.06, c.dy + k * 0.18)
+          ..lineTo(c.dx + k * 0.24, c.dy - k * 0.15),
         line);
   }
 
   @override
   bool shouldRepaint(_StationMarkPainter old) =>
-      old.failed != failed || old.ink != ink || old.failedFill != failedFill;
+      old.failed != failed ||
+      old.ink != ink ||
+      old.fill != fill ||
+      old.failedFill != failedFill;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -2758,15 +2838,22 @@ bool _salLeads(_Scene s, int road, double now) {
   return spot < chain.length && chain[spot] == road;
 }
 
-/// The balance's mark on the coin the render carries, centred on it at
-/// [c] (its rim's radius [r] on screen): about 1.2 of its radius tall,
-/// inside the rim, squashed as the coin is foreshortened ([roundness]),
-/// none lying too flat to read (under half round). The mark the painted
-/// coin wears (never a bare "\$"); its colour alone while it loads.
+/// How much of the rendered coin's radius its mark fills: the balance's
+/// logo disc inside the coin plate's gold rim.
+const double kSalCoinMarkFill = 0.64;
+
+/// The balance's mark on the coin the render carries (the plate on the
+/// briefcase's face since the accountant cut, 1 November 2026: 1.6x the
+/// first coin), centred on it at [c] (its rim's radius [r] on screen):
+/// [kSalCoinMarkFill] of its radius, squashed as the coin is
+/// foreshortened ([roundness]), none lying too flat to read (under half
+/// round), with a hairline dark edge so it reads crisp on the plate. The
+/// mark the painted coin wears (never a bare "\$"); its colour alone
+/// while it loads.
 void _paintCoinMark(Canvas canvas, Offset c, double r, double roundness,
     MoneyPlace? place, double alpha) {
   if (alpha <= 0 || roundness < 0.5) return;
-  final mr = 0.6 * r;
+  final mr = kSalCoinMarkFill * r;
   final box = Rect.fromCircle(center: Offset.zero, radius: mr);
   canvas
     ..save()
@@ -2810,6 +2897,19 @@ void _paintCoinMark(Canvas canvas, Offset c, double r, double roundness,
     }
   }
   if (alpha < 1) canvas.restore();
+  canvas.restore();
+  // The edge, drawn round (unclipped) so it stays one hairline thick.
+  canvas
+    ..save()
+    ..translate(c.dx, c.dy)
+    ..scale(1, roundness.clamp(0.0, 1.0));
+  canvas.drawCircle(
+      Offset.zero,
+      mr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6 / roundness.clamp(0.5, 1.0)
+        ..color = Colors.black.withValues(alpha: 0.28 * alpha));
   canvas.restore();
 }
 
@@ -2952,6 +3052,7 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
       : (place: s.dropPlace, alpha: 1.0);
   final cellScale = 16 * u / SalCoinAnchors.cell;
   s.salCoinAt = null;
+  s.salCoinMarkR = null;
   s.salCoinFade = 0;
   void coinOn(String clipName, int clipFrame, double alpha) {
     if (!carries || !_kSalCoinClips.contains(clipName)) return;
@@ -2959,6 +3060,7 @@ bool _paintSalSprite(Canvas canvas, _Scene s, Offset origin, double u,
     if (a == null) return;
     final c = origin + a.centre * cellScale;
     s.salCoinAt ??= c;
+    s.salCoinMarkR ??= kSalCoinMarkFill * a.r * cellScale;
     s.salCoinFade = math.min(1.0, s.salCoinFade + alpha);
     _paintCoinMark(canvas, c, a.r * cellScale, a.roundness, held.place,
         alpha * held.alpha);
@@ -3573,6 +3675,11 @@ class MoneyJourneyPainter extends CustomPainter {
   /// drawn; null when no coin clip drew it.
   Offset? get renderedCoinAt => _scene.salCoinAt;
 
+  /// The radius (screen px) of the balance's mark drawn on the rendered
+  /// coin at the last paint ([kSalCoinMarkFill] of the coin's rim); null
+  /// when no coin clip drew it.
+  double? get renderedCoinMarkR => _scene.salCoinMarkR;
+
   /// His box (the 3D clip's), in the screen's units.
   double get salSize => _scene.look.salSize;
 
@@ -3777,6 +3884,7 @@ class MoneyJourneyPainter extends CustomPainter {
       s.salBob = 0;
     } else {
       s.salCoinAt = null;
+      s.salCoinMarkR = null;
       s.salCoinFade = 0;
       _paintSalRig(canvas, s, frame, pose, u,
           origin: Offset(x - 8 * u + (frame?.dx ?? 0), feet - 15 * u));

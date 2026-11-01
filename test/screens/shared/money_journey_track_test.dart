@@ -108,6 +108,12 @@ bool _hairline((int, int, int) p) =>
     p.$1 > 200 &&
     p.$1 < 248;
 bool _white((int, int, int) p) => p.$1 > 250 && p.$2 > 250 && p.$3 > 250;
+// Within a little of [c] (antialiasing, the PNG's rounding).
+bool _near((int, int, int) p, (int, int, int) c) =>
+    (p.$1 - c.$1).abs() < 24 && (p.$2 - c.$2).abs() < 24 && (p.$3 - c.$3).abs() < 24;
+// The Hyperliquid logo's dark green at 40% on white.
+bool _quietDark((int, int, int) p) =>
+    p.$1 > 130 && p.$1 < 190 && p.$2 > 140 && p.$2 < 200 && p.$3 > 140 && p.$3 < 200;
 
 void main() {
   setUpAll(() async {
@@ -122,6 +128,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    await tester.runAsync(precacheMoneyJourneyMarks);
     await tester.pumpWidget(_app(_order()));
     // The fill's approach over, held short of the station.
     await tester.pump(const Duration(milliseconds: 2500));
@@ -135,7 +142,7 @@ void main() {
     final size = tester
         .getSize(find.byKey(const ValueKey('money-steps-station-investing')));
     final r = size.width / 2;
-    expect(r, 5.5, reason: 'an 11 px station dot at the design size');
+    expect(r, 14, reason: 'a 28 px logo disc at the design size');
     expect(size.height, size.width);
     expect(src.dy, dest.dy, reason: 'one straight row');
 
@@ -183,13 +190,14 @@ void main() {
           reason: 'no head ${dy}px off the line: ${shot.at(before.translate(0, dy))}');
     }
 
-    // Stations: the source is a solid dot in the ink, the destination a
-    // hairline ring on the surface until the money is there.
-    expect(_ink(shot.at(src)), isTrue, reason: 'the source: ${shot.at(src)}');
-    expect(_white(shot.at(dest)), isTrue,
-        reason: 'the destination waits: ${shot.at(dest)}');
-    expect(_white(shot.at(dest.translate(0, r - 0.5))), isFalse,
-        reason: 'its hairline ring');
+    // Stations: 28 px logo discs. The source (the money is there) in the
+    // Bitcoin mark's full orange; the destination's Hyperliquid logo
+    // quiet (part see-through) until the money is there.
+    final srcTop = shot.at(src.translate(0, -0.8 * r));
+    expect(_near(srcTop, (247, 147, 26)), isTrue, reason: 'the source: $srcTop');
+    final destTop = shot.at(dest.translate(0, -0.8 * r));
+    expect(_quietDark(destTop), isTrue,
+        reason: 'the destination waits: $destTop');
 
     // The leg lands: the line is travelled to the destination's dot, the
     // dot fills in, the source takes its check.
@@ -199,7 +207,9 @@ void main() {
     final landed = await _shot(tester);
     expect(_ink(landed.at(Offset(x1 - 3, y))), isTrue,
         reason: 'travelled all the way: ${landed.at(Offset(x1 - 3, y))}');
-    expect(_ink(landed.at(dest)), isTrue, reason: 'the destination fills');
+    final destLanded = landed.at(dest.translate(0, -0.8 * r));
+    expect(_near(destLanded, (14, 36, 34)), isTrue,
+        reason: 'the destination at full colour: $destLanded');
     for (final dy in [-4.0, 4.0]) {
       expect(_white(landed.at(Offset(dest.dx - r - 12, y + dy))), isTrue,
           reason: 'still no head');

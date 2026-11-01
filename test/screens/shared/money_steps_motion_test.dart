@@ -276,19 +276,29 @@ void main() {
       expect(merge.dx, greaterThan(xs.first.dx));
       expect(merge.dx, lessThan(poly.dx));
       expect(_motion(tester).mergeLitOf('predictions'), 0);
-      // Each source's amount under the start of its leg.
+      // Each station's amount under its own logo disc (the destination's
+      // the legs' total), in place of the names.
       for (final (id, amount) in [
         ('bitcoin', '\$8.00'),
         ('dollars', '\$5.00'),
         ('investing', '\$2.00'),
+        ('predictions', '\$15.00'),
       ]) {
-        final label = find.byKey(ValueKey('money-steps-leg-amount-$id'));
+        final label = find.byKey(ValueKey('money-steps-station-amount-$id'));
         expect(label, findsOneWidget);
         expect(find.descendant(of: label, matching: find.text(amount)),
             findsOneWidget);
+        final disc = find.byKey(ValueKey('money-steps-station-$id'));
+        expect(tester.getTopLeft(label).dy,
+            greaterThanOrEqualTo(tester.getBottomLeft(disc).dy),
+            reason: 'under its disc');
+        final cx = tester.getCenter(disc).dx;
+        expect(tester.getTopLeft(label).dx, lessThanOrEqualTo(cx),
+            reason: 'across its centre');
+        expect(tester.getTopRight(label).dx, greaterThanOrEqualTo(cx),
+            reason: 'across its centre');
       }
-      // Their names together under the column, moved in from the edge.
-      expect(find.text('Bitcoin · Dollars · Investing'), findsOneWidget);
+      expect(find.text('Bitcoin · Dollars · Investing'), findsNothing);
       final plan = MoneyJourneyPlan.of(
           moneyStepLines(_en, _three(), _usd, placeLine: 'Place'),
           graph: _three(),
@@ -467,7 +477,7 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('money-steps-map')));
     final poly = _at(tester, _station('predictions'));
     final r = tester.getSize(_station('predictions')).width / 2;
-    final k = r / 5.5; // the screen's scale (the station's 5.5)
+    final k = r / 14; // the screen's scale (the station's 14)
     expect((mapAt + beside).dy, closeTo(poly.dy, 0.5));
     // His right edge (0.3 of his 64 box) left of the station's dot and
     // of its pulse (up to 9 past the edge).
