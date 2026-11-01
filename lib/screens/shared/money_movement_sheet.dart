@@ -20,13 +20,16 @@ Future<void> showMoneyMovementSheet(
           ? MoneyMovementAccount.bitcoin
           : MoneyMovementAccount.dollars)
       : initialDestination;
+  // A pair the sheet does not offer (Predictions to anywhere but Bitcoin)
+  // opens on the source's one offered destination instead.
+  final route = MoneyMovementRoute(initialSource, destination).offeredOrNearest;
   TrackingService.markEntrySource('move', entrySource);
   await Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) => DepositSheet(
         lockedSide: MoveLockedSide.depositToUsd,
-        movementRoute: MoneyMovementRoute(initialSource, destination),
+        movementRoute: route,
       ),
     ),
   );

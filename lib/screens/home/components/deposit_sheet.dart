@@ -849,6 +849,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   void _changeMovementRoute(MoneyMovementRoute route, {bool reversed = false}) {
     if (_processing || _movementSendLocked || !route.valid) return;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     HapticFeedback.selectionClick();
     setState(() {
       _installMovementRoute(route);
@@ -914,7 +915,10 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       hint: (_) => '',
       rows: (sheetCtx, _) => [
         for (final account in MoneyMovementAccount.values)
-          if (account != (source ? route.to : route.from))
+          // The other end is never offered; nor is a destination the
+          // source has no door to (out of Predictions, only Bitcoin).
+          if (account != (source ? route.to : route.from) &&
+              (source || MoneyMovementRoute(route.from, account).isOffered))
             MovePickerRow(
               key: ValueKey('movement-account-${account.name}'),
               asset: _movementAsset(account),
@@ -933,8 +937,12 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     );
     if (selected == null || selected == current || !mounted) return;
     if (_processing || _movementSendLocked) return;
+    // A source whose door to the chosen destination is not offered
+    // (Predictions picked while Dollars or Investing is the destination)
+    // takes its one offered destination along.
     _changeMovementRoute(MoneyMovementRoute(
-        source ? selected : route.from, source ? route.to : selected));
+            source ? selected : route.from, source ? route.to : selected)
+        .offeredOrNearest);
   }
 
   Widget _movementRouteCard({required String? available, String? detail}) {
@@ -957,6 +965,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
       from: endpoint(route.from, true),
       to: endpoint(route.to, false),
       onSwap: editable &&
+              route.reversed.isOffered &&
               !kMoneyMovementDisabledRoutes.containsKey(route.reversed)
           ? () => _changeMovementRoute(route.reversed, reversed: true)
           : null,
@@ -2468,7 +2477,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
     _lockedSide = widget.lockedSide;
     if (_isMoneyMovement) {
       _movementWalletId = pickSpendingWallet(ref.read(settingsProvider))?.id;
-      _installMovementRoute(widget.movementRoute!);
+      _installMovementRoute(widget.movementRoute!.offeredOrNearest);
       unawaited(_resolveMovementGate());
       // A refusal worked out on one network is asked again after a
       // network change or resume ([RegionFreshness]).
@@ -7103,6 +7112,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   Future<void> _dispatchMovement() async {
     final route = _movementRoute!;
     if (kMoneyMovementDisabledRoutes.containsKey(route)) return;
+    if (!route.isOffered) return;
     _movementDispatchRoute = route;
     _movementRetried = _movementRetry;
     _movementRetry = false;

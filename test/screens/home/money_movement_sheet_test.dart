@@ -623,7 +623,7 @@ void main() {
   });
 
   group('every pair runs on its own rail, from the selected account only', () {
-    for (final route in MoneyMovementRoute.all) {
+    for (final route in MoneyMovementRoute.offered) {
       testWidgets('$route', (tester) async {
         final c = await _open(tester, route);
         await _type(tester, '5');
@@ -811,7 +811,7 @@ void main() {
   testWidgets(
       'a wallet switch while the approval is up revokes it: nothing is '
       'funded', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     final settings = c.read(settingsProvider.notifier);
     _approvals.whileUp =
@@ -887,7 +887,7 @@ void main() {
   testWidgets(
       'a live balance that cannot be read stops a Predictions move before '
       'the quote, as unreachable, never as insufficient', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     _readFailure =
         const PolymarketReadException('eth_call: no Polygon RPC answered');
@@ -908,7 +908,7 @@ void main() {
   testWidgets(
       'an unknown outcome locks the move: no second send, no edits, and the '
       'button opens Activity', (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _i));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await _type(tester, '5');
     _runner.afterApproval =
         (_) async => throw const SettlementFundingUnknown('op', 'timeout');
@@ -1142,19 +1142,51 @@ void main() {
     });
 
     testWidgets(
-        'Predictions → Investing asks for its own route, to the own '
-        'Investing account', (tester) async {
+        'out of Predictions only Bitcoin is offered: asked for Investing, '
+        'the sheet opens on Bitcoin, prices that route and the picker '
+        'lists no other door', (tester) async {
       final c = await _open(tester, const MoneyMovementRoute(_p, _i));
       await _type(tester, '5');
       await _frames(tester, 12);
+      expect(
+          _estimates.where((q) =>
+              q['sourceChain'] == 'polygon' && q['destinationChain'] == 'hypercore'),
+          isEmpty);
       final asked = _estimates.where((q) =>
           q['sourceChain'] == 'polygon' &&
           q['sourceAsset'] == 'USDC.e' &&
-          q['destinationChain'] == 'hypercore' &&
-          q['destinationAsset'] == 'USDC');
+          q['destinationChain'] == 'spark' &&
+          q['destinationAsset'] == 'BTC');
       expect(asked, isNotEmpty);
       expect(asked.last['amount'], '5000000');
+      // The destination picker: Bitcoin, already selected, and nothing else.
+      await tester.tap(find.text('Bitcoin').first);
+      await _frames(tester);
+      expect(find.text('Move to'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-bitcoin')),
+          findsOneWidget);
+      expect(find.text('SELECTED'), findsOneWidget);
+      expect(find.byKey(const ValueKey('movement-account-dollars')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-investing')),
+          findsNothing);
+      expect(find.byKey(const ValueKey('movement-account-predictions')),
+          findsNothing);
+      await tester.tap(find.byKey(const ValueKey('movement-account-bitcoin')),
+          warnIfMissed: false);
+      await _frames(tester);
+      // Picking Predictions as the source while Dollars is the destination
+      // brings its one door along: the route becomes Predictions → Bitcoin.
       await _close(tester, c);
+      final c2 = await _open(tester, const MoneyMovementRoute(_i, _d));
+      await tester.tap(find.text('Investing').first);
+      await _frames(tester);
+      await tester
+          .tap(find.byKey(const ValueKey('movement-account-predictions')));
+      await _frames(tester);
+      expect(_last('move_direction_changed')['from'], 'predictions');
+      expect(_last('move_direction_changed')['to'], 'bitcoin');
+      await _close(tester, c2);
     });
 
     testWidgets('Bitcoin → Predictions prices sats on its own route',
@@ -1174,7 +1206,7 @@ void main() {
 
   testWidgets('Max and the quick chips are tracked with the surface',
       (tester) async {
-    final c = await _open(tester, const MoneyMovementRoute(_p, _d));
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
     await tester.tap(find.text('Max').last);
     await _frames(tester);
     final tap = _last('move_amount_percent_tapped');

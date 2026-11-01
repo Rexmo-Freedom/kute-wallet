@@ -60,12 +60,35 @@ class MoneyMovementRoute {
   /// Analytics value: `dollars_to_bitcoin`.
   String get code => '${from.name}_to_${to.name}';
 
-  /// Every route the sheet can be asked for: four accounts, distinct ends.
+  /// Every route with a plan: four accounts, distinct ends.
   static final List<MoneyMovementRoute> all = [
     for (final from in MoneyMovementAccount.values)
       for (final to in MoneyMovementAccount.values)
         if (from != to) MoneyMovementRoute(from, to),
   ];
+
+  /// The routes Move money offers: [all] less [kMoneyMovementHiddenRoutes].
+  static final List<MoneyMovementRoute> offered = [
+    for (final route in all)
+      if (route.isOffered) route,
+  ];
+
+  /// Whether Move money lets this route be picked, opened or sent.
+  bool get isOffered => !kMoneyMovementHiddenRoutes.contains(this);
+
+  /// Where money out of [from] may go in Move money, in picker order.
+  static List<MoneyMovementAccount> destinationsFrom(
+          MoneyMovementAccount from) =>
+      [
+        for (final to in MoneyMovementAccount.values)
+          if (to != from && MoneyMovementRoute(from, to).isOffered) to,
+      ];
+
+  /// [this] when it is offered; otherwise the same source to its first
+  /// offered destination, which is what the sheet opens on instead.
+  MoneyMovementRoute get offeredOrNearest => isOffered
+      ? this
+      : MoneyMovementRoute(from, destinationsFrom(from).first);
 
   @override
   bool operator ==(Object other) =>
@@ -239,6 +262,19 @@ MoneyMovementPlan moneyMovementPlanFor(MoneyMovementRoute route) {
 /// existing disabled row), with the analytics reason. Empty: every route
 /// has a safe rail today.
 const Map<MoneyMovementRoute, String> kMoneyMovementDisabledRoutes = {};
+
+/// Routes Move money does not offer at all. Out of Predictions the one
+/// manual door is Bitcoin: the app brings Predictions cash to Dollars and
+/// Investing on its own (a funded bet's change, a cash-out's sweep), so
+/// the sheet never asks the person to pick between them. Their plans stay
+/// in [moneyMovementPlanFor] for the rails that run them without the
+/// picker.
+final Set<MoneyMovementRoute> kMoneyMovementHiddenRoutes = Set.unmodifiable({
+  const MoneyMovementRoute(
+      MoneyMovementAccount.predictions, MoneyMovementAccount.dollars),
+  const MoneyMovementRoute(
+      MoneyMovementAccount.predictions, MoneyMovementAccount.investing),
+});
 
 /// The spending wallet, or the route the move was confirmed for, changed
 /// while the move was on its way: stopped before anything was sent.
