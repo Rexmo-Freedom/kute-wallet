@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Brak połączenia z Polymarket, aby złożyć prognozę. Twoje środki są bezpieczne na saldzie Polymarket. Spróbuj ponownie.",
   "moveInvestingDepositsUnavailable": "Wpłaty do Inwestowania są chwilowo niedostępne.",
   "movePredictionsWalletNotReady": "Portfel Prognoz nie jest jeszcze gotowy.",
+  "predictionsUnreachableNothingSent": "Nie można teraz połączyć się z Prognozami. Nic nie zostało wysłane. Sprawdź połączenie i spróbuj ponownie.",
   "moveDepositRouteUnavailable": "Ta trasa wpłaty jest chwilowo niedostępna. Spróbuj później.",
   "moveWalletNotReady": "Portfel nie jest jeszcze gotowy. Spróbuj ponownie za chwilę.",
   "moveSelectCurrency": "Wybierz walutę",

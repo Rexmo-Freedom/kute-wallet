@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Neizdevās sazināties ar Polymarket, lai veiktu prognozi. Tavi līdzekļi ir drošībā tavā Polymarket atlikumā. Mēģini vēlreiz.",
   "moveInvestingDepositsUnavailable": "Iemaksas Investēšanā īslaicīgi nav pieejamas.",
   "movePredictionsWalletNotReady": "Prognožu maciņš vēl nav gatavs.",
+  "predictionsUnreachableNothingSent": "Prognozes šobrīd nav sasniedzamas. Nekas netika nosūtīts. Pārbaudiet savienojumu un mēģiniet vēlreiz.",
   "moveDepositRouteUnavailable": "Šis iemaksas maršruts īslaicīgi nav pieejams. Mēģini vēlāk.",
   "moveWalletNotReady": "Maciņš vēl nav gatavs. Mēģini vēlreiz pēc brīža.",
   "moveSelectCurrency": "Izvēlies valūtu",

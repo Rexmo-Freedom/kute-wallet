@@ -8100,6 +8100,10 @@ class AppLocalizationsRo extends AppLocalizations {
       'Portofelul de Predicții nu este încă gata.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Predicțiile nu pot fi accesate acum. Nu s-a trimis nimic. Verifică conexiunea și încearcă din nou.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Această rută de depunere este temporar indisponibilă. Încearcă mai târziu.';
 

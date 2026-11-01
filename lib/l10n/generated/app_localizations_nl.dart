@@ -8088,6 +8088,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'De Voorspellingen-wallet is nog niet klaar.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Voorspellingen is nu niet bereikbaar. Er is niets verzonden. Controleer je verbinding en probeer het opnieuw.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Deze stortingsroute is tijdelijk niet beschikbaar. Probeer het later opnieuw.';
 

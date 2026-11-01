@@ -8063,6 +8063,10 @@ class AppLocalizationsSk extends AppLocalizations {
       'Peňaženka Predpovedí ešte nie je pripravená.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Predpovede teraz nie sú dostupné. Nič sa neodoslalo. Skontrolujte pripojenie a skúste to znova.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Táto cesta vkladu je dočasne nedostupná. Skús to neskôr.';
 

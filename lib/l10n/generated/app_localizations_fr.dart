@@ -8120,6 +8120,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le portefeuille Prédictions n\'est pas encore prêt.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Impossible de joindre Prédictions pour le moment. Rien n\'a été envoyé. Vérifiez votre connexion et réessayez.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Cet itinéraire de dépôt est temporairement indisponible. Réessayez plus tard.';
 

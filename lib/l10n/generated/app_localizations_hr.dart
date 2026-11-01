@@ -8075,6 +8075,10 @@ class AppLocalizationsHr extends AppLocalizations {
       'Novčanik za Predviđanja još nije spreman.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Predviđanja trenutačno nisu dostupna. Ništa nije poslano. Provjerite vezu i pokušajte ponovno.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Ova ruta uplate privremeno nije dostupna. Pokušaj ponovno kasnije.';
 

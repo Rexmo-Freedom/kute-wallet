@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Ennustuse tegemiseks ei õnnestunud Polymarketiga ühendust saada. Sinu raha on Polymarketi saldos turvas. Proovi uuesti.",
   "moveInvestingDepositsUnavailable": "Investeerimise sissemaksed pole ajutiselt saadaval.",
   "movePredictionsWalletNotReady": "Ennustuste rahakott pole veel valmis.",
+  "predictionsUnreachableNothingSent": "Ennustused pole praegu kättesaadavad. Midagi ei saadetud. Kontrolli ühendust ja proovi uuesti.",
   "moveDepositRouteUnavailable": "See sissemakse marsruut pole ajutiselt saadaval. Proovi hiljem uuesti.",
   "moveWalletNotReady": "Rahakott pole veel valmis. Proovi hetke pärast uuesti.",
   "moveSelectCurrency": "Vali valuuta",

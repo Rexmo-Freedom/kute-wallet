@@ -32,6 +32,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:kute/services/polymarket/relayer_transaction.dart';
+import 'package:kute/services/funding/settlement_funding_outcome.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/polymarket_claim_receipt.dart';
 
 import 'package:flutter/foundation.dart';
@@ -133,6 +135,19 @@ class PolymarketReadException implements Exception {
 
   @override
   String toString() => 'PolymarketReadException: $message';
+}
+
+/// The relayer answered a submit with a client error (4xx): it refused the
+/// batch and queued nothing, so a transfer that met this never left. The
+/// text is the one the relayer refusal classifiers already read.
+class RelayerSubmitRejected implements Exception, SettlementFundingNotStarted {
+  const RelayerSubmitRejected(this.statusCode, this.body);
+
+  final int statusCode;
+  final String body;
+
+  @override
+  String toString() => 'Relayer submit failed: $statusCode $body';
 }
 
 class PolymarketOnboardingService {
@@ -547,6 +562,7 @@ class PolymarketOnboardingService {
       } finally {
         pending--;
         if (!winner.isCompleted && pending == 0 && started == order.length) {
+          _trackReadFailedClosed(method, order.length);
           winner.completeError(
               PolymarketReadException('$method: no Polygon RPC answered'));
         }
@@ -568,9 +584,20 @@ class PolymarketOnboardingService {
       if (!winner.isCompleted && pending == 0) continue;
     }
     if (order.isEmpty) {
+      _trackReadFailedClosed(method, 0);
       throw PolymarketReadException('$method: no Polygon RPC answered');
     }
     return winner.future;
+  }
+
+  /// Every Polygon read endpoint failed one read. Setup, live balances and
+  /// withdrawals all fail closed on this, so the fleet signal names the
+  /// read, not only the failures it causes downstream.
+  static void _trackReadFailedClosed(String method, int endpoints) {
+    TrackingService.track('polygon_rpc_read_failed', params: {
+      'method': method,
+      'endpoints': endpoints,
+    });
   }
 
   /// Solady LibClone.initCodeHashERC1967(implementation, args).
@@ -3197,6 +3224,12 @@ class PolymarketOnboardingService {
     });
 
     if (response.statusCode != 200 && response.statusCode != 201) {
+      // A definite refusal (bad request, unauthorized, forbidden, not
+      // found, unprocessable) queued nothing. A timeout-ish or server
+      // status (408, 429, 5xx) may have, and stays an ordinary throw.
+      if (const {400, 401, 403, 404, 422}.contains(response.statusCode)) {
+        throw RelayerSubmitRejected(response.statusCode, response.body);
+      }
       throw Exception(
         'Relayer submit failed: ${response.statusCode} ${response.body}',
       );

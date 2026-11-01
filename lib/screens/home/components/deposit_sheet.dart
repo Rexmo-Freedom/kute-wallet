@@ -968,6 +968,13 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// Retry; otherwise Move money locks: no second send and no edits, the
   /// outcome copy shows and the button opens Activity. Outside Move money
   /// it only resets the sheet with [message], as every door always did.
+  /// A setup failure that is the network's, not the account's: a timed-out
+  /// or refused connection, as `TrackingService.errorCategory` reads it.
+  static bool _isOfflineLike(Object e) {
+    final category = TrackingService.errorCategory(e);
+    return category == 'network' || category == 'timeout';
+  }
+
   void _endStoppedMove(Object e, {String? message}) {
     if (!mounted) return;
     final l10n = context.l10n;
@@ -3362,6 +3369,22 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
         throw copy.homeNavPredictionsWalletNotReadyYet;
       }
       final pm = ref.read(polymarketTradingProvider.notifier);
+      // The deposit wallet must be set up (deployed, its approvals in
+      // place) before a batch can leave it. Setup is shared and instant
+      // once done; one that cannot finish ends the move here, before a
+      // quote or a send, with the reason, instead of as a relayer refusal
+      // nobody can act on.
+      try {
+        await pm.enableTrading();
+      } on PolymarketReadException {
+        throw copy.predictionsUnreachableNothingSent;
+      } on PolymarketEvmFormatPendingException {
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      } catch (e) {
+        if (_isOfflineLike(e)) throw copy.predictionsUnreachableNothingSent;
+        throw copy.homeNavPredictionsWalletNotReadyYet;
+      }
+      _ensureMovementPinned();
       final BigInt microUsdc;
       if (drain) {
         microUsdc = await pm.spendableMicroUsdc();

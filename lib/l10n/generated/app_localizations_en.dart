@@ -8025,6 +8025,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Predictions wallet is not ready yet.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Predictions couldn\'t be reached right now. Nothing was sent. Check your connection and try again.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'This deposit route is temporarily unavailable. Try again later.';
 

@@ -4432,6 +4432,8 @@
   "betAutofireBookUnavailable": "Could not reach Polymarket to place the prediction. Your money stays available in Dollars, and trying again uses it first.",
   "moveInvestingDepositsUnavailable": "Investing deposits are temporarily unavailable.",
   "movePredictionsWalletNotReady": "Predictions wallet is not ready yet.",
+  "predictionsUnreachableNothingSent": "Predictions couldn't be reached right now. Nothing was sent. Check your connection and try again.",
+  "@predictionsUnreachableNothingSent": {"description": "Move sheet: setup of the Predictions account failed on a Polygon read or the network before anything was quoted or sent."},
   "moveDepositRouteUnavailable": "This deposit route is temporarily unavailable. Try again later.",
   "moveWalletNotReady": "Wallet not ready yet. Try again in a moment.",
   "moveSelectCurrency": "Select currency",

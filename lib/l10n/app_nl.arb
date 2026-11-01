@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Kan Polymarket niet bereiken om de voorspelling te plaatsen. Je geld staat veilig op je Polymarket-saldo. Probeer het opnieuw.",
   "moveInvestingDepositsUnavailable": "Stortingen in Beleggen zijn tijdelijk niet beschikbaar.",
   "movePredictionsWalletNotReady": "De Voorspellingen-wallet is nog niet klaar.",
+  "predictionsUnreachableNothingSent": "Voorspellingen is nu niet bereikbaar. Er is niets verzonden. Controleer je verbinding en probeer het opnieuw.",
   "moveDepositRouteUnavailable": "Deze stortingsroute is tijdelijk niet beschikbaar. Probeer het later opnieuw.",
   "moveWalletNotReady": "Wallet nog niet klaar. Probeer het zo opnieuw.",
   "moveSelectCurrency": "Kies valuta",

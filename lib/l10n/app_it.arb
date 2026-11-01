@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Impossibile raggiungere Polymarket per piazzare la previsione. I tuoi fondi sono al sicuro nel saldo Polymarket. Riprova.",
   "moveInvestingDepositsUnavailable": "I depositi in Investire non sono momentaneamente disponibili.",
   "movePredictionsWalletNotReady": "Il wallet Previsioni non è ancora pronto.",
+  "predictionsUnreachableNothingSent": "Al momento non è possibile raggiungere Previsioni. Non è stato inviato nulla. Controlla la connessione e riprova.",
   "moveDepositRouteUnavailable": "Questo percorso di deposito non è momentaneamente disponibile. Riprova più tardi.",
   "moveWalletNotReady": "Wallet non ancora pronto. Riprova tra poco.",
   "moveSelectCurrency": "Seleziona valuta",

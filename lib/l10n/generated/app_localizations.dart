@@ -13944,6 +13944,12 @@ abstract class AppLocalizations {
   /// **'Predictions wallet is not ready yet.'**
   String get movePredictionsWalletNotReady;
 
+  /// Move sheet: setup of the Predictions account failed on a Polygon read or the network before anything was quoted or sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Predictions couldn\'t be reached right now. Nothing was sent. Check your connection and try again.'**
+  String get predictionsUnreachableNothingSent;
+
   /// No description provided for @moveDepositRouteUnavailable.
   ///
   /// In en, this message translates to:

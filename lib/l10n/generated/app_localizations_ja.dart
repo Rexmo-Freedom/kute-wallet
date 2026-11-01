@@ -7710,6 +7710,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get movePredictionsWalletNotReady => '予測ウォレットの準備がまだできていません。';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      '現在、予測に接続できません。何も送信されていません。接続を確認してもう一度お試しください。';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'この入金ルートは一時的に利用できません。後でもう一度お試しください。';
 

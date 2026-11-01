@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarketiin ei saatu yhteyttä ennusteen tekemiseksi. Varasi ovat turvassa Polymarket-saldossasi. Yritä uudelleen.",
   "moveInvestingDepositsUnavailable": "Sijoita-talletukset eivät ole tilapäisesti käytettävissä.",
   "movePredictionsWalletNotReady": "Ennusteet-lompakko ei ole vielä valmis.",
+  "predictionsUnreachableNothingSent": "Ennusteisiin ei saada yhteyttä juuri nyt. Mitään ei lähetetty. Tarkista yhteytesi ja yritä uudelleen.",
   "moveDepositRouteUnavailable": "Tämä talletusreitti ei ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.",
   "moveWalletNotReady": "Lompakko ei ole vielä valmis. Yritä hetken päästä uudelleen.",
   "moveSelectCurrency": "Valitse valuutta",

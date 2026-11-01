@@ -57,6 +57,8 @@ import 'package:kute/services/funding/settlement_runner.dart';
 import 'package:kute/services/funding/settlement_store.dart';
 import 'package:kute/services/funding/spark_hypercore_funding_service.dart';
 import 'package:kute/services/http/shared_http_client.dart';
+import 'package:kute/services/polymarket_onboarding_service.dart'
+    show PolymarketReadException;
 import 'package:kute/services/hyperliquid/cctp_withdrawal.dart';
 import 'package:kute/services/hyperliquid/hypercore_activation_fee.dart'
     show HypercoreBalanceShortfall;
@@ -168,10 +170,24 @@ class _Trading extends PolymarketTradingNotifier {
   @override
   Future<BigInt> payableMicroUsdc(double amount) async =>
       BigInt.from((amount * 1e6).round());
+
+  /// The account's one-time setup, asked for before a move leaves
+  /// Predictions. Done, unless [_setupFailure] says it cannot finish.
+  @override
+  Future<void> enableTrading({
+    void Function(String status)? onProgress,
+    bool force = false,
+  }) async {
+    _setupAsked++;
+    final failure = _setupFailure;
+    if (failure != null) throw failure;
+  }
 }
 
 bool _proxyKnown = true;
 Completer<String?>? _deposit;
+Object? _setupFailure;
+int _setupAsked = 0;
 double _predictions = 20;
 double _dollars = 20;
 
@@ -531,6 +547,8 @@ void main() {
     _events.clear();
     TrackingService.debugTrackObserver = (e, p) => _events.add((e, p));
     _proxyKnown = true;
+    _setupFailure = null;
+    _setupAsked = 0;
     _deposit = null;
     _predictions = 20;
     _dollars = 20;
@@ -815,6 +833,31 @@ void main() {
     expect(_runner.plans, hasLength(2));
     expect(_approvals.intents, hasLength(2));
     expect(_last('move_submitted')['retried'], true);
+    await _close(tester, c);
+  });
+
+  testWidgets(
+      'a Predictions move asks for the account setup first; a setup that '
+      'cannot read Polygon stops it before any quote, named, with Retry',
+      (tester) async {
+    final c = await _open(tester, const MoneyMovementRoute(_p, _b));
+    await _type(tester, '5');
+    _setupFailure =
+        const PolymarketReadException('eth_getCode: no Polygon RPC answered');
+    await _confirm(tester);
+    expect(_setupAsked, 1);
+    expect(_runner.plans, isEmpty, reason: 'nothing was quoted or sent');
+    expect(
+        find.text("Predictions couldn't be reached right now. Nothing was "
+            'sent. Check your connection and try again.'),
+        findsOneWidget);
+    expect(_button(tester).text, 'Retry');
+    expect(_last('move_failed')['reason'], 'not_sent');
+    // The read works again: the same tap goes through.
+    _setupFailure = null;
+    await _confirm(tester);
+    expect(_setupAsked, 2);
+    expect(_runner.plans, hasLength(1));
     await _close(tester, c);
   });
 

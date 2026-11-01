@@ -522,6 +522,10 @@ class PredictionsVenueFunder
           }
         },
         fund: (verifiedQuote, _) async {
+          // Setup first: a deposit wallet not yet deployed or approved
+          // refuses the batch at the relayer. Shared and instant once
+          // done; a failure here is a refusal, nothing has left.
+          await pm.enableTrading();
           final txHash = await pm.withdrawUsdc(
             toAddress: verifiedQuote.depositAddress,
             amount: usd,
@@ -764,6 +768,7 @@ class PredictionsVenueFunder
             }
           },
           fund: (verifiedQuote, _) async {
+            await pm.enableTrading();
             final txHash = await pm.withdrawUsdc(
               toAddress: verifiedQuote.depositAddress,
               amount: usd,

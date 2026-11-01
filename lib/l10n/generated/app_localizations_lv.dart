@@ -8029,6 +8029,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get movePredictionsWalletNotReady => 'Prognožu maciņš vēl nav gatavs.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Prognozes šobrīd nav sasniedzamas. Nekas netika nosūtīts. Pārbaudiet savienojumu un mēģiniet vēlreiz.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Šis iemaksas maršruts īslaicīgi nav pieejams. Mēģini vēlāk.';
 

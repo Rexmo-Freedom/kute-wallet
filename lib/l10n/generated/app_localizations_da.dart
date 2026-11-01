@@ -8059,6 +8059,10 @@ class AppLocalizationsDa extends AppLocalizations {
       'Forudsigelser-tegnebogen er ikke klar endnu.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Forudsigelser kan ikke nås lige nu. Intet blev sendt. Tjek din forbindelse, og prøv igen.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Denne indbetalingsrute er midlertidigt utilgængelig. Prøv igen senere.';
 

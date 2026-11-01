@@ -8052,6 +8052,10 @@ class AppLocalizationsCs extends AppLocalizations {
       'Peněženka Predikcí ještě není připravená.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Predikce teď nejsou dostupné. Nic nebylo odesláno. Zkontrolujte připojení a zkuste to znovu.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Tato trasa vkladu je dočasně nedostupná. Zkus to později.';
 

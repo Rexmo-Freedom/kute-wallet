@@ -411,6 +411,7 @@ pin_gate_result
 pin_set
 pin_set_failed
 pin_sheet_lockout
+polygon_rpc_read_failed
 polymarket_account_ready
 polymarket_account_start_unauthenticated
 polymarket_balance_loaded
@@ -456,6 +457,7 @@ polymarket_sell_failed
 polymarket_sell_initiated
 polymarket_sell_step
 polymarket_sell_submitted
+polymarket_setup_failed
 polymarket_slippage_adjusted
 polymarket_tab_opened
 polymarket_viewed

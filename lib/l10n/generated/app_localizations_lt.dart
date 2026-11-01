@@ -8092,6 +8092,10 @@ class AppLocalizationsLt extends AppLocalizations {
       'Prognozių piniginė dar neparuošta.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Šiuo metu Prognozės nepasiekiamos. Nieko neišsiųsta. Patikrinkite ryšį ir bandykite dar kartą.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Šis įnešimo maršrutas laikinai negalimas. Bandykite vėliau.';
 

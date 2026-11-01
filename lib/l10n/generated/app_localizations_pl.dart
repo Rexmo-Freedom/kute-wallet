@@ -8087,6 +8087,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Portfel Prognoz nie jest jeszcze gotowy.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Nie można teraz połączyć się z Prognozami. Nic nie zostało wysłane. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Ta trasa wpłaty jest chwilowo niedostępna. Spróbuj później.';
 

@@ -8093,6 +8093,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'A carteira de Previsões ainda não está pronta.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Não foi possível aceder às Previsões agora. Nada foi enviado. Verifica a tua ligação e tenta novamente.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Esta via de depósito está temporariamente indisponível. Tente mais tarde.';
 

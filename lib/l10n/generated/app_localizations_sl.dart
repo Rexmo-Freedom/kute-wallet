@@ -8078,6 +8078,10 @@ class AppLocalizationsSl extends AppLocalizations {
       'Denarnica za Napovedi še ni pripravljena.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Napovedi trenutno niso dosegljive. Nič ni bilo poslano. Preverite povezavo in poskusite znova.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Ta pot pologa začasno ni na voljo. Poskusite znova pozneje.';
 

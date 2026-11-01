@@ -546,6 +546,9 @@ void _trackProvisioningOutcome(String outcome, Duration elapsed,
     'duration_ms': elapsed.inMilliseconds,
     'duration_bucket': TrackingService.latencyBucket(elapsed.inMilliseconds),
     if (error != null) 'error_category': TrackingService.errorCategory(error),
+    // The class of what was thrown, never its text: `PolymarketReadException`
+    // (a Polygon read that failed closed), `StateError`, `TimeoutException`.
+    if (error != null) 'error_reason': TrackingService.errorReason(error),
     if (error != null) 'offline': _isOfflineError(error),
   });
 }
@@ -6135,34 +6138,53 @@ class PolymarketTradingNotifier
     return quoted;
   }
 
+  /// How long setup waits for the account start to know the wallet
+  /// address before giving up. Provisioning joins the live notifier the
+  /// moment it registers, which is before the address is derived.
+  static Duration accountAddressWait = const Duration(seconds: 30);
+
   Future<void> enableTrading({
     void Function(String status)? onProgress,
     bool force = false,
-  }) {
-    final current = state.valueOrNull;
+  }) async {
+    var current = state.valueOrNull;
     if (current == null || current.walletAddress == null) {
-      return Future.error(StateError('No wallet address'));
+      // The account start is still deriving the address. Waiting for it
+      // is the setup the caller asked for; failing on "No wallet address"
+      // reported every start's provisioning as failed within half a
+      // second and left the account to the next visit.
+      try {
+        await future.timeout(accountAddressWait);
+      } catch (_) {
+        // The state below says whether the address arrived.
+      }
+      current = state.valueOrNull;
+      if (current == null || current.walletAddress == null) {
+        throw StateError('No wallet address');
+      }
     }
     final walletId = _spendingWalletId;
     if (walletId == null) {
-      return Future.error(StateError('No spending wallet'));
+      throw StateError('No spending wallet');
     }
     // Nothing is deployed or approved on an account whose EVM format may
     // still move to legacy.
     if (_formatPending(walletId)) {
-      return Future.error(const PolymarketEvmFormatPendingException());
+      throw const PolymarketEvmFormatPendingException();
     }
     final eoa = current.walletAddress!;
     final generation = _accountGeneration;
-    final session = ref.read(sessionAuthProvider);
+    // Current while this account is the spending wallet and the session
+    // is unlocked. The session's identity is deliberately not compared:
+    // a lock and unlock during a setup (a minute of relayer confirmation)
+    // does not change whose account this is, and failing it for that
+    // only cost the person the setup that had already run.
     bool isCurrent() =>
         !_disposed &&
         generation == _accountGeneration &&
         _spendingWalletId == walletId &&
         state.valueOrNull?.walletAddress?.toLowerCase() == eoa.toLowerCase() &&
         pickSpendingWallet(ref.read(settingsProvider))?.id == walletId &&
-        session != null &&
-        identical(ref.read(sessionAuthProvider), session) &&
         ref.read(seedSessionProvider).unlocked;
 
     final wasReady = tradingReady;
@@ -6187,7 +6209,39 @@ class PolymarketTradingNotifier
     return ready;
   }
 
+  /// One setup attempt, whoever asked for it (creation's provisioning,
+  /// the home start, a bet, a move). A failure is reported with its
+  /// text-free reason (`polymarket_setup_failed`), so a fleet of setups
+  /// that cannot finish says why (a Polygon read that failed closed, a
+  /// relayer refusal, a locked wallet) instead of only that it did not.
   Future<void> _enableTradingAccount({
+    required String eoa,
+    required String walletId,
+    required bool Function() isCurrent,
+    void Function(String status)? onProgress,
+  }) async {
+    final clock = Stopwatch()..start();
+    try {
+      await _runEnableTradingAccount(
+        eoa: eoa,
+        walletId: walletId,
+        isCurrent: isCurrent,
+        onProgress: onProgress,
+      );
+    } catch (e) {
+      TrackingService.track('polymarket_setup_failed', params: {
+        'error_category': TrackingService.errorCategory(e),
+        'error_reason': TrackingService.errorReason(e),
+        'offline': _isOfflineError(e),
+        'duration_ms': clock.elapsedMilliseconds,
+        'duration_bucket':
+            TrackingService.latencyBucket(clock.elapsedMilliseconds),
+      });
+      rethrow;
+    }
+  }
+
+  Future<void> _runEnableTradingAccount({
     required String eoa,
     required String walletId,
     required bool Function() isCurrent,

@@ -8125,6 +8125,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Das Prognosen-Wallet ist noch nicht bereit.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Prognosen sind gerade nicht erreichbar. Es wurde nichts gesendet. Prüfe deine Verbindung und versuche es erneut.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Diese Einzahlungsroute ist vorübergehend nicht verfügbar. Versuche es später erneut.';
 

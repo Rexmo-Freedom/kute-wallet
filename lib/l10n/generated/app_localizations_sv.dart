@@ -8055,6 +8055,10 @@ class AppLocalizationsSv extends AppLocalizations {
       'Plånboken för Prognoser är inte redo än.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Prognoser kan inte nås just nu. Inget skickades. Kontrollera din anslutning och försök igen.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Den här insättningsvägen är tillfälligt otillgänglig. Försök igen senare.';
 

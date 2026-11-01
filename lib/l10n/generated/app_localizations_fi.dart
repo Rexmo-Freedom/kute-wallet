@@ -8059,6 +8059,10 @@ class AppLocalizationsFi extends AppLocalizations {
       'Ennusteet-lompakko ei ole vielä valmis.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Ennusteisiin ei saada yhteyttä juuri nyt. Mitään ei lähetetty. Tarkista yhteytesi ja yritä uudelleen.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Tämä talletusreitti ei ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.';
 

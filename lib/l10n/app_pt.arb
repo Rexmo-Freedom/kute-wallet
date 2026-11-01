@@ -2580,6 +2580,7 @@
   "betAutofireBookUnavailable": "Não foi possível contactar a Polymarket para registar a previsão. Os seus fundos estão seguros no saldo da Polymarket. Tente novamente.",
   "moveInvestingDepositsUnavailable": "Os depósitos em Investir estão temporariamente indisponíveis.",
   "movePredictionsWalletNotReady": "A carteira de Previsões ainda não está pronta.",
+  "predictionsUnreachableNothingSent": "Não foi possível aceder às Previsões agora. Nada foi enviado. Verifica a tua ligação e tenta novamente.",
   "moveDepositRouteUnavailable": "Esta via de depósito está temporariamente indisponível. Tente mais tarde.",
   "moveWalletNotReady": "A carteira ainda não está pronta. Tente novamente dentro de momentos.",
   "moveSelectCurrency": "Selecionar moeda",

@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Za oddajo napovedi Polymarket ni bil dosegljiv. Vaša sredstva so varna na stanju Polymarket. Poskusite znova.",
   "moveInvestingDepositsUnavailable": "Pologi v Investiranje začasno niso na voljo.",
   "movePredictionsWalletNotReady": "Denarnica za Napovedi še ni pripravljena.",
+  "predictionsUnreachableNothingSent": "Napovedi trenutno niso dosegljive. Nič ni bilo poslano. Preverite povezavo in poskusite znova.",
   "moveDepositRouteUnavailable": "Ta pot pologa začasno ni na voljo. Poskusite znova pozneje.",
   "moveWalletNotReady": "Denarnica še ni pripravljena. Poskusite znova čez trenutek.",
   "moveSelectCurrency": "Izberite valuto",

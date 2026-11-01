@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarket nebyl k zadání predikce dostupný. Tvé prostředky jsou v bezpečí na zůstatku Polymarket. Zkus to znovu.",
   "moveInvestingDepositsUnavailable": "Vklady do Investování jsou dočasně nedostupné.",
   "movePredictionsWalletNotReady": "Peněženka Predikcí ještě není připravená.",
+  "predictionsUnreachableNothingSent": "Predikce teď nejsou dostupné. Nic nebylo odesláno. Zkontrolujte připojení a zkuste to znovu.",
   "moveDepositRouteUnavailable": "Tato trasa vkladu je dočasně nedostupná. Zkus to později.",
   "moveWalletNotReady": "Peněženka ještě není připravená. Zkus to za chvíli.",
   "moveSelectCurrency": "Vybrat měnu",

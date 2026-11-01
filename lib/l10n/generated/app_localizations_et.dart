@@ -8040,6 +8040,10 @@ class AppLocalizationsEt extends AppLocalizations {
       'Ennustuste rahakott pole veel valmis.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Ennustused pole praegu kättesaadavad. Midagi ei saadetud. Kontrolli ühendust ja proovi uuesti.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'See sissemakse marsruut pole ajutiselt saadaval. Proovi hiljem uuesti.';
 

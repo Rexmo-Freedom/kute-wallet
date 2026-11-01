@@ -8077,6 +8077,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az Előrejelzések tárca még nem áll készen.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Az Előrejelzések jelenleg nem érhetők el. Semmi sem lett elküldve. Ellenőrizd a kapcsolatot, és próbáld újra.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Ez a befizetési útvonal átmenetileg nem érhető el. Próbáld újra később.';
 

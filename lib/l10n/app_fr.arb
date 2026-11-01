@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Impossible de joindre Polymarket pour placer la prédiction. Vos fonds sont en sécurité sur votre solde Polymarket. Réessayez.",
   "moveInvestingDepositsUnavailable": "Les dépôts Investir sont temporairement indisponibles.",
   "movePredictionsWalletNotReady": "Le portefeuille Prédictions n'est pas encore prêt.",
+  "predictionsUnreachableNothingSent": "Impossible de joindre Prédictions pour le moment. Rien n'a été envoyé. Vérifiez votre connexion et réessayez.",
   "moveDepositRouteUnavailable": "Cet itinéraire de dépôt est temporairement indisponible. Réessayez plus tard.",
   "moveWalletNotReady": "Portefeuille pas encore prêt. Réessayez dans un instant.",
   "moveSelectCurrency": "Choisir une devise",

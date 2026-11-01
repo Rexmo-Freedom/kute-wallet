@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Kunde inte nå Polymarket för att lägga prognosen. Dina pengar är säkra i ditt Polymarket-saldo. Försök igen.",
   "moveInvestingDepositsUnavailable": "Insättningar till Investera är tillfälligt otillgängliga.",
   "movePredictionsWalletNotReady": "Plånboken för Prognoser är inte redo än.",
+  "predictionsUnreachableNothingSent": "Prognoser kan inte nås just nu. Inget skickades. Kontrollera din anslutning och försök igen.",
   "moveDepositRouteUnavailable": "Den här insättningsvägen är tillfälligt otillgänglig. Försök igen senare.",
   "moveWalletNotReady": "Plånboken är inte redo än. Försök igen om en stund.",
   "moveSelectCurrency": "Välj valuta",

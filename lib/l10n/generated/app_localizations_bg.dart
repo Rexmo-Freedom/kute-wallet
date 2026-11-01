@@ -8076,6 +8076,10 @@ class AppLocalizationsBg extends AppLocalizations {
       'Портфейлът за Прогнози още не е готов.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Прогнозите не са достъпни в момента. Нищо не беше изпратено. Проверете връзката си и опитайте отново.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Този маршрут за депозит временно не е достъпен. Опитай отново по-късно.';
 

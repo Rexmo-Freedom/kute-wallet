@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Nem értük el a Polymarketet az előrejelzés leadásához. A pénzed biztonságban van a Polymarket egyenlegedben. Próbáld újra.",
   "moveInvestingDepositsUnavailable": "A Befektetés befizetések átmenetileg nem érhetők el.",
   "movePredictionsWalletNotReady": "Az Előrejelzések tárca még nem áll készen.",
+  "predictionsUnreachableNothingSent": "Az Előrejelzések jelenleg nem érhetők el. Semmi sem lett elküldve. Ellenőrizd a kapcsolatot, és próbáld újra.",
   "moveDepositRouteUnavailable": "Ez a befizetési útvonal átmenetileg nem érhető el. Próbáld újra később.",
   "moveWalletNotReady": "A tárca még nem áll készen. Próbáld újra egy kicsit később.",
   "moveSelectCurrency": "Pénznem kiválasztása",

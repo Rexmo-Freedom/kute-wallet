@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarket nije dostupan za postavljanje predviđanja. Tvoja sredstva su sigurna u Polymarket saldu. Pokušaj ponovno.",
   "moveInvestingDepositsUnavailable": "Uplate u Ulaganje privremeno nisu dostupne.",
   "movePredictionsWalletNotReady": "Novčanik za Predviđanja još nije spreman.",
+  "predictionsUnreachableNothingSent": "Predviđanja trenutačno nisu dostupna. Ništa nije poslano. Provjerite vezu i pokušajte ponovno.",
   "moveDepositRouteUnavailable": "Ova ruta uplate privremeno nije dostupna. Pokušaj ponovno kasnije.",
   "moveWalletNotReady": "Novčanik još nije spreman. Pokušaj ponovno za trenutak.",
   "moveSelectCurrency": "Odaberi valutu",

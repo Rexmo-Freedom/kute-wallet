@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarket nu a putut fi accesat pentru plasarea predicției. Fondurile tale sunt în siguranță în soldul Polymarket. Încearcă din nou.",
   "moveInvestingDepositsUnavailable": "Depunerile în Investiții sunt temporar indisponibile.",
   "movePredictionsWalletNotReady": "Portofelul de Predicții nu este încă gata.",
+  "predictionsUnreachableNothingSent": "Predicțiile nu pot fi accesate acum. Nu s-a trimis nimic. Verifică conexiunea și încearcă din nou.",
   "moveDepositRouteUnavailable": "Această rută de depunere este temporar indisponibilă. Încearcă mai târziu.",
   "moveWalletNotReady": "Portofelul nu e încă gata. Încearcă din nou în câteva momente.",
   "moveSelectCurrency": "Alege moneda",

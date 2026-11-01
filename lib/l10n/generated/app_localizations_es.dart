@@ -8097,6 +8097,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'La cartera de Predicciones aún no está lista.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'No se pudo conectar con Predicciones ahora mismo. No se envió nada. Comprueba tu conexión e inténtalo de nuevo.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Esta vía de depósito no está disponible temporalmente. Inténtalo de nuevo más tarde.';
 

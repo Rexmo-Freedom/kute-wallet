@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarket war nicht erreichbar, um die Prognose zu platzieren. Dein Geld ist sicher in deinem Polymarket-Guthaben. Versuche es erneut.",
   "moveInvestingDepositsUnavailable": "Einzahlungen für Investieren sind vorübergehend nicht verfügbar.",
   "movePredictionsWalletNotReady": "Das Prognosen-Wallet ist noch nicht bereit.",
+  "predictionsUnreachableNothingSent": "Prognosen sind gerade nicht erreichbar. Es wurde nichts gesendet. Prüfe deine Verbindung und versuche es erneut.",
   "moveDepositRouteUnavailable": "Diese Einzahlungsroute ist vorübergehend nicht verfügbar. Versuche es später erneut.",
   "moveWalletNotReady": "Wallet noch nicht bereit. Versuche es gleich noch einmal.",
   "moveSelectCurrency": "Währung wählen",

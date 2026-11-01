@@ -8122,6 +8122,10 @@ class AppLocalizationsEl extends AppLocalizations {
       'Το πορτοφόλι Προβλέψεων δεν είναι ακόμα έτοιμο.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Οι Προβλέψεις δεν είναι προσβάσιμες αυτή τη στιγμή. Δεν στάλθηκε τίποτα. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Αυτή η διαδρομή κατάθεσης δεν είναι προσωρινά διαθέσιμη. Δοκίμασε αργότερα.';
 

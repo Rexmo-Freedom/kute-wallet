@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Nepavyko pasiekti Polymarket prognozei pateikti. Jūsų lėšos saugios Polymarket likutyje. Bandykite dar kartą.",
   "moveInvestingDepositsUnavailable": "Įnašai į Investavimą laikinai negalimi.",
   "movePredictionsWalletNotReady": "Prognozių piniginė dar neparuošta.",
+  "predictionsUnreachableNothingSent": "Šiuo metu Prognozės nepasiekiamos. Nieko neišsiųsta. Patikrinkite ryšį ir bandykite dar kartą.",
   "moveDepositRouteUnavailable": "Šis įnešimo maršrutas laikinai negalimas. Bandykite vėliau.",
   "moveWalletNotReady": "Piniginė dar neparuošta. Bandykite vėl po akimirkos.",
   "moveSelectCurrency": "Pasirinkite valiutą",

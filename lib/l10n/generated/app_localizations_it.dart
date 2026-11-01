@@ -8090,6 +8090,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Il wallet Previsioni non è ancora pronto.';
 
   @override
+  String get predictionsUnreachableNothingSent =>
+      'Al momento non è possibile raggiungere Previsioni. Non è stato inviato nulla. Controlla la connessione e riprova.';
+
+  @override
   String get moveDepositRouteUnavailable =>
       'Questo percorso di deposito non è momentaneamente disponibile. Riprova più tardi.';
 

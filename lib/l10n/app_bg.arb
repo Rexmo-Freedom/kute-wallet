@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Polymarket не е достъпен, за да се направи прогнозата. Средствата ти са в безопасност в баланса ти в Polymarket. Опитай отново.",
   "moveInvestingDepositsUnavailable": "Депозитите в Инвестиране временно не са достъпни.",
   "movePredictionsWalletNotReady": "Портфейлът за Прогнози още не е готов.",
+  "predictionsUnreachableNothingSent": "Прогнозите не са достъпни в момента. Нищо не беше изпратено. Проверете връзката си и опитайте отново.",
   "moveDepositRouteUnavailable": "Този маршрут за депозит временно не е достъпен. Опитай отново по-късно.",
   "moveWalletNotReady": "Портфейлът още не е готов. Опитай отново след малко.",
   "moveSelectCurrency": "Избери валута",

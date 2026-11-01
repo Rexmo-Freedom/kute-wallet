@@ -2307,6 +2307,7 @@
   "betAutofireBookUnavailable": "Kunne ikke nå Polymarket for at afgive forudsigelsen. Dine midler er sikre i din Polymarket-saldo. Prøv igen.",
   "moveInvestingDepositsUnavailable": "Indbetalinger til Investering er midlertidigt utilgængelige.",
   "movePredictionsWalletNotReady": "Forudsigelser-tegnebogen er ikke klar endnu.",
+  "predictionsUnreachableNothingSent": "Forudsigelser kan ikke nås lige nu. Intet blev sendt. Tjek din forbindelse, og prøv igen.",
   "moveDepositRouteUnavailable": "Denne indbetalingsrute er midlertidigt utilgængelig. Prøv igen senere.",
   "moveWalletNotReady": "Tegnebogen er ikke klar endnu. Prøv igen om lidt.",
   "moveSelectCurrency": "Vælg valuta",
