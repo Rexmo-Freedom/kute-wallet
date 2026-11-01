@@ -11,14 +11,26 @@
 //     (`PolymarketSparkTxsService.orchestraDeliveryLinks`): that row is on
 //     the list, by id, by the order its quote became, or by its settlement
 //     operation. Deterministic, whenever it landed, and it survives a
-//     restart.
+//     restart. A row takes every receive linked to it: a payout split
+//     across several transfers is one row.
 //  2. otherwise, a row delivering bitcoin to the wallet's own Spark balance
-//     claims it by amount and time, one receive per row and one row per
-//     receive, the closest amount first, then the closest time, from
-//     [kOwnDeliveryEarlyMargin] before the row to [kOwnDeliveryArrivalWindow]
-//     after it (the reconciler's own window; deliveries are fast). An
-//     unlinked receive later than that keeps its own row: amount and time
-//     alone never hide money that may have come from outside.
+//     claims it by amount and time, from [kOwnDeliveryEarlyMargin] before
+//     the row to [kOwnDeliveryArrivalWindow] after it (the reconciler's own
+//     window; a day for a Circle CCTP leg, held for screening):
+//       a. one receive within two percent of the row's figure, the closest
+//          amount first, then the closest time, one to one;
+//       b. else, the row oldest first, the set of two to [kMaxDeliveryLegs]
+//          receives that adds up to its figure, when it comes closer than
+//          any single receive (a split payout, a leg landing late); else
+//          one receive within the estimate's band (ten percent for the
+//          wallet's own withdrawal, whose figure is the quote's estimate
+//          until polled).
+//     A row whose linked legs fall short of the figure the reconciler saw
+//     when it linked them ([OrchestraDeliveryLink.expectedSats]) claims the
+//     rest the same way, held to two percent of the whole.
+//     An unlinked receive later than the window keeps its own row, and so
+//     does one a row has no room left for: amount and time alone never
+//     hide money that may have come from outside.
 //
 // A row whose bitcoin amount is not known yet (a CCTP leg before its
 // order reports one) claims nothing by amount: only the reconciler's link
@@ -43,6 +55,11 @@ import 'package:kute/services/security/address_guard.dart'
 /// unlinked receive may still be matched to it by amount: the delivery
 /// reconciler's window. A linked receive folds in whenever it landed.
 const Duration kOwnDeliveryArrivalWindow = Duration(minutes: 90);
+
+/// A Circle CCTP move out of Investing may be held for screening before it
+/// delivers (the first CCTP sweep landed 42 minutes after it left); its
+/// legs are matched by amount for up to a day.
+const Duration kOwnCctpDeliveryArrivalWindow = Duration(hours: 24);
 
 /// A row stamped a little after its money moved (written when the flow
 /// returned) may see its receive land just before it.
@@ -82,8 +99,79 @@ const Set<SwapActivityKind> _ownWithdrawalKinds = {
   SwapActivityKind.predictionsWithdrawal,
 };
 
+/// A withdrawal may reach the wallet as several Spark transfers (Orchestra
+/// and the venues split a payout); at most this many are read as one
+/// delivery.
+const int kMaxDeliveryLegs = 4;
+
+/// The tight match: a delivered amount within two percent of what the row
+/// says (one sat at least). A leg or a set of legs this close is the row's.
+int tightDeliveryTolerance(int sats) => math.max(1, (sats * 0.02).round());
+
+/// The legs among [candidates] that together deliver [target] sats within
+/// [tolerance]: the set of two to [maxLegs] receives whose sum is closest to
+/// [target], fewer legs on a tie, then the set that finished soonest. Null
+/// when no set comes within [tolerance]. Only receives smaller than the
+/// target can be a part of it; the closest twelve by time are read, which
+/// bounds the search.
+List<SparkTransaction>? matchDeliveryLegSet(
+  int target,
+  int tolerance,
+  List<SparkTransaction> candidates, {
+  required DateTime from,
+  int maxLegs = kMaxDeliveryLegs,
+}) {
+  if (target <= 0) return null;
+  final parts = [
+    for (final rx in candidates)
+      if (rx.amountSats.abs() > 0 && rx.amountSats.abs() < target) rx,
+  ]..sort((a, b) => a.timestamp.difference(from).inMilliseconds.abs().compareTo(
+      b.timestamp.difference(from).inMilliseconds.abs()));
+  final pool = parts.length > 12 ? parts.sublist(0, 12) : parts;
+  List<SparkTransaction>? best;
+  int? bestDiff;
+  DateTime? bestEnd;
+  void consider(List<SparkTransaction> set) {
+    final sum = set.fold<int>(0, (s, rx) => s + rx.amountSats.abs());
+    final diff = (sum - target).abs();
+    if (diff > tolerance) return;
+    final end = set
+        .map((rx) => rx.timestamp)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    final better = best == null ||
+        diff < bestDiff! ||
+        (diff == bestDiff &&
+            (set.length < best!.length ||
+                (set.length == best!.length && end.isBefore(bestEnd!))));
+    if (better) {
+      best = List.of(set);
+      bestDiff = diff;
+      bestEnd = end;
+    }
+  }
+
+  void walk(int start, List<SparkTransaction> set, int sum) {
+    if (set.length >= 2) consider(set);
+    if (set.length == maxLegs) return;
+    for (var i = start; i < pool.length; i++) {
+      final next = sum + pool[i].amountSats.abs();
+      // Every leg adds money: past the target and its tolerance no wider
+      // set can come back.
+      if (next > target + tolerance) continue;
+      set.add(pool[i]);
+      walk(i + 1, set, next);
+      set.removeLast();
+    }
+  }
+
+  walk(0, <SparkTransaction>[], 0);
+  return best;
+}
+
 /// The receives among [receives] that are deliveries of [exchanges] (the
-/// surface's conversion rows), each mapped to the row it belongs to.
+/// surface's conversion rows), each mapped to the row it belongs to. A row
+/// may take several receives (a payout split across transfers); a receive
+/// belongs to one row at most.
 ///
 /// [betFlowOrderIds] are orders the bet and claim flows tagged (ownership
 /// without an own settle address); [links] the reconciler's links.
@@ -101,9 +189,12 @@ Map<String, String> ownBitcoinDeliveryReceives(
       if (rx.type == TransactionType.received) rx,
   ];
   if (inbound.isEmpty || exchanges.isEmpty) return claimed;
-  final used = <String>{};
 
   // 1. The reconciler's links: the row it settled, wherever its id went.
+  // Every receive linked to a listed row folds into it, however many legs
+  // the payout took and whenever each landed.
+  final linkedSats = <String, int>{};
+  final linkedExpected = <String, int>{};
   if (links.isNotEmpty) {
     for (final rx in inbound) {
       final link = links[rx.id];
@@ -111,24 +202,35 @@ Map<String, String> ownBitcoinDeliveryReceives(
       final order = link.orderId;
       final resolved = order == null ? null : OrchestraOrderIds.resolve(order);
       for (final ex in exchanges) {
-        if (used.contains(ex.id)) continue;
         if (ex.details.coinTo.toUpperCase() != 'BTC') continue;
         final op = ex.details.operationId;
         if (ex.id == order ||
             ex.id == resolved ||
             (link.operationId != null && op == link.operationId)) {
           claimed[rx.id] = ex.id;
-          used.add(ex.id);
+          linkedSats[ex.id] = (linkedSats[ex.id] ?? 0) + rx.amountSats.abs();
+          final expected = link.expectedSats;
+          if (expected != null && expected > (linkedExpected[ex.id] ?? 0)) {
+            linkedExpected[ex.id] = expected;
+          }
           break;
         }
       }
     }
   }
 
-  // 2. Amount and time, one to one.
-  final pairs = <({String rx, String ex, int diff, int delta})>[];
+  // 2. Amount and time. Each row the wallet owns that delivers bitcoin to
+  // its own Spark balance names what it still waits for (its whole figure,
+  // or what its linked legs left short of the figure the reconciler saw)
+  // and the window its legs may land in.
+  final wants = <({
+    SwapOrderTransaction ex,
+    int target,
+    int tight,
+    int loose,
+    Duration window,
+  })>[];
   for (final ex in exchanges) {
-    if (used.contains(ex.id)) continue;
     final d = ex.details;
     if (d.coinTo.toUpperCase() != 'BTC') continue;
     // Only a delivery to the Spark balance is a Spark receive: bitcoin
@@ -137,7 +239,9 @@ Map<String, String> ownBitcoinDeliveryReceives(
     if (to != 'SPARK' && to != 'LIGHTNING') continue;
     if (OwnSparkArrivals.failedStatuses.contains(d.status)) continue;
     final fieldSats = orchestraBtcFieldToSats(d.withdrawalAmount);
-    if (fieldSats <= 0) continue;
+    final linked = linkedSats[ex.id] ?? 0;
+    final expected = math.max(fieldSats, linkedExpected[ex.id] ?? 0);
+    if (expected <= 0) continue;
     final kind = classify(d);
     final toSelf = settlesToOwnAddress(d.withdrawalAddress, ownAddresses);
     // A Spark address the wallet knows is not its own: someone else's
@@ -149,26 +253,60 @@ Map<String, String> ownBitcoinDeliveryReceives(
         d.isOrchestra && _ownWithdrawalKinds.contains(kind) && !foreign;
     final tagged = betFlowOrderIds.contains(ex.id);
     // Amount and time alone can coincide: the row must be the wallet's.
-    if (!ownWithdrawal && !toSelf && !tagged) continue;
+    if (!ownWithdrawal && !toSelf && !tagged && linked == 0) continue;
+    final tight = tightDeliveryTolerance(expected);
+    if (linked > 0) {
+      // Linked legs already account for the row: nothing more to claim.
+      final remaining = expected - linked;
+      if (remaining <= tight) continue;
+      // The rest of a split payout: held to the tight match on the whole.
+      wants.add((
+        ex: ex,
+        target: remaining,
+        tight: tight,
+        loose: tight,
+        window: _deliveryWindow(d, ownWithdrawal || toSelf || linked > 0),
+      ));
+      continue;
+    }
     // A withdrawal's stored figure is the quote's estimate until the poll
     // writes the delivered one: a wider match than an exact settled
     // amount is held to.
-    final tolSats =
-        math.max(1, (fieldSats * (ownWithdrawal ? 0.10 : 0.02)).round());
-    final window = ownWithdrawal || toSelf
-        ? kOwnDeliveryArrivalWindow
-        : const Duration(minutes: 30);
+    // A Circle CCTP leg's figure is what its order reported delivering,
+    // never an estimate, and its window is long: the tight match only.
+    final cctp = (d.routeVersion ?? '').startsWith('hypercore_cctp_to_');
+    wants.add((
+      ex: ex,
+      target: expected,
+      tight: tight,
+      loose: ownWithdrawal && !cctp
+          ? math.max(1, (expected * 0.10).round())
+          : tight,
+      window: _deliveryWindow(d, ownWithdrawal || toSelf),
+    ));
+  }
+  if (wants.isEmpty) return claimed;
+
+  bool inWindow(SparkTransaction rx, SwapOrderTransaction ex, Duration w) {
+    final delta = rx.timestamp.difference(ex.timestamp);
+    return delta >= -kOwnDeliveryEarlyMargin && delta <= w;
+  }
+
+  // 2a. One receive close to a row's figure (two percent): the closest
+  // amount first, then the closest time, one to one.
+  final done = <String>{};
+  final pairs = <({String rx, String ex, int diff, int delta})>[];
+  for (final w in wants) {
     for (final rx in inbound) {
       if (claimed.containsKey(rx.id)) continue;
-      final diff = (rx.amountSats.abs() - fieldSats).abs();
-      if (diff > tolSats) continue;
-      final delta = rx.timestamp.difference(ex.timestamp);
-      if (delta < -kOwnDeliveryEarlyMargin || delta > window) continue;
+      final diff = (rx.amountSats.abs() - w.target).abs();
+      if (diff > w.tight) continue;
+      if (!inWindow(rx, w.ex, w.window)) continue;
       pairs.add((
         rx: rx.id,
-        ex: ex.id,
+        ex: w.ex.id,
         diff: diff,
-        delta: delta.inMilliseconds.abs(),
+        delta: rx.timestamp.difference(w.ex.timestamp).inMilliseconds.abs(),
       ));
     }
   }
@@ -177,9 +315,136 @@ Map<String, String> ownBitcoinDeliveryReceives(
     return byDiff != 0 ? byDiff : a.delta.compareTo(b.delta);
   });
   for (final p in pairs) {
-    if (claimed.containsKey(p.rx) || used.contains(p.ex)) continue;
+    if (claimed.containsKey(p.rx) || done.contains(p.ex)) continue;
     claimed[p.rx] = p.ex;
-    used.add(p.ex);
+    done.add(p.ex);
+  }
+
+  // 2b. A row still waiting, oldest first: the set of legs that adds up to
+  // its figure when it comes closer than any single receive (a payout split
+  // across transfers, one landing late), else one receive within the
+  // estimate's band.
+  final waiting = [
+    for (final w in wants)
+      if (!done.contains(w.ex.id)) w,
+  ]..sort((a, b) => a.ex.timestamp.compareTo(b.ex.timestamp));
+  for (final w in waiting) {
+    final candidates = [
+      for (final rx in inbound)
+        if (!claimed.containsKey(rx.id) && inWindow(rx, w.ex, w.window)) rx,
+    ];
+    if (candidates.isEmpty) continue;
+    SparkTransaction? single;
+    var singleDiff = 0;
+    for (final rx in candidates) {
+      final diff = (rx.amountSats.abs() - w.target).abs();
+      if (diff > w.loose) continue;
+      if (single == null ||
+          diff < singleDiff ||
+          (diff == singleDiff &&
+              rx.timestamp.difference(w.ex.timestamp).abs() <
+                  single.timestamp.difference(w.ex.timestamp).abs())) {
+        single = rx;
+        singleDiff = diff;
+      }
+    }
+    final set = matchDeliveryLegSet(w.target, w.loose, candidates,
+        from: w.ex.timestamp);
+    final setDiff = set == null
+        ? null
+        : (set.fold<int>(0, (s, rx) => s + rx.amountSats.abs()) - w.target)
+            .abs();
+    if (set != null && (single == null || setDiff! < singleDiff)) {
+      for (final rx in set) {
+        claimed[rx.id] = w.ex.id;
+      }
+    } else if (single != null) {
+      claimed[single.id] = w.ex.id;
+    }
   }
   return claimed;
+}
+
+/// How long after [d] started its legs may land and still be matched by
+/// amount: a day for a Circle CCTP move (held for screening, like its
+/// dollar twin), the reconciler's window for the wallet's own deliveries,
+/// half an hour for a row only a bet-flow tag ties to the wallet.
+Duration _deliveryWindow(SwapOrder d, bool own) {
+  if (!own) return const Duration(minutes: 30);
+  final version = d.routeVersion ?? '';
+  if (version.startsWith('hypercore_cctp_to_')) {
+    return kOwnCctpDeliveryArrivalWindow;
+  }
+  return kOwnDeliveryArrivalWindow;
+}
+
+/// The delivery reconciler's pick of the receives among [receives] that
+/// settle a row stamped [rowAt] waiting for [targetSats] (0 when its
+/// figure is not known yet): those landing from two minutes before the row
+/// to [kOwnDeliveryArrivalWindow] after it, then
+///
+///  * one receive within two percent of the figure;
+///  * else the set of two to [kMaxDeliveryLegs] receives adding up to it
+///    within ten percent (a payout split across transfers);
+///  * else, when [band] (an estimate not yet split into legs), the receive
+///    closest in time within half to five quarters of the figure: a first
+///    leg of a split payout settles the row and the rest follows it
+///    (the link keeps the figure it was matched against);
+///  * with no figure, the receive closest in time.
+///
+/// Null when nothing qualifies. Pure, so the reconciler and its tests read
+/// the same answer.
+List<SparkTransaction>? reconcilerDeliveryLegs({
+  required int targetSats,
+  required DateTime rowAt,
+  required List<SparkTransaction> receives,
+  bool band = true,
+}) {
+  final candidates = [
+    for (final rx in receives)
+      if (rx.amountSats > 0 &&
+          !rx.timestamp.isBefore(rowAt.subtract(const Duration(minutes: 2))) &&
+          !rx.timestamp.isAfter(rowAt.add(kOwnDeliveryArrivalWindow)))
+        rx,
+  ];
+  if (candidates.isEmpty) return null;
+  int deltaOf(SparkTransaction rx) =>
+      rx.timestamp.difference(rowAt).inMilliseconds.abs();
+  SparkTransaction? closest(bool Function(SparkTransaction rx) ok) {
+    SparkTransaction? best;
+    for (final rx in candidates) {
+      if (!ok(rx)) continue;
+      if (best == null || deltaOf(rx) < deltaOf(best)) best = rx;
+    }
+    return best;
+  }
+
+  if (targetSats <= 0) {
+    final any = closest((_) => true);
+    return any == null ? null : [any];
+  }
+  final tight = tightDeliveryTolerance(targetSats);
+  SparkTransaction? exact;
+  var exactDiff = 0;
+  for (final rx in candidates) {
+    final diff = (rx.amountSats - targetSats).abs();
+    if (diff > tight) continue;
+    if (exact == null ||
+        diff < exactDiff ||
+        (diff == exactDiff && deltaOf(rx) < deltaOf(exact))) {
+      exact = rx;
+      exactDiff = diff;
+    }
+  }
+  if (exact != null) return [exact];
+  final set = matchDeliveryLegSet(
+      targetSats, math.max(1, (targetSats * 0.10).round()), candidates,
+      from: rowAt);
+  if (set != null) return set;
+  if (!band) return null;
+  final inBand = closest((rx) {
+    final ratio = rx.amountSats / targetSats;
+    return ratio >= 0.5 && ratio <= 1.25;
+  });
+  return inBand == null ? null : [inBand];
 }
