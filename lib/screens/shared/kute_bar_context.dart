@@ -186,6 +186,7 @@ class KuteBarContext {
     this.busyLabel,
     this.disabledLabel,
     this.style,
+    this.clip = 'idle',
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -193,7 +194,6 @@ class KuteBarContext {
   })  : question = null,
         kind = KuteBarKind.primaryAction,
         sublabel = null,
-        clip = 'idle',
         actions = const [],
         prompts = const [],
         hidden = false,
@@ -256,7 +256,9 @@ class KuteBarContext {
   final String label;
   final String? sublabel;
 
-  /// Sal's clip in the bar: `search`, or `share` on a market or position.
+  /// Sal's clip in the bar: `search`, or `share` on a market or position;
+  /// on a primary button the clip while it takes a tap (`idle`, `happy` on
+  /// a result sheet's Done).
   final String clip;
   final List<KuteBarAction> actions;
 
@@ -300,6 +302,7 @@ class KuteBarContext {
           busyLabel: busyLabel,
           disabledLabel: disabledLabel,
           style: style,
+          clip: clip,
           category: category,
           searchHint: searchHint,
           source: source,

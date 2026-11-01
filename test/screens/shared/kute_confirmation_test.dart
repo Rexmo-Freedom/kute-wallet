@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -10,6 +11,8 @@ import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 const _scrimKey = ValueKey('kute-confirmation-scrim');
 
 Widget _app({
@@ -19,7 +22,10 @@ Widget _app({
   bool reduceMotion = false,
   double textScale = 1.0,
 }) {
-  return ScreenUtilInit(
+  // The sheet's Done is the shell bar (kute_bar_test_support.dart): the
+  // app's layering, the bar over the navigator.
+  return ProviderScope(
+      child: ScreenUtilInit(
     designSize: const Size(430, 932),
     builder: (_, __) => MaterialApp(
       navigatorKey: navigatorKey,
@@ -32,11 +38,11 @@ Widget _app({
         data: MediaQuery.of(context).copyWith(
             disableAnimations: reduceMotion,
             textScaler: TextScaler.linear(textScale)),
-        child: child!,
+        child: withKuteShellBar(context, child),
       ),
       home: home ?? const Scaffold(body: Text('host')),
     ),
-  );
+  ));
 }
 
 Finder _markPaint() => find.descendant(
@@ -103,7 +109,7 @@ void main() {
     final amount = tester.getRect(find.text(r'$5.00 on Yes'));
     final context = tester.getRect(find.text('Will it rain?'));
     final shares = tester.getRect(find.text('Shares'));
-    final done = tester.getRect(find.widgetWithText(AppButton, 'Done'));
+    final done = tester.getRect(kuteBarPrimaryWithText('Done'));
     final view = tester.getRect(find.text('View prediction'));
 
     // Header row: mark, title, Sal on the right, vertically centred.
@@ -117,8 +123,9 @@ void main() {
     expect(amount.top, greaterThan(mark.bottom));
     expect(context.top, greaterThanOrEqualTo(amount.bottom));
     expect(shares.top, greaterThan(context.bottom));
-    expect(done.top, greaterThan(shares.bottom));
-    expect(view.top, greaterThan(done.bottom));
+    // The quiet secondary above the bar, which is the sheet's Done.
+    expect(view.top, greaterThan(shares.bottom));
+    expect(done.top, greaterThan(view.bottom));
     // The amount is the largest text on the sheet.
     expect(tester.widget<Text>(find.text(r'$5.00 on Yes')).style!.fontSize,
         greaterThan(30));
@@ -197,7 +204,7 @@ void main() {
     expect(haptics, 0);
     expect(find.text('25,000 sats'), findsOneWidget);
     expect(find.text('Nothing left your wallet.'), findsOneWidget);
-    expect(find.widgetWithText(AppButton, 'Try again'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Try again'), findsOneWidget);
     // The sad pose never swings the tail up the way the wag does.
     for (var ms = 0.0;
         ms < KuteDogConfirmation.totalMs(KuteDogMood.sad);
@@ -352,8 +359,8 @@ void main() {
 
     testWidgets('Done tapped twice runs once', (tester) async {
       final (_, calls) = await present(tester);
-      await tester.tap(find.widgetWithText(AppButton, 'Done'));
-      await tester.tap(find.widgetWithText(AppButton, 'Done'),
+      await tester.tap(kuteBarPrimaryWithText('Done'));
+      await tester.tap(kuteBarPrimaryWithText('Done'),
           warnIfMissed: false);
       await tester.pumpAndSettle();
       expect(calls, ['done']);
@@ -367,9 +374,9 @@ void main() {
       home: KuteConfirmation(message: 'Prediction placed', onDone: () => done++),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pump();
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pump();
     expect(done, 2);
   });
@@ -464,7 +471,7 @@ void main() {
     expect(find.text('send screen'), findsNothing);
     expect(find.text('host'), findsOneWidget);
 
-    await tester.tap(find.byType(AppButton));
+    await tester.tap(kuteBarPrimary);
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -567,14 +574,14 @@ void main() {
     final scrollable = find.byType(Scrollable);
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(0));
-    final button = tester.getRect(find.byType(AppButton));
+    final button = tester.getRect(kuteBarPrimary);
     expect(button.bottom, lessThanOrEqualTo(568));
 
     position.jumpTo(position.maxScrollExtent);
     await tester.pumpAndSettle();
     final detailRect = tester.getRect(detailFinder);
     expect(detailRect.bottom, lessThanOrEqualTo(button.top));
-    expect(tester.getRect(find.byType(AppButton)), button);
+    expect(tester.getRect(kuteBarPrimary), button);
 
     // Scrolled back up, the title is reachable inside the screen.
     position.jumpTo(0);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -7,6 +8,8 @@ import 'package:kute/screens/hyperliquid/components/order_placed_overlay.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/services/hyperliquid/hl_position_effect.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/kute_bar_test_support.dart';
 
 HlPerpPosition _held(double szi) => HlPerpPosition(
       coin: 'BTC',
@@ -66,16 +69,18 @@ void main() {
     HlPositionPlan? plan,
     double? realizedPnl,
   }) async {
-    await tester.pumpWidget(ScreenUtilInit(
+    await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         navigatorKey: rootKey,
         theme: buildLightTheme(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // Done is the shell bar over the navigator.
+        builder: withKuteShellBar,
         home: const Scaffold(body: Text('host')),
       ),
-    ));
+    )));
     pushHlOrderPlacedOverlay(
       navigator: rootKey.currentState!,
       coin: 'BTC',

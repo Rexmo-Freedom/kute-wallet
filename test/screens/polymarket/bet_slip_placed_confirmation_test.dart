@@ -16,6 +16,8 @@ import 'package:kute/services/polymarket/polymarket_fee_terms.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 void main() {
   tearDown(() => KuteConfirmation.debugFeedbackOverride = null);
 
@@ -35,15 +37,17 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(ScreenUtilInit(
+    await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp.router(
         routerConfig: router,
         theme: buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // Done is the shell bar over the navigator.
+        builder: withKuteShellBar,
       ),
-    ));
+    )));
     await tester.pumpAndSettle();
 
     final nav = rootKey.currentState!;
@@ -144,6 +148,8 @@ void main() {
                 .copyWith(splashFactory: NoSplash.splashFactory),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
+            // Done is the shell bar over the navigator.
+            builder: withKuteShellBar,
           ),
         ),
       ));
@@ -249,16 +255,18 @@ void main() {
       (tester) async {
     KuteConfirmation.debugFeedbackOverride = () async {};
     final rootKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(ScreenUtilInit(
+    await tester.pumpWidget(ProviderScope(child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
         navigatorKey: rootKey,
         theme: buildLightTheme().copyWith(splashFactory: NoSplash.splashFactory),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // Done is the shell bar over the navigator.
+        builder: withKuteShellBar,
         home: const Scaffold(body: Text('predictions')),
       ),
-    ));
+    )));
     await tester.pumpAndSettle();
     const terms = PolymarketFeeTerms(
         rate: 0.03, exponent: 1, builderTakerBps: 20, builderMakerBps: 0);

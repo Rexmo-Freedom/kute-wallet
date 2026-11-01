@@ -928,8 +928,8 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
             ),
           )
         : SalReactionSprite(
-            key: ValueKey('primary-sal-${enabled ? 'idle' : 'curious'}'),
-            clip: enabled ? 'idle' : 'curious',
+            key: ValueKey('primary-sal-${enabled ? ctx.clip : 'curious'}'),
+            clip: enabled ? ctx.clip : 'curious',
             size: KuteBarPrimaryButton.salSize,
             fallback: fallbackIcon,
           );
