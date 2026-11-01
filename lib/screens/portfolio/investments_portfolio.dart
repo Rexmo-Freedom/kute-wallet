@@ -248,7 +248,17 @@ class _Charts extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venues = ref.watch(portfolioVenuesProvider);
+    // Under the Portfolio screen's strip: the sections' one empty state
+    // (portfolio_empty_state.dart), where Portfolio and Activity put
+    // theirs.
+    final sectionEmpty = showPills
+        ? null
+        : PortfolioSectionEmptyPage(
+            key: const ValueKey('statistics-chart-empty'),
+            title: context.l10n.pnlNoHistoryTitle,
+            tagline: PortfolioSectionTagline.pnl);
     if (!venues.any) {
+      if (sectionEmpty != null) return sectionEmpty;
       return CustomScrollView(slivers: [
         if (showPills) _pillsSliver(pills),
         SliverFillRemaining(
@@ -260,6 +270,7 @@ class _Charts extends ConsumerWidget {
       trading: venues.trading,
       predictions: venues.predictions,
       orders: PortfolioOrdersBook.watch(ref, venues),
+      sectionEmpty: sectionEmpty,
       header: showPills
           ? Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills)
           : SizedBox(height: 4.h),
@@ -314,8 +325,10 @@ class _Balances extends ConsumerWidget {
 }
 
 /// Activity: the whole merged list, on Home's day cards; its shimmer
-/// rows while the Investing history is on its way; the app's "no
-/// transactions" line when there is nothing.
+/// rows while the Investing history is on its way; with nothing, the
+/// sections' one empty state under the Portfolio screen's strip ("No
+/// activity yet", PortfolioSectionEmptyPage), the app's "no transactions"
+/// line elsewhere.
 class _Activity extends ConsumerWidget {
   const _Activity({required this.pills, this.showPills = true});
 
@@ -340,6 +353,13 @@ class _Activity extends ConsumerWidget {
             count: 3,
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h)),
       );
+    } else if (!showPills) {
+      // Under the Portfolio screen's strip: the sections' one empty state
+      // (portfolio_empty_state.dart), never the pixel Sal.
+      return PortfolioSectionEmptyPage(
+          key: const ValueKey('portfolio-activity-empty'),
+          title: context.l10n.portfolioActivityEmpty,
+          tagline: PortfolioSectionTagline.activity);
     } else {
       body = SliverToBoxAdapter(child: buildNoTransactionsFound(context));
     }

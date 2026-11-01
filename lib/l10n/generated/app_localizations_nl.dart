@@ -11514,6 +11514,21 @@ class AppLocalizationsNl extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Nog geen winst/verlies';
 
   @override
+  String get portfolioActivityEmpty => 'No activity yet';
+
+  @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get pnlStatRealised => 'Realised';
+
+  @override
+  String get pnlStatUnrealised => 'Unrealised';
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
   String get portfolioAllTime => 'Altijd';
 
   @override

@@ -202,7 +202,13 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.footer = const [],
     this.footerEmpty = true,
     this.header,
+    this.sectionEmpty,
   });
+
+  /// The whole page when the account never traded, in place of the header
+  /// and the centred empty state: the Portfolio screen's sections' one
+  /// empty state (PortfolioSectionEmptyPage, portfolio_empty_state.dart).
+  final Widget? sectionEmpty;
 
   /// The venues on the account (portfolio_filters.dart).
   final bool trading;
@@ -344,7 +350,7 @@ class _PortfolioStatisticsOverviewState
       orders: widget.orders,
       footerEmpty: widget.footerEmpty,
       page: _page,
-      emptyPage: _emptyPage,
+      emptyPage: (empty) => widget.sectionEmpty ?? _emptyPage(empty),
     );
   }
 }

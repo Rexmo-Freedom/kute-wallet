@@ -90,8 +90,10 @@
 //     ("INVESTING · 2", 11, w600, the quiet colour, 0.6 of tracking),
 //     each venue ONE soft card of position rows (3 + See all), 12
 //     between groups, a venue with nothing open left out; nothing open
-//     anywhere: Sal (`body_hero` at 96) right under the strip, "No open
-//     positions" and the tagline, no void.
+//     anywhere: the sections' one empty state (PortfolioSectionEmpty,
+//     portfolio_empty_state.dart: the hero Sal at 160, "No open
+//     positions" and the tagline), where P&L Charts and Activity put
+//     theirs.
 //
 // Nothing shifts under a live price: every figure is tabular, no
 // AnimatedSize wraps a live value.
@@ -101,7 +103,6 @@
 // `portfolio_venue_positions_expanded` {venue: predictions | investing,
 // open} (a venue's See all / Show less).
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,6 +120,7 @@ import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -143,9 +145,6 @@ const double kBalancesRingThickness = 5;
 /// The Portfolio screen's hero ring (see the file header).
 const double kBalancesSharesRingDiameter = 150;
 const double kBalancesSharesRingThickness = 14;
-
-/// Sal's size in the Portfolio screen's empty state, under the strip.
-const double kBalancesEmptySal = 96;
 
 /// How many of a venue's open rows its card lists before "See all".
 const int kBalancesVenueRowsShown = 3;
@@ -807,16 +806,14 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 : venueEmpty(BalancesCategory.predictions, predictions) &&
                     venueEmpty(BalancesCategory.investing, investing))) ...[
           _emptyShownOnce(),
-          // The Portfolio screen: Sal right under the strip, no void.
+          // The Portfolio screen: the sections' one empty state, Sal at
+          // the same place as on P&L Charts and Activity (the 18 gap above
+          // and the list's 4 inset make kPortfolioSectionEmptyTop).
           if (widget.sharesHeader)
-            NoActivityState(
+            PortfolioSectionEmpty(
                 key: const ValueKey('portfolio-balance-no-positions'),
-                padding: EdgeInsets.zero,
                 title: l10n.portfolioNoOpenPositions,
-                cycles: 3,
-                compact: true,
-                salSize: kBalancesEmptySal,
-                titleSize: 15)
+                tagline: PortfolioSectionTagline.portfolio)
           else
             Padding(
               key: const ValueKey('portfolio-balance-no-positions'),
