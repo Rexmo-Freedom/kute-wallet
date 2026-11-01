@@ -37,6 +37,7 @@ import 'package:kute/screens/receive/receive_sheet.dart'
     show showOtherCoinsReceiveSheet;
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/jade_device_picker.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
@@ -1969,12 +1970,21 @@ class _EditUsernameModalSheetState
                       ),
                     ),
                   SizedBox(height: 24.h),
-                  AppButton(
-                    onPressed: _isLoading ? null : _submitEditUsername,
-                    text: context.l10n.saveChanges,
-                    isLoading: _isLoading,
+                  // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                  // kute_bar_context.dart, KuteBarContext.primary): Save
+                  // changes is the shell bar, riding above the keyboard
+                  // while the handle is typed, busy while the save runs;
+                  // the box keeps the field and its error clear of it.
+                  KuteBarContextScope(
+                    barContext: KuteBarContext.primary(
+                      label: context.l10n.saveChanges,
+                      onPrimary: _submitEditUsername,
+                      enabled: !_isLoading,
+                      busy: _isLoading,
+                      source: 'edit_lightning_address',
+                    ),
+                    child: SizedBox(height: kuteBarScrollClearance.h),
                   ),
-                  SizedBox(height: 16.h),
                 ],
               ),
             ),
