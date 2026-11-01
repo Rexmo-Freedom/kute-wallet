@@ -96,10 +96,11 @@ import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/powered_by_badge.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart';
+import 'package:kute/screens/shared/send/send_contacts_list.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/services/contacts/send_contacts_service.dart'
-    show SendContact, sendContactInitials, sendContactsProvider;
+    show SendContact, sendContactsProvider;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart';
@@ -7696,30 +7697,50 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     );
   }
 
-  /// "Recent" as circles: the Lightning addresses this wallet paid, the
-  /// first letter in the circle, the address under it. [query] (the
-  /// field's text while it is not yet a destination) filters them.
-  List<SendRecentItem> _recentItems(List<RecentRecipient> recents) => [
+  /// The recents as Contacts entries (send_contacts_list.dart): the name
+  /// part of a Lightning address ("alice" for alice@getalby.com) over the
+  /// address, or the address shortened; the Kute or ⚡ badge by the
+  /// address.
+  List<SendPerson> _recentPeople(List<RecentRecipient> recents) => [
         for (final r in recents)
-          SendRecentItem(
-            id: r.address,
-            // The name part of a Lightning address ("alice" for
-            // alice@getalby.com); an invoice or address shortened.
-            label: r.address.contains('@')
+          SendPerson.recent(
+            address: r.address,
+            name: r.address.contains('@')
                 ? r.address.split('@').first
                 : sendShortAddress(r.address),
-            initials: r.address.contains('@')
-                ? sendContactInitials(r.address.split('@').first)
-                : null,
+            secondary:
+                r.address.contains('@') ? r.address : null,
             icon: r.address.contains('@') ? null : Icons.bolt_rounded,
-            onTap: () {
-              trackSendRecipientPicked('recent');
-              _commitPastedAddress(r.address, method: 'contacts');
-            },
           ),
       ];
 
-  /// A contact picked from the "Send to a friend" row: Send to anyone for
+  /// A Contacts entry tapped: an address is paid directly (filled and on
+  /// to the amount, as a recent always was); a plain contact starts the
+  /// claim link to its number.
+  void _onPerson(SendPerson person) {
+    if (person.direct) {
+      trackSendRecipientPicked(person.contact != null ? 'contact' : 'recent');
+      _commitPastedAddress(person.address!, method: 'contacts');
+      return;
+    }
+    final contact = person.contact;
+    if (contact != null) unawaited(_pickContact(contact));
+  }
+
+  /// "Send a link to +351…": a typed number no contact has, the claim
+  /// link to it with no name.
+  Future<void> _sendLinkToPhone(String phone) async {
+    trackSendRecipientPicked('phone');
+    final created = await showSendToAnyoneSheet(
+      context,
+      kind: ShareLinkKind.bitcoin,
+      recipientPhone: phone,
+      entrySource: 'bitcoin_send_phone',
+    );
+    if (created == true && mounted) _closeAndReset();
+  }
+
+  /// A plain contact picked from the Contacts list: Send to anyone for
   /// bitcoin with the first name as the link's label and the number kept
   /// in the local row (send_contacts_service.dart). A created link closes
   /// the send: the money is on the link now.
@@ -7731,17 +7752,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       senderLabel: contact.firstName,
       recipientPhone: contact.phone,
       entrySource: 'bitcoin_send_contact',
-    );
-    if (created == true && mounted) _closeAndReset();
-  }
-
-  /// "Someone else" in the contacts picker: the plain Send to anyone
-  /// sheet, the name typed there. A created link closes the send too.
-  Future<void> _sendToSomeoneElse() async {
-    final created = await showSendToAnyoneSheet(
-      context,
-      kind: ShareLinkKind.bitcoin,
-      entrySource: 'bitcoin_send',
     );
     if (created == true && mounted) _closeAndReset();
   }
@@ -7856,9 +7866,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   }
 
   /// The recipient-first Send to step (send_recipient_step.dart): the
-  /// search field, the destination it holds resolved as one row, the
-  /// contacts matching a typed name under it, Recent and the Send to card
-  /// ("Send to a friend", "Also sends to").
+  /// search field (everything it took before: Lightning addresses of any
+  /// domain, LNURL, invoices, bitcoin and Spark addresses, @user, Paste
+  /// and Scan), the destination it holds resolved as one row FIRST, then
+  /// the Contacts list filtered by the text (send_contacts_list.dart:
+  /// recents and the phone's contacts, one list), and the Send to card
+  /// ("Also sends to").
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7907,13 +7920,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           _selectedDestNetwork?.network.toLowerCase() == 'lightning';
       showSignerWarning = isLnLike && !dstIsLightning;
     }
-    // While the field is not a destination it is a search: it filters
-    // the recents and the contacts by name or number.
-    final query = resolved || needsPick ? '' : addr;
-    final recents = [
-      for (final item in _recentItems(_recentRecipients()))
-        if (item.matches(query)) item
-    ];
+    // The field's text filters the Contacts list, whatever it is: a
+    // resolved destination shows its row first and the matching entries
+    // (its own recent, a contact with that address) under it.
+    final query = needsPick ? '' : addr;
+    final recentPeople = _recentPeople(_recentRecipients());
     final bitcoinDestination = resolved &&
         (detected.label == 'Bitcoin on-chain' ||
             detected.label == 'Lightning invoice' ||
@@ -7959,10 +7970,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
-          // The phone book's matches for a typed name or number, inline
-          // under the field (a link to a friend's phone, from the spending
-          // wallet); nothing while the field is empty or a destination.
-          if (hot) SendContactMatches(query: query, onPick: _pickContact),
           if (resolved) ...[
             SizedBox(height: 12.h),
             SendResolvedRow(
@@ -8010,13 +8017,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
-          // Recent: the people and addresses this wallet paid, filtered by
-          // what is typed. Gone once the field is a destination.
-          if (!resolved && !needsPick && recents.isNotEmpty) ...[
-            SizedBox(height: 20.h),
-            SendSectionLabel(context.l10n.sendRecentRecipients),
-            SendRecentCircles(items: recents),
-          ],
+          // Contacts (founder, 1 November 2026, Revolut's one list): the
+          // recents and the phone's contacts, filtered by what is typed,
+          // under the resolved row; never in the way of address entry. A
+          // link needs the spending wallet: hot sources only.
+          if (hot && !needsPick)
+            SendContactsSection(
+              query: query,
+              recents: recentPeople,
+              onPerson: _onPerson,
+              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
+            ),
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
             SendSectionLabel(context.l10n.sendToLabel),
@@ -8027,11 +8038,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               // is pending, so this card is the only forward path.
               emphasized: needsPick,
               rows: [
-                if (hot && !needsPick)
-                  SendToFriendRow(
-                    onPick: _pickContact,
-                    onSomeoneElse: () => unawaited(_sendToSomeoneElse()),
-                  ),
                 if (hot) _crossChainRow(c, looksLikeAddress ? addr : ''),
               ],
             ),
