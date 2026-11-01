@@ -379,7 +379,8 @@ void main() {
         find.descendant(
             of: find.byType(RequestAmountSheet),
             matching: find.text(_l10n.receiveRequestAmount)),
-        findsOneWidget);
+        findsNothing,
+        reason: 'no title on the Request amount sheet');
     // Its Create request is the bar (shell_bar_harness.dart), declared by
     // the sheet and drawn once the bar has taken the context.
     await pumpBar(tester);

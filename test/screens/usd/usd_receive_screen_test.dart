@@ -16,6 +16,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/amount_keypad_panel.dart'
+    show BigAmountDisplay;
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_model.dart';
@@ -371,7 +373,8 @@ void main() {
         find.descendant(
             of: find.byType(RequestAmountSheet),
             matching: find.text(_l10n.receiveRequestAmount)),
-        findsOneWidget);
+        findsNothing,
+        reason: 'no title on the Request amount sheet');
     // Dollars only: the unit chip names USD and has no picker.
     expect(find.byIcon(Icons.unfold_more_rounded), findsNothing);
     final selected =
@@ -393,13 +396,13 @@ void main() {
     expect(amountClose, findsOneWidget);
     expect(tester.getCenter(amountClose).dx,
         lessThan(tester.getCenter(find.byType(RequestAmountSheet)).dx));
-    // Over the heading, in the receive sheets' header row.
+    // Over the amount, in the receive sheets' header row.
     expect(
         tester.getCenter(amountClose).dy,
         lessThan(tester
             .getTopLeft(find.descendant(
                 of: find.byType(RequestAmountSheet),
-                matching: find.text(_l10n.receiveRequestAmount)))
+                matching: find.byType(BigAmountDisplay)))
             .dy));
     await tester.tap(amountClose);
     await tester.pumpAndSettle();

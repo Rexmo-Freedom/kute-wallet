@@ -150,7 +150,8 @@ void main() {
     expect(sheet.fixedCurrency, isNull);
     expect(sheet.minimumLabel, isNull);
     expect(sheet.validate, isNull);
-    expect(find.text(_l10n.receiveRequestAmount), findsOneWidget);
+    // No title: the person already knows what the sheet is for.
+    expect(find.text(_l10n.receiveRequestAmount), findsNothing);
     expect(find.byIcon(Icons.unfold_more_rounded), findsOneWidget);
     expect(_onCreate(tester), isNull);
     // Off, the bar says the step to take (founder, 1 November 2026).
