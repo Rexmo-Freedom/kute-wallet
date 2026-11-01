@@ -26,8 +26,17 @@
 // no contact has offers "Send a link to +351…" ([onPhoneLink]).
 //
 // THE FIELD KEEPS EVERYTHING IT DOES (founder): this list is added UNDER
-// it and never stands in for address entry; the flows show their resolved
-// destination row first and the list under it.
+// it and never stands in for address entry.
+//
+// ONE RECIPIENT CARD (founder, 1 November 2026: the resolved state "must
+// be more fintech", Revolut-style). Once the field resolves to a
+// destination the flows show [SendRecipientCard], "Sending to": the
+// person's avatar with its badge (the rail's mark when nobody known), the
+// name (the contact's, else the recent's label, else the shortened
+// address, [sendRecipientName]), the full address under it and the rail
+// as a chip; "Change" clears it. The person is never listed twice: the
+// list below drops them ([SendContactsSection.excludeAddress]) and, with
+// anyone left, reads "Other contacts".
 //
 // With no contacts (not granted, or an empty book) the recents keep their
 // circles row ([SendRecentCircles]); with contacts everything is the one
@@ -177,6 +186,42 @@ List<SendPerson> sendPeople({
   ];
 }
 
+/// An address as the recipient match compares it: trimmed, lowercased,
+/// without a `lightning:` scheme.
+String sendAddressKey(String? address) {
+  var a = address?.trim().toLowerCase() ?? '';
+  if (a.startsWith('lightning:')) a = a.substring('lightning:'.length);
+  return a;
+}
+
+/// Who a resolved destination belongs to: a phone contact with that
+/// address first (its name and photo), else a recent recipient; null when
+/// nobody known has it.
+SendPerson? sendMatchingPerson(
+  String address, {
+  required List<SendPerson> recents,
+  required List<SendContact> contacts,
+}) {
+  final key = sendAddressKey(address);
+  if (key.isEmpty) return null;
+  for (final ct in contacts) {
+    if (sendAddressKey(ct.lightningAddress) == key) {
+      return SendPerson.contact(ct);
+    }
+  }
+  for (final r in recents) {
+    if (sendAddressKey(r.address) == key) return r;
+  }
+  return null;
+}
+
+/// The recipient card's name: the contact's, else the recent's label,
+/// else the shortened address.
+String sendRecipientName(SendPerson? match, String address) {
+  final name = match?.name.trim() ?? '';
+  return name.isNotEmpty ? name : sendShortAddress(address.trim());
+}
+
 /// The Contacts section under a send's search field (see the file
 /// header).
 class SendContactsSection extends ConsumerWidget {
@@ -186,10 +231,17 @@ class SendContactsSection extends ConsumerWidget {
     required this.recents,
     required this.onPerson,
     required this.onPhoneLink,
+    this.excludeAddress,
   });
 
   /// What the field holds (filters the list).
   final String query;
+
+  /// The chosen recipient's address, while the field holds a resolved
+  /// destination: that person is left out (the recipient card shows
+  /// them), the field no longer filters (it holds an address, not a
+  /// search), and the list reads "Other contacts".
+  final String? excludeAddress;
   final List<SendPerson> recents;
   final ValueChanged<SendPerson> onPerson;
 
@@ -205,7 +257,15 @@ class SendContactsSection extends ConsumerWidget {
     final c = context.colors;
     final state = ref.watch(sendContactsProvider);
     final contacts = state.granted ? state.contacts : const <SendContact>[];
-    final phone = sendTypedPhone(query);
+    final chosenKey = sendAddressKey(excludeAddress);
+    final chosen = chosenKey.isNotEmpty;
+    // A recipient is chosen: the field holds its address, not a search.
+    final query = chosen ? '' : this.query;
+    bool kept(SendPerson p) =>
+        !chosen ||
+        (sendAddressKey(p.address) != chosenKey &&
+            sendAddressKey(p.contact?.lightningAddress) != chosenKey);
+    final phone = chosen ? null : sendTypedPhone(query);
     final phoneDigits = phone?.replaceAll(RegExp(r'\D'), '');
     final phoneKnown = phoneDigits != null &&
         contacts.any((ct) {
@@ -222,7 +282,7 @@ class SendContactsSection extends ConsumerWidget {
             onTap: () => onPhoneLink(phone),
           )
         : null;
-    final Widget? askRow = state.granted
+    final Widget? askRow = state.granted || chosen
         ? null
         : SendToListRow(
             key: const ValueKey('send-contacts-ask-row'),
@@ -247,7 +307,7 @@ class SendContactsSection extends ConsumerWidget {
     if (contacts.isEmpty) {
       final shown = [
         for (final r in recents)
-          if (r.matches(query)) r
+          if (r.matches(query) && kept(r)) r
       ];
       final rows = [
         if (phoneRow != null) phoneRow,
@@ -286,7 +346,7 @@ class SendContactsSection extends ConsumerWidget {
 
     final people = [
       for (final p in sendPeople(recents: recents, contacts: contacts))
-        if (p.matches(query)) p
+        if (p.matches(query) && kept(p)) p
     ];
     final rows = <Widget>[
       if (phoneRow != null) phoneRow,
@@ -307,7 +367,8 @@ class SendContactsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SendSectionLabel(l10n.sendContacts),
+          SendSectionLabel(
+              chosen ? l10n.sendOtherContacts : l10n.sendContacts),
           SendToListCard(
               key: const ValueKey('send-contacts-list'), colors: c, rows: rows),
         ],
@@ -419,4 +480,233 @@ class SendPersonBadgeDot extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Sending to": the one recipient card a resolved destination shows (see
+/// the file header). [railMark] stands in for the avatar when nobody known
+/// has the address; [rail] reads on the chip ("Lightning", "Bitcoin ·
+/// on-chain"); [onChange] clears the field. [onTap] is the bar's Continue.
+class SendRecipientCard extends ConsumerWidget {
+  const SendRecipientCard({
+    super.key,
+    required this.address,
+    required this.rail,
+    required this.railMark,
+    required this.recents,
+    required this.onChange,
+    this.onTap,
+  });
+
+  final String address;
+  final String rail;
+  final Widget railMark;
+  final List<SendPerson> recents;
+  final VoidCallback onChange;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final state = ref.watch(sendContactsProvider);
+    final contacts = state.granted ? state.contacts : const <SendContact>[];
+    final match =
+        sendMatchingPerson(address, recents: recents, contacts: contacts);
+    final name = sendRecipientName(match, address);
+    // The person's own avatar when it has a face (a photo, initials, a
+    // coin mark); otherwise the rail's mark, with the badge either way.
+    final hasFace = match != null &&
+        (match.photo != null || match.initials.isNotEmpty || match.mark != null);
+    final avatar = hasFace
+        ? match
+        : SendPerson(
+            id: 'recipient',
+            name: name,
+            mark: railMark,
+            badge: match?.badge ?? sendBadgeFor(address),
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SendSectionLabel(
+          l10n.sendRecipientSendingTo,
+          trailing: Semantics(
+            button: true,
+            child: GestureDetector(
+              key: const ValueKey('send-recipient-change'),
+              behavior: HitTestBehavior.opaque,
+              onTap: onChange,
+              child: Padding(
+                padding: EdgeInsets.only(left: 12.w),
+                child: Text(
+                  l10n.sendRecipientChange,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16.r),
+            onTap: onTap,
+            child: Container(
+              key: const ValueKey('send-recipient-card'),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+              decoration: BoxDecoration(
+                color: c.surfaceLight,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: c.borderSubtle, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  SendPersonAvatar(person: avatar, size: 44),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          name,
+                          key: const ValueKey('send-recipient-name'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 17.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        SizedBox(height: 2.h),
+                        SendMiddleEllipsisText(
+                          address.trim(),
+                          key: const ValueKey('send-recipient-address'),
+                          maxLines: 2,
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 120.w),
+                    child: Container(
+                      key: const ValueKey('send-recipient-rail'),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: c.textPrimary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Text(
+                        rail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// [text] whole when it fits [maxLines] at the width; otherwise its head
+/// and tail around an ellipsis ("bc1qar0s…f5mdq"), never cut at the end:
+/// an address is checked by both its ends.
+class SendMiddleEllipsisText extends StatelessWidget {
+  const SendMiddleEllipsisText(
+    this.text, {
+    super.key,
+    required this.style,
+    this.maxLines = 2,
+  });
+
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  /// The longest middle-ellipsised form of [text] that fits [maxLines] at
+  /// [maxWidth] (the text itself when it fits).
+  static String fit(
+    String text, {
+    required TextStyle style,
+    required double maxWidth,
+    required int maxLines,
+    required TextScaler textScaler,
+    TextDirection textDirection = TextDirection.ltr,
+  }) {
+    bool fits(String t) {
+      final p = TextPainter(
+        text: TextSpan(text: t, style: style),
+        textDirection: textDirection,
+        textScaler: textScaler,
+        maxLines: maxLines,
+      )..layout(maxWidth: maxWidth);
+      final over = p.didExceedMaxLines;
+      p.dispose();
+      return !over;
+    }
+
+    if (fits(text)) return text;
+    String cut(int keep) {
+      final head = (keep + 1) ~/ 2;
+      final tail = keep ~/ 2;
+      return '${text.substring(0, head)}\u2026'
+          '${text.substring(text.length - tail)}';
+    }
+
+    var lo = 0;
+    var hi = text.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) ~/ 2;
+      if (fits(cut(mid))) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return cut(lo);
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final shown = constraints.hasBoundedWidth
+              ? fit(
+                  text,
+                  style: DefaultTextStyle.of(context).style.merge(style),
+                  maxWidth: constraints.maxWidth,
+                  maxLines: maxLines,
+                  textScaler: MediaQuery.textScalerOf(context),
+                  textDirection: Directionality.of(context),
+                )
+              : text;
+          return Text(shown,
+              maxLines: maxLines, overflow: TextOverflow.clip, style: style);
+        },
+      );
 }

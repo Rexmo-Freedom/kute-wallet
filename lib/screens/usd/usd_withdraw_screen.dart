@@ -283,13 +283,17 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 onPaste: () => unawaited(_paste()),
                 onScan: () => unawaited(_scan()),
               ),
+              // One recipient card (founder: "more fintech"), the person
+              // never listed again below.
               if (auto != null) ...[
-                SizedBox(height: 12.h),
-                SendResolvedRow(
-                  leading: usdSendDestinationMark(auto, size: 28),
+                SizedBox(height: 20.h),
+                SendRecipientCard(
+                  railMark: usdSendDestinationMark(auto, size: 28),
                   address: resolved!,
                   rail: l10n.usdSendResolvedRail(
                       auto.chainDisplayName, auto.displaySymbol),
+                  recents: _recentPeople(offered),
+                  onChange: _clearRecipient,
                   onTap: () => unawaited(_openSend(auto, recipient: resolved)),
                 ),
               ] else if (match != null && match.candidates.length > 1) ...[
@@ -318,11 +322,16 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
               // The Send to card before Contacts (founder): a growing
               // list never pushes it out of sight; Contacts scroll on to
               // the bar's clearance.
-              SizedBox(height: 20.h),
-              SendSectionLabel(l10n.sendToLabel),
-              _sendToCard(c, offered),
+              // Hidden while a recipient is chosen: the card above is the
+              // choice.
+              if (auto == null) ...[
+                SizedBox(height: 20.h),
+                SendSectionLabel(l10n.sendToLabel),
+                _sendToCard(c, offered),
+              ],
               SendContactsSection(
                 query: text,
+                excludeAddress: resolved,
                 recents: _recentPeople(offered),
                 onPerson: (p) => _onPerson(p, offered),
                 onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
@@ -332,6 +341,14 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
         ),
       ),
     );
+  }
+
+  /// "Change" on the recipient card: the field empties and the Send to
+  /// card and the whole Contacts list come back.
+  void _clearRecipient() {
+    HapticFeedback.selectionClick();
+    _search.clear();
+    setState(() {});
   }
 
   /// The recent dollar recipients as Contacts entries: the short address

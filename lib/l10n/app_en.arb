@@ -7415,5 +7415,11 @@
   "passkeyChoiceWorksWithApple": "Works with Apple Passwords",
   "@passkeyChoiceWorksWithApple": {"description": "iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
   "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager",
-  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."}
+  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
+  "sendRecipientSendingTo": "Sending to",
+  "@sendRecipientSendingTo": {"description": "Send (Bitcoin and Dollars): the label over the recipient card once a typed, pasted or picked destination resolves."},
+  "sendRecipientChange": "Change",
+  "@sendRecipientChange": {"description": "Send: the small text button on the recipient card that clears the chosen recipient so another can be typed or picked."},
+  "sendOtherContacts": "Other contacts",
+  "@sendOtherContacts": {"description": "Send: the Contacts list header while a recipient is chosen; the chosen one is not repeated in it."}
 }

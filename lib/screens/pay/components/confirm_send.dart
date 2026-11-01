@@ -7747,6 +7747,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           ),
       ];
 
+  /// "Change" on the recipient card: the field empties, as if cleared by
+  /// hand, and the Send to card and the whole Contacts list come back.
+  void _clearRecipient() {
+    HapticFeedback.selectionClick();
+    addressController.clear();
+    ref.read(sendTxProvider.notifier).updateAddress('');
+    _revalidateDestForAddress('');
+    _addressEntryMethod = null;
+    setState(() {});
+  }
+
   /// A Contacts entry tapped: an address is paid directly (filled and on
   /// to the amount, as a recent always was); a plain contact starts the
   /// claim link to its number.
@@ -7968,7 +7979,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // the Spark hot wallet, never from a cold source. A friend's link is
     // a Spark link: the same source.
     final hot = !_isColdSource;
-    final showSendToCard = !bitcoinDestination && (hot || needsPick);
+    // Hidden while a recipient is chosen: the card above is the choice.
+    final showSendToCard =
+        !resolved && !bitcoinDestination && (hot || needsPick);
     // Scrollable so the matches, the card and the contacts never
     // overflow on a short screen or at a large text scale; the end clears
     // the floating bar.
@@ -8005,14 +8018,18 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
+          // One recipient card (founder: "more fintech"), the person
+          // never listed again below.
           if (resolved) ...[
-            SizedBox(height: 12.h),
-            SendResolvedRow(
-              leading: _selectedDestAsset != null
+            SizedBox(height: 20.h),
+            SendRecipientCard(
+              railMark: _selectedDestAsset != null
                   ? _selectedDestAsset!.iconWidget(size: 28.sp)
-                  : Icon(detected.icon, color: detected.color, size: 26.sp),
+                  : Icon(detected.icon, color: detected.color, size: 24.sp),
               address: addr,
               rail: _resolvedRailLabel(detected),
+              recents: recentPeople,
+              onChange: _clearRecipient,
             ),
           ],
           if (showSignerWarning) ...[
@@ -8076,6 +8093,7 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SendContactsSection(
               query: query,
               recents: recentPeople,
+              excludeAddress: resolved ? addr : null,
               onPerson: _onPerson,
               onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
             ),

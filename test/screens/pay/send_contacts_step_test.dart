@@ -290,6 +290,63 @@ void main() {
   });
 
   testWidgets(
+      'a resolved destination is ONE recipient card: the contact named, '
+      'not listed again, the Send to card hidden; Change brings both back',
+      (tester) async {
+    _gateway
+      ..permission = SendContactsPermission.granted
+      ..contacts = [
+        ...fakeContacts(),
+        const SendContact(
+            id: 'k1',
+            displayName: 'Joana Kute',
+            firstName: 'Joana',
+            phone: '+351 914 444 444',
+            lightningAddress: 'joana@paykute.com'),
+      ];
+    await _pump(tester);
+    expect(find.text(_l10n.sendToLabel), findsOneWidget);
+    await type(tester, 'joana@paykute.com');
+    final card = find.byKey(const ValueKey('send-recipient-card'));
+    expect(card, findsOneWidget);
+    expect(_text(_l10n.sendRecipientSendingTo), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('send-recipient-name')))
+            .data,
+        'Joana Kute');
+    expect(
+        find.descendant(
+            of: card, matching: find.byKey(const ValueKey('send-badge-kute'))),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('send-recipient-rail')),
+            matching: find.text(_l10n.sendRailLightning)),
+        findsOneWidget);
+    // Not twice: the list drops her and reads "Other contacts".
+    expect(find.byKey(const ValueKey('send-person-contact:k1')), findsNothing);
+    expect(person('c1'), findsOneWidget);
+    expect(_text(_l10n.sendOtherContacts), findsOneWidget);
+    expect(find.text(_l10n.sendToLabel), findsNothing);
+    // The bar stays Continue.
+    expect(kuteBarPrimaryEnabled(tester), isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('send-recipient-change')));
+    await tester.pumpAndSettle();
+    expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        isEmpty);
+    expect(card, findsNothing);
+    expect(find.text(_l10n.sendToLabel), findsOneWidget);
+    expect(_text(_l10n.sendContacts), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-person-contact:k1'),
+            skipOffstage: false),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'a typed number no contact has offers "Send a link to +…": Send to '
       'anyone for that number, no name', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
@@ -333,7 +390,7 @@ void main() {
       await _pump(tester);
       expect(person('c1'), findsOneWidget);
       await type(tester, text);
-      expect(find.byKey(const ValueKey('send-resolved-row')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-recipient-card')), findsOneWidget);
       expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
       expect(kuteBarPrimaryEnabled(tester), isTrue);
       expect(tester.takeException(), isNull);

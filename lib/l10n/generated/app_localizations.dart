@@ -20016,6 +20016,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Works with Google Password Manager'**
   String get passkeyChoiceWorksWithGoogle;
+
+  /// Send (Bitcoin and Dollars): the label over the recipient card once a typed, pasted or picked destination resolves.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending to'**
+  String get sendRecipientSendingTo;
+
+  /// Send: the small text button on the recipient card that clears the chosen recipient so another can be typed or picked.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get sendRecipientChange;
+
+  /// Send: the Contacts list header while a recipient is chosen; the chosen one is not repeated in it.
+  ///
+  /// In en, this message translates to:
+  /// **'Other contacts'**
+  String get sendOtherContacts;
 }
 
 class _AppLocalizationsDelegate
