@@ -152,7 +152,12 @@ abstract final class SalSpriteCache {
       final text = await rootBundle.loadString('$kSalSpriteDir/manifest.json');
       final json = jsonDecode(text);
       return json is Map<String, dynamic> ? json : null;
-    } catch (_) {
+    } catch (e) {
+      // Never fatal (the rig draws him), but never silent either: a
+      // device that shows the pixel Sal says why in its logs.
+      if (kDebugMode) {
+        debugPrint('SalSpriteCache: manifest not read ($e)');
+      }
       _manifest = null;
       return null;
     }
@@ -296,7 +301,13 @@ abstract final class SalSpriteCache {
       );
       _ready['$name@$density'] = clip;
       return clip;
-    } catch (_) {
+    } catch (e, st) {
+      // Never fatal (the site's fallback draws him), but never silent: a
+      // sheet that does not read on a device (missing from the bundle, a
+      // codec without webp, out of memory) says so in the logs.
+      if (kDebugMode) {
+        debugPrint('SalSpriteCache: $name@${density}x not decoded ($e)\n$st');
+      }
       _clips.remove('$name@$density');
       return null;
     }

@@ -903,6 +903,9 @@ class _Scene {
   /// His body's offset at the last paint (px, down), for the coin he
   /// carries; and the lines' words and states, for news while he waits.
   double salBob = 0;
+  // Whether the 3D clip drew him at the last paint (else the rig did):
+  // the coin he holds sits where that body's mouth and paws are.
+  bool salSprite = false;
   String linesSig = '';
 
   // The 3D clip he wears ([_paintSalSprite]): what he is doing (the
@@ -960,7 +963,13 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
   void initState() {
     super.initState();
     unawaited(_loadMarks());
-    unawaited(_warmSalClips());
+    // The sheets decode after the first paint: once they are in, one
+    // more frame puts the render on, even where the clock is not
+    // running (a finished record, Reduce Motion), else the rig would
+    // stay until something else repainted.
+    unawaited(_warmSalClips().then((_) {
+      if (mounted) setState(() {});
+    }));
     _sync(first: true);
   }
 
@@ -2467,6 +2476,31 @@ const List<String> _kSalJourneyClips = [
   ..._kSettleClips,
 ];
 
+/// Where the coin sits in a 3D clip's cell, in the rig's 16-unit box
+/// (the sheets' cells: x right, y down, his feet at 15): the coin's
+/// centre at his mouth, its top edge under the nose, so it reads as a
+/// ball held in the mouth with the eyes clear above it; null for a clip
+/// that cannot hold it (the head down on the trail or in the ground, or
+/// pacing about his spot), where it lies on the line at his paws
+/// ([_kSalPawsX]) instead. Measured on the v5 renders (the eyes'
+/// centroid; the coin, ~3 units across, centred ~3.8 under it); a
+/// re-render that moves the head moves these.
+Offset? _salMuzzleOf(String? clip) => switch (clip) {
+      'body_sit' => const Offset(7.9, 10.6),
+      'body_sit_down' => const Offset(8.5, 9.8),
+      'body_point' => const Offset(8.3, 8.8),
+      'body_think' => const Offset(8.3, 10.4),
+      'body_wag' => const Offset(7.7, 9.9),
+      'body_pace' || 'body_dig' || 'body_sniff_trail' => null,
+      // body_idle, body_walk, body_sad, body_shake_no, body_jump,
+      // body_sniff: standing, the head up.
+      _ => const Offset(7.5, 10.2),
+    };
+
+/// Where his paws are across the cell (the body's centre, x), for the
+/// coin set down on the line.
+const double _kSalPawsX = 7.6;
+
 /// The scenes between which a clip waits for its boundary before giving
 /// way: the parked moods. Into or out of a walk, a hop or a stop the
 /// switch is at once (he has moved, or stopped).
@@ -2829,8 +2863,18 @@ _SalFrame _salFrameOf(_Scene s, SalMood mood, double now) {
   final u = look.salSize / 16;
   final feet = y - 0.75;
   final r = look.coinR * _kHeldScale;
-  final mouth = Offset(x, feet - 4.5 * u + s.salBob);
-  final ground = Offset(x + 8 * u + 1 + r, feet - r);
+  // At the 3D body's muzzle and paws when a clip drew him (the body
+  // faces the viewer, so the coin sits on him, not beside him), else at
+  // the rig's (the rig faces right: the coin in front of its nose).
+  final muzzle = s.salSprite ? _salMuzzleOf(s.salClip) : null;
+  final ground = s.salSprite
+      ? Offset(x + (_kSalPawsX - 8) * u, feet - r)
+      : Offset(x + 8 * u + 1 + r, feet - r);
+  final mouth = !s.salSprite
+      ? Offset(x, feet - 4.5 * u + s.salBob)
+      : muzzle == null
+          ? ground
+          : Offset(x + (muzzle.dx - 8) * u, feet - (15 - muzzle.dy) * u);
   final mood = _moodOf(s, now);
   var at = switch (mood) {
     SalMood.sniff || SalMood.settle => ground,
@@ -3174,9 +3218,13 @@ class MoneyJourneyPainter extends CustomPainter {
   /// Whether Sal was walking at the last paint.
   bool get walking => _scene.salWalking;
 
-  /// The 3D clip Sal wore at the last paint (null while the rig draws
-  /// him), for the clip director's tests.
+  /// The 3D clip Sal wore at the last paint (the clip the director
+  /// chose; see [salSprite] for whether it was decoded and drew him),
+  /// for the clip director's tests.
   String? get salClip => _scene.salClip;
+
+  /// Whether a 3D clip drew him at the last paint (else the rig did).
+  bool get salSprite => _scene.salSprite;
 
   /// The id of the leg line the coin travels now, null once it rests at
   /// a station (`#stage` on the stage road of a list without a graph).
@@ -3346,18 +3394,35 @@ class MoneyJourneyPainter extends CustomPainter {
       pose = KuteDogPose(blink: kuteBlink(now % 4200, 3000));
     }
     s.salBob = (pose.bodyBob - pose.lift) * u;
-    final origin = Offset(x - 8 * u + (frame?.dx ?? 0), y - 0.75 - 15 * u);
     // THE 3D SAL (founder, 31 October 2026, "even on the deposit flow"):
     // the body clips in the rig's 16-unit box, by what he is doing: a
     // failure is sad, a success (and the hop of a step landing) wags,
     // walking and fetching walk, the sniff sniffs, settling sits down
     // then sits, the rest idles. Frame 0 under Reduce Motion. The journey
-    // around him is painted as ever; only the dog is the render. Until a
-    // sheet is decoded (or without one) the rig below draws him.
-    if (_paintSalSprite(canvas, s, origin, u, now,
-        still: still, walking: walking, mood: mood)) {
-      return;
+    // around him (the coin he carries first of all) is painted as ever;
+    // only the dog is the render: the clip moves him about his spot and
+    // bobs him itself, so the rig's pacing and bob are not added. Until
+    // a sheet is decoded (or without one) the rig below draws him.
+    final spriteOrigin = Offset(x - 8 * u, y - 0.75 - 15 * u);
+    s.salSprite = _paintSalSprite(canvas, s, spriteOrigin, u, now,
+        still: still, walking: walking, mood: mood);
+    if (s.salSprite) {
+      s.salBob = 0;
+    } else {
+      _paintSalRig(canvas, s, frame, pose, u,
+          origin: Offset(x - 8 * u + (frame?.dx ?? 0), y - 0.75 - 15 * u));
     }
+
+    // ── The coin ──
+    _paintCoin(canvas, s, now);
+  }
+
+  /// The pixel rig's Sal (until the sheets are decoded, or without
+  /// them), the sniff puffs and the "!" his ears put up with him.
+  void _paintSalRig(Canvas canvas, _Scene s, _SalFrame? frame,
+      KuteDogPose pose, double u,
+      {required Offset origin}) {
+    final look = s.look;
     if (frame != null && frame.lying) {
       paintKuteDogLying(canvas,
           origin: origin,
@@ -3390,8 +3455,11 @@ class MoneyJourneyPainter extends CustomPainter {
         canvas.drawRect(Rect.fromCenter(center: c, width: d, height: d), puff);
       }
     }
+  }
 
-    // ── The coin ──
+  void _paintCoin(Canvas canvas, _Scene s, double now) {
+    final look = s.look;
+    final still = s.still;
     final c = _coin(now);
     // Parked while a step runs (above a station, or held near the end of
     // its connector), it hovers ±1.5 px; the hover eases in and out so
