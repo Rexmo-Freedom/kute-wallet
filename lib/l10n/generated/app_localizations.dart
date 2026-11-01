@@ -19968,6 +19968,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manage with AI'**
   String get connectAiAction;
+
+  /// About a market sheet: the quiet line under the market description. {venue} is the exchange or builder name, {kind} is Perp or Spot.
+  ///
+  /// In en, this message translates to:
+  /// **'Traded on {venue} · {kind}'**
+  String hlAboutTradedOn(String venue, String kind);
+
+  /// About a market sheet, fallback description: the market's name with its ticker, e.g. 'Bitcoin (BTC)'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} ({ticker})'**
+  String hlAboutMarketLabel(String name, String ticker);
+
+  /// About a market sheet: the description when no curated text exists, for a market listed by a builder exchange on Hyperliquid. {kind} is a phrase like 'a stock-linked perpetual'.
+  ///
+  /// In en, this message translates to:
+  /// **'{market} · {kind} traded on {venue} via Hyperliquid.'**
+  String hlAboutFallbackBuilder(String market, String kind, String venue);
+
+  /// About a market sheet: the description when no curated text exists, for a market on Hyperliquid's own exchange. {kind} is a phrase like 'a spot token'.
+  ///
+  /// In en, this message translates to:
+  /// **'{market} · {kind} traded on Hyperliquid.'**
+  String hlAboutFallbackMain(String market, String kind);
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual on a crypto token'**
+  String get hlAboutKindCryptoPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a stock-linked perpetual'**
+  String get hlAboutKindStockPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a commodity-linked perpetual'**
+  String get hlAboutKindCommodityPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'an index-linked perpetual'**
+  String get hlAboutKindIndexPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a currency-pair perpetual'**
+  String get hlAboutKindFxPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual on a private company before its IPO'**
+  String get hlAboutKindPreIpoPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'an interest-rate perpetual'**
+  String get hlAboutKindRatesPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual'**
+  String get hlAboutKindPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token'**
+  String get hlAboutKindSpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking a stock'**
+  String get hlAboutKindStockSpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking a commodity'**
+  String get hlAboutKindCommoditySpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking an index'**
+  String get hlAboutKindIndexSpot;
 }
 
 class _AppLocalizationsDelegate

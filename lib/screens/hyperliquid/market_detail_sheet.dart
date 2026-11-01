@@ -94,6 +94,7 @@ import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_description.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_stats.dart';
 import 'package:kute/screens/hyperliquid/components/hl_tick_price.dart';
 import 'package:kute/screens/hyperliquid/components/hl_watch_star.dart';
@@ -715,6 +716,8 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
+        // The descriptions table is read while the sheet slides in.
+        ref.read(hlMarketDescriptionsProvider);
         // Once: a second tap while it slides in does not stack another.
         unawaited(OpenOnce.run(
             'hl-about:${m.wireCoin}',
@@ -758,13 +761,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
   }
 }
 
-/// The sheet behind the "About (name)" row: first the market's Stats
-/// (label / value pairs in two columns: 24h volume, open interest,
-/// funding, maximum leverage, mark, 24h high and low, spread), then what
-/// the market is and how it trades right now: the contract rows, the
-/// funding payer line and countdown, the stock notice, the order book and
-/// the recent trades. Its requests (the 24h candles, the book, the
-/// trades) only run while it is open.
+/// The sheet behind the "About (name)" row: first what the market is (its
+/// description, [hlMarketDescription], over the venue and kind), then its
+/// Stats (label / value pairs in two columns: 24h volume, open interest,
+/// funding, maximum leverage, mark, 24h high and low, spread), then how it
+/// trades right now: the position rows, the funding payer line and
+/// countdown, the stock notice, the order book and the recent trades. Its
+/// requests (the 24h candles, the book, the trades) only run while it is
+/// open. It scrolls clear of the floating bar.
 class _HlAboutSheet extends ConsumerWidget {
   final String title;
 
@@ -786,6 +790,13 @@ class _HlAboutSheet extends ConsumerWidget {
     final m = hlSheetMarket(ref, market);
     final position = this.position;
     final l10n = context.l10n;
+    // Null for the moment the bundled table is still being read: the
+    // description waits rather than flashing the template first.
+    final descriptions = ref.watch(hlMarketDescriptionsProvider);
+    final description = descriptions.isLoading && !descriptions.hasValue
+        ? null
+        : hlMarketDescription(
+            l10n, m, descriptions.valueOrNull ?? const <String, String>{});
 
     // 24h high/low from the fixed 1h × 24h candle window. Spot-pair
     // candles arrive in raw pair units: rescaled onto display units like
@@ -843,16 +854,43 @@ class _HlAboutSheet extends ConsumerWidget {
           ),
           Flexible(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 24.h),
+              // The last trades scroll clear of the floating bar.
+              padding:
+                  EdgeInsets.fromLTRB(20.w, 4.h, 20.w, kuteBarScrollClearance.h),
               child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // What it is: the description, then the venue and
+                      // the kind (Perp / Spot) on one quiet line.
+                      Column(
+                        key: const ValueKey('hl-about-what-it-is'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (description != null)
+                            Text(
+                              description,
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 15.sp,
+                                height: 1.4,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          SizedBox(height: 6.h),
+                          Text(
+                            l10n.hlAboutTradedOn(HlDexNames.venueOf(m),
+                                hlKindLabel(l10n, isSpot: m.isSpot)),
+                            style: TextStyle(
+                              color: c.textTertiary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20.h),
                       HlStatsSection(title: l10n.investingStats, stats: stats),
                       SizedBox(height: 12.h),
-                      SheetDetailRow(
-                        label: context.l10n.chartInstrument,
-                        value: hlKindLabel(context.l10n, isSpot: m.isSpot),
-                      ),
                       if (position != null) ...[
                         SheetDetailRow(
                             label: context.l10n.chartPositionSize,

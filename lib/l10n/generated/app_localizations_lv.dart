@@ -11889,4 +11889,61 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get connectAiAction => 'Manage with AI';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
 }
