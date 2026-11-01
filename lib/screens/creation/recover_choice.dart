@@ -25,6 +25,7 @@ import 'package:kute/providers/auth_provider.dart';
 import 'package:kute/providers/bitcoin_config_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/creation/passkey_prf_unsupported_sheet.dart';
 import 'package:kute/screens/creation/set_pin.dart'
     show recoveryModeProvider, trackOnboardingStep;
 import 'package:kute/services/hyperliquid/hyperliquid_onboarding_service.dart';
@@ -189,8 +190,38 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
   /// screen can say which wallet the OS prompt is for.
   String? _confirmingLabel;
 
+  /// Set by a lookup step whose passkey came back without the PRF key
+  /// (its password manager cannot hold a Kute wallet). The sheet opens
+  /// once the lookup has finished, so its "Try again" finds the button
+  /// free.
+  String? _prfMissingStage;
+
   Future<void> _handlePasskeyChoice({String trigger = 'tap'}) async {
     if (_checkingPasskey || _restoringPasskey) return;
+    _prfMissingStage = null;
+    await _lookUpPasskeyWallets(trigger: trigger);
+    final stage = _prfMissingStage;
+    _prfMissingStage = null;
+    if (stage == null || !mounted) return;
+    final action = await showPasskeyPrfUnsupportedSheet(
+      context,
+      variant: PasskeyPrfSheetVariant.restore,
+      stage: stage,
+    );
+    if (!mounted) return;
+    switch (action) {
+      case PasskeyPrfSheetAction.restoreWithPhrase:
+        _handleSeedChoice();
+      case PasskeyPrfSheetAction.tryAgain:
+        await _handlePasskeyChoice(trigger: 'prf_retry');
+      case PasskeyPrfSheetAction.useDefaultManager:
+      case PasskeyPrfSheetAction.usePhrase:
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _lookUpPasskeyWallets({required String trigger}) async {
     HapticFeedback.lightImpact();
     // [trigger] 'auto' is the lookup this screen runs once on entry.
     TrackingService.track('recover_choice_passkey_tapped',
@@ -222,6 +253,15 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
           if (mounted && _legacyCopies.isNotEmpty) {
             _showLabelPicker(const [], null, legacy: _legacyCopies);
           }
+          return;
+        }
+        // The passkey that answered lives in a password manager that
+        // returns no PRF key: nothing can be read from it, and the legacy
+        // probe would only ask again. Say so (after the lookup) and offer
+        // the recovery phrase. Nothing is stored or wiped.
+        if (PasskeyService.isPrfUnsupportedError(e)) {
+          _trackPasskeyRestoreFailed('lookup', e);
+          _prfMissingStage = 'restore_lookup';
           return;
         }
         // Any other new-SDK failure is non-fatal: fall through to legacy.
@@ -732,6 +772,35 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         _finishPasskeyRestore();
         return;
       }
+      if (PasskeyService.isPrfUnsupportedError(e)) {
+        // The wallet's passkey answered without its PRF key (a manager
+        // that drops it, or another manager picked in the sheet). Nothing
+        // was saved and nothing is wiped.
+        _trackPasskeyRestoreFailed('restore', e);
+        if (!mounted) return;
+        setState(() {
+          _restoringPasskey = false;
+          _confirmingLabel = null;
+        });
+        final action = await showPasskeyPrfUnsupportedSheet(
+          context,
+          variant: PasskeyPrfSheetVariant.signIn,
+          stage: 'restore_confirm',
+        );
+        if (!mounted) return;
+        switch (action) {
+          case PasskeyPrfSheetAction.tryAgain:
+            await _restoreFromPasskeys(labels,
+                credentialId: credentialId, trigger: 'prf_retry');
+          case PasskeyPrfSheetAction.restoreWithPhrase:
+            _handleSeedChoice();
+          case PasskeyPrfSheetAction.useDefaultManager:
+          case PasskeyPrfSheetAction.usePhrase:
+          case null:
+            break;
+        }
+        return;
+      }
       if (PasskeyService.isUserCancelledError(e)) {
         _trackPasskeyRestoreCancelled('restore');
       } else {
@@ -800,6 +869,10 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
         return;
       }
       _trackPasskeyRestoreFailed('legacy_probe', e);
+      if (PasskeyService.isPrfUnsupportedError(e)) {
+        _prfMissingStage = 'legacy_probe';
+        return;
+      }
       if (!mounted) return;
       showMessageSnackBar(
         context: context,
