@@ -20100,6 +20100,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'P&L'**
   String get activityTodayPnl;
+
+  /// Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.
+  ///
+  /// In en, this message translates to:
+  /// **'{asset} up or down · {minutes}m'**
+  String predictUpOrDownCompact(String asset, int minutes);
 }
 
 class _AppLocalizationsDelegate

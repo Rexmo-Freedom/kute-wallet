@@ -841,6 +841,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             child: CryptoPredictBanner(
               config: kCryptoPredictAssets.first,
               showLiveIndicator: true,
+              compact: true,
               onDeposit: () {
                 _openPredictionsDeposit(context, ref);
               },
@@ -1255,7 +1256,10 @@ class _CryptoCardOnScreenState extends ConsumerState<_CryptoCardOnScreen> {
   void _count(bool on) {
     if (on == _counted) return;
     _counted = on;
-    Future.microtask(() => _cards.state += on ? 1 : -1);
+    // The whole scope may be gone by then (the app torn down).
+    Future.microtask(() {
+      if (_cards.mounted) _cards.state += on ? 1 : -1;
+    });
   }
 
   @override
@@ -1290,6 +1294,15 @@ class CryptoPredictBanner extends ConsumerWidget {
   /// by default to keep the banner cleaner.
   final bool showLiveIndicator;
 
+  /// The Predictions browse's card (founder, 1 November 2026: the full
+  /// card stood ~600 px tall over the list): about 180 px, the same data
+  /// and actions in one header row (logo, title, past rounds as dots, the
+  /// countdown pill), one price row (live price, its move against the
+  /// target, the target), a 40 px sparkline with the dashed target line,
+  /// and the Up / Down pills with their odds ([_CompactCryptoCard]). The
+  /// market page keeps the full card.
+  final bool compact;
+
   const CryptoPredictBanner({
     super.key,
     required this.config,
@@ -1297,6 +1310,7 @@ class CryptoPredictBanner extends ConsumerWidget {
     this.ledgerWalletId,
     this.targetWindowEpoch,
     this.showLiveIndicator = false,
+    this.compact = false,
   });
 
   List<PolymarketOutcome> _eventOutcomes(Btc5MinEvent? event) {
@@ -1490,6 +1504,61 @@ class CryptoPredictBanner extends ConsumerWidget {
     // slug-derived window start + 5 min when Gamma omitted endDate.
     final DateTime? marketEndAt = event?.endDate ??
         event?.windowStartTime?.add(Duration(minutes: minutes));
+
+    // One slip door for both layouts.
+    void openSide(String side) {
+      final outcomes = _eventOutcomes(event);
+      final idx = outcomes.indexWhere((o) => o.name.toLowerCase() == side);
+      BetSlipSheet.show(context,
+          marketQuestion: event?.title ??
+              context.l10n.predictUpOrDown(config.asset, minutes),
+          marketSlug: event?.slug,
+          marketImage: event?.image,
+          outcomes: outcomes,
+          initialOutcomeIndex: idx >= 0 ? idx : 0,
+          // Required for the 5-minute USDC-only funding gate
+          // (isShortMarket): without it the slip offers a BTC swap
+          // that can't land before the window resolves.
+          marketEndAt: marketEndAt,
+          marketCategory: 'crypto',
+          onDeposit: onDeposit,
+          ledgerWalletId: ledgerWalletId,
+          source: 'crypto_banner');
+    }
+
+    if (compact) {
+      return _CryptoCardOnScreen(
+          child: LiveTokenScope(
+        tokens: [
+          if (upTokenId != null && upTokenId.isNotEmpty) upTokenId,
+          if (downTokenId != null && downTokenId.isNotEmpty) downTokenId,
+        ],
+        child: CryptoOddsScope(
+          token: upTokenId,
+          child: _CompactCryptoCard(
+            config: config,
+            title: context.l10n
+                .predictUpOrDownCompact(config.asset, minutes),
+            countdown: countdown,
+            pastResults: pastResults,
+            loading: isInitialLoading,
+            priceText: priceStr,
+            diffText: diffToBeat == null
+                ? null
+                : '${diffToBeat >= 0 ? '▲' : '▼'} '
+                    '${_formatDiff(diffToBeat.abs())}',
+            diffUp: (diffToBeat ?? 0) >= 0,
+            targetText: context.l10n.predictTargetPrice(priceToBeatStr),
+            history: predictState?.priceHistory,
+            priceToBeat: priceToBeat,
+            roundStart: event?.windowStartTime,
+            upFrac: livePctUpClamped,
+            onUp: () => openSide('up'),
+            onDown: () => openSide('down'),
+          ),
+        ),
+      ));
+    }
 
     // Counts this banner as on screen while its tickers run, so the
     // shared Chainlink feed also streams when it is shown outside the
@@ -1833,6 +1902,359 @@ class CryptoPredictBanner extends ConsumerWidget {
         ),
       ),
     )));
+  }
+}
+
+/// The compact crypto round card ([CryptoPredictBanner.compact]): about
+/// 180 px for the same data and actions as the full card.
+class _CompactCryptoCard extends StatelessWidget {
+  const _CompactCryptoCard({
+    required this.config,
+    required this.title,
+    required this.countdown,
+    required this.pastResults,
+    required this.loading,
+    required this.priceText,
+    required this.diffText,
+    required this.diffUp,
+    required this.targetText,
+    required this.history,
+    required this.priceToBeat,
+    required this.roundStart,
+    required this.upFrac,
+    required this.onUp,
+    required this.onDown,
+  });
+
+  final CryptoAssetConfig config;
+  final String title;
+  final String countdown;
+  final List<CryptoWindowResult> pastResults;
+  final bool loading;
+  final String priceText;
+  final String? diffText;
+  final bool diffUp;
+  final String targetText;
+  final List<BtcPriceSnapshot>? history;
+  final double? priceToBeat;
+  final DateTime? roundStart;
+  final double upFrac;
+  final VoidCallback onUp;
+  final VoidCallback onDown;
+
+  /// The sparkline's plot height; the chart's own bottom margin (18 px,
+  /// time labels off) is clipped away beneath it.
+  static const double _sparkHeight = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final logo = config.isSvg
+        ? SvgPicture.asset(config.logoPath,
+            width: 32.sp, height: 32.sp, fit: BoxFit.contain)
+        : Container(
+            width: 32.sp,
+            height: 32.sp,
+            decoration: BoxDecoration(
+              color: config.brandColor,
+              borderRadius: BorderRadius.circular(9.r),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(config.logoPath, width: 22.sp, height: 22.sp),
+          );
+    final pair = formatPolyChancePair(upFrac);
+    final seeded = (history?.length ?? 0) >= 2;
+    return Container(
+      key: const ValueKey('crypto-round-compact'),
+      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Logo, title, past rounds as dots, the countdown pill.
+          Row(
+            children: [
+              SizedBox(width: 32.sp, height: 32.sp, child: logo),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              if (pastResults.isNotEmpty) ...[
+                _PastRoundDots(results: pastResults),
+                SizedBox(width: 8.w),
+              ],
+              Container(
+                key: const ValueKey('crypto-round-countdown'),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6.w,
+                      height: 6.w,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF4444),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 5.w),
+                    Text(
+                      countdown,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          // The live price, its move against the target, the target.
+          if (loading)
+            KuteSkeleton(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SkeletonBar(140.w, 22.h, radius: 6.r),
+              ),
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: RollingNumberText(
+                      text: priceText,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.6,
+                        height: 1.0,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                if (diffText != null) ...[
+                  SizedBox(width: 6.w),
+                  Text(
+                    diffText!,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: diffUp ? AppColors.marketUp : AppColors.marketDown,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+                SizedBox(width: 8.w),
+                const Spacer(),
+                Text(
+                  targetText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          SizedBox(height: 6.h),
+          // A slim sparkline with the dashed target line.
+          SizedBox(
+            height: _sparkHeight,
+            child: !seeded
+                ? const SkeletonLineChart(
+                    height: _sparkHeight, padding: EdgeInsets.zero)
+                : ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minHeight: 0,
+                      maxHeight: _sparkHeight + 18,
+                      child: BtcPredictChart(
+                        height: _sparkHeight + 18,
+                        externalHistory: history,
+                        externalPriceToBeat: priceToBeat,
+                        roundStart: roundStart,
+                        showLiveIndicator: false,
+                        showHeader: false,
+                      ),
+                    ),
+                  ),
+          ),
+          SizedBox(height: 8.h),
+          // Up and Down with their odds, one row of two pills.
+          Row(
+            children: [
+              Expanded(
+                child: _CompactSidePill(
+                  key: const ValueKey('crypto-round-up'),
+                  label: context.l10n.upLabel,
+                  odds: pair.first,
+                  up: true,
+                  onTap: onUp,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _CompactSidePill(
+                  key: const ValueKey('crypto-round-down'),
+                  label: context.l10n.downLabel,
+                  odds: pair.second,
+                  up: false,
+                  onTap: onDown,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One side of the compact card: a 40 px pill in the market colour, the
+/// arrow, the side and its odds.
+class _CompactSidePill extends StatelessWidget {
+  const _CompactSidePill({
+    super.key,
+    required this.label,
+    required this.odds,
+    required this.up,
+    required this.onTap,
+  });
+
+  final String label;
+  final String odds;
+  final bool up;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = up ? AppColors.marketUp : AppColors.marketDown;
+    final fg = contrastingOnColor(color);
+    final style = TextStyle(
+      color: fg,
+      fontSize: 14.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Semantics(
+      button: true,
+      label: '$label $odds',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(horizontal: 10.w),
+          child: FittedBox(
+           fit: BoxFit.scaleDown,
+           child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                  size: 16.sp, color: fg),
+              SizedBox(width: 4.w),
+              Text(label, style: style),
+              SizedBox(width: 6.w),
+              RollingNumberText(text: odds, style: style),
+            ],
+           ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The last few windows as tiny dots, oldest first: up and down in the
+/// market colours, a hairline ring while one is still settling.
+class _PastRoundDots extends StatelessWidget {
+  const _PastRoundDots({required this.results});
+
+  final List<CryptoWindowResult> results;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final size = 7.sp;
+    return Semantics(
+      label: context.l10n.predictPastRounds,
+      child: Row(
+        key: const ValueKey('crypto-round-past-dots'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < results.length; i++) ...[
+            if (i > 0) SizedBox(width: 3.w),
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: results[i].up == null
+                    ? null
+                    : results[i].up!
+                        ? AppColors.marketUp
+                        : AppColors.marketDown,
+                shape: BoxShape.circle,
+                border: results[i].up == null
+                    ? Border.all(color: c.borderSubtle, width: 1)
+                    : null,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

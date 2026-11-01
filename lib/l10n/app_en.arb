@@ -7443,5 +7443,7 @@
   "activityTodayOut": "Out",
   "@activityTodayOut": {"description": "Home Activity Today card: tile label for the money sent today."},
   "activityTodayPnl": "P&L",
-  "@activityTodayPnl": {"description": "Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change)."}
+  "@activityTodayPnl": {"description": "Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change)."},
+  "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
+  "@predictUpOrDownCompact": {"description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.", "placeholders": {"asset": {"type": "String"}, "minutes": {"type": "int"}}}
 }

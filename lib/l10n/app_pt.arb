@@ -3603,5 +3603,6 @@
   "activityPaidFromBoth": "Paid from {first} and {second}",
   "activityTodayIn": "In",
   "activityTodayOut": "Out",
-  "activityTodayPnl": "P&L"
+  "activityTodayPnl": "P&L",
+  "predictUpOrDownCompact": "{asset} up or down · {minutes}m"
 }

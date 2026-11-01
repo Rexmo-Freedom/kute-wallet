@@ -12040,4 +12040,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get activityTodayPnl => 'P&L';
+
+  @override
+  String predictUpOrDownCompact(String asset, int minutes) {
+    return '$asset up or down · ${minutes}m';
+  }
 }
