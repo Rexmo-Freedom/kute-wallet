@@ -2055,12 +2055,15 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                l10n.chartMagnet,
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  l10n.chartMagnet,
+                  maxLines: 2,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               SizedBox(width: 16.w),

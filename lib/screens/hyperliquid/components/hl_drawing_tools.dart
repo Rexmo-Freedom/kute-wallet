@@ -143,16 +143,17 @@ class _GlyphPainter extends CustomPainter {
         dot(const Offset(4, 5.5), 1.9);
         dot(const Offset(16, 14.5), 1.9);
       case HlRailGlyph.fibonacci:
-        for (final y in [4.0, 8.0, 12.0, 16.0]) {
-          canvas.drawLine(Offset(3, y), Offset(17, y), line);
+        // The retracement's levels, faint, under the move they divide.
+        final levels = Paint()
+          ..color = color.withValues(alpha: 0.55)
+          ..strokeWidth = 1.3
+          ..strokeCap = StrokeCap.round;
+        for (final y in [4.0, 8.6, 11.4, 16.0]) {
+          canvas.drawLine(Offset(7.5, y), Offset(17.5, y), levels);
         }
-        canvas.drawLine(
-            const Offset(4, 16),
-            const Offset(16, 4),
-            Paint()
-              ..color = color.withValues(alpha: 0.55)
-              ..strokeWidth = 1.1
-              ..strokeCap = StrokeCap.round);
+        canvas.drawLine(const Offset(3.5, 16), const Offset(13, 4), line);
+        dot(const Offset(3.5, 16), 1.9);
+        dot(const Offset(13, 4), 1.9);
       case HlRailGlyph.measure:
         // A ruler laid on the diagonal, its ticks along one edge.
         canvas.save();
@@ -272,8 +273,8 @@ class HlRailButton extends StatelessWidget {
                       Icon(icon, size: 19, color: color),
                     if (sticky)
                       Positioned(
-                        right: 3,
-                        bottom: 2,
+                        right: 1,
+                        bottom: 0,
                         child: Icon(Icons.lock_rounded,
                             key: const ValueKey('hl-rail-sticky'),
                             size: 9,
@@ -582,7 +583,6 @@ class HlDrawingLoupe extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final light = !context.isDark;
     final center = centerFor(point, plot);
     return Stack(
       children: [
@@ -596,17 +596,10 @@ class HlDrawingLoupe extends StatelessWidget {
             focalPointOffset: point - center,
             decoration: MagnifierDecoration(
               shape: CircleBorder(
-                side: BorderSide(
-                    color: light ? c.border : c.borderSubtle,
-                    width: light ? 1 : 0.5),
+                side: BorderSide(color: c.border, width: 1),
               ),
-              shadows: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: light ? 0.10 : 0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              // No shadow: under a layer the lens may sample from, a
+              // shadow would show through its clear parts as a grey disc.
             ),
             child: CustomPaint(
               size: const Size.square(diameter),
