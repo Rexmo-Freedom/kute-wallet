@@ -1,7 +1,9 @@
 // Render harness for the Portfolio screen's round of 1 November 2026: the
-// three sections' one empty state (Portfolio, P&L Charts, Activity, Sal at
-// one place), and P&L Charts redone flat (a series that crosses zero with
-// its split fill, the stats strip and the venue rows; and scrubbing), at
+// two sections' one empty state (Portfolio, P&L Charts, Sal at one place;
+// Activity moved to the Bitcoin home), the Portfolio section with a
+// position in the flat row language, and P&L Charts redone flat (a series
+// that crosses zero with its split fill, the stats strip and the venue
+// rows; and scrubbing), at
 // 390 x 844 in the app's real theme and Inter, light (and the P&L dark).
 // Writes PNGs.
 //
@@ -24,7 +26,11 @@ import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
+import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show hyperliquidPerpMarketsProvider, hyperliquidSpotMarketsProvider;
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
+import 'package:kute/providers/hyperliquid_trading_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
@@ -187,6 +193,30 @@ List<Override> _crossing() {
             ], 'Polymarket')
                 .withPredictions(book)),
     hyperliquidAccountProvider.overrideWith(_Account.new),
+    hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
+        const HyperliquidTradingState(
+            isInitialized: true, positions: [_btc]))),
+    hyperliquidDisplayTradingProvider
+        .overrideWith((ref) => ref.watch(hyperliquidTradingProvider)),
+    hyperliquidLiveMidProvider('BTC').overrideWith((_) => null),
+    hyperliquidPerpMarketsProvider.overrideWith((_) async => [
+          HlMarket(
+              coin: 'BTC',
+              wireCoin: 'BTC',
+              assetId: 1,
+              kind: HlMarketKind.perp,
+              szDecimals: 4,
+              maxLeverage: 40,
+              onlyIsolated: false,
+              markPx: 91100,
+              midPx: 91100,
+              prevDayPx: 90000,
+              dayNtlVlm: 1e6,
+              category: 'crypto',
+              dex: '',
+              isHip3: false),
+        ]),
+    hyperliquidSpotMarketsProvider.overrideWith((_) async => <HlMarket>[]),
     hyperliquidDisplayAccountProvider
         .overrideWith((ref) => ref.watch(hyperliquidAccountProvider)),
     hyperliquidUserFillsProvider.overrideWith((_) async => _fills()),
@@ -325,14 +355,13 @@ void main() {
   });
   tearDownAll(() => SalSpriteCache.debugSetManifest(null));
 
-  testWidgets('the three sections empty, light', (tester) async {
+  testWidgets('both sections empty, light', (tester) async {
     tester.view.devicePixelRatio = _dpr;
     tester.view.physicalSize = _size * _dpr;
     addTearDown(tester.view.reset);
     for (final (section, name) in [
       (PortfolioSection.balances, 'empty_portfolio'),
       (PortfolioSection.charts, 'empty_pnl'),
-      (PortfolioSection.activity, 'empty_activity'),
     ]) {
       await _mount(tester,
           dark: false, state: _nothingOpen, section: section);
@@ -356,6 +385,14 @@ void main() {
           section: PortfolioSection.charts,
           extra: _crossing());
       await _png(tester, 'pnl_crossing_zero_$theme');
+      // The Portfolio section, the same language: a position row.
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-section-pill-balances')));
+      await _settle(tester);
+      await _png(tester, 'portfolio_held_$theme');
+      await tester
+          .tap(find.byKey(const ValueKey('portfolio-section-pill-charts')));
+      await _settle(tester);
       // Scrub at the dip under zero (a long press, then hold).
       final plot = tester.getRect(find.byKey(const ValueKey('trend-chart-plot')));
       final touch =

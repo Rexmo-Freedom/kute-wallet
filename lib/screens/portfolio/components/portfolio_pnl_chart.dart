@@ -37,10 +37,13 @@
 //     is not a dash: its column is left out (Win rate needs closed-trade
 //     counts, which only Predictions has);
 //   * "By venue" (13 sp, textSecondary) and the venue rows
-//     ([PortfolioPnlChart.footer], [PnlVenueRow]): flat rows 14 px apart,
-//     no hairlines: the venue's logo (32), its name, a 48×20 sparkline of
-//     its P&L over the range, and its P&L (realised plus open) right-
-//     aligned in its colour. A row tapped charts that venue alone
+//     ([PortfolioPnlChart.footer], [PnlVenueRow]) in the Portfolio's one
+//     row language (position_rows.dart; the Portfolio section's position
+//     rows are drawn the same): the venue's logo (32), its name (15 w500)
+//     over where the money is (13), a 48×20 sparkline of its P&L over the
+//     range, and its P&L now (realised plus open, 15 w600) in its colour
+//     with its change over the range (12) under it; 14 between rows, no
+//     hairlines. A row tapped charts that venue alone
 //     (portfolio_statistics.dart);
 //   * NO HISTORY (nothing traded or predicted yet, every point zero): no
 //     chart. On the Portfolio the sections' one empty state
@@ -70,6 +73,17 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/balance_history.dart';
 import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show
+        kPortfolioRowGap,
+        kPortfolioRowImage,
+        kPortfolioRowPadV,
+        portfolioRowChangeStyle,
+        portfolioRowFigureStyle,
+        portfolioRowSubStyle,
+        portfolioRowTitleStyle;
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show balancesFlatSectionTitle, kBalancesFlatTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
@@ -89,9 +103,6 @@ const double kPnlRangeRowWidth = 280;
 
 /// A venue row's sparkline.
 const Size kPnlSparklineSize = Size(48, 20);
-
-/// The room between two venue rows.
-const double kPnlVenueRowGap = 14;
 
 /// The line's colour: the result over the range, [change] being the P&L
 /// at the range's end less its start. Red when it fell, green when it
@@ -336,7 +347,8 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
             key: const ValueKey('statistics-pnl-caption'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: quiet),
+            // The flat sections' one title style ("Investing · 2").
+            style: balancesFlatSectionTitle(context)),
         SizedBox(height: 4.h),
         figure,
         changeLine(),
@@ -385,7 +397,8 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: 16.h),
+          // Flat: the caption where the Portfolio section's title sits.
+          SizedBox(height: flat ? 14.h : 16.h),
           header,
           SizedBox(height: 16.h),
           chart,
@@ -398,8 +411,9 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
           if (footer != null) ...[
             SizedBox(height: 28.h),
             Text(l10n.pnlByVenue,
-                key: const ValueKey('statistics-pnl-by-venue'), style: quiet),
-            SizedBox(height: 12.h),
+                key: const ValueKey('statistics-pnl-by-venue'),
+                style: balancesFlatSectionTitle(context)),
+            SizedBox(height: kBalancesFlatTitleGap.h),
             footer,
           ],
           SizedBox(height: flat ? 8.h : 16.h),
@@ -494,16 +508,21 @@ class PnlStatsStrip extends ConsumerWidget {
   }
 }
 
-/// One venue's flat row under "By venue" (see the file header): the
-/// logo, the name, the sparkline of [data] over the range picked, and its
-/// P&L (realised plus open) right-aligned in its colour; [quiet] in their
-/// place when the venue has no history. [dimmed] while the other venue is
-/// charted; [onTap] picks it (null: nothing to pick).
+/// One venue's row under "By venue", in the Portfolio's one row language
+/// (position_rows.dart: the logo 32, the name 15 w500, [subtitle] 13 under
+/// it, the figure 15 w600 at the end with its change 12 under it,
+/// [kPortfolioRowPadV] above and below, no hairline): the venue's P&L now
+/// (realised plus open) in its colour, its change over the range picked
+/// under it, and the sparkline of [data] over that range before them.
+/// [quiet] (the venue's "No … yet") stands as the line under the name and
+/// leaves the figure out. [dimmed] while the other venue is charted;
+/// [onTap] picks it (null: nothing to pick).
 class PnlVenueRow extends ConsumerWidget {
   const PnlVenueRow({
     super.key,
     required this.logoAsset,
     required this.name,
+    required this.subtitle,
     required this.data,
     required this.pnlUsd,
     this.quiet,
@@ -515,12 +534,15 @@ class PnlVenueRow extends ConsumerWidget {
 
   final String logoAsset;
   final String name;
+
+  /// The line under the name (where the money is: "Polymarket").
+  final String subtitle;
   final PortfolioPerformance data;
 
   /// The venue's P&L now; null: not known (a dash).
   final double? pnlUsd;
 
-  /// The venue's "No … yet", in place of the sparkline and the figure.
+  /// The venue's "No … yet": the line under the name, no figure.
   final String? quiet;
   final bool dimmed;
   final bool selected;
@@ -534,25 +556,25 @@ class PnlVenueRow extends ConsumerWidget {
     final range = ref.watch(pnlChartRangeProvider);
     final pnl = pnlUsd;
     final quietText = quiet;
+    String money(double v) =>
+        visible ? formatPolyAmount(ref, v.abs()) : '••••••';
 
-    final Widget trailing;
-    if (quietText != null) {
-      trailing = Text(quietText,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-              color: c.textSecondary,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w500));
-    } else {
+    Widget? end;
+    if (quietText == null) {
       final series = pnlSeries(data, now ?? DateTime.now());
       final values = kuteTrendWindow(series, series.spanFor(range)).values;
+      final delta = values.length < 2 ? null : values.last - values.first;
       final figure = pnl == null
           ? '—'
           : visible
-              ? '${kuteChangeSign(pnl)}${formatPolyAmount(ref, pnl.abs())}'
+              ? '${kuteChangeSign(pnl)}${money(pnl)}'
               : '••••••';
-      trailing = Row(
+      final changeColor = delta == null || !visible
+          ? c.textSecondary
+          : delta == 0
+              ? c.textSecondary
+              : pnlResultColor(c, delta);
+      end = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (values.length >= 2) ...[
@@ -565,43 +587,77 @@ class PnlVenueRow extends ConsumerWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
-              child: Text(figure,
-                  key: const ValueKey('pnl-venue-figure'),
-                  maxLines: 1,
-                  style: TextStyle(
-                      color: pnl == null || !visible
-                          ? c.textPrimary
-                          : pnlResultColor(c, pnl),
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()])),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(figure,
+                      key: const ValueKey('pnl-venue-figure'),
+                      maxLines: 1,
+                      style: portfolioRowFigureStyle(context,
+                          color: pnl == null || !visible
+                              ? c.textPrimary
+                              : pnlResultColor(c, pnl))),
+                  if (delta != null) ...[
+                    SizedBox(height: 2.h),
+                    Text(
+                        !visible
+                            ? '••••••'
+                            : delta == 0
+                                ? context.l10n.chartNoChange
+                                : '${kuteTrendArrow(delta)}${money(delta)}',
+                        key: const ValueKey('pnl-venue-change'),
+                        maxLines: 1,
+                        style: portfolioRowChangeStyle(changeColor)),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
       );
     }
 
-    final row = Row(
-      children: [
-        SvgPicture.asset(logoAsset,
-            width: 32.sp, height: 32.sp, fit: BoxFit.contain),
-        SizedBox(width: 12.w),
-        Expanded(
-          flex: 2,
-          child: Text(name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w600)),
-        ),
-        SizedBox(width: 8.w),
-        // The figure at the row's end, whatever its width.
-        Expanded(
-            flex: 3,
-            child: Align(alignment: Alignment.centerRight, child: trailing)),
-      ],
+    final row = Padding(
+      padding: EdgeInsets.symmetric(vertical: kPortfolioRowPadV.h),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: kPortfolioRowImage.w,
+            child: SvgPicture.asset(logoAsset,
+                width: kPortfolioRowImage.w,
+                height: kPortfolioRowImage.w,
+                fit: BoxFit.contain),
+          ),
+          SizedBox(width: kPortfolioRowGap.w),
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: portfolioRowTitleStyle(context)),
+                SizedBox(height: 2.h),
+                Text(quietText ?? subtitle,
+                    key: const ValueKey('pnl-venue-subtitle'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: portfolioRowSubStyle(context)),
+              ],
+            ),
+          ),
+          if (end != null) ...[
+            SizedBox(width: 8.w),
+            // The figure at the row's end, whatever its width.
+            Expanded(
+                flex: 3,
+                child: Align(alignment: Alignment.centerRight, child: end)),
+          ],
+        ],
+      ),
     );
     final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final body = AnimatedOpacity(

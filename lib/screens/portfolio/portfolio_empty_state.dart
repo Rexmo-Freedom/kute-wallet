@@ -6,16 +6,17 @@
 //     (a Ledger's tabs, the Portfolio screen the Predictions card opens),
 //     the app's empty state centred clear of the dock.
 //   * [PortfolioSectionEmpty] / [PortfolioSectionEmptyPage]: the Portfolio
-//     screen's three sections under the pinned strip (Portfolio | P&L
-//     Charts | Activity). ONE treatment for all three (founder, 1 November
-//     2026: "empty states must be the same on all three sections"; the
+//     screen's sections under the pinned strip (Portfolio | P&L Charts;
+//     Activity moved to the Bitcoin home the same day). ONE treatment
+//     for both (founder, 1 November 2026: "empty states must be the same
+//     on all three sections"; the
 //     P&L one was the one he liked): the hero Sal ([NoActivityState]:
 //     `body_hero` with its idle director) at [kPortfolioSectionEmptySal],
 //     the title 22 sp w600, the rotating tagline 15 sp in textSecondary,
 //     [kPortfolioSectionEmptyTop] under the strip, so switching sections
 //     moves neither Sal nor the text; only the copy changes ("No open
-//     positions", "No P&L yet", "No activity yet", each section starting
-//     the shared taglines at its own line). No pixel Sal.
+//     positions", "No P&L yet", each section starting the shared taglines
+//     at its own line). No pixel Sal.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -58,8 +59,7 @@ const double kPortfolioSectionEmptyTop = 22;
 /// on the same line.
 enum PortfolioSectionTagline {
   portfolio(0),
-  pnl(4),
-  activity(8);
+  pnl(4);
 
   const PortfolioSectionTagline(this.start);
   final int start;

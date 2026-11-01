@@ -11570,9 +11570,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Pas encore de gains / pertes';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

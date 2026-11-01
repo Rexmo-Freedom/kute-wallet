@@ -11050,9 +11050,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pnlNoHistoryTitle => '損益はまだありません';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

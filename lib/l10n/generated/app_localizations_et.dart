@@ -11465,9 +11465,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Kasumit/kahjumit veel pole';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

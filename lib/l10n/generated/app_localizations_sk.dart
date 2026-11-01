@@ -11488,9 +11488,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Zatiaľ žiadny zisk a strata';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

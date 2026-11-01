@@ -11445,9 +11445,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Vēl nav P&L';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

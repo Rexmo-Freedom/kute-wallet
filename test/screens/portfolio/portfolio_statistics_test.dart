@@ -1625,9 +1625,35 @@ void main() {
       expect(top(stats), greaterThan(bottom(ranges)));
       expect(top(byVenue), greaterThan(bottom(stats)));
       expect(top(venueRow('predictions')), greaterThan(bottom(byVenue)));
-      // 14 between the rows, no hairline.
-      expect(top(venueRow('investing')) - bottom(venueRow('predictions')),
+      // The Portfolio's row language: 14 between two rows' contents (the
+      // line under one name to the next name), no hairline.
+      Finder inRow(String v, Finder f) =>
+          find.descendant(of: venueRow(v), matching: f);
+      expect(
+          top(inRow('investing', find.text('Investing'))) -
+              bottom(inRow('predictions',
+                  find.byKey(const ValueKey('pnl-venue-subtitle')))),
           closeTo(14 * 844 / 932, 0.5));
+      expect(
+          tester
+              .widget<Text>(inRow('predictions',
+                  find.byKey(const ValueKey('pnl-venue-subtitle'))))
+              .data,
+          'Polymarket');
+      final name = tester.widget<Text>(inRow('investing', find.text('Investing')));
+      expect(name.style!.fontSize, closeTo(15 * 390 / 430, 0.01));
+      expect(name.style!.fontWeight, FontWeight.w500);
+      final figureStyle = tester
+          .widget<Text>(
+              inRow('investing', find.byKey(const ValueKey('pnl-venue-figure'))))
+          .style!;
+      expect(figureStyle.fontSize, closeTo(15 * 390 / 430, 0.01));
+      expect(figureStyle.fontWeight, FontWeight.w600);
+      final change = tester.widget<Text>(
+          inRow('investing', find.byKey(const ValueKey('pnl-venue-change'))));
+      expect(change.style!.fontSize, closeTo(12 * 390 / 430, 0.01));
+      expect(tester.getSize(inRow('investing', find.byType(SvgPicture))).width,
+          closeTo(32 * 390 / 430, 0.5));
       // The plot full-bleed to the page's 16 gutters.
       final gutter = 16 * 390 / 430;
       expect(tester.getRect(plot).left, closeTo(gutter, 0.5));

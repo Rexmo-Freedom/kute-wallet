@@ -20,12 +20,17 @@
 //     is blocked in the app; the entry price is on the position screen);
 //   * a Predictions row that is still open adds a thin bar, the held
 //     side's live chance ([PortfolioChanceBar]);
-//   * on the right what it is worth now (w600) with the P&L as a % in a
-//     small pill under it, tinted up or down; a P&L under a cent reads
-//     "0.0%" on the quiet surface, never a red minus ([portfolioPnlPill]).
-//     The $ P&L is on the position screen.
+//   * on the right what it is worth now (15 w600) with the P&L as a %
+//     under it (12, a caret, up or down); a P&L under a cent reads "0.0%"
+//     quietly, never a red minus ([portfolioPnlPill]). The $ P&L is on the
+//     position screen.
 //
-// The list draws hairlines between rows ([portfolioRowsWithHairlines]).
+// The Portfolio's one row language ([kPortfolioRowPadV] and the styles
+// under it, founder 1 November 2026): the picture 32, the title 15 w500,
+// the line 13, the figure 15 w600 with its change 12; the P&L venue rows
+// are drawn the same. The Portfolio screen lists them flat with no
+// hairlines; other lists may still draw them
+// ([portfolioRowsWithHairlines]).
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -73,8 +78,57 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// A row's picture (a circle) and the gap after it.
-const double kPortfolioRowImage = 40;
+const double kPortfolioRowImage = 32;
 const double kPortfolioRowGap = 12;
+
+/// THE PORTFOLIO'S ONE ROW LANGUAGE (founder, 1 November 2026: "the vibes
+/// are different" between Portfolio and P&L Charts): a position row here
+/// and a P&L venue row (portfolio_pnl_chart.dart, PnlVenueRow) are drawn
+/// the same: the picture at [kPortfolioRowImage], the title 15 w500, the
+/// line under it 13 in textSecondary, the figure 15 w600 at the end with
+/// its change 12 under it, no hairlines, [kPortfolioRowPadV] above and
+/// below each row, so two rows' contents sit 14 apart.
+const double kPortfolioRowPadV = 7;
+
+/// A row's title: 15 w500.
+TextStyle portfolioRowTitleStyle(BuildContext context) => TextStyle(
+      color: context.colors.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.2,
+      height: 1.25,
+    );
+
+/// The line under a row's title: 13 in textSecondary.
+TextStyle portfolioRowSubStyle(BuildContext context) => TextStyle(
+      color: context.colors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+/// A row's figure at the end: 15 w600, tabular.
+TextStyle portfolioRowFigureStyle(BuildContext context, {Color? color}) =>
+    TextStyle(
+      color: color ?? context.colors.textPrimary,
+      fontSize: 15.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.25,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+/// The change under a row's figure: 12, in its colour.
+TextStyle portfolioRowChangeStyle(Color color) => TextStyle(
+      color: color,
+      fontSize: 12.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
 /// The side inset of every [PortfolioPositionRow] below it: 0 where the
 /// rows sit on the page, the grouped card's row padding where a card draws
@@ -448,14 +502,7 @@ class PortfolioPnlPill extends StatelessWidget {
         RollingFigure(
           key: const ValueKey('portfolio-row-pnl'),
           text: shown,
-          style: TextStyle(
-            color: colors.foreground,
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.1,
-            height: 1.3,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          style: portfolioRowChangeStyle(colors.foreground),
         ),
       ],
     );
@@ -520,15 +567,7 @@ class PortfolioPositionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final secondary = TextStyle(
-      color: c.textSecondary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-      height: 1.3,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+    final secondary = portfolioRowSubStyle(context);
     final under = pnl;
     final chance = this.chance;
     return Material(
@@ -537,7 +576,8 @@ class PortfolioPositionRow extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-              horizontal: PortfolioRowInset.of(context), vertical: 14.h),
+              horizontal: PortfolioRowInset.of(context),
+              vertical: kPortfolioRowPadV.h),
           child: LayoutBuilder(builder: (context, box) {
             // 80% of the text column a typical value leaves.
             final barWidth = 0.8 *
@@ -563,10 +603,7 @@ class PortfolioPositionRow extends StatelessWidget {
                           key: const ValueKey('portfolio-row-title'),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.settingsTitle(context).copyWith(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
-                              height: 1.25)),
+                          style: portfolioRowTitleStyle(context)),
                       SizedBox(height: 2.h),
                       Text(subtitle,
                           key: const ValueKey('portfolio-row-subtitle'),
@@ -597,17 +634,10 @@ class PortfolioPositionRow extends StatelessWidget {
                         RollingFigure(
                           key: const ValueKey('portfolio-row-value'),
                           text: value,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            height: 1.25,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
+                          style: portfolioRowFigureStyle(context),
                         ),
                         if (under != null) ...[
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 2.h),
                           PortfolioPnlPill(text: under.text, tone: under.tone),
                         ] else if (detail case final word?) ...[
                           SizedBox(height: 4.h),

@@ -19215,12 +19215,6 @@ abstract class AppLocalizations {
   /// **'No P&L yet'**
   String get pnlNoHistoryTitle;
 
-  /// Portfolio screen, Activity section, empty: the title over Sal.
-  ///
-  /// In en, this message translates to:
-  /// **'No activity yet'**
-  String get portfolioActivityEmpty;
-
   /// Portfolio P&L Charts: the small title over the per-venue P&L rows.
   ///
   /// In en, this message translates to:

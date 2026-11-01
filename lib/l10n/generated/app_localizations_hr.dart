@@ -11508,9 +11508,6 @@ class AppLocalizationsHr extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Još nema dobiti/gubitka';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

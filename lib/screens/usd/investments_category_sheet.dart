@@ -161,7 +161,6 @@ String portfolioSectionLabel(AppLocalizations l10n, PortfolioSection s) =>
     switch (s) {
       PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
       PortfolioSection.balances => l10n.portfolioSectionBalances,
-      PortfolioSection.activity => l10n.activity,
     };
 
 /// The Investing categories on offer, as the browser lists them: in the
@@ -313,7 +312,6 @@ String _polyIconAsset(PolyPill p) => 'lib/assets/polymarket_tags/${p.key}.svg';
 IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.balances => Icons.pie_chart_rounded,
       PortfolioSection.charts => Icons.show_chart_rounded,
-      PortfolioSection.activity => Icons.receipt_long_rounded,
     };
 
 // ── The sheet ──────────────────────────────────────────────────────────

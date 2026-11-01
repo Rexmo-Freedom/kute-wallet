@@ -11535,9 +11535,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Aún no hay P&L';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

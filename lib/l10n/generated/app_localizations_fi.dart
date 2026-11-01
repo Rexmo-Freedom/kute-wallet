@@ -11490,9 +11490,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Ei vielä voittoa / tappiota';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

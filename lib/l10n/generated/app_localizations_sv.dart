@@ -11477,9 +11477,6 @@ class AppLocalizationsSv extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Inget resultat än';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

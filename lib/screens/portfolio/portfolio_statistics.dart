@@ -533,9 +533,10 @@ BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
         : BalancesCategory.investing;
 
 /// The venue rows under "By venue" (see [PortfolioStatisticsOverview]):
-/// one flat [PnlVenueRow] per venue, 14 apart, its P&L now (realised plus
-/// open, the venue's line's last point) right-aligned in its colour with
-/// its sparkline, its "No … yet" with no history; a row tapped picks the
+/// one [PnlVenueRow] per venue in the Portfolio's row language (14
+/// between rows), its P&L now (realised plus open, the venue's line's last
+/// point) right-aligned in its colour with its change and its sparkline,
+/// its "No … yet" with no history; a row tapped picks the
 /// series the chart draws ([onPick]), the other row dimmed.
 class _PnlVenues extends StatelessWidget {
   const _PnlVenues({
@@ -573,6 +574,10 @@ class _PnlVenues extends StatelessWidget {
             ? InvestmentsProduct.predictions
             : InvestmentsProduct.trading),
         name: _venueName(l10n, v),
+        // Where the money is: the venue's own name.
+        subtitle: v == PortfolioPerformanceVenue.predictions
+            ? 'Polymarket'
+            : 'Hyperliquid',
         data: perf,
         now: now,
         pnlUsd: quiet.contains(v) ? null : pnlSeries(perf, now).values.last,
@@ -593,10 +598,7 @@ class _PnlVenues extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final (i, v) in listed.indexed) ...[
-          if (i > 0) SizedBox(height: kPnlVenueRowGap.h),
-          venue(v),
-        ],
+        for (final v in listed) venue(v),
       ],
     );
   }

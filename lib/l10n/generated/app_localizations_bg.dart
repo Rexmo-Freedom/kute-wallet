@@ -11497,9 +11497,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Още няма печалба / загуба';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

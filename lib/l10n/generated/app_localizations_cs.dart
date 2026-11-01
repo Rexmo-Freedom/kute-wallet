@@ -11472,9 +11472,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Zatím žádný zisk a ztráta';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

@@ -1,7 +1,8 @@
-// The Portfolio screen's three sections under the pinned strip
-// (investments_portfolio.dart, sharesHeader): their empty states are ONE
-// treatment at one place (portfolio_empty_state.dart), and P&L Charts
-// never opens on a blank frame.
+// The Portfolio screen's two sections under the pinned strip
+// (investments_portfolio.dart, sharesHeader; Activity moved to the
+// Bitcoin home): their empty states are ONE treatment at one place
+// (portfolio_empty_state.dart), both speak one flat language, and P&L
+// Charts never opens on a blank frame.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,20 +150,18 @@ Future<void> _unmount(WidgetTester tester) async {
 
 void main() {
   testWidgets(
-      'the three sections empty: one empty state, Sal and the title at the '
+      'both sections empty: one empty state, Sal and the title at the '
       'same place, only the copy changes', (tester) async {
     await _mount(tester);
     final titles = {
       PortfolioSection.balances: 'No open positions',
       PortfolioSection.charts: 'No P&L yet',
-      PortfolioSection.activity: 'No activity yet',
     };
     final sal = <PortfolioSection, Rect>{};
     final title = <PortfolioSection, Rect>{};
     for (final section in [
       PortfolioSection.balances,
       PortfolioSection.charts,
-      PortfolioSection.activity,
       PortfolioSection.balances,
     ]) {
       if (section != PortfolioSection.balances || sal.isNotEmpty) {
@@ -227,6 +226,47 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-performance-loading')),
         findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'the strip is Portfolio | P&L Charts in two halves; no Activity',
+      (tester) async {
+    await _mount(tester);
+    final portfolio = find.byKey(const ValueKey('portfolio-section-pill-balances'));
+    final charts = find.byKey(const ValueKey('portfolio-section-pill-charts'));
+    expect(portfolio, findsOneWidget);
+    expect(charts, findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-section-pill-activity')),
+        findsNothing);
+    expect(find.text('Activity'), findsNothing);
+    expect(tester.getSize(portfolio).width,
+        moreOrLessEquals(tester.getSize(charts).width, epsilon: 0.01));
+    expect(PortfolioSection.forLink('activity'), isNull);
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'one language: "Profit and loss" in the 13 sp textSecondary title '
+      'style, no card, its top where the empty state\'s Sal starts',
+      (tester) async {
+    await _mount(tester);
+    await _pick(tester, PortfolioSection.charts);
+    await _settle(tester);
+    final salTop = tester.getTopLeft(find.byType(SalIdleDirector)).dy;
+    await _unmount(tester);
+
+    await _mount(tester, extra: _history());
+    await _pick(tester, PortfolioSection.charts);
+    await _settle(tester);
+    final caption = find.byKey(const ValueKey('statistics-pnl-caption'));
+    final style = tester.widget<Text>(caption).style!;
+    expect(style.fontSize, moreOrLessEquals(13 * 390 / 430, epsilon: 0.01));
+    expect(style.color, AppColorsExtension.light().textSecondary);
+    expect(find.byKey(const ValueKey('statistics-pnl-card')), findsNothing);
+    // kPortfolioSectionEmptyTop under the section's top, as the Portfolio
+    // section's first title and the empty state's Sal.
+    expect(tester.getTopLeft(caption).dy, moreOrLessEquals(salTop, epsilon: 1));
     await _unmount(tester);
   });
 }

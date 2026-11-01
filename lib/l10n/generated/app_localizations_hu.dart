@@ -11505,9 +11505,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Még nincs eredmény';
 
   @override
-  String get portfolioActivityEmpty => 'No activity yet';
-
-  @override
   String get pnlByVenue => 'By venue';
 
   @override

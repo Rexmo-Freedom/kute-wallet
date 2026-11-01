@@ -27,9 +27,9 @@
 //     portfolio_statistics.dart; the orders from PortfolioOrdersBook,
 //     portfolio_orders.dart). No venue on the account: the "No positions
 //     yet" empty state;
-//   * ACTIVITY: the Investments activity, the one merged list
-//     (portfolio_activity.dart), all of it: this is its home now, so no
-//     preview and no "See all".
+//   * no ACTIVITY section any more (founder, 1 November 2026): the
+//     activity lives on the Bitcoin home; a `?tab=activity` link goes there
+//     (app_router.dart).
 //
 // The section is shared state ([portfolioSectionProvider]) kept for the
 // session, so the pill comes back where it was left and a link
@@ -45,16 +45,21 @@
 // any more.
 //
 // THE PORTFOLIO SCREEN (portfolio_screen.dart, [sharesHeader]): the
-// section pills are the home strip (Portfolio | P&L Charts | Activity in
-// equal thirds, the picked one the white pill with the hairline and the
+// section pills are the home strip (Portfolio | P&L Charts in two
+// halves, the picked one the white pill with the hairline and the
 // shadow, [_SectionPills]); on the Portfolio section the strip sits under
 // the shares card and Move money (BalancesOverview.sectionSwitch, handed
-// through the breakdown), on the other two at the top of the list.
+// through the breakdown), on P&L Charts at the top of the list. Both
+// sections speak one language (founder, 1 November 2026: "the vibes are
+// different"): flat on the page background in the 16 gutters, a 13 sp
+// sentence-case section title ("Investing · 2", "Profit and loss"), the
+// same rows (position_rows.dart: logo 32, title 15 w500, sub 13, figure
+// 15 w600 with its change 12 under it, a 14 rhythm), no card.
 //
-// Empty, the three sections draw ONE empty state at one place under the
-// strip (founder, 1 November 2026; PortfolioSectionEmpty,
-// portfolio_empty_state.dart): the hero Sal at 160, "No open positions",
-// "No P&L yet" or "No activity yet" and the tagline; switching moves
+// Empty, both sections draw ONE empty state at one place under the strip
+// (founder, 1 November 2026; PortfolioSectionEmpty,
+// portfolio_empty_state.dart): the hero Sal at 160, "No open positions"
+// or "No P&L yet" and the tagline; switching moves
 // nothing but the copy. P&L Charts never opens on a blank frame: what it
 // decides on is kept warm under the strip, and a read genuinely still on
 // its way is a skeleton of the chart's own size.
@@ -69,7 +74,6 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show portfolioVenueLists;
-import 'package:kute/screens/portfolio/portfolio_activity.dart';
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -77,9 +81,6 @@ import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
-import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/transactions_builder.dart'
-    show buildNoTransactionsFound;
 
 /// The Portfolio pill's sections, in pill order. [key] is the analytics
 /// value (`sub` on `analytics_tab_selected`) and the link vocabulary,
@@ -87,8 +88,7 @@ import 'package:kute/screens/shared/transactions_builder.dart'
 /// `positions` value is no longer sent, Balances' `balances` stands for it.
 enum PortfolioSection {
   balances('balances'),
-  charts('charts'),
-  activity('activity');
+  charts('charts');
 
   const PortfolioSection(this.key);
 
@@ -99,7 +99,8 @@ enum PortfolioSection {
   /// The old Positions section and pill, and the old Portfolio pill with
   /// its Open tab, are Balances (where the positions are now); the old
   /// Orders and Statistics tabs are P&L charts (where the chart and the
-  /// orders are); the old Activity tab is Activity.
+  /// orders are). The old Activity tab names none: the activity is on
+  /// the Bitcoin home now, where app_router.dart sends `?tab=activity`.
   static PortfolioSection? forLink(String? key) => switch (key) {
         'balances' ||
         'positions' ||
@@ -107,10 +108,13 @@ enum PortfolioSection {
         'open' =>
           PortfolioSection.balances,
         'orders' || 'statistics' || 'charts' => PortfolioSection.charts,
-        'activity' => PortfolioSection.activity,
         _ => null,
       };
 }
+
+/// The Bitcoin home on its Activity (`?tab=activity`): where the
+/// activity lives since it left the Portfolio (founder, 1 November 2026).
+const String kHomeActivityLocation = '/home?tab=activity';
 
 /// The section on screen, kept for the session (see the file header).
 final portfolioSectionProvider =
@@ -144,11 +148,11 @@ class InvestmentsPortfolio extends ConsumerWidget {
         : const SizedBox.shrink();
     if (sharesHeader) {
       // THE PINNED TOP (founder, 31 October 2026: "this part should remain
-      // stable in P&L and Activity"): one hero instance (the ring, the
+      // stable in P&L"): one hero instance (the ring, the
       // Invested / Available line, the strip) above every section, the
       // same widget across switches, so nothing jumps; under it the
       // section alone scrolls (the Balances venues, the P&L card, the
-      // activity), with no strip of its own.
+      // the orders), with no strip of its own.
       final venues = ref.watch(portfolioVenuesProvider);
       // P&L Charts opens on its final state, never a blank frame: what it
       // decides on is kept warm under the strip whatever section is on
@@ -182,8 +186,6 @@ class InvestmentsPortfolio extends ConsumerWidget {
                     venuesOnly: true),
                 PortfolioSection.charts =>
                   const _Charts(pills: SizedBox.shrink(), showPills: false),
-                PortfolioSection.activity =>
-                  const _Activity(pills: SizedBox.shrink(), showPills: false),
               },
             ),
           ),
@@ -196,15 +198,14 @@ class InvestmentsPortfolio extends ConsumerWidget {
         PortfolioSection.balances =>
           _Balances(pills: pills, sharesHeader: sharesHeader),
         PortfolioSection.charts => _Charts(pills: pills),
-        PortfolioSection.activity => _Activity(pills: pills),
       },
     );
   }
 }
 
-/// Portfolio | P&L Charts | Activity: the home strip (KutePillTabs' tab
+/// Portfolio | P&L Charts: the home strip (KutePillTabs' tab
 /// row, the same chrome drawn here so each pill keeps its key): three
-/// pills in equal thirds across the width, the picked one the white pill
+/// pills in equal halves across the width, the picked one the white pill
 /// with the hairline border and the shadow, the others transparent.
 class _SectionPills extends StatelessWidget {
   const _SectionPills({required this.selected, required this.onPick});
@@ -228,7 +229,6 @@ class _SectionPills extends StatelessWidget {
                 label: switch (sections[i]) {
                   PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
                   PortfolioSection.balances => l10n.portfolioSectionBalances,
-                  PortfolioSection.activity => l10n.activity,
                 },
                 selected: sections[i] == selected,
                 fillWidth: true,
@@ -266,8 +266,7 @@ class _Charts extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final venues = ref.watch(portfolioVenuesProvider);
     // Under the Portfolio screen's strip: the sections' one empty state
-    // (portfolio_empty_state.dart), where Portfolio and Activity put
-    // theirs.
+    // (portfolio_empty_state.dart), where Portfolio puts its own.
     final sectionEmpty = showPills
         ? null
         : PortfolioSectionEmptyPage(
@@ -338,52 +337,5 @@ class _Balances extends ConsumerWidget {
         _dockClearance(context),
       ],
     );
-  }
-}
-
-/// Activity: the whole merged list, on Home's day cards; its shimmer
-/// rows while the Investing history is on its way; with nothing, the
-/// sections' one empty state under the Portfolio screen's strip ("No
-/// activity yet", PortfolioSectionEmptyPage), the app's "no transactions"
-/// line elsewhere.
-class _Activity extends ConsumerWidget {
-  const _Activity({required this.pills, this.showPills = true});
-
-  final Widget pills;
-
-  /// False under the Portfolio screen's pinned top, which holds the strip.
-  final bool showPills;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activity = watchPortfolioActivity(ref);
-    final Widget body;
-    if (activity.entries.isNotEmpty || activity.failed) {
-      body = PortfolioActivitySliver(
-          key: const ValueKey('portfolio-activity-list'),
-          entries: activity.entries,
-          failed: activity.failed);
-    } else if (activity.loading) {
-      body = SliverToBoxAdapter(
-        child: SkeletonRowList(
-            key: const ValueKey('portfolio-activity-loading'),
-            count: 3,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h)),
-      );
-    } else if (!showPills) {
-      // Under the Portfolio screen's strip: the sections' one empty state
-      // (portfolio_empty_state.dart), never the pixel Sal.
-      return PortfolioSectionEmptyPage(
-          key: const ValueKey('portfolio-activity-empty'),
-          title: context.l10n.portfolioActivityEmpty,
-          tagline: PortfolioSectionTagline.activity);
-    } else {
-      body = SliverToBoxAdapter(child: buildNoTransactionsFound(context));
-    }
-    return CustomScrollView(slivers: [
-      if (showPills) _pillsSliver(pills),
-      SliverPadding(padding: EdgeInsets.only(top: 8.h), sliver: body),
-      _dockClearance(context),
-    ]);
   }
 }
