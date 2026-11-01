@@ -283,7 +283,6 @@ class _GroupFeedCard extends ConsumerWidget {
         priceDirections: cardDirections,
         // The score Gamma seeded on the event (no live feed join here).
         liveGame: market.isSportsCategory ? PolyLiveGame.of(market, null) : null,
-        dayMove: market.oneDayPriceChange,
         teams: market.teams,
         slug: market.slug,
         gameId: market.gameId,
@@ -294,8 +293,6 @@ class _GroupFeedCard extends ConsumerWidget {
           MarketDetailSheet.show(context,
               event: market, source: 'group_landing');
         },
-        onPickSide: (side) => polyCardOpenSlip(context,
-            event: market, side: side, source: 'group_landing'),
       ),
     );
   }

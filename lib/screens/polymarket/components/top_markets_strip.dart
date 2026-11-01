@@ -1,31 +1,31 @@
 // The Top markets strip over the Predictions feed (founder, 1 November
 // 2026: "big cards of the top ones on top", the way Polymarket's and
-// Kalshi's apps feature their markets).
+// Kalshi's apps feature their markets), on the default view (Trending,
+// no subcategory) only: a category or subcategory the person picks is the
+// full plain list, nothing excluded.
 //
-// A side-scrolling row of up to five large cards (240 by at least 170,
-// 12 apart, 16 in from the edges, the list card's ground with the larger
-// radius) for the plain Yes/No markets of the current category with the
-// most volume in the last 24 hours ([polyTopMarkets]). A card is the
-// market's image (40, rounded 10; the category glyph when it has none)
-// beside the question (two lines, semibold), the Yes chance large with
-// the word "chance" small beside it, the Yes / No price pills the list
-// card uses ([PolySidePill]), and one caption line, when the market
-// closes ("Closes Dec 2026"). The card opens the market as a list card
-// does; a pill opens the slip on that side. The strip never shows while
-// searching (search is its own screen) or on the Live lists.
+// A side-scrolling row of up to five large cards, the Investing strip's
+// treatment (hl_moving_now_strip.dart; founder, 1 November 2026: bigger
+// and calmer): two to a screen with the third peeking, about 150 tall, 10
+// apart, 16 in from the edges, the list card's ground with the larger
+// radius, for the plain Yes/No markets of the list with the most volume
+// in the last 24 hours ([polyTopMarkets]). A card is the market's image
+// (36, rounded 10; the category glyph when it has none) at the top-left,
+// the question under it (two lines, semibold), and at the bottom who
+// leads at what chance, large ("Yes · 62%", [polyRowLeader]). No pills,
+// no closing date. The card opens the market as a list row does. The
+// strip never shows while searching (search is its own screen) or on the
+// Live lists.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/providers/polymarket_live_prices_provider.dart';
 import 'package:kute/screens/polymarket/components/live_token_scope.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
-import 'package:kute/services/polymarket/market_buy_quote.dart'
-    show polymarketCentsLabel;
 import 'package:kute/services/polymarket/market_card_shape.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -36,9 +36,19 @@ const int kPolyTopMarketsMax = 5;
 /// would only repeat the list's first row.
 const int kPolyTopMarketsMin = 2;
 
-/// The card's width and least height.
-const double kPolyTopMarketCardWidth = 240;
-const double kPolyTopMarketCardHeight = 170;
+/// The gap between two cards, how much less than half the row a card is
+/// (so the third peeks), and a card's least height, in design units.
+const double kPolyTopMarketCardGap = 10;
+const double kPolyTopMarketCardPeek = 14;
+const double kPolyTopMarketCardHeight = 150;
+
+/// The card's image.
+const double kPolyTopMarketCardImage = 36;
+
+/// A strip card's width: half the screen less its 16 margins and the gap,
+/// less [kPolyTopMarketCardPeek] so the third card peeks.
+double polyTopMarketCardWidth() =>
+    (1.sw - 32.w - kPolyTopMarketCardGap.w) / 2 - kPolyTopMarketCardPeek.w;
 
 /// The markets the strip features, most traded first: the plain Yes/No
 /// markets of [events] (the list's own test, [polyCardIsYesNo]) that are
@@ -85,20 +95,17 @@ List<PolymarketEvent> polyTopMarkets(
 /// The strip: [markets] as [PolyTopMarketCard]s in one side-scrolling
 /// row, every card as tall as the tallest. [onOpen] opens a market (its
 /// card was tapped), [onOpenDown] is the finger coming down on a card
-/// (the market page's history can start reading), [onPickSide] a Yes /
-/// No pill ('yes' / 'no').
+/// (the market page's history can start reading).
 class PolyTopMarketsStrip extends StatelessWidget {
   final List<PolymarketEvent> markets;
   final ValueChanged<PolymarketEvent> onOpen;
   final ValueChanged<PolymarketEvent>? onOpenDown;
-  final void Function(PolymarketEvent market, String side) onPickSide;
 
   const PolyTopMarketsStrip({
     super.key,
     required this.markets,
     required this.onOpen,
     this.onOpenDown,
-    required this.onPickSide,
   });
 
   @override
@@ -115,13 +122,12 @@ class PolyTopMarketsStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < markets.length; i++) ...[
-              if (i > 0) SizedBox(width: 12.w),
+              if (i > 0) SizedBox(width: kPolyTopMarketCardGap.w),
               PolyTopMarketCard(
                 market: markets[i],
                 onTap: () => onOpen(markets[i]),
                 onTapDown:
                     onOpenDown == null ? null : () => onOpenDown!(markets[i]),
-                onPickSide: (side) => onPickSide(markets[i], side),
               ),
             ],
           ],
@@ -131,7 +137,7 @@ class PolyTopMarketsStrip extends StatelessWidget {
   }
 }
 
-/// One card of the strip. Its own ConsumerWidget watching only its two
+/// One card of the strip. Its own ConsumerWidget watching only its
 /// tokens' live prices, so a price tick repaints this card alone, and
 /// registering them over the CLOB feed while it is on screen
 /// ([LiveTokenScope]).
@@ -139,52 +145,35 @@ class PolyTopMarketCard extends ConsumerWidget {
   final PolymarketEvent market;
   final VoidCallback onTap;
   final VoidCallback? onTapDown;
-  final ValueChanged<String> onPickSide;
 
   const PolyTopMarketCard({
     super.key,
     required this.market,
     required this.onTap,
     this.onTapDown,
-    required this.onPickSide,
   });
-
-  PolymarketOutcome? _side(String name) => market.outcomes
-      .where((o) => o.name.trim().toLowerCase() == name)
-      .firstOrNull;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final l10n = context.l10n;
-    final yes = _side('yes');
-    final no = _side('no');
     final tokens = [
-      for (final o in [yes, no])
-        if (o?.tokenId != null && o!.tokenId!.isNotEmpty) o.tokenId!,
+      for (final o in market.outcomes)
+        if (o.tokenId != null && o.tokenId!.isNotEmpty) o.tokenId!,
     ];
-    double priceOf(PolymarketOutcome? o, double fallback) {
-      if (o == null) return fallback;
-      final id = o.tokenId;
-      final live = id == null || id.isEmpty
-          ? null
-          : ref.watch(livePriceProvider.select((s) => s.prices[id]));
-      return (live ?? o.price).clamp(0.0, 1.0);
-    }
-
-    final yesPrice = priceOf(yes, market.yesPrice);
-    // The No side's own price when the feed has it, else what Yes leaves.
-    final noPrice = priceOf(no, 1 - yesPrice);
-    final end = market.endDate;
-    final caption =
-        end == null ? null : l10n.marketCloses(DateFormat('MMM yyyy').format(end));
+    final live = <String, double>{
+      for (final id in tokens)
+        if (ref.watch(livePriceProvider.select((s) => s.prices[id]))
+            case final p?)
+          id: p,
+    };
+    final lead = polyRowLeader(context.l10n, market.outcomes, live: live);
     final radius = BorderRadius.circular(AppRadius.xl);
 
     return LiveTokenScope(
       tokens: tokens,
       child: Container(
-        width: kPolyTopMarketCardWidth.w,
-        constraints: BoxConstraints(minHeight: kPolyTopMarketCardHeight.h),
+        width: polyTopMarketCardWidth(),
+        constraints: BoxConstraints(minHeight: kPolyTopMarketCardHeight.w),
         decoration: AppDecorations.card(context).copyWith(borderRadius: radius),
         child: Material(
           color: Colors.transparent,
@@ -198,100 +187,45 @@ class PolyTopMarketCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PolyCardThumbnail(
-                        title: market.title,
-                        imageUrl: market.imageUrl,
-                        category: market.category,
-                        size: kPolyCardImage.w,
-                        radius: 10.r,
-                      ),
-                      SizedBox(width: kPolyCardImageGap.w),
-                      Expanded(
-                        child: Text(
-                          market.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    ],
+                  PolyCardThumbnail(
+                    title: market.title,
+                    imageUrl: market.imageUrl,
+                    category: market.category,
+                    size: kPolyTopMarketCardImage.w,
+                    radius: 10.r,
                   ),
-                  SizedBox(height: 12.h),
-                  // The chance, large, with the word small beside it on
-                  // its baseline.
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      RollingFigure(
+                  SizedBox(height: 8.w),
+                  Text(
+                    market.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      height: 1.25,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(height: 8.w),
+                  if (lead != null)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: RollingFigure(
                         identity: market.slug,
-                        text: polyCardChance(yesPrice),
+                        text: '${lead.name} · ${polyCardChance(lead.price)}',
                         style: TextStyle(
                           color: c.textPrimary,
-                          fontSize: 28.sp,
+                          fontSize: 22.sp,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.6,
-                          height: 1.0,
+                          height: 1.2,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                      SizedBox(width: 6.w),
-                      Flexible(
-                        child: Text(
-                          l10n.predictionsChance,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  SizedBox(height: 12.h),
-                  Row(
-                    children: [
-                      PolySidePill(
-                        text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
-                        color: AppColors.marketUp,
-                        onTap: () => onPickSide('yes'),
-                      ),
-                      SizedBox(width: 6.w),
-                      PolySidePill(
-                        text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
-                        color: AppColors.marketDown,
-                        onTap: () => onPickSide('no'),
-                      ),
-                    ],
-                  ),
-                  if (caption != null) ...[
-                    SizedBox(height: 8.h),
-                    Text(
-                      caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: c.textTertiary,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
                     ),
-                  ],
                 ],
               ),
             ),

@@ -12111,4 +12111,15 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get activityEarlier => 'Earlier';
+
+  @override
+  String polyRowLeads(String leader, String chance) {
+    return '$leader leads · $chance';
+  }
+
+  @override
+  String get predictAboveTarget => 'above target';
+
+  @override
+  String get predictBelowTarget => 'below target';
 }

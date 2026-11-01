@@ -1,6 +1,8 @@
 // The Top markets strip over the Predictions feed: which markets it
 // features (the open Yes/No markets with the most volume in the day),
-// what a card shows, and where a tap goes.
+// what a card shows (the Investing card's treatment since the declutter:
+// image, question, who leads large; no pills, no closing date), and where
+// a tap goes.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,11 +130,9 @@ void main() {
     });
   });
 
-  testWidgets('a card: the question, the chance large, the quiet pills and '
-      'when it closes; the card opens the market, a pill its side',
-      (tester) async {
+  testWidgets('a card: the image, the question and who leads large; no '
+      'pills, no closing date; the card opens the market', (tester) async {
     final opened = <String>[];
-    final picked = <(String, String)>[];
     final markets = [
       _event('fed', 'Fed cuts rates in December?',
           volume: 48.2e6, yes: 0.71, endDate: DateTime(2026, 12, 10)),
@@ -145,56 +145,45 @@ void main() {
       PolyTopMarketsStrip(
         markets: markets,
         onOpen: (m) => opened.add(m.id),
-        onPickSide: (m, side) => picked.add((m.id, side)),
       ),
     );
     expect(tester.takeException(), isNull);
     expect(find.byType(PolyTopMarketCard), findsNWidgets(3));
     expect(find.text('Fed cuts rates in December?'), findsOneWidget);
-    expect(_rolled('71%'), findsOneWidget);
-    expect(find.text('chance'), findsNWidgets(3));
-    expect(find.text('Yes 71¢'), findsOneWidget);
-    expect(find.text('No 29¢'), findsOneWidget);
-    expect(find.text('Closes Dec 2026'), findsNWidgets(2));
-    // No end date: no caption.
-    expect(find.text('Closes'), findsNothing);
+    expect(find.byType(PolyCardThumbnail), findsNWidgets(3));
+    // Who leads, large: Yes at 71%; No at 86% where Yes is the longshot.
+    expect(_rolled('Yes · 71%'), findsOneWidget);
+    expect(_rolled('No · 86%'), findsOneWidget);
+    final big = tester.widget<RollingNumberText>(_rolled('Yes · 71%'));
+    expect(big.style.fontSize, moreOrLessEquals(22.sp, epsilon: 0.5));
+    expect(big.style.fontWeight, FontWeight.w700);
+    // Nothing else: no pills, no "chance" word, no closing date.
+    expect(find.textContaining('¢'), findsNothing);
+    expect(find.text('chance'), findsNothing);
+    expect(find.textContaining('Closes'), findsNothing);
 
-    // The strip's own size: the first card in from the edge, the second
-    // 12 after it, both 240 wide and at least 170 tall.
+    // Two to a screen, the third peeking; about 150 tall, 10 apart.
     final cards = find.byType(PolyTopMarketCard);
     expect(tester.getTopLeft(cards.at(0)).dx, moreOrLessEquals(16.w, epsilon: 0.5));
-    expect(tester.getSize(cards.at(0)).width, moreOrLessEquals(240.w, epsilon: 0.5));
+    expect(tester.getSize(cards.at(0)).width,
+        moreOrLessEquals((390 - 32.w - 10.w) / 2 - 14.w, epsilon: 0.5));
     expect(tester.getSize(cards.at(0)).height,
-        greaterThanOrEqualTo(170.h - 0.5));
+        greaterThanOrEqualTo(150.w - 0.5));
     expect(tester.getTopLeft(cards.at(1)).dx - tester.getTopRight(cards.at(0)).dx,
-        moreOrLessEquals(12.w, epsilon: 0.5));
+        moreOrLessEquals(10.w, epsilon: 0.5));
+    expect(tester.getTopRight(cards.at(1)).dx, lessThan(390));
     // All cards as tall as each other.
     expect(tester.getSize(cards.at(1)).height, tester.getSize(cards.at(0)).height);
 
-    // The chance is written large, the pills quiet: the side's colour as
-    // ink on the neutral surface.
-    final c = AppColorsExtension.light();
-    final yes = find.text('Yes 71¢');
-    expect(tester.widget<Text>(yes).style?.color, AppColors.marketUp);
-    final pill = tester.widget<Container>(
-        find.ancestor(of: yes, matching: find.byType(Container)).first);
-    expect((pill.decoration as BoxDecoration).color, c.surfaceLight);
-    expect(find.byType(PolySidePill), findsNWidgets(6));
-
-    // A pill opens that side; the card itself opens the market.
-    await tester.tap(yes);
-    expect(picked, [('fed', 'yes')]);
-    expect(opened, isEmpty);
-    await tester.tap(find.text('No 29¢'));
-    expect(picked.last, ('fed', 'no'));
+    // The card opens the market.
     await tester.tap(find.text('Fed cuts rates in December?'));
     expect(opened, ['fed']);
 
     // The strip scrolls sideways to the last card.
-    expect(tester.getTopLeft(cards.at(2)).dx, greaterThan(390));
+    expect(tester.getTopLeft(cards.at(2)).dx, greaterThan(tester.getTopRight(cards.at(1)).dx));
     await tester.drag(find.byType(PolyTopMarketsStrip), const Offset(-400, 0));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(cards.at(2)).dx, lessThan(390));
+    expect(tester.getTopRight(cards.at(2)).dx, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
 
@@ -204,7 +193,6 @@ void main() {
       PolyTopMarketsStrip(
         markets: const [],
         onOpen: (_) {},
-        onPickSide: (_, __) {},
       ),
     );
     expect(find.byType(PolyTopMarketCard), findsNothing);

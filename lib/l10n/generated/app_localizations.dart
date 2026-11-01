@@ -20436,6 +20436,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Earlier'**
   String get activityEarlier;
+
+  /// Predictions list row: the one quiet line under a question with many outcomes, the most likely outcome and its chance, e.g. 'Spain leads · 18%'. chance is already formatted with its percent sign.
+  ///
+  /// In en, this message translates to:
+  /// **'{leader} leads · {chance}'**
+  String polyRowLeads(String leader, String chance);
+
+  /// Compact live crypto round card on the Predictions list: beside the live price when it is above the round's target price (the price to beat). Lower case, a state word.
+  ///
+  /// In en, this message translates to:
+  /// **'above target'**
+  String get predictAboveTarget;
+
+  /// Compact live crypto round card on the Predictions list: beside the live price when it is below the round's target price (the price to beat). Lower case, a state word.
+  ///
+  /// In en, this message translates to:
+  /// **'below target'**
+  String get predictBelowTarget;
 }
 
 class _AppLocalizationsDelegate

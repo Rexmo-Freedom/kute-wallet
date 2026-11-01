@@ -3702,5 +3702,8 @@
   "activityPaidFromBoth": "Paid from {first} and {second}",
   "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
   "activityLatest": "Latest",
-  "activityEarlier": "Earlier"
+  "activityEarlier": "Earlier",
+  "polyRowLeads": "{leader} leads · {chance}",
+  "predictAboveTarget": "above target",
+  "predictBelowTarget": "below target"
 }

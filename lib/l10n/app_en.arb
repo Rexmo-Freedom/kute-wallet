@@ -7541,5 +7541,11 @@
   "activityLatest": "Latest",
   "@activityLatest": {"description": "Bitcoin home Activity: heading over the four newest actions, shown as square tiles."},
   "activityEarlier": "Earlier",
-  "@activityEarlier": {"description": "Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles."}
+  "@activityEarlier": {"description": "Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles."},
+  "polyRowLeads": "{leader} leads · {chance}",
+  "@polyRowLeads": {"description": "Predictions list row: the one quiet line under a question with many outcomes, the most likely outcome and its chance, e.g. 'Spain leads · 18%'. chance is already formatted with its percent sign.", "placeholders": {"leader": {"type": "String"}, "chance": {"type": "String"}}},
+  "predictAboveTarget": "above target",
+  "@predictAboveTarget": {"description": "Compact live crypto round card on the Predictions list: beside the live price when it is above the round's target price (the price to beat). Lower case, a state word."},
+  "predictBelowTarget": "below target",
+  "@predictBelowTarget": {"description": "Compact live crypto round card on the Predictions list: beside the live price when it is below the round's target price (the price to beat). Lower case, a state word."}
 }

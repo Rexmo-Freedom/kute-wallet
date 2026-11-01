@@ -897,11 +897,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
       // The markets with the most volume in the day as big cards in a
-      // side-scrolling strip, first in the feed (founder, 1 November
-      // 2026); not over the watchlist, which is the user's own pick.
-      var top = query.pill == PolyPill.watchlist
-          ? const <PolymarketEvent>[]
-          : polyTopMarkets(open);
+      // side-scrolling strip, first in the feed, on the default view only
+      // (founder, 1 November 2026): a category or subcategory the person
+      // picks is the full plain list, nothing excluded from it.
+      var top = curated ? polyTopMarkets(open) : const <PolymarketEvent>[];
       // A market on the strip is not repeated in the list under it
       // (founder, 1 November 2026); and the strip never empties the
       // list: with fewer than [kPolyTopMarketsListKeeps] left, no strip.
@@ -914,9 +913,9 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         listed = events;
       }
       listed = polyBrowseRowsShown(curated, listed);
-      // Plain Yes/No markets share one grouped card like Home's
-      // Activity; an event with many outcomes or a game keeps its own
-      // card and breaks the group (founder, October 2026).
+      // Markets and events with many outcomes share one grouped card
+      // like Home's Activity, one row each; a game keeps its own card and
+      // breaks the group (founder, 1 November 2026).
       body = [
         // No title over the strip (founder, 1 November 2026): the big
         // cards simply open the feed.
@@ -952,8 +951,8 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     ];
   }
 
-  /// The Top markets strip: a card opens the market page as a list card
-  /// does, a pill the slip on that side, both marked as from the strip.
+  /// The Top markets strip: a card opens the market page as a list row
+  /// does, marked as from the strip.
   Widget _topMarketsStrip(List<PolymarketEvent> top) => PolyTopMarketsStrip(
         markets: top,
         // The chart's history starts reading as the finger comes down.
@@ -969,15 +968,6 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
             source: 'top_markets',
           );
         },
-        onPickSide: (market, side) => polyCardOpenSlip(
-          context,
-          event: market,
-          side: side,
-          onDeposit: () async {
-            if (context.mounted) _openPredictionsDeposit(context, ref);
-          },
-          source: 'top_markets',
-        ),
       );
 
   /// The games in play by league, the league with the most games first.
@@ -1177,7 +1167,6 @@ class _PolyFeedCard extends ConsumerWidget {
           gameId: market.gameId,
           hasLivestream: market.hasLivestream,
           siblingMarketCount: extraMarketCount,
-          dayMove: market.oneDayPriceChange,
           onMoreMarkets: extraMarketCount > 0
               ? () {
                   HapticFeedback.mediumImpact();
@@ -1212,17 +1201,6 @@ class _PolyFeedCard extends ConsumerWidget {
               source: 'feed_card',
             );
           },
-          // A Yes / No pill opens the slip straight on that side, the
-          // way the market page's own pair does.
-          onPickSide: (side) => polyCardOpenSlip(
-            context,
-            event: market,
-            side: side,
-            onDeposit: () async {
-              if (context.mounted) _openPredictionsDeposit(context, ref);
-            },
-            source: 'feed_card',
-          ),
         ),
       ),
     );
@@ -1540,18 +1518,9 @@ class CryptoPredictBanner extends ConsumerWidget {
             title: context.l10n
                 .predictUpOrDownCompact(config.asset, minutes),
             countdown: countdown,
-            pastResults: pastResults,
             loading: isInitialLoading,
             priceText: priceStr,
-            diffText: diffToBeat == null
-                ? null
-                : '${diffToBeat >= 0 ? '▲' : '▼'} '
-                    '${_formatDiff(diffToBeat.abs())}',
-            diffUp: (diffToBeat ?? 0) >= 0,
-            targetText: context.l10n.predictTargetPrice(priceToBeatStr),
-            history: predictState?.priceHistory,
-            priceToBeat: priceToBeat,
-            roundStart: event?.windowStartTime,
+            aboveTarget: diffToBeat == null ? null : diffToBeat >= 0,
             upFrac: livePctUpClamped,
             onUp: () => openSide('up'),
             onDown: () => openSide('down'),
@@ -1905,22 +1874,21 @@ class CryptoPredictBanner extends ConsumerWidget {
   }
 }
 
-/// The compact crypto round card ([CryptoPredictBanner.compact]): about
-/// 180 px for the same data and actions as the full card.
+/// The compact crypto round card ([CryptoPredictBanner.compact]; founder,
+/// 1 November 2026: less clutter): one header row (the logo 32, "BTC up
+/// or down · 5m", the countdown on the right as quiet text, "● 03:38"),
+/// the live price large with one word of state in its colour ("above
+/// target" / "below target"), and Up / Down as two soft 40 px pills (the
+/// side's colour at 12% with its text in the colour, "Up 81%"). No chart,
+/// no target line or price, no past rounds: the market page has them.
 class _CompactCryptoCard extends StatelessWidget {
   const _CompactCryptoCard({
     required this.config,
     required this.title,
     required this.countdown,
-    required this.pastResults,
     required this.loading,
     required this.priceText,
-    required this.diffText,
-    required this.diffUp,
-    required this.targetText,
-    required this.history,
-    required this.priceToBeat,
-    required this.roundStart,
+    required this.aboveTarget,
     required this.upFrac,
     required this.onUp,
     required this.onDown,
@@ -1929,26 +1897,20 @@ class _CompactCryptoCard extends StatelessWidget {
   final CryptoAssetConfig config;
   final String title;
   final String countdown;
-  final List<CryptoWindowResult> pastResults;
   final bool loading;
   final String priceText;
-  final String? diffText;
-  final bool diffUp;
-  final String targetText;
-  final List<BtcPriceSnapshot>? history;
-  final double? priceToBeat;
-  final DateTime? roundStart;
+
+  /// Whether the live price is above the round's target; null while
+  /// either is unknown (no state word).
+  final bool? aboveTarget;
   final double upFrac;
   final VoidCallback onUp;
   final VoidCallback onDown;
 
-  /// The sparkline's plot height; the chart's own bottom margin (18 px,
-  /// time labels off) is clipped away beneath it.
-  static const double _sparkHeight = 40;
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l10n = context.l10n;
     final logo = config.isSvg
         ? SvgPicture.asset(config.logoPath,
             width: 32.sp, height: 32.sp, fit: BoxFit.contain)
@@ -1963,10 +1925,17 @@ class _CompactCryptoCard extends StatelessWidget {
             child: Image.asset(config.logoPath, width: 22.sp, height: 22.sp),
           );
     final pair = formatPolyChancePair(upFrac);
-    final seeded = (history?.length ?? 0) >= 2;
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final above = aboveTarget;
     return Container(
       key: const ValueKey('crypto-round-compact'),
-      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(20.r),
@@ -1985,7 +1954,7 @@ class _CompactCryptoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Logo, title, past rounds as dots, the countdown pill.
+          // Logo, title, the countdown as quiet text.
           Row(
             children: [
               SizedBox(width: 32.sp, height: 32.sp, child: logo),
@@ -1998,50 +1967,27 @@ class _CompactCryptoCard extends StatelessWidget {
                   style: TextStyle(
                     color: c.textPrimary,
                     fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                   ),
                 ),
               ),
-              if (pastResults.isNotEmpty) ...[
-                _PastRoundDots(results: pastResults),
-                SizedBox(width: 8.w),
-              ],
-              Container(
+              SizedBox(width: 8.w),
+              Text.rich(
                 key: const ValueKey('crypto-round-countdown'),
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: c.surfaceLight,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6.w,
-                      height: 6.w,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF4444),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 5.w),
-                    Text(
-                      countdown,
+                TextSpan(children: [
+                  TextSpan(
+                      text: '● ',
                       style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
+                          color: const Color(0xFFFF4444), fontSize: 9.sp)),
+                  TextSpan(text: countdown),
+                ]),
+                style: quiet,
               ),
             ],
           ),
-          SizedBox(height: 8.h),
-          // The live price, its move against the target, the target.
+          SizedBox(height: 10.h),
+          // The live price and where it stands against the target.
           if (loading)
             KuteSkeleton(
               child: Align(
@@ -2071,65 +2017,29 @@ class _CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (diffText != null) ...[
-                  SizedBox(width: 6.w),
+                if (above != null) ...[
+                  SizedBox(width: 8.w),
                   Text(
-                    diffText!,
+                    above ? l10n.predictAboveTarget : l10n.predictBelowTarget,
+                    key: const ValueKey('crypto-round-state'),
                     maxLines: 1,
-                    style: TextStyle(
-                      color: diffUp ? AppColors.marketUp : AppColors.marketDown,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                    style: quiet.copyWith(
+                      color:
+                          above ? AppColors.marketUp : AppColors.marketDown,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
-                SizedBox(width: 8.w),
-                const Spacer(),
-                Text(
-                  targetText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
               ],
             ),
-          SizedBox(height: 6.h),
-          // A slim sparkline with the dashed target line.
-          SizedBox(
-            height: _sparkHeight,
-            child: !seeded
-                ? const SkeletonLineChart(
-                    height: _sparkHeight, padding: EdgeInsets.zero)
-                : ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.topCenter,
-                      minHeight: 0,
-                      maxHeight: _sparkHeight + 18,
-                      child: BtcPredictChart(
-                        height: _sparkHeight + 18,
-                        externalHistory: history,
-                        externalPriceToBeat: priceToBeat,
-                        roundStart: roundStart,
-                        showLiveIndicator: false,
-                        showHeader: false,
-                      ),
-                    ),
-                  ),
-          ),
-          SizedBox(height: 8.h),
-          // Up and Down with their odds, one row of two pills.
+          SizedBox(height: 12.h),
+          // Up and Down with their odds, one row of two soft pills.
           Row(
             children: [
               Expanded(
                 child: _CompactSidePill(
                   key: const ValueKey('crypto-round-up'),
-                  label: context.l10n.upLabel,
+                  label: l10n.upLabel,
                   odds: pair.first,
                   up: true,
                   onTap: onUp,
@@ -2139,7 +2049,7 @@ class _CompactCryptoCard extends StatelessWidget {
               Expanded(
                 child: _CompactSidePill(
                   key: const ValueKey('crypto-round-down'),
-                  label: context.l10n.downLabel,
+                  label: l10n.downLabel,
                   odds: pair.second,
                   up: false,
                   onTap: onDown,
@@ -2153,8 +2063,8 @@ class _CompactCryptoCard extends StatelessWidget {
   }
 }
 
-/// One side of the compact card: a 40 px pill in the market colour, the
-/// arrow, the side and its odds.
+/// One side of the compact card: a soft 40 px pill, the side's colour at
+/// 12% behind its name and odds in the colour ("Up 81%").
 class _CompactSidePill extends StatelessWidget {
   const _CompactSidePill({
     super.key,
@@ -2169,14 +2079,16 @@ class _CompactSidePill extends StatelessWidget {
   final bool up;
   final VoidCallback onTap;
 
+  /// The pill's fill: the side's colour at this opacity.
+  static const double fillOpacity = 0.12;
+
   @override
   Widget build(BuildContext context) {
     final color = up ? AppColors.marketUp : AppColors.marketDown;
-    final fg = contrastingOnColor(color);
     final style = TextStyle(
-      color: fg,
+      color: color,
       fontSize: 14.sp,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.1,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
@@ -2192,67 +2104,23 @@ class _CompactSidePill extends StatelessWidget {
         child: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: color,
+            color: color.withValues(alpha: fillOpacity),
             borderRadius: BorderRadius.circular(999),
           ),
           alignment: Alignment.center,
           padding: EdgeInsets.symmetric(horizontal: 10.w),
           child: FittedBox(
-           fit: BoxFit.scaleDown,
-           child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  size: 16.sp, color: fg),
-              SizedBox(width: 4.w),
-              Text(label, style: style),
-              SizedBox(width: 6.w),
-              RollingNumberText(text: odds, style: style),
-            ],
-           ),
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: style),
+                SizedBox(width: 6.w),
+                RollingNumberText(text: odds, style: style),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The last few windows as tiny dots, oldest first: up and down in the
-/// market colours, a hairline ring while one is still settling.
-class _PastRoundDots extends StatelessWidget {
-  const _PastRoundDots({required this.results});
-
-  final List<CryptoWindowResult> results;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final size = 7.sp;
-    return Semantics(
-      label: context.l10n.predictPastRounds,
-      child: Row(
-        key: const ValueKey('crypto-round-past-dots'),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < results.length; i++) ...[
-            if (i > 0) SizedBox(width: 3.w),
-            Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: results[i].up == null
-                    ? null
-                    : results[i].up!
-                        ? AppColors.marketUp
-                        : AppColors.marketDown,
-                shape: BoxShape.circle,
-                border: results[i].up == null
-                    ? Border.all(color: c.borderSubtle, width: 1)
-                    : null,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

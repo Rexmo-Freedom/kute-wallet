@@ -169,15 +169,10 @@ class PredictionBrowseCard extends ConsumerWidget {
     this.onTap,
     this.followLiveGame = false,
     this.inGroup = false,
-    this.onPickSide,
   });
 
   final PolymarketEvent event;
   final VoidCallback? onTap;
-
-  /// A Yes / No pill of the row was tapped ([MarketCard.onPickSide]);
-  /// null leaves the pills as part of the row's tap.
-  final ValueChanged<String>? onPickSide;
 
   /// A row of a grouped list card ([MarketCard.inGroup]).
   final bool inGroup;
@@ -229,7 +224,6 @@ class PredictionBrowseCard extends ConsumerWidget {
         liveGame: event.isSportsCategory || update != null
             ? PolyLiveGame.of(event, update)
             : null,
-        dayMove: event.oneDayPriceChange,
         teams: event.teams,
         slug: event.slug,
         gameId: event.gameId,
@@ -237,7 +231,6 @@ class PredictionBrowseCard extends ConsumerWidget {
         livePrices: livePrices,
         priceDirections: directions,
         onTap: onTap,
-        onPickSide: onPickSide,
       ),
     );
   }
