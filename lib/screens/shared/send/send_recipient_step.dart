@@ -10,23 +10,17 @@
 //   * a pasted or typed destination the flow recognises as one resolved
 //     row under it: the rail's mark, the shortened address, the rail in
 //     words ([SendResolvedRow]); the bar's Continue acts on it;
-//   * "Recent": the people and addresses this wallet paid, as circles
-//     with the name or short address under ([SendRecentCircles]);
-//   * the phone book's matches for a typed name or number, inline under
-//     the field with no header ([SendContactMatches];
-//     services/contacts/send_contacts_service.dart);
-//   * one soft "Send to" card: "Send to a friend", a prediction or
-//     investment on the dollar send, and the coins an address can land as.
+//   * the Contacts list under it (founder, 1 November 2026, Revolut's one
+//     list: send_contacts_list.dart): the recents and the phone's
+//     contacts, filtered by what is typed, badged Kute or ⚡, the
+//     resolved destination always first above it;
+//   * one soft "Send to" card: the coins an address can land as (and, on
+//     the Dollars Send, To your Bitcoin and A stock or prediction).
 //
-// SEND TO ANYONE IS SEND TO A CONTACT (founder, 31 October 2026): one row,
-// "Send to a friend" with Sal's `share` face ([SendToFriendRow]), asks the
-// contacts permission on its first tap (never on open) and opens the
-// contacts picker ([showSendContactsPicker]) with "Someone else" at its
-// top, the plain name field of Send to anyone (send_to_anyone_sheet.dart)
-// for a friend who is not in the book. There is no separate Send to
-// anyone row and no Contacts section. On the dollar send the friend and
-// prediction rows live on the coin step only: once a coin and network are
-// chosen the address step is addresses only (usd_send_screen.dart).
+// There is no "Send to a friend" row on the Bitcoin or Dollars Send any
+// more: a plain contact in the list IS the friend link. [SendToFriendRow],
+// [SendContactMatches] and the contacts picker stay for the dollar send's
+// own coin step (usd_send_screen.dart, reached from a deep link).
 //
 // No step bar: the sheet's title says where the person is. The floating
 // Sal bar is the step's Continue (kute_bar_context.dart; the plain
@@ -818,10 +812,15 @@ class SendAlsoSendsToRow extends StatelessWidget {
     super.key,
     required this.groups,
     required this.onTap,
+    this.title,
   });
 
   final List<CoinAssetGroup> groups;
   final VoidCallback onTap;
+
+  /// The row's words; null reads "Also sends to" (the Dollars Add says
+  /// "From another wallet or exchange").
+  final String? title;
 
   static const int _stack = 3;
 
@@ -869,7 +868,7 @@ class SendAlsoSendsToRow extends StatelessWidget {
           ],
         ),
       ),
-      title: l10n.sendAlsoSendsTo,
+      title: title ?? l10n.sendAlsoSendsTo,
       subtitle: summary,
       onTap: onTap,
     );

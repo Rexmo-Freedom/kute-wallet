@@ -712,6 +712,7 @@ usd_send_opened
 usd_send_step
 usd_tab_opened
 usd_token_recovery
+usd_withdraw_coin_sheet_opened
 venue_account_link_result
 venue_cash_direct_refused
 venue_cash_pull_failed

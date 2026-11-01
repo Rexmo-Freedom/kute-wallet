@@ -11,12 +11,17 @@
 // (models/share_link_model.dart, `recipientPhone`) for "Send again via
 // WhatsApp / SMS".
 //
-// The permission is asked ON TAP of the "Send to a friend" row, never on
-// screen open; the status is read on open so the row can say "Allow
-// contacts in Settings" once the person refused. The platform is behind
+// The permission is asked ON TAP of the "See your contacts" row at the
+// top of the Contacts list (send_contacts_list.dart), never on screen
+// open; the status is read on open so the row can say "Allow contacts in
+// Settings" once the person refused. Each contact also carries its photo
+// thumbnail (the avatar) and, when one of its emails is a Kute Lightning
+// address (`name@paykute.com`), that address: the list badges it as a
+// Kute user and a tap pays it directly. Both stay on the phone too. The platform is behind
 // [SendContactsGateway] so widget tests drive every state with a fake.
 
 import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:flutter_contacts/flutter_contacts.dart' as fc;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,6 +50,8 @@ class SendContact {
     required this.displayName,
     required this.firstName,
     required this.phone,
+    this.lightningAddress,
+    this.photo,
   });
 
   final String id;
@@ -57,6 +64,13 @@ class SendContact {
   /// The number as the phone book has it.
   final String phone;
 
+  /// A Kute Lightning address among the contact's emails
+  /// ([kKuteLightningDomain]), else null.
+  final String? lightningAddress;
+
+  /// The photo thumbnail, when the book has one.
+  final Uint8List? photo;
+
   /// "MA" for Maria Alves, "M" for Maria.
   String get initials => sendContactInitials(displayName);
 
@@ -65,19 +79,30 @@ class SendContact {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return true;
     if (displayName.toLowerCase().contains(q)) return true;
+    if (lightningAddress?.toLowerCase().contains(q) ?? false) return true;
     final digits = q.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return false;
+    if (digits.isEmpty ||
+        digits.length != q.replaceAll(RegExp(r'[\s+()\-.]'), '').length) {
+      return false;
+    }
     return phone.replaceAll(RegExp(r'\D'), '').contains(digits);
   }
 }
 
+/// The Lightning address domain of every Kute wallet.
+const String kKuteLightningDomain = 'paykute.com';
+
+/// Whether [address] is a Kute Lightning address (`name@paykute.com`).
+bool isKuteLightningAddress(String? address) {
+  final a = address?.trim().toLowerCase() ?? '';
+  final at = a.lastIndexOf('@');
+  return at > 0 && a.substring(at + 1) == kKuteLightningDomain;
+}
+
 /// "MA" for Maria Alves, "M" for Maria, "" for nothing.
 String sendContactInitials(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((p) => p.isNotEmpty)
-      .toList();
+  final parts =
+      name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
   if (parts.isEmpty) return '';
   String first(String s) => String.fromCharCodes(s.runes.take(1)).toUpperCase();
   if (parts.length == 1) return first(parts.first);
@@ -97,7 +122,8 @@ class FlutterContactsGateway implements SendContactsGateway {
   const FlutterContactsGateway();
 
   SendContactsPermission _map(fc.PermissionStatus s) => switch (s) {
-        fc.PermissionStatus.granted || fc.PermissionStatus.limited =>
+        fc.PermissionStatus.granted ||
+        fc.PermissionStatus.limited =>
           SendContactsPermission.granted,
         fc.PermissionStatus.denied => SendContactsPermission.denied,
         fc.PermissionStatus.permanentlyDenied ||
@@ -119,8 +145,8 @@ class FlutterContactsGateway implements SendContactsGateway {
   @override
   Future<SendContactsPermission> request() async {
     try {
-      return _map(await fc.FlutterContacts.permissions
-          .request(fc.PermissionType.read));
+      return _map(
+          await fc.FlutterContacts.permissions.request(fc.PermissionType.read));
     } catch (_) {
       return SendContactsPermission.denied;
     }
@@ -129,7 +155,12 @@ class FlutterContactsGateway implements SendContactsGateway {
   @override
   Future<List<SendContact>> load() async {
     final rows = await fc.FlutterContacts.getAll(
-      properties: {fc.ContactProperty.name, fc.ContactProperty.phone},
+      properties: {
+        fc.ContactProperty.name,
+        fc.ContactProperty.phone,
+        fc.ContactProperty.email,
+        fc.ContactProperty.photoThumbnail,
+      },
     );
     final out = <SendContact>[];
     for (final c in rows) {
@@ -145,11 +176,18 @@ class FlutterContactsGateway implements SendContactsGateway {
           : given.isNotEmpty
               ? given
               : phone;
+      final kute = c.emails
+          .map((e) => e.address.trim())
+          .where(isKuteLightningAddress)
+          .firstOrNull;
+      final thumb = c.photo?.thumbnail;
       out.add(SendContact(
         id: id,
         displayName: name,
         firstName: given.isNotEmpty ? given : name.split(' ').first,
         phone: phone,
+        lightningAddress: kute,
+        photo: thumb != null && thumb.isNotEmpty ? thumb : null,
       ));
     }
     out.sort((a, b) =>
@@ -194,7 +232,10 @@ class SendContactsState {
 
   /// The contacts matching [query], up to [limit].
   List<SendContact> matching(String query, {int? limit}) {
-    final out = [for (final c in contacts) if (c.matches(query)) c];
+    final out = [
+      for (final c in contacts)
+        if (c.matches(query)) c
+    ];
     return limit == null ? out : out.take(limit).toList();
   }
 }
@@ -210,7 +251,8 @@ class SendContactsNotifier extends Notifier<SendContactsState> {
   Future<void> refresh() async {
     final permission = await _gateway.status();
     state = state.copyWith(permission: permission);
-    if (permission == SendContactsPermission.granted && state.contacts.isEmpty) {
+    if (permission == SendContactsPermission.granted &&
+        state.contacts.isEmpty) {
       await _load();
     }
   }

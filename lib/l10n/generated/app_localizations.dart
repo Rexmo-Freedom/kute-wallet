@@ -19987,6 +19987,72 @@ abstract class AppLocalizations {
   /// **'Search contacts'**
   String get sendContactsSearchHint;
 
+  /// Send screens: the row at the top of the Contacts list until the contacts permission is granted; tapping asks for it.
+  ///
+  /// In en, this message translates to:
+  /// **'See your contacts'**
+  String get sendContactsSeeYours;
+
+  /// Under sendContactsSeeYours.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to friends from your phone book'**
+  String get sendContactsSeeYoursSub;
+
+  /// Send screens: a typed phone number no contact has; opens the claim link flow for that number.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a link to {phone}'**
+  String sendLinkToPhone(String phone);
+
+  /// Accessibility label of the small Kute badge on a contact's avatar (the recipient uses Kute).
+  ///
+  /// In en, this message translates to:
+  /// **'On Kute'**
+  String get sendBadgeKute;
+
+  /// Accessibility label of the small lightning badge on a contact's avatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Lightning address'**
+  String get sendBadgeLightning;
+
+  /// Dollars Send first step: the search field's placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Name, address or phone'**
+  String get usdSendSearchHint;
+
+  /// Dollars Send, Send to card: move dollars to the user's own Bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'To your Bitcoin'**
+  String get usdSendToYourBitcoin;
+
+  /// Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} in Bitcoin'**
+  String usdBitcoinBalanceLine(String amount);
+
+  /// Dollars Send, Send to card: send a friend a stock or a prediction on a link.
+  ///
+  /// In en, this message translates to:
+  /// **'A stock or prediction'**
+  String get usdSendPickRow;
+
+  /// Under usdSendPickRow.
+  ///
+  /// In en, this message translates to:
+  /// **'They get your pick, ready to place'**
+  String get usdSendPickRowSub;
+
+  /// Dollars Add first step: deposit into Dollars from the user's own Bitcoin.
+  ///
+  /// In en, this message translates to:
+  /// **'From your Bitcoin'**
+  String get usdReceiveFromYourBitcoin;
+
   /// No description provided for @sendRailBitcoinOnchain.
   ///
   /// In en, this message translates to:

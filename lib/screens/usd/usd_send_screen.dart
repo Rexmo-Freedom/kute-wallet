@@ -227,6 +227,77 @@ class UsdSendScreen extends ConsumerStatefulWidget {
   ConsumerState<UsdSendScreen> createState() => _UsdSendScreenState();
 }
 
+/// One recent dollar recipient: the address, the coin on its network,
+/// the amount sent and when.
+typedef UsdSendRecent = ({
+  String address,
+  UsdSendDestination destination,
+  String amount,
+  DateTime when
+});
+
+/// The last few recipients this wallet sent dollars to, newest first,
+/// from the dollar send's own activity rows; [only] keeps one coin on its
+/// network. Only rows whose destination is still offered are listed, so
+/// a tap always lands on a live route. Watched through [ref].
+List<UsdSendRecent> usdSendRecentRecipients(
+    WidgetRef ref, List<UsdSendDestination> offered,
+    {UsdSendDestination? only, int limit = 5}) {
+  final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
+  final orders = ref.watch(swapOrdersProvider);
+  final rows = orders
+      .where((o) =>
+          o.activityDirection == 'send' &&
+          o.coinFrom.toUpperCase() == kOrchestraUsdAssetCode &&
+          o.networkFrom.toUpperCase() == 'SPARK' &&
+          o.withdrawalAddress.trim().isNotEmpty &&
+          (o.walletId == null || o.walletId == walletId))
+      .toList()
+    ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  final seen = <String>{};
+  final out = <UsdSendRecent>[];
+  for (final o in rows) {
+    final chain = o.networkTo.toLowerCase();
+    final destination = offered
+        .where((d) =>
+            d.chain == chain &&
+            d.assetCode.toUpperCase() == o.coinTo.toUpperCase())
+        .firstOrNull;
+    if (destination == null) continue;
+    if (only != null && destination.id != only.id) continue;
+    final address = o.withdrawalAddress.trim();
+    if (!usdSendDestinationAccepts(destination, address)) continue;
+    if (!seen.add('${destination.id}|${address.toLowerCase()}')) continue;
+    out.add((
+      address: address,
+      destination: destination,
+      amount: o.depositAmount,
+      when: DateTime.fromMillisecondsSinceEpoch(o.timestamp),
+    ));
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/// A dollar destination's mark: the coin with its network as a badge.
+Widget usdSendDestinationMark(UsdSendDestination destination,
+        {required double size}) =>
+    PickerCoinBadgeIcon(
+      size: size,
+      coinIcon: ChainAvatarIcon(
+        chainId: destination.assetCode,
+        label: destination.displaySymbol,
+        iconUrl: destination.assetIconUrl,
+        size: size,
+      ),
+      badge: ChainAvatarIcon(
+        chainId: destination.chain,
+        label: destination.chainDisplayName,
+        iconUrl: destination.chainIconUrl,
+        size: size / 2,
+      ),
+    );
+
 /// [d] as the coin pickers' option row.
 OrchestraReceiveOption usdSendDestinationOption(UsdSendDestination d) =>
     OrchestraReceiveOption(
@@ -749,57 +820,10 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   /// Last few recipients this wallet sent dollars to as [only] (the
-  /// picked coin on its network), newest first, from the dollar send's
-  /// own activity rows. Only rows whose destination is still offered are
-  /// shown, so a tap always lands on a live route.
-  List<
-          ({
-            String address,
-            UsdSendDestination destination,
-            String amount,
-            DateTime when
-          })>
-      _recentRecipients(
-          List<UsdSendDestination> offered, UsdSendDestination only) {
-    final walletId = pickSpendingWallet(ref.watch(settingsProvider))?.id;
-    final orders = ref.watch(swapOrdersProvider);
-    final rows = orders
-        .where((o) =>
-            o.activityDirection == 'send' &&
-            o.coinFrom.toUpperCase() == kOrchestraUsdAssetCode &&
-            o.networkFrom.toUpperCase() == 'SPARK' &&
-            o.withdrawalAddress.trim().isNotEmpty &&
-            (o.walletId == null || o.walletId == walletId))
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final seen = <String>{};
-    final out = <({
-      String address,
-      UsdSendDestination destination,
-      String amount,
-      DateTime when
-    })>[];
-    for (final o in rows) {
-      final chain = o.networkTo.toLowerCase();
-      final destination = offered
-          .where((d) =>
-              d.chain == chain &&
-              d.assetCode.toUpperCase() == o.coinTo.toUpperCase())
-          .firstOrNull;
-      if (destination == null || destination.id != only.id) continue;
-      final address = o.withdrawalAddress.trim();
-      if (!usdSendDestinationAccepts(destination, address)) continue;
-      if (!seen.add('${destination.id}|${address.toLowerCase()}')) continue;
-      out.add((
-        address: address,
-        destination: destination,
-        amount: o.depositAmount,
-        when: DateTime.fromMillisecondsSinceEpoch(o.timestamp),
-      ));
-      if (out.length >= 5) break;
-    }
-    return out;
-  }
+  /// picked coin on its network), newest first ([usdSendRecentRecipients]).
+  List<UsdSendRecent> _recentRecipients(
+          List<UsdSendDestination> offered, UsdSendDestination only) =>
+      usdSendRecentRecipients(ref, offered, only: only);
 
   // ─── Build ────────────────────────────────────────────────────────
 
@@ -1804,23 +1828,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
   }
 
   Widget _destinationMark(UsdSendDestination destination,
-      {required double size}) {
-    return PickerCoinBadgeIcon(
-      size: size,
-      coinIcon: ChainAvatarIcon(
-        chainId: destination.assetCode,
-        label: destination.displaySymbol,
-        iconUrl: destination.assetIconUrl,
-        size: size,
-      ),
-      badge: ChainAvatarIcon(
-        chainId: destination.chain,
-        label: destination.chainDisplayName,
-        iconUrl: destination.chainIconUrl,
-        size: size / 2,
-      ),
-    );
-  }
+          {required double size}) =>
+      usdSendDestinationMark(destination, size: size);
 
   // ─── Navigation ───────────────────────────────────────────────────
 

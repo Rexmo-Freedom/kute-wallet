@@ -1,14 +1,14 @@
-// The bitcoin send's recipient-first Send to step (send_recipient_step
-// .dart): "Send" as the title with no step bar, the search field with
-// Paste and Scan inside, and ONE link row on the Send to card, "Send to a
-// friend" with Sal's share face (no Send to anyone row, no Contacts
-// section). The row prompts for the contacts permission on tap (never on
-// open) and opens the contacts picker with "Someone else" at its top; the
-// picker offers Settings once refused for good and asks again after a
-// refusal the system allows; a typed name lists the matching contacts
-// inline under the field; a picked contact starts Send to anyone with
-// the first name as the label and the number kept on the phone only;
-// "Someone else" starts it plain.
+// The bitcoin send's recipient-first Send to step with CONTACTS LIKE
+// REVOLUT (founder, 1 November 2026; send_contacts_list.dart): the search
+// field keeps everything it took (Lightning addresses of any domain,
+// invoices, bitcoin addresses, Paste and Scan) and ONE Contacts list sits
+// under it: no "Send to a friend" row. Until the permission is granted
+// the list leads with "See your contacts" (a prompt on tap only; Settings
+// once refused for good); with the book, the contacts, filtered by what
+// is typed. A plain contact starts Send to anyone with the first name and
+// the number kept on the phone; a contact with a Kute Lightning address
+// wears the Kute badge and is paid directly; a typed number no contact has
+// offers "Send a link to +…".
 
 import 'dart:io';
 
@@ -25,10 +25,7 @@ import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
-import 'package:kute/screens/shared/kute_back_button.dart'
-    show KuteCloseButton;
-import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendSalShareGlyph;
+import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/shared/stepper/stepper_widgets.dart'
@@ -152,11 +149,19 @@ void main() {
     ShareLinksStore.debugMemory = null;
   });
 
+  const ask = ValueKey('send-contacts-ask-row');
+  Finder person(String id) =>
+      find.byKey(ValueKey('send-person-contact:$id'), skipOffstage: false);
+
+  Future<void> type(WidgetTester tester, String text) async {
+    await tester.enterText(find.byType(TextField).first, text);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets(
-      'the step: "Send" centred over a circled close, no step bar, the '
-      'search field with Paste and Scan inside, one "Send to a friend" row '
-      'with Sal\'s share face on the card, no Send to anyone, no Contacts',
-      (tester) async {
+      'the step: "Send", the search field with its hint, Paste and Scan, '
+      'the Contacts list with "See your contacts" first, and no "Send to a '
+      'friend" row', (tester) async {
     await _pump(tester);
     expect(find.text(_l10n.send), findsOneWidget);
     expect(find.byType(KuteCloseButton), findsOneWidget);
@@ -165,123 +170,68 @@ void main() {
     expect(find.text(_l10n.sendRecipientSearchHint), findsOneWidget);
     expect(find.byKey(const ValueKey('send-field-paste')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
-    expect(find.text(_l10n.sendToLabel), findsOneWidget);
-    final friend = find.byKey(const ValueKey('send-to-friend-row'));
-    expect(friend, findsOneWidget);
-    expect(find.text(_l10n.sendToAFriend), findsOneWidget);
-    expect(find.text(_l10n.sendToAFriendSub), findsOneWidget);
-    expect(find.descendant(of: friend, matching: find.byType(SendSalShareGlyph)),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('send-to-anyone-row')), findsNothing);
-    expect(_text(_l10n.shareSendToAnyone), findsNothing);
-    expect(_text(_l10n.sendContacts), findsNothing);
-    expect(find.byKey(const ValueKey('send-contacts-ask')), findsNothing);
-    // Bitcoin stays bitcoin: no prediction or investment row here.
+    expect(_text(_l10n.sendContacts), findsOneWidget);
+    expect(find.byKey(ask), findsOneWidget);
+    expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
+    // Never a prompt on open.
+    expect(_gateway.prompts, 0);
   });
 
   testWidgets(
-      'before the permission: "Send to a friend" prompts on tap only, then '
-      'opens the picker with "Someone else" first and the contacts under',
-      (tester) async {
+      '"See your contacts" prompts on tap only; granted, the book is the '
+      'list, plain contacts with no badge', (tester) async {
     await _pump(tester);
-    expect(_gateway.prompts, 0);
-    expect(find.text('Maria Alves'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('send-to-friend-row')));
+    expect(_text('Maria Alves'), findsNothing);
+    await tester.tap(find.byKey(ask));
     await tester.pumpAndSettle();
     expect(_gateway.prompts, 1);
     expect(_paramsOf('send_contacts_permission').single,
         containsPair('granted', true));
-    final someoneElse = find.byKey(const ValueKey('send-contacts-someone-else'));
-    expect(someoneElse, findsOneWidget);
-    expect(find.text(_l10n.sendSomeoneElse), findsOneWidget);
-    expect(find.byKey(const ValueKey('send-contacts-picker-search')),
-        findsOneWidget);
-    expect(_text('Ana Costa'), findsOneWidget);
-    expect(_text('Maria Alves'), findsOneWidget);
-    expect(_text('Rui Santos'), findsOneWidget);
-    // "Someone else" sits above the first contact.
+    expect(find.byKey(ask), findsNothing);
+    expect(person('c1'), findsOneWidget);
+    expect(person('c2'), findsOneWidget);
+    expect(person('c3'), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-badge-kute'), skipOffstage: false),
+        findsNothing);
     expect(
-        tester.getTopLeft(someoneElse).dy,
-        lessThan(tester
-            .getTopLeft(find.byKey(const ValueKey('send-contact-pick-c1')))
-            .dy));
-    expect(find.byKey(const ValueKey('send-contacts-ask')), findsNothing);
+        find.byKey(const ValueKey('send-badge-lightning'), skipOffstage: false),
+        findsNothing);
   });
 
-  testWidgets('refused for good: the picker offers Settings, no prompt',
+  testWidgets('refused for good: the row offers Settings, no prompt',
       (tester) async {
     _gateway.permission = SendContactsPermission.blocked;
     await _pump(tester);
-    await tester.tap(find.byKey(const ValueKey('send-to-friend-row')));
-    await tester.pumpAndSettle();
-    expect(_gateway.prompts, 0);
-    expect(find.byKey(const ValueKey('send-contacts-someone-else')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('send-contacts-settings')),
-        findsOneWidget);
-    expect(find.text(_l10n.sendAllowContactsInSettings), findsOneWidget);
-    expect(find.byKey(const ValueKey('send-contacts-picker-search')),
-        findsNothing);
-    await tester.tap(find.byKey(const ValueKey('send-contacts-settings')));
+    expect(_text(_l10n.sendAllowContactsInSettings), findsOneWidget);
+    await tester.tap(find.byKey(ask));
     await tester.pumpAndSettle();
     expect(_gateway.settingsOpened, 1);
     expect(_gateway.prompts, 0);
   });
 
-  testWidgets('a refusal the system can ask again: the picker asks again',
-      (tester) async {
-    _gateway.answer = SendContactsPermission.denied;
-    await _pump(tester);
-    await tester.tap(find.byKey(const ValueKey('send-to-friend-row')));
-    await tester.pumpAndSettle();
-    expect(_gateway.prompts, 1);
-    expect(_paramsOf('send_contacts_permission').single,
-        containsPair('granted', false));
-    expect(find.byKey(const ValueKey('send-contacts-someone-else')),
-        findsOneWidget);
-    expect(find.byKey(const ValueKey('send-contacts-ask')), findsOneWidget);
-    expect(_text('Maria Alves'), findsNothing);
-
-    _gateway.answer = SendContactsPermission.granted;
-    await tester.tap(find.byKey(const ValueKey('send-contacts-ask')));
-    await tester.pumpAndSettle();
-    expect(_gateway.prompts, 2);
-    expect(find.byKey(const ValueKey('send-contacts-ask')), findsNothing);
-    expect(_text('Maria Alves'), findsOneWidget);
-  });
-
   testWidgets(
-      'with the book in hand a typed name lists the matches inline, with no '
-      'Contacts header, and a picked contact opens Send to anyone with the '
-      'first name, the number staying on the phone', (tester) async {
+      'with the book, the text filters by name and by number; a plain '
+      'contact opens Send to anyone with the first name, the number '
+      'staying on the phone', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await _pump(tester);
-    // Nothing of the book while the field is empty.
-    expect(_text('Maria Alves'), findsNothing);
-    expect(_text(_l10n.sendContacts), findsNothing);
+    expect(person('c2'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'mar');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('send-contact-matches'), skipOffstage: false),
-        findsOneWidget);
-    expect(_text('Maria Alves'), findsOneWidget);
-    expect(_text('Rui Santos'), findsNothing);
-    expect(_text('Ana Costa'), findsNothing);
-    expect(_text(_l10n.sendContacts), findsNothing);
+    await type(tester, 'mar');
+    expect(person('c2'), findsOneWidget);
+    expect(person('c1'), findsNothing);
+    expect(person('c3'), findsNothing);
 
-    // Digits match the number too.
-    await tester.enterText(find.byType(TextField).first, '913');
-    await tester.pumpAndSettle();
-    expect(_text('Rui Santos'), findsOneWidget);
-    expect(_text('Maria Alves'), findsNothing);
+    await type(tester, '913');
+    expect(person('c3'), findsOneWidget);
+    expect(person('c2'), findsNothing);
 
-    await tester.enterText(find.byType(TextField).first, 'mar');
+    await type(tester, 'mar');
+    await tester.ensureVisible(person('c2'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(_text('Maria Alves'));
-    await tester.pumpAndSettle();
-    await tester.tap(_text('Maria Alves'));
+    await tester.tap(person('c2'));
     await tester.pumpAndSettle();
     expect(find.byType(SendToAnyoneSheet), findsOneWidget);
     expect(_paramsOf('send_recipient_picked').single,
@@ -291,7 +241,6 @@ void main() {
     expect(sheet.kind.name, 'bitcoin');
     expect(sheet.senderLabel, 'Maria');
     expect(sheet.recipientPhone, '+351 912 345 678');
-    // The number is never an event param.
     for (final e in _events) {
       expect(e.$2?.values.map((v) => '$v').join(' ') ?? '',
           isNot(contains('912')));
@@ -299,23 +248,84 @@ void main() {
   });
 
   testWidgets(
-      '"Someone else" in the picker opens the plain Send to anyone sheet',
+      'a contact with a Kute Lightning address wears the Kute badge and is '
+      'paid directly: the address fills the field and resolves',
       (tester) async {
+    _gateway
+      ..permission = SendContactsPermission.granted
+      ..contacts = [
+        ...fakeContacts(),
+        const SendContact(
+            id: 'k1',
+            displayName: 'Joana Kute',
+            firstName: 'Joana',
+            phone: '+351 914 444 444',
+            lightningAddress: 'joana@paykute.com'),
+      ];
+    await _pump(tester);
+    expect(
+        find.descendant(
+            of: person('k1'),
+            matching: find.byKey(const ValueKey('send-badge-kute'))),
+        findsOneWidget);
+    await tester.ensureVisible(person('k1'));
+    await tester.pumpAndSettle();
+    await tester.tap(person('k1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SendToAnyoneSheet), findsNothing);
+    expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'joana@paykute.com');
+  });
+
+  testWidgets(
+      'a typed number no contact has offers "Send a link to +…": Send to '
+      'anyone for that number, no name', (tester) async {
     _gateway.permission = SendContactsPermission.granted;
     await _pump(tester);
-    await tester.tap(find.byKey(const ValueKey('send-to-friend-row')));
+    await type(tester, '+351 999 888 777');
+    final row =
+        find.byKey(const ValueKey('send-phone-link-row'), skipOffstage: false);
+    expect(row, findsOneWidget);
+    expect(_text(_l10n.sendLinkToPhone('+351999888777')), findsOneWidget);
+    await tester.ensureVisible(row);
     await tester.pumpAndSettle();
-    expect(_gateway.prompts, 0);
-    await tester.tap(find.byKey(const ValueKey('send-contacts-someone-else')));
+    await tester.tap(row);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('send-contacts-picker-search')),
-        findsNothing);
-    expect(find.byType(SendToAnyoneSheet), findsOneWidget);
     final sheet =
         tester.widget<SendToAnyoneSheet>(find.byType(SendToAnyoneSheet));
-    expect(sheet.kind.name, 'bitcoin');
     expect(sheet.senderLabel, isNull);
-    expect(sheet.recipientPhone, isNull);
-    expect(_paramsOf('send_recipient_picked'), isEmpty);
+    expect(sheet.recipientPhone, '+351999888777');
+
+    // A number a contact has is that contact, not a link row.
+    Navigator.of(tester.element(find.byType(SendToAnyoneSheet))).pop();
+    await tester.pumpAndSettle();
+    await type(tester, '912 345 678');
+    expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
+    expect(person('c2'), findsOneWidget);
   });
+
+  // THE FIELD KEEPS EVERYTHING (founder): with the contacts granted, a
+  // destination still resolves first and Continue works.
+  for (final (what, text) in [
+    ('a Lightning address on another domain', 'alice@getalby.com'),
+    (
+      'an invoice',
+      'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu'
+    ),
+    ('a bitcoin address', 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'),
+  ]) {
+    testWidgets(
+        '$what pasted with the contacts granted resolves and Continue works',
+        (tester) async {
+      _gateway.permission = SendContactsPermission.granted;
+      await _pump(tester);
+      expect(person('c1'), findsOneWidget);
+      await type(tester, text);
+      expect(find.byKey(const ValueKey('send-resolved-row')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
+      expect(kuteBarPrimaryEnabled(tester), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
