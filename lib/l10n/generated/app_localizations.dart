@@ -18125,6 +18125,12 @@ abstract class AppLocalizations {
   /// **'Send to a friend'**
   String get shareHeaderLabel;
 
+  /// The Recover screen's title (sentence case, founder 1 November 2026), above the two ways back in: the Apple / Google account and the recovery phrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover your account'**
+  String get recoverYourAccountTitle;
+
   /// The bar's primary button while no amount is typed yet (founder, 1 November 2026: a disabled button says the step to take, never the greyed action).
   ///
   /// In en, this message translates to:

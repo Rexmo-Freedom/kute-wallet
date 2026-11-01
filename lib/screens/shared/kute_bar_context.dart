@@ -155,6 +155,7 @@ class KuteBarContext {
         onPrimary = null,
         busyLabel = null,
         disabledLabel = null,
+        pairedWidth = null,
         style = null;
 
   /// Where this surface's Sal control sits (see [KuteBarPlacement]).
@@ -187,6 +188,7 @@ class KuteBarContext {
     this.disabledLabel,
     this.style,
     this.clip = 'idle',
+    this.pairedWidth,
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -208,6 +210,11 @@ class KuteBarContext {
 
   /// What the disabled button says (see [KuteBarContext.primary]).
   final String? disabledLabel;
+
+  /// The primary button exactly this wide: a page that pairs it with a
+  /// pill of its own (the Recover screen's account option) gives both the
+  /// wider of their two widths, capped at the page's width.
+  final double? pairedWidth;
 
   /// Whether the primary button takes a tap now.
   bool get actionable => enabled && !busy && onPrimary != null;
@@ -244,6 +251,7 @@ class KuteBarContext {
         onPrimary = null,
         busyLabel = null,
         disabledLabel = null,
+        pairedWidth = null,
         placement = KuteBarPlacement.bottom,
         style = null;
 
@@ -303,6 +311,7 @@ class KuteBarContext {
           disabledLabel: disabledLabel,
           style: style,
           clip: clip,
+          pairedWidth: pairedWidth,
           category: category,
           searchHint: searchHint,
           source: source,

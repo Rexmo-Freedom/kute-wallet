@@ -10627,6 +10627,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get shareHeaderLabel => 'Send til en ven';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

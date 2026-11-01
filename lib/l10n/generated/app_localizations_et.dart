@@ -10612,6 +10612,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get shareHeaderLabel => 'Saada sõbrale';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

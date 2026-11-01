@@ -828,8 +828,162 @@ class KuteBarPrimaryButton extends StatefulWidget {
   static const double shimmerBand = 0.3;
   static const Duration shimmerPeriod = Duration(milliseconds: 1200);
 
+  /// The words' style on the button (the theme's face).
+  static TextStyle labelStyle(BuildContext context,
+          {FontWeight weight = FontWeight.w600}) =>
+      KuteOverlaySurface.textStyle(context).copyWith(
+        fontSize: 16.sp,
+        fontWeight: weight,
+        letterSpacing: -0.2,
+        height: 1.2,
+      );
+
+  /// The button's width saying [label] at the current text scale (Sal,
+  /// the words, the padding; at least [minWidth]). A page that pairs the
+  /// bar with a pill of its own measures both with this.
+  static double widthFor(BuildContext context, String label) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: labelStyle(context)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = paddingStart + salSize + 8.w + painter.width + paddingEnd;
+    painter.dispose();
+    return math.max(minWidth, width.ceilToDouble() + 1);
+  }
+
+  /// The room a page leaves under its own last control so that control
+  /// sits [gap] above the bar: the bar's height, its 2 px lift and, where
+  /// the page runs to the screen's foot ([pageToFoot]: iOS screens that
+  /// leave the home-indicator inset to the bar), that inset too.
+  static double roomUnder(BuildContext context,
+          {double gap = 12, bool pageToFoot = false}) =>
+      height +
+      2.h +
+      gap +
+      (pageToFoot ? MediaQuery.paddingOf(context).bottom : 0);
+
   @override
   State<KuteBarPrimaryButton> createState() => _KuteBarPrimaryButtonState();
+}
+
+/// A SECOND OPTION PAIRED WITH THE BAR (founder, 1 November 2026: the
+/// Recover screen's account option over "Use your recovery phrase"): the
+/// bar's own shape and height in the light pill look (white, surface in
+/// dark; a hairline; textPrimary words at w600), its [leading] glyph or,
+/// while [busy], a small spinner in its place; [width] wide (the page
+/// gives it and the bar the wider of their two widths:
+/// [KuteBarPrimaryButton.widthFor], [widthFor]), centred by the page. The
+/// press spring; no tap while [busy] or without [onTap].
+class KuteBarSecondaryPill extends StatelessWidget {
+  const KuteBarSecondaryPill({
+    super.key,
+    required this.label,
+    required this.leading,
+    required this.onTap,
+    this.busy = false,
+    this.width,
+  });
+
+  final String label;
+  final IconData leading;
+  final VoidCallback? onTap;
+  final bool busy;
+  final double? width;
+
+  static const double _glyph = 22;
+
+  /// The pill's width saying [label] (its glyph, the words, the padding;
+  /// at least [KuteBarPrimaryButton.minWidth]).
+  static double widthFor(BuildContext context, String label) {
+    final painter = TextPainter(
+      text: TextSpan(
+          text: label, style: KuteBarPrimaryButton.labelStyle(context)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = KuteBarPrimaryButton.paddingStart +
+        KuteBarPrimaryButton.salSize +
+        8.w +
+        painter.width +
+        KuteBarPrimaryButton.paddingEnd;
+    painter.dispose();
+    return math.max(KuteBarPrimaryButton.minWidth, width.ceilToDouble() + 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final enabled = onTap != null && !busy;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      excludeSemantics: true,
+      child: KutePressable(
+        enabled: enabled,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled
+              ? () {
+                  HapticFeedback.lightImpact();
+                  onTap!();
+                }
+              : null,
+          child: Container(
+            key: const ValueKey('kute-bar-secondary-pill'),
+            width: width,
+            height: KuteBarPrimaryButton.height,
+            padding: const EdgeInsetsDirectional.only(
+              start: KuteBarPrimaryButton.paddingStart,
+              end: KuteBarPrimaryButton.paddingEnd,
+            ),
+            decoration: BoxDecoration(
+              color: isLight ? Colors.white : c.surface,
+              borderRadius: KuteBarPrimaryButton.radius,
+              border: Border.all(
+                  color: isLight ? c.border : c.borderSubtle,
+                  width: isLight ? 1.0 : 0.5),
+            ),
+            child: Row(
+              mainAxisSize: width == null ? MainAxisSize.min : MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: KuteBarPrimaryButton.salSize,
+                  height: KuteBarPrimaryButton.salSize,
+                  child: Center(
+                    child: busy
+                        ? SizedBox(
+                            key: const ValueKey('kute-bar-secondary-spinner'),
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: c.textPrimary),
+                          )
+                        : Icon(leading, size: _glyph, color: c.textPrimary),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: KuteBarPrimaryButton.labelStyle(context)
+                        .copyWith(color: c.textPrimary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
@@ -1008,8 +1162,11 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
       // a decoration lerp never rides the spring (kute_motion.dart).
       curve: reduce ? Curves.linear : KuteMotion.settle,
       height: KuteBarPrimaryButton.height,
-      constraints:
-          const BoxConstraints(minWidth: KuteBarPrimaryButton.minWidth),
+      // Its own width, at least [KuteBarPrimaryButton.minWidth]; exactly
+      // the pair's width beside a page's own pill.
+      constraints: ctx.pairedWidth != null
+          ? BoxConstraints.tightFor(width: ctx.pairedWidth)
+          : const BoxConstraints(minWidth: KuteBarPrimaryButton.minWidth),
       decoration: BoxDecoration(
         color: fill,
         borderRadius: radius,

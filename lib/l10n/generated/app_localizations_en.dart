@@ -10583,6 +10583,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareHeaderLabel => 'Send to a friend';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

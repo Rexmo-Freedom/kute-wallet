@@ -10211,6 +10211,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareHeaderLabel => '友達に送る';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

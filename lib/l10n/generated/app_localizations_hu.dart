@@ -10650,6 +10650,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareHeaderLabel => 'Küldés barátnak';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

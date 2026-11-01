@@ -10594,6 +10594,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get shareHeaderLabel => 'Sūtīt draugam';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

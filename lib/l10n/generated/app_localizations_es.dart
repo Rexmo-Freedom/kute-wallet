@@ -10685,6 +10685,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shareHeaderLabel => 'Enviar a un amigo';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override

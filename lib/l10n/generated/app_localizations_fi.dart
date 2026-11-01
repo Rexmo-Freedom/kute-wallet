@@ -10636,6 +10636,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get shareHeaderLabel => 'Lähetä ystävälle';
 
   @override
+  String get recoverYourAccountTitle => 'Recover your account';
+
+  @override
   String get barNeedAmount => 'Enter an amount';
 
   @override
