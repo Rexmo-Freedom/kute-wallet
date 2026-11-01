@@ -1113,6 +1113,17 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// (founder, 31 October 2026). Portfolio pushes the Portfolio screen
   /// (portfolio_screen.dart) on the section it was last left on.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
+        // Manage with AI: an AI that runs the money for you. First and solid
+        // (the primary look, black in light mode); not live yet, so it
+        // wears the unavailable look with "Soon" (founder, 1 November 2026).
+        KuteDockAction(
+          icon: Icons.auto_awesome_rounded,
+          label: context.l10n.connectAiAction,
+          trackingId: 'manage_with_ai',
+          solid: true,
+          soon: true,
+          onTap: null,
+        ),
         KuteDockAction(
           icon: Icons.south_west_rounded,
           label: context.l10n.investmentsAdd,
@@ -1134,15 +1145,6 @@ class UsdAccountActionBar extends ConsumerWidget {
           // your wallet" over the coins; a coin opens the dollar send,
           // whose `usd_send_opened` fires from its initState.
           onTap: () => withdraw(context),
-        ),
-        // Connect an AI to trade for you: not live yet, shown where it will
-        // live with the unavailable look (founder, 1 November 2026).
-        KuteDockAction(
-          icon: Icons.auto_awesome_rounded,
-          label: context.l10n.connectAiAction,
-          trackingId: 'connect_ai',
-          soon: true,
-          onTap: null,
         ),
       ];
 

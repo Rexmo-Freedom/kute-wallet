@@ -19849,10 +19849,10 @@ abstract class AppLocalizations {
   /// **'\$ · stocks · ₿'**
   String get sendDollarsCaption;
 
-  /// Dollars action row: connect an AI to trade for you. Not live yet (shown with Soon).
+  /// Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon).
   ///
   /// In en, this message translates to:
-  /// **'Connect AI'**
+  /// **'Manage with AI'**
   String get connectAiAction;
 }
 

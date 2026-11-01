@@ -372,7 +372,10 @@ class _CompactAction extends StatelessWidget {
                   SizedBox(height: 6.h),
                   Text(
                     action.label,
-                    maxLines: 1,
+                    // Two lines for a longer verb ("Manage with AI") rather
+                    // than an ellipsis.
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: c.textPrimary,

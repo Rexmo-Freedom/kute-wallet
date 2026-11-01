@@ -7336,6 +7336,6 @@
   "@actionSoon": {"description": "Under an action square that is not live yet."},
   "sendDollarsCaption": "$ · stocks · ₿",
   "@sendDollarsCaption": {"description": "Dollars action row: the quiet line under Send naming what Send does: dollars, a stock pick, or to Bitcoin. Keep it very short (fits under a 52 px square)."},
-  "connectAiAction": "Connect AI",
-  "@connectAiAction": {"description": "Dollars action row: connect an AI to trade for you. Not live yet (shown with Soon)."}
+  "connectAiAction": "Manage with AI",
+  "@connectAiAction": {"description": "Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon)."}
 }

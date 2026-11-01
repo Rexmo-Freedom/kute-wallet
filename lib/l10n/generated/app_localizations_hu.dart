@@ -11892,5 +11892,5 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendDollarsCaption => '\$ · stocks · ₿';
 
   @override
-  String get connectAiAction => 'Connect AI';
+  String get connectAiAction => 'Manage with AI';
 }
