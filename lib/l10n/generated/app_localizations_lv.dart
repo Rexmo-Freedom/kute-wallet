@@ -11445,6 +11445,18 @@ class AppLocalizationsLv extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Vēl nav P&L';
 
   @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get pnlStatRealised => 'Realised';
+
+  @override
+  String get pnlStatUnrealised => 'Unrealised';
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
   String get portfolioAllTime => 'Viss laiks';
 
   @override

@@ -9,6 +9,13 @@
 // sheet exists he sits down and sits (`body_sit_down` → `body_sit`), and
 // the painted rig idles until any sheet exists. Quiet under Reduce
 // Motion.
+//
+// The Portfolio screen's three sections (Portfolio, P&L Charts, Activity)
+// all draw it the same way (founder, 1 November 2026: "empty states must
+// be the same"): the hero Sal at 160, the title 22 w600, the tagline 15
+// in textSecondary ([titleWeight], [subtitleSize], [subtitleColor]), each
+// section starting the taglines at its own line ([taglineStart]); see
+// PortfolioSectionEmpty (portfolio_empty_state.dart).
 
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'dart:async';
@@ -52,7 +59,22 @@ class NoActivityState extends StatefulWidget {
       this.compact = false,
       this.cycles,
       this.salSize,
-      this.titleSize});
+      this.titleSize,
+      this.titleWeight,
+      this.subtitleSize,
+      this.subtitleColor,
+      this.taglineStart});
+
+  /// The headline's weight; null is w800 at the default sizes and w600
+  /// with a [titleSize].
+  final FontWeight? titleWeight;
+
+  /// The tagline's size and colour; null is 14 in textTertiary.
+  final double? subtitleSize;
+  final Color? subtitleColor;
+
+  /// The tagline the rotation starts on; null is a random one per mount.
+  final int? taglineStart;
 
   /// A fixed line under the title instead of the rotating taglines (an
   /// empty balance's "It starts with your first transaction.").
@@ -76,7 +98,9 @@ class _NoActivityStateState extends State<NoActivityState>
   void initState() {
     super.initState();
     // Random start so each session feels different
-    _currentIndex = DateTime.now().millisecondsSinceEpoch % kKuteTaglineCount;
+    _currentIndex = (widget.taglineStart ??
+            DateTime.now().millisecondsSinceEpoch) %
+        kKuteTaglineCount;
 
     _fadeController = AnimationController(
       vsync: this,
@@ -171,9 +195,10 @@ class _NoActivityStateState extends State<NoActivityState>
               style: TextStyle(
                 color: c.textPrimary,
                 fontSize: widget.titleSize?.sp ?? (compact ? 17.sp : 22.sp),
-                fontWeight: widget.titleSize == null
-                    ? FontWeight.w800
-                    : FontWeight.w600,
+                fontWeight: widget.titleWeight ??
+                    (widget.titleSize == null
+                        ? FontWeight.w800
+                        : FontWeight.w600),
                 letterSpacing: -0.5,
                 height: 1.1,
               ),
@@ -188,8 +213,8 @@ class _NoActivityStateState extends State<NoActivityState>
                   key: ValueKey(widget.subtitle ?? _currentIndex),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: c.textTertiary,
-                    fontSize: 14.sp,
+                    color: widget.subtitleColor ?? c.textTertiary,
+                    fontSize: (widget.subtitleSize ?? 14).sp,
                     fontWeight: FontWeight.w500,
                     letterSpacing: -0.1,
                     height: 1.4,

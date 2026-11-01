@@ -13,15 +13,16 @@ import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/ledger/ledger_portfolio_screen.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kute/screens/portfolio/investments_portfolio.dart'
-    show PortfolioSection;
+    show kHomeActivityLocation;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/trade_notification_copy.dart';
 import 'package:kute/screens/shared/trade_receipt.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart'
-    show openInvestmentsPortfolio, openInvestmentsPositions;
+    show openInvestmentsPositions;
 import 'package:kute/services/trade_notification_store.dart';
 
 /// The market art of a results-inbox receipt: the prediction's crest or
@@ -197,11 +198,11 @@ void openTradeNotificationReceipt({
               builder: (_) => LedgerPortfolioScreen(
                   walletId: wallet.id, product: product, initialTab: tab)));
         } else if (spending) {
-          // A fill's own row is in the Portfolio pill's Activity;
-          // everything else held is in its Positions.
+          // A fill's own row is in the activity, on the Bitcoin home
+          // (founder, 1 November 2026: no Activity on the Portfolio);
+          // everything else held is on the Portfolio.
           if (tab == 2) {
-            openInvestmentsPortfolio(
-                navigator.context, PortfolioSection.activity);
+            navigator.context.go(kHomeActivityLocation);
           } else {
             openInvestmentsPositions(navigator.context);
           }

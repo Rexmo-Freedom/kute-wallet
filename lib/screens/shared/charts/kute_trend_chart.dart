@@ -30,7 +30,13 @@
 //     chart draws nothing but one quiet 12 sp caption; the host keeps its
 //     headline and the range row is left out;
 //   * EXTRA LINES ([KuteTrendChart.lines], the P&L chart's venues): 1.5 px
-//     in their own colours, no fill, under the main line, on its scale.
+//     in their own colours, no fill, under the main line, on its scale;
+//   * ZERO SPLIT ([KuteTrendChart.zeroSplit], the P&L chart, founder 1
+//     November 2026): the area between the line and zero tinted marketUp
+//     at 8% above zero and marketDown at 8% below it (one hard-stop
+//     gradient, [kuteZeroSplitGradient]) instead of the single-colour
+//     fade, and a 1 px zero line in textTertiary at 30% when the series
+//     crosses zero. A balance chart (never under zero) keeps the fade.
 //
 // Painters here never read Theme — the widget resolves colours once per
 // build and hands them down.
@@ -96,6 +102,35 @@ class KuteTrendLine {
   const KuteTrendLine({required this.values, required this.color});
 }
 
+/// The tint on each side of zero under a [KuteTrendChart.zeroSplit] line.
+const double kKuteZeroSplitAlpha = 0.08;
+
+/// The zero line's opacity (of textTertiary) on a split chart.
+const double kKuteZeroLineAlpha = 0.30;
+
+/// The split fill's shader, top to bottom over the plot: [up] at [alpha]
+/// down to [zeroFraction] (zero's height in the plot, 0 the top, 1 the
+/// bottom), [down] at [alpha] from there; a hard stop, no fade across zero.
+LinearGradient kuteZeroSplitGradient({
+  required double zeroFraction,
+  required Color up,
+  required Color down,
+  double alpha = kKuteZeroSplitAlpha,
+}) {
+  final z = zeroFraction.clamp(0.0, 1.0);
+  return LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      up.withValues(alpha: alpha),
+      up.withValues(alpha: alpha),
+      down.withValues(alpha: alpha),
+      down.withValues(alpha: alpha),
+    ],
+    stops: [0, z, z, 1],
+  );
+}
+
 /// The line's colour for a period that went from [first] to [last].
 Color kuteTrendResultColor(AppColorsExtension c, double first, double last) =>
     last > first
@@ -125,6 +160,10 @@ class KuteTrendChart extends StatefulWidget {
 
   /// The newest point is now: it breathes.
   final bool live;
+
+  /// The P&L fill: marketUp above zero, marketDown below, and the zero
+  /// line when the series crosses it (see the file header).
+  final bool zeroSplit;
 
   /// The one caption drawn when there is no history ([values] empty).
   final String? emptyCaption;
@@ -159,6 +198,7 @@ class KuteTrendChart extends StatefulWidget {
     this.lineColor,
     this.height = kKuteTrendPlotHeight,
     this.live = true,
+    this.zeroSplit = false,
     this.emptyCaption,
     this.onScrub,
     this.onScrubStart,
@@ -356,6 +396,9 @@ class _KuteTrendChartState extends State<KuteTrendChart>
                   : 0,
               scrubIndex: scrubbing ? ti : null,
               scrubHairline: c.textTertiary,
+              zeroSplit: widget.zeroSplit,
+              zeroLineColor:
+                  c.textTertiary.withValues(alpha: kKuteZeroLineAlpha),
             ),
           );
         },
@@ -415,6 +458,8 @@ class _KuteTrendPainter extends CustomPainter {
   final double breath;
   final int? scrubIndex;
   final Color scrubHairline;
+  final bool zeroSplit;
+  final Color zeroLineColor;
 
   const _KuteTrendPainter({
     required this.values,
@@ -427,6 +472,8 @@ class _KuteTrendPainter extends CustomPainter {
     required this.breath,
     required this.scrubIndex,
     required this.scrubHairline,
+    required this.zeroSplit,
+    required this.zeroLineColor,
   });
 
   @override
@@ -472,6 +519,22 @@ class _KuteTrendPainter extends CustomPainter {
           Offset(math.min(x + 3, size.width), yStart), hair);
     }
 
+    // The split chart's zero line, when the series crosses zero.
+    var vMin = values.first, vMax = values.first;
+    for (final v in values) {
+      if (v < vMin) vMin = v;
+      if (v > vMax) vMax = v;
+    }
+    final yZero = yOf(0).clamp(0.0, size.height);
+    if (zeroSplit && vMin < 0 && vMax > 0) {
+      canvas.drawLine(
+          Offset(0, yZero),
+          Offset(size.width, yZero),
+          Paint()
+            ..color = zeroLineColor
+            ..strokeWidth = 1);
+    }
+
     // What has been drawn so far of the first paint.
     final reveal = Rect.fromLTWH(0, 0, size.width * drawIn, size.height);
     canvas.save();
@@ -491,9 +554,23 @@ class _KuteTrendPainter extends CustomPainter {
     final pts = [for (var i = 0; i < n; i++) Offset(xOf(i, n), yOf(values[i]))];
     final path = kuteMonotonePath(pts);
 
-    // The fill: 18% of the line colour fading to nothing, behind the
-    // line, fading in with the draw.
-    if (n >= 2) {
+    // The split fill: between the line and zero, up above and down
+    // below (zero off the plot: its edge), fading in with the draw.
+    if (zeroSplit && n >= 2) {
+      final fill = Path.from(path)
+        ..lineTo(pts.last.dx, yZero)
+        ..lineTo(pts.first.dx, yZero)
+        ..close();
+      final shader = kuteZeroSplitGradient(
+        zeroFraction: yZero / size.height,
+        up: AppColors.marketUp,
+        down: AppColors.marketDown,
+        alpha: kKuteZeroSplitAlpha * drawIn,
+      ).createShader(Offset.zero & size);
+      canvas.drawPath(fill, Paint()..shader = shader);
+    } else if (n >= 2) {
+      // The fill: 18% of the line colour fading to nothing, behind the
+      // line, fading in with the draw.
       final fill = Path.from(path)
         ..lineTo(pts.last.dx, size.height)
         ..lineTo(pts.first.dx, size.height)
@@ -546,7 +623,9 @@ class _KuteTrendPainter extends CustomPainter {
       old.hairlineColor != hairlineColor ||
       old.drawIn != drawIn ||
       old.breath != breath ||
-      old.scrubIndex != scrubIndex;
+      old.scrubIndex != scrubIndex ||
+      old.zeroSplit != zeroSplit ||
+      old.zeroLineColor != zeroLineColor;
 }
 
 /// The range row under a chart: small 12 sp text pills sharing the width,

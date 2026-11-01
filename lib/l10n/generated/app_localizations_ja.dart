@@ -11050,6 +11050,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pnlNoHistoryTitle => '損益はまだありません';
 
   @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get pnlStatRealised => 'Realised';
+
+  @override
+  String get pnlStatUnrealised => 'Unrealised';
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
   String get portfolioAllTime => '全期間';
 
   @override

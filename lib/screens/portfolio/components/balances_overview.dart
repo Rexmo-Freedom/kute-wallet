@@ -90,8 +90,10 @@
 //     ("INVESTING · 2", 11, w600, the quiet colour, 0.6 of tracking),
 //     each venue ONE soft card of position rows (3 + See all), 12
 //     between groups, a venue with nothing open left out; nothing open
-//     anywhere: Sal (`body_hero` at 96) right under the strip, "No open
-//     positions" and the tagline, no void.
+//     anywhere: the sections' one empty state (PortfolioSectionEmpty,
+//     portfolio_empty_state.dart: the hero Sal at 160, "No open
+//     positions" and the tagline), where P&L Charts and Activity put
+//     theirs.
 //
 // Nothing shifts under a live price: every figure is tabular, no
 // AnimatedSize wraps a live value.
@@ -101,7 +103,6 @@
 // `portfolio_venue_positions_expanded` {venue: predictions | investing,
 // open} (a venue's See all / Show less).
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,12 +114,17 @@ import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
-    show PortfolioRowInset, kPortfolioRowGap, kPortfolioRowImage;
+    show
+        PortfolioRowInset,
+        kPortfolioRowGap,
+        kPortfolioRowImage,
+        kPortfolioRowPadV;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart' show SkeletonRowList;
+import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -140,12 +146,25 @@ const double kBalancesCentUsd = 0.005;
 const double kBalancesRingDiameter = 40;
 const double kBalancesRingThickness = 5;
 
+/// The Portfolio screen's flat sections (founder, 1 November 2026: one
+/// language with P&L Charts): a title's gap to its rows (the rows add
+/// kPortfolioRowPadV above), and the gap between two groups.
+const double kBalancesFlatTitleGap = 4;
+const double kBalancesFlatGroupGap = 24;
+
+/// A flat section's title ("Investing · 2", "Profit and loss", "By
+/// venue"): 13 sp, textSecondary, sentence case.
+TextStyle balancesFlatSectionTitle(BuildContext context) => TextStyle(
+      color: context.colors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
 /// The Portfolio screen's hero ring (see the file header).
 const double kBalancesSharesRingDiameter = 150;
 const double kBalancesSharesRingThickness = 14;
-
-/// Sal's size in the Portfolio screen's empty state, under the strip.
-const double kBalancesEmptySal = 96;
 
 /// How many of a venue's open rows its card lists before "See all".
 const int kBalancesVenueRowsShown = 3;
@@ -590,12 +609,15 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             title: label(category),
             count: count,
           ),
+          // Flat, on the page (the P&L section's language): the rows
+          // right under the title, no card, no hairlines.
           Padding(
             key: ValueKey('portfolio-balance-${category.name}-positions'),
-            padding: EdgeInsets.only(top: 8.h),
+            padding: EdgeInsets.only(top: kBalancesFlatTitleGap.h),
             child: _VenueCard(
                 rows: _shownRows(category, list),
                 loading: list.loading,
+                flat: true,
                 fold: _foldRow(category, list)),
           ),
         ],
@@ -795,7 +817,11 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           Padding(
             key: const ValueKey('portfolio-balance-venues-loading'),
             padding: EdgeInsets.only(top: 14.h),
-            child: const _VenueCard(rows: [], loading: true, skeletonRows: 3),
+            child: _VenueCard(
+                rows: const [],
+                loading: true,
+                skeletonRows: 3,
+                flat: widget.sharesHeader),
           )
         // Nothing open anywhere: Sal's empty state, not two empty venue
         // rows (founder, 27 October 2026). The Portfolio screen asks only
@@ -807,16 +833,14 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 : venueEmpty(BalancesCategory.predictions, predictions) &&
                     venueEmpty(BalancesCategory.investing, investing))) ...[
           _emptyShownOnce(),
-          // The Portfolio screen: Sal right under the strip, no void.
+          // The Portfolio screen: the sections' one empty state, Sal at
+          // the same place as on P&L Charts and Activity (the 18 gap above
+          // and the list's 4 inset make kPortfolioSectionEmptyTop).
           if (widget.sharesHeader)
-            NoActivityState(
+            PortfolioSectionEmpty(
                 key: const ValueKey('portfolio-balance-no-positions'),
-                padding: EdgeInsets.zero,
                 title: l10n.portfolioNoOpenPositions,
-                cycles: 3,
-                compact: true,
-                salSize: kBalancesEmptySal,
-                titleSize: 15)
+                tagline: PortfolioSectionTagline.portfolio)
           else
             Padding(
               key: const ValueKey('portfolio-balance-no-positions'),
@@ -827,12 +851,12 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                   compact: true),
             ),
         ] else if (anyVenue && widget.sharesHeader) ...[
-          // The tiles' order: Investing, then Predictions; 12 between.
+          // The groups' order: Investing, then Predictions; 24 between.
           if (venueOpen(BalancesCategory.investing, investing))
             sharesVenue(BalancesCategory.investing, investing!),
           if (venueOpen(BalancesCategory.investing, investing) &&
               venueOpen(BalancesCategory.predictions, predictions))
-            SizedBox(height: 12.h),
+            SizedBox(height: kBalancesFlatGroupGap.h),
           if (venueOpen(BalancesCategory.predictions, predictions))
             sharesVenue(BalancesCategory.predictions, predictions!),
         ] else if (anyVenue) ...[
@@ -863,10 +887,15 @@ class _VenueCard extends StatelessWidget {
       {required this.rows,
       required this.loading,
       this.skeletonRows = 2,
+      this.flat = false,
       this.fold});
 
   final List<Widget> rows;
   final bool loading;
+
+  /// The Portfolio screen: the rows on the page itself, no card, no
+  /// hairlines, no inset.
+  final bool flat;
 
   /// "See all" / "Show less" after the rows, past the same hairline.
   final Widget? fold;
@@ -876,6 +905,25 @@ class _VenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (flat) {
+      return PortfolioRowInset(
+        horizontal: 0,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...rows,
+            if (loading)
+              SkeletonRowList(
+                  count: skeletonRows,
+                  padding: EdgeInsets.zero,
+                  rowPadding:
+                      EdgeInsets.symmetric(vertical: kPortfolioRowPadV.h)),
+            if (fold case final f?) f,
+          ],
+        ),
+      );
+    }
     final inset = _kCardInset.w;
     return DecoratedBox(
       decoration: PremiumGroupContainer.decorationOf(context),
@@ -1479,20 +1527,10 @@ class _SharesVenueHeader extends StatelessWidget {
         header: true,
         label: '$title, $count',
         excludeSemantics: true,
-        child: Padding(
-          padding: EdgeInsetsDirectional.only(start: 4.w),
-          child: Text('${title.toUpperCase()} · $count',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: context.colors.textSecondary,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                height: 1.3,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              )),
-        ),
+        child: Text('$title · $count',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: balancesFlatSectionTitle(context)),
       );
 }
 

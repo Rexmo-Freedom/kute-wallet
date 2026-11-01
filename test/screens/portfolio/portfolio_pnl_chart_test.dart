@@ -284,7 +284,9 @@ void main() {
       expect(chart(tester).lineColor, AppColors.marketDown);
       expect(chart(tester).lines, isEmpty);
       expect(plot(), findsOneWidget);
-      expect(tester.getSize(plot()).height, closeTo(200 * 844 / 932, 1));
+      expect(tester.getSize(plot()).height, closeTo(220 * 844 / 932, 1));
+      // The P&L fill: up above zero, down below.
+      expect(chart(tester).zeroSplit, isTrue);
       await settle(tester);
 
       // Up over the month.
@@ -309,12 +311,8 @@ void main() {
       await settle(tester);
     });
 
-    testWidgets(
-        'the one block (founder, 28 October 2026): the caption and the '
-        'realised figure, the plot directly under them, the ranges, a '
-        'hairline and the footer; no change line; a scrub writes the P&L '
-        'under the finger and when, release puts the realised figure back',
-        (tester) async {
+    Future<void> pumpSection(WidgetTester tester,
+        {PnlStatsFigures? stats, double? percentBase}) async {
       tester.view.physicalSize = const Size(390, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -335,7 +333,11 @@ void main() {
                   venue: null,
                   data: upThenDown(),
                   now: now,
-                  figureUsd: -6.39,
+                  flat: true,
+                  percentBaseUsd: percentBase,
+                  stats: stats ??
+                      const PnlStatsFigures(
+                          realisedUsd: -6.39, unrealisedUsd: 0.01),
                   footer: const SizedBox(
                       key: ValueKey('lines'), width: 10, height: 60),
                 ),
@@ -345,45 +347,152 @@ void main() {
         ),
       ));
       await tester.pump(const Duration(milliseconds: 700));
+    }
+
+    testWidgets(
+        'the flat section (founder, 1 November 2026): no card; the caption, '
+        'the P&L now 34 w700 in the result colour, the change line, the '
+        'plot full width at 220, the ranges centred, the stats strip, "By '
+        'venue" and the rows; a scrub writes the point and when, release '
+        'puts the P&L now back', (tester) async {
+      await pumpSection(tester);
       Rect at(String key) => tester.getRect(find.byKey(ValueKey(key)));
+      expect(find.byKey(const ValueKey('statistics-pnl-card')), findsNothing);
+      expect(find.byKey(const ValueKey('statistics-pnl-section')),
+          findsOneWidget);
       final caption = at('statistics-pnl-caption');
       final figure = at('statistics-pnl-headline');
-      final lines = at('lines');
+      final change = at('statistics-pnl-header');
       final plotRect = tester.getRect(plot());
       final ranges = tester.getRect(find.byType(KuteChartRangeRow));
+      final stats = at('statistics-pnl-stats');
+      final byVenue = at('statistics-pnl-by-venue');
+      final lines = at('lines');
       expect(find.text('Profit and loss'), findsOneWidget);
-      // The realised figure, in the result colour; no change line.
-      expect(headline(tester), '−\$6.39');
+      expect(find.text('By venue'), findsOneWidget);
+      final captionStyle = tester
+          .widget<Text>(find.byKey(const ValueKey('statistics-pnl-caption')))
+          .style!;
+      expect(captionStyle.fontSize, closeTo(13 * 390 / 430, 0.01));
+      expect(captionStyle.color, AppColorsExtension.light().textSecondary);
+      // The P&L now, in the result colour, 34 w700 tabular.
+      expect(headline(tester), '−\$6.38');
+      final style = tester
+          .widget<RollingNumberText>(
+              find.byKey(const ValueKey('statistics-pnl-headline')))
+          .style;
+      expect(style.color, AppColors.marketDown);
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.fontSize, closeTo(34 * 390 / 430, 0.01));
+      expect(style.fontFeatures, contains(const FontFeature.tabularFigures()));
+      // No base given: no percent.
+      expect(header(tester), '▼ \$36.38 · Past month');
+      // Top down.
+      expect(figure.top, greaterThan(caption.bottom - 1));
+      expect(change.top, greaterThan(figure.bottom - 1));
+      expect(plotRect.top, greaterThan(change.bottom - 1));
+      expect(ranges.top, closeTo(plotRect.bottom + 16 * 1200 / 932, 1));
+      expect(stats.top, greaterThan(ranges.bottom));
+      expect(byVenue.top, greaterThan(stats.bottom));
+      expect(lines.top, greaterThan(byVenue.bottom));
+      // Full width (the host's gutters), 220 tall; the ranges centred.
+      expect(plotRect.width, 390);
+      expect(plotRect.height, closeTo(220 * 1200 / 932, 1));
+      expect(ranges.center.dx, closeTo(195, 0.5));
+      expect(ranges.width, lessThan(390));
+      expect(find.byType(Divider), findsNothing);
+
+      // A scrub: the P&L under the finger and when, in the change line.
+      final touch = await scrub(tester, plotRect.centerRight.translate(-8, 0));
+      expect(headline(tester), '−\$6.38');
+      expect(header(tester), startsWith('▼ \$36.38 · '));
+      expect(header(tester), contains('Oct 25'));
+      expect(find.text('Profit and loss'), findsOneWidget);
+      await touch.moveTo(plotRect.centerLeft.translate(2, 0));
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(headline(tester), '+\$30.00');
       expect(
           tester
               .widget<RollingNumberText>(
                   find.byKey(const ValueKey('statistics-pnl-headline')))
               .style
               .color,
-          AppColors.marketDown);
-      expect(find.byKey(const ValueKey('statistics-pnl-header')), findsNothing);
-      expect(find.textContaining('Past month'), findsNothing);
-      // Top down: caption, figure, plot, ranges, the footer.
-      expect(figure.top, greaterThan(caption.bottom - 1));
-      expect(plotRect.top, greaterThan(figure.bottom - 1));
-      expect(plotRect.top - figure.bottom, lessThan(40));
-      expect(ranges.top, greaterThan(plotRect.bottom - 1));
-      expect(lines.top, greaterThan(ranges.bottom));
-      expect(plotRect.height, greaterThan(150));
-
-      // A scrub: the P&L under the finger and when, in the caption.
-      final touch = await scrub(tester, plotRect.centerRight.translate(-8, 0));
-      expect(headline(tester), '−\$6.38');
-      expect(
-          tester
-              .widget<Text>(
-                  find.byKey(const ValueKey('statistics-pnl-caption')))
-              .data,
-          allOf(startsWith('Profit and loss · '), contains('Oct 25')));
+          AppColors.marketUp);
       await touch.up();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(headline(tester), '−\$6.39');
-      expect(find.text('Profit and loss'), findsOneWidget);
+      expect(headline(tester), '−\$6.38');
+      expect(header(tester), '▼ \$36.38 · Past month');
+      await settle(tester);
+    });
+
+    testWidgets('the change line carries a percent only of a real base',
+        (tester) async {
+      await pumpSection(tester, percentBase: 100);
+      expect(header(tester), '▼ \$36.38 (−36.4%) · Past month');
+      await settle(tester);
+      await pumpSection(tester, percentBase: 0);
+      expect(header(tester), '▼ \$36.38 · Past month');
+      await settle(tester);
+    });
+
+    testWidgets(
+        'the stats strip: Realised, Unrealised, Win rate in equal thirds, '
+        '12 sp labels over 15 w600 figures; a figure not given leaves its '
+        'column out; none at all, no strip', (tester) async {
+      Finder stat(String id) =>
+          find.byKey(ValueKey('statistics-pnl-stat-$id'));
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(
+              realisedUsd: 12.5, unrealisedUsd: -3.25, winRate: 0.625));
+      expect(stat('realised'), findsOneWidget);
+      expect(stat('unrealised'), findsOneWidget);
+      expect(stat('win-rate'), findsOneWidget);
+      expect(find.descendant(of: stat('realised'), matching: find.text('Realised')),
+          findsOneWidget);
+      final realised = tester.widget<Text>(find.descendant(
+          of: stat('realised'), matching: find.text('+\$12.50')));
+      expect(realised.style!.color, AppColors.marketUp);
+      expect(realised.style!.fontWeight, FontWeight.w600);
+      expect(realised.style!.fontSize, closeTo(15 * 390 / 430, 0.01));
+      final label = tester.widget<Text>(find.text('Unrealised'));
+      expect(label.style!.fontSize, closeTo(12 * 390 / 430, 0.01));
+      expect(label.style!.color, AppColorsExtension.light().textSecondary);
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: stat('unrealised'), matching: find.text('−\$3.25')))
+              .style!
+              .color,
+          AppColors.marketDown);
+      expect(find.descendant(of: stat('win-rate'), matching: find.text('63%')),
+          findsOneWidget);
+      final w = tester.getSize(stat('realised')).width;
+      expect(tester.getSize(stat('win-rate')).width, closeTo(w, 0.5));
+      expect(w, closeTo(390 / 3, 0.5));
+      await settle(tester);
+
+      // No closed-trade counts: no Win rate column, the others keep their
+      // thirds.
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(realisedUsd: 12.5, unrealisedUsd: 0));
+      expect(stat('win-rate'), findsNothing);
+      expect(find.text('Win rate'), findsNothing);
+      expect(stat('unrealised'), findsOneWidget);
+      expect(tester.getSize(stat('realised')).width, closeTo(390 / 3, 0.5));
+      await settle(tester);
+
+      // The open P&L not read: its column out too.
+      await pumpSection(tester,
+          stats: const PnlStatsFigures(realisedUsd: 12.5));
+      expect(stat('realised'), findsOneWidget);
+      expect(stat('unrealised'), findsNothing);
+      expect(stat('win-rate'), findsNothing);
+      await settle(tester);
+
+      // Nothing given: no strip.
+      await pumpSection(tester, stats: const PnlStatsFigures());
+      expect(find.byKey(const ValueKey('statistics-pnl-stats')), findsNothing);
+      expect(find.text('Realised'), findsNothing);
       await settle(tester);
     });
 

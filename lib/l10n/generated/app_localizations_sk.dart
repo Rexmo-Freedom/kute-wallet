@@ -11488,6 +11488,18 @@ class AppLocalizationsSk extends AppLocalizations {
   String get pnlNoHistoryTitle => 'Zatiaľ žiadny zisk a strata';
 
   @override
+  String get pnlByVenue => 'By venue';
+
+  @override
+  String get pnlStatRealised => 'Realised';
+
+  @override
+  String get pnlStatUnrealised => 'Unrealised';
+
+  @override
+  String get pnlStatWinRate => 'Win rate';
+
+  @override
   String get portfolioAllTime => 'Celé obdobie';
 
   @override

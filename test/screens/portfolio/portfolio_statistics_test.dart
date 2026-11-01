@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +21,6 @@ import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dar
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
-import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory, BalancesLiveFigure, balancesCategoryColor;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -503,8 +502,9 @@ void main() {
     for (final pill in ['1W', '1M', '3M', '1Y', 'ALL']) {
       expect(find.text(pill), findsOneWidget);
     }
-    expect(chart.rangeLabels, ['1W', '1M', '3M', '1Y', 'ALL']);
-    expect(chart.selectedRange, BalanceRange.month.index);
+    final row = tester.widget<KuteChartRangeRow>(find.byType(KuteChartRangeRow));
+    expect(row.labels, ['1W', '1M', '3M', '1Y', 'ALL']);
+    expect(row.selectedIndex, BalanceRange.month.index);
     // The figure leads: the balance type, over the 20sp tile figures.
     final hero = tester
         .widget<RollingNumberText>(
@@ -1511,14 +1511,27 @@ void main() {
                 trading: trading, predictions: predictions));
 
     final figures = find.byKey(const ValueKey('statistics-figures'));
-    final lead = find.byKey(const ValueKey('statistics-pnl-lead'));
+    final section = find.byKey(const ValueKey('statistics-pnl-section'));
     Finder venueRow(String venue) => find.byKey(ValueKey('pnl-venue-$venue'));
     Finder pick(String venue) => find.byKey(ValueKey('pnl-venue-$venue-pick'));
+    Finder stat(String id) => find.byKey(ValueKey('statistics-pnl-stat-$id'));
 
-    BalancesLiveFigure live(WidgetTester tester, String key) =>
-        tester.widget<BalancesLiveFigure>(find.byKey(ValueKey(key)));
-    String venueAmount(WidgetTester tester, String venue) =>
-        live(tester, 'pnl-venue-$venue-amount').figure.text;
+    String venueAmount(WidgetTester tester, String venue) => tester
+        .widget<Text>(find.descendant(
+            of: venueRow(venue),
+            matching: find.byKey(const ValueKey('pnl-venue-figure'))))
+        .data!;
+    Color? venueAmountColor(WidgetTester tester, String venue) => tester
+        .widget<Text>(find.descendant(
+            of: venueRow(venue),
+            matching: find.byKey(const ValueKey('pnl-venue-figure'))))
+        .style!
+        .color;
+    String statFigure(WidgetTester tester, String id) => tester
+        .widgetList<Text>(
+            find.descendant(of: stat(id), matching: find.byType(Text)))
+        .last
+        .data!;
 
     String headline(WidgetTester tester) => tester
         .widget<RollingNumberText>(
@@ -1537,25 +1550,28 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// What the card is (founder, 28 October 2026): Historic only, no
-    /// Active | Historic pair, no ring, no change line, no counts, no
-    /// sub-rows, nothing Active-only.
-    void expectHistoricOnly(WidgetTester tester) {
+    /// What the section is (founder, 1 November 2026): flat, no card, the
+    /// figure with its change line, the chart and its ranges, the stats
+    /// strip, "By venue" and the rows; nothing Active-only, no pair.
+    void expectFlatSection(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
+      expect(section, findsOneWidget);
+      expect(_chartCard, findsNothing);
       expect(find.byType(KuteTrendChart), findsOneWidget);
       expect(find.byType(KuteChartRangeRow), findsOneWidget);
       expect(find.text('Profit and loss'), findsOneWidget);
-      for (final f in [lead, figures]) {
-        expect(find.descendant(of: _chartCard, matching: f), findsOneWidget);
-      }
+      expect(find.text('By venue'), findsOneWidget);
+      expect(find.byKey(const ValueKey('statistics-pnl-header')),
+          findsOneWidget);
+      expect(find.descendant(of: section, matching: figures), findsOneWidget);
+      expect(find.descendant(of: section, matching: find.byType(Divider)),
+          findsNothing);
       expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
       expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
       expect(find.byType(KutePill), findsNothing);
       expect(find.byKey(const ValueKey('statistics-allocation-ring')),
           findsNothing);
       expect(find.byType(KuteDonutChart), findsNothing);
-      expect(find.byKey(const ValueKey('statistics-pnl-header')), findsNothing);
-      expect(find.textContaining('Past month'), findsNothing);
       for (final gone in [
         'Open P&L',
         'Realized P&L',
@@ -1570,31 +1586,30 @@ void main() {
         expect(find.text(gone, skipOffstage: false), findsNothing,
             reason: gone);
       }
-      for (final venue in ['predictions', 'investing']) {
-        expect(find.byKey(ValueKey('pnl-venue-$venue-count')), findsNothing);
-        expect(find.byKey(ValueKey('pnl-venue-$venue-stat')), findsNothing);
-        expect(find.byKey(ValueKey('pnl-venue-$venue-pnl')), findsNothing);
-      }
       expect(find.byType(PortfolioCategoryCard, skipOffstage: false),
           findsNothing);
       expect(find.byType(PortfolioTile, skipOffstage: false), findsNothing);
-      expect(find.textContaining('%', skipOffstage: false), findsNothing);
     }
 
     testWidgets(
-        'one card, top down: "Profit and loss" and the realised figure in '
-        'the result colour, the chart directly under it, the ranges, a '
-        'hairline, then one line per venue with its realised P&L',
+        'one flat section, top down: "Profit and loss", the P&L now in the '
+        'result colour and its change, the chart, the ranges, the stats '
+        'strip (no Win rate with Investing in the series), "By venue" and '
+        'one flat row per venue with its logo, sparkline and P&L now',
         (tester) async {
       await pumpOverview(tester);
-      expectHistoricOnly(tester);
-      // 6 realised at Predictions, 8 at Investing (10 gross on 2 of fees).
-      expect(headline(tester), r'+$14.00');
+      expectFlatSection(tester);
+      // 16 now at Predictions (6 realised, 10 open), 15 at Investing.
+      expect(headline(tester), r'+$31.00');
       expect(headlineColor(tester), AppColors.marketUp);
-      expect(venueAmount(tester, 'predictions'), r'+$6.00');
-      expect(live(tester, 'pnl-venue-predictions-amount').style.color,
-          AppColors.marketUp);
-      expect(venueAmount(tester, 'investing'), r'+$8.00');
+      expect(venueAmount(tester, 'predictions'), r'+$16.00');
+      expect(venueAmountColor(tester, 'predictions'), AppColors.marketUp);
+      expect(venueAmount(tester, 'investing'), r'+$15.00');
+      // Realised: 6 at Predictions, 8 at Investing (10 gross on 2 of
+      // fees); unrealised: 10 and 5; fills are not closed trades.
+      expect(statFigure(tester, 'realised'), r'+$14.00');
+      expect(statFigure(tester, 'unrealised'), r'+$15.00');
+      expect(stat('win-rate'), findsNothing);
 
       double top(Finder f) => tester.getTopLeft(f).dy;
       double bottom(Finder f) => tester.getBottomLeft(f).dy;
@@ -1602,44 +1617,75 @@ void main() {
       final figure = find.byKey(const ValueKey('statistics-pnl-headline'));
       final plot = find.byKey(const ValueKey('trend-chart-plot'));
       final ranges = find.byType(KuteChartRangeRow);
-      final hairline =
-          find.descendant(of: _chartCard, matching: find.byType(Divider));
-      expect(hairline, findsOneWidget);
+      final stats = find.byKey(const ValueKey('statistics-pnl-stats'));
+      final byVenue = find.byKey(const ValueKey('statistics-pnl-by-venue'));
       expect(top(figure), greaterThanOrEqualTo(bottom(caption) - 0.5));
       expect(top(plot), greaterThanOrEqualTo(bottom(figure) - 0.5));
       expect(top(ranges), greaterThan(bottom(plot) - 1));
-      expect(top(hairline), greaterThan(bottom(ranges) - 0.5));
-      expect(top(venueRow('predictions')), greaterThan(top(hairline)));
-      expect(top(venueRow('investing')),
-          greaterThan(top(venueRow('predictions'))));
-      // Each line: the dot, the name, the figure at the end.
-      final c = AppColorsExtension.light();
+      expect(top(stats), greaterThan(bottom(ranges)));
+      expect(top(byVenue), greaterThan(bottom(stats)));
+      expect(top(venueRow('predictions')), greaterThan(bottom(byVenue)));
+      // The Portfolio's row language: 14 between two rows' contents (the
+      // line under one name to the next name), no hairline.
+      Finder inRow(String v, Finder f) =>
+          find.descendant(of: venueRow(v), matching: f);
+      expect(
+          top(inRow('investing', find.text('Investing'))) -
+              bottom(inRow('predictions',
+                  find.byKey(const ValueKey('pnl-venue-subtitle')))),
+          closeTo(14 * 844 / 932, 0.5));
       expect(
           tester
-              .widget<Container>(find
-                  .descendant(
-                      of: venueRow('predictions'),
-                      matching: find.byType(Container))
-                  .first)
-              .decoration,
-          BoxDecoration(
-              color: balancesCategoryColor(c, BalancesCategory.predictions),
-              shape: BoxShape.circle));
+              .widget<Text>(inRow('predictions',
+                  find.byKey(const ValueKey('pnl-venue-subtitle'))))
+              .data,
+          'Polymarket');
+      final name = tester.widget<Text>(inRow('investing', find.text('Investing')));
+      expect(name.style!.fontSize, closeTo(15 * 390 / 430, 0.01));
+      expect(name.style!.fontWeight, FontWeight.w500);
+      final figureStyle = tester
+          .widget<Text>(
+              inRow('investing', find.byKey(const ValueKey('pnl-venue-figure'))))
+          .style!;
+      expect(figureStyle.fontSize, closeTo(15 * 390 / 430, 0.01));
+      expect(figureStyle.fontWeight, FontWeight.w600);
+      final change = tester.widget<Text>(
+          inRow('investing', find.byKey(const ValueKey('pnl-venue-change'))));
+      expect(change.style!.fontSize, closeTo(12 * 390 / 430, 0.01));
+      expect(tester.getSize(inRow('investing', find.byType(SvgPicture))).width,
+          closeTo(32 * 390 / 430, 0.5));
+      // The plot full-bleed to the page's 16 gutters.
+      final gutter = 16 * 390 / 430;
+      expect(tester.getRect(plot).left, closeTo(gutter, 0.5));
+      expect(tester.getRect(plot).right, closeTo(390 - gutter, 0.5));
+      // Each row: the venue's logo (32), its name, its sparkline, its
+      // figure at the end.
+      for (final v in ['predictions', 'investing']) {
+        expect(
+            find.descendant(
+                of: venueRow(v), matching: find.byType(SvgPicture)),
+            findsOneWidget);
+        final spark = find.descendant(
+            of: venueRow(v), matching: find.byKey(const ValueKey('pnl-sparkline')));
+        expect(spark, findsOneWidget);
+        expect(tester.getSize(spark).width, closeTo(48 * 390 / 430, 0.5));
+      }
       expect(
           tester
-              .getRect(find.byKey(const ValueKey('pnl-venue-investing-amount')))
+              .getRect(find.descendant(
+                  of: venueRow('investing'),
+                  matching: find.byKey(const ValueKey('pnl-venue-figure'))))
               .right,
-          greaterThan(300));
-      // Nothing Active-only is ever read for it: no toggle event.
+          closeTo(390 - gutter, 0.5));
       expect(events.where((e) => e.$1 == 'portfolio_allocation_view_changed'),
           isEmpty);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'the venue lines are the chart\'s filter: a line tapped draws that '
-        'venue alone (its realised figure and its chart), the line selected '
-        'and the other dimmed; tapped again All; the same event',
+        'the venue rows are the chart\'s filter: a row tapped draws that '
+        'venue alone (its figure, its chart, its stats; Predictions with its '
+        'win rate), the other row dimmed; tapped again All; the same event',
         (tester) async {
       await pumpOverview(tester);
       double opacity(String venue) => tester
@@ -1648,40 +1694,34 @@ void main() {
                   of: pick(venue), matching: find.byType(AnimatedOpacity))
               .first)
           .opacity;
-      Finder selected(String venue, bool on) =>
-          find.byKey(ValueKey('pnl-venue-$venue-selected-$on'));
-      expect(selected('investing', false), findsOneWidget);
-      expect(selected('predictions', false), findsOneWidget);
       expect(opacity('investing'), 1);
       expect(opacity('predictions'), 1);
 
       await open(tester, pick('investing'));
-      expect(headline(tester), r'+$8.00');
+      expect(headline(tester), r'+$15.00');
       // The line is Investing's alone, ending on its P&L now.
       expect(
           tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last,
           15);
-      expect(selected('investing', true), findsOneWidget);
-      expect(
-          tester
-              .widget<AnimatedContainer>(selected('investing', true))
-              .decoration,
-          BoxDecoration(
-              color: AppColorsExtension.light().surfaceElevated,
-              borderRadius: BorderRadius.circular(8.r)));
+      expect(statFigure(tester, 'realised'), r'+$8.00');
+      expect(statFigure(tester, 'unrealised'), r'+$5.00');
+      expect(stat('win-rate'), findsNothing);
       expect(opacity('investing'), 1);
       expect(opacity('predictions'), lessThan(1));
       expect(opacity('predictions'), greaterThan(0.4));
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$6.00');
-      expect(selected('predictions', true), findsOneWidget);
-      expect(selected('investing', false), findsOneWidget);
+      expect(headline(tester), r'+$16.00');
+      expect(statFigure(tester, 'realised'), r'+$6.00');
+      expect(statFigure(tester, 'unrealised'), r'+$10.00');
+      // One closed win, one closed loss.
+      expect(statFigure(tester, 'win-rate'), '50%');
       expect(opacity('investing'), lessThan(1));
+      expect(opacity('predictions'), 1);
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$14.00');
-      expect(selected('predictions', false), findsOneWidget);
+      expect(headline(tester), r'+$31.00');
+      expect(stat('win-rate'), findsNothing);
       expect(opacity('investing'), 1);
       expect(
           events
@@ -1692,46 +1732,57 @@ void main() {
             {'venue': 'polymarket'},
             {'venue': 'all'}
           ]);
-      expectHistoricOnly(tester);
+      expectFlatSection(tester);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
         'nothing open anywhere changes nothing: the history still charts '
-        'with both lines', (tester) async {
+        'with both rows', (tester) async {
       await pumpOverview(tester, flat: true, noOpen: true);
-      expectHistoricOnly(tester);
+      expectFlatSection(tester);
       // Without the live position its realised −1 of fees goes too.
       expect(venueAmount(tester, 'predictions'), r'+$7.00');
-      expect(venueAmount(tester, 'investing'), r'+$8.00');
+      expect(venueAmount(tester, 'investing'), r'+$15.00');
+      expect(statFigure(tester, 'unrealised'), r'$0.00');
       expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets(
-        'one venue without history: its line reads its own "No … yet" at '
-        'the end, no figure', (tester) async {
+        'one venue without history: its row reads its own "No … yet" at '
+        'the end, no figure, no sparkline', (tester) async {
       await pumpOverview(tester, noPredictions: true);
       expect(figures, findsOneWidget);
       expect(
-          tester
-              .widget<Text>(
-                  find.byKey(const ValueKey('pnl-venue-predictions-line')))
-              .data,
-          'No predictions yet');
-      expect(find.byKey(const ValueKey('pnl-venue-predictions-amount')),
+          find.descendant(
+              of: venueRow('predictions'),
+              matching: find.text('No predictions yet')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: venueRow('predictions'),
+              matching: find.byKey(const ValueKey('pnl-venue-figure'))),
           findsNothing);
-      expect(venueAmount(tester, 'investing'), r'+$8.00');
+      expect(
+          find.descendant(
+              of: venueRow('predictions'),
+              matching: find.byKey(const ValueKey('pnl-sparkline'))),
+          findsNothing);
+      expect(venueAmount(tester, 'investing'), r'+$15.00');
       expect(find.byKey(const ValueKey('statistics-empty')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('one venue: its line alone, picking nothing', (tester) async {
+    testWidgets(
+        'one venue: its row alone, picking nothing; Predictions alone has '
+        'its win rate', (tester) async {
       await pumpOverview(tester, trading: false);
       expect(venueRow('predictions'), findsOneWidget);
       expect(venueRow('investing'), findsNothing);
       expect(pick('predictions'), findsNothing);
-      expect(headline(tester), r'+$6.00');
+      expect(headline(tester), r'+$16.00');
+      expect(statFigure(tester, 'win-rate'), '50%');
       expect(tester.takeException(), isNull);
     });
 
@@ -1740,6 +1791,7 @@ void main() {
       expect(headline(tester), '••••••');
       expect(venueAmount(tester, 'predictions'), '••••••');
       expect(venueAmount(tester, 'investing'), '••••••');
+      expect(statFigure(tester, 'realised'), '••••••');
       expect(find.textContaining(r'$'), findsNothing);
       expect(tester.takeException(), isNull);
     });

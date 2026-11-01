@@ -19215,6 +19215,30 @@ abstract class AppLocalizations {
   /// **'No P&L yet'**
   String get pnlNoHistoryTitle;
 
+  /// Portfolio P&L Charts: the small title over the per-venue P&L rows.
+  ///
+  /// In en, this message translates to:
+  /// **'By venue'**
+  String get pnlByVenue;
+
+  /// Portfolio P&L Charts stats strip: label over the P&L made by closed positions.
+  ///
+  /// In en, this message translates to:
+  /// **'Realised'**
+  String get pnlStatRealised;
+
+  /// Portfolio P&L Charts stats strip: label over the P&L of positions still open.
+  ///
+  /// In en, this message translates to:
+  /// **'Unrealised'**
+  String get pnlStatUnrealised;
+
+  /// Portfolio P&L Charts stats strip: label over the share of closed positions that made money.
+  ///
+  /// In en, this message translates to:
+  /// **'Win rate'**
+  String get pnlStatWinRate;
+
   /// Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss ("All time ▲ $120.10").
   ///
   /// In en, this message translates to:

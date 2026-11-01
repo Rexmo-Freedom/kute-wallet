@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -271,6 +274,101 @@ void main() {
     expect(painter().values, [3.0, 2.0, 1.0]);
     await tester.pump(const Duration(seconds: 1));
     expect(painter().breath, 0.0);
+    await settle(tester);
+  });
+
+  test('the split gradient: up at 8% down to zero, down at 8% from it, a '
+      'hard stop', () {
+    final g = kuteZeroSplitGradient(
+        zeroFraction: 0.4,
+        up: AppColors.marketUp,
+        down: AppColors.marketDown);
+    expect(g.stops, [0, 0.4, 0.4, 1]);
+    expect(g.colors, [
+      AppColors.marketUp.withValues(alpha: 0.08),
+      AppColors.marketUp.withValues(alpha: 0.08),
+      AppColors.marketDown.withValues(alpha: 0.08),
+      AppColors.marketDown.withValues(alpha: 0.08),
+    ]);
+    // Zero off the plot: the whole plot one side.
+    expect(
+        kuteZeroSplitGradient(
+                zeroFraction: 1.6,
+                up: AppColors.marketUp,
+                down: AppColors.marketDown)
+            .stops,
+        [0, 1, 1, 1]);
+  });
+
+  testWidgets(
+      'zeroSplit paints the area above zero green and below zero red, the '
+      'zero line where the series crosses it; off, the one-colour fade',
+      (tester) async {
+    const key = ValueKey('split-shot');
+    // Down at −10, then up at +10: below zero on the left, above on the
+    // right.
+    const values = [-10.0, -10.0, -10.0, 10.0, 10.0, 10.0];
+    Future<Color Function(double, double)> shoot(bool split) async {
+      await pump(
+          tester,
+          const RepaintBoundary(
+              key: key,
+              child: ColoredBox(
+                  color: Colors.white,
+                  child: KuteTrendChart(
+                      values: values, live: false, zeroSplit: true))),
+          reduceMotion: true);
+      if (!split) {
+        await pump(
+            tester,
+            const RepaintBoundary(
+                key: key,
+                child: ColoredBox(
+                    color: Colors.white,
+                    child: KuteTrendChart(values: values, live: false))),
+            reduceMotion: true);
+      }
+      final boundary =
+          tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final image = (await tester.runAsync(() => boundary.toImage()))!;
+      final bytes = (await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba)))!;
+      return (double x, double y) {
+        final i = (y.round() * image.width + x.round()) * 4;
+        return Color.fromARGB(bytes.getUint8(i + 3), bytes.getUint8(i),
+            bytes.getUint8(i + 1), bytes.getUint8(i + 2));
+      };
+    }
+
+    final pixel = await shoot(true);
+    final size = tester.getSize(plot());
+    final w = size.width;
+    final y0 = size.height / 2; // −12…12 on screen: zero in the middle.
+    int r(Color c) => (c.r * 255).round();
+    int g(Color c) => (c.g * 255).round();
+    // Left, between the line (−10) and zero: red.
+    final below = pixel(w * 0.1, y0 + 20);
+    expect(r(below), greaterThan(g(below)));
+    // Right, between zero and the line (+10): green.
+    final above = pixel(w * 0.9, y0 - 20);
+    expect(g(above), greaterThan(r(above)));
+    // Left, above zero (outside the area): untinted.
+    final clear = pixel(w * 0.1, y0 - 20);
+    expect(r(clear), 255);
+    expect(g(clear), 255);
+    // The zero line, faint, at zero.
+    final zero = pixel(w * 0.05, y0);
+    expect(r(zero), lessThan(250));
+    expect(g(zero), lessThan(250));
+
+    // Off (a balance chart): the one-colour fade under the line, nothing
+    // above it, no zero line.
+    final plain = await shoot(false);
+    final clearPlain = plain(w * 0.1, y0 - 20);
+    expect(r(clearPlain), 255);
+    final zeroPlain = plain(w * 0.05, y0);
+    expect(r(zeroPlain), 255);
+    expect(g(zeroPlain), 255);
     await settle(tester);
   });
 }

@@ -25,11 +25,14 @@ import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
+import 'package:kute/screens/portfolio/open_investments_screen.dart'
+    show InvestmentsProduct;
+import 'package:kute/screens/shared/venue_deposit_button.dart'
+    show venueMarkAsset;
 import 'package:kute/screens/shared/charts/kute_chart_format.dart'
     show kuteChangeSign;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show kuteReduceMotion;
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart'
@@ -148,31 +151,31 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 /// October 2026: the Active | Historic pair and everything Active-only,
 /// the open P&L, the amounts at stake, the hidden chart, are gone).
 ///
-///   * ONE card ([PortfolioPnlChart] with its [PortfolioPnlChart.footer]),
-///     top down:
-///       - "Profit and loss" and the realised P&L as the big figure in
-///         the result colour (the venues' realised P&L added; one venue's
-///         when its line is picked); no change line, no ring. While a
-///         finger scrubs the figure is the P&L under it and the label
-///         says when;
-///       - the chart directly under it (straight segments in the result
-///         colour, a soft fade, a solid hairline at zero, the scrub), then
-///         its range pills (1W to ALL);
-///       - a hairline, then one line per venue as Balances names its own,
-///         "● Predictions" … the venue's realised P&L at the end in the
-///         result colour, Investing after it; no counts, no sub-rows. A
-///         venue with no history reads its own "No … yet" there.
-///         The lines ARE the chart's filter: with both venues' P&L
-///         moving, a line tapped draws that venue alone (the figure and
-///         the chart), the line on the selected pill's surface and the
-///         other dimmed; the picked line tapped again is All (the venues
-///         added on the moments either published,
-///         [PortfolioPerformance.combine]). With one venue moving the
-///         lines pick nothing.
-///     A P&L that never moved draws the chart's calm empty state. Earn
+///   * ONE flat section, no card ([PortfolioPnlChart.flat]; founder, 1
+///     November 2026: "look like good fintech"), top down:
+///       - "Profit and loss" and the P&L now (realised plus open) as the
+///         big figure in the result colour, the change over the range
+///         under it ("▲ $31.84 · Past month", a percent only of a real
+///         base). While a finger scrubs, the figure and the change line
+///         are the point under it and when;
+///       - the chart full-bleed to the gutters, 220 tall, the split fill
+///         (up above zero, down below), then its range pills (1W to ALL);
+///       - the stats strip: Realised, Unrealised, Win rate, a column
+///         left out where no provider gives its figure (Win rate only for
+///         a Predictions series: closed positions are the only
+///         closed-trade count, [predictionsWinRate]);
+///       - "By venue", one flat row per venue (logo, name, sparkline, its
+///         P&L now in its colour; "No … yet" with no history), 14 apart,
+///         no hairlines. The rows ARE the chart's filter: with both
+///         venues' P&L moving, a row tapped draws that venue alone (the
+///         figure, the chart and the stats), the other row dimmed; the
+///         picked row tapped again is All (the venues added on the
+///         moments either published, [PortfolioPerformance.combine]).
+///         With one venue moving the rows pick nothing.
+///     A P&L that never moved draws the sections' one empty state. Earn
 ///     (the dollar rewards programme) is never shown here, whatever the
 ///     backend's `usd.earn` says (owner decision).
-///   * Under the card, the RESTING ORDERS (portfolio_orders.dart, each row
+///   * Under the section, the RESTING ORDERS (portfolio_orders.dart, each row
 ///     its venue sheet's own with its own Cancel; Investing's ended orders
 ///     after them) under a small "● Predictions" / "● Investing" heading,
 ///     then a quiet "Cancel all" text link, only with orders at both
@@ -202,7 +205,13 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.footer = const [],
     this.footerEmpty = true,
     this.header,
+    this.sectionEmpty,
   });
+
+  /// The whole page when the account never traded, in place of the header
+  /// and the centred empty state: the Portfolio screen's sections' one
+  /// empty state (PortfolioSectionEmptyPage, portfolio_empty_state.dart).
+  final Widget? sectionEmpty;
 
   /// The venues on the account (portfolio_filters.dart).
   final bool trading;
@@ -299,13 +308,12 @@ class _PortfolioStatisticsOverviewState
     // A header keeps the page a scrolling list whatever the figures say.
     final footer = !widget.footerEmpty || widget.header != null;
     // As the venue's own tab: a reload keeps the last figures up.
+    // A read genuinely on its way: the chart's own shape, never a blank
+    // frame and never cards that are not there.
     if (results.values.any((r) => !r.hasValue && !r.hasError)) {
       return _page([
-        SkeletonCardList(
-            key: const ValueKey('portfolio-performance-loading'),
-            count: 3,
-            height: 164.h,
-            padding: EdgeInsets.zero),
+        const PortfolioPnlSkeleton(
+            key: ValueKey('portfolio-performance-loading')),
       ]);
     }
     final data = <PortfolioPerformanceVenue, PortfolioPerformance>{};
@@ -344,7 +352,7 @@ class _PortfolioStatisticsOverviewState
       orders: widget.orders,
       footerEmpty: widget.footerEmpty,
       page: _page,
-      emptyPage: _emptyPage,
+      emptyPage: (empty) => widget.sectionEmpty ?? _emptyPage(empty),
     );
   }
 }
@@ -407,6 +415,18 @@ class _OverviewBody extends ConsumerWidget {
     // Never traded: no chart, no history, nothing resting. The page is
     // one empty state (the chart's words); or only the footer's rows.
     final resting = orders != null && !orders!.isEmpty;
+    // Whether it never traded is not known while the Investing fills are
+    // still on their way (the Portfolio screen keeps them warm, so this is
+    // a cold read): the chart's skeleton, never a card that then goes.
+    if (!combined.hasMovement &&
+        !resting &&
+        trading != null &&
+        trading.book == null &&
+        ref.watch(hyperliquidUserFillsProvider).isLoading) {
+      return page(const [
+        PortfolioPnlSkeleton(key: ValueKey('portfolio-performance-loading')),
+      ]);
+    }
     if (!combined.hasMovement && !resting && _Figures.quiet(figures)) {
       final text = single == PortfolioPerformanceVenue.predictions
           ? l10n.betHistoryEmpty
@@ -423,30 +443,58 @@ class _OverviewBody extends ConsumerWidget {
         PortfolioPerformanceVenue.trading,
     ];
     final picked = toggled ? charted : null;
-    // The big figure: the realised P&L of the series drawn (nothing ever
-    // closed: zero; not known: a dash).
+    // The stats strip: the realised P&L of the series drawn (nothing ever
+    // closed: zero; not known: its column left out), what its open
+    // positions stand at, and the win rate where closed trades are counted.
+    final drawnVenues = picked != null ? [picked] : venues;
     final drawn = picked != null ? byVenue[picked] : figures;
     final realised = drawn == null
         ? null
         : drawn.empty
             ? 0.0
             : drawn.pnl;
+    double? unrealised = 0;
+    for (final v in drawnVenues) {
+      final open = v == PortfolioPerformanceVenue.predictions
+          ? data[v]!.openPnlUsd
+          : trading?.openPnlUsd;
+      if (open == null || !open.isFinite) {
+        unrealised = null;
+        break;
+      }
+      unrealised = unrealised! + open;
+    }
+    // Investing's fills are executions, not closed trades: a series with
+    // Investing in it has no win rate.
+    final winRate =
+        drawnVenues.every((v) => v == PortfolioPerformanceVenue.predictions)
+            ? predictionsWinRate(
+                data[PortfolioPerformanceVenue.predictions]?.predictions)
+            : null;
 
     return page([
-      // ONE card: the figure, the chart and its ranges, the venue lines
-      // (which pick the series). A P&L that never moved: the chart's calm
-      // empty state.
+      // The flat section: the figure, the chart and its ranges, the stats
+      // strip, the venue rows (which pick the series). A P&L that never
+      // moved: the sections' one empty state, the orders under it.
       PortfolioPnlChart(
         venue: series,
         eventVenue: _eventVenue(series),
         data: toggled ? data[charted]! : combined,
-        figureUsd: realised,
+        flat: true,
+        stats: PnlStatsFigures(
+            realisedUsd: realised, unrealisedUsd: unrealised, winRate: winRate),
         footer: _PnlVenues(
           listed: listed,
-          byVenue: byVenue,
+          data: data,
+          // Nothing to show for a venue: a P&L that never moved, or no
+          // history in its own books.
+          quiet: {
+            for (final v in listed)
+              if (!data[v]!.hasMovement || _Figures.quiet(byVenue[v])) v
+          },
           selected: picked,
-          // The lines pick the series only with two venues' P&L moving;
-          // the picked line tapped again is All.
+          // The rows pick the series only with two venues' P&L moving;
+          // the picked row tapped again is All.
           onPick:
               moving.length > 1 ? (v) => onChart(v == picked ? null : v) : null,
         ),
@@ -454,6 +502,22 @@ class _OverviewBody extends ConsumerWidget {
       if (resting) _PnlOrders(listed: listed, orders: orders!),
     ]);
   }
+}
+
+/// The share of a Predictions account's closed positions that made money,
+/// 0 to 1: the only closed-trade count a provider gives. Null with no
+/// book, a book cut at its read limit, or nothing closed yet: never
+/// invented.
+double? predictionsWinRate(PredictionsBook? book) {
+  if (book == null || !book.complete) return null;
+  var closed = 0;
+  var won = 0;
+  for (final r in book.records) {
+    if (r.open) continue;
+    closed++;
+    if (r.realizedPnlUsd > 0) won++;
+  }
+  return closed == 0 ? null : won / closed;
 }
 
 /// A venue's name as the app writes it.
@@ -468,120 +532,74 @@ BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
         ? BalancesCategory.predictions
         : BalancesCategory.investing;
 
-/// The P&L's colour: up, down, or the text colour at zero.
-Color _pnlColor(BuildContext context, double value) => value > 0
-    ? AppColors.marketUp
-    : value < 0
-        ? AppColors.marketDown
-        : context.colors.textPrimary;
-
-/// The card's venue lines, under the chart's ranges (see
-/// [PortfolioStatisticsOverview]): one line per venue as Balances names
-/// its own, its realised P&L at the end in the result colour (its "No …
-/// yet" with no history); a line tapped picks the series the chart draws
-/// ([onPick]), the picked one on the selected pill's surface and the other
-/// dimmed.
-class _PnlVenues extends ConsumerWidget {
+/// The venue rows under "By venue" (see [PortfolioStatisticsOverview]):
+/// one [PnlVenueRow] per venue in the Portfolio's row language (14
+/// between rows), its P&L now (realised plus open, the venue's line's last
+/// point) right-aligned in its colour with its change and its sparkline,
+/// its "No … yet" with no history; a row tapped picks the
+/// series the chart draws ([onPick]), the other row dimmed.
+class _PnlVenues extends StatelessWidget {
   const _PnlVenues({
     required this.listed,
-    required this.byVenue,
+    required this.data,
+    required this.quiet,
     required this.selected,
     required this.onPick,
   });
 
   /// The venues read, in Balances' order.
   final List<PortfolioPerformanceVenue> listed;
-  final Map<PortfolioPerformanceVenue, _Figures?> byVenue;
+  final Map<PortfolioPerformanceVenue, PortfolioPerformance> data;
+
+  /// The venues with no history: their "No … yet" in place of a figure.
+  final Set<PortfolioPerformanceVenue> quiet;
 
   /// The venue the chart draws; null: All.
   final PortfolioPerformanceVenue? selected;
 
-  /// A line tapped; null: the lines pick nothing (one venue moving).
+  /// A row tapped; null: the rows pick nothing (one venue moving).
   final ValueChanged<PortfolioPerformanceVenue>? onPick;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    String money(double usd) => visible ? formatPolyAmount(ref, usd) : '••••••';
-    // A P&L the figures do not know (not read yet, a history cut at its
-    // cap): a dash, never a zero.
-    BalancesFigure signed(double? usd) => usd == null
-        ? const BalancesFigure('—')
-        : !visible
-            ? const BalancesFigure('••••••')
-            : BalancesFigure('${kuteChangeSign(usd)}${money(usd.abs())}',
-                usd: usd);
-
+    final now = DateTime.now();
     Widget venue(PortfolioPerformanceVenue v) {
-      final f = byVenue[v];
-      final category = _categoryOf(v);
-      final name = category.name;
-      final quiet = _Figures.quiet(f);
-      final pnl = f?.pnl;
-      final row = BalancesVenueHeader(
-        key: ValueKey('pnl-venue-$name'),
-        keyPrefix: 'pnl-venue',
-        category: category,
-        color: balancesCategoryColor(c, category),
-        title: _venueName(l10n, v),
-        count: null,
-        figure: quiet ? const BalancesFigure('') : signed(pnl),
-        figureColor:
-            quiet || pnl == null || !visible ? null : _pnlColor(context, pnl),
-        pnl: null,
-        empty: quiet ? _quietText(l10n, v, StatisticsScope.historic) : null,
-        caption: null,
-      );
+      final perf = data[v]!;
+      final name = _categoryOf(v).name;
       final pick = onPick;
-      if (pick == null) return row;
-      // The picked line on the selected pill's surface (the range pills'
-      // own), reaching a little past the text; the other line dimmed.
-      final picked = selected == v;
-      final motion = kuteReduceMotion(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 180);
-      return Semantics(
-        button: true,
-        selected: picked,
-        child: GestureDetector(
-          key: ValueKey('pnl-venue-$name-pick'),
-          behavior: HitTestBehavior.opaque,
-          onTap: () => pick(v),
-          child: AnimatedOpacity(
-            opacity: selected != null && !picked ? 0.6 : 1,
-            duration: motion,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: -8.w,
-                  right: -8.w,
-                  top: 6.h,
-                  bottom: -4.h,
-                  child: AnimatedContainer(
-                    key: ValueKey('pnl-venue-$name-selected-$picked'),
-                    duration: motion,
-                    decoration: BoxDecoration(
-                      color: picked ? c.surfaceElevated : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                  ),
-                ),
-                row,
-              ],
-            ),
-          ),
-        ),
+      final row = PnlVenueRow(
+        key: ValueKey('pnl-venue-$name'),
+        logoAsset: venueMarkAsset(v == PortfolioPerformanceVenue.predictions
+            ? InvestmentsProduct.predictions
+            : InvestmentsProduct.trading),
+        name: _venueName(l10n, v),
+        // Where the money is: the venue's own name.
+        subtitle: v == PortfolioPerformanceVenue.predictions
+            ? 'Polymarket'
+            : 'Hyperliquid',
+        data: perf,
+        now: now,
+        pnlUsd: quiet.contains(v) ? null : pnlSeries(perf, now).values.last,
+        quiet: quiet.contains(v)
+            ? _quietText(l10n, v, StatisticsScope.historic)
+            : null,
+        selected: selected == v,
+        dimmed: selected != null && selected != v,
+        onTap: pick == null ? null : () => pick(v),
       );
+      return pick == null
+          ? row
+          : KeyedSubtree(key: ValueKey('pnl-venue-$name-pick'), child: row);
     }
 
     return Column(
       key: const ValueKey('statistics-figures'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      children: [for (final v in listed) venue(v)],
+      children: [
+        for (final v in listed) venue(v),
+      ],
     );
   }
 }

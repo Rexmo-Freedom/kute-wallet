@@ -777,12 +777,12 @@ void main() {
     expect(InvestmentsTab.fromKey('earn'), isNull);
     // The Portfolio's sections, analytics and links alike.
     // No Positions section any more: Balances first.
-    expect(PortfolioSection.values.map((s) => s.key),
-        ['balances', 'charts', 'activity']);
+    expect(PortfolioSection.values.map((s) => s.key), ['balances', 'charts']);
     // The old Positions links (the section, the old Portfolio pill and its
     // Open tab) land on Balances, where the positions are; the old Orders
     // and Statistics tabs open P&L charts, where the orders are; Activity
-    // opens Activity. `positions` stays the Portfolio's key (the screen's
+    // is no Portfolio section any more (the router sends it to the Bitcoin
+    // home). `positions` stays the Portfolio's key (the screen's
     // link and its analytics `tab`).
     for (final key in ['positions', 'portfolio', 'open']) {
       expect(InvestmentsTab.fromKey(key), InvestmentsTab.positions,
@@ -796,19 +796,20 @@ void main() {
       expect(PortfolioSection.forLink(key), PortfolioSection.charts,
           reason: key);
     }
-    expect(InvestmentsTab.fromKey('activity'), InvestmentsTab.positions);
-    expect(PortfolioSection.forLink('activity'), PortfolioSection.activity);
+    expect(InvestmentsTab.fromKey('activity'), isNull);
+    expect(PortfolioSection.forLink('activity'), isNull);
+    expect(kHomeActivityLocation, '/home?tab=activity');
     expect(InvestmentsTab.fromKey('balances'), InvestmentsTab.positions);
     expect(PortfolioSection.forLink('balances'), PortfolioSection.balances);
   });
 
   testWidgets(
-      'a link to the old Activity tab opens the Portfolio screen on '
-      'Activity over the page, whose pill stays; a later Positions link '
+      'a link to the old Statistics tab opens the Portfolio screen on '
+      'P&L charts over the page, whose pill stays; a later Positions link '
       'lands the open screen on Balances, with no second copy',
       (tester) async {
     final events = recordEvents();
-    final linked = ValueNotifier<String?>('activity');
+    final linked = ValueNotifier<String?>('statistics');
     addTearDown(linked.dispose);
     await pumpRouted(tester,
         page: (_) => ValueListenableBuilder<String?>(
@@ -821,9 +822,9 @@ void main() {
     expect(find.byType(PortfolioScreen), findsOneWidget);
     // The page under it keeps its pill: Portfolio is no pill to pick.
     expect(container.read(investmentsTabProvider), InvestmentsTab.investing);
-    expect(container.read(portfolioSectionProvider), PortfolioSection.activity);
-    expect(_sectionOn(tester), 'activity');
-    expect(find.byKey(const ValueKey('portfolio-section-activity')),
+    expect(container.read(portfolioSectionProvider), PortfolioSection.charts);
+    expect(_sectionOn(tester), 'charts');
+    expect(find.byKey(const ValueKey('portfolio-section-charts')),
         findsOneWidget);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
     expect(events.where((e) => e.$1 == 'portfolio_opened'), isEmpty);
@@ -842,8 +843,9 @@ void main() {
 
   testWidgets(
       'the Portfolio screen\'s sections: Balances with the shares block, '
-      'P&L charts, Activity with the merged list; each switch is reported, '
-      'and the section is kept for the session', (tester) async {
+      'P&L charts (no Activity: it lives on the Bitcoin home); each switch '
+      'is reported, and the section is kept for the session',
+      (tester) async {
     final events = recordEvents();
     await pumpRouted(tester,
         history: Transaction(
@@ -857,12 +859,12 @@ void main() {
     final l10n = _l10n(tester);
     await openPortfolio(tester);
 
-    // The screen's own section pills, three, inside the Portfolio; the
+    // The screen's own section pills, two, inside the Portfolio; the
     // screen's title reads Portfolio, nothing reads Positions.
     expect(
         find.descendant(
             of: find.byType(InvestmentsPortfolio), matching: _sectionPills),
-        findsNWidgets(3));
+        findsNWidgets(2));
     expect(
         find.descendant(
             of: find.byType(AppBar),
@@ -974,30 +976,10 @@ void main() {
     expect(find.byKey(const ValueKey('portfolio-move-money')), findsNothing);
     expect(find.byKey(const ValueKey('portfolio-activity-list')), findsNothing);
 
-    // Activity: the merged list, all of it, with no "See all".
-    await pickSection(tester, 'activity');
-    pinned();
-    expect(events.where((e) => e.$1 == 'analytics_tab_selected').last.$2, {
-      'tab': 'positions',
-      'from_tab': 'positions',
-      'surface': 'investments',
-      'sub': 'activity',
-      'from_sub': 'charts'
-    });
-    expect(
-        find.byKey(const ValueKey('portfolio-activity-list')), findsOneWidget);
-    expect(find.text('Prediction · Yes'), findsNWidgets(2));
-    expect(
-        find.byKey(const ValueKey('portfolio-activity-see-all')), findsNothing);
-    // The pinned top (the hero breakdown) stays; the Balances list is gone.
-    expect(find.byKey(const ValueKey('portfolio-balances-list')),
-        findsNothing);
-    expect(find.byKey(const ValueKey('statistics-overview')), findsNothing);
-
     // Re-picking the section on screen is not a new view.
     final before =
         events.where((e) => e.$1 == 'analytics_tab_selected').length;
-    await pickSection(tester, 'activity');
+    await pickSection(tester, 'charts');
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
 
@@ -1005,9 +987,8 @@ void main() {
     // on. Opening the screen is no pill switch, so no strip event.
     await closePortfolio(tester);
     await openPortfolio(tester);
-    expect(_sectionOn(tester), 'activity');
-    expect(
-        find.byKey(const ValueKey('portfolio-activity-list')), findsOneWidget);
+    expect(_sectionOn(tester), 'charts');
+    expect(find.byKey(const ValueKey('statistics-overview')), findsOneWidget);
     expect(events.where((e) => e.$1 == 'analytics_tab_selected').length,
         before);
     expect(find.byType(OpenInvestmentsScreen), findsNothing);
@@ -1025,7 +1006,7 @@ void main() {
       activeShellTabProvider.overrideWith((_) => ActiveNavTab.usd),
     ]);
     await openPortfolio(tester);
-    await pickSection(tester, 'activity');
+    await pickSection(tester, 'charts');
     await closePortfolio(tester);
     openInvestmentsPositions(tester.element(_body));
     await _pumpFrames(tester, 4);
@@ -1120,11 +1101,13 @@ void main() {
     final predictions =
         find.byKey(const ValueKey('pnl-venue-predictions-orders'));
     final investing = find.byKey(const ValueKey('pnl-venue-investing-orders'));
-    final card = find.byKey(const ValueKey('statistics-pnl-card'));
+    // Nothing charted yet: the section is the sections' one empty state
+    // ("No P&L yet"), the orders under it.
+    final card = find.byKey(const ValueKey('statistics-pnl-section'));
     expect(
         find.descendant(
             of: card,
-            matching: find.byKey(const ValueKey('pnl-venue-predictions'))),
+            matching: find.byKey(const ValueKey('statistics-pnl-no-history'))),
         findsOneWidget);
     // The resting orders stay below the card.
     expect(tester.getTopLeft(predictions).dy,
@@ -1150,7 +1133,7 @@ void main() {
     }
     // Under the pinned top the viewport is shorter: the card may have
     // scrolled fully off by the time a venue's row is in view.
-    final cardAny = find.byKey(const ValueKey('statistics-pnl-card'),
+    final cardAny = find.byKey(const ValueKey('statistics-pnl-section'),
         skipOffstage: false);
     final scrollable = find
         .descendant(
@@ -1172,15 +1155,6 @@ void main() {
     await _pumpFrames(tester);
     expect(find.descendant(of: investing, matching: find.byType(HlOrderRow)),
         findsOneWidget);
-    expect(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-predictions'),
-                skipOffstage: false))
-            .dy,
-        lessThan(tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-investing'),
-                skipOffstage: false))
-            .dy));
     expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
         lessThan(tester.getTopLeft(find.byType(HlOrderRow)).dy));
     // Orders at both venues: one quiet Cancel all text link after the last
@@ -1314,7 +1288,7 @@ void main() {
 
   testWidgets(
       'the Portfolio screen: the app\'s back under a Portfolio title, no '
-      'dock, and three section pills, Portfolio · P&L Charts · Activity, '
+      'dock, and two section pills, Portfolio · P&L Charts, '
       'the one on screen marked; back lands on the page, its pill untouched',
       (tester) async {
     await pumpRouted(tester, size: const Size(375, 812));
@@ -1330,19 +1304,18 @@ void main() {
     expect(find.byKey(const ValueKey('dock-search-pill')), findsNothing);
     // The screen's own section pills; the page's venue pills stay under
     // it, offstage.
-    expect(_sectionPills, findsNWidgets(3));
+    expect(_sectionPills, findsNWidgets(2));
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.label), [
       l10n.portfolioSectionBalances,
       l10n.portfolioSectionPnlCharts,
-      l10n.activity
     ]);
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
-        [true, false, false]);
+        [true, false]);
     expect(find.byType(KutePillTabs), findsNothing);
-    await pickSection(tester, 'activity');
-    expect(_sectionOn(tester), 'activity');
+    await pickSection(tester, 'charts');
+    expect(_sectionOn(tester), 'charts');
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
-        [false, false, true]);
+        [false, true]);
 
     // Back: the page, Investing still picked, no Portfolio left mounted.
     await closePortfolio(tester);
