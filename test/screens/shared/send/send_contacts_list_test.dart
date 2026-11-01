@@ -4,7 +4,9 @@
 // address), a typed phone number, the merge (recents first, a contact
 // already listed by its Kute address once), filtering by name, number and
 // address, and the layout: the recents as circles while there is no book,
-// one list once there is.
+// one list once there is. The recipient card: who a resolved destination
+// is (a contact first, then a recent, else the shortened address), and
+// the list never repeating them ("Other contacts").
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,8 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
 import 'package:kute/screens/shared/send/send_recipient_step.dart'
     show SendRecentCircles;
+import 'package:kute/screens/shared/send/send_flow_widgets.dart'
+    show sendShortAddress;
 import 'package:kute/services/contacts/send_contacts_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -126,6 +130,7 @@ void main() {
     Future<List<SendPerson>> pump(WidgetTester tester,
         {required FakeSendContactsGateway gateway,
         String query = '',
+        String? excludeAddress,
         List<SendPerson>? recents}) async {
       GoogleFonts.config.allowRuntimeFetching = false;
       tester.view.physicalSize = const Size(390, 1400);
@@ -146,6 +151,7 @@ void main() {
                 return SingleChildScrollView(
                   child: SendContactsSection(
                     query: query,
+                    excludeAddress: excludeAddress,
                     recents: recents ?? _recents(),
                     onPerson: tapped.add,
                     onPhoneLink: (_) {},
@@ -227,6 +233,165 @@ void main() {
               contacts: fakeContacts()),
           query: '+44 7700 900123');
       expect(find.byKey(const ValueKey('send-phone-link-row')), findsOneWidget);
+    });
+
+    testWidgets(
+        'a chosen recipient is never listed twice: the rest read "Other '
+        'contacts", unfiltered by the address in the field', (tester) async {
+      await pump(tester,
+          gateway: FakeSendContactsGateway(
+              permission: SendContactsPermission.granted,
+              contacts: [...fakeContacts(), _kuteContact]),
+          query: 'joana@paykute.com',
+          excludeAddress: 'Joana@PayKute.com');
+      final l10n = AppLocalizations.of(
+          tester.element(find.byType(SendContactsSection)));
+      expect(find.text(l10n.sendOtherContacts), findsOneWidget);
+      expect(find.text(l10n.sendContacts), findsNothing);
+      expect(
+          find.byKey(const ValueKey('send-person-contact:k1')), findsNothing);
+      expect(
+          find.byKey(const ValueKey('send-person-contact:c1')), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('send-person-recent:rita@paykute.com')),
+          findsOneWidget);
+    });
+
+    testWidgets('no book: the chosen recent leaves the circles',
+        (tester) async {
+      await pump(tester,
+          gateway: FakeSendContactsGateway(),
+          query: 'alice@getalby.com',
+          excludeAddress: 'alice@getalby.com');
+      expect(find.byType(SendRecentCircles), findsOneWidget);
+      expect(find.text('alice'), findsNothing);
+      expect(find.text('rita'), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-contacts-ask-row')), findsNothing);
+    });
+  });
+
+  group('the recipient', () {
+    test('a contact with the address first, its name and photo', () {
+      final m = sendMatchingPerson('lightning:JOANA@paykute.com',
+          recents: [
+            SendPerson.recent(address: 'joana@paykute.com', name: 'joana')
+          ],
+          contacts: [_kuteContact]);
+      expect(m?.contact?.id, 'k1');
+      expect(sendRecipientName(m, 'joana@paykute.com'), 'Joana Kute');
+    });
+    test('else the recent, by its label', () {
+      final m = sendMatchingPerson('alice@getalby.com',
+          recents: _recents(), contacts: fakeContacts());
+      expect(m?.address, 'alice@getalby.com');
+      expect(sendRecipientName(m, 'alice@getalby.com'), 'alice');
+    });
+    test('nobody known: the shortened address', () {
+      const addr = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+      final m = sendMatchingPerson(addr,
+          recents: _recents(), contacts: fakeContacts());
+      expect(m, isNull);
+      expect(sendRecipientName(m, addr), sendShortAddress(addr));
+    });
+    test('an address too long for two lines is cut in the middle, both ends '
+        'kept', () {
+      const addr = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+      const style = TextStyle(fontSize: 13);
+      expect(
+          SendMiddleEllipsisText.fit(addr,
+              style: style,
+              maxWidth: 2000,
+              maxLines: 2,
+              textScaler: TextScaler.noScaling),
+          addr);
+      final cut = SendMiddleEllipsisText.fit(addr,
+          style: style,
+          maxWidth: 120,
+          maxLines: 2,
+          textScaler: TextScaler.noScaling);
+      expect(cut, contains('\u2026'));
+      expect(cut.startsWith('bc1q'), isTrue);
+      expect(cut.endsWith('mdq'), isTrue);
+      expect(cut.length, lessThan(addr.length));
+    });
+
+    Future<void> pumpCard(WidgetTester tester, String address,
+        {String rail = 'Lightning'}) async {
+      GoogleFonts.config.allowRuntimeFetching = false;
+      tester.view.physicalSize = const Size(375, 900);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final gateway = FakeSendContactsGateway(
+          permission: SendContactsPermission.granted,
+          contacts: [...fakeContacts(), _kuteContact]);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [sendContactsGatewayProvider.overrideWithValue(gateway)],
+        child: ScreenUtilInit(
+          designSize: const Size(430, 932),
+          builder: (_, __) => MaterialApp(
+            theme: ThemeData(
+                fontFamily: 'Inter', extensions: [AppColorsExtension.light()]),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SendRecipientCard(
+                  address: address,
+                  rail: rail,
+                  railMark: const Icon(Icons.bolt_rounded),
+                  recents: _recents(),
+                  onChange: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+      final container = ProviderScope.containerOf(
+          tester.element(find.byType(SendRecipientCard)));
+      await container.read(sendContactsProvider.notifier).refresh();
+      await tester.pump();
+    }
+
+    String name(WidgetTester tester) => tester
+        .widget<Text>(find.byKey(const ValueKey('send-recipient-name')))
+        .data!;
+
+    testWidgets('the card names a contact, wears its Kute badge and the rail',
+        (tester) async {
+      await pumpCard(tester, 'joana@paykute.com');
+      expect(name(tester), 'Joana Kute');
+      expect(find.byKey(const ValueKey('send-badge-kute')), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('send-recipient-rail')),
+              matching: find.text('Lightning')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('send-recipient-change')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the card names a recent by its label, ⚡ on its avatar',
+        (tester) async {
+      await pumpCard(tester, 'alice@getalby.com');
+      expect(name(tester), 'alice');
+      expect(
+          find.byKey(const ValueKey('send-badge-lightning')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'nobody known: the shortened address as the name, the rail\'s mark '
+        'as the avatar, nothing overflows at 375 pt x1.3', (tester) async {
+      const addr = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+      await pumpCard(tester, addr, rail: 'Bitcoin · on-chain');
+      expect(name(tester), sendShortAddress(addr));
+      expect(find.byIcon(Icons.bolt_rounded), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

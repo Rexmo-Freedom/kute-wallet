@@ -262,16 +262,22 @@ void main() {
       expect(pick.title, _l10n.usdSendPickRow);
       expect(pick.subtitle, _l10n.usdSendPickRowSub);
       expect(find.byKey(_alsoRow), findsOneWidget);
-      // Top to bottom: the field, the Contacts, the card.
+      // Top to bottom: the field, the Send to card, the Contacts (a
+      // growing list never hides the card).
       expect(
           tester
-              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
+              .getTopLeft(find.byKey(const ValueKey('send-recipient-search')))
               .dy,
           lessThan(tester.getTopLeft(find.byKey(_bitcoinRow)).dy));
       expect(tester.getTopLeft(find.byKey(_bitcoinRow)).dy,
           lessThan(tester.getTopLeft(find.byKey(_pickRow)).dy));
       expect(tester.getTopLeft(find.byKey(_pickRow)).dy,
           lessThan(tester.getTopLeft(find.byKey(_alsoRow)).dy));
+      expect(
+          tester.getTopLeft(find.byKey(_alsoRow)).dy,
+          lessThan(tester
+              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
+              .dy));
 
       // No old card, no inline grid, no friend row.
       expect(find.text(_l10n.usdWithdrawToYourWallet), findsNothing);
@@ -363,12 +369,21 @@ void main() {
     await _pump(tester);
     const tron = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
     await type(tester, tron);
-    expect(find.byKey(const ValueKey('send-resolved-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-recipient-card')), findsOneWidget);
+    // One recipient card: the Send to card is hidden meanwhile.
+    expect(find.text(_l10n.sendRecipientSendingTo), findsOneWidget);
+    expect(find.byKey(_bitcoinRow), findsNothing);
+    expect(find.text(_l10n.sendToLabel), findsNothing);
     expect(_primaryScopes(), hasLength(1));
     expect(kuteBarPrimaryEnabled(tester), isTrue);
     kuteBarPrimaryContext(tester).onPrimary!();
     await _settle(tester);
     expect(sendsOpened, [('tron:USDT', tron)]);
+    // Change empties the field and brings the Send to card back.
+    await tester.tap(find.byKey(const ValueKey('send-recipient-change')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('send-recipient-card')), findsNothing);
+    expect(find.byKey(_bitcoinRow), findsOneWidget);
     await _unmount(tester);
   });
 
@@ -378,7 +393,7 @@ void main() {
     await _pump(tester);
     const evm = '0x742d35cc6634c0532925a3b844bc454e4438f44e';
     await type(tester, evm);
-    expect(find.byKey(const ValueKey('send-resolved-row')), findsNothing);
+    expect(find.byKey(const ValueKey('send-recipient-card')), findsNothing);
     final pick = find.byKey(const ValueKey('usd-withdraw-pick-network'));
     expect(pick, findsOneWidget);
     await tester.tap(pick);

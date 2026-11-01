@@ -11963,4 +11963,13 @@ class AppLocalizationsSk extends AppLocalizations {
   @override
   String get passkeyChoiceWorksWithGoogle =>
       'Works with Google Password Manager';
+
+  @override
+  String get sendRecipientSendingTo => 'Sending to';
+
+  @override
+  String get sendRecipientChange => 'Change';
+
+  @override
+  String get sendOtherContacts => 'Other contacts';
 }

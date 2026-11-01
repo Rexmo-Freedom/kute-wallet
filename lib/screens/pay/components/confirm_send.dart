@@ -7747,6 +7747,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           ),
       ];
 
+  /// "Change" on the recipient card: the field empties, as if cleared by
+  /// hand, and the Send to card and the whole Contacts list come back.
+  void _clearRecipient() {
+    HapticFeedback.selectionClick();
+    addressController.clear();
+    ref.read(sendTxProvider.notifier).updateAddress('');
+    _revalidateDestForAddress('');
+    _addressEntryMethod = null;
+    setState(() {});
+  }
+
   /// A Contacts entry tapped: an address is paid directly (filled and on
   /// to the amount, as a recent always was); a plain contact starts the
   /// claim link to its number.
@@ -7968,11 +7979,15 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // the Spark hot wallet, never from a cold source. A friend's link is
     // a Spark link: the same source.
     final hot = !_isColdSource;
-    final showSendToCard = !bitcoinDestination && (hot || needsPick);
-    // Scrollable so the matches, the recents and the card never
-    // overflow on a short screen or at a large text scale.
+    // Hidden while a recipient is chosen: the card above is the choice.
+    final showSendToCard =
+        !resolved && !bitcoinDestination && (hot || needsPick);
+    // Scrollable so the matches, the card and the contacts never
+    // overflow on a short screen or at a large text scale; the end clears
+    // the floating bar.
+    // Order: the field, the resolved row, the Send to card, Contacts.
     return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: kuteBarScrollClearance.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -8003,14 +8018,18 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               setState(() {});
             },
           ),
+          // One recipient card (founder: "more fintech"), the person
+          // never listed again below.
           if (resolved) ...[
-            SizedBox(height: 12.h),
-            SendResolvedRow(
-              leading: _selectedDestAsset != null
+            SizedBox(height: 20.h),
+            SendRecipientCard(
+              railMark: _selectedDestAsset != null
                   ? _selectedDestAsset!.iconWidget(size: 28.sp)
-                  : Icon(detected.icon, color: detected.color, size: 26.sp),
+                  : Icon(detected.icon, color: detected.color, size: 24.sp),
               address: addr,
               rail: _resolvedRailLabel(detected),
+              recents: recentPeople,
+              onChange: _clearRecipient,
             ),
           ],
           if (showSignerWarning) ...[
@@ -8050,17 +8069,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
-          // Contacts (founder, 1 November 2026, Revolut's one list): the
-          // recents and the phone's contacts, filtered by what is typed,
-          // under the resolved row; never in the way of address entry. A
-          // link needs the spending wallet: hot sources only.
-          if (hot && !needsPick)
-            SendContactsSection(
-              query: query,
-              recents: recentPeople,
-              onPerson: _onPerson,
-              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
-            ),
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
             SendSectionLabel(context.l10n.sendToLabel),
@@ -8075,6 +8083,20 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ],
             ),
           ],
+          // Contacts (founder, 1 November 2026, Revolut's one list): the
+          // recents and the phone's contacts, filtered by what is typed.
+          // Under the Send to card (founder: a growing list must never
+          // push "Also sends to" out of sight), the list scrolling on to
+          // the bar's clearance. A link needs the spending wallet: hot
+          // sources only.
+          if (hot && !needsPick)
+            SendContactsSection(
+              query: query,
+              recents: recentPeople,
+              excludeAddress: resolved ? addr : null,
+              onPerson: _onPerson,
+              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
+            ),
         ],
       ),
     );
