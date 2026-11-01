@@ -186,8 +186,9 @@ void main() {
     // The cards run past the right edge, where the row scrolls.
     final first = tester.getRect(zec);
     expect(first.left, moreOrLessEquals(16, epsilon: 2));
-    expect(first.width, inInclusiveRange(130, 160));
-    expect(first.height, inInclusiveRange(160, 200));
+    // Square (founder, 1 November 2026): 148 design units on a side.
+    expect(first.width, moreOrLessEquals(148 * 390 / 430, epsilon: 1));
+    expect(first.height, moreOrLessEquals(first.width, epsilon: 1));
     final last = tester.getRect(find.byType(HlMovingNowCard).last);
     expect(last.right, greaterThan(390));
     await tester.drag(_strip(), const Offset(-400, 0));
