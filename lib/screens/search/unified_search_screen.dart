@@ -1827,6 +1827,9 @@ class _RecentRow extends ConsumerWidget {
   }
 }
 
+/// The widest the context preview's trailing figure or pick may be.
+const double kContextPreviewFigureWidth = 112;
+
 /// The context screen's preview row, flat: the market's picture (36), its
 /// title on up to two lines and the pick or the price at the end, in the
 /// sheet's row scale.
@@ -1861,9 +1864,24 @@ class _ContextPreviewRow extends StatelessWidget {
               style: SearchListRow.titleStyle(context),
             ),
           ),
+          // The figure or the pick at a fixed width at most, one line: a
+          // long candidate ("Gen.G Esports 47%") overflowed the row by
+          // 96 px; the title gives way first, then the figure ellipsises.
           if (line != null && line.isNotEmpty) ...[
             SizedBox(width: 12.w),
-            Text(line, style: SearchListRow.figureStyle(context)),
+            ConstrainedBox(
+              key: const ValueKey('context-preview-figure'),
+              constraints:
+                  BoxConstraints(maxWidth: kContextPreviewFigureWidth.w),
+              child: Text(
+                line,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: SearchListRow.figureStyle(context),
+              ),
+            ),
           ],
         ],
       ),

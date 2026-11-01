@@ -210,4 +210,76 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+      'a long title and a long pick never overflow the preview row: the '
+      'title ellipsises, the figure keeps its fixed width', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpSheet(
+      tester,
+      KuteMarketBarContext(
+        label: 'Send to a friend',
+        preview: const KuteBarPreview(
+          title: 'League of Legends World Championship Grand Final: '
+              'Gen.G Esports vs Bilibili Gaming, best of five',
+          line: 'Gen.G Esports Academy Challengers 47%',
+        ),
+        actions: [
+          KuteMarketBarAction(
+              label: 'Send this prediction', salClip: 'share', onTap: (_) {}),
+        ],
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final figure = tester.getSize(
+        find.byKey(const ValueKey('context-preview-figure')));
+    expect(figure.width,
+        lessThanOrEqualTo(kContextPreviewFigureWidth * 390 / 430 + 0.5));
+    await tester.pump(const Duration(seconds: 6));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// Opens the Sal sheet with [barContext] (Sal off).
+Future<void> _pumpSheet(
+    WidgetTester tester, KuteMarketBarContext barContext) async {
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      aiEnabledProvider.overrideWith((_) async => false),
+      sportsLiveProvider.overrideWith(_Sports.new),
+      unifiedSearchResultsProvider
+          .overrideWith((_) async => UnifiedSearchResults.empty),
+      globalMarketResultsProvider
+          .overrideWith((_) => const AsyncValue.data([])),
+      globalHyperliquidResultsProvider
+          .overrideWith((_) => const AsyncValue.data([])),
+      hyperliquidAllMarketsProvider.overrideWith((_) => []),
+    ],
+    child: ScreenUtilInit(
+      designSize: const Size(430, 932),
+      builder: (_, __) => MaterialApp(
+        theme: ThemeData(
+          splashFactory: NoSplash.splashFactory,
+          fontFamily: 'Inter',
+          extensions: [AppColorsExtension.light()],
+        ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showKuteSearch(context,
+                  source: 'predictions', barContext: barContext),
+              child: const Text('Open search'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ));
+  await tester.tap(find.text('Open search'));
+  await tester.pumpAndSettle();
 }
