@@ -631,4 +631,68 @@ void main() {
     expect(resting.kind, HlOrderResultKind.resting);
     expect(resting.oid, 3);
   });
+
+  // The funded order's send timed out (a slow builder dex): the venue may
+  // have taken it. It is looked up first, the order still `placing`, and
+  // never sent again. The founder's OPENAI short "failed" in the slip and
+  // then turned out placed.
+  group('a send with no answer from the venue', () {
+    test('found on the account: placed, never shown as failed', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        final looked = <List<String>>[];
+        queue(placement, trace: (cloids) {
+          looked.add(cloids);
+          return const HlSentOrderTrace.found(HlOrderResult(
+              kind: HlOrderResultKind.filled,
+              oid: 11,
+              cloid: 'c1',
+              filledSz: 0.0003,
+              avgPx: 60000));
+        });
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 3));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(looked.single, ['c1']);
+        expect(history.whereType<PendingHlOrderIntent>().map((s) => s.status),
+            isNot(contains(PendingHlOrderStatus.failed)));
+        final done = terminal();
+        expect(done.status, PendingHlOrderStatus.done);
+        expect(done.result!.oid, 11);
+      });
+    });
+
+    test('nowhere on the account: failed, never sent again', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        queue(placement);
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 5));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        expect(terminal().status, PendingHlOrderStatus.failed);
+      });
+    });
+
+    test('unreadable: failed as unconfirmed, never sent again', () {
+      fakeAsync((async) {
+        final placement = _Placement(
+            resizable: true, refusals: [TimeoutException('15 s')]);
+        queue(placement, trace: (_) => const HlSentOrderTrace.unknown());
+        async.flushMicrotasks();
+        perp = 20.5;
+        async.elapse(const Duration(seconds: 8));
+        async.flushMicrotasks();
+        expect(placement.placed, [20]);
+        final failed = terminal();
+        expect(failed.status, PendingHlOrderStatus.failed);
+        expect(failed.errorMessage, contains('not confirmed'));
+      });
+    });
+  });
 }

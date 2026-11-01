@@ -24,6 +24,13 @@ class OwnDexCreditPending implements Exception {
   const OwnDexCreditPending();
 }
 
+/// How long an order waits for the builder dex to show the collateral it
+/// was just sent ([waitForOwnDexCash]'s [maxWait] on the order path).
+/// Nothing moves during the wait: it is long enough for a slow dex read,
+/// so the first order on a builder market does not give up while its cash
+/// is on the way, only to work the second time.
+const Duration kOwnDexCreditWait = Duration(seconds: 30);
+
 /// A transfer acknowledgement precedes its clearinghouse read becoming usable.
 /// Never submit the order against stale collateral, or resend a transfer while
 /// waiting. Every read and the whole wait are bounded.

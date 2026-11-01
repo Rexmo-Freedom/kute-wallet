@@ -110,4 +110,36 @@ void main() {
         throwsA(isA<HyperliquidApiException>()));
     expect(exchange.calls.length, 1);
   });
+
+  // The first order on OPENAI used to fail: the builder dex showed the
+  // collateral just sent to it after more than the old 8 s, the order gave
+  // up ("Crediting to trading balance" as a failure), and the second try,
+  // finding the cash there, went through. The order path waits longer.
+  test('a slow builder dex read is waited for on the first order',
+      () async {
+    // A read that catches up only after a while (scaled down: 80 ms).
+    final clock = Stopwatch()..start();
+    Future<double> read() async =>
+        clock.elapsed >= const Duration(milliseconds: 80) ? 10.93 : 0;
+    // A wait shorter than the dex takes gives up with the cash on its way.
+    await expectLater(
+        waitForOwnDexCash(
+          requiredUsd: 10.93,
+          maxWait: const Duration(milliseconds: 20),
+          pollEvery: const Duration(milliseconds: 5),
+          availableUsd: read,
+        ),
+        throwsA(isA<OwnDexCreditPending>()));
+    // The order path's wait sees it land.
+    await waitForOwnDexCash(
+      requiredUsd: 10.93,
+      maxWait: kOwnDexCreditWait,
+      pollEvery: const Duration(milliseconds: 5),
+      availableUsd: read,
+    );
+    expect(clock.elapsed,
+        greaterThanOrEqualTo(const Duration(milliseconds: 80)));
+    expect(
+        kOwnDexCreditWait, greaterThanOrEqualTo(const Duration(seconds: 30)));
+  });
 }
