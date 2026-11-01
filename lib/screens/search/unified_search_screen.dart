@@ -1830,8 +1830,9 @@ class _RecentRow extends ConsumerWidget {
   }
 }
 
-/// The widest the context preview's trailing figure or pick may be.
-const double kContextPreviewFigureWidth = 112;
+/// The share of the context preview's text area the pick or figure may
+/// take at the row's end; the title keeps the rest (at least 60%).
+const double kContextPreviewPickShare = 0.4;
 
 /// The market's picture, drawn exactly as its page header draws it: an
 /// Investing market's logo through HlCoinIcon (the wire coin a
@@ -1854,16 +1855,57 @@ Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
 
 /// The context screen's preview row, flat: the market's picture (36), its
 /// name on up to two lines (an Investing market's ticker under its display
-/// name) and the pick or the price at the end, in the sheet's row scale.
+/// name) and the pick or the price. The title and the pick share the row:
+/// the pick right-aligned in at most [kContextPreviewPickShare] of the text
+/// area, the title in the rest with an ellipsis. A pick that does not fit
+/// that share on one line ("Spread: Steelers -3.5" on "Browns vs.
+/// Steelers") moves under the title in textSecondary, whole, at the full
+/// width, rather than being cut to one word.
 class _ContextPreviewRow extends StatelessWidget {
   const _ContextPreviewRow({required this.preview});
 
   final KuteBarPreview preview;
 
+  /// Whether [line] fits [maxWidth] on one line in the figure style, at
+  /// the real text scale.
+  static bool _pickFits(BuildContext context, String line, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: line,
+        style: DefaultTextStyle.of(context)
+            .style
+            .merge(SearchListRow.figureStyle(context)),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width <= maxWidth;
+    painter.dispose();
+    return fits;
+  }
+
   @override
   Widget build(BuildContext context) {
     final line = preview.line;
     final subtitle = preview.subtitle;
+    final hasLine = line != null && line.isNotEmpty;
+    Widget title({required bool withSubtitle}) => Text(
+          preview.title,
+          key: const ValueKey('context-preview-title'),
+          maxLines: withSubtitle ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: SearchListRow.titleStyle(context),
+        );
+    final subtitleText = subtitle == null
+        ? null
+        : Text(
+            subtitle,
+            key: const ValueKey('context-preview-subtitle'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SearchListRow.subtitleStyle(context),
+          );
     return Container(
       key: const ValueKey('context-preview-card'),
       constraints: const BoxConstraints(minHeight: kSearchRowHeight),
@@ -1872,47 +1914,57 @@ class _ContextPreviewRow extends StatelessWidget {
           contextPreviewLogo(context, preview),
           SizedBox(width: 12.w),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  preview.title,
-                  key: const ValueKey('context-preview-title'),
-                  maxLines: subtitle == null ? 2 : 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: SearchListRow.titleStyle(context),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    key: const ValueKey('context-preview-subtitle'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: SearchListRow.subtitleStyle(context),
-                  ),
-              ],
-            ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final pickMax = constraints.maxWidth * kContextPreviewPickShare;
+              final beside = hasLine && _pickFits(context, line, pickMax);
+              if (beside) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          title(withSubtitle: subtitleText != null),
+                          if (subtitleText != null) subtitleText,
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    ConstrainedBox(
+                      key: const ValueKey('context-preview-figure'),
+                      constraints: BoxConstraints(maxWidth: pickMax),
+                      child: Text(
+                        line,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: SearchListRow.figureStyle(context),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              // The title over the pick, each at the full width.
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title(withSubtitle: subtitleText != null),
+                  if (subtitleText != null) subtitleText,
+                  if (hasLine)
+                    Text(
+                      line,
+                      key: const ValueKey('context-preview-figure'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SearchListRow.subtitleStyle(context),
+                    ),
+                ],
+              );
+            }),
           ),
-          // The figure or the pick at a fixed width at most, one line: a
-          // long candidate ("Gen.G Esports 47%") overflowed the row by
-          // 96 px; the title gives way first, then the figure ellipsises.
-          if (line != null && line.isNotEmpty) ...[
-            SizedBox(width: 12.w),
-            ConstrainedBox(
-              key: const ValueKey('context-preview-figure'),
-              constraints:
-                  BoxConstraints(maxWidth: kContextPreviewFigureWidth.w),
-              child: Text(
-                line,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: SearchListRow.figureStyle(context),
-              ),
-            ),
-          ],
         ],
       ),
     );
