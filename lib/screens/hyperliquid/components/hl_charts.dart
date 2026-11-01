@@ -67,6 +67,7 @@ import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill, HlMarket;
 import 'package:kute/models/hyperliquid_model.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/poly_chart_tags.dart'
     show kPolyTagLead, kPolyTagMaxGutterShare;
@@ -1219,6 +1220,10 @@ enum HlChartStyle {
 /// price-tag precision (HlMarket.pxDecimalCap). [morphKey] is the
 /// timeframe identity — when it changes and fresh candles arrive, line
 /// mode tweens the old series into the new one instead of hard-snapping.
+/// How near (px) a placed or moved point must come to a candle's open,
+/// high, low or close for the magnet to take it there.
+const double kHlDrawingSnapPx = 12;
+
 class HlCandlestickChart extends StatefulWidget {
   final List<HyperliquidCandle> candles;
   final bool isLive;
@@ -1287,7 +1292,21 @@ class HlCandlestickChart extends StatefulWidget {
   final ValueChanged<ChartDrawing>? onDrawingUpdated;
 
   final ValueChanged<ChartDrawingPoint>? onTextRequested;
+
+  /// Snap placed and moved points to the candle's open/high/low/close
+  /// (the close on a line) within [kHlDrawingSnapPx].
   final bool magnet;
+
+  /// The small toolbar floated over the selected drawing (drawing mode).
+  /// [duplicate] returns a copy of it nudged beside the original, in the
+  /// chart's own pixels, under a new id.
+  final Widget Function(ChartDrawing selected, ChartDrawing Function() duplicate)?
+      drawingToolbarBuilder;
+
+  /// Tap-tap placement: true once the first point of a two-point tool is
+  /// down and the next tap places the second; false when it lands or is
+  /// dropped.
+  final ValueChanged<bool>? onPlacementPendingChanged;
 
   /// Active indicator keys ('ma' = SMA 20/50, 'ema' = EMA 9/21, 'bb' =
   /// Bollinger 20,2). Other keys are ignored here — the host maps 'vol'
@@ -1362,6 +1381,8 @@ class HlCandlestickChart extends StatefulWidget {
     this.onDrawingUpdated,
     this.onTextRequested,
     this.magnet = false,
+    this.drawingToolbarBuilder,
+    this.onPlacementPendingChanged,
     this.indicators = const {},
     this.logScale = false,
     this.tradeLines = const [],
@@ -1834,6 +1855,31 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
   ChartDrawing? _draggedOriginal;
   bool _draggingBody = false;
 
+  /// Tap-tap placement: the first point of a two- or three-point tool is
+  /// down; the next tap (or a drag) places the second. Kept apart from
+  /// the per-pointer state above, which every gesture resets.
+  ChartDrawing? _pendingDraft;
+
+  /// The exact point (plot pixels, after the magnet) under the finger
+  /// while a point is placed or moved: the loupe's focus.
+  Offset? _loupeAt;
+
+  void _setPending(ChartDrawing? draft, {bool deferNotify = false}) {
+    final was = _pendingDraft != null;
+    _pendingDraft = draft;
+    final now = draft != null;
+    if (was == now) return;
+    final notify = widget.onPlacementPendingChanged;
+    if (notify == null) return;
+    if (deferNotify) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) notify(now);
+      });
+    } else {
+      notify(now);
+    }
+  }
+
   // ── trade lines (position + working orders) ──────────────────────
   /// Tag rects from the last trade-lines paint, for drag hit-testing.
   final List<ChartTradeLineHit> _tradeHits = [];
@@ -2207,6 +2253,68 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     widget.onDrawingSelected!(drawing);
   }
 
+  /// The selected drawing's floating toolbar, placed over it on the
+  /// plot; nothing while a finger moves or places a drawing.
+  List<Widget> _drawingToolbar(double plotW, double height,
+      double? leadingClose, List<double>? morphSeries) {
+    final build = widget.drawingToolbarBuilder;
+    if (!widget.drawingMode ||
+        build == null ||
+        _edited != null ||
+        _draft != null ||
+        _pendingDraft != null ||
+        widget.armedTool != null) {
+      return const [];
+    }
+    final selected = _selectedDrawing();
+    if (selected == null) return const [];
+    final geom = _drawingGeometry(Size(plotW, height),
+        leadingClose: leadingClose, morphSeries: morphSeries);
+    if (geom == null) return const [];
+    final plot = Rect.fromLTWH(0, 0, plotW, geom.priceH);
+    var anchor = kuteDrawingBounds(selected, geom);
+    if (kuteDrawingHasPriceTag(selected)) {
+      // A price line runs across the plot: the toolbar sits mid-plot.
+      anchor = Rect.fromLTRB(0, anchor.top, plotW, anchor.bottom);
+    }
+    anchor = Rect.fromLTRB(
+      anchor.left.clamp(plot.left, plot.right),
+      anchor.top.clamp(plot.top, plot.bottom),
+      anchor.right.clamp(plot.left, plot.right),
+      anchor.bottom.clamp(plot.top, plot.bottom),
+    );
+    return [
+      Positioned(
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: plotW,
+        child: CustomSingleChildLayout(
+          delegate: HlDrawingToolbarLayout(
+              anchor: anchor, plotHeight: geom.priceH),
+          child: build(selected, () => _duplicateOf(selected, geom)),
+        ),
+      ),
+    ];
+  }
+
+  /// A copy of [drawing] nudged down and right by a few pixels, so it
+  /// lands beside the original, unlocked, under a new id.
+  ChartDrawing _duplicateOf(ChartDrawing drawing, KuteDrawingGeometry geom) {
+    const nudge = 16.0;
+    return drawing.copyWith(
+      id: _newDrawingId(),
+      locked: false,
+      points: [
+        for (final p in drawing.points)
+          ChartDrawingPoint(
+            timeMs: geom.timeForX(geom.xForTime(p.timeMs) + nudge),
+            price: geom.priceForY(geom.yForPrice(p.price) + nudge),
+          ),
+      ],
+    );
+  }
+
   // ─────────────────────── drawing-mode gestures ───────────────────────
 
   static String _newDrawingId() =>
@@ -2270,26 +2378,29 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     final y = pos.dy.clamp(0.0, geom.priceH > 0 ? geom.priceH : 0.0);
     final candles = _drawingCandles ?? _tape;
     if (widget.magnet && candles.isNotEmpty && geom.width > 0) {
+      // The magnet: the bar under the finger, and its open, high, low or
+      // close (the close alone on a line) when one is within reach.
       final index = (x / geom.width * candles.length).floor().clamp(
             0,
             candles.length - 1,
           );
       final candle = candles[index];
-      final prices = [
-        candle.open,
-        candle.high,
-        candle.low,
-        candle.close,
-      ].where((price) => price.isFinite && price > 0).toList();
-      if (prices.isNotEmpty) {
-        prices.sort(
-          (a, b) => (geom.yForPrice(a) - y).abs().compareTo(
-                (geom.yForPrice(b) - y).abs(),
-              ),
-        );
+      double? snapped;
+      var nearest = kHlDrawingSnapPx;
+      for (final price in _asLine
+          ? [candle.close]
+          : [candle.open, candle.high, candle.low, candle.close]) {
+        if (!price.isFinite || price <= 0) continue;
+        final d = (geom.yForPrice(price) - y).abs();
+        if (d <= nearest) {
+          nearest = d;
+          snapped = price;
+        }
+      }
+      if (snapped != null) {
         return ChartDrawingPoint(
           timeMs: candle.openTime.millisecondsSinceEpoch,
-          price: prices.first,
+          price: snapped,
         );
       }
     }
@@ -2326,6 +2437,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     _handleOffset = Offset.zero;
     _draggedOriginal = null;
     _draggingBody = false;
+    _loupeAt = null;
   }
 
   void _cancelDrawingGesture() {
@@ -2345,10 +2457,15 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (geom == null || d.localPosition.dy > geom.priceH) return;
     // Freeze the tape and its exact price/time mapping for this pointer.
     // Live ticks must not autoscale the chart underneath a dragged handle.
+    final tool = widget.armedTool;
     setState(() {
       _dragGeometry = geom;
       _drawingCandles = _tape;
       _dragStartPosition = d.localPosition;
+      // Placing: the loupe shows the exact point from the first touch.
+      if (tool != null && tool != ChartDrawingTool.text) {
+        _loupeAt = geom.offsetFor(_pointAt(geom, d.localPosition));
+      }
     });
   }
 
@@ -2384,7 +2501,37 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       widget.onDrawingPlaced?.call(drawing);
       return;
     }
-    if (tool != null) return;
+    if (tool != null) {
+      // Tap-tap placement: the first tap puts the first point down, the
+      // second tap the second.
+      final pending = _pendingDraft;
+      if (pending == null || pending.tool != tool) {
+        final first = ChartDrawing(
+          id: _newDrawingId(),
+          tool: tool,
+          points: [
+            for (var i = 0; i < chartDrawingPointCount(tool); i++) point
+          ],
+          colorValue: widget.armedColorValue,
+        );
+        if (!first.isValid) return;
+        HapticFeedback.selectionClick();
+        setState(() => _setPending(first));
+        return;
+      }
+      final drawing = _seedThirdAnchor(pending.withPoint(1, point));
+      // A second tap on the first point is not a drawing.
+      if ((geom.offsetFor(drawing.points[0]) - geom.offsetFor(point))
+              .distance <
+          8) {
+        return;
+      }
+      if (!drawing.isValid) return;
+      HapticFeedback.selectionClick();
+      setState(() => _setPending(null));
+      widget.onDrawingPlaced?.call(drawing);
+      return;
+    }
     // Select mode: a fill marker under the finger opens its tooltip
     // instead of (de)selecting drawings.
     if (_onFillMarkerTap(pos, size)) return;
@@ -2406,6 +2553,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     if (tool == ChartDrawingTool.text) return;
     if (tool != null) {
       final point = _pointAt(geom, pos);
+      final pending = _pendingDraft;
+      if (pending != null && pending.tool == tool) {
+        // The first point is down (a tap): this drag places the second,
+        // which follows the finger until it lifts.
+        setState(() {
+          _draft = _seedThirdAnchor(pending.withPoint(1, point));
+          _loupeAt = geom.offsetFor(point);
+        });
+        return;
+      }
       // One-anchor tools place on tap; a drag still previews them at the
       // finger. Two- and three-anchor tools drag out their second anchor;
       // the third (channel offset, stop level) is derived on release and
@@ -2421,11 +2578,17 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       );
       return;
     }
+    // A locked drawing cannot be dragged: a drag on it moves the chart.
+    final movable = [
+      for (final drawing in widget.drawings)
+        if (!drawing.locked) drawing
+    ];
     var selected = _selectedDrawing();
+    if (selected != null && selected.locked) selected = null;
     var handle =
         selected == null ? null : kuteHitTestHandle(selected, geom, pos);
     if (handle == null) {
-      final hit = kuteHitTestDrawings(widget.drawings, geom, pos);
+      final hit = kuteHitTestDrawings(movable, geom, pos);
       if (hit == null && _onAxisStrip(pos, geom.width)) {
         // The price axis (the left strip, or the tag column with the
         // scale's labels): a vertical drag scales it by hand and turns
@@ -2471,6 +2634,9 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       _handleOffset = handle == null
           ? Offset.zero
           : geom.offsetFor(drawing.points[handle]) - pos;
+      // Moving one point: the loupe follows it. Moving the whole
+      // drawing needs none.
+      _loupeAt = handle == null ? null : geom.offsetFor(drawing.points[handle]);
     });
     if (drawing.id != widget.selectedDrawingId) {
       widget.onDrawingSelected?.call(drawing.id);
@@ -2492,7 +2658,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       final point = _pointAt(geom, d.localPosition);
       final draft = _draft!;
       final index = chartDrawingPointCount(draft.tool) == 1 ? 0 : 1;
-      setState(() => _draft = _seedThirdAnchor(draft.withPoint(index, point)));
+      setState(() {
+        _draft = _seedThirdAnchor(draft.withPoint(index, point));
+        _loupeAt = geom.offsetFor(point);
+      });
     } else if (_edited != null && _draggingBody) {
       var delta = d.localPosition - _dragStartPosition!;
       final offsets = [
@@ -2526,7 +2695,10 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       );
     } else if (_edited != null && _dragPointIndex >= 0) {
       final point = _pointAt(geom, d.localPosition + _handleOffset);
-      setState(() => _edited = _edited!.withPoint(_dragPointIndex, point));
+      setState(() {
+        _edited = _edited!.withPoint(_dragPointIndex, point);
+        _loupeAt = geom.offsetFor(point);
+      });
     }
   }
 
@@ -2579,6 +2751,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         if ((a - b).distance < 8) return;
       }
       HapticFeedback.selectionClick();
+      if (_pendingDraft != null) setState(() => _setPending(null));
       widget.onDrawingPlaced?.call(draft);
     } else if (edited != null && edited.isValid) {
       widget.onDrawingUpdated?.call(edited);
@@ -2590,6 +2763,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
     super.didUpdateWidget(old);
     if (widget.marketKey != old.marketKey) {
       _resetDrawingInteraction();
+      _setPending(null, deferNotify: true);
       _fillTipTimer?.cancel();
       _fillTipTimer = null;
       _fillTip = const {};
@@ -2650,6 +2824,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         widget.height != old.height) {
       _touchIndex = null;
       _resetDrawingInteraction();
+      _setPending(null, deferNotify: true);
     }
     if (widget.drawingMode) {
       _pendingMorphFrom = null;
@@ -3204,6 +3379,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                             // the common no-drawings case adds zero layers.
                             if (widget.drawings.isNotEmpty ||
                                 _draft != null ||
+                                _pendingDraft != null ||
                                 _edited != null)
                               Positioned(
                                 left: 0,
@@ -3215,7 +3391,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                     child: CustomPaint(
                                       painter: KuteChartDrawingsPainter(
                                         drawings: _effectiveDrawings(),
-                                        draft: _draft,
+                                        draft: _draft ?? _pendingDraft,
                                         selectedId: widget.drawingMode
                                             ? widget.selectedDrawingId
                                             : null,
@@ -3240,6 +3416,50 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                           widget.showVolume,
                                           widget.logScale,
                                           isDark,
+                                          domain,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // ── The horizontal drawings' prices, in the tag
+                            // column, in the live price's pill.
+                            if (gutter > 0 &&
+                                widget.drawings.any(kuteDrawingHasPriceTag))
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: RepaintBoundary(
+                                    child: CustomPaint(
+                                      painter: KuteDrawingPriceTagsPainter(
+                                        drawings: _effectiveDrawings(),
+                                        tagColumn: gutter,
+                                        tagLead: kPolyTagLead,
+                                        neutralColor: c.textSecondary,
+                                        fontSize: 10.5.sp,
+                                        padH: 5.w,
+                                        padV: 2.5.h,
+                                        formatPrice: (p) => formatHlPriceLike(
+                                                p, candles.last.close,
+                                                decimalCap: widget.decimalCap)
+                                            .replaceFirst(r'$', ''),
+                                        resolveGeometry: (size) =>
+                                            _drawingGeometry(
+                                          Size(hlPlotWidth(size.width, gutter),
+                                              size.height),
+                                          leadingClose: leadingClose,
+                                          morphSeries: morphSeries,
+                                        ),
+                                        repaintKey: (
+                                          candles.length,
+                                          candles.first.openTime
+                                              .millisecondsSinceEpoch,
+                                          last,
+                                          leadingClose,
+                                          morphSeries != null,
+                                          _asLine,
+                                          widget.showVolume,
+                                          widget.logScale,
                                           domain,
                                         ),
                                       ),
@@ -3514,6 +3734,27 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                   text: c.textPrimary,
                                 ),
                               ),
+                            // ── Drawing: the loupe over the finger while
+                            // a point is placed or moved, and the
+                            // selected drawing's floating toolbar.
+                            if (widget.drawingMode && _loupeAt != null)
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: plotW,
+                                child: IgnorePointer(
+                                  child: HlDrawingLoupe(
+                                    point: _loupeAt!,
+                                    plot: Size(
+                                        plotW,
+                                        _hlPriceAreaHeight(chartSize.height,
+                                            widget.showVolume)),
+                                  ),
+                                ),
+                              ),
+                            ..._drawingToolbar(plotW, chartSize.height,
+                                leadingClose, morphSeries),
                           ],
                         );
                       },

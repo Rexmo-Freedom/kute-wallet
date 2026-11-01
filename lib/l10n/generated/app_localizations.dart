@@ -10390,6 +10390,102 @@ abstract class AppLocalizations {
   /// **'Remove all'**
   String get chartRemoveAllCta;
 
+  /// No description provided for @chartToolCursor.
+  ///
+  /// In en, this message translates to:
+  /// **'Cursor'**
+  String get chartToolCursor;
+
+  /// No description provided for @chartToolHorizontalLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Horizontal line'**
+  String get chartToolHorizontalLine;
+
+  /// No description provided for @chartMoreTools.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get chartMoreTools;
+
+  /// No description provided for @chartColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get chartColor;
+
+  /// No description provided for @chartBlueColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get chartBlueColor;
+
+  /// No description provided for @chartLineSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid line'**
+  String get chartLineSolid;
+
+  /// No description provided for @chartLineDashed.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashed line'**
+  String get chartLineDashed;
+
+  /// No description provided for @chartExtendLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend to the right'**
+  String get chartExtendLine;
+
+  /// No description provided for @chartLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock'**
+  String get chartLock;
+
+  /// No description provided for @chartUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get chartUnlock;
+
+  /// No description provided for @chartDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get chartDuplicate;
+
+  /// No description provided for @chartHintTapFirstPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the first point: {tool}'**
+  String chartHintTapFirstPoint(String tool);
+
+  /// No description provided for @chartHintTapSecondPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Now tap the second point.'**
+  String get chartHintTapSecondPoint;
+
+  /// No description provided for @chartHintToolKept.
+  ///
+  /// In en, this message translates to:
+  /// **'{tool} stays on. Tap it to stop.'**
+  String chartHintToolKept(String tool);
+
+  /// No description provided for @chartHintLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked. Unlock it to move it.'**
+  String get chartHintLocked;
+
+  /// No description provided for @chartHintPickToolKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a tool. Double-tap one to keep it on.'**
+  String get chartHintPickToolKeep;
+
   /// Earn and portfolio presentation copy.
   ///
   /// In en, this message translates to:

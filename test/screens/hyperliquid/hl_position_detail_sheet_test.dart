@@ -824,9 +824,18 @@ void main() {
       // Out on the first Advanced of the session: every tool in sight.
       expect(rail, findsOneWidget);
       expect(show, findsNothing);
-      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.auto_fix_high_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.delete_sweep_outlined), findsOneWidget);
+      for (final key in [
+        'cursor',
+        'trendline',
+        'level',
+        'rect',
+        'dateAndPriceRange',
+        'fibonacci',
+        'text',
+        'more',
+      ]) {
+        expect(find.byKey(ValueKey('hl-chart-rail-$key')), findsOneWidget);
+      }
       final withRail = plotWidth();
 
       await tester.tap(hide);

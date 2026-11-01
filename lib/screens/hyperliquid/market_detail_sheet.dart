@@ -89,6 +89,7 @@ import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
+import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
@@ -1216,11 +1217,20 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   /// outside the mode; only placing/selecting/editing needs it on.
   bool _drawingMode = false;
 
-  /// The armed tool. Null = select/edit. Stays armed across placements
-  /// (standard trading-app behavior) so consecutive tap-drags keep
-  /// placing; disarmed only by re-tapping the pill, picking another
-  /// tool, tapping Done, or hitting the per-market drawings cap.
+  /// The tool in hand. Null = Cursor (select/edit). One drawing per
+  /// pick: after it lands the rail goes back to Cursor, unless the tool
+  /// was double-tapped ([_toolSticky]).
   ChartDrawingTool? _armedTool;
+
+  /// TradingView's "stay in drawing mode": a double tap on a rail tool
+  /// keeps it in hand after each drawing, until it is tapped again.
+  bool _toolSticky = false;
+  ChartDrawingTool? _lastRailTool;
+  DateTime _lastRailTapAt = DateTime(0);
+
+  /// The first point of a two-point drawing is down (tap-tap placement);
+  /// the hint asks for the second.
+  bool _placementPending = false;
 
   /// ARGB of the armed color; null = the neutral theme default.
   int? _armedColorValue;
@@ -1838,13 +1848,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  void _onDrawingPlaced(ChartDrawing drawing) {
+  void _onDrawingPlaced(ChartDrawing drawing, {String? via}) {
     final before = ref
         .read(hlChartDrawingsProvider(hlChartDrawingMarketKey(widget.market)))
         .length;
     if (before >= kMaxDrawingsPerMarket) {
       // At the cap: quietly stop placing — disarm, keep what's drawn.
-      // No snackbar; the toolbar pill un-highlighting is the signal.
+      // No snackbar; the rail going back to Cursor is the signal.
       if (_armedTool != null) setState(() => _armedTool = null);
       return;
     }
@@ -1852,23 +1862,71 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     // No prices in analytics — type + coin only.
     TrackingService.track(
       'drawing_created',
-      params: {'type': drawing.tool.name, 'coin': widget.market.coin},
+      params: {
+        'type': drawing.tool.name,
+        'coin': widget.market.coin,
+        if (via != null) 'via': via,
+      },
     );
-    // One placement per arm (user decision: easy to edit beats fast to
-    // spam). The fresh drawing is selected with its handles up, so the
-    // very next drag adjusts it rather than dropping another shape;
-    // the Tools button re-arms for the next one.
+    if (via == null && _toolSticky && _armedTool == drawing.tool) {
+      // A tool kept in hand: the next tap starts the next drawing.
+      return;
+    }
+    // One drawing per pick, like TradingView: the rail goes back to
+    // Cursor and the new drawing is selected with its handles and
+    // toolbar up, so the next touch adjusts it.
     setState(() {
       _armedTool = null;
+      _toolSticky = false;
       _selectedDrawingId = drawing.id;
     });
   }
 
+  /// A rail tool tapped. One tap takes it in hand for one drawing; a
+  /// double tap keeps it in hand (shown with a small lock); a tap on the
+  /// tool in hand puts it down.
   void _armTool(ChartDrawingTool tool) {
     HapticFeedback.selectionClick();
+    final now = DateTime.now();
+    final second = _lastRailTool == tool &&
+        now.difference(_lastRailTapAt) < const Duration(milliseconds: 350);
+    _lastRailTool = tool;
+    _lastRailTapAt = second ? DateTime(0) : now;
     setState(() {
-      _armedTool = _armedTool == tool ? null : tool;
+      if (second) {
+        _armedTool = tool;
+        _toolSticky = true;
+      } else if (_armedTool == tool) {
+        _armedTool = null;
+        _toolSticky = false;
+      } else {
+        _armedTool = tool;
+        _toolSticky = false;
+      }
+      _placementPending = false;
       _selectedDrawingId = null;
+    });
+  }
+
+  /// Back to Cursor (the rail's first button).
+  void _toCursor() {
+    if (_armedTool == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _armedTool = null;
+      _toolSticky = false;
+      _placementPending = false;
+    });
+  }
+
+  /// One undoable edit of a drawing from its toolbar.
+  void _editDrawing(ChartDrawing next, String action) {
+    HapticFeedback.selectionClick();
+    _drawingsNotifier.update(next);
+    TrackingService.track('drawing_edited', params: {
+      'type': next.tool.name,
+      'action': action,
+      'coin': widget.market.coin,
     });
   }
 
@@ -1894,74 +1952,77 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     }
   }
 
-  /// The rail's tool groups, TradingView style: a group with one tool
-  /// arms it on tap; a bigger group opens a flyout naming each tool.
-  List<(String, List<ChartDrawingTool>)> get _railGroups => [
+  /// The rail's tools, one button each, TradingView's everyday set. The
+  /// other tools' saved drawings still show, select, edit and delete.
+  List<(ChartDrawingTool, HlRailGlyph, String)> get _railTools => [
         (
-          context.l10n.chartToolGroupLines,
-          const [
-            ChartDrawingTool.trendline,
-            ChartDrawingTool.ray,
-            ChartDrawingTool.extendedLine,
-            ChartDrawingTool.level,
-            ChartDrawingTool.horizontalRay,
-            ChartDrawingTool.verticalLine,
-          ]
+          ChartDrawingTool.trendline,
+          HlRailGlyph.trendline,
+          context.l10n.chartToolTrendLine,
         ),
         (
-          context.l10n.chartToolFibonacci,
-          const [ChartDrawingTool.fibonacci]
+          ChartDrawingTool.level,
+          HlRailGlyph.level,
+          context.l10n.chartToolHorizontalLine,
         ),
         (
-          context.l10n.chartToolGroupShapes,
-          const [ChartDrawingTool.rect, ChartDrawingTool.parallelChannel]
+          ChartDrawingTool.rect,
+          HlRailGlyph.rect,
+          context.l10n.chartToolRectangle,
         ),
         (
-          context.l10n.chartToolGroupPositions,
-          const [ChartDrawingTool.longPosition, ChartDrawingTool.shortPosition]
-        ),
-        (
+          ChartDrawingTool.dateAndPriceRange,
+          HlRailGlyph.measure,
           context.l10n.chartToolGroupMeasure,
-          const [
-            ChartDrawingTool.priceRange,
-            ChartDrawingTool.dateRange,
-            ChartDrawingTool.dateAndPriceRange,
-          ]
         ),
-        (context.l10n.chartToolGroupNotes, const [ChartDrawingTool.text]),
+        (
+          ChartDrawingTool.fibonacci,
+          HlRailGlyph.fibonacci,
+          context.l10n.chartToolFibonacci,
+        ),
+        (
+          ChartDrawingTool.text,
+          HlRailGlyph.text,
+          context.l10n.chartToolText,
+        ),
       ];
 
-  /// The tool each group last armed, so its rail button shows that
-  /// tool's icon (TradingView's "last used" behaviour).
-  final Map<int, ChartDrawingTool> _lastToolInGroup = {};
-
-  (IconData, String) _toolLook(ChartDrawingTool tool) {
-    for (final (t, icon, label) in _drawTools) {
-      if (t == tool) return (icon, label);
+  /// A tool's name: its rail name, else its full name.
+  String _toolLook(ChartDrawingTool tool) {
+    for (final (t, _, label) in _railTools) {
+      if (t == tool) return label;
     }
-    return (Icons.draw_rounded, tool.name);
+    for (final (t, _, label) in _drawTools) {
+      if (t == tool) return label;
+    }
+    return tool.name;
   }
 
-  /// One line under the toolbar that says what the next touch does.
-  String _toolbarHint(String? selectedId) {
+  /// One line under the plot that says what the next touch does.
+  String _toolbarHint(String? selectedId, List<ChartDrawing> drawings) {
+    final l10n = context.l10n;
     final tool = _armedTool;
     if (tool != null) {
-      final (_, label) = _toolLook(tool);
+      final label = _toolLook(tool);
+      if (_placementPending) return l10n.chartHintTapSecondPoint;
+      if (_toolSticky) return l10n.chartHintToolKept(label);
       return chartDrawingPointCount(tool) == 1
-          ? context.l10n.chartHintTapToPlace(label)
-          : context.l10n.chartHintDragToPlace(label);
+          ? l10n.chartHintTapToPlace(label)
+          : l10n.chartHintTapFirstPoint(label);
     }
-    if (selectedId != null) return context.l10n.chartHintAdjust;
-    return context.l10n.chartHintPickTool;
+    for (final d in drawings) {
+      if (d.id == selectedId) {
+        return d.locked ? l10n.chartHintLocked : l10n.chartHintAdjust;
+      }
+    }
+    return l10n.chartHintPickToolKeep;
   }
 
-  /// A group's flyout, opened beside its rail button: every tool with its
-  /// name, the armed one ticked. Picking one arms it.
-  Future<void> _openToolFlyout(
+  /// The rail's overflow: the magnet, and removing every drawing.
+  Future<void> _openRailMore(
     BuildContext anchor,
-    int group,
-    String title,
-    List<ChartDrawingTool> tools,
+    List<ChartDrawing> drawings,
+    bool magnet,
   ) async {
     HapticFeedback.selectionClick();
     final box = anchor.findRenderObject() as RenderBox?;
@@ -1969,11 +2030,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (box == null || overlay == null) return;
     final c = context.colors;
+    final l10n = context.l10n;
     final origin = box.localToGlobal(
       Offset(box.size.width + 6, 0),
       ancestor: overlay,
     );
-    final picked = await showMenu<ChartDrawingTool>(
+    final picked = await showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         origin & Size.zero,
@@ -1986,58 +2048,58 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
         side: BorderSide(color: c.borderSubtle, width: 0.5),
       ),
       items: [
-        PopupMenuItem<ChartDrawingTool>(
-          enabled: false,
-          height: 30,
+        PopupMenuItem<String>(
+          key: const ValueKey('hl-chart-rail-magnet'),
+          value: 'magnet',
+          height: 46,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.chartMagnet,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              SizedBox(
+                width: 18,
+                child: magnet
+                    ? Icon(Icons.check_rounded,
+                        size: 18.sp, color: c.textPrimary)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          key: const ValueKey('hl-chart-rail-remove-all'),
+          value: 'removeAll',
+          enabled: drawings.isNotEmpty,
+          height: 46,
           child: Text(
-            title.toUpperCase(),
+            l10n.chartRemoveAllTitle,
             style: TextStyle(
-              color: c.textTertiary,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+              color: drawings.isEmpty
+                  ? c.textTertiary
+                  : AppColors.marketDown,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        for (final tool in tools)
-          PopupMenuItem<ChartDrawingTool>(
-            value: tool,
-            height: 44,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _toolLook(tool).$1,
-                  size: 18.sp,
-                  color:
-                      _armedTool == tool ? c.textPrimary : c.textSecondary,
-                ),
-                SizedBox(width: 12.w),
-                Text(
-                  _toolLook(tool).$2,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 14.sp,
-                    fontWeight: _armedTool == tool
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-                if (_armedTool == tool) ...[
-                  SizedBox(width: 10.w),
-                  Icon(Icons.check_rounded, size: 16.sp, color: c.textPrimary),
-                ],
-              ],
-            ),
-          ),
       ],
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      _lastToolInGroup[group] = picked;
-      _armedTool = picked;
-      _selectedDrawingId = null;
-    });
+    if (picked == 'magnet') {
+      HapticFeedback.selectionClick();
+      _preferences.toggleMagnet();
+      TrackingService.track('chart_magnet_toggled');
+    } else if (picked == 'removeAll') {
+      unawaited(_removeAllDrawings(drawings.length));
+    }
   }
 
   List<(ChartDrawingTool, IconData, String)> get _drawTools => [
@@ -2214,42 +2276,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   ),
                 ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// A colour choice with a 40 pt target; [current] is the colour of the
-  /// selected drawing, or the armed colour when nothing is selected.
-  Widget _colorDot(
-    AppColorsExtension c,
-    int? value,
-    String tip,
-    String? selectedId,
-    int? current,
-  ) {
-    final color = value == null ? c.textSecondary : Color(value);
-    return Tooltip(
-      message: tip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _pickColor(value, selectedId),
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Center(
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: current == value
-                    ? Border.all(color: c.textPrimary, width: 2)
-                    : Border.all(color: c.border, width: 0.5),
-              ),
-            ),
           ),
         ),
       ),
@@ -2475,39 +2501,14 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// One rail button per tool group (see [_railGroups]).
-  Widget _railGroupButton(
-    AppColorsExtension c,
-    int index,
-    String title,
-    List<ChartDrawingTool> tools,
-  ) {
-    final armed = _armedTool;
-    final armedHere = armed != null && tools.contains(armed);
-    final shown =
-        armedHere ? armed : (_lastToolInGroup[index] ?? tools.first);
-    return Builder(
-      builder: (anchor) => _editIconButton(
-        c,
-        icon: _toolLook(shown).$1,
-        tip: tools.length == 1 ? _toolLook(shown).$2 : title,
-        active: armedHere,
-        more: tools.length > 1,
-        onTap: tools.length == 1
-            ? () => _armTool(tools.first)
-            : () => unawaited(_openToolFlyout(anchor, index, title, tools)),
-      ),
-    );
-  }
-
-  /// The left-edge tool rail: select, the tool groups, then the magnet
-  /// and remove-all. Scrolls if a short chart cannot fit it.
+  /// The left-edge tool rail: tuck away, Cursor, the tools, then the
+  /// overflow (magnet, remove all). Scrolls if a short chart cannot fit
+  /// it.
   Widget _toolRail(
     AppColorsExtension c,
     List<ChartDrawing> drawings,
     bool magnet,
   ) {
-    final groups = _railGroups;
     final l10n = context.l10n;
     return Container(
       key: const ValueKey('hl-chart-tool-rail'),
@@ -2530,42 +2531,36 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                 onTap: _toggleRail,
               ),
             ),
-            _editIconButton(
-              c,
-              icon: Icons.touch_app_rounded,
-              tip: l10n.chartSelectTool,
-              active: _armedTool == null,
-              onTap: () {
-                final armed = _armedTool;
-                if (armed != null) _armTool(armed);
-              },
+            HlRailButton(
+              key: const ValueKey('hl-chart-rail-cursor'),
+              glyph: HlRailGlyph.cursor,
+              label: l10n.chartToolCursor,
+              selected: _armedTool == null,
+              onTap: _toCursor,
             ),
-            for (var i = 0; i < groups.length; i++)
-              _railGroupButton(c, i, groups[i].$1, groups[i].$2),
+            for (final (tool, glyph, label) in _railTools)
+              HlRailButton(
+                key: ValueKey('hl-chart-rail-${tool.name}'),
+                glyph: glyph,
+                label: label,
+                selected: _armedTool == tool,
+                sticky: _armedTool == tool && _toolSticky,
+                onTap: () => _armTool(tool),
+              ),
             Container(
               width: 24,
               height: 0.5,
               margin: const EdgeInsets.symmetric(vertical: 4),
               color: c.border,
             ),
-            _editIconButton(
-              c,
-              icon: Icons.auto_fix_high_rounded,
-              tip: l10n.chartMagnet,
-              active: magnet,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _preferences.toggleMagnet();
-                TrackingService.track('chart_magnet_toggled');
-              },
-            ),
-            _editIconButton(
-              c,
-              icon: Icons.delete_sweep_outlined,
-              tip: l10n.chartRemoveAllTitle,
-              onTap: drawings.isEmpty
-                  ? null
-                  : () => unawaited(_removeAllDrawings(drawings.length)),
+            Builder(
+              builder: (anchor) => HlRailButton(
+                key: const ValueKey('hl-chart-rail-more'),
+                icon: Icons.more_horiz_rounded,
+                label: l10n.chartMoreTools,
+                onTap: () =>
+                    unawaited(_openRailMore(anchor, drawings, magnet)),
+              ),
             ),
           ],
         ),
@@ -2573,76 +2568,54 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     );
   }
 
-  /// The small bar floating over the top of the plot while a tool is
-  /// armed (colour for the next drawing, stop) or a drawing is selected
-  /// (its colour, edit note, delete).
-  Widget _contextBar(
-    AppColorsExtension c,
-    List<ChartDrawing> drawings,
-    String? selectedId,
+  /// The floating toolbar over the selected drawing (the chart places
+  /// it): colour, solid or dashed, extend (trend lines), edit (notes),
+  /// lock, duplicate, delete. Every change is one undoable step.
+  Widget _drawingToolbar(
+    ChartDrawing selected,
+    ChartDrawing Function() duplicate,
   ) {
-    ChartDrawing? selected;
-    for (final d in drawings) {
-      if (d.id == selectedId) {
-        selected = d;
-        break;
-      }
-    }
-    final armed = _armedTool;
-    final current = selected != null ? selected.colorValue : _armedColorValue;
     final l10n = context.l10n;
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      radius: 12.r,
-      color: context.isDark ? c.surfaceElevated : Colors.white,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (armed != null && selected == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Icon(_toolLook(armed).$1,
-                  size: 17.sp, color: c.textPrimary),
-            ),
-          _colorDot(c, null, l10n.chartNeutralColor, selectedId, current),
-          _colorDot(c, AppColors.marketUp.toARGB32(), l10n.chartUpColor,
-              selectedId, current),
-          _colorDot(c, AppColors.marketDown.toARGB32(), l10n.chartDownColor,
-              selectedId, current),
-          _colorDot(c, AppColors.warning.toARGB32(),
-              l10n.chartHighlightColor, selectedId, current),
-          if (selected != null && selected.tool == ChartDrawingTool.text)
-            _editIconButton(
-              c,
-              icon: Icons.edit_rounded,
-              tip: l10n.chartEditNote,
-              onTap: () => unawaited(
-                  _editNote(selected!.points.first, existing: selected)),
-            ),
-          if (selected != null)
-            _editIconButton(
-              c,
-              icon: Icons.delete_outline_rounded,
-              tip: l10n.chartDelete,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _drawingsNotifier.remove(selected!.id);
-                TrackingService.track(
-                  'drawing_deleted',
-                  params: {'via': 'delete', 'coin': widget.market.coin},
-                );
-                setState(() => _selectedDrawingId = null);
-              },
-            ),
-          if (armed != null)
-            _editIconButton(
-              c,
-              icon: Icons.close_rounded,
-              tip: l10n.chartStopDrawing,
-              onTap: () => _armTool(armed),
-            ),
-        ],
+    return HlDrawingToolbar(
+      drawing: selected,
+      swatches: hlDrawingSwatches(l10n),
+      labels: HlDrawingToolbarLabels(
+        color: l10n.chartColor,
+        solid: l10n.chartLineSolid,
+        dashed: l10n.chartLineDashed,
+        extend: l10n.chartExtendLine,
+        lock: l10n.chartLock,
+        unlock: l10n.chartUnlock,
+        duplicate: l10n.chartDuplicate,
+        delete: l10n.chartDelete,
+        editNote: l10n.chartEditNote,
       ),
+      onColor: (value) => _pickColor(value, selected.id),
+      onToggleDashed: () =>
+          _editDrawing(selected.copyWith(dashed: !selected.dashed), 'style'),
+      onToggleExtend: selected.tool == ChartDrawingTool.trendline
+          ? () => _editDrawing(
+              selected.copyWith(extend: !selected.extend), 'extend')
+          : null,
+      onToggleLock: () =>
+          _editDrawing(selected.copyWith(locked: !selected.locked), 'lock'),
+      onDuplicate: () {
+        HapticFeedback.selectionClick();
+        _onDrawingPlaced(duplicate(), via: 'duplicate');
+      },
+      onDelete: () {
+        HapticFeedback.selectionClick();
+        _drawingsNotifier.remove(selected.id);
+        TrackingService.track(
+          'drawing_deleted',
+          params: {'via': 'delete', 'coin': widget.market.coin},
+        );
+        setState(() => _selectedDrawingId = null);
+      },
+      onEditNote: selected.tool == ChartDrawingTool.text
+          ? () => unawaited(
+              _editNote(selected.points.first, existing: selected))
+          : null,
     );
   }
 
@@ -2675,13 +2648,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             fit: widget.fillHeight ? StackFit.expand : StackFit.loose,
             children: [
               chart,
-              if (_armedTool != null || selectedId != null)
-                Positioned(
-                  top: 6,
-                  left: 0,
-                  right: 0,
-                  child: Center(child: _contextBar(c, drawings, selectedId)),
-                ),
               // The rail tucked away: one small tab at the plot's top
               // left brings it back.
               if (!railShown)
@@ -2721,7 +2687,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             padding:
                 EdgeInsets.only(top: 4.h, left: railShown ? 44 + 6.w : 0),
             child: Text(
-              _toolbarHint(selectedId),
+              _toolbarHint(selectedId, drawings),
               style: TextStyle(color: c.textTertiary, fontSize: 11.5.sp),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -3022,6 +2988,12 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             onTextRequested: (point) => unawaited(_editNote(point)),
             selectedDrawingId: selectedId,
             onDrawingPlaced: _onDrawingPlaced,
+            drawingToolbarBuilder: _drawingToolbar,
+            onPlacementPendingChanged: (pending) {
+              if (mounted && pending != _placementPending) {
+                setState(() => _placementPending = pending);
+              }
+            },
             onDrawingSelected: (id) {
               // Selecting from outside Advanced opens Advanced on the
               // tapped drawing; inside it, it is a plain selection.

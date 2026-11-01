@@ -145,6 +145,7 @@ device_bound_explainer_viewed
 direct_hypercore_route
 drawing_created
 drawing_deleted
+drawing_edited
 electrum_node_selected
 export_format_selected
 external_address_method_selected

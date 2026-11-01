@@ -3146,6 +3146,36 @@
   "chartRemoveAllTitle": "Remove all drawings",
   "chartRemoveAllBody": "Every drawing on this chart is removed. Undo brings them back while the chart stays open.",
   "chartRemoveAllCta": "Remove all",
+  "chartToolCursor": "Cursor",
+  "chartToolHorizontalLine": "Horizontal line",
+  "chartMoreTools": "More",
+  "chartColor": "Color",
+  "chartBlueColor": "Blue",
+  "chartLineSolid": "Solid line",
+  "chartLineDashed": "Dashed line",
+  "chartExtendLine": "Extend to the right",
+  "chartLock": "Lock",
+  "chartUnlock": "Unlock",
+  "chartDuplicate": "Duplicate",
+  "chartHintTapFirstPoint": "Tap the first point: {tool}",
+  "@chartHintTapFirstPoint": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
+  "chartHintTapSecondPoint": "Now tap the second point.",
+  "chartHintToolKept": "{tool} stays on. Tap it to stop.",
+  "@chartHintToolKept": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
+  "chartHintLocked": "Locked. Unlock it to move it.",
+  "chartHintPickToolKeep": "Pick a tool. Double-tap one to keep it on.",
   "portfolioPerformanceUnavailable": "Performance unavailable",
   "@portfolioPerformanceUnavailable": {
     "description": "Earn and portfolio presentation copy."

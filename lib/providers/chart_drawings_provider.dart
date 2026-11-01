@@ -186,9 +186,13 @@ final hlChartDrawingsProvider =
 class ChartPreferences {
   const ChartPreferences({
     this.indicators = const {'vol'},
-    this.magnet = false,
+    this.magnet = true,
   });
   final Set<String> indicators;
+
+  /// The drawing magnet (snap to candle prices). On by default; stored
+  /// as 'snap', so the old 'magnet' key (written false for everyone
+  /// while it defaulted off) is ignored.
   final bool magnet;
 
   ChartPreferences copyWith({
@@ -202,7 +206,7 @@ class ChartPreferences {
 
   Map<String, Object> toJson() => {
         'indicators': indicators.toList(),
-        'magnet': magnet,
+        'snap': magnet,
       };
 }
 
@@ -270,7 +274,7 @@ class ChartPreferencesNotifier
                 .whereType<String>()
                 .where(supportedIndicators.contains))
             : const {'vol'},
-        magnet: raw['magnet'] == true,
+        magnet: raw['snap'] != false,
       );
       if (encoded == null) await box.put(arg, jsonEncode(state.toJson()));
     } catch (_) {
