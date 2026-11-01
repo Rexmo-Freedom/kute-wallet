@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Dodaj",
   "activityOnItsWay": "Na poti",
   "investingTradfi": "Tradicionalno",
-  "purchaseShort": "Kupi"
+  "purchaseShort": "Kupi",
+  "sendToAFriend": "Pošlji prijatelju",
+  "shareHeaderLabel": "Pošlji prijatelju",
+  "barShareWithFriends": "Pošlji prijatelju",
+  "shareTheMarket": "Pošlji trg",
+  "shareThisPosition": "Pošlji to pozicijo",
+  "shareMarketShareLink": "Pošlji povezavo"
 }

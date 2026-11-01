@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Προσθήκη",
   "activityOnItsWay": "Καθ' οδόν",
   "investingTradfi": "Παραδοσιακά",
-  "purchaseShort": "Αγορά"
+  "purchaseShort": "Αγορά",
+  "sendToAFriend": "Αποστολή σε φίλο",
+  "shareHeaderLabel": "Αποστολή σε φίλο",
+  "barShareWithFriends": "Αποστολή σε φίλο",
+  "shareTheMarket": "Αποστολή της αγοράς",
+  "shareThisPosition": "Αποστολή αυτής της θέσης",
+  "shareMarketShareLink": "Αποστολή συνδέσμου"
 }

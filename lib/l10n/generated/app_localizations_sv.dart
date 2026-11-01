@@ -10554,7 +10554,7 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get shareHeaderLabel => 'Share';
+  String get shareHeaderLabel => 'Skicka till en vän';
 
   @override
   String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
@@ -11360,7 +11360,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get barPickMarketGroupSub => 'or ask Sal to find one';
 
   @override
-  String get barShareWithFriends => 'Share with your friends';
+  String get barShareWithFriends => 'Skicka till en vän';
 
   @override
   String get barShareMarketSub => 'Send the market or your prediction';
@@ -11369,13 +11369,13 @@ class AppLocalizationsSv extends AppLocalizations {
   String get barSharePositionSub => 'Send the market or your position';
 
   @override
-  String get shareTheMarket => 'Share the market';
+  String get shareTheMarket => 'Skicka marknaden';
 
   @override
   String get shareTheMarketSub => 'A link they can open, with your code';
 
   @override
-  String get shareThisPosition => 'Share this position';
+  String get shareThisPosition => 'Skicka den här positionen';
 
   @override
   String get shareThisPositionSub => 'The market and how you\'re doing';
@@ -11671,7 +11671,7 @@ class AppLocalizationsSv extends AppLocalizations {
       'Your wallet is still getting ready. Try again in a moment.';
 
   @override
-  String get shareMarketShareLink => 'Share link';
+  String get shareMarketShareLink => 'Skicka länken';
 
   @override
   String shareMarketLookAt(String title, String link) {
@@ -11701,7 +11701,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendContacts => 'Contacts';
 
   @override
-  String get sendToAFriend => 'Send to a friend';
+  String get sendToAFriend => 'Skicka till en vän';
 
   @override
   String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';

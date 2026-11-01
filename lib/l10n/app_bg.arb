@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Добави",
   "activityOnItsWay": "На път",
   "investingTradfi": "Традиционни",
-  "purchaseShort": "Купи"
+  "purchaseShort": "Купи",
+  "sendToAFriend": "Изпрати на приятел",
+  "shareHeaderLabel": "Изпрати на приятел",
+  "barShareWithFriends": "Изпрати на приятел",
+  "shareTheMarket": "Изпрати пазара",
+  "shareThisPosition": "Изпрати тази позиция",
+  "shareMarketShareLink": "Изпрати линка"
 }

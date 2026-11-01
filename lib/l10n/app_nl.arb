@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Toevoegen",
   "activityOnItsWay": "Onderweg",
   "investingTradfi": "Traditioneel",
-  "purchaseShort": "Kopen"
+  "purchaseShort": "Kopen",
+  "sendToAFriend": "Stuur naar een vriend",
+  "shareHeaderLabel": "Stuur naar een vriend",
+  "barShareWithFriends": "Stuur naar een vriend",
+  "shareTheMarket": "Stuur de markt",
+  "shareThisPosition": "Stuur deze positie",
+  "shareMarketShareLink": "Stuur de link"
 }

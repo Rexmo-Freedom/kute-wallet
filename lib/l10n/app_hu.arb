@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Hozzáadás",
   "activityOnItsWay": "Úton",
   "investingTradfi": "Hagyományos",
-  "purchaseShort": "Vásárlás"
+  "purchaseShort": "Vásárlás",
+  "sendToAFriend": "Küldés barátnak",
+  "shareHeaderLabel": "Küldés barátnak",
+  "barShareWithFriends": "Küldés barátnak",
+  "shareTheMarket": "Piac küldése",
+  "shareThisPosition": "Pozíció küldése",
+  "shareMarketShareLink": "Link küldése"
 }

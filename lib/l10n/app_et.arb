@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Lisa",
   "activityOnItsWay": "Teel",
   "investingTradfi": "Traditsiooniline",
-  "purchaseShort": "Osta"
+  "purchaseShort": "Osta",
+  "sendToAFriend": "Saada sõbrale",
+  "shareHeaderLabel": "Saada sõbrale",
+  "barShareWithFriends": "Saada sõbrale",
+  "shareTheMarket": "Saada turg",
+  "shareThisPosition": "Saada see positsioon",
+  "shareMarketShareLink": "Saada link"
 }

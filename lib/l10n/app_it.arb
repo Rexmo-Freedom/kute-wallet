@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Aggiungi",
   "activityOnItsWay": "In arrivo",
   "investingTradfi": "Tradizionale",
-  "purchaseShort": "Compra"
+  "purchaseShort": "Compra",
+  "sendToAFriend": "Invia a un amico",
+  "shareHeaderLabel": "Invia a un amico",
+  "barShareWithFriends": "Invia a un amico",
+  "shareTheMarket": "Invia il mercato",
+  "shareThisPosition": "Invia questa posizione",
+  "shareMarketShareLink": "Invia il link"
 }

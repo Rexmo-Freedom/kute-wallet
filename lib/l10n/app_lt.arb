@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Pridėti",
   "activityOnItsWay": "Kelyje",
   "investingTradfi": "Tradiciniai",
-  "purchaseShort": "Pirkti"
+  "purchaseShort": "Pirkti",
+  "sendToAFriend": "Siųsti draugui",
+  "shareHeaderLabel": "Siųsti draugui",
+  "barShareWithFriends": "Siųsti draugui",
+  "shareTheMarket": "Siųsti rinką",
+  "shareThisPosition": "Siųsti šią poziciją",
+  "shareMarketShareLink": "Siųsti nuorodą"
 }

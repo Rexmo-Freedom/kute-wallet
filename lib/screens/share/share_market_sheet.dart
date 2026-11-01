@@ -179,8 +179,11 @@ class ShareMarketSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Founder (1 November 2026): on Predictions and Investing the
+          // word is never "Share"; the sheet, its pill and its rows all say
+          // send.
           AppBottomSheetHeader(
-              title: l10n.share, icon: Icons.ios_share_rounded),
+              title: l10n.sendToAFriend, icon: Icons.ios_share_rounded),
           Padding(
             padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
             child: Column(

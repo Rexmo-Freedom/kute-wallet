@@ -49,7 +49,7 @@
 //
 // Tapping the bar ALWAYS opens the same search / Sal sheet as Home, with
 // the context's block on top: a "Recommended" block with the screen's
-// action rows ([actions]: "Share the market", "Send dollars for this
+// action rows ([actions]: "Send the market", "Send dollars for this
 // market"; the top categories of the category grid), Sal's prompt chips
 // tuned to the screen ([prompts]), and the composer scoped to that venue
 // ([category], [searchHint]). A keyboard-driven surface, and the Sal

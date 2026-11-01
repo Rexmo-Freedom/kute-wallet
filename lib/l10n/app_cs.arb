@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Přidat",
   "activityOnItsWay": "Na cestě",
   "investingTradfi": "Tradiční",
-  "purchaseShort": "Koupit"
+  "purchaseShort": "Koupit",
+  "sendToAFriend": "Poslat kamarádovi",
+  "shareHeaderLabel": "Poslat kamarádovi",
+  "barShareWithFriends": "Poslat kamarádovi",
+  "shareTheMarket": "Poslat trh",
+  "shareThisPosition": "Poslat tuto pozici",
+  "shareMarketShareLink": "Poslat odkaz"
 }

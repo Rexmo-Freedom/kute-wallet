@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Lisää",
   "activityOnItsWay": "Matkalla",
   "investingTradfi": "Perinteiset",
-  "purchaseShort": "Osta"
+  "purchaseShort": "Osta",
+  "sendToAFriend": "Lähetä ystävälle",
+  "shareHeaderLabel": "Lähetä ystävälle",
+  "barShareWithFriends": "Lähetä ystävälle",
+  "shareTheMarket": "Lähetä markkina",
+  "shareThisPosition": "Lähetä tämä positio",
+  "shareMarketShareLink": "Lähetä linkki"
 }

@@ -3129,5 +3129,11 @@
   "investmentsAdd": "追加",
   "activityOnItsWay": "処理中",
   "investingTradfi": "伝統的資産",
-  "purchaseShort": "購入"
+  "purchaseShort": "購入",
+  "sendToAFriend": "友達に送る",
+  "shareHeaderLabel": "友達に送る",
+  "barShareWithFriends": "友達に送る",
+  "shareTheMarket": "マーケットを送る",
+  "shareThisPosition": "このポジションを送る",
+  "shareMarketShareLink": "リンクを送る"
 }

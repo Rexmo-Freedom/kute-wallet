@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Pievienot",
   "activityOnItsWay": "Ceļā",
   "investingTradfi": "Tradicionālie",
-  "purchaseShort": "Pirkt"
+  "purchaseShort": "Pirkt",
+  "sendToAFriend": "Sūtīt draugam",
+  "shareHeaderLabel": "Sūtīt draugam",
+  "barShareWithFriends": "Sūtīt draugam",
+  "shareTheMarket": "Sūtīt tirgu",
+  "shareThisPosition": "Sūtīt šo pozīciju",
+  "shareMarketShareLink": "Sūtīt saiti"
 }

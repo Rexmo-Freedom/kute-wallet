@@ -18029,10 +18029,10 @@ abstract class AppLocalizations {
   /// **'{percent} of total'**
   String portfolioCategoryShare(String percent);
 
-  /// Market and position page headers: the word on the compact Sal pill (Sal's share face + this), left of the watchlist star, opening the Sal sheet with the share rows.
+  /// Market and position page headers (Predictions and Investing): the words on the compact Sal pill (Sal's share face + this), beside the headline figure, opening the Sal sheet with the send rows. Founder (1 November 2026): say "Send to a friend", never "Share".
   ///
   /// In en, this message translates to:
-  /// **'Share'**
+  /// **'Send to a friend'**
   String get shareHeaderLabel;
 
   /// The floating bar on the Dollars tab while Predictions is the picked half.
@@ -19029,10 +19029,10 @@ abstract class AppLocalizations {
   /// **'or ask Sal to find one'**
   String get barPickMarketGroupSub;
 
-  /// The floating Sal bar on a market or position page: the recommended action.
+  /// The floating Sal bar on a market or position page (Predictions and Investing): the recommended action. Founder (1 November 2026): say "Send to a friend", never "Share".
   ///
   /// In en, this message translates to:
-  /// **'Share with your friends'**
+  /// **'Send to a friend'**
   String get barShareWithFriends;
 
   /// Second line of the floating Sal bar on a market page.
@@ -19047,10 +19047,10 @@ abstract class AppLocalizations {
   /// **'Send the market or your position'**
   String get barSharePositionSub;
 
-  /// Action row on a market page: shares a link to the market.
+  /// Action row on a market page: sends a link to the market (opens the market send sheet). Founder: never "Share" on Predictions or Investing.
   ///
   /// In en, this message translates to:
-  /// **'Share the market'**
+  /// **'Send the market'**
   String get shareTheMarket;
 
   /// Second line of the Share the market row.
@@ -19059,10 +19059,10 @@ abstract class AppLocalizations {
   /// **'A link they can open, with your code'**
   String get shareTheMarketSub;
 
-  /// Action row on a position page: shares the market and how the position is doing.
+  /// Action row on a position page: sends the market and how the position is doing. Founder: never "Share" on Predictions or Investing.
   ///
   /// In en, this message translates to:
-  /// **'Share this position'**
+  /// **'Send this position'**
   String get shareThisPosition;
 
   /// Second line of the Share this position row.
@@ -19549,10 +19549,10 @@ abstract class AppLocalizations {
   /// **'Your wallet is still getting ready. Try again in a moment.'**
   String get claimNeedsWallet;
 
-  /// No description provided for @shareMarketShareLink.
+  /// Primary button of the market send sheet (Predictions and Investing): opens the OS share sheet with the link. Founder: never "Share" on these surfaces.
   ///
   /// In en, this message translates to:
-  /// **'Share link'**
+  /// **'Send the link'**
   String get shareMarketShareLink;
 
   /// No description provided for @shareMarketLookAt.

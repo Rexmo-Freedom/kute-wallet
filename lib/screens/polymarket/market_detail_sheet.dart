@@ -780,59 +780,66 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   }
 
   /// Close, the event's image and title (up to two lines) and the
-  /// watchlist star. The Share pill is beside the big number in the hero
+  /// watchlist star. Sal's pill is beside the big number in the hero
   /// (founder, 31 October 2026), so the title keeps its two lines' width;
-  /// a game sheet, which has no headline figure, keeps the pill here.
+  /// a game sheet, which has no headline figure, keeps the pill here, at
+  /// most half the row wide (its words, "Send to a friend", shorten with
+  /// an ellipsis before the title loses its room).
   Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
-      child: Row(
-        children: [
-          KuteBarContextScope(
-            barContext: bar,
-            child: const KuteCloseButton(),
-          ),
-          SizedBox(width: 8.w),
-          // The SAME resolver the cards use (team crest for a gaming /
-          // esports "vs" market the sports detector didn't catch, the
-          // leading candidate's portrait for a multi-outcome event, else
-          // the event image), SVG-aware so `.svg` crests load; the size of
-          // the Investing header's logo.
-          Builder(builder: (_) {
-            final iconUrl = event.displayIconUrl;
-            if (iconUrl == null || iconUrl.isEmpty) {
-              return _buildFallbackIcon(c, 32.w);
-            }
-            return PolyCrestImage(
-              url: iconUrl,
-              size: 32.w,
-              radius: 8.w,
-              fallback: _buildFallbackIcon(c, 32.w),
-            );
-          }),
-          SizedBox(width: 8.w),
-          Expanded(
-            // The whole title: smaller rather than cut.
-            child: FittedTitle(
-              event.title,
-              key: const ValueKey('poly-detail-title'),
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-                height: 1.2,
+      child: LayoutBuilder(builder: (context, box) {
+        return Row(
+          children: [
+            KuteBarContextScope(
+              barContext: bar,
+              child: const KuteCloseButton(),
+            ),
+            SizedBox(width: 8.w),
+            // The SAME resolver the cards use (team crest for a gaming /
+            // esports "vs" market the sports detector didn't catch, the
+            // leading candidate's portrait for a multi-outcome event, else
+            // the event image), SVG-aware so `.svg` crests load; the size of
+            // the Investing header's logo.
+            Builder(builder: (_) {
+              final iconUrl = event.displayIconUrl;
+              if (iconUrl == null || iconUrl.isEmpty) {
+                return _buildFallbackIcon(c, 32.w);
+              }
+              return PolyCrestImage(
+                url: iconUrl,
+                size: 32.w,
+                radius: 8.w,
+                fallback: _buildFallbackIcon(c, 32.w),
+              );
+            }),
+            SizedBox(width: 8.w),
+            Expanded(
+              // The whole title: smaller rather than cut.
+              child: FittedTitle(
+                event.title,
+                key: const ValueKey('poly-detail-title'),
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  height: 1.2,
+                ),
               ),
             ),
-          ),
-          if (_isGameSheet) ...[
+            if (_isGameSheet) ...[
+              SizedBox(width: 8.w),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth / 2),
+                child: KuteSalHeaderButton(barContext: bar),
+              ),
+            ],
             SizedBox(width: 8.w),
-            KuteSalHeaderButton(barContext: bar),
+            PolyWatchStar(event: event, size: 22, source: 'detail'),
           ],
-          SizedBox(width: 8.w),
-          PolyWatchStar(event: event, size: 22, source: 'detail'),
-        ],
-      ),
+        );
+      }),
     );
   }
 

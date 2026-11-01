@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Pridať",
   "activityOnItsWay": "Na ceste",
   "investingTradfi": "Tradičné",
-  "purchaseShort": "Kúpiť"
+  "purchaseShort": "Kúpiť",
+  "sendToAFriend": "Poslať kamarátovi",
+  "shareHeaderLabel": "Poslať kamarátovi",
+  "barShareWithFriends": "Poslať kamarátovi",
+  "shareTheMarket": "Poslať trh",
+  "shareThisPosition": "Poslať túto pozíciu",
+  "shareMarketShareLink": "Poslať odkaz"
 }

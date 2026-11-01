@@ -211,8 +211,9 @@ void main() {
     expect(_barUp(tester), isFalse);
     final button = find.byKey(const ValueKey('kute-sal-header-button'));
     expect(button, findsOneWidget);
-    // A compact pill: 32 tall, Sal's face and the word "Share", no badge
-    // (founder: the circle alone "should say share or send").
+    // A compact pill: 32 tall, Sal's face and the words "Send to a friend",
+    // no badge (founder: the circle alone "should say share or send", then
+    // "don't say share, say send to a friend").
     final rect = tester.getRect(button);
     expect(rect.height, KuteSalHeaderButton.height);
     expect(rect.width, greaterThan(KuteSalHeaderButton.height));
@@ -221,7 +222,8 @@ void main() {
             of: button,
             matching: find.byKey(const ValueKey('kute-sal-header-label'))),
         findsOneWidget);
-    expect(find.descendant(of: button, matching: find.text('Share')),
+    expect(
+        find.descendant(of: button, matching: find.text('Send to a friend')),
         findsOneWidget);
     expect(find.byIcon(Icons.ios_share_rounded), findsNothing);
 

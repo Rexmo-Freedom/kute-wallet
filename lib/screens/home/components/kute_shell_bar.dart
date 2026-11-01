@@ -37,8 +37,10 @@
 // the Hyperliquid and Polymarket market pages, the position pages and the
 // multi-outcome event page the floating pill is away, and the page draws
 // [KuteSalHeaderButton] beside its headline figure: a real button in the
-// primary look, Sal's `share` face and the word "Share" (founder: it
-// "should say share or send", then "should be more evident"), opening
+// primary look, Sal's `share` face and the words "Send to a friend"
+// (founder: it "should say share or send", then "should be more
+// evident", then, 1 November 2026, "don't say share, say send to a
+// friend"), opening
 // the same Sal sheet (the context variant). It travels to the composer
 // the way the pill does.
 //
@@ -423,11 +425,12 @@ Future<void> openKuteBarSheet(
 /// THE SHARE BUTTON BESIDE A PAGE'S BIG NUMBER (founder, 31 October 2026;
 /// see the file header): a real button in the app's primary look (the
 /// textPrimary fill, the mode's contrast ink), 40 tall, radius 20, 12
-/// before Sal's `share` face at 26 and 16 after the word "Share" (14,
-/// w600); the press spring of every button. On the page's open it
+/// before Sal's `share` face at 26 and 16 after the words "Send to a
+/// friend" (14, w600; founder, 1 November 2026: never "Share" here); the
+/// press spring of every button. On the page's open it
 /// enters on the sheet spring and pulses once (1.0 → 1.06 → 1.0; none
 /// under Reduce Motion). Tapped, it opens the Sal sheet with
-/// [barContext] (the context variant: Share the market / Send this
+/// [barContext] (the context variant: Send the market / Send this
 /// prediction) and travels to the composer as the pill does; transparent
 /// while it travels and while the sheet is up. The page mounts it on the
 /// headline figure's row, right-aligned and centred on the figure's first
@@ -525,16 +528,23 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
                 fallback: KuteDogGlance(size: 22, color: ink)),
           ),
           const SizedBox(width: 8),
-          Text(
-            context.l10n.shareHeaderLabel,
-            key: const ValueKey('kute-sal-header-label'),
-            maxLines: 1,
-            style: TextStyle(
-              color: ink,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
-              height: 1.2,
+          // Loose in a min-size Row: the pill is its natural width wherever
+          // the page gives it room, and where a page bounds it (a game
+          // sheet's title row) the words shorten with an ellipsis instead
+          // of the row overflowing.
+          Flexible(
+            child: Text(
+              context.l10n.shareHeaderLabel,
+              key: const ValueKey('kute-sal-header-label'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: ink,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                height: 1.2,
+              ),
             ),
           ),
         ],

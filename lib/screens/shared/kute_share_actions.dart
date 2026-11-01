@@ -1,13 +1,15 @@
 // lib/screens/shared/kute_share_actions.dart
 //
 // The bar context of a market or position page (founder, 31 October
-// 2026): the bar reads "Share with your friends" with a line under it, and
+// 2026): the bar reads "Send to a friend" with a line under it, and
 // its Sal sheet opens on a market preview card and two action rows,
-// "Share the market" (or "Share this position") and "Send this
+// "Send the market" (or "Send this position") and "Send this
 // prediction" ("Send this investment" on Investing), with the prompts
-// tuned to the page. The share row opens the market share sheet
-// (screens/share/share_market_sheet.dart: preview card, Share link with
-// the sender's referral code, Send this prediction); the send row opens
+// tuned to the page. (Founder, 1 November 2026: on Predictions and
+// Investing the word is never "Share", always send to a friend.) The
+// market row opens the market send sheet
+// (screens/share/share_market_sheet.dart: preview card, Send the link with
+// the sender's referral code, Send this prediction); the pick row opens
 // Send to anyone with THE PICK on the link: the market, the outcome
 // ("Yes", a candidate, Long / Short) and the side, so the recipient's
 // Claim screen can open the slip ready to place

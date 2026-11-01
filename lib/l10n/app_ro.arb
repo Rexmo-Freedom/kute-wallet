@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Adaugă",
   "activityOnItsWay": "Pe drum",
   "investingTradfi": "Tradițional",
-  "purchaseShort": "Cumpără"
+  "purchaseShort": "Cumpără",
+  "sendToAFriend": "Trimite unui prieten",
+  "shareHeaderLabel": "Trimite unui prieten",
+  "barShareWithFriends": "Trimite unui prieten",
+  "shareTheMarket": "Trimite piața",
+  "shareThisPosition": "Trimite această poziție",
+  "shareMarketShareLink": "Trimite linkul"
 }

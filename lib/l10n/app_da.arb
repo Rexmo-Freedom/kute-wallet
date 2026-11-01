@@ -3129,5 +3129,11 @@
   "investmentsAdd": "Tilføj",
   "activityOnItsWay": "På vej",
   "investingTradfi": "Traditionelle",
-  "purchaseShort": "Køb"
+  "purchaseShort": "Køb",
+  "sendToAFriend": "Send til en ven",
+  "shareHeaderLabel": "Send til en ven",
+  "barShareWithFriends": "Send til en ven",
+  "shareTheMarket": "Send markedet",
+  "shareThisPosition": "Send denne position",
+  "shareMarketShareLink": "Send linket"
 }
