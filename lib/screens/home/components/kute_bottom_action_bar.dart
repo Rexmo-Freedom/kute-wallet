@@ -14,6 +14,7 @@ import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart';
+import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/kute_motion.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -523,10 +524,13 @@ const double _kDockPillTallHeight = 56;
 
 /// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks
 /// on Home and Dollars, the shell bar over everything else): Sal's clip,
-/// a label and an optional second line, in the pill's own frost. The
-/// text and the width change on the chip spring when the context changes
-/// (the old line slides up and fades, the new one springs in from below;
-/// at once under Reduce Motion), and Sal's clip crossfades over 150 ms.
+/// a label and an optional second line, in the pill's own frost. When the
+/// context changes ("Search investments or ask Sal" ↔ "Search predictions
+/// or ask Sal" on the Dollars tab) it morphs EXACTLY as the bar's primary
+/// button does (kute_morph_label.dart): the width springs on the chip
+/// spring ([KuteMorphSize]), the old words slide up and out while the new
+/// ones rise from below ([KuteMorphLabel]), and Sal's clip crossfades
+/// ([KuteMorphFace]). At once under Reduce Motion.
 class KuteSalPill extends StatelessWidget {
   const KuteSalPill({
     super.key,
@@ -565,12 +569,9 @@ class KuteSalPill extends StatelessWidget {
     final height = collapsed
         ? collapsedSize
         : (sublabel == null ? _kDockPillHeight : _kDockPillTallHeight);
-    // Reduce Motion: the 150 ms line (an AnimatedSize given no time at all
-    // re-lays itself out mid-layout and throws).
-    final duration =
-        reduce ? KuteMotion.reducedDuration : KuteMotion.chipDuration;
+    // Reduce Motion: at once.
+    final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
     final text = Column(
-      key: ValueKey('$label|$sublabel'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -664,52 +665,22 @@ class KuteSalPill extends StatelessWidget {
                               child: Icon(Icons.search_rounded,
                                   size: 22, color: c.textPrimary),
                             ),
-                      // The width follows the text on the spring; the
-                      // text itself slides up and out, in from below.
-                      // Collapsed, the text (and its gap) is gone.
+                      // The width follows the text on the chip spring;
+                      // the text itself slides up and out, in from below
+                      // (the primary button's morph, kute_morph_label.dart).
+                      // Collapsed, the text (and its gap) is gone: the
+                      // leaving words overflow the empty box, so the width
+                      // springs down while they slide out under the
+                      // shrinking edge, not after they have gone.
                       Flexible(
-                        child: AnimatedSize(
-                          duration: duration,
-                          curve: reduce ? Curves.linear : KuteMotion.chip,
+                        child: KuteMorphSize(
                           alignment: Alignment.centerLeft,
-                          child: AnimatedSwitcher(
-                            duration: duration,
-                            switchInCurve:
-                                reduce ? Curves.linear : KuteMotion.chip,
-                            switchOutCurve:
-                                reduce ? Curves.linear : KuteMotion.settle,
-                            // Folding: the outgoing text is laid over
-                            // the (empty) current child rather than
-                            // beside it, so the width springs down while
-                            // the text slides out under the shrinking
-                            // edge, not after it has gone.
-                            layoutBuilder: (current, previous) => Stack(
-                              alignment: Alignment.centerLeft,
-                              clipBehavior: Clip.none,
-                              children: [
-                                for (final p in previous)
-                                  collapsed ? Positioned(left: 0, child: p) : p,
-                                if (current != null) current
-                              ],
-                            ),
-                            transitionBuilder: (child, animation) {
-                              final incoming = child.key == text.key;
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: Offset(0, incoming ? 0.6 : -0.6),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                ),
-                              );
-                            },
+                          child: KuteMorphLabel(
                             child: collapsed
                                 ? const SizedBox.shrink(
                                     key: ValueKey('sal-pill-collapsed'))
                                 : Padding(
-                                    key: text.key,
+                                    key: ValueKey('$label|$sublabel'),
                                     padding: EdgeInsets.only(left: 6.w),
                                     child: text,
                                   ),
@@ -831,12 +802,12 @@ class _SalPillGlyphState extends State<_SalPillGlyph> {
             : (_happy ? 'happy' : widget.clip);
     final intro = reaction == null && _intro && clip == widget.clip;
     final oneShot = intro || reaction != null;
-    // The clip switch crossfades over 150 ms (at once under Reduce Motion).
+    // The clip switch crossfades as the primary button's Sal does
+    // (KuteMorphFace: 150 ms, at once under Reduce Motion).
     // A new cue restarts the clip (its key), so the intro begins at
     // frame 0; once through, the same sprite loops on from its last frame.
     // A reaction is keyed by its number, so the same one twice plays twice.
-    return AnimatedSwitcher(
-      duration: kuteMotion(context, const Duration(milliseconds: 150)),
+    return KuteMorphFace(
       child: SalSprite(
         key: ValueKey(reaction != null
             ? 'reaction-$clip#${reaction.seq}'
