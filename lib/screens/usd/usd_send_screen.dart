@@ -892,6 +892,19 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               enabled: _step == _kAmountStep
                   ? _amountStepValid
                   : _step == _kSendToStep && _recipientReady,
+              // The step to take while Continue is off (founder, 1
+              // November 2026).
+              disabledLabel: _step == _kAmountStep
+                  ? (_amountExceedsBalance
+                      ? context.l10n.barNeedLowerAmount
+                      : _amountBelowMinimum
+                          ? context.l10n.barNeedRaiseAmount
+                          : context.l10n.barNeedAmount)
+                  : _destination == null
+                      ? context.l10n.barNeedCoin
+                      : _address.text.trim().isEmpty
+                          ? context.l10n.barNeedRecipient
+                          : context.l10n.barNeedValidAddress,
               onContinue: () {
                 if (_step == _kAmountStep) _confirmAmount();
                 if (_step == _kSendToStep) {
@@ -1761,6 +1774,8 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
                     : l10n.withdraw,
             loading: _processing,
             onPressed: canSend ? _confirmSend : null,
+            // Off only while the fee is still being read.
+            disabledLabel: l10n.barNeedWait,
             footnote: (_stepsMoveId == null ? _pullProgress : null) ??
                 (waiting
                     ? l10n.sendWaitForFee

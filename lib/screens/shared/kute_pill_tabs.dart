@@ -225,7 +225,9 @@ class KutePill extends StatelessWidget {
           Flexible(
             child: AnimatedDefaultTextStyle(
               duration: duration,
-              curve: curve,
+              // A text-style lerp never rides the spring: past 1 it
+              // extrapolates (a shadow's blur negative); the settle.
+              curve: reduce ? Curves.linear : KuteMotion.textCurve,
               style: textStyle,
               child: Text.rich(
                 TextSpan(children: [

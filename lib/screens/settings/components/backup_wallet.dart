@@ -592,6 +592,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
                     setState(() => _step = _BackupStep.verify);
                   },
                   source: 'backup_reveal',
+                  disabledLabel: context.l10n.barNeedTick,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),
@@ -647,6 +648,7 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
               enabled: !_isSaving,
               busy: _isSaving,
               source: 'backup_verify',
+              disabledLabel: null,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

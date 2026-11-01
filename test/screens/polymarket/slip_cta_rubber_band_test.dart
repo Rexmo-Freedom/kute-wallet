@@ -83,15 +83,16 @@ void _expectAtRest(WidgetTester tester) {
   expect(barPrimaryRing(), findsNothing);
 }
 
-/// The bar reads the busy label beside its ring, not tappable.
-void _expectPlacing(WidgetTester tester) {
+/// The bar reads the busy label under its shimmer (none under Reduce
+/// Motion), not tappable.
+void _expectPlacing(WidgetTester tester, {bool reduceMotion = false}) {
   expect(barIsPrimary(tester), isTrue);
   expect(barPrimaryBusy(tester), isTrue);
   expect(barPrimaryEnabled(tester), isFalse);
   expect(barPrimaryLabel(tester), 'Placing order…');
   expect(barPrimaryText('Placing order…'), findsOneWidget);
   expect(barPrimaryText(r'Place $10.00 on Yes'), findsNothing);
-  expect(barPrimaryRing(), findsOneWidget);
+  expect(barPrimaryRing(), reduceMotion ? findsNothing : findsOneWidget);
 }
 
 void main() {
@@ -210,7 +211,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(_host(busy: true, reduceMotion: true));
     await _frames(tester, 20);
-    _expectPlacing(tester);
+    _expectPlacing(tester, reduceMotion: true);
     // The button's own fill tween is off: it switches at once.
     expect(tester.widget<AnimatedContainer>(findBarPrimary()).duration,
         Duration.zero);

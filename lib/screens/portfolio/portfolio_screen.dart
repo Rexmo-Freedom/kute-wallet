@@ -116,6 +116,8 @@ class PortfolioScreen extends ConsumerWidget {
                       label: context.l10n.bragBarLabel,
                       onPrimary: () =>
                           unawaited(showBragPortfolioPreviewSheet(context)),
+                      // Never off: the brag card always opens.
+                      disabledLabel: null,
                       source: 'portfolio',
                     )
                   : KuteBarContext(

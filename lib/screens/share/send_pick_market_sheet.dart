@@ -438,6 +438,7 @@ class _SideSheetState extends State<_SideSheet> {
                     label: l10n.continueLabel,
                     onPrimary: () => widget.onPicked(_up),
                     source: 'send_pick_side',
+                    disabledLabel: null,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

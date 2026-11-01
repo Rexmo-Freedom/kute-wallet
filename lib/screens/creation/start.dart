@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -10,6 +11,8 @@ import 'package:kute/screens/shared/kute_dog_rig.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/creation/set_pin.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 
@@ -370,8 +373,15 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                   context.push('/set_pin');
                 },
                 source: 'start',
+                disabledLabel: null,
               ),
-              child: SizedBox(height: kuteBarScrollClearance.h),
+              // The link 12 above the bar (founder, 1 November 2026), the
+              // bar centred at its own width: the room the bar takes, less
+              // the 20 the column keeps under it.
+              child: SizedBox(
+                  height: KuteBarPrimaryButton.roomUnder(context,
+                          pageToFoot: !Platform.isAndroid) -
+                      20.h),
             ),
           ],
         ),

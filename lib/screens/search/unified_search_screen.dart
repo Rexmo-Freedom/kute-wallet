@@ -1599,7 +1599,9 @@ class _SearchHome extends ConsumerWidget {
             gap,
           ],
           KuteStaggerIn(
-              index: block++, child: _ContextActionRows(actions: ctx.actions)),
+              index: block++,
+              child:
+                  _ContextActionCards(actions: ctx.actions, preview: preview)),
         ],
       );
     }
@@ -1697,8 +1699,8 @@ class _SearchHome extends ConsumerWidget {
             SearchMoverGrid(
               key: const ValueKey('search-home-moving'),
               markets: moving,
-              onTap: (m) =>
-                  HlMarketDetailSheet.show(context, market: m, source: 'search'),
+              onTap: (m) => HlMarketDetailSheet.show(context,
+                  market: m, source: 'search'),
             ),
             trailing: SearchBlockAction(
               label: l10n.seeAll,
@@ -1827,9 +1829,31 @@ class _RecentRow extends ConsumerWidget {
   }
 }
 
+/// The widest the context preview's trailing figure or pick may be.
+const double kContextPreviewFigureWidth = 112;
+
+/// The market's picture, drawn exactly as its page header draws it: an
+/// Investing market's logo through HlCoinIcon (the wire coin a
+/// builder-dex market trades under, its category and logo URL, the same
+/// fallbacks), a prediction's event image.
+Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
+    {double size = kSearchRowLogo}) {
+  final coin = preview.coin;
+  if (coin != null && coin.isNotEmpty) {
+    return HlCoinIcon(
+      coin: coin,
+      wireCoin: preview.wireCoin ?? coin,
+      category: preview.coinCategory,
+      iconUrl: preview.coinIconUrl,
+      size: size,
+    );
+  }
+  return searchEventLogo(context, preview.imageUrl, size: size);
+}
+
 /// The context screen's preview row, flat: the market's picture (36), its
-/// title on up to two lines and the pick or the price at the end, in the
-/// sheet's row scale.
+/// name on up to two lines (an Investing market's ticker under its display
+/// name) and the pick or the price at the end, in the sheet's row scale.
 class _ContextPreviewRow extends StatelessWidget {
   const _ContextPreviewRow({required this.preview});
 
@@ -1837,33 +1861,56 @@ class _ContextPreviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = preview.imageUrl;
-    final coin = preview.coin;
-    final Widget leading;
-    if (coin != null && coin.isNotEmpty) {
-      leading = HlCoinIcon(coin: coin, wireCoin: coin, size: kSearchRowLogo);
-    } else {
-      leading = searchEventLogo(context, image);
-    }
     final line = preview.line;
+    final subtitle = preview.subtitle;
     return Container(
       key: const ValueKey('context-preview-card'),
       constraints: const BoxConstraints(minHeight: kSearchRowHeight),
       child: Row(
         children: [
-          leading,
+          contextPreviewLogo(context, preview),
           SizedBox(width: 12.w),
           Expanded(
-            child: Text(
-              preview.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: SearchListRow.titleStyle(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  preview.title,
+                  key: const ValueKey('context-preview-title'),
+                  maxLines: subtitle == null ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SearchListRow.titleStyle(context),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    key: const ValueKey('context-preview-subtitle'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SearchListRow.subtitleStyle(context),
+                  ),
+              ],
             ),
           ),
+          // The figure or the pick at a fixed width at most, one line: a
+          // long candidate ("Gen.G Esports 47%") overflowed the row by
+          // 96 px; the title gives way first, then the figure ellipsises.
           if (line != null && line.isNotEmpty) ...[
             SizedBox(width: 12.w),
-            Text(line, style: SearchListRow.figureStyle(context)),
+            ConstrainedBox(
+              key: const ValueKey('context-preview-figure'),
+              constraints:
+                  BoxConstraints(maxWidth: kContextPreviewFigureWidth.w),
+              child: Text(
+                line,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: SearchListRow.figureStyle(context),
+              ),
+            ),
           ],
         ],
       ),
@@ -1871,63 +1918,213 @@ class _ContextPreviewRow extends StatelessWidget {
   }
 }
 
-/// The context screen's action rows, flat and 14 apart.
-class _ContextActionRows extends StatelessWidget {
-  const _ContextActionRows({required this.actions});
+/// THE CONTEXT SCREEN'S SEND ACTIONS AS CARDS (founder, 1 November 2026):
+/// two actions side by side as two equal cards, 12 apart, in the Investing
+/// strip's big-card style (surface-1, dark surface; radius 20; a 1 px
+/// hairline; 16 padding); one action, one full-width card. A third or
+/// later action (none today) follows as the same card, full width.
+class _ContextActionCards extends StatelessWidget {
+  const _ContextActionCards({required this.actions, this.preview});
 
   final List<KuteBarAction> actions;
+  final KuteBarPreview? preview;
 
   @override
-  Widget build(BuildContext context) => SearchRowList(
-        key: const ValueKey('context-actions-card'),
-        children: [for (final a in actions) _ContextActionRow(action: a)],
-      );
+  Widget build(BuildContext context) {
+    final gap = SizedBox(width: kContextCardGap.w, height: kContextCardGap.w);
+    // A card's foot line sits at its bottom: each card is as tall as the
+    // taller of the pair (IntrinsicHeight; its visual has a fixed box).
+    Widget card(KuteBarAction a) =>
+        IntrinsicHeight(child: _ContextActionCard(action: a, preview: preview));
+    return Column(
+      key: const ValueKey('context-actions-card'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (actions.length >= 2)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                    child: _ContextActionCard(
+                        action: actions[0], preview: preview)),
+                gap,
+                Expanded(
+                    child: _ContextActionCard(
+                        action: actions[1], preview: preview)),
+              ],
+            ),
+          )
+        else if (actions.isNotEmpty)
+          card(actions.first),
+        for (final a in actions.skip(2)) ...[gap, card(a)],
+      ],
+    );
+  }
 }
 
-/// One action row: Sal's `share` face at 36 for a row that sends a pick
-/// ("Send this prediction", "Send to anyone"), else the row's icon in a
-/// 36 tinted circle ("Share the market"); the title, the line under it
-/// and the chevron. Tapped, it runs and the sheet closes.
-class _ContextActionRow extends StatelessWidget {
-  const _ContextActionRow({required this.action});
+/// The space between the context screen's send cards.
+const double kContextCardGap = 12;
+
+/// The least height of a send card.
+const double kContextCardMinHeight = 170;
+
+/// One send card: a large visual at the top (the market's logo at 40 with
+/// a small share badge for the market's link; Sal's `share` face at 56 for
+/// a card that sends a pick), the title (16, w600), two lines under it
+/// (13, textSecondary) and, at the foot, what is sent (13, w600,
+/// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
+/// for the pick. The press spring; a tap runs the action and the sheet
+/// closes.
+class _ContextActionCard extends StatelessWidget {
+  const _ContextActionCard({required this.action, this.preview});
 
   final KuteBarAction action;
+  final KuteBarPreview? preview;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final a = action;
     final clip = a is KuteMarketBarAction ? a.salClip : null;
     final icon = a is KuteMarketBarAction
         ? (a.icon ?? Icons.arrow_forward_rounded)
         : Icons.arrow_forward_rounded;
-    final Widget leading = clip != null
-        ? SalSprite(
-            clip: clip,
-            size: kSearchRowLogo,
-            fallback: KuteDogGlance(size: kSearchRowLogo, color: c.accent),
-          )
-        : Container(
-            width: kSearchRowLogo,
-            height: kSearchRowLogo,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: c.accent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+    final p = preview;
+    final Widget visual;
+    if (clip != null) {
+      visual = SalSprite(
+        clip: clip,
+        size: 56,
+        fallback: SalSprite(
+            clip: 'happy',
+            size: 56,
+            fallback: KuteDogGlance(size: 48, color: c.accent)),
+      );
+    } else if (p != null) {
+      // The market's logo with a small share badge on its corner.
+      visual = SizedBox(
+        width: 52,
+        height: 56,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+                left: 0,
+                top: 8,
+                child: contextPreviewLogo(context, p, size: 40)),
+            Positioned(
+              left: 26,
+              top: 34,
+              child: Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: c.textPrimary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: isLight ? Colors.white : c.surface, width: 2),
+                ),
+                child: Icon(icon,
+                    size: 12, color: isLight ? Colors.white : c.background),
+              ),
             ),
-            child: Icon(icon, size: 18, color: c.accent),
-          );
-    return SearchListRow(
-      leading: leading,
-      title: a.label,
-      titleLines: 1,
-      subtitle: a.sublabel,
-      trailing:
-          Icon(Icons.chevron_right_rounded, size: 22.sp, color: c.textTertiary),
-      onTap: () {
-        a.onTap(context);
-        Navigator.of(context).maybePop();
-      },
+          ],
+        ),
+      );
+    } else {
+      visual = Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.accent.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 22, color: c.accent),
+      );
+    }
+    // What is sent: the pick on a card that sends it, else the market.
+    final sent = clip != null ? p?.line : p?.title;
+    return Semantics(
+      button: true,
+      label: [a.label, if (a.sublabel != null) a.sublabel!].join(', '),
+      excludeSemantics: true,
+      child: KutePressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            a.onTap(context);
+            Navigator.of(context).maybePop();
+          },
+          child: Container(
+            key: ValueKey('context-action-card-${a.label}'),
+            constraints: const BoxConstraints(minHeight: kContextCardMinHeight),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isLight ? c.surfaceLight : c.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: isLight ? c.border : c.borderSubtle, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                    height: 56,
+                    child:
+                        Align(alignment: Alignment.centerLeft, child: visual)),
+                const SizedBox(height: 12),
+                Text(
+                  a.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    height: 1.2,
+                  ),
+                ),
+                if (a.sublabel != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    a.sublabel!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                if (sent != null && sent.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    sent,
+                    key: ValueKey('context-action-sent-${a.label}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

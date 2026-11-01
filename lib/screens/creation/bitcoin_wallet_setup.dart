@@ -380,6 +380,7 @@ class _BitcoinWalletCreateState extends ConsumerState<BitcoinWalletCreate> {
                                       _name.text.trim().isNotEmpty,
                                   busy: _creating,
                                   source: 'bitcoin_wallet_setup',
+                                  disabledLabel: context.l10n.barNeedName,
                                 ),
                                 child:
                                     SizedBox(height: kuteBarScrollClearance.h),

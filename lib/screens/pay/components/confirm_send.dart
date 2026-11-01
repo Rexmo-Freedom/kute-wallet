@@ -5439,6 +5439,31 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           }
           return false;
         }(),
+        // The step to take while Continue is off (founder, 1 November
+        // 2026): who to send to, then the network a non-native address
+        // needs, else the address itself; on the amount, an amount, or
+        // less of it.
+        disabledLabel: () {
+          final l10n = context.l10n;
+          if (_step == _kAmountPage) {
+            return ref.read(sendTxProvider).amount > 0
+                ? l10n.barNeedLowerAmount
+                : l10n.barNeedAmount;
+          }
+          final addr = addressController.text;
+          if (addr.isEmpty) return l10n.barNeedRecipient;
+          final label = _detectAddressType(addr).label;
+          final native = label == 'Bitcoin on-chain' ||
+              label == 'Lightning invoice' ||
+              label == 'Lightning address' ||
+              label == 'LNURL' ||
+              label == 'Spark address';
+          if (!native &&
+              (_selectedDestAsset == null || _selectedDestNetwork == null)) {
+            return l10n.barNeedNetwork;
+          }
+          return l10n.barNeedValidAddress;
+        }(),
         onContinue: () {
           if (_step == _kSendToPage && _addressEntryMethod != 'contacts') {
             // A recent row tracked itself on tap; this is a typed, pasted
@@ -8127,6 +8152,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             // used to read as a greyed-out button with nothing moving.
             loading: isProcessing || _sendAwaitingReady,
             onPressed: canTapSend ? () => _sendPressed(context, ref) : null,
+            // Off only while the draft is still resolving.
+            disabledLabel: context.l10n.barNeedWait,
             // While the draft is still resolving the footnote says the
             // fee is being worked out rather than promising an instant
             // debit the tap cannot yet honour.

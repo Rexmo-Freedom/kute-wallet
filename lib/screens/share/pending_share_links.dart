@@ -237,6 +237,7 @@ class _PendingShareLinkDetailState
                         label: l10n.shareLinkShareAgain,
                         onPrimary: () => unawaited(_shareAgain(row)),
                         source: 'share_link_detail',
+                        disabledLabel: null,
                       ),
                       child: SizedBox(height: kuteBarScrollClearance.h),
                     ),

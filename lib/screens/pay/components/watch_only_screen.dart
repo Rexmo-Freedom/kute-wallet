@@ -1216,6 +1216,7 @@ class _WatchOnlySigningScreenState extends ConsumerState<WatchOnlySigningScreen>
               enabled: !_isBroadcasting,
               busy: _isBroadcasting,
               source: 'hw_broadcast',
+              disabledLabel: null,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

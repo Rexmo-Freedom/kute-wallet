@@ -145,6 +145,7 @@ class _SetPinState extends ConsumerState<SetPin> with PinSalMoodMixin {
                 });
               }
             },
+            disabledLabel: context.l10n.barNeedPin,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

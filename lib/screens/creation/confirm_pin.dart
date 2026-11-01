@@ -267,6 +267,7 @@ class _ConfirmPinState extends ConsumerState<ConfirmPin>
                     }
                   }
                 },
+                disabledLabel: context.l10n.barNeedPinAgain,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

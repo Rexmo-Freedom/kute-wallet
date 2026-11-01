@@ -247,6 +247,8 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
               label: l10n.share,
               onPrimary: () => unawaited(_share(data)),
               busy: _busy,
+              // Never off: busy while the image renders, never waiting on input.
+              disabledLabel: null,
               category: SearchCategory.all,
               source: 'brag_preview',
             ),

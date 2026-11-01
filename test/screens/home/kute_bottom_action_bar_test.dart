@@ -350,9 +350,13 @@ void main() {
     // Send (dollars can leave as a coin too, so never "To Bitcoin").
     final actions = UsdAccountActionBar.moneyActions(
         tester.element(find.byType(UsdAccountActionRow)));
-    expect(actions.map((a) => a.label), ['Add', 'Portfolio', 'Send']);
-    expect(actions.map((a) => a.trackingId), ['receive', 'portfolio', 'send']);
+    // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
+    expect(actions.map((a) => a.label),
+        ['Manage with AI', 'Add', 'Portfolio', 'Send']);
+    expect(actions.map((a) => a.trackingId),
+        ['manage_with_ai', 'receive', 'portfolio', 'send']);
     expect(actions.map((a) => a.icon), [
+      Icons.auto_awesome_rounded,
       Icons.south_west_rounded,
       InvestmentsTab.positions.icon,
       Icons.north_east_rounded

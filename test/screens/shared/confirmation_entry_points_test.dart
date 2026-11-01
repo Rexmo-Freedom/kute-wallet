@@ -22,6 +22,8 @@ import 'package:kute/screens/usd/usd_account_screen.dart'
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
+
 void main() {
   late GlobalKey<NavigatorState> rootKey;
 
@@ -60,6 +62,8 @@ void main() {
               .copyWith(splashFactory: NoSplash.splashFactory),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // The sheet's Done is the shell bar, over the navigator.
+          builder: withKuteShellBar,
         ),
       ),
     ));
@@ -70,7 +74,7 @@ void main() {
 
   Future<void> tapDoneAndExpectHost(WidgetTester tester) async {
     // Done is always the primary button; a "View ..." is the quiet one.
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -176,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(isClose ? 'Close order placed' : 'Order placed'),
           findsOneWidget);
-      expect(find.widgetWithText(AppButton, 'Done'), findsOneWidget);
+      expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
       final view = find.widgetWithText(AppTextButton, 'View orders');
       expect(view, findsOneWidget);
 
@@ -206,7 +210,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('View orders'), findsNothing);
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('host'), findsOneWidget);
@@ -278,7 +282,7 @@ void main() {
       overlay: const KuteSuccessOverlay(headlineLabel: 'Received', amount: ''),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
   });
@@ -305,7 +309,7 @@ void main() {
     expect(find.text('send sheet'), findsNothing);
     expect(find.text('home screen'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(AppButton, 'Done'));
+    await tester.tap(kuteBarPrimaryWithText('Done'));
     await tester.pumpAndSettle();
     expect(find.byType(KuteConfirmation), findsNothing);
     expect(find.text('home screen'), findsOneWidget);

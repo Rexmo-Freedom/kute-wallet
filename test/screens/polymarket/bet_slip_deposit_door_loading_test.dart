@@ -808,11 +808,8 @@ void main() {
           findsOneWidget);
       expect(barPrimaryBusy(tester), isTrue);
       expect(barPrimaryLabel(tester), 'Getting your prediction ready');
-      expect(
-          find.descendant(
-              of: findBarPrimary(),
-              matching: find.byType(CircularProgressIndicator)),
-          findsOneWidget);
+      // The busy shimmer across the button (it replaced the ring).
+      expect(barPrimaryRing(), findsOneWidget);
       final button = tester.widget<Semantics>(find
           .ancestor(of: findBarPrimary(), matching: find.byType(Semantics))
           .first);

@@ -154,6 +154,8 @@ class KuteBarContext {
         busy = false,
         onPrimary = null,
         busyLabel = null,
+        disabledLabel = null,
+        pairedWidth = null,
         style = null;
 
   /// Where this surface's Sal control sits (see [KuteBarPlacement]).
@@ -165,18 +167,28 @@ class KuteBarContext {
 
   /// The bar as the surface's primary button: [label] ("Place prediction
   /// · $10", "Continue"), [onPrimary] the exact handler the page's button
-  /// had, [enabled] false for the disabled state (surface fill, the quiet
-  /// label: "Enter an amount" or the page's own copy in [label]), [busy]
-  /// while the action runs ([busyLabel] beside the progress, else
-  /// [label]). A long press opens the Sal sheet with [category] /
-  /// [searchHint] so asking Sal stays one gesture away.
+  /// had, [enabled] false for the disabled state, [busy] while the action
+  /// runs ([busyLabel], "Sending…", else [label]). A long press opens the
+  /// Sal sheet with [category] / [searchHint] so asking Sal stays one
+  /// gesture away.
+  ///
+  /// THE DISABLED BUTTON SAYS WHAT TO DO (founder, 1 November 2026): while
+  /// [enabled] is false the button reads [disabledLabel], the step the
+  /// person has to take ("Enter an amount", "Add who to send to", "Paste
+  /// an address", "Tick the box to continue"), in the light pill look;
+  /// never the greyed action. EVERY call site sets it (an architecture
+  /// test holds them to it); null only where the button is never disabled
+  /// for want of input (it is then [label]).
   const KuteBarContext.primary({
     required this.label,
     required this.onPrimary,
     this.enabled = true,
     this.busy = false,
     this.busyLabel,
+    this.disabledLabel,
     this.style,
+    this.clip = 'idle',
+    this.pairedWidth,
     this.category = SearchCategory.all,
     this.searchHint,
     this.source = 'bar',
@@ -184,7 +196,6 @@ class KuteBarContext {
   })  : question = null,
         kind = KuteBarKind.primaryAction,
         sublabel = null,
-        clip = 'idle',
         actions = const [],
         prompts = const [],
         hidden = false,
@@ -196,6 +207,25 @@ class KuteBarContext {
   final bool busy;
   final VoidCallback? onPrimary;
   final String? busyLabel;
+
+  /// What the disabled button says (see [KuteBarContext.primary]).
+  final String? disabledLabel;
+
+  /// The primary button exactly this wide: a page that pairs it with a
+  /// pill of its own (the Recover screen's account option) gives both the
+  /// wider of their two widths, capped at the page's width.
+  final double? pairedWidth;
+
+  /// Whether the primary button takes a tap now.
+  bool get actionable => enabled && !busy && onPrimary != null;
+
+  /// The words on the primary button now: the busy label while busy, the
+  /// action while it takes a tap, else what the person has to do.
+  String get primaryLabel => busy
+      ? (busyLabel ?? label)
+      : actionable
+          ? label
+          : (disabledLabel ?? label);
 
   /// The surface's own button look for the bar (a tinted slip's); null
   /// for the app's primary button. See [KuteBarPrimaryStyle].
@@ -220,6 +250,8 @@ class KuteBarContext {
         busy = false,
         onPrimary = null,
         busyLabel = null,
+        disabledLabel = null,
+        pairedWidth = null,
         placement = KuteBarPlacement.bottom,
         style = null;
 
@@ -232,7 +264,9 @@ class KuteBarContext {
   final String label;
   final String? sublabel;
 
-  /// Sal's clip in the bar: `search`, or `share` on a market or position.
+  /// Sal's clip in the bar: `search`, or `share` on a market or position;
+  /// on a primary button the clip while it takes a tap (`idle`, `happy` on
+  /// a result sheet's Done).
   final String clip;
   final List<KuteBarAction> actions;
 
@@ -274,7 +308,10 @@ class KuteBarContext {
           enabled: enabled,
           busy: busy,
           busyLabel: busyLabel,
+          disabledLabel: disabledLabel,
           style: style,
+          clip: clip,
+          pairedWidth: pairedWidth,
           category: category,
           searchHint: searchHint,
           source: source,

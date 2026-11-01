@@ -144,7 +144,8 @@ class _StandingDepositRefundActionState
                                           chain, input.text.trim(),
                                           mainnet: true) ==
                                       AddressFormatMatch.ok,
-                                  source: 'standing_deposit_refund'),
+                                  source: 'standing_deposit_refund',
+                                  disabledLabel: input.text.trim().isEmpty ? ctx.l10n.barNeedAddress : ctx.l10n.barNeedValidAddress,),
                               child:
                                   SizedBox(height: kuteBarScrollClearance.h)),
                         ])),

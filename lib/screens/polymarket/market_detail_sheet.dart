@@ -3,7 +3,7 @@ import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+    show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -1660,22 +1660,22 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// line, overflows that line evenly above and below.
   Widget _figureWithShare(Widget figure, KuteBarContext bar,
       {required double lineHeight}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: figure),
-        SizedBox(width: 8.w),
-        SizedBox(
-          height: lineHeight,
-          child: OverflowBox(
-            fit: OverflowBoxFit.deferToChild,
-            alignment: Alignment.center,
-            minHeight: KuteSalHeaderButton.height,
-            maxHeight: KuteSalHeaderButton.height,
-            child: KuteSalHeaderButton(barContext: bar),
-          ),
+    // The pill says "Send to a friend" where that fits beside the figure,
+    // else "Share" (KuteFigureShareRow).
+    return KuteFigureShareRow(
+      gap: 8.w,
+      alignTop: true,
+      figure: figure,
+      share: SizedBox(
+        height: lineHeight,
+        child: OverflowBox(
+          fit: OverflowBoxFit.deferToChild,
+          alignment: Alignment.center,
+          minHeight: KuteSalHeaderButton.height,
+          maxHeight: KuteSalHeaderButton.height,
+          child: KuteSalHeaderButton(barContext: bar),
         ),
-      ],
+      ),
     );
   }
 

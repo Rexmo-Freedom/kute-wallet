@@ -128,15 +128,32 @@ String shareVenueFor(String linkVenue) => linkVenue == kMarketLinkInvesting
 class KuteBarPreview {
   const KuteBarPreview({
     required this.title,
+    this.subtitle,
     this.line,
     this.imageUrl,
     this.coin,
+    this.wireCoin,
+    this.coinCategory,
+    this.coinIconUrl,
   });
 
+  /// The name the market page's header gives it: the event title, or an
+  /// Investing market's display name ("Nasdaq 100").
   final String title;
+
+  /// The quieter line under it: an Investing market's ticker ("XYZ100")
+  /// when the title is its display name.
+  final String? subtitle;
   final String? line;
   final String? imageUrl;
+
+  /// An Investing market's logo, drawn exactly as its page header draws
+  /// it (HlCoinIcon): the display coin, the wire coin a builder-dex market
+  /// trades under ("xyz:XYZ100"), its category and its logo URL.
   final String? coin;
+  final String? wireCoin;
+  final String? coinCategory;
+  final String? coinIconUrl;
 }
 
 /// A market page's bar context: the plain context plus the preview card
@@ -229,6 +246,13 @@ KuteBarContext marketBarContext(
   double? outcomeChance,
   String? side,
   String? imageUrl,
+  // An Investing market as its page header shows it: the display name
+  // ([title] is then "Nasdaq 100") with the ticker under it, and the
+  // logo's sources (HlCoinIcon).
+  String? ticker,
+  String? wireCoin,
+  String? coinCategory,
+  String? coinIconUrl,
   double actionRowHeight = 0,
   // The page's Sal control: the floating pill, or the circle in the page's
   // header (market, position and event pages; see KuteBarPlacement).
@@ -273,9 +297,13 @@ KuteBarContext marketBarContext(
     placement: placement,
     preview: KuteBarPreview(
       title: title,
+      subtitle: ticker != null && ticker != title ? ticker : null,
       line: previewLine,
       imageUrl: investing ? null : imageUrl,
       coin: investing ? cleanSlug : null,
+      wireCoin: investing ? wireCoin : null,
+      coinCategory: investing ? coinCategory : null,
+      coinIconUrl: investing ? coinIconUrl : null,
     ),
     actionRowHeight: actionRowHeight,
     actions: [

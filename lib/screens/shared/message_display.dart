@@ -4,6 +4,7 @@ import 'package:kute/theme/kute_motion.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/theme/kute_overlay_surface.dart';
 
 void showMessageSnackBarInfo({
   required BuildContext context,
@@ -277,25 +278,28 @@ class _AnimatedToastWidgetState extends State<_AnimatedToastWidget>
       top: MediaQuery.of(context).padding.top + 16.h,
       left: 16.w,
       right: 16.w,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: GestureDetector(
-              onTap: widget.message.onTap == null
-                  ? null
-                  : () {
-                      final tap = widget.message.onTap!;
-                      widget.onDismiss();
-                      tap();
-                    },
-              onVerticalDragUpdate: _onVerticalDragUpdate,
-              onVerticalDragEnd: _onVerticalDragEnd,
-              child: Transform.translate(
-                offset: Offset(0, _dragOffset),
-                child: _buildToastContent(),
+      // On the root overlay: the theme's text (kute_overlay_surface.dart).
+      child: KuteOverlaySurface(
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: GestureDetector(
+                onTap: widget.message.onTap == null
+                    ? null
+                    : () {
+                        final tap = widget.message.onTap!;
+                        widget.onDismiss();
+                        tap();
+                      },
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
+                child: Transform.translate(
+                  offset: Offset(0, _dragOffset),
+                  child: _buildToastContent(),
+                ),
               ),
             ),
           ),

@@ -212,6 +212,7 @@ class _BetaSurveyScreenState extends ConsumerState<BetaSurveyScreen> {
                     label: l10n.betaSurveyContinue,
                     onPrimary: _submit,
                     source: 'beta_survey',
+                    disabledLabel: null,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

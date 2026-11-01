@@ -537,6 +537,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                               : l10n.claimWaitingForSender(sender),
                           onPrimary: () => unawaited(_placePick()),
                           enabled: _arrived,
+                          // Off until the sender's money lands: the wait
+                          // is the step.
+                          disabledLabel: l10n.claimWaitingForSender(sender),
                         ),
                       ],
                     ),
@@ -568,6 +571,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     bool enabled = true,
     bool busy = false,
     String? busyLabel,
+    String? disabledLabel,
   }) =>
       KuteBarContextScope(
         barContext: KuteBarContext.primary(
@@ -577,6 +581,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           busy: busy,
           busyLabel: busyLabel,
           source: 'claim',
+          disabledLabel: disabledLabel,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );

@@ -1373,6 +1373,7 @@ class _HlAdjustMarginSheetState extends ConsumerState<HlAdjustMarginSheet> {
                                   ? l10n.feeUiCalculating
                                   : l10n.loading,
                               color: _side,
+                              disabledLabel: canConfirm ? null : l10n.barNeedAmount,
                             ),
                           StepsReveal(
                             child: runSteps != null && runStep != null

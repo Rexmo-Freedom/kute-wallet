@@ -236,7 +236,12 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     // header away, the bar stays away too.
     final bar = marketBarContext(
       context,
-      title: widget.position.coin,
+      // As the header names it, the logo drawn as the header draws it.
+      title: hlFriendlyName(m?.coin ?? pos.coin) ?? (m?.coin ?? pos.coin),
+      ticker: m?.coin ?? pos.coin,
+      wireCoin: m?.wireCoin ?? pos.coin,
+      coinCategory: m?.category,
+      coinIconUrl: m?.iconUrl,
       venue: kMarketLinkInvesting,
       slug: widget.position.coin,
       // The pick: this position's side.

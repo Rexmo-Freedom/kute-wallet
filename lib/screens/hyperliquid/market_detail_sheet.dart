@@ -3,7 +3,7 @@ import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+    show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
@@ -325,7 +325,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     // control, the Share pill (KuteSalHeaderButton), sits beside the price.
     final bar = marketBarContext(
       context,
-      title: widget.market.coin,
+      // As the header names it, the logo drawn as the header draws it
+      // (the Sal sheet's preview and send cards; founder: never the raw
+      // ticker and a letter tile).
+      title: hlFriendlyName(widget.market.coin) ?? widget.market.coin,
+      ticker: widget.market.coin,
+      wireCoin: widget.market.wireCoin,
+      coinCategory: widget.market.category,
+      coinIconUrl: widget.market.iconUrl,
       venue: kMarketLinkInvesting,
       slug: widget.market.coin,
       price: formatHlPrice(
@@ -415,34 +422,29 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // a colour that argues with the change. Sal's Share
                       // pill at the end of the row, centred on the price
                       // (founder, 31 October 2026: next to the big number).
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: HlTickPrice(
-                                key: const ValueKey('hl-detail-price'),
-                                price: price,
-                                text: formatHlPrice(price,
-                                    decimalCap: m.pxDecimalCap),
-                                style: TextStyle(
-                                  color: c.textPrimary,
-                                  fontSize: 38.sp,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -1.0,
-                                  height: 1.1,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
-                                ),
-                              ),
+                      KuteFigureShareRow(
+                        gap: 8.w,
+                        figure: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: HlTickPrice(
+                            key: const ValueKey('hl-detail-price'),
+                            price: price,
+                            text: formatHlPrice(price,
+                                decimalCap: m.pxDecimalCap),
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 38.sp,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.0,
+                              height: 1.1,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
                             ),
                           ),
-                          SizedBox(width: 8.w),
-                          KuteSalHeaderButton(barContext: bar),
-                        ],
+                        ),
+                        share: KuteSalHeaderButton(barContext: bar),
                       ),
                       SizedBox(height: 4.h),
                       // Wrap (not Row) so the change and the optional
@@ -3570,6 +3572,7 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                     enabled: _text.text.trim().isNotEmpty,
                     category: SearchCategory.perpetuals,
                     source: 'chart_note',
+                    disabledLabel: context.l10n.barNeedNote,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

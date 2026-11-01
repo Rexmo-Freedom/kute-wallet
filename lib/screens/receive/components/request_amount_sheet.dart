@@ -229,10 +229,10 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // The close X on the left, as on every receive sheet (this
-          // sheet only ever opens from a receive).
+          // sheet only ever opens from a receive). No title (founder, 1
+          // November 2026: "the user already knows that"): the amount is
+          // the sheet.
           const ReceiveSheetHeader(leading: KuteCloseButton()),
-          AppBottomSheetHeader(
-              title: context.l10n.receiveRequestAmount, showDragHandle: false),
           // Hero block. It is the part that gives way on a short screen
           // or at a large text scale, so the keypad and the one CTA
           // below always stay on screen.
@@ -280,6 +280,7 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
               enabled: positive && error == null && !_waiting,
               busy: _waiting,
               source: 'receive_request',
+              disabledLabel: positive ? context.l10n.barNeedCheckAmount : context.l10n.barNeedAmount,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

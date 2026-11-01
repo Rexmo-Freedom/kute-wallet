@@ -440,10 +440,17 @@ void main() {
     expect(tester.getTopLeft(row).dy,
         greaterThan(tester.getBottomLeft(find.byType(PoolBalanceHeader)).dy - 1));
     final actions = UsdAccountActionBar.moneyActions(tester.element(row));
-    expect(actions.map((a) => a.label),
-        [l10n.investmentsAdd, l10n.walletPortfolioAction, l10n.send]);
-    expect(actions.map((a) => a.trackingId), ['receive', 'portfolio', 'send']);
+    // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
+    expect(actions.map((a) => a.label), [
+      l10n.connectAiAction,
+      l10n.investmentsAdd,
+      l10n.walletPortfolioAction,
+      l10n.send
+    ]);
+    expect(actions.map((a) => a.trackingId),
+        ['manage_with_ai', 'receive', 'portfolio', 'send']);
     expect(actions.map((a) => a.icon), [
+      Icons.auto_awesome_rounded,
       Icons.south_west_rounded,
       Icons.pie_chart_rounded,
       Icons.north_east_rounded

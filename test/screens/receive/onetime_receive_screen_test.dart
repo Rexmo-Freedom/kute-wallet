@@ -278,7 +278,15 @@ Future<void> _requestUsdt(WidgetTester tester, String amount) async {
   await _settle(tester);
   expect(find.byType(RequestAmountSheet), findsOneWidget);
   tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged(amount);
+  await _barFollows(tester);
+}
+
+/// The bar redraws a frame after the page, its words sliding to the new
+/// state (kute_shell_bar.dart).
+Future<void> _barFollows(WidgetTester tester) async {
   await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 Finder addressLineOf(String address) => find
@@ -286,8 +294,11 @@ Finder addressLineOf(String address) => find
 
 /// Create request is the bar (kute_bar_test_support.dart).
 KuteBarPrimaryProbe _createRequest(WidgetTester tester) {
-  expect(kuteBarPrimaryWithText(_l10n.receiveCreateRequest), findsOneWidget);
-  return kuteBarPrimaryProbe(tester);
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, _l10n.receiveCreateRequest);
+  // The bar letters it, or the step to take while it is off.
+  expect(kuteBarPrimaryWithText(probe.context.primaryLabel), findsOneWidget);
+  return probe;
 }
 
 final _refundField = find.descendant(
@@ -295,8 +306,12 @@ final _refundField = find.descendant(
     matching: find.byType(TextField));
 
 KuteBarPrimaryProbe _continueButton(WidgetTester tester) {
-  expect(kuteBarPrimaryWithText(_l10n.continueLabel), findsOneWidget);
-  return kuteBarPrimaryProbe(tester);
+  final probe = kuteBarPrimaryProbe(tester);
+  expect(probe.text, _l10n.continueLabel);
+  // The bar letters Continue, or the step to take while it is off
+  // ("Paste an address", "Check the address").
+  expect(kuteBarPrimaryWithText(probe.context.primaryLabel), findsOneWidget);
+  return probe;
 }
 
 /// "Create request", then the return-address step: [refund] typed and
@@ -309,7 +324,7 @@ Future<void> _createWithRefund(WidgetTester tester, String? refund) async {
     await tester.tap(find.widgetWithText(AppTextButton, _l10n.skip));
   } else {
     await tester.enterText(_refundField, refund);
-    await tester.pump();
+    await _barFollows(tester);
     await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
   }
   await _settle(tester);
@@ -411,7 +426,7 @@ void main() {
     expect(_createRequest(tester).onPressed, isNull);
 
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('2');
-    await tester.pump();
+    await _barFollows(tester);
     final ok = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(ok.minimumLabel, _l10n.amountMinimumInline('\$2.00'));
     expect(ok.minimumIsError, isFalse);
@@ -584,7 +599,7 @@ void main() {
     expect(asked, ['ethereum:USDT:USDB']);
     expect(find.byType(RequestAmountSheet), findsOneWidget);
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('50000');
-    await tester.pump();
+    await _barFollows(tester);
     await _createWithRefund(tester, _refund);
     expect(quoted.single.destinationAsset, 'BTC');
     final generated =
@@ -692,7 +707,7 @@ void main() {
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.amountMinimumInline('\$0.75'));
     tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged('0.5');
-    await tester.pump();
+    await _barFollows(tester);
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$0.75'));
     await _unmount(tester);
@@ -845,7 +860,7 @@ void main() {
 
       // 3. The address, once the return-address sheet has closed.
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
+      await _barFollows(tester);
       await tester.tap(kuteBarPrimaryWithText(_l10n.continueLabel));
       await _settle(tester);
       await _settle(tester);
@@ -938,7 +953,7 @@ void main() {
       expect(tester.takeException(), isNull);
       // Typing still works with the keyboard up.
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
+      await _barFollows(tester);
       expect(_continueButton(tester).onPressed, isNotNull);
       await _unmount(tester);
     });
@@ -979,14 +994,14 @@ void main() {
         '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
       ]) {
         await tester.enterText(_refundField, wrong);
-        await tester.pump();
+        await _barFollows(tester);
         expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
             findsOneWidget,
             reason: wrong);
         expect(_continueButton(tester).onPressed, isNull, reason: wrong);
       }
       await tester.enterText(_refundField, _refund);
-      await tester.pump();
+      await _barFollows(tester);
       expect(find.text(_l10n.usdSendAddressWrongNetwork('ethereum')),
           findsNothing);
       expect(_continueButton(tester).onPressed, isNotNull);

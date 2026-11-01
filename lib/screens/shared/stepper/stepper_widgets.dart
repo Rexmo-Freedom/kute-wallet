@@ -186,6 +186,10 @@ class SharedStepCta extends StatelessWidget {
 
   /// Optional label override; defaults to the localized "Continue".
   final String? label;
+
+  /// What the bar says while [enabled] is false: the step to take ("Add
+  /// who to send to", "Enter an amount"; KuteBarContext.disabledLabel).
+  final String? disabledLabel;
   final VoidCallback onContinue;
 
   const SharedStepCta({
@@ -198,6 +202,7 @@ class SharedStepCta extends StatelessWidget {
     this.barSteps = const {},
     this.source = 'step_cta',
     this.label,
+    this.disabledLabel,
   });
 
   @override
@@ -210,6 +215,7 @@ class SharedStepCta extends StatelessWidget {
           onPrimary: onContinue,
           enabled: enabled,
           source: source,
+          disabledLabel: disabledLabel,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );

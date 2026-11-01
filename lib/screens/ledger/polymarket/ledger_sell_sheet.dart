@@ -677,6 +677,7 @@ class _LedgerSellSheetState extends ConsumerState<LedgerSellSheet> {
                             : canSell
                                 ? '${l10n.sell} · ${ledgerFormatUsd(_amountUsd)}'
                                 : l10n.sell,
+                        disabledLabel: canSell ? null : l10n.barNeedAmount,
                       ),
               ),
             ],
@@ -907,6 +908,7 @@ class _LedgerSellAdvancedScreen extends StatelessWidget {
                 onPrimary: () => Navigator.of(context).pop(),
                 category: SearchCategory.predictions,
                 source: 'ledger_sell_advanced',
+                disabledLabel: null,
               ),
               child: SizedBox(height: kuteBarScrollClearance.h),
             ),

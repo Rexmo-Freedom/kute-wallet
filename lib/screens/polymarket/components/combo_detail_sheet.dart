@@ -423,6 +423,7 @@ class _Actions extends StatelessWidget {
         label: context.l10n.comboClose,
         onPrimary: () => _CloseComboSheet.show(context, p),
         source: 'combo_detail',
+        disabledLabel: null,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );
@@ -665,6 +666,7 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
                       },
                       category: SearchCategory.predictions,
                       source: 'combo_close',
+                      disabledLabel: null,
                     )
                   : KuteBarContext.primary(
                       label: l10n.comboClose,
@@ -673,6 +675,7 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
                       busy: _loading || _placing,
                       category: SearchCategory.predictions,
                       source: 'combo_close',
+                      disabledLabel: q == null ? l10n.barNeedPrice : null,
                     ),
               child: SizedBox(height: kuteBarScrollClearance.h),
             ),

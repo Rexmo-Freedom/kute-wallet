@@ -170,12 +170,14 @@ class _CapabilityUnavailableSheetState
                     onPrimary: _checkConnection,
                     category: _category,
                     source: 'capability_unavailable',
+                    disabledLabel: null,
                   )
                 : KuteBarContext.primary(
                     label: l10n.gotIt,
                     onPrimary: () => Navigator.of(context).pop(false),
                     category: _category,
                     source: 'capability_unavailable',
+                    disabledLabel: null,
                   ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

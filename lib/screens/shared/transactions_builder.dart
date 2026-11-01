@@ -5626,6 +5626,7 @@ class _UnclaimedDepositSheetState
                     enabled: !locked,
                     busy: _claiming || claimElsewhere,
                     source: 'unclaimed_deposit',
+                    disabledLabel: null,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

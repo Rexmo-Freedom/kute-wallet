@@ -19,6 +19,7 @@ import 'package:kute/services/secure/flutter_secret_store.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
+import '../../helpers/kute_bar_test_support.dart';
 import '../../services/support/fake_secret_store.dart';
 
 const phrase =
@@ -104,6 +105,8 @@ void main() {
               extensions: [AppColorsExtension.light()]),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // The phrase option is the shell bar, over the navigator.
+          builder: withKuteShellBar,
           home: const RecoverChoiceScreen(),
         ),
       ),
@@ -220,4 +223,30 @@ void main() {
     expect(steps(), ['passkey_lookup/auto']);
     await tester.pump(const Duration(seconds: 5));
   });
+
+  testWidgets(
+      'one pair: the account pill right above the bar, the same height, the '
+      'same width, both centred; no icon square; "Recover your account"',
+      (tester) async {
+    PasskeyService.debugSetClient(_Client(const []));
+    await pumpScreen(tester);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Recover your account'), findsOneWidget);
+    expect(find.byIcon(Icons.restore_rounded), findsNothing);
+    final pill =
+        tester.getRect(find.byKey(const ValueKey('kute-bar-secondary-pill')));
+    final bar = tester.getRect(kuteBarPrimary);
+    expect(find.descendant(
+            of: kuteBarPrimary, matching: find.text('Use your recovery phrase')),
+        findsOneWidget);
+    expect(pill.height, bar.height);
+    expect(pill.width, moreOrLessEquals(bar.width, epsilon: 1));
+    expect(pill.center.dx, moreOrLessEquals(215, epsilon: 1));
+    expect(bar.center.dx, moreOrLessEquals(215, epsilon: 1));
+    // Directly above it, 12 apart.
+    expect(bar.top - pill.bottom, moreOrLessEquals(12, epsilon: 2.5));
+    await tester.pump(const Duration(seconds: 5));
+  });
 }
+

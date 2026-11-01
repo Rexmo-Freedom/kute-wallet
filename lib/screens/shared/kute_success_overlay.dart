@@ -426,19 +426,31 @@ class _KuteConfirmationState extends State<KuteConfirmation>
               ),
             ),
             SizedBox(height: 24.h),
-            AppButton(
-              text: widget.buttonText ?? context.l10n.done,
-              onPressed: () => _finish(widget.onDone),
-            ),
+            // THE BAR IS THE BUTTON (founder, 1 November 2026: the search
+            // pill floated over this sheet's own black button): Done /
+            // Continue is the bar's primary, Sal happy; the sheet draws no
+            // button of its own, the quiet second one stays above the bar.
             if (secondary != null && widget.onSecondary != null) ...[
-              SizedBox(height: 6.h),
               AppTextButton(
                 key: const ValueKey('kute-confirmation-secondary'),
                 text: secondary,
                 textColor: c.textPrimary,
                 onPressed: () => _finish(widget.onSecondary),
               ),
+              SizedBox(height: 6.h),
             ],
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: widget.buttonText ?? context.l10n.done,
+                onPrimary: () => _finish(widget.onDone),
+                clip: 'happy',
+                disabledLabel: null,
+                source: 'confirmation',
+              ),
+              child: SizedBox(
+                  key: const ValueKey('kute-confirmation-bar-room'),
+                  height: kuteBarScrollClearance.h - 8.h),
+            ),
           ],
         ),
       ),

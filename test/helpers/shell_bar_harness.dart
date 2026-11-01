@@ -181,9 +181,16 @@ bool barPrimaryEnabled(WidgetTester tester) {
 /// Whether the button shows its progress ring.
 bool barPrimaryBusy(WidgetTester tester) => barPrimaryContext(tester).busy;
 
-/// The progress ring inside the button, there while busy.
+/// Whether the bar's button runs under Reduce Motion (no shimmer then).
+bool barReduceMotion(WidgetTester tester) =>
+    MediaQuery.maybeDisableAnimationsOf(tester.element(findBarPrimary())) ??
+    false;
+
+/// The busy state's shimmer across the button (kute_shell_bar.dart; it
+/// replaced the progress ring), there while busy with motion on.
 Finder barPrimaryRing() => find.descendant(
-    of: findBarPrimary(), matching: find.byType(CircularProgressIndicator));
+    of: findBarPrimary(),
+    matching: find.byKey(const ValueKey('kute-bar-primary-shimmer')));
 
 /// The colour the bar letters its label in (white on the primary fill in
 /// light mode, the mode's background in dark, the quiet ink disabled).

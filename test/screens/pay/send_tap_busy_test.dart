@@ -74,9 +74,10 @@ Future<_ReviewState> _pump(WidgetTester tester,
   return tester.state<_ReviewState>(find.byType(_Review));
 }
 
-/// The bar's progress ring while the send is busy.
+/// The bar's busy shimmer while the send is busy (it replaced the ring).
 Finder get _spinner => find.descendant(
-    of: kuteBarPrimary, matching: find.byType(CircularProgressIndicator));
+    of: kuteBarPrimary,
+    matching: find.byKey(const ValueKey('kute-bar-primary-shimmer')));
 
 void main() {
   test('busy goes up before the route runs and comes down after', () async {

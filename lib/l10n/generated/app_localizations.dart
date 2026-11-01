@@ -18215,6 +18215,144 @@ abstract class AppLocalizations {
   /// **'Send the market or show off your result'**
   String get positionShareCardSub;
 
+  /// The Recover screen's title (sentence case, founder 1 November 2026), above the two ways back in: the Apple / Google account and the recovery phrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover your account'**
+  String get recoverYourAccountTitle;
+
+  /// The bar's primary button while no amount is typed yet (founder, 1 November 2026: a disabled button says the step to take, never the greyed action).
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an amount'**
+  String get barNeedAmount;
+
+  /// Disabled primary button: the typed amount is more than can be spent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower the amount'**
+  String get barNeedLowerAmount;
+
+  /// Disabled primary button: the typed amount is under the minimum.
+  ///
+  /// In en, this message translates to:
+  /// **'Raise the amount'**
+  String get barNeedRaiseAmount;
+
+  /// Disabled primary button on a send flow's first step, before a recipient is entered.
+  ///
+  /// In en, this message translates to:
+  /// **'Add who to send to'**
+  String get barNeedRecipient;
+
+  /// Disabled primary button: the address needs a network picked before continuing.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a network'**
+  String get barNeedNetwork;
+
+  /// Disabled primary button: a coin must be picked first.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a coin'**
+  String get barNeedCoin;
+
+  /// Disabled primary button while the address field is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste an address'**
+  String get barNeedAddress;
+
+  /// Disabled primary button: the address typed is not valid for this network.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the address'**
+  String get barNeedValidAddress;
+
+  /// Disabled primary button until the acknowledgement box is ticked.
+  ///
+  /// In en, this message translates to:
+  /// **'Tick the box to continue'**
+  String get barNeedTick;
+
+  /// Disabled primary button until a 6-digit PIN is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your 6-digit PIN'**
+  String get barNeedPin;
+
+  /// Disabled primary button on the confirm-PIN step until the PIN is typed again.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the PIN again'**
+  String get barNeedPinAgain;
+
+  /// Disabled primary button until a name is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name'**
+  String get barNeedName;
+
+  /// Disabled primary button until a code is typed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a code'**
+  String get barNeedCode;
+
+  /// Disabled primary button on recovery until the 12-word phrase is entered.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your 12 words'**
+  String get barNeedPhrase;
+
+  /// Disabled primary button on the watch-only import until a valid extended public key is pasted.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a public key'**
+  String get barNeedPublicKey;
+
+  /// Disabled primary button on the chart note sheet while the note is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a note'**
+  String get barNeedNote;
+
+  /// Disabled primary button on the claim fee picker until a valid fee is picked.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a fee'**
+  String get barNeedFee;
+
+  /// Disabled primary button while a fresh price is fetched.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting a price…'**
+  String get barNeedPrice;
+
+  /// Disabled primary button until one option is picked.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick an option'**
+  String get barNeedOption;
+
+  /// Disabled primary button on the transactions export until at least one wallet is picked.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a wallet'**
+  String get barNeedWallet;
+
+  /// Disabled primary button: the typed amount is outside what this request or move allows (the line above the keypad says why).
+  ///
+  /// In en, this message translates to:
+  /// **'Check the amount'**
+  String get barNeedCheckAmount;
+
+  /// Disabled primary button while something it needs is still loading.
+  ///
+  /// In en, this message translates to:
+  /// **'One moment…'**
+  String get barNeedWait;
+
   /// The floating bar on the Dollars tab while Predictions is the picked half.
   ///
   /// In en, this message translates to:

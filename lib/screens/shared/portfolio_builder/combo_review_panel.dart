@@ -63,7 +63,8 @@ enum _Phase { quoting, quoted, noQuote, error, placing, placed, pending }
 /// .dart): the sheet's primary is the floating Sal bar's primary action;
 /// Cancel / Close is a text button above it, over the bar's clearance.
 Widget _bar(String label, VoidCallback? onPrimary,
-        {bool busy = false, String source = 'combo_review'}) =>
+        {bool busy = false,
+        String? disabledLabel, String source = 'combo_review'}) =>
     KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,
@@ -71,6 +72,7 @@ Widget _bar(String label, VoidCallback? onPrimary,
         enabled: onPrimary != null && !busy,
         busy: busy,
         source: source,
+        disabledLabel: disabledLabel,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );
@@ -483,6 +485,7 @@ class _ComboReviewPanelState extends ConsumerState<ComboReviewPanel> {
             l10n.comboPlace,
             _phase == _Phase.quoted && q != null ? _confirm : null,
             busy: busy || _phase == _Phase.quoting,
+            disabledLabel: l10n.barNeedPrice,
           ),
       ],
     );

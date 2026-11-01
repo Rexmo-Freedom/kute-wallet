@@ -379,11 +379,13 @@ void main() {
         find.descendant(
             of: find.byType(RequestAmountSheet),
             matching: find.text(_l10n.receiveRequestAmount)),
-        findsOneWidget);
+        findsNothing,
+        reason: 'no title on the Request amount sheet');
     // Its Create request is the bar (shell_bar_harness.dart), declared by
     // the sheet and drawn once the bar has taken the context.
     await pumpBar(tester);
-    expect(barPrimaryText(_l10n.receiveCreateRequest), findsOneWidget);
+    // Nothing typed yet: the button says the step to take.
+    expect(barPrimaryText(_l10n.barNeedAmount), findsOneWidget);
     expect(
         tester
             .widget<KuteBarContextScope>(find.descendant(

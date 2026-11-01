@@ -34,6 +34,8 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart'
+    show KuteBarPrimaryButton, KuteBarSecondaryPill;
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -1075,21 +1077,11 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Same header shape as the passkey screen it
-                            // sits beside in this flow: a mark, the
-                            // question, then the explanation.
-                            Center(
-                              child: Container(
-                                width: 80.w,
-                                height: 80.w,
-                                decoration: AppDecorations.card(context),
-                                child: Icon(Icons.restore_rounded,
-                                    size: 40.sp, color: c.textPrimary),
-                              ),
-                            ),
-                            SizedBox(height: 24.h),
+                            // The question, then the explanation; Sal with
+                            // his magnifier below is the screen's picture
+                            // (founder, 1 November 2026: no icon square).
                             Text(
-                              l10n.recoverAccount,
+                              l10n.recoverYourAccountTitle,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: c.textPrimary,
@@ -1130,33 +1122,64 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                               ),
                             ),
                             SizedBox(height: 32.h),
-                            // The account restore keeps its drawn button:
-                            // the passkey lookup waits on it, as a
-                            // spinner. Recover with phrase is the bar
-                            // (kute_bar_context.dart), under it.
-                            AppButton(
-                              text: l10n.recoverWithAccount(Platform.isIOS
-                                  ? l10n.passkeyChoiceAppleAccount
-                                  : l10n.passkeyChoiceGoogleAccount),
-                              icon: Icons.fingerprint_rounded,
-                              height: 60.h,
-                              variant: AppButtonVariant.secondary,
-                              isOutlined: true,
-                              onPressed: busy ? null : _handlePasskeyChoice,
-                              // The passkey lookup and restore wait here,
-                              // on the button, not behind a full-screen
-                              // overlay over this page.
-                              isLoading: busy,
-                            ),
-                            KuteBarContextScope(
-                              barContext: KuteBarContext.primary(
-                                label: l10n.recoverWithPhrase,
-                                onPrimary: _handleSeedChoice,
-                                enabled: !busy,
-                                source: 'recover_choice',
-                              ),
-                              child: SizedBox(height: kuteBarScrollClearance.h),
-                            ),
+                            // ONE PAIR (founder, 1 November 2026): the
+                            // phrase is the bar, the primary; the account
+                            // is a pill of the bar's own height and width
+                            // rule right above it, in the light look, its
+                            // lookup spinner inside. Both the wider of
+                            // their two widths, centred.
+                            Builder(builder: (context) {
+                              final accountLabel = l10n.recoverWithAccount(
+                                  Platform.isIOS
+                                      ? l10n.passkeyChoiceAppleAccount
+                                      : l10n.passkeyChoiceGoogleAccount);
+                              // At most the page's own width (its 24
+                              // gutters), so the two stay equal.
+                              final width = math.min(
+                                  MediaQuery.sizeOf(context).width - 48.w,
+                                  math.max(
+                                      KuteBarPrimaryButton.widthFor(
+                                          context, l10n.recoverWithPhrase),
+                                      KuteBarSecondaryPill.widthFor(
+                                          context, accountLabel)));
+                              return Column(
+                                children: [
+                                  Center(
+                                    child: KuteBarSecondaryPill(
+                                      label: accountLabel,
+                                      leading: Platform.isIOS
+                                          ? Icons.apple
+                                          : Icons.fingerprint_rounded,
+                                      width: width,
+                                      // The passkey lookup and restore wait
+                                      // here, on the pill, not behind a
+                                      // full-screen overlay.
+                                      busy: busy,
+                                      onTap: busy ? null : _handlePasskeyChoice,
+                                    ),
+                                  ),
+                                  KuteBarContextScope(
+                                    barContext: KuteBarContext.primary(
+                                      label: l10n.recoverWithPhrase,
+                                      onPrimary: _handleSeedChoice,
+                                      enabled: !busy,
+                                      source: 'recover_choice',
+                                      disabledLabel: null,
+                                      pairedWidth: width,
+                                    ),
+                                    // The pill 12 above the bar.
+                                    child: SizedBox(
+                                        height: KuteBarPrimaryButton.roomUnder(
+                                                context,
+                                                pageToFoot: !Platform.isAndroid) -
+                                            math.max(16.h,
+                                                MediaQuery.of(context)
+                                                    .padding
+                                                    .bottom)),
+                                  ),
+                                ],
+                              );
+                            }),
                           ],
                         ),
                       ),

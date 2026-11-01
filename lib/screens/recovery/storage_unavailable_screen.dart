@@ -132,6 +132,7 @@ class _StorageUnavailableScreenState extends State<StorageUnavailableScreen> {
                     onPrimary: _retry,
                     enabled: _cooldown <= 0,
                     source: 'storage_unavailable',
+                    disabledLabel: '${l10n.storageUnavailableRetry} (${_cooldown}s)',
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

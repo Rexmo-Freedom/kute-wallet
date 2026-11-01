@@ -455,6 +455,7 @@ class _LedgerWithdrawInvestingSheetState
           label: label,
           onPrimary: onPrimary,
           source: 'ledger_withdraw_investing',
+          disabledLabel: null,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );

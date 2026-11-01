@@ -421,7 +421,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(actions.calls, ['live', 'claim 300']);
     expect(cachedRows(), hasLength(1));
@@ -440,7 +441,8 @@ void main() {
     await open(tester, rowFor(info(claimError: failed)));
     await tapText(tester, l10n.activityAddToWallet);
     await tester.enterText(find.byType(TextField), '300');
-    await tester.pump();
+    // The bar follows the sheet a frame later: "Pick a fee" to Confirm.
+    await settle(tester);
     await tapText(tester, l10n.confirmClaim);
     expect(find.byType(KuteConfirmation), findsOneWidget);
     expect(find.text(l10n.depositClaimFailedTitle), findsOneWidget);

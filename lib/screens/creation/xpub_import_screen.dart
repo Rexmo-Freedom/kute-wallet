@@ -1721,6 +1721,7 @@ class _XPubImportScreenState extends ConsumerState<XPubImportScreen> {
                       _isValidKey(_controller.text),
                   busy: importState.isLoading,
                   source: 'xpub_import',
+                  disabledLabel: _hardwareBlock == null ? context.l10n.barNeedPublicKey : null,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

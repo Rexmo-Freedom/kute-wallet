@@ -38,17 +38,18 @@ void main() {
     await pumpShareWidget(
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars));
 
-    // Continue is off until an amount is typed.
-    final continueButton = kuteBarPrimaryWithText('Continue');
-    expect(continueButton, findsOneWidget);
-    await tester.tap(continueButton);
+    // Continue is off until an amount is typed: the bar says so.
+    final enterAmount = kuteBarPrimaryWithText('Enter an amount');
+    expect(enterAmount, findsOneWidget);
+    await tester.tap(enterAmount);
     await settle(tester);
     expect(find.byKey(const ValueKey('share-name-field')), findsNothing);
 
     await tester.tap(find.text('1'));
     await tester.pump();
     await tester.tap(find.text('2'));
-    await tester.pump();
+    await settle(tester);
+    final continueButton = kuteBarPrimaryWithText('Continue');
     await tester.tap(continueButton);
     await settle(tester);
 
@@ -102,7 +103,7 @@ void main() {
         const SendToAnyoneSheet(
             kind: ShareLinkKind.dollars, marketSlug: 'will-it-rain'));
     await tester.tap(find.text('5'));
-    await tester.pump();
+    await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
@@ -141,7 +142,7 @@ void main() {
     await tester.tap(find.text('2'));
     await tester.pump();
     await tester.tap(find.text('0'));
-    await tester.pump();
+    await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
     await tester.enterText(
@@ -194,7 +195,7 @@ void main() {
     expect(find.text('Send this investment'), findsOneWidget);
     expect(find.text('Long on BTC'), findsOneWidget);
     await tester.tap(find.text('5'));
-    await tester.pump();
+    await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
@@ -213,7 +214,7 @@ void main() {
     await pumpShareWidget(
         tester, env, const SendToAnyoneSheet(kind: ShareLinkKind.dollars));
     await tester.tap(find.text('3'));
-    await tester.pump();
+    await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Create link'));

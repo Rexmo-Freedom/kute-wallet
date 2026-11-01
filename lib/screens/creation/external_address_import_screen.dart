@@ -664,6 +664,7 @@ class _ExternalAddressImportScreenState
                                 _isPlausibleAddress(_addressController.text),
                             busy: importState.isLoading,
                             source: 'external_address_import',
+                            disabledLabel: _addressController.text.trim().isEmpty ? context.l10n.barNeedAddress : context.l10n.barNeedValidAddress,
                           ),
                           child: SizedBox(height: kuteBarScrollClearance.h),
                         ),

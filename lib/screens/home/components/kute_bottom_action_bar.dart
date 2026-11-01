@@ -619,15 +619,20 @@ class KuteSalPill extends StatelessWidget {
                 color: isLight ? c.border : c.borderSubtle,
                 width: isLight ? 1.0 : 0.5,
               ),
-              boxShadow: isLight
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : null,
+              // ONE shadow in both modes, at the same blur (transparent
+              // in dark): the chip spring overshoots past 1, and a theme
+              // switch lerping a shadow towards none scaled its blur
+              // negative (the red "Text shadow blur radius should be
+              // non-negative" screen on every light/dark toggle).
+              boxShadow: [
+                BoxShadow(
+                  color: isLight
+                      ? Colors.black.withValues(alpha: 0.05)
+                      : Colors.transparent,
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Material(
               color: Colors.transparent,

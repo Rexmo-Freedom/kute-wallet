@@ -209,6 +209,7 @@ class _ClearRulesSheetState extends State<_ClearRulesSheet> {
                 busy: _clearing,
                 category: SearchCategory.predictions,
                 source: 'clear_rules',
+                disabledLabel: null,
               ),
               child: SizedBox(height: kuteBarScrollClearance.h),
             ),
