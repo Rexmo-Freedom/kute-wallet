@@ -3,7 +3,7 @@ import 'package:kute/providers/unified_search_provider.dart' show SearchCategory
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+    show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -319,34 +319,29 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             // plain words: its side and leverage, and the
                             // profit or loss with the return on what was
                             // put in.
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: HlTickPrice(
-                                      key: const ValueKey('hl-position-price'),
-                                      price: markPx,
-                                      text: formatHlPrice(markPx,
-                                          decimalCap: m?.pxDecimalCap),
-                                      style: TextStyle(
-                                        color: c.textPrimary,
-                                        fontSize: 38.sp,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -1.0,
-                                        height: 1.1,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures()
-                                        ],
-                                      ),
-                                    ),
+                            KuteFigureShareRow(
+                              gap: 8.w,
+                              figure: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: HlTickPrice(
+                                  key: const ValueKey('hl-position-price'),
+                                  price: markPx,
+                                  text: formatHlPrice(markPx,
+                                      decimalCap: m?.pxDecimalCap),
+                                  style: TextStyle(
+                                    color: c.textPrimary,
+                                    fontSize: 38.sp,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1.0,
+                                    height: 1.1,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures()
+                                    ],
                                   ),
                                 ),
-                                SizedBox(width: 8.w),
-                                KuteSalHeaderButton(barContext: bar),
-                              ],
+                              ),
+                              share: KuteSalHeaderButton(barContext: bar),
                             ),
                             SizedBox(height: 4.h),
                             Wrap(

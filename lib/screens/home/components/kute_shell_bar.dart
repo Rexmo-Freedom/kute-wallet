@@ -63,8 +63,10 @@
 // primary button's busy as a load.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -429,12 +431,140 @@ Future<void> openKuteBarSheet(
   }
 }
 
+/// THE FIGURE AND ITS SHARE BUTTON ON ONE ROW: [figure] in the width the
+/// button leaves it, [share] (a [KuteSalHeaderButton], in whatever box
+/// the page wraps it) at the row's end. The button is offered the room
+/// the figure does not need at its natural width, so it says "Send to a
+/// friend" where that fits beside the number and "Share" where it does
+/// not (KuteSalHeaderButton.fittingLabel); then the figure takes the
+/// rest, as the Expanded it was. [alignTop]: both at the row's top (the
+/// page centres the button on the figure's first line itself); else
+/// centred on each other.
+class KuteFigureShareRow extends MultiChildRenderObjectWidget {
+  KuteFigureShareRow({
+    super.key,
+    required Widget figure,
+    required Widget share,
+    this.gap = 8,
+    this.alignTop = false,
+  }) : super(children: [figure, share]);
+
+  final double gap;
+  final bool alignTop;
+
+  /// The least the button is offered: room for "Share" whole.
+  static double _minShare(BuildContext context) =>
+      KuteSalHeaderButton.widthFor(context, context.l10n.share);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      RenderKuteFigureShareRow(
+          gap: gap, alignTop: alignTop, minShare: _minShare(context));
+
+  @override
+  void updateRenderObject(
+      BuildContext context, RenderKuteFigureShareRow renderObject) {
+    renderObject
+      ..gap = gap
+      ..alignTop = alignTop
+      ..minShare = _minShare(context);
+  }
+}
+
+class _FigureShareParentData extends ContainerBoxParentData<RenderBox> {}
+
+/// The render object of [KuteFigureShareRow].
+class RenderKuteFigureShareRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FigureShareParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FigureShareParentData> {
+  RenderKuteFigureShareRow(
+      {required double gap, required bool alignTop, required double minShare})
+      : _gap = gap,
+        _alignTop = alignTop,
+        _minShare = minShare;
+
+  double _gap;
+  set gap(double value) {
+    if (value == _gap) return;
+    _gap = value;
+    markNeedsLayout();
+  }
+
+  bool _alignTop;
+  set alignTop(bool value) {
+    if (value == _alignTop) return;
+    _alignTop = value;
+    markNeedsLayout();
+  }
+
+  /// The least the button is offered, whatever the figure wants: room for
+  /// "Share" whole.
+  double _minShare;
+  set minShare(double value) {
+    if (value == _minShare) return;
+    _minShare = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FigureShareParentData) {
+      child.parentData = _FigureShareParentData();
+    }
+  }
+
+  /// The figure's natural width; half the row when the figure cannot
+  /// say (a layout builder inside it has no intrinsic size).
+  double _figureNatural(RenderBox figure, double width) {
+    try {
+      return figure.getMaxIntrinsicWidth(double.infinity);
+    } on FlutterError {
+      return width / 2;
+    } on AssertionError {
+      return width / 2;
+    }
+  }
+
+  @override
+  void performLayout() {
+    final figure = firstChild!;
+    final share = childAfter(figure)!;
+    final width = constraints.maxWidth;
+    final natural = _figureNatural(figure, width);
+    final shareMax =
+        math.min(width, math.max(width - _gap - natural, _minShare));
+    share.layout(BoxConstraints(maxWidth: shareMax), parentUsesSize: true);
+    final figureWidth = math.max(0.0, width - _gap - share.size.width);
+    figure.layout(BoxConstraints.tightFor(width: figureWidth),
+        parentUsesSize: true);
+    final height = math.max(figure.size.height, share.size.height);
+    final figureData = figure.parentData! as _FigureShareParentData;
+    final shareData = share.parentData! as _FigureShareParentData;
+    figureData.offset =
+        Offset(0, _alignTop ? 0 : (height - figure.size.height) / 2);
+    shareData.offset = Offset(width - share.size.width,
+        _alignTop ? 0 : (height - share.size.height) / 2);
+    size = constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
 /// THE SHARE BUTTON BESIDE A PAGE'S BIG NUMBER (founder, 31 October 2026;
 /// see the file header): a real button in the app's primary look (the
 /// textPrimary fill, the mode's contrast ink), 40 tall, radius 20, 12
 /// before Sal's `share` face at 26 and 16 after the words "Send to a
-/// friend" (14, w600; founder, 1 November 2026: never "Share" here); the
-/// press spring of every button. On the page's open it
+/// friend" (14, w600; founder, 1 November 2026), or "Share" where those
+/// do not fit beside the figure at the current text scale, never an
+/// ellipsis ([fittingLabel], [KuteFigureShareRow]); the press spring of
+/// every button. On the page's open it
 /// enters on the sheet spring and pulses once (1.0 → 1.06 → 1.0; none
 /// under Reduce Motion). Tapped, it opens the Sal sheet with
 /// [barContext] (the context variant: Send the market / Send this
@@ -458,6 +588,51 @@ class KuteSalHeaderButton extends StatefulWidget {
   /// The pulse on the page's open: once, to 1.06 and back.
   static const double pulseScale = 1.06;
   static const Duration pulseDuration = Duration(milliseconds: 360);
+
+  /// The words' style on the button.
+  static TextStyle labelStyle(Color ink) => TextStyle(
+        color: ink,
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.2,
+      );
+
+  /// The words the button says in [maxWidth] (founder, 1 November 2026):
+  /// "Send to a friend" where it fits whole beside the figure at the
+  /// current text scale, else "Share"; never an ellipsis. Unbounded: the
+  /// long words.
+  static String fittingLabel(BuildContext context, double maxWidth) {
+    final l10n = context.l10n;
+    final long = l10n.shareHeaderLabel;
+    if (!maxWidth.isFinite) return long;
+    return widthFor(context, long) <= maxWidth ? long : l10n.share;
+  }
+
+  /// The button's width saying [words] at the current text scale.
+  static double widthFor(BuildContext context, String words) {
+    final painter = TextPainter(
+      // The style the words inherit there (the theme's face) under the
+      // button's own.
+      text: TextSpan(
+          text: words,
+          style: DefaultTextStyle.of(context)
+              .style
+              .merge(labelStyle(Colors.black))),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = KuteSalHeaderButton.paddingStart +
+        KuteSalHeaderButton.salSize +
+        8 +
+        painter.width +
+        KuteSalHeaderButton.paddingEnd;
+    painter.dispose();
+    // A hair over, so the words are never cut by a rounding.
+    return width.ceilToDouble() + 1;
+  }
+
 
   @override
   State<KuteSalHeaderButton> createState() => _KuteSalHeaderButtonState();
@@ -507,7 +682,11 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+      builder: (context, box) =>
+          _build(context, KuteSalHeaderButton.fittingLabel(context, box.maxWidth)));
+
+  Widget _build(BuildContext context, String words) {
     final c = context.colors;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final ctx = widget.barContext;
@@ -541,17 +720,11 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
           // of the row overflowing.
           Flexible(
             child: Text(
-              context.l10n.shareHeaderLabel,
+              words,
               key: const ValueKey('kute-sal-header-label'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: ink,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-                height: 1.2,
-              ),
+              style: KuteSalHeaderButton.labelStyle(ink),
             ),
           ),
         ],

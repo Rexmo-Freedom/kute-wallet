@@ -4,7 +4,7 @@ import 'package:kute/providers/unified_search_provider.dart' show SearchCategory
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+    show KuteFigureShareRow, KuteSalHeaderButton;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -708,14 +708,11 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                   // Settled: the held side's line, centred
                                   // in the room the Share pill leaves it,
                                   // the pill at the row's end.
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(child: heldLine),
-                                      SizedBox(width: 8.w),
-                                      KuteSalHeaderButton(barContext: bar),
-                                    ],
+                                  KuteFigureShareRow(
+                                    gap: 8.w,
+                                    figure: heldLine,
+                                    share:
+                                        KuteSalHeaderButton(barContext: bar),
                                   ),
                                   SizedBox(height: 14.h),
                                   PolyPositionChanceBar(
