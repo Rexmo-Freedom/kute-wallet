@@ -6398,9 +6398,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get investingLowLiquidity => 'Nízká likvidita';
 
   @override
-  String get investingMovingNow => 'Právě v pohybu';
-
-  @override
   String get investingStats => 'Statistiky';
 
   @override
@@ -11775,9 +11772,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Nejlepší trhy';
 
   @override
   String get predictionsChance => 'šance';

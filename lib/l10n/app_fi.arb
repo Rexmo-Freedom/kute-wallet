@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Alhainen likviditeetti",
-  "investingMovingNow": "Liikkeessä nyt",
   "investingStats": "Tilastot",
   "investingAboutMarket": "Tietoja: {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Lähetä linkki",
   "marketMetaLine": "Sulkeutuu {date} · {volume}",
   "marketCloses": "Sulkeutuu {date}",
-  "predictionsTopMarkets": "Suosituimmat markkinat",
   "predictionsChance": "todennäköisyys"
 }

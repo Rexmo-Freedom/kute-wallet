@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lage liquiditeit",
-  "investingMovingNow": "Nu in beweging",
   "investingStats": "Statistieken",
   "investingAboutMarket": "Over {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Stuur de link",
   "marketMetaLine": "Sluit {date} · {volume}",
   "marketCloses": "Sluit {date}",
-  "predictionsTopMarkets": "Topmarkten",
   "predictionsChance": "kans"
 }

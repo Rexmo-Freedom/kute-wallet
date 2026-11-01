@@ -6434,9 +6434,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get investingLowLiquidity => 'Lichiditate redusă';
 
   @override
-  String get investingMovingNow => 'În mișcare acum';
-
-  @override
   String get investingStats => 'Statistici';
 
   @override
@@ -11842,9 +11839,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Piețe de top';
 
   @override
   String get predictionsChance => 'șanse';

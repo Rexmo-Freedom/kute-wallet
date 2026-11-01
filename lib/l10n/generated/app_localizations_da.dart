@@ -6403,9 +6403,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get investingLowLiquidity => 'Lav likviditet';
 
   @override
-  String get investingMovingNow => 'I bevægelse nu';
-
-  @override
   String get investingStats => 'Statistik';
 
   @override
@@ -11784,9 +11781,6 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Topmarkeder';
 
   @override
   String get predictionsChance => 'chance';

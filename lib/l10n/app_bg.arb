@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Ниска ликвидност",
-  "investingMovingNow": "В движение сега",
   "investingStats": "Статистика",
   "investingAboutMarket": "За {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Изпрати линка",
   "marketMetaLine": "Затваря {date} · {volume}",
   "marketCloses": "Затваря {date}",
-  "predictionsTopMarkets": "Топ пазари",
   "predictionsChance": "шанс"
 }

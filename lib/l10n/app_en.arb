@@ -3394,8 +3394,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Low liquidity",
-  "investingMovingNow": "Moving now",
-  "@investingMovingNow": {"description": "Investing browse list: small title over the horizontal strip of large cards showing the markets with the biggest 24h moves in the category on screen (Revolut / Coinbase style movers)."},
   "investingStats": "Stats",
   "investingAboutMarket": "About {name}",
   "@investingAboutMarket": {
@@ -7302,8 +7300,6 @@
   "shareSendAgainWhatsApp": "Send again via WhatsApp",
   "shareSendAgainSms": "Send again via SMS",
   "sendToLabel": "Send to",
-  "predictionsTopMarkets": "Top markets",
-  "@predictionsTopMarkets": {"description": "Predictions feed: the title over the strip of big cards at the top, the markets with the most volume in the last 24 hours."},
   "predictionsChance": "chance",
   "@predictionsChance": {"description": "Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word."}
 }

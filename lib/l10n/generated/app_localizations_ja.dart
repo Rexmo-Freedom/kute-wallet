@@ -6160,9 +6160,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get investingLowLiquidity => '流動性低';
 
   @override
-  String get investingMovingNow => 'いま動いている銘柄';
-
-  @override
   String get investingStats => '統計';
 
   @override
@@ -11358,9 +11355,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => '注目マーケット';
 
   @override
   String get predictionsChance => 'の確率';

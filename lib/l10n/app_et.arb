@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Madal likviidsus",
-  "investingMovingNow": "Liigub praegu",
   "investingStats": "Statistika",
   "investingAboutMarket": "Teave: {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Saada link",
   "marketMetaLine": "Sulgub {date} · {volume}",
   "marketCloses": "Sulgub {date}",
-  "predictionsTopMarkets": "Tippturud",
   "predictionsChance": "tõenäosus"
 }

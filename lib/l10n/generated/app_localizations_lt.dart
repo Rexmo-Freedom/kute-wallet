@@ -6433,9 +6433,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get investingLowLiquidity => 'Mažas likvidumas';
 
   @override
-  String get investingMovingNow => 'Juda dabar';
-
-  @override
   String get investingStats => 'Statistika';
 
   @override
@@ -11831,9 +11828,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Populiariausios rinkos';
 
   @override
   String get predictionsChance => 'tikimybė';

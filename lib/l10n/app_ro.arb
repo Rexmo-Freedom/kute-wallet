@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lichiditate redusă",
-  "investingMovingNow": "În mișcare acum",
   "investingStats": "Statistici",
   "investingAboutMarket": "Despre {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Trimite linkul",
   "marketMetaLine": "Se închide {date} · {volume}",
   "marketCloses": "Se închide {date}",
-  "predictionsTopMarkets": "Piețe de top",
   "predictionsChance": "șanse"
 }

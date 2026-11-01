@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Mažas likvidumas",
-  "investingMovingNow": "Juda dabar",
   "investingStats": "Statistika",
   "investingAboutMarket": "Apie {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Siųsti nuorodą",
   "marketMetaLine": "Baigiasi {date} · {volume}",
   "marketCloses": "Baigiasi {date}",
-  "predictionsTopMarkets": "Populiariausios rinkos",
   "predictionsChance": "tikimybė"
 }

@@ -6416,9 +6416,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get investingLowLiquidity => 'Nizka likvidnost';
 
   @override
-  String get investingMovingNow => 'V gibanju zdaj';
-
-  @override
   String get investingStats => 'Statistika';
 
   @override
@@ -11816,9 +11813,6 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Najboljši trgi';
 
   @override
   String get predictionsChance => 'verjetnost';

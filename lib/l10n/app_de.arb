@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Geringe Liquidität",
-  "investingMovingNow": "Jetzt in Bewegung",
   "investingStats": "Statistiken",
   "investingAboutMarket": "Über {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Link senden",
   "marketMetaLine": "Endet {date} · {volume}",
   "marketCloses": "Endet {date}",
-  "predictionsTopMarkets": "Top-Märkte",
   "predictionsChance": "Chance"
 }

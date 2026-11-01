@@ -6449,9 +6449,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get investingLowLiquidity => 'Χαμηλή ρευστότητα';
 
   @override
-  String get investingMovingNow => 'Σε κίνηση τώρα';
-
-  @override
   String get investingStats => 'Στατιστικά';
 
   @override
@@ -11864,9 +11861,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Κορυφαίες αγορές';
 
   @override
   String get predictionsChance => 'πιθανότητα';

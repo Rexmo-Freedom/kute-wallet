@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Lav likviditet",
-  "investingMovingNow": "I bevægelse nu",
   "investingStats": "Statistik",
   "investingAboutMarket": "Om {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Send linket",
   "marketMetaLine": "Lukker {date} · {volume}",
   "marketCloses": "Lukker {date}",
-  "predictionsTopMarkets": "Topmarkeder",
   "predictionsChance": "chance"
 }

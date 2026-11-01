@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Nízka likvidita",
-  "investingMovingNow": "Práve v pohybe",
   "investingStats": "Štatistiky",
   "investingAboutMarket": "O trhu {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Poslať odkaz",
   "marketMetaLine": "Končí {date} · {volume}",
   "marketCloses": "Končí {date}",
-  "predictionsTopMarkets": "Najlepšie trhy",
   "predictionsChance": "šanca"
 }

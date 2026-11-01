@@ -11182,12 +11182,6 @@ abstract class AppLocalizations {
   /// **'Low liquidity'**
   String get investingLowLiquidity;
 
-  /// Investing browse list: small title over the horizontal strip of large cards showing the markets with the biggest 24h moves in the category on screen (Revolut / Coinbase style movers).
-  ///
-  /// In en, this message translates to:
-  /// **'Moving now'**
-  String get investingMovingNow;
-
   /// No description provided for @investingStats.
   ///
   /// In en, this message translates to:
@@ -19746,12 +19740,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send to'**
   String get sendToLabel;
-
-  /// Predictions feed: the title over the strip of big cards at the top, the markets with the most volume in the last 24 hours.
-  ///
-  /// In en, this message translates to:
-  /// **'Top markets'**
-  String get predictionsTopMarkets;
 
   /// Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word.
   ///

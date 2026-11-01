@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "現物",
   "investingLowLiquidity": "流動性低",
-  "investingMovingNow": "いま動いている銘柄",
   "investingStats": "統計",
   "investingAboutMarket": "{name}について",
   "investingKindLeveraged": "無期限先物",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "リンクを送る",
   "marketMetaLine": "{date} 終了 · {volume}",
   "marketCloses": "{date} 終了",
-  "predictionsTopMarkets": "注目マーケット",
   "predictionsChance": "の確率"
 }

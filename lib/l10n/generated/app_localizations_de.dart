@@ -6448,9 +6448,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get investingLowLiquidity => 'Geringe Liquidität';
 
   @override
-  String get investingMovingNow => 'Jetzt in Bewegung';
-
-  @override
   String get investingStats => 'Statistiken';
 
   @override
@@ -11870,9 +11867,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Top-Märkte';
 
   @override
   String get predictionsChance => 'Chance';

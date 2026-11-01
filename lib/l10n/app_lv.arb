@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Zema likviditāte",
-  "investingMovingNow": "Kustībā tagad",
   "investingStats": "Statistika",
   "investingAboutMarket": "Par {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Sūtīt saiti",
   "marketMetaLine": "Beidzas {date} · {volume}",
   "marketCloses": "Beidzas {date}",
-  "predictionsTopMarkets": "Populārākie tirgi",
   "predictionsChance": "iespēja"
 }

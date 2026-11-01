@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Låg likviditet",
-  "investingMovingNow": "Rör sig nu",
   "investingStats": "Statistik",
   "investingAboutMarket": "Om {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Skicka länken",
   "marketMetaLine": "Stänger {date} · {volume}",
   "marketCloses": "Stänger {date}",
-  "predictionsTopMarkets": "Toppmarknader",
   "predictionsChance": "chans"
 }

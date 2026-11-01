@@ -897,10 +897,10 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
       body = [
+        // No title over the strip (founder, 1 November 2026): the big
+        // cards simply open the feed.
         if (top.isNotEmpty) ...[
-          SliverToBoxAdapter(
-            child: _SectionHeader(label: context.l10n.predictionsTopMarkets),
-          ),
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
           SliverToBoxAdapter(child: _topMarketsStrip(top)),
           SliverToBoxAdapter(child: SizedBox(height: 8.h)),
         ],

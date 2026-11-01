@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Χαμηλή ρευστότητα",
-  "investingMovingNow": "Σε κίνηση τώρα",
   "investingStats": "Στατιστικά",
   "investingAboutMarket": "Σχετικά με {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Αποστολή συνδέσμου",
   "marketMetaLine": "Κλείνει {date} · {volume}",
   "marketCloses": "Κλείνει {date}",
-  "predictionsTopMarkets": "Κορυφαίες αγορές",
   "predictionsChance": "πιθανότητα"
 }

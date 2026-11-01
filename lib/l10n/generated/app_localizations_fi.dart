@@ -6398,9 +6398,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get investingLowLiquidity => 'Alhainen likviditeetti';
 
   @override
-  String get investingMovingNow => 'Liikkeessä nyt';
-
-  @override
   String get investingStats => 'Tilastot';
 
   @override
@@ -11796,9 +11793,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Suosituimmat markkinat';
 
   @override
   String get predictionsChance => 'todennäköisyys';

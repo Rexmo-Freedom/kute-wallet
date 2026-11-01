@@ -6,7 +6,7 @@
 // side-scrolling row of [kHlMoverCardMax] cards at most, one per market
 // with the largest absolute 24h change in the category on screen
 // ([hlMovingNow]: ties by volume; thin markets left out, their change is
-// noise), under a small "Moving now" title. The list keeps its own order
+// noise), with no title over it. The list keeps its own order
 // under the strip, so a market can be both on a card and in a row.
 //
 // Each card (HlMovingNowCard, about 150 × 186, the app's card surface at
@@ -147,25 +147,13 @@ class HlMovingNowStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
+    // No title over the strip (founder, 1 November 2026): the cards
+    // simply open the list.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 10.h),
-          child: Text(
-            context.l10n.investingMovingNow,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: c.textSecondary,
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.1,
-            ),
-          ),
-        ),
+        SizedBox(height: 4.h),
         SizedBox(
           height: hlMovingNowCardHeight(context),
           child: ListView.separated(

@@ -1847,7 +1847,6 @@
   "investingHip3": "HIP-3",
   "investingKindOwn": "Spot",
   "investingLowLiquidity": "Nizka likvidnost",
-  "investingMovingNow": "V gibanju zdaj",
   "investingStats": "Statistika",
   "investingAboutMarket": "O {name}",
   "investingKindLeveraged": "Perp",
@@ -3140,6 +3139,5 @@
   "shareMarketShareLink": "Pošlji povezavo",
   "marketMetaLine": "Zapre se {date} · {volume}",
   "marketCloses": "Zapre se {date}",
-  "predictionsTopMarkets": "Najboljši trgi",
   "predictionsChance": "verjetnost"
 }

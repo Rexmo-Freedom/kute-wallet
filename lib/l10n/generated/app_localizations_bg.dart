@@ -6411,9 +6411,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get investingLowLiquidity => 'Ниска ликвидност';
 
   @override
-  String get investingMovingNow => 'В движение сега';
-
-  @override
   String get investingStats => 'Статистика';
 
   @override
@@ -11803,9 +11800,6 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Топ пазари';
 
   @override
   String get predictionsChance => 'шанс';

@@ -138,7 +138,8 @@ void main() {
     await _pump(tester, _universe);
 
     expect(_strip(), findsOneWidget);
-    expect(find.text('Moving now'), findsOneWidget);
+    // No title over the strip (founder, 1 November 2026).
+    expect(find.text('Moving now'), findsNothing);
     expect(tester.widget<HlMovingNowStrip>(_strip()).markets.map((m) => m.coin),
         ['ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL']);
     // The first cards are on screen, the rest past the right edge.

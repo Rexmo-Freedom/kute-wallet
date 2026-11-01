@@ -6414,9 +6414,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get investingLowLiquidity => 'Alacsony likviditás';
 
   @override
-  String get investingMovingNow => 'Most mozog';
-
-  @override
   String get investingStats => 'Statisztika';
 
   @override
@@ -11809,9 +11806,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendToLabel => 'Send to';
-
-  @override
-  String get predictionsTopMarkets => 'Top piacok';
 
   @override
   String get predictionsChance => 'esély';
