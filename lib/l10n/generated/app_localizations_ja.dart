@@ -10056,76 +10056,75 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareHeaderLabel => '友達に送る';
 
   @override
-  String get bragPositionAction => 'Show off this position';
+  String get bragPositionAction => 'このポジションを自慢する';
 
   @override
-  String get bragPositionActionSub => 'A card with your result';
+  String get bragPositionActionSub => '成績が分かるカード';
 
   @override
-  String get bragPortfolioAction => 'Show off your portfolio';
+  String get bragPortfolioAction => 'ポートフォリオを自慢する';
 
   @override
-  String get bragBarLabel => 'Share and brag';
+  String get bragBarLabel => 'シェアして自慢';
 
   @override
   String bragShareText(String title, String link) {
-    return '$title on Kute $link';
+    return 'Kuteで$title $link';
   }
 
   @override
-  String get bragMyPortfolio => 'My portfolio';
+  String get bragMyPortfolio => '私のポートフォリオ';
 
   @override
-  String get bragCodeLabel => 'Code';
+  String get bragCodeLabel => 'コード';
 
   @override
-  String get bragBeatMeOnKute => 'Beat me on Kute';
+  String get bragBeatMeOnKute => 'Kuteで超えてみな';
 
   @override
-  String get bragSinceYouBought => 'Since you bought';
+  String get bragSinceYouBought => '購入時から';
 
   @override
-  String get bragLineBeatThat => 'Beat that.';
+  String get bragLineBeatThat => '超えてみな。';
 
   @override
-  String get bragLineNotLuck => 'Not luck. Talent.';
+  String get bragLineNotLuck => '運じゃない。実力。';
 
   @override
-  String get bragLineYourMove => 'Your move.';
+  String get bragLineYourMove => '次は君の番。';
 
   @override
-  String get bragLineToldYouSo => 'Told you so.';
+  String get bragLineToldYouSo => '言ったでしょ。';
 
   @override
-  String get bragLineLookEasy => 'I make this look easy.';
+  String get bragLineLookEasy => '楽勝に見えるでしょ。';
 
   @override
-  String get bragLineUpOnly => 'Up only.';
+  String get bragLineUpOnly => '上がるのみ。';
 
   @override
-  String get bragLineSmallWins =>
-      'Small wins still count. Still better than you.';
+  String get bragLineSmallWins => '小さな勝ちも勝ち。君よりマシ。';
 
   @override
-  String get bragLineDownBad => 'Down bad. Back soon.';
+  String get bragLineDownBad => 'ボロボロ。すぐ戻る。';
 
   @override
-  String get bragLineCharacter => 'Character building.';
+  String get bragLineCharacter => 'これも修行。';
 
   @override
-  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+  String get bragLineBuyTheDip => '押し目買いって言われたのに。';
 
   @override
-  String get bragLinePatience => 'Patience is a position.';
+  String get bragLinePatience => '忍耐もポジションのうち。';
 
   @override
-  String get bragEntry => 'Entry';
+  String get bragEntry => '購入時';
 
   @override
-  String get bragNow => 'Now';
+  String get bragNow => '現在';
 
   @override
-  String get bragAboutIt => 'Brag about it';
+  String get bragAboutIt => '自慢しよう';
 
   @override
   String get positionShareCardSub => 'Send the market or show off your result';
@@ -11696,4 +11695,219 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get receiptResult => 'Result';
+
+  @override
+  String get shareCardReadyTitle => 'カードの準備ができました';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Kuteで一緒に始めよう';
+
+  @override
+  String get shareCardClaimChip => 'Kuteで受け取る';
+
+  @override
+  String get shareCardPlaceChip => 'Kuteでこの予測に乗る';
+
+  @override
+  String get shareCardTradeChip => 'Kuteで取引しよう';
+
+  @override
+  String get shareCardCallChip => 'Kuteで予測しよう';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$nameさん、送ったよ';
+  }
+
+  @override
+  String get shareCardSentYou => '送ったよ';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$nameさんにおすすめを送ったよ';
+  }
+
+  @override
+  String get shareCardSentPick => 'おすすめを送ったよ';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return '$amount分';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '今日 $change';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Yes';
+
+  @override
+  String get shareCardOutcomeNo => 'No';
+
+  @override
+  String get shareCardLineClaimIt => '気が変わる前に受け取って。';
+
+  @override
+  String get shareCardLineDontSpend => '君のものだよ。ミームに全部使わないでね。';
+
+  @override
+  String get shareCardLineFreeMoney => 'タダのお金。激レア。早く受け取って。';
+
+  @override
+  String get shareCardLineTrustMe => '今回は信じてくれ。';
+
+  @override
+  String get shareCardLineKnowEnding => '結末はもう分かってる。';
+
+  @override
+  String get shareCardLineEasyMoney => '楽勝。たぶん。';
+
+  @override
+  String get shareCardLineGoingPlaces => 'これは伸びるよ。';
+
+  @override
+  String get shareCardLineBuyHigh => '高く買って、もっと高く売る。';
+
+  @override
+  String get shareCardLineBetterTaste => '投資助言じゃないよ。センスの話。';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'どう思う？';
+
+  @override
+  String get shareCardLineYourCall => '君が決めて。';
+
+  @override
+  String get shareCardLinePickASide => 'どっちにする？';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$nameは$price、今日$change上昇';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$nameは$price、今日$change下落';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$nameは$price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$nameは想定$priceで取引中';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$nameは1バレル$price';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$nameは1オンス$price';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$nameは$price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'マーケット予想：$outcomeの確率は$chance';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'マーケット予想：確率$chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return '$outcomeが$opponentに対し$chanceで優勢';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return '$outcomeが$chanceで優勢';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome：勝率$chance';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '実現する確率$chance';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcomeの確率$chance';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '実現する確率は$chance';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcomeの確率は$chance';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chanceがYes';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chanceがNo';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome：確率$chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$nameさん、友達から届きました';
+  }
+
+  @override
+  String get claimCardFromFriend => '友達から届きました';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$nameさん、友達からおすすめが届きました';
+  }
+
+  @override
+  String get claimCardPick => '友達からおすすめが届きました';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome：$chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'あなたのものです。「受け取る」をタップ。';
+
+  @override
+  String get claimCardLineNeedThis => 'これが必要だって、友達が。';
+
+  @override
+  String get claimCardLineLikesYou => '誰かに好かれてるよ。これが証拠。';
+
+  @override
+  String get claimCardLineNoCatch => '裏はないよ。ただのプレゼント。';
 }

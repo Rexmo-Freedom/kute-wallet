@@ -12074,4 +12074,221 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get receiptResult => 'Result';
+
+  @override
+  String get shareCardReadyTitle => 'Your card is ready';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Join me on Kute';
+
+  @override
+  String get shareCardClaimChip => 'Claim on Kute';
+
+  @override
+  String get shareCardPlaceChip => 'Place it on Kute';
+
+  @override
+  String get shareCardTradeChip => 'Trade it on Kute';
+
+  @override
+  String get shareCardCallChip => 'Make your call on Kute';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$name, I sent you';
+  }
+
+  @override
+  String get shareCardSentYou => 'I sent you';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$name, I sent you a pick';
+  }
+
+  @override
+  String get shareCardSentPick => 'I sent you a pick';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return '$amount on it';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '$change today';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Yes';
+
+  @override
+  String get shareCardOutcomeNo => 'No';
+
+  @override
+  String get shareCardLineClaimIt => 'Claim it before I change my mind.';
+
+  @override
+  String get shareCardLineDontSpend =>
+      'It\'s yours. Don\'t spend it all on memes.';
+
+  @override
+  String get shareCardLineFreeMoney => 'Free money. Rare. Claim it.';
+
+  @override
+  String get shareCardLineTrustMe => 'Trust me on this one.';
+
+  @override
+  String get shareCardLineKnowEnding => 'I already know how this ends.';
+
+  @override
+  String get shareCardLineEasyMoney => 'Easy money. Probably.';
+
+  @override
+  String get shareCardLineGoingPlaces => 'This one\'s going places.';
+
+  @override
+  String get shareCardLineBuyHigh => 'Buy high, sell higher.';
+
+  @override
+  String get shareCardLineBetterTaste =>
+      'Not financial advice. Just better taste.';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'What do you think?';
+
+  @override
+  String get shareCardLineYourCall => 'Your call.';
+
+  @override
+  String get shareCardLinePickASide => 'Pick a side.';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name is $price, up $change today';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name is $price, down $change today';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name is $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name trades at an implied $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name at $price a barrel';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name at $price an ounce';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name at $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Markets give $outcome a $chance chance';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Markets give it a $chance chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return '$outcome are $chance favourites vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return '$outcome are $chance favourites';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance to win';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance odds it happens';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$chance odds on $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance chance it happens';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$chance chance of $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance say yes';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance say no';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, a friend sent you';
+  }
+
+  @override
+  String get claimCardFromFriend => 'A friend sent you';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, a friend sent you a pick';
+  }
+
+  @override
+  String get claimCardPick => 'A friend sent you a pick';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome at $chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'It\'s yours. Tap claim.';
+
+  @override
+  String get claimCardLineNeedThis => 'Your friend thinks you need this.';
+
+  @override
+  String get claimCardLineLikesYou => 'Someone likes you. Here\'s proof.';
+
+  @override
+  String get claimCardLineNoCatch => 'No catch. Just a gift.';
 }

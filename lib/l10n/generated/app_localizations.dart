@@ -20400,6 +20400,331 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Result'**
   String get receiptResult;
+
+  /// Share card preview sheet: its title, over the image card about to be shared (a send-money link or a pick).
+  ///
+  /// In en, this message translates to:
+  /// **'Your card is ready'**
+  String get shareCardReadyTitle;
+
+  /// Share card footer under the kute. wordmark on a send-money card (a gift link): a warm invitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Kute'**
+  String get shareCardJoinMeOnKute;
+
+  /// Send-money share card: the white chip telling the recipient what to do with the link.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim on Kute'**
+  String get shareCardClaimChip;
+
+  /// Prediction pick share card: the white chip (place the bet on Kute).
+  ///
+  /// In en, this message translates to:
+  /// **'Place it on Kute'**
+  String get shareCardPlaceChip;
+
+  /// Stock / investment share card: the white chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Trade it on Kute'**
+  String get shareCardTradeChip;
+
+  /// Prediction market share card (no pick): the white chip inviting the reader to pick a side.
+  ///
+  /// In en, this message translates to:
+  /// **'Make your call on Kute'**
+  String get shareCardCallChip;
+
+  /// Send-money share card: the line over the big amount. {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you'**
+  String shareCardSentYouNamed(String name);
+
+  /// Send-money share card without a name: the line over the big amount.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you'**
+  String get shareCardSentYou;
+
+  /// Pick share card (a prediction or an investment sent as a gift): the small line at the top. {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I sent you a pick'**
+  String shareCardSentPickNamed(String name);
+
+  /// Pick share card without a name: the small line at the top.
+  ///
+  /// In en, this message translates to:
+  /// **'I sent you a pick'**
+  String get shareCardSentPick;
+
+  /// Pick share card: the amount put on the pick, e.g. '$10 on it'. {amount} is a formatted money amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} on it'**
+  String shareCardAmountOnIt(String amount);
+
+  /// Stock share card: the pill with today's price change, e.g. '+3.4% today'. {change} is a signed formatted percent.
+  ///
+  /// In en, this message translates to:
+  /// **'{change} today'**
+  String shareCardToday(String change);
+
+  /// Prediction share card: the Yes outcome of a yes/no market.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get shareCardOutcomeYes;
+
+  /// Prediction share card: the No outcome of a yes/no market.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get shareCardOutcomeNo;
+
+  /// Sal the dog's playful one-liner in a speech bubble on a send-money card (PG, the image leaves the phone).
+  ///
+  /// In en, this message translates to:
+  /// **'Claim it before I change my mind.'**
+  String get shareCardLineClaimIt;
+
+  /// Sal's playful one-liner on a send-money card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s yours. Don\'t spend it all on memes.'**
+  String get shareCardLineDontSpend;
+
+  /// Sal's playful one-liner on a send-money card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Free money. Rare. Claim it.'**
+  String get shareCardLineFreeMoney;
+
+  /// Sal's cocky one-liner on a prediction pick card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Trust me on this one.'**
+  String get shareCardLineTrustMe;
+
+  /// Sal's cocky one-liner on a prediction pick card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'I already know how this ends.'**
+  String get shareCardLineKnowEnding;
+
+  /// Sal's cocky, self-aware one-liner on a prediction pick card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Easy money. Probably.'**
+  String get shareCardLineEasyMoney;
+
+  /// Sal's one-liner on a stock / investment card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'This one\'s going places.'**
+  String get shareCardLineGoingPlaces;
+
+  /// Sal's tongue-in-cheek one-liner on a stock card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Buy high, sell higher.'**
+  String get shareCardLineBuyHigh;
+
+  /// Sal's tongue-in-cheek one-liner on a stock card (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Not financial advice. Just better taste.'**
+  String get shareCardLineBetterTaste;
+
+  /// Sal's one-liner on a prediction market card with no pick: asks the reader's opinion.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you think?'**
+  String get shareCardLineWhatDoYouThink;
+
+  /// Sal's one-liner on a prediction market card with no pick.
+  ///
+  /// In en, this message translates to:
+  /// **'Your call.'**
+  String get shareCardLineYourCall;
+
+  /// Sal's one-liner on a prediction market card with no pick.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a side.'**
+  String get shareCardLinePickASide;
+
+  /// Stock card headline: a clear neutral fact. {name} e.g. 'Tesla', {price} e.g. '$242.10', {change} an unsigned percent e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is {price}, up {change} today'**
+  String shareCardHeadlineUp(String name, String price, String change);
+
+  /// Stock card headline when the price fell today. {change} is an unsigned percent.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is {price}, down {change} today'**
+  String shareCardHeadlineDown(String name, String price, String change);
+
+  /// Stock card headline when today's change is unknown or flat.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is {price}'**
+  String shareCardHeadlineIs(String name, String price);
+
+  /// Pre-IPO company card headline (e.g. OpenAI before it lists): the price its contract trades at.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} trades at an implied {price}'**
+  String shareCardHeadlinePreIpo(String name, String price);
+
+  /// Oil card headline, e.g. 'Crude oil at $102.50 a barrel'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} at {price} a barrel'**
+  String shareCardHeadlineBarrel(String name, String price);
+
+  /// Gold / silver card headline, e.g. 'Gold at $2,410 an ounce'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} at {price} an ounce'**
+  String shareCardHeadlineOunce(String name, String price);
+
+  /// Other commodity card headline, e.g. 'Natural gas at $3.10'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} at {price}'**
+  String shareCardHeadlineAt(String name, String price);
+
+  /// Politics prediction card headline: the market's odds, neutral. {outcome} a candidate or party, {chance} a formatted percent e.g. '41%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Markets give {outcome} a {chance} chance'**
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance);
+
+  /// Politics yes/no prediction card headline ('it' is the question printed just above).
+  ///
+  /// In en, this message translates to:
+  /// **'Markets give it a {chance} chance'**
+  String shareCardHeadlinePoliticsBinary(String chance);
+
+  /// Sports prediction card headline: the leading team and its chance against the next team. {outcome}/{opponent} team names, {chance} e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} are {chance} favourites vs {opponent}'**
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent);
+
+  /// Sports prediction card headline: the leading team, no opponent known.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} are {chance} favourites'**
+  String shareCardHeadlineSportsFav(String outcome, String chance);
+
+  /// Sports prediction card headline: a team that is not the favourite.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome}: {chance} to win'**
+  String shareCardHeadlineSportsToWin(String outcome, String chance);
+
+  /// Crypto yes/no prediction card headline ('it' is the question printed just above).
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} odds it happens'**
+  String shareCardHeadlineCryptoBinary(String chance);
+
+  /// Crypto multi-outcome prediction card headline, e.g. '18% odds on $150k'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} odds on {outcome}'**
+  String shareCardHeadlineCryptoNamed(String chance, String outcome);
+
+  /// Economics yes/no prediction card headline ('it' is the question printed just above).
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} chance it happens'**
+  String shareCardHeadlineEconomyBinary(String chance);
+
+  /// Economics multi-outcome prediction card headline, e.g. '71% chance of 25 bps cut'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} chance of {outcome}'**
+  String shareCardHeadlineEconomyNamed(String chance, String outcome);
+
+  /// Culture / other yes/no prediction card headline: the share of the market on Yes.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} say yes'**
+  String shareCardHeadlineSayYes(String chance);
+
+  /// Culture / other yes/no prediction card headline: the share of the market on No.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} say no'**
+  String shareCardHeadlineSayNo(String chance);
+
+  /// Prediction card headline when no category template fits.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome}: {chance} chance'**
+  String shareCardHeadlineFallback(String outcome, String chance);
+
+  /// Claim screen hero card (the recipient's side of a gift link): over the big amount. {name} is the recipient's first name the sender typed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a friend sent you'**
+  String claimCardFromFriendNamed(String name);
+
+  /// Claim screen hero card without a name: over the big amount.
+  ///
+  /// In en, this message translates to:
+  /// **'A friend sent you'**
+  String get claimCardFromFriend;
+
+  /// Claim screen hero card for a link that carries a prediction or investment pick.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a friend sent you a pick'**
+  String claimCardPickNamed(String name);
+
+  /// Claim screen hero card for a pick, without a name.
+  ///
+  /// In en, this message translates to:
+  /// **'A friend sent you a pick'**
+  String get claimCardPick;
+
+  /// Claim screen hero card: the pick and its chance now, e.g. 'Gen.G at 47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} at {chance}'**
+  String claimCardPickChance(String outcome, String chance);
+
+  /// Claim screen hero card: the short line under the amount, before the Claim button.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s yours. Tap claim.'**
+  String get claimCardTapClaim;
+
+  /// Sal's playful one-liner in a speech bubble on the claim screen (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Your friend thinks you need this.'**
+  String get claimCardLineNeedThis;
+
+  /// Sal's playful one-liner on the claim screen (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Someone likes you. Here\'s proof.'**
+  String get claimCardLineLikesYou;
+
+  /// Sal's playful one-liner on the claim screen (PG).
+  ///
+  /// In en, this message translates to:
+  /// **'No catch. Just a gift.'**
+  String get claimCardLineNoCatch;
 }
 
 class _AppLocalizationsDelegate

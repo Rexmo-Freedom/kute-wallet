@@ -10536,76 +10536,75 @@ class AppLocalizationsDe extends AppLocalizations {
   String get shareHeaderLabel => 'An einen Freund senden';
 
   @override
-  String get bragPositionAction => 'Show off this position';
+  String get bragPositionAction => 'Mit dieser Position angeben';
 
   @override
-  String get bragPositionActionSub => 'A card with your result';
+  String get bragPositionActionSub => 'Eine Karte mit deinem Ergebnis';
 
   @override
-  String get bragPortfolioAction => 'Show off your portfolio';
+  String get bragPortfolioAction => 'Mit deinem Portfolio angeben';
 
   @override
-  String get bragBarLabel => 'Share and brag';
+  String get bragBarLabel => 'Teilen und angeben';
 
   @override
   String bragShareText(String title, String link) {
-    return '$title on Kute $link';
+    return '$title auf Kute $link';
   }
 
   @override
-  String get bragMyPortfolio => 'My portfolio';
+  String get bragMyPortfolio => 'Mein Portfolio';
 
   @override
   String get bragCodeLabel => 'Code';
 
   @override
-  String get bragBeatMeOnKute => 'Beat me on Kute';
+  String get bragBeatMeOnKute => 'Schlag mich auf Kute';
 
   @override
-  String get bragSinceYouBought => 'Since you bought';
+  String get bragSinceYouBought => 'Seit dem Kauf';
 
   @override
-  String get bragLineBeatThat => 'Beat that.';
+  String get bragLineBeatThat => 'Mach mir das nach.';
 
   @override
-  String get bragLineNotLuck => 'Not luck. Talent.';
+  String get bragLineNotLuck => 'Kein Glück. Talent.';
 
   @override
-  String get bragLineYourMove => 'Your move.';
+  String get bragLineYourMove => 'Du bist dran.';
 
   @override
-  String get bragLineToldYouSo => 'Told you so.';
+  String get bragLineToldYouSo => 'Hab ich doch gesagt.';
 
   @override
-  String get bragLineLookEasy => 'I make this look easy.';
+  String get bragLineLookEasy => 'Bei mir sieht das leicht aus.';
 
   @override
-  String get bragLineUpOnly => 'Up only.';
+  String get bragLineUpOnly => 'Nur nach oben.';
 
   @override
-  String get bragLineSmallWins =>
-      'Small wins still count. Still better than you.';
+  String get bragLineSmallWins => 'Kleine Gewinne zählen auch. Besser als du.';
 
   @override
-  String get bragLineDownBad => 'Down bad. Back soon.';
+  String get bragLineDownBad => 'Gerade im Minus. Bald zurück.';
 
   @override
-  String get bragLineCharacter => 'Character building.';
+  String get bragLineCharacter => 'Baut Charakter.';
 
   @override
-  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+  String get bragLineBuyTheDip => 'Kauf den Dip, haben sie gesagt.';
 
   @override
-  String get bragLinePatience => 'Patience is a position.';
+  String get bragLinePatience => 'Geduld ist auch eine Position.';
 
   @override
-  String get bragEntry => 'Entry';
+  String get bragEntry => 'Einstieg';
 
   @override
-  String get bragNow => 'Now';
+  String get bragNow => 'Jetzt';
 
   @override
-  String get bragAboutIt => 'Brag about it';
+  String get bragAboutIt => 'Damit angeben';
 
   @override
   String get positionShareCardSub => 'Send the market or show off your result';
@@ -12204,4 +12203,222 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get receiptResult => 'Result';
+
+  @override
+  String get shareCardReadyTitle => 'Deine Karte ist fertig';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Komm mit zu Kute';
+
+  @override
+  String get shareCardClaimChip => 'Auf Kute abholen';
+
+  @override
+  String get shareCardPlaceChip => 'Auf Kute platzieren';
+
+  @override
+  String get shareCardTradeChip => 'Auf Kute traden';
+
+  @override
+  String get shareCardCallChip => 'Tipp abgeben auf Kute';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$name, ich schicke dir';
+  }
+
+  @override
+  String get shareCardSentYou => 'Ich schicke dir';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$name, ein Tipp für dich';
+  }
+
+  @override
+  String get shareCardSentPick => 'Ein Tipp für dich';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return '$amount Einsatz';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '$change heute';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Ja';
+
+  @override
+  String get shareCardOutcomeNo => 'Nein';
+
+  @override
+  String get shareCardLineClaimIt =>
+      'Hol\'s dir, bevor ich\'s mir anders überlege.';
+
+  @override
+  String get shareCardLineDontSpend =>
+      'Gehört dir. Nicht alles für Memes ausgeben.';
+
+  @override
+  String get shareCardLineFreeMoney => 'Geld geschenkt. Selten. Hol\'s dir.';
+
+  @override
+  String get shareCardLineTrustMe => 'Vertrau mir einfach.';
+
+  @override
+  String get shareCardLineKnowEnding => 'Ich weiß schon, wie das ausgeht.';
+
+  @override
+  String get shareCardLineEasyMoney => 'Leichtes Geld. Wahrscheinlich.';
+
+  @override
+  String get shareCardLineGoingPlaces => 'Das hier wird noch groß.';
+
+  @override
+  String get shareCardLineBuyHigh => 'Teuer kaufen, teurer verkaufen.';
+
+  @override
+  String get shareCardLineBetterTaste =>
+      'Keine Anlageberatung. Nur guter Geschmack.';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'Was meinst du?';
+
+  @override
+  String get shareCardLineYourCall => 'Du entscheidest.';
+
+  @override
+  String get shareCardLinePickASide => 'Wähl eine Seite.';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name steht bei $price, heute $change im Plus';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name steht bei $price, heute $change im Minus';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name steht bei $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name wird implizit bei $price gehandelt';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name bei $price pro Barrel';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name bei $price pro Unze';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name bei $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Märkte: $chance Chance für $outcome';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Märkte: $chance Chance dafür';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorit: $outcome mit $chance gegen $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorit: $outcome mit $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance Siegchance';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance Chance, dass es passiert';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$chance Chance auf $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance Wahrscheinlichkeit, dass es eintritt';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$chance Wahrscheinlichkeit für $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance sagen Ja';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance sagen Nein';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance Chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, ein Freund schickt dir';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Ein Freund schickt dir';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, ein Freund schickt dir einen Tipp';
+  }
+
+  @override
+  String get claimCardPick => 'Ein Freund schickt dir einen Tipp';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome bei $chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'Gehört dir. Tippe auf Abholen.';
+
+  @override
+  String get claimCardLineNeedThis => 'Da denkt jemand, du brauchst das.';
+
+  @override
+  String get claimCardLineLikesYou => 'Jemand mag dich. Hier der Beweis.';
+
+  @override
+  String get claimCardLineNoCatch => 'Kein Haken. Nur ein Geschenk.';
 }

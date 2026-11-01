@@ -10483,76 +10483,75 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareHeaderLabel => 'Küldés barátnak';
 
   @override
-  String get bragPositionAction => 'Show off this position';
+  String get bragPositionAction => 'Dicsekedj ezzel a pozícióval';
 
   @override
-  String get bragPositionActionSub => 'A card with your result';
+  String get bragPositionActionSub => 'Kártya az eredményeddel';
 
   @override
-  String get bragPortfolioAction => 'Show off your portfolio';
+  String get bragPortfolioAction => 'Dicsekedj a portfólióddal';
 
   @override
-  String get bragBarLabel => 'Share and brag';
+  String get bragBarLabel => 'Oszd meg és dicsekedj';
 
   @override
   String bragShareText(String title, String link) {
-    return '$title on Kute $link';
+    return '$title a Kute-ban $link';
   }
 
   @override
-  String get bragMyPortfolio => 'My portfolio';
+  String get bragMyPortfolio => 'Az én portfólióm';
 
   @override
-  String get bragCodeLabel => 'Code';
+  String get bragCodeLabel => 'Kód';
 
   @override
-  String get bragBeatMeOnKute => 'Beat me on Kute';
+  String get bragBeatMeOnKute => 'Győzz le a Kute-ban';
 
   @override
-  String get bragSinceYouBought => 'Since you bought';
+  String get bragSinceYouBought => 'Vétel óta';
 
   @override
-  String get bragLineBeatThat => 'Beat that.';
+  String get bragLineBeatThat => 'Ezt übereld.';
 
   @override
-  String get bragLineNotLuck => 'Not luck. Talent.';
+  String get bragLineNotLuck => 'Nem szerencse. Tehetség.';
 
   @override
-  String get bragLineYourMove => 'Your move.';
+  String get bragLineYourMove => 'Te jössz.';
 
   @override
-  String get bragLineToldYouSo => 'Told you so.';
+  String get bragLineToldYouSo => 'Megmondtam.';
 
   @override
-  String get bragLineLookEasy => 'I make this look easy.';
+  String get bragLineLookEasy => 'Nekem ez gyerekjáték.';
 
   @override
-  String get bragLineUpOnly => 'Up only.';
+  String get bragLineUpOnly => 'Csak felfelé.';
 
   @override
-  String get bragLineSmallWins =>
-      'Small wins still count. Still better than you.';
+  String get bragLineSmallWins => 'Kicsi, de számít. Még mindig jobb, mint te.';
 
   @override
-  String get bragLineDownBad => 'Down bad. Back soon.';
+  String get bragLineDownBad => 'Most mínuszban. Hamarosan visszajövök.';
 
   @override
-  String get bragLineCharacter => 'Character building.';
+  String get bragLineCharacter => 'Jellemfejlesztés.';
 
   @override
-  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+  String get bragLineBuyTheDip => '„Vegyél a mélyponton”, mondták.';
 
   @override
-  String get bragLinePatience => 'Patience is a position.';
+  String get bragLinePatience => 'A türelem is pozíció.';
 
   @override
-  String get bragEntry => 'Entry';
+  String get bragEntry => 'Belépés';
 
   @override
-  String get bragNow => 'Now';
+  String get bragNow => 'Most';
 
   @override
-  String get bragAboutIt => 'Brag about it';
+  String get bragAboutIt => 'Dicsekedj vele';
 
   @override
   String get positionShareCardSub => 'Send the market or show off your result';
@@ -12149,4 +12148,220 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get receiptResult => 'Result';
+
+  @override
+  String get shareCardReadyTitle => 'Kész a kártyád';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Csatlakozz hozzám a Kute-ban';
+
+  @override
+  String get shareCardClaimChip => 'Vedd át a Kute-ban';
+
+  @override
+  String get shareCardPlaceChip => 'Tippelj a Kute-ban';
+
+  @override
+  String get shareCardTradeChip => 'Kereskedj a Kute-ban';
+
+  @override
+  String get shareCardCallChip => 'Döntsd el a Kute-ban';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$name, küldtem neked';
+  }
+
+  @override
+  String get shareCardSentYou => 'Küldtem neked';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$name, küldtem egy tippet';
+  }
+
+  @override
+  String get shareCardSentPick => 'Küldtem egy tippet';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return 'Tét: $amount';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '$change ma';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Igen';
+
+  @override
+  String get shareCardOutcomeNo => 'Nem';
+
+  @override
+  String get shareCardLineClaimIt => 'Vedd át, mielőtt meggondolom magam.';
+
+  @override
+  String get shareCardLineDontSpend => 'A tiéd. Ne költsd el mind mémekre.';
+
+  @override
+  String get shareCardLineFreeMoney => 'Ingyen pénz. Ritka. Vedd át.';
+
+  @override
+  String get shareCardLineTrustMe => 'Ebben bízz bennem.';
+
+  @override
+  String get shareCardLineKnowEnding => 'Én már tudom, mi lesz a vége.';
+
+  @override
+  String get shareCardLineEasyMoney => 'Könnyű pénz. Valószínűleg.';
+
+  @override
+  String get shareCardLineGoingPlaces => 'Ez még messzire jut.';
+
+  @override
+  String get shareCardLineBuyHigh => 'Vegyél drágán, adj el még drágábban.';
+
+  @override
+  String get shareCardLineBetterTaste =>
+      'Nem befektetési tanács. Csak jobb ízlés.';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'Te mit gondolsz?';
+
+  @override
+  String get shareCardLineYourCall => 'Te döntesz.';
+
+  @override
+  String get shareCardLinePickASide => 'Válassz oldalt.';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, ma $change emelkedés';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, ma $change esés';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: implikált ár $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price hordónként';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price unciánként';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'A piacok szerint $outcome esélye $chance';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'A piacok szerint az esély $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorit: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorit: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance esély a győzelemre';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance esély, hogy megtörténik';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance esély, hogy megtörténik';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance szerint igen';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance szerint nem';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance esély';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, egy barátod küldött neked';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Egy barátod küldött neked';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, egy barátod küldött egy tippet';
+  }
+
+  @override
+  String get claimCardPick => 'Egy barátod küldött egy tippet';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome: $chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'A tiéd. Koppints az Átvétel gombra.';
+
+  @override
+  String get claimCardLineNeedThis => 'A barátod szerint erre szükséged van.';
+
+  @override
+  String get claimCardLineLikesYou => 'Valaki kedvel. Itt a bizonyíték.';
+
+  @override
+  String get claimCardLineNoCatch => 'Nincs csapda. Csak egy ajándék.';
 }
