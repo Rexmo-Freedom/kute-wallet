@@ -72,6 +72,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/helpers/hyperliquid_activity.dart' show hlOrderSideLabel;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/chart_drawing.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -1340,7 +1341,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           id: 'order:${o.oid}',
           kind: ChartTradeLineKind.limit,
           price: o.limitPx,
-          label: o.isBuy ? context.l10n.buy : context.l10n.sell,
+          label: hlOrderSideLabel(context.l10n,
+              coin: o.coin, isBuy: o.isBuy, reduceOnly: o.reduceOnly),
           detail: '$size @ ${px(o.limitPx)}',
           isBuy: o.isBuy,
           editable: editable,

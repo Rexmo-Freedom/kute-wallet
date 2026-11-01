@@ -685,8 +685,9 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
                     // money (the line under the rows says so).
                     PositionRow(l10n.chartPositionSize,
                         '${formatPolyAmount(ref, markPx * pos.szi.abs())} · ${formatHlSize(pos.szi.abs())} ${market?.coin ?? pos.coin}'),
-                    PositionRow(
-                        pos.isLong ? l10n.chartBoughtAt : l10n.chartSoldAt,
+                    // "Entry" for both sides: a short's entry is not
+                    // something it "sold", and a long's close is a sale.
+                    PositionRow(l10n.hlChartEntry,
                         formatHlPrice(pos.entryPx, decimalCap: cap)),
                     PositionRow(l10n.chartLeverage, '${pos.leverageValue}x'),
                     PositionRow(

@@ -238,6 +238,10 @@ class HlOrderUpdate {
   final int timestamp;
   final String? cloid;
 
+  /// Whether the order could only close, when the venue says (null when
+  /// the update does not carry it).
+  final bool? reduceOnly;
+
   const HlOrderUpdate({
     required this.status,
     required this.statusTimestamp,
@@ -249,6 +253,7 @@ class HlOrderUpdate {
     required this.origSz,
     required this.timestamp,
     required this.cloid,
+    this.reduceOnly,
   });
 
   factory HlOrderUpdate.fromJson(Map<String, dynamic> json) {
@@ -266,6 +271,9 @@ class HlOrderUpdate {
       origSz: double.tryParse(order['origSz']?.toString() ?? '') ?? 0,
       timestamp: (order['timestamp'] as num?)?.toInt() ?? 0,
       cloid: order['cloid'] as String?,
+      reduceOnly: order['reduceOnly'] is bool
+          ? order['reduceOnly'] as bool
+          : null,
     );
   }
 }

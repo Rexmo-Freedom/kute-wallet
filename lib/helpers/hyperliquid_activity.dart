@@ -132,6 +132,19 @@ String hlFillHeadline(HlFill fill, String size, AppLocalizations l) {
   };
 }
 
+/// An order's side in the position's words. A perpetual order that only
+/// closes ([reduceOnly]: a take profit, a stop, a close) reads "Close
+/// short" for a buy and "Close long" for a sell; one that opens reads
+/// "Long" or "Short". A spot order, or one whose purpose is unknown, says
+/// Buy or Sell. [coin] is the wire coin ('@142' is spot).
+String hlOrderSideLabel(AppLocalizations l,
+    {required String coin, required bool isBuy, bool? reduceOnly}) {
+  final spot = coin.startsWith('@') || coin.contains('/');
+  if (spot || reduceOnly == null) return isBuy ? l.buy : l.sell;
+  if (reduceOnly) return l.slipCtaClose(isBuy ? 'short' : 'long');
+  return isBuy ? l.longLabel : l.shortLabel;
+}
+
 /// One row per fill, never per order: a single order can execute many times.
 List<HlFill> mergeHlFills(Iterable<HlFill> history, Iterable<HlFill> live) {
   String key(HlFill f) => f.tradeId != null

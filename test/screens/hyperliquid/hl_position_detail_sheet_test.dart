@@ -204,7 +204,8 @@ void main() {
           reason: label);
     }
     expect(find.text('Your money in it'), findsNothing);
-    expect(find.text('Bought at'), findsOneWidget);
+    expect(find.text('Entry'), findsOneWidget);
+    expect(find.text('Bought at'), findsNothing);
     expect(find.text('Leverage'), findsOneWidget);
     expect(find.text('5x'), findsOneWidget);
     expect(find.text('Funding paid'), findsOneWidget);

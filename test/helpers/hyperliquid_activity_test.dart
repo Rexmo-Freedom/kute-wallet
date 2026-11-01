@@ -95,6 +95,22 @@ void main() {
     expect(hlFillTone(fill('3', 0, 1, 'B', 3), up: up, down: down, neutral: n),
         up);
   });
+  test('an order says what it does to the position', () {
+    final l = l10nForLanguage('en');
+    // A take profit or stop on a short buys; it reads as closing it.
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: true, reduceOnly: true),
+        'Close short');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false, reduceOnly: true),
+        'Close long');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false, reduceOnly: false),
+        'Short');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: true, reduceOnly: false),
+        'Long');
+    // Spot, or a purpose the venue did not say: plain buy and sell.
+    expect(hlOrderSideLabel(l, coin: '@142', isBuy: true, reduceOnly: false),
+        'Buy');
+    expect(hlOrderSideLabel(l, coin: 'OAI', isBuy: false), 'Sell');
+  });
   tradingStatsTests();
 }
 
