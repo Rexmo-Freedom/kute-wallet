@@ -52,11 +52,17 @@ const String kShareCardFont = 'Inter';
 const Color kShareCardInk = Colors.white;
 const Color kShareCardDark = Color(0xFF111214);
 
+/// Glyphs Inter lacks (Japanese): the system's own CJK face first. The
+/// platforms fall back on their own anyway; naming it keeps the card's
+/// weight on iOS.
+const List<String> kShareCardFallback = ['Hiragino Sans'];
+
 /// The card's text style: Inter, no decoration, tabular figures on ask.
 TextStyle shareCardText(double size, FontWeight weight, Color color,
         {double spacing = 0, double height = 1.2, bool tabular = false}) =>
     TextStyle(
       fontFamily: kShareCardFont,
+      fontFamilyFallback: kShareCardFallback,
       fontSize: size,
       fontWeight: weight,
       color: color,
@@ -122,7 +128,12 @@ class ShareCardFrame extends StatelessWidget {
     this.glow,
     this.keyPrefix = 'share-card',
     this.background,
+    this.wordmarkDot,
   });
+
+  /// The wordmark's dot; the brand orange by default (dark on an orange
+  /// card, where orange would vanish).
+  final Color? wordmarkDot;
 
   /// The gradient, top left to bottom right.
   final List<Color> colors;
@@ -212,7 +223,10 @@ class ShareCardFrame extends StatelessWidget {
                     children: [
                       Expanded(child: body),
                       ShareCardFooter(
-                          code: code, cta: cta, keyPrefix: keyPrefix),
+                          code: code,
+                          cta: cta,
+                          keyPrefix: keyPrefix,
+                          dot: wordmarkDot),
                     ],
                   ),
                 ),
@@ -505,7 +519,11 @@ class ShareCardFooter extends StatelessWidget {
     required this.cta,
     this.codeLabel,
     this.keyPrefix = 'share-card',
+    this.dot,
   });
+
+  /// The wordmark's dot colour; the brand orange by default.
+  final Color? dot;
 
   final String? code;
   final String cta;
@@ -538,7 +556,7 @@ class ShareCardFooter extends StatelessWidget {
                       TextSpan(text: 'kute', style: mark),
                       TextSpan(
                           text: '.',
-                          style: mark.copyWith(color: AppColors.accent)),
+                          style: mark.copyWith(color: dot ?? AppColors.accent)),
                     ]),
                   ),
                   const SizedBox(height: 3),
