@@ -128,7 +128,8 @@ class HlChartSheet extends ConsumerWidget {
       };
 
   void _pickStyle(WidgetRef ref, HlChartStyle style) {
-    final current = HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
+    final current =
+        HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
     if (style == current) return;
     HapticFeedback.selectionClick();
     // Only how the bars are drawn changes: the interval, the view and the
@@ -147,7 +148,9 @@ class HlChartSheet extends ConsumerWidget {
     final l10n = context.l10n;
     final current = ref.read(hlChartPreferencesProvider(marketKey)).indicators;
     final r = hlToggleSheetIndicator(current, key);
-    ref.read(hlChartPreferencesProvider(marketKey).notifier).setIndicators(r.next);
+    ref
+        .read(hlChartPreferencesProvider(marketKey).notifier)
+        .setIndicators(r.next);
     TrackingService.track('indicator_toggled', params: {
       'indicator': key,
       'enabled': r.next.contains(key),
@@ -199,11 +202,11 @@ class HlChartSheet extends ConsumerWidget {
     final c = context.colors;
     final style = HlChartStyle.fromName(ref.watch(hlChartLayoutProvider).style);
     final on = ref.watch(hlChartPreferencesProvider(marketKey)).indicators;
-    final isDefault = (!showStyle ||
-            style == HlChartStyle.fromName(kHlDefaultChartStyle)) &&
-        (!showIndicators ||
-            (on.length == kHlDefaultIndicators.length &&
-                on.containsAll(kHlDefaultIndicators)));
+    final isDefault =
+        (!showStyle || style == HlChartStyle.fromName(kHlDefaultChartStyle)) &&
+            (!showIndicators ||
+                (on.length == kHlDefaultIndicators.length &&
+                    on.containsAll(kHlDefaultIndicators)));
     final title = showStyle && showIndicators
         ? l10n.chartSheetTitle
         : (showStyle ? l10n.chartStyleTitle : l10n.chartIndicators);
@@ -231,7 +234,9 @@ class HlChartSheet extends ConsumerWidget {
                     if (showIndicators) _SectionLabel(l10n.chartSheetStyle),
                     Row(
                       children: [
-                        for (var i = 0; i < HlChartStyle.picker.length; i++) ...[
+                        for (var i = 0;
+                            i < HlChartStyle.picker.length;
+                            i++) ...[
                           if (i > 0) SizedBox(width: 10.w),
                           Expanded(
                             child: _StyleCard(
@@ -306,8 +311,7 @@ String _note(AppLocalizations l10n, String key) => switch (key) {
       _ => '',
     };
 
-String _styleName(AppLocalizations l10n, HlChartStyle style) =>
-    switch (style) {
+String _styleName(AppLocalizations l10n, HlChartStyle style) => switch (style) {
       HlChartStyle.line => l10n.chartStyleLine,
       HlChartStyle.area => l10n.chartStyleArea,
       _ => l10n.chartStyleCandles,
@@ -359,8 +363,8 @@ class _CircleClose extends StatelessWidget {
                 color: c.textPrimary.withValues(alpha: 0.07),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.close_rounded,
-                  size: 18, color: c.textSecondary),
+              child:
+                  Icon(Icons.close_rounded, size: 18, color: c.textSecondary),
             ),
           ),
         ),
@@ -475,7 +479,22 @@ class HlStyleThumbPainter extends CustomPainter {
   final Color up, down, muted;
 
   static const List<double> _placeholder = [
-    3, 4, 3.6, 5, 4.4, 5.6, 5.1, 6.2, 5.8, 6.8, 6.1, 7.2, 6.9, 7.8, 7.4, 8.4,
+    3,
+    4,
+    3.6,
+    5,
+    4.4,
+    5.6,
+    5.1,
+    6.2,
+    5.8,
+    6.8,
+    6.1,
+    7.2,
+    6.9,
+    7.8,
+    7.4,
+    8.4,
   ];
 
   @override
@@ -483,7 +502,10 @@ class HlStyleThumbPainter extends CustomPainter {
     if (size.width <= 0 || size.height <= 0) return;
     final bars = candles
         .where((k) =>
-            k.open.isFinite && k.close.isFinite && k.high.isFinite && k.low.isFinite)
+            k.open.isFinite &&
+            k.close.isFinite &&
+            k.high.isFinite &&
+            k.low.isFinite)
         .toList();
     final real = bars.length >= 2;
     final closes = real ? [for (final k in bars) k.close] : _placeholder;

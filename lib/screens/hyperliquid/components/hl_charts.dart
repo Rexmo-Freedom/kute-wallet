@@ -3800,7 +3800,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                                         );
                                         return g == null
                                             ? ''
-                                            : formatHlPrice(g.priceForY(y),
+                                            : formatHlTagPrice(g.priceForY(y),
                                                 decimalCap: widget.decimalCap);
                                       },
                                       time: kuteChartDayTime(
@@ -4243,7 +4243,16 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                 left: 0,
                 top: 3,
                 child: IgnorePointer(
-                  child: Text.rich(
+                  // A soft halo: the line passes under the label, never
+                  // through it.
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: c.background.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Text.rich(
                     TextSpan(children: [
                       TextSpan(
                         text: label,
@@ -4264,6 +4273,8 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
                       fontSize: 11.sp,
                       height: 1.2,
                       fontFeatures: tabular,
+                    ),
+                  ),
                     ),
                   ),
                 ),
@@ -4335,7 +4346,7 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
             style: TextStyle(color: c.textTertiary),
           ),
           TextSpan(
-            text: formatHlPrice(rows[k].$3, decimalCap: widget.decimalCap),
+            text: formatHlTagPrice(rows[k].$3, decimalCap: widget.decimalCap),
             style: TextStyle(color: rows[k].$2, fontWeight: FontWeight.w600),
           ),
         ],
@@ -5829,6 +5840,7 @@ class _HlCrosshairPillsPainter extends CustomPainter {
         text: TextSpan(
           text: s,
           style: TextStyle(
+            fontFamily: kuteChartFontFamily,
             color: text,
             fontSize: fontSize,
             fontWeight: FontWeight.w600,

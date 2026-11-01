@@ -21,9 +21,8 @@ Finder _card(String style) => find.byKey(ValueKey('hl-chart-style-$style'));
 Finder _row(String key) => find.byKey(ValueKey('hl-chart-indicator-$key'));
 
 bool _picked(WidgetTester tester, String style) => tester
-    .widget<Semantics>(find
-        .ancestor(of: _card(style), matching: find.byType(Semantics))
-        .first)
+    .widget<Semantics>(
+        find.ancestor(of: _card(style), matching: find.byType(Semantics)).first)
     .properties
     .selected!;
 
@@ -97,8 +96,8 @@ void main() {
 
     test('the sheet lists six, in the founder\'s order', () {
       expect(kHlSheetIndicators, ['vol', 'ema', 'bb', 'rsi', 'macd', 'vwap']);
-      expect(ChartPreferencesNotifier.shownIndicators,
-          kHlSheetIndicators.toSet());
+      expect(
+          ChartPreferencesNotifier.shownIndicators, kHlSheetIndicators.toSet());
       expect(kHlBelowIndicators, {'vol', 'rsi', 'macd'});
       expect(kHlDefaultIndicators, {'vol'});
     });
@@ -164,8 +163,8 @@ void main() {
       expect(_on(tester), {'vol', 'rsi'});
       await _tapRow(tester, 'macd');
       expect(_on(tester), {'rsi', 'macd'});
-      expect(find.text('Volume is off: two fit below the chart'),
-          findsOneWidget);
+      expect(
+          find.text('Volume is off: two fit below the chart'), findsOneWidget);
       await _tapRow(tester, 'ema');
       expect(_on(tester), {'rsi', 'macd', 'ema'});
 
@@ -212,16 +211,16 @@ void main() {
       final text = tester.widget<Text>(legend).textSpan!.toPlainText();
       expect(text, contains('EMA 9'));
       expect(text, contains('EMA 21'));
-      expect(find.byKey(const ValueKey('hl-chart-pane-hairline')),
-          findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('hl-chart-pane-hairline')), findsOneWidget);
       final pane = find.byKey(const ValueKey('hl-chart-pane-label-RSI (14)'));
       expect(pane, findsOneWidget);
       expect(tester.widget<Text>(pane).textSpan!.toPlainText(),
           matches(RegExp(r'^RSI \(14\)  \d+(\.\d+)?$')));
 
       // Cursor in hand: a long press shows the crosshair's axis pills.
-      expect(find.byKey(const ValueKey('hl-chart-crosshair-pills')),
-          findsNothing);
+      expect(
+          find.byKey(const ValueKey('hl-chart-crosshair-pills')), findsNothing);
       final plot = find.byKey(const ValueKey('hl-chart-overlay-legend'));
       final center = tester.getTopLeft(plot) + const Offset(120, 80);
       final g = await tester.startGesture(center);
@@ -230,8 +229,8 @@ void main() {
           findsOneWidget);
       await g.up();
       await tester.pump();
-      expect(find.byKey(const ValueKey('hl-chart-crosshair-pills')),
-          findsNothing);
+      expect(
+          find.byKey(const ValueKey('hl-chart-crosshair-pills')), findsNothing);
     });
   });
 }

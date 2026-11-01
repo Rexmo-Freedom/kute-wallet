@@ -102,6 +102,7 @@ Future<void> pumpHlEditSheet(
   double height = 844,
   ThemeData? theme,
   Widget Function(Widget child)? wrap,
+  TransitionBuilder? appBuilder,
   List<HyperliquidCandle>? candles,
 }) async {
   tester.view.physicalSize = Size(width, height) * tester.view.devicePixelRatio;
@@ -138,6 +139,8 @@ Future<void> pumpHlEditSheet(
             ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // Wraps the navigator too: what a render captures with a sheet up.
+        builder: appBuilder,
         home: wrap == null ? sheet : wrap(sheet),
       ),
     ),
