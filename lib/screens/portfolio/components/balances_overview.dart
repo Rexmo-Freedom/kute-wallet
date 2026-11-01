@@ -24,9 +24,10 @@
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
-//     venue's positions under it in ONE grouped card, the Investing and
-//     Predictions lists' own (PremiumGroupContainer's surface, radius and
-//     soft shadow, Home's inset hairline between rows), as the Option-B
+//     venue's positions under it in ONE soft card, the home Activity
+//     list's (PortfolioCardList: PremiumGroupContainer's surface, radius
+//     and soft shadow, Home's inset hairline between rows, the Activity
+//     rows' 16 / 13 padding), as the Option-B
 //     position rows
 //     (components/position_rows.dart: picture, short title, "event ·
 //     side", chance bar with its entry tick, value and %), a tap opening
@@ -82,14 +83,25 @@
 //     colour, the amounts w600 tabular; the first dot in the Investing
 //     colour, the second in the Dollars colour; Invested is Investing
 //     plus Predictions at work, Available the Dollars cash;
+//   * THE RING ADAPTS (founder, 1 November 2026; [BalancesOverview.focus]):
+//     on P&L Charts with a venue picked in "By venue" its slice stays and
+//     the others dim to 30% (the donut's morph on KuteMotion.settle, at
+//     once under Reduce Motion), the hole is the venue's name over its
+//     P&L for the chart's range ("Predictions", "▲ $7.61"), and the line
+//     under the ring is "● Invested in Predictions $4.24"; picked again,
+//     or another section, the allocation as above;
 //   * 14, then the section switch (Portfolio | P&L Charts | Activity, the
 //     home strip: equal thirds, the picked one the white pill with the
 //     hairline and the shadow; [sectionSwitch], the Portfolio page hands
 //     it down);
-//   * then the open positions by venue under small-caps labels
-//     ("INVESTING · 2", 11, w600, the quiet colour, 0.6 of tracking),
-//     each venue ONE soft card of position rows (3 + See all), 12
-//     between groups, a venue with nothing open left out; nothing open
+//   * then the open positions by venue under their titles ("Investing ·
+//     2", 13 sp, textSecondary), each venue ONE soft card of position
+//     rows (3 + See all) in the home Activity list's style (founder, 1
+//     November 2026: flat rows on the page were dropped;
+//     PortfolioCardList, position_rows.dart: the Activity day card's
+//     surface, radius and inset hairline, its rows' 16 / 13 padding), 8
+//     under its title, 24 between groups, a venue with nothing open left
+//     out; nothing open
 //     anywhere: the sections' one empty state (PortfolioSectionEmpty,
 //     portfolio_empty_state.dart: the hero Sal at 160, "No open
 //     positions" and the tagline), where P&L Charts and Activity put
@@ -113,13 +125,15 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlChartRangeProvider, pnlVenueRangeChange;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
+        PortfolioCardList,
         PortfolioRowInset,
+        kPortfolioCardInset,
         kPortfolioRowGap,
-        kPortfolioRowImage,
-        kPortfolioRowPadV;
-import 'package:kute/screens/shared/animations/premium_group_container.dart';
+        kPortfolioRowImage;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
@@ -146,13 +160,14 @@ const double kBalancesCentUsd = 0.005;
 const double kBalancesRingDiameter = 40;
 const double kBalancesRingThickness = 5;
 
-/// The Portfolio screen's flat sections (founder, 1 November 2026: one
-/// language with P&L Charts): a title's gap to its rows (the rows add
-/// kPortfolioRowPadV above), and the gap between two groups.
-const double kBalancesFlatTitleGap = 4;
-const double kBalancesFlatGroupGap = 24;
+/// The Portfolio screen's sections (founder, 1 November 2026: one
+/// language with P&L Charts and the home Activity list): a title's gap to
+/// its soft card (the Activity day label's 8), and the gap between two
+/// groups.
+const double kBalancesTitleGap = 8;
+const double kBalancesGroupGap = 24;
 
-/// A flat section's title ("Investing · 2", "Profit and loss", "By
+/// A Portfolio section's title ("Investing · 2", "Profit and loss", "By
 /// venue"): 13 sp, textSecondary, sentence case.
 TextStyle balancesFlatSectionTitle(BuildContext context) => TextStyle(
       color: context.colors.textSecondary,
@@ -164,6 +179,9 @@ TextStyle balancesFlatSectionTitle(BuildContext context) => TextStyle(
 
 /// The Portfolio screen's hero ring (see the file header).
 const double kBalancesSharesRingDiameter = 150;
+
+/// A slice's opacity while another venue is picked on P&L Charts.
+const double kBalancesRingDimmed = 0.3;
 const double kBalancesSharesRingThickness = 14;
 
 /// How many of a venue's open rows its card lists before "See all".
@@ -388,7 +406,17 @@ class BalancesOverview extends StatefulWidget {
     this.sectionSwitch,
     this.heroOnly = false,
     this.venuesOnly = false,
+    this.focus,
   });
+
+  /// The venue picked in "By venue" on P&L Charts (founder, 1 November
+  /// 2026: the top ring adapts), in the [sharesHeader] hero: its slice
+  /// stays, the others dim to [kBalancesRingDimmed] (on the settle curve;
+  /// at once under Reduce Motion), the hole is the venue's name over its
+  /// P&L for the chart's range, and the line under the ring is "Invested
+  /// in {venue}" with what it has at work. Null: the allocation, as on
+  /// Portfolio.
+  final BalancesCategory? focus;
 
   /// The [sharesHeader] layout split in two (PortfolioBalanceBreakdown
   /// .heroOnly): only the hero ring, its line and [sectionSwitch]; or
@@ -609,15 +637,13 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             title: label(category),
             count: count,
           ),
-          // Flat, on the page (the P&L section's language): the rows
-          // right under the title, no card, no hairlines.
+          // ONE soft card under the title, the home Activity list's.
           Padding(
             key: ValueKey('portfolio-balance-${category.name}-positions'),
-            padding: EdgeInsets.only(top: kBalancesFlatTitleGap.h),
+            padding: EdgeInsets.only(top: kBalancesTitleGap.h),
             child: _VenueCard(
                 rows: _shownRows(category, list),
                 loading: list.loading,
-                flat: true,
                 fold: _foldRow(category, list)),
           ),
         ],
@@ -679,6 +705,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             child: BalancesRing(
               categories: categories.keys.toList(),
               shares: shares,
+              focus: widget.focus,
               diameter: kBalancesSharesRingDiameter,
               thickness: kBalancesSharesRingThickness,
               semantics: [
@@ -692,6 +719,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 trading: investing != null,
                 predictions: predictions != null,
                 money: money,
+                focus: widget.focus,
+                focusLabel:
+                    widget.focus == null ? null : label(widget.focus!),
               ),
             ),
           ),
@@ -709,6 +739,17 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 key: const ValueKey('portfolio-shares-legend'),
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // A venue picked on P&L Charts: what it has at work.
+                  if (widget.focus case final venue?)
+                    _LegendFigure(
+                      key: const ValueKey('portfolio-legend-focus'),
+                      color: balancesCategoryColor(c, venue),
+                      label: l10n.portfolioInvestedInVenue(label(venue)),
+                      figure: categories[venue] == null
+                          ? const BalancesFigure('—', stale: true)
+                          : figure(categories[venue]!),
+                    )
+                  else ...[
                   _LegendFigure(
                     key: const ValueKey('portfolio-legend-invested'),
                     color: balancesCategoryColor(c, BalancesCategory.investing),
@@ -723,6 +764,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                     label: l10n.portfolioAvailableLabel,
                     figure: availableFigure,
                   ),
+                  ],
                 ],
               ),
             ),
@@ -817,11 +859,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           Padding(
             key: const ValueKey('portfolio-balance-venues-loading'),
             padding: EdgeInsets.only(top: 14.h),
-            child: _VenueCard(
-                rows: const [],
-                loading: true,
-                skeletonRows: 3,
-                flat: widget.sharesHeader),
+            child: const _VenueCard(
+                rows: [], loading: true, skeletonRows: 3),
           )
         // Nothing open anywhere: Sal's empty state, not two empty venue
         // rows (founder, 27 October 2026). The Portfolio screen asks only
@@ -856,7 +895,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             sharesVenue(BalancesCategory.investing, investing!),
           if (venueOpen(BalancesCategory.investing, investing) &&
               venueOpen(BalancesCategory.predictions, predictions))
-            SizedBox(height: kBalancesFlatGroupGap.h),
+            SizedBox(height: kBalancesGroupGap.h),
           if (venueOpen(BalancesCategory.predictions, predictions))
             sharesVenue(BalancesCategory.predictions, predictions!),
         ] else if (anyVenue) ...[
@@ -874,28 +913,20 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       widget.wrap?.call(part, row) ?? row;
 }
 
-/// The row padding inside a venue's card, the grouped lists' own.
-const double _kCardInset = 16;
-
-/// A venue's positions in one grouped card, as the Investing and
-/// Predictions lists draw theirs (market_groups.dart): the group's
-/// surface, radius and soft shadow, Home's inset hairline between rows
-/// (starting where a row's text does), the rows' press ink clipped to the
-/// corners; shimmer rows while the venue is read with nothing listed.
+/// A venue's positions in ONE soft card, the home Activity list's
+/// ([PortfolioCardList]: the Activity day card's surface, radius and soft
+/// shadow, its inset hairline between rows starting where a row's text
+/// does, the rows' press ink clipped to the corners); shimmer rows while
+/// the venue is read with nothing listed.
 class _VenueCard extends StatelessWidget {
   const _VenueCard(
       {required this.rows,
       required this.loading,
       this.skeletonRows = 2,
-      this.flat = false,
       this.fold});
 
   final List<Widget> rows;
   final bool loading;
-
-  /// The Portfolio screen: the rows on the page itself, no card, no
-  /// hairlines, no inset.
-  final bool flat;
 
   /// "See all" / "Show less" after the rows, past the same hairline.
   final Widget? fold;
@@ -905,58 +936,31 @@ class _VenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (flat) {
-      return PortfolioRowInset(
-        horizontal: 0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...rows,
-            if (loading)
-              SkeletonRowList(
-                  count: skeletonRows,
-                  padding: EdgeInsets.zero,
-                  rowPadding:
-                      EdgeInsets.symmetric(vertical: kPortfolioRowPadV.h)),
-            if (fold case final f?) f,
-          ],
-        ),
-      );
-    }
-    final inset = _kCardInset.w;
-    return DecoratedBox(
-      decoration: PremiumGroupContainer.decorationOf(context),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(PremiumGroupContainer.radius),
-        child: PortfolioRowInset(
-          horizontal: inset,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0)
-                  marketGroupDivider(context,
-                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
-                rows[i],
+    final inset = kPortfolioCardInset.w;
+    final fold = this.fold;
+    return PortfolioCardList(
+      rows: rows,
+      afterHairline: false,
+      after: !loading && fold == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (loading)
+                  SkeletonRowList(
+                      count: skeletonRows,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: inset, vertical: 8.h),
+                      rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
+                if (fold != null) ...[
+                  if (rows.isNotEmpty)
+                    marketGroupDivider(
+                        context, PortfolioCardList.hairlineIndent()),
+                  fold,
+                ],
               ],
-              if (loading)
-                SkeletonRowList(
-                    count: skeletonRows,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: inset, vertical: 8.h),
-                    rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
-              if (fold case final f?) ...[
-                if (rows.isNotEmpty)
-                  marketGroupDivider(context,
-                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
-                f,
-              ],
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
@@ -1194,12 +1198,18 @@ class BalancesRing extends StatelessWidget {
     this.diameter = kBalancesRingDiameter,
     this.thickness = kBalancesRingThickness,
     this.center,
+    this.focus,
   });
 
   final List<BalancesCategory> categories;
   final Map<BalancesCategory, double> shares;
   final String semantics;
   final Key chartKey;
+
+  /// The slice kept at full colour, the others at [kBalancesRingDimmed];
+  /// null: every slice at full colour. The change morphs on
+  /// [KuteMotion.settle] (at once under Reduce Motion).
+  final BalancesCategory? focus;
 
   /// What sits in the hole (the Portfolio screen's all-time P&L); null
   /// for the bare ring.
@@ -1224,13 +1234,17 @@ class BalancesRing extends StatelessWidget {
           trackColor: context.isDark ? c.surfaceLight : c.surfaceElevated,
           onSelected: (_) {},
           center: center,
+          morphCurve: KuteMotion.settle,
           segments: [
             for (final k in categories)
               if ((shares[k] ?? 0) > 0)
                 KuteDonutSegment(
                   id: k,
                   value: shares[k]!,
-                  color: balancesCategoryColor(c, k),
+                  color: focus == null || focus == k
+                      ? balancesCategoryColor(c, k)
+                      : balancesCategoryColor(c, k)
+                          .withValues(alpha: kBalancesRingDimmed),
                   semanticsLabel: '',
                 ),
           ],
@@ -1409,21 +1423,37 @@ class _AllTimeCentre extends ConsumerWidget {
     required this.trading,
     required this.predictions,
     required this.money,
+    this.focus,
+    this.focusLabel,
   });
 
   final bool trading;
   final bool predictions;
   final String Function(double usd) money;
 
+  /// A venue picked on P&L Charts: its name ([focusLabel]) over its P&L
+  /// for the chart's range (pnlVenueRangeChange), in place of "All time".
+  final BalancesCategory? focus;
+  final String? focusLabel;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final venues = [
-      if (trading) PortfolioPerformanceVenue.trading,
-      if (predictions) PortfolioPerformanceVenue.predictions,
-    ];
+    final focused = focus;
+    final venues = focused != null
+        ? [
+            focused == BalancesCategory.predictions
+                ? PortfolioPerformanceVenue.predictions
+                : PortfolioPerformanceVenue.trading
+          ]
+        : [
+            if (trading) PortfolioPerformanceVenue.trading,
+            if (predictions) PortfolioPerformanceVenue.predictions,
+          ];
+    final range = focused == null ? null : ref.watch(pnlChartRangeProvider);
+    final caption = focusLabel ?? l10n.portfolioAllTime;
     double? total = 0;
     for (final v in venues) {
       final data = ref
@@ -1438,8 +1468,13 @@ class _AllTimeCentre extends ConsumerWidget {
           ? data.withLivePredictions(
               ref.watch(livePriceProvider.select((s) => s.prices)))
           : data;
-      // Never published anything: nothing made or lost.
-      final usd = p.points.isEmpty ? 0.0 : p.totalPnlUsd;
+      // Never published anything: nothing made or lost. A picked venue:
+      // its P&L over the chart's range, as the chart's figure reads it.
+      final usd = p.points.isEmpty
+          ? 0.0
+          : range != null
+              ? pnlVenueRangeChange(p, range, DateTime.now())
+              : p.totalPnlUsd;
       if (usd == null || !usd.isFinite) {
         total = null;
         break;
@@ -1489,12 +1524,13 @@ class _AllTimeCentre extends ConsumerWidget {
             12.w;
     return Semantics(
       container: true,
-      label: '${l10n.portfolioAllTime}, $text',
+      label: focused != null ? '$caption · $text' : '$caption, $text',
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.portfolioAllTime,
+          Text(caption,
+              key: const ValueKey('portfolio-all-time-caption'),
               style: TextStyle(
                 color: c.textSecondary,
                 fontSize: 11.sp,

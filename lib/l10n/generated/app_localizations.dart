@@ -19275,6 +19275,24 @@ abstract class AppLocalizations {
   /// **'Unrealised'**
   String get pnlStatUnrealised;
 
+  /// Portfolio P&L Charts stats card: label over the P&L made by closed positions since the account began (it does not follow the chart's range).
+  ///
+  /// In en, this message translates to:
+  /// **'All time realised'**
+  String get pnlStatRealisedAllTime;
+
+  /// Portfolio P&L Charts stats card: label over what the positions still open stand at (it does not follow the chart's range).
+  ///
+  /// In en, this message translates to:
+  /// **'All time unrealised'**
+  String get pnlStatUnrealisedAllTime;
+
+  /// Portfolio screen, the line under the hero ring while a venue is picked on P&L Charts: the label before what is invested at that venue. venue: the venue's name (Predictions, Investing).
+  ///
+  /// In en, this message translates to:
+  /// **'Invested in {venue}'**
+  String portfolioInvestedInVenue(String venue);
+
   /// Portfolio P&L Charts stats strip: label over the share of closed positions that made money.
   ///
   /// In en, this message translates to:

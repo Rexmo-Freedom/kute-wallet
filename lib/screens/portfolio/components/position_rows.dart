@@ -28,9 +28,14 @@
 // The Portfolio's one row language ([kPortfolioRowPadV] and the styles
 // under it, founder 1 November 2026): the picture 32, the title 15 w500,
 // the line 13, the figure 15 w600 with its change 12; the P&L venue rows
-// are drawn the same. The Portfolio screen lists them flat with no
-// hairlines; other lists may still draw them
-// ([portfolioRowsWithHairlines]).
+// are drawn the same. The Portfolio screen lists them in SOFT CARDS
+// (founder, 1 November 2026: one style with the home Activity list; flat
+// rows on the page were dropped): [PortfolioCardList], the Activity day
+// card's surface, radius and inset hairline, each row inset 16 at the
+// sides and 13 above and below (the home Activity's compact rows). The
+// figure column at the end takes what it needs, at most 45% of the row
+// (the Activity rows' rule), and scales down past that: never cut at the
+// card's edge, at 375 pt and at large text alike.
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -72,7 +77,9 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
     show PositionDetailSheet, polyPositionEnd;
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -86,9 +93,20 @@ const double kPortfolioRowGap = 12;
 /// and a P&L venue row (portfolio_pnl_chart.dart, PnlVenueRow) are drawn
 /// the same: the picture at [kPortfolioRowImage], the title 15 w500, the
 /// line under it 13 in textSecondary, the figure 15 w600 at the end with
-/// its change 12 under it, no hairlines, [kPortfolioRowPadV] above and
-/// below each row, so two rows' contents sit 14 apart.
+/// its change 12 under it. Off a card, [kPortfolioRowPadV] above and below
+/// each row; in a [PortfolioCardList], [kPortfolioCardRowPadV] and
+/// [kPortfolioCardInset] with a hairline between rows.
 const double kPortfolioRowPadV = 7;
+
+/// A row's padding inside a [PortfolioCardList]: the home Activity list's
+/// compact rows (transactions_builder.dart: 16 at the sides, 13 above and
+/// below).
+const double kPortfolioCardInset = 16;
+const double kPortfolioCardRowPadV = 13;
+
+/// The most of a row its figure column at the end may take before it
+/// scales down (the Activity rows' rule, TransactionRowContent).
+const double kPortfolioRowFiguresShare = 0.45;
 
 /// A row's title: 15 w500.
 TextStyle portfolioRowTitleStyle(BuildContext context) => TextStyle(
@@ -130,25 +148,92 @@ TextStyle portfolioRowChangeStyle(Color color) => TextStyle(
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-/// The side inset of every [PortfolioPositionRow] below it: 0 where the
-/// rows sit on the page, the grouped card's row padding where a card draws
-/// them (Balances, like the Investing and Predictions lists). The inset is
-/// inside each row's ink, so a press still reaches the card's edges.
+/// The insets of every [PortfolioPositionRow] (and P&L venue row) below
+/// it: none at the sides and [kPortfolioRowPadV] above and below where the
+/// rows sit on the page, the card's row padding where a
+/// [PortfolioCardList] draws them. The inset is inside each row's ink, so
+/// a press still reaches the card's edges.
 class PortfolioRowInset extends InheritedWidget {
   const PortfolioRowInset(
-      {super.key, required this.horizontal, required super.child});
+      {super.key,
+      required this.horizontal,
+      this.vertical,
+      required super.child});
 
   /// Logical pixels, already scaled.
   final double horizontal;
+
+  /// Logical pixels, already scaled; null: [kPortfolioRowPadV].
+  final double? vertical;
 
   static double of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<PortfolioRowInset>()
           ?.horizontal ??
       0;
 
+  /// The padding above and below a row.
+  static double verticalOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PortfolioRowInset>()
+          ?.vertical ??
+      kPortfolioRowPadV.h;
+
   @override
   bool updateShouldNotify(PortfolioRowInset oldWidget) =>
-      horizontal != oldWidget.horizontal;
+      horizontal != oldWidget.horizontal || vertical != oldWidget.vertical;
+}
+
+/// The Portfolio's soft card list (founder, 1 November 2026: one style
+/// with the home Activity list): the Activity day card's surface, radius,
+/// border and soft shadow ([PremiumGroupContainer.decorationOf]), its rows
+/// inside it at [kPortfolioCardInset] / [kPortfolioCardRowPadV] with the
+/// inset hairline between them, starting where a row's text does
+/// ([marketGroupDivider]), the rows' press ink clipped to the corners.
+/// [after] (a fold row, a skeleton) follows the rows, past the same
+/// hairline when [afterHairline].
+class PortfolioCardList extends StatelessWidget {
+  const PortfolioCardList(
+      {super.key,
+      required this.rows,
+      this.after,
+      this.afterHairline = true});
+
+  final List<Widget> rows;
+  final Widget? after;
+  final bool afterHairline;
+
+  /// Where the hairline starts, from the card's edge: the rows' text.
+  static double hairlineIndent() =>
+      (kPortfolioCardInset + kPortfolioRowImage + kPortfolioRowGap).w;
+
+  @override
+  Widget build(BuildContext context) {
+    final indent = hairlineIndent();
+    return DecoratedBox(
+      decoration: PremiumGroupContainer.decorationOf(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(PremiumGroupContainer.radius),
+        child: PortfolioRowInset(
+          horizontal: kPortfolioCardInset.w,
+          vertical: kPortfolioCardRowPadV.h,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) marketGroupDivider(context, indent),
+                rows[i],
+              ],
+              if (after case final a?) ...[
+                if (rows.isNotEmpty && afterHairline)
+                  marketGroupDivider(context, indent),
+                a,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// How a P&L reads: a gain, a loss, or nothing worth a colour.
@@ -577,7 +662,7 @@ class PortfolioPositionRow extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(
               horizontal: PortfolioRowInset.of(context),
-              vertical: kPortfolioRowPadV.h),
+              vertical: PortfolioRowInset.verticalOf(context)),
           child: LayoutBuilder(builder: (context, box) {
             // 80% of the text column a typical value leaves.
             final barWidth = 0.8 *
@@ -612,39 +697,46 @@ class PortfolioPositionRow extends StatelessWidget {
                           style: secondary),
                       if (chance != null) ...[
                         SizedBox(height: 7.h),
-                        PortfolioChanceBar(
-                            key: const ValueKey('portfolio-row-chance'),
-                            chance: chance,
-                            entry: entry,
-                            width: barWidth),
+                        // Under the title, from where it starts; never
+                        // longer than the text column a wide figure
+                        // leaves.
+                        LayoutBuilder(
+                          builder: (context, column) => PortfolioChanceBar(
+                              key: const ValueKey('portfolio-row-chance'),
+                              chance: chance,
+                              entry: entry,
+                              width: barWidth.clamp(0.0, column.maxWidth)),
+                        ),
                       ],
                     ],
                   ),
                 ),
                 SizedBox(width: 12.w),
+                // The figures take what they need, at most
+                // kPortfolioRowFiguresShare of the row, each scaled down
+                // past that, never cut at the card's edge.
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 140.w),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RollingFigure(
-                          key: const ValueKey('portfolio-row-value'),
-                          text: value,
-                          style: portfolioRowFigureStyle(context),
-                        ),
-                        if (under != null) ...[
-                          SizedBox(height: 2.h),
-                          PortfolioPnlPill(text: under.text, tone: under.tone),
-                        ] else if (detail case final word?) ...[
-                          SizedBox(height: 4.h),
-                          Text(word, maxLines: 1, style: secondary),
-                        ],
+                  key: const ValueKey('portfolio-row-figures'),
+                  constraints: BoxConstraints(
+                      maxWidth: box.maxWidth * kPortfolioRowFiguresShare),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _figureFit(RollingFigure(
+                        key: const ValueKey('portfolio-row-value'),
+                        text: value,
+                        style: portfolioRowFigureStyle(context),
+                      )),
+                      if (under != null) ...[
+                        SizedBox(height: 2.h),
+                        _figureFit(PortfolioPnlPill(
+                            text: under.text, tone: under.tone)),
+                      ] else if (detail case final word?) ...[
+                        SizedBox(height: 4.h),
+                        _figureFit(Text(word, maxLines: 1, style: secondary)),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -655,6 +747,14 @@ class PortfolioPositionRow extends StatelessWidget {
     );
   }
 }
+
+/// A figure at a row's end: its own width, scaled down (never cut) when
+/// the figure column is narrower.
+Widget _figureFit(Widget figure) => FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerEnd,
+      child: figure,
+    );
 
 /// A Predictions picture: the market's image in the row's circle.
 Widget _polyImage(String title, String? imageUrl, {String category = ''}) =>

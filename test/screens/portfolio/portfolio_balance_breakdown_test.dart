@@ -1611,6 +1611,166 @@ void main() {
                         const PortfolioVenues(
                             trading: true, predictions: true))))));
 
+    // The Portfolio screen's venues (sharesHeader, under its pinned top).
+    final sharesBreakdown = Scaffold(
+        body: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 16 * 375 / 430),
+            child: Consumer(
+                builder: (context, ref, _) => PortfolioBalanceBreakdown(
+                    trading: true,
+                    predictions: true,
+                    overview: true,
+                    sharesHeader: true,
+                    venuesOnly: true,
+                    venues: portfolioVenueLists(
+                        context,
+                        ref,
+                        const PortfolioVenues(
+                            trading: true, predictions: true))))));
+
+    for (final scale in [1.0, 1.3]) {
+      testWidgets(
+          'the Portfolio screen at 375 pt and ${(scale * 100).round()} % '
+          'text: each venue ONE soft card under its title (the home '
+          'Activity list\'s), its rows split by the inset hairline, every '
+          'figure whole inside the card, the chance bar under the title',
+          (tester) async {
+        final c = await _pump(tester,
+            home: sharesBreakdown,
+            size: const Size(375, 1000),
+            textScale: scale,
+            trading: _tradingWith(positions: [
+              const HlPerpPosition(
+                  coin: 'BTC',
+                  szi: 0.1,
+                  entryPx: 60000,
+                  positionValue: 10812.37,
+                  unrealizedPnl: 0.4,
+                  returnOnEquity: 0.004,
+                  liquidationPx: null,
+                  marginUsed: 10811.97,
+                  leverageType: 'isolated',
+                  leverageValue: 1,
+                  maxLeverage: 40),
+            ]),
+            overrides: [
+              polymarketActivePositionsProvider.overrideWith((_) => const [
+                    PolymarketPosition(
+                        marketId: 'm-dem',
+                        marketQuestion:
+                            'Democratic Presidential Nominee 2028: will '
+                            'Gavin Newsom be the nominee?',
+                        outcome: 'No',
+                        size: 21000,
+                        avgPrice: 0.512,
+                        currentPrice: 0.5131,
+                        pnl: 0,
+                        pnlPercent: 0,
+                        isResolved: false,
+                        tokenId: 'dem-no'),
+                    PolymarketPosition(
+                        marketId: 'm-b',
+                        marketQuestion: 'Q b',
+                        outcome: 'Yes',
+                        size: 2,
+                        avgPrice: 0.5,
+                        currentPrice: 0.5,
+                        pnl: 0,
+                        pnlPercent: 0,
+                        isResolved: false,
+                        tokenId: 'b'),
+                  ]),
+            ]);
+        c.read(_balance.notifier).state = const OneBalanceState(
+          investedUsd: 21587,
+          investedByVenue: {
+            OneBalanceVenue.investing: 10812.37,
+            OneBalanceVenue.predictions: 10776.1,
+          },
+          investingKnown: true,
+          predictionsKnown: true,
+          venueCash: {OneBalanceVenue.investing: 17.21},
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        final inset = 16 * 375 / 430;
+        for (final (venue, title, rows) in [
+          ('investing', 'Investing · 1', 1),
+          ('predictions', 'Predictions · 2', 2),
+        ]) {
+          final group =
+              find.byKey(ValueKey('portfolio-balance-$venue-positions'));
+          final card =
+              find.descendant(of: group, matching: find.byType(PortfolioCardList));
+          // ONE soft card: the Activity day card's own decoration.
+          expect(card, findsOneWidget, reason: venue);
+          final box = tester.widget<DecoratedBox>(find
+              .descendant(of: card, matching: find.byType(DecoratedBox))
+              .first);
+          final deco = box.decoration as BoxDecoration;
+          expect(deco.borderRadius, BorderRadius.circular(20 * 375 / 430));
+          expect(deco.boxShadow, isNotEmpty);
+          expect(deco.color, AppColorsExtension.light().surface);
+          final cardRect = tester.getRect(card);
+          expect(cardRect.left, moreOrLessEquals(inset, epsilon: 0.5));
+          expect(cardRect.right, moreOrLessEquals(375 - inset, epsilon: 0.5));
+          // Its title above it: 13 sp, textSecondary, 8 over the card.
+          final titleText = tester.widget<Text>(find.text(title));
+          expect(titleText.style!.fontSize, closeTo(13 * 375 / 430, 0.01));
+          expect(titleText.style!.color,
+              AppColorsExtension.light().textSecondary);
+          expect(cardRect.top - tester.getRect(find.text(title)).bottom,
+              closeTo(8 * 1000 / 932, 0.5));
+          // The hairlines between rows, none after the last.
+          expect(find.descendant(of: card, matching: find.byType(Divider)),
+              findsNWidgets(rows - 1));
+          final rowFinder = find.descendant(
+              of: card, matching: find.byType(PortfolioPositionRow));
+          expect(rowFinder, findsNWidgets(rows));
+          for (var i = 0; i < rows; i++) {
+            final row = rowFinder.at(i);
+            Rect inRow(String key) => tester.getRect(find
+                .descendant(of: row, matching: find.byKey(ValueKey(key)))
+                .first);
+            final value = inRow('portfolio-row-value');
+            final pnl = inRow('portfolio-row-pnl-pill');
+            final title = inRow('portfolio-row-title');
+            // Whole, inside the card's 16 inset, right-aligned.
+            for (final figure in [value, pnl]) {
+              expect(figure.right,
+                  lessThanOrEqualTo(cardRect.right - inset + 0.5),
+                  reason: '$venue row $i figure past the card\'s inset');
+              expect(figure.left, greaterThan(title.left));
+            }
+            expect(value.right,
+                moreOrLessEquals(cardRect.right - inset, epsilon: 0.5));
+            expect(pnl.right,
+                moreOrLessEquals(cardRect.right - inset, epsilon: 0.5));
+            // The title ends before the figures start.
+            expect(title.right, lessThanOrEqualTo(value.left));
+          }
+        }
+        // The prediction's chance bar: inside its row, starting where the
+        // title does, ending before the figures.
+        final dem = find
+            .descendant(
+                of: find.byKey(
+                    const ValueKey('portfolio-balance-predictions-positions')),
+                matching: find.byType(PortfolioPositionRow))
+            .first;
+        Rect inDem(String key) => tester.getRect(find
+            .descendant(of: dem, matching: find.byKey(ValueKey(key)))
+            .first);
+        final bar = inDem('portfolio-row-chance');
+        expect(bar.left,
+            moreOrLessEquals(inDem('portfolio-row-title').left, epsilon: 0.5));
+        expect(bar.right, lessThanOrEqualTo(inDem('portfolio-row-figures').left));
+        expect(bar.bottom, lessThanOrEqualTo(tester.getRect(dem).bottom));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     test(
         'the categories: Buying power is every cash, Predictions and '
         'Investing what each venue has at work', () {

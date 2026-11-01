@@ -22,6 +22,8 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioCardList;
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
 import 'package:kute/screens/portfolio/poly_position_events.dart'
@@ -478,8 +480,9 @@ void main() {
       'the P&L chart leads, the sub-tab pills under it, then the card with '
       'the category donut and the tiles', (tester) async {
     await _pump(tester, predictions: true);
-    // The chart card: caption, the account's P&L (6 realised + 10 open)
-    // and the line over the range picked under it.
+    // The chart card: caption, the P&L over the month picked (−5 a month
+    // ago to 16 now, 6 realised + 10 open: +21) and the line naming the
+    // range under it.
     expect(_chartCard, findsOneWidget);
     expect(find.byType(PortfolioPnlChart), findsOneWidget);
     expect(find.text('Profit and loss'), findsOneWidget);
@@ -488,7 +491,8 @@ void main() {
             .widget<RollingNumberText>(
                 find.byKey(const ValueKey('statistics-pnl-headline')))
             .text,
-        r'+$16.00');
+        r'+$21.00');
+    expect(find.text('Past month'), findsOneWidget);
     final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
     // The result colour (up over the month), one line.
     expect(chart.lineColor, AppColors.marketUp);
@@ -649,7 +653,14 @@ void main() {
       final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
       expect(chart.values.first, 5);
       expect(chart.values.last, 5);
-      expect(find.text('No change · Past month'), findsOneWidget);
+      // Nothing made or lost in the month: $0.00 over "Past month".
+      expect(
+          tester
+              .widget<RollingNumberText>(
+                  find.byKey(const ValueKey('statistics-pnl-headline')))
+              .text,
+          r'$0.00');
+      expect(find.text('Past month'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1550,9 +1561,11 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// What the section is (founder, 1 November 2026): flat, no card, the
-    /// figure with its change line, the chart and its ranges, the stats
-    /// strip, "By venue" and the rows; nothing Active-only, no pair.
+    /// What the section is (founder, 1 November 2026): the chart flat, no
+    /// card, the figure with its change line, the chart and its ranges;
+    /// the stats strip and the venue rows each in ONE soft card (the home
+    /// Activity list's), the only hairlines the venue card's between its
+    /// rows; nothing Active-only, no pair.
     void expectFlatSection(WidgetTester tester) {
       expect(find.byType(PortfolioPnlChart), findsOneWidget);
       expect(section, findsOneWidget);
@@ -1564,8 +1577,15 @@ void main() {
       expect(find.byKey(const ValueKey('statistics-pnl-header')),
           findsOneWidget);
       expect(find.descendant(of: section, matching: figures), findsOneWidget);
-      expect(find.descendant(of: section, matching: find.byType(Divider)),
-          findsNothing);
+      expect(tester.widget(figures), isA<PortfolioCardList>());
+      expect(
+          find.descendant(
+              of: section,
+              matching: find.byKey(const ValueKey('statistics-pnl-stats-card'))),
+          findsOneWidget);
+      expect(
+          find.descendant(of: section, matching: find.byType(Divider)).evaluate().length,
+          find.descendant(of: figures, matching: find.byType(Divider)).evaluate().length);
       expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
       expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
       expect(find.byType(KutePill), findsNothing);
@@ -1594,13 +1614,15 @@ void main() {
     testWidgets(
         'one flat section, top down: "Profit and loss", the P&L now in the '
         'result colour and its change, the chart, the ranges, the stats '
-        'strip (no Win rate with Investing in the series), "By venue" and '
-        'one flat row per venue with its logo, sparkline and P&L now',
+        'strip in its soft card (no Win rate with Investing in the series), '
+        '"By venue" and one row per venue in one soft card with its logo, '
+        'sparkline and P&L now',
         (tester) async {
       await pumpOverview(tester);
       expectFlatSection(tester);
-      // 16 now at Predictions (6 realised, 10 open), 15 at Investing.
-      expect(headline(tester), r'+$31.00');
+      // 16 now at Predictions (6 realised, 10 open), 15 at Investing; each
+      // −5 a month ago: the figure is the month's, +21 and +20.
+      expect(headline(tester), r'+$41.00');
       expect(headlineColor(tester), AppColors.marketUp);
       expect(venueAmount(tester, 'predictions'), r'+$16.00');
       expect(venueAmountColor(tester, 'predictions'), AppColors.marketUp);
@@ -1625,15 +1647,24 @@ void main() {
       expect(top(stats), greaterThan(bottom(ranges)));
       expect(top(byVenue), greaterThan(bottom(stats)));
       expect(top(venueRow('predictions')), greaterThan(bottom(byVenue)));
-      // The Portfolio's row language: 14 between two rows' contents (the
-      // line under one name to the next name), no hairline.
+      // The soft card's rows: 13 above and below each (the home
+      // Activity's compact rows) and the inset hairline between them.
       Finder inRow(String v, Finder f) =>
           find.descendant(of: venueRow(v), matching: f);
       expect(
           top(inRow('investing', find.text('Investing'))) -
               bottom(inRow('predictions',
                   find.byKey(const ValueKey('pnl-venue-subtitle')))),
-          closeTo(14 * 844 / 932, 0.5));
+          closeTo(2 * 13 * 844 / 932 + 1, 0.5));
+      expect(find.descendant(of: figures, matching: find.byType(Divider)),
+          findsOneWidget);
+      // The hairline starts where the rows' text does.
+      expect(
+          tester
+              .getTopLeft(
+                  find.descendant(of: figures, matching: find.byType(Divider)))
+              .dx,
+          lessThan(tester.getTopLeft(inRow('investing', find.text('Investing'))).dx));
       expect(
           tester
               .widget<Text>(inRow('predictions',
@@ -1654,8 +1685,10 @@ void main() {
       expect(change.style!.fontSize, closeTo(12 * 390 / 430, 0.01));
       expect(tester.getSize(inRow('investing', find.byType(SvgPicture))).width,
           closeTo(32 * 390 / 430, 0.5));
-      // The plot full-bleed to the page's 16 gutters.
+      // The plot full-bleed to the page's 16 gutters; the cards on them.
       final gutter = 16 * 390 / 430;
+      expect(tester.getRect(figures).left, closeTo(gutter, 0.5));
+      expect(tester.getRect(figures).right, closeTo(390 - gutter, 0.5));
       expect(tester.getRect(plot).left, closeTo(gutter, 0.5));
       expect(tester.getRect(plot).right, closeTo(390 - gutter, 0.5));
       // Each row: the venue's logo (32), its name, its sparkline, its
@@ -1676,7 +1709,7 @@ void main() {
                   of: venueRow('investing'),
                   matching: find.byKey(const ValueKey('pnl-venue-figure'))))
               .right,
-          closeTo(390 - gutter, 0.5));
+          closeTo(390 - 2 * gutter, 0.5));
       expect(events.where((e) => e.$1 == 'portfolio_allocation_view_changed'),
           isEmpty);
       expect(tester.takeException(), isNull);
@@ -1698,7 +1731,8 @@ void main() {
       expect(opacity('predictions'), 1);
 
       await open(tester, pick('investing'));
-      expect(headline(tester), r'+$15.00');
+      // Investing's month: −5 to 15.
+      expect(headline(tester), r'+$20.00');
       // The line is Investing's alone, ending on its P&L now.
       expect(
           tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last,
@@ -1711,7 +1745,7 @@ void main() {
       expect(opacity('predictions'), greaterThan(0.4));
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$16.00');
+      expect(headline(tester), r'+$21.00');
       expect(statFigure(tester, 'realised'), r'+$6.00');
       expect(statFigure(tester, 'unrealised'), r'+$10.00');
       // One closed win, one closed loss.
@@ -1720,7 +1754,7 @@ void main() {
       expect(opacity('predictions'), 1);
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$31.00');
+      expect(headline(tester), r'+$41.00');
       expect(stat('win-rate'), findsNothing);
       expect(opacity('investing'), 1);
       expect(
@@ -1781,7 +1815,7 @@ void main() {
       expect(venueRow('predictions'), findsOneWidget);
       expect(venueRow('investing'), findsNothing);
       expect(pick('predictions'), findsNothing);
-      expect(headline(tester), r'+$16.00');
+      expect(headline(tester), r'+$21.00');
       expect(statFigure(tester, 'win-rate'), '50%');
       expect(tester.takeException(), isNull);
     });
@@ -1837,6 +1871,32 @@ void main() {
           expect(r.left, greaterThanOrEqualTo(0));
           expect(r.right, lessThanOrEqualTo(375));
         }
+      }
+      // The venue rows' and the stats strip's figures whole inside their
+      // soft cards' 16 inset.
+      final inset = 16 * 375 / 430;
+      final card = tester.getRect(figures);
+      for (final v in ['predictions', 'investing']) {
+        for (final key in ['pnl-venue-figure', 'pnl-venue-change']) {
+          final f = find.descendant(
+              of: venueRow(v), matching: find.byKey(ValueKey(key)));
+          if (f.evaluate().isEmpty) continue;
+          expect(tester.getRect(f).right,
+              lessThanOrEqualTo(card.right - inset + 0.5),
+              reason: '$v $key');
+        }
+      }
+      final statsCard = find.byKey(const ValueKey('statistics-pnl-stats-card'));
+      await tester.ensureVisible(statsCard);
+      await tester.pumpAndSettle();
+      final statsRect = tester.getRect(statsCard);
+      expect(statsRect.left, closeTo(inset, 0.5));
+      expect(statsRect.right, closeTo(375 - inset, 0.5));
+      for (final t in find
+          .descendant(of: statsCard, matching: find.byType(Text))
+          .evaluate()) {
+        final r = tester.getRect(find.byWidget(t.widget));
+        expect(r.right, lessThanOrEqualTo(statsRect.right - inset + 0.5));
       }
       expect(tester.takeException(), isNull);
     });

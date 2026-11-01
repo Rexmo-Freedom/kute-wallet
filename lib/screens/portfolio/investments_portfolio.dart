@@ -72,6 +72,12 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidUserFillsProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
+import 'package:kute/models/portfolio_performance.dart'
+    show PortfolioPerformanceVenue;
+import 'package:kute/screens/portfolio/components/balances_overview.dart'
+    show BalancesCategory;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlChartVenueProvider;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
@@ -79,6 +85,8 @@ import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
 import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
 
@@ -161,6 +169,12 @@ class InvestmentsPortfolio extends ConsumerWidget {
       if (venues.trading) {
         ref.listen(hyperliquidUserFillsProvider, (_, __) {});
       }
+      // The ring adapts (founder, 1 November 2026): on P&L Charts, the
+      // venue picked in "By venue" (watched only there, so leaving the
+      // section clears the pick).
+      final picked = section == PortfolioSection.charts
+          ? ref.watch(pnlChartVenueProvider)
+          : null;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -174,6 +188,12 @@ class InvestmentsPortfolio extends ConsumerWidget {
               sharesHeader: true,
               heroOnly: true,
               sectionSwitch: pills,
+              focus: switch (picked) {
+                null => null,
+                PortfolioPerformanceVenue.predictions =>
+                  BalancesCategory.predictions,
+                PortfolioPerformanceVenue.trading => BalancesCategory.investing,
+              },
             ),
           ),
           Expanded(
@@ -249,8 +269,16 @@ Widget _pillsSliver(Widget pills) => SliverPadding(
     );
 
 /// The last row clear of the home indicator or the dock.
-Widget _dockClearance(BuildContext context) => SliverToBoxAdapter(
-    child: SizedBox(height: 32.h + kuteDockScrollClearance(context)));
+/// The end of a section's scroll: clear of the dock or the home
+/// indicator, and under the Portfolio screen's bar ([bar]) clear of the
+/// bar too ([kuteBarScrollClearance], inside the scroll, so the last row
+/// can be seen and tapped).
+Widget _dockClearance(BuildContext context, {bool bar = false}) =>
+    SliverToBoxAdapter(
+        child: SizedBox(
+            height: 32.h +
+                (bar ? kuteBarScrollClearance.h : 0) +
+                kuteDockScrollClearance(context)));
 
 /// P&L charts: the one card (the realised figure, the chart, the venue
 /// lines), the resting orders under it (see the file header).
@@ -287,6 +315,8 @@ class _Charts extends ConsumerWidget {
       predictions: venues.predictions,
       orders: PortfolioOrdersBook.watch(ref, venues),
       sectionEmpty: sectionEmpty,
+      // Under the Portfolio screen's bar: the last row scrolls clear of it.
+      barClearance: !showPills,
       header: showPills
           ? Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills)
           : SizedBox(height: 4.h),
@@ -334,7 +364,7 @@ class _Balances extends ConsumerWidget {
                 venues: portfolioVenueLists(context, ref, venues)),
           ),
         ),
-        _dockClearance(context),
+        _dockClearance(context, bar: sharesHeader),
       ],
     );
   }
