@@ -30,6 +30,7 @@ import 'package:kute/services/share_links_store.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:kute/theme/kute_motion.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -574,6 +575,10 @@ class _AppWidgetState extends ConsumerState<AppWidget>
               routerConfig: _router,
               locale: Locale(language),
               themeMode: resolvedThemeMode,
+              // The light/dark switch lerps the theme on the settle, never
+              // a spring (KuteMotion.textCurve: a lerp past 1 drives a
+              // shadow's blur negative).
+              themeAnimationCurve: KuteMotion.textCurve,
               theme: buildLightTheme(),
               darkTheme: buildDarkTheme(),
               debugShowCheckedModeBanner: false,

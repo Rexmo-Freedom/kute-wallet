@@ -48,6 +48,23 @@ abstract final class KuteMotion {
   static const Curve settle = Cubic(0.22, 1, 0.36, 1);
   static const Duration settleDuration = Duration(milliseconds: 300);
 
+  /// Every TEXT-STYLE and THEME lerp (AnimatedDefaultTextStyle, a
+  /// TextStyle.lerp, MaterialApp's theme animation): never a spring or an
+  /// overshoot. A lerp driven past 1 extrapolates, and a shadow's blur
+  /// goes negative (the "Text shadow blur radius should be non-negative"
+  /// assertion on the light/dark switch). The settle: no bounce.
+  static const Curve textCurve = settle;
+
+  /// A decoration with shadows animated on a spring keeps the SAME
+  /// shadow list in every state, only the colour changing (transparent
+  /// for none): [BoxShadow.lerpList] scales a shadow lerped towards none
+  /// by (1 − t), negative past 1.
+  ///
+  /// [curve] with its value held to 0..1: for a lerp that must not
+  /// extrapolate (a shadow, a text style) when it has to share a spring's
+  /// timing.
+  static Curve clamped(Curve curve) => _ClampedCurve(curve);
+
   // ── Chips and segmented pills ────────────────────────────────────────
 
   static const SpringDescription chipSpring =
@@ -93,6 +110,14 @@ abstract final class KuteMotion {
           reverseCurve: sheetOut,
           reverseDuration: sheetOutDuration,
         );
+}
+
+class _ClampedCurve extends Curve {
+  const _ClampedCurve(this.curve);
+  final Curve curve;
+
+  @override
+  double transformInternal(double t) => curve.transform(t).clamp(0.0, 1.0);
 }
 
 /// A spring as a curve: the position of [spring] released from 0 towards
