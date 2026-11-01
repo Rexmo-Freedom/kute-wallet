@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/transactions_model.dart';
@@ -66,7 +67,7 @@ void main() {
 
   testWidgets(
       'a Lightning send sheet open across dark -> light recolours its values '
-      'and the explorer button', (tester) async {
+      'while its explorer is the bar', (tester) async {
     tester.view.physicalSize = const Size(1290, 2796);
     tester.view.devicePixelRatio = 3;
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
@@ -129,8 +130,6 @@ void main() {
         .style
         ?.color;
     Color? textColor(String s) => colorOf(find.text(s));
-    Color? buttonLabel() => colorOf(find.text(l10n.activityViewOnBlockchain));
-    Color? buttonIcon() => colorOf(find.byIcon(Icons.open_in_new_rounded));
 
     final dark = buildDarkTheme().extension<AppColorsExtension>()!;
     final light = buildLightTheme().extension<AppColorsExtension>()!;
@@ -139,8 +138,14 @@ void main() {
     expect(textColor(date), dark.textPrimary);
     expect(textColor(r'$0.01'), dark.textPrimary);
     expect(textColor(_description), dark.textPrimary);
-    expect(buttonLabel(), dark.textPrimary);
-    expect(buttonIcon(), dark.textPrimary);
+    // The explorer is the bar (receipt_bar.dart), which takes the app's
+    // own colours; the sheet only declares it.
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is KuteBarContextScope &&
+            w.barContext.isPrimary &&
+            w.barContext.label == l10n.activityViewOnBlockchain),
+        findsOneWidget);
 
     // The appearance flips while the sheet stays open.
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
@@ -150,13 +155,5 @@ void main() {
     expect(textColor(r'$0.01'), light.textPrimary, reason: 'Value then');
     expect(textColor(_description), light.textPrimary,
         reason: 'Description value');
-    expect(buttonLabel(), light.textPrimary, reason: 'explorer label');
-    expect(buttonIcon(), light.textPrimary, reason: 'explorer icon');
-    final border = tester
-        .widget<OutlinedButton>(find.byType(OutlinedButton))
-        .style!
-        .side!
-        .resolve({});
-    expect(border?.color, light.border, reason: 'explorer border');
   });
 }

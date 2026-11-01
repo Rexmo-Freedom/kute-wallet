@@ -96,8 +96,7 @@ class StepPageWrapper extends StatelessWidget {
   /// signing controls appear.
   final bool tight;
 
-  /// Optional control on the title's own row, right-aligned (the send
-  /// Review step puts its Ask Sal chip here rather than above the body).
+  /// Optional control on the title's own row, right-aligned.
   final Widget? trailing;
 
   const StepPageWrapper({

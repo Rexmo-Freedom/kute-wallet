@@ -13092,53 +13092,17 @@ abstract class AppLocalizations {
   /// **'Wallet name'**
   String get btcSetupWalletNameHint;
 
-  /// No description provided for @salOrderNoLongerAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'That order is no longer available to change.'**
-  String get salOrderNoLongerAvailable;
-
   /// No description provided for @salControlUnavailable.
   ///
   /// In en, this message translates to:
   /// **'That control is not available on this screen.'**
   String get salControlUnavailable;
 
-  /// No description provided for @salSwitchToLimitTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch to a limit order?'**
-  String get salSwitchToLimitTitle;
-
-  /// No description provided for @salOpenLeverageTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Open leverage settings?'**
-  String get salOpenLeverageTitle;
-
-  /// No description provided for @salSwitchToLimitBody.
-  ///
-  /// In en, this message translates to:
-  /// **'This changes the order type. Review the price and amount before placing the order.'**
-  String get salSwitchToLimitBody;
-
-  /// No description provided for @salOpenLeverageBody.
-  ///
-  /// In en, this message translates to:
-  /// **'You choose the leverage yourself. This opens the controls without changing the value.'**
-  String get salOpenLeverageBody;
-
   /// No description provided for @salChatWith.
   ///
   /// In en, this message translates to:
   /// **'Chat with Sal'**
   String get salChatWith;
-
-  /// No description provided for @salAsk.
-  ///
-  /// In en, this message translates to:
-  /// **'Ask Sal'**
-  String get salAsk;
 
   /// No description provided for @salUnavailable.
   ///
@@ -17873,204 +17837,6 @@ abstract class AppLocalizations {
   /// **'That price is too far from the market price.'**
   String get hlRejectOracle;
 
-  /// Line above the Ask Sal opening questions when the screen has no market.
-  ///
-  /// In en, this message translates to:
-  /// **'Explore public markets and learn how things work.'**
-  String get salIntroGeneral;
-
-  /// Line above the Ask Sal opening questions. {market} is a public ticker such as BTC.
-  ///
-  /// In en, this message translates to:
-  /// **'Explore {market} and learn how it works.'**
-  String salIntroMarket(String market);
-
-  /// Line above the Ask Sal opening questions on a prediction market.
-  ///
-  /// In en, this message translates to:
-  /// **'Explore this market and learn how it works.'**
-  String get salIntroThisMarket;
-
-  /// Line above the Ask Sal opening questions on an order slip. {orderType} is salOrderTypeName.
-  ///
-  /// In en, this message translates to:
-  /// **'Learn how {orderType} orders work.'**
-  String salIntroOrder(String orderType);
-
-  /// An order type named inside a sentence (salIntroOrder, salChipEduOrderType).
-  ///
-  /// In en, this message translates to:
-  /// **'{type, select, market{market} limit{limit} scale{scale} stopMarket{stop market} stopLimit{stop limit} takeProfitMarket{take profit market} takeProfitLimit{take profit limit} twap{TWAP} other{order}}'**
-  String salOrderTypeName(String type);
-
-  /// Ask Sal opening question. {market} is a public ticker such as BTC.
-  ///
-  /// In en, this message translates to:
-  /// **'Why is {market} moving today?'**
-  String salChipHlMovingToday(String market);
-
-  /// No description provided for @salChipHlFundingFlip.
-  ///
-  /// In en, this message translates to:
-  /// **'Why is funding negative on {market}?'**
-  String salChipHlFundingFlip(String market);
-
-  /// No description provided for @salChipHlFundingExplain.
-  ///
-  /// In en, this message translates to:
-  /// **'How does funding work for {market}?'**
-  String salChipHlFundingExplain(String market);
-
-  /// No description provided for @salChipHlProtectPosition.
-  ///
-  /// In en, this message translates to:
-  /// **'How can I protect a position on {market}?'**
-  String salChipHlProtectPosition(String market);
-
-  /// No description provided for @salChipHlLiquidationExplain.
-  ///
-  /// In en, this message translates to:
-  /// **'How does liquidation work on {market}?'**
-  String salChipHlLiquidationExplain(String market);
-
-  /// No description provided for @salChipHlWhatDrives.
-  ///
-  /// In en, this message translates to:
-  /// **'What drives the price of {market}?'**
-  String salChipHlWhatDrives(String market);
-
-  /// No description provided for @salChipHlCompareRelated.
-  ///
-  /// In en, this message translates to:
-  /// **'How does {market} compare with similar markets?'**
-  String salChipHlCompareRelated(String market);
-
-  /// Ask Sal opening question on a prediction market screen.
-  ///
-  /// In en, this message translates to:
-  /// **'Why are the odds moving on this market?'**
-  String get salChipPmOddsMoving;
-
-  /// No description provided for @salChipPmClosingSoon.
-  ///
-  /// In en, this message translates to:
-  /// **'What happens when this market closes?'**
-  String get salChipPmClosingSoon;
-
-  /// No description provided for @salChipPmLiveGame.
-  ///
-  /// In en, this message translates to:
-  /// **'How is the live game moving these odds?'**
-  String get salChipPmLiveGame;
-
-  /// No description provided for @salChipPmWhatMovesIt.
-  ///
-  /// In en, this message translates to:
-  /// **'What could move the odds on this market?'**
-  String get salChipPmWhatMovesIt;
-
-  /// No description provided for @salChipPmResolutionRules.
-  ///
-  /// In en, this message translates to:
-  /// **'What are the resolution rules for this market?'**
-  String get salChipPmResolutionRules;
-
-  /// No description provided for @salChipPmRelatedMarkets.
-  ///
-  /// In en, this message translates to:
-  /// **'Which markets are related to this one?'**
-  String get salChipPmRelatedMarkets;
-
-  /// No description provided for @salChipSearchWatchlistNews.
-  ///
-  /// In en, this message translates to:
-  /// **'What\'s the latest news on {market}?'**
-  String salChipSearchWatchlistNews(String market);
-
-  /// No description provided for @salChipEduOrderType.
-  ///
-  /// In en, this message translates to:
-  /// **'How does a {orderType} order work for {market}?'**
-  String salChipEduOrderType(String orderType, String market);
-
-  /// No description provided for @salChipEduMarketVsLimit.
-  ///
-  /// In en, this message translates to:
-  /// **'How do market and limit orders differ?'**
-  String get salChipEduMarketVsLimit;
-
-  /// No description provided for @salChipEduLeverage.
-  ///
-  /// In en, this message translates to:
-  /// **'How does leverage change liquidation risk?'**
-  String get salChipEduLeverage;
-
-  /// No description provided for @salChipEduFunding.
-  ///
-  /// In en, this message translates to:
-  /// **'What is funding on a perpetual contract?'**
-  String get salChipEduFunding;
-
-  /// No description provided for @salChipEduPredictionBasics.
-  ///
-  /// In en, this message translates to:
-  /// **'How do prediction markets work?'**
-  String get salChipEduPredictionBasics;
-
-  /// No description provided for @salChipWalletReceive.
-  ///
-  /// In en, this message translates to:
-  /// **'How do I receive Bitcoin in Kute?'**
-  String get salChipWalletReceive;
-
-  /// No description provided for @salChipWalletSend.
-  ///
-  /// In en, this message translates to:
-  /// **'How do I send Bitcoin in Kute?'**
-  String get salChipWalletSend;
-
-  /// No description provided for @salChipStocksVsPerps.
-  ///
-  /// In en, this message translates to:
-  /// **'What is the difference between stocks and perps?'**
-  String get salChipStocksVsPerps;
-
-  /// No description provided for @salChipRecoveryPhrase.
-  ///
-  /// In en, this message translates to:
-  /// **'What is a recovery phrase?'**
-  String get salChipRecoveryPhrase;
-
-  /// No description provided for @salChipBackupHow.
-  ///
-  /// In en, this message translates to:
-  /// **'How does a wallet backup work?'**
-  String get salChipBackupHow;
-
-  /// No description provided for @salChipRecoveryPrivate.
-  ///
-  /// In en, this message translates to:
-  /// **'Why should a recovery phrase stay private?'**
-  String get salChipRecoveryPrivate;
-
-  /// No description provided for @salChipNetworkConfirmation.
-  ///
-  /// In en, this message translates to:
-  /// **'What is a network confirmation?'**
-  String get salChipNetworkConfirmation;
-
-  /// No description provided for @salChipNetworkFees.
-  ///
-  /// In en, this message translates to:
-  /// **'How do Bitcoin network fees work?'**
-  String get salChipNetworkFees;
-
-  /// No description provided for @salChipTxPending.
-  ///
-  /// In en, this message translates to:
-  /// **'Why can a transaction stay pending?'**
-  String get salChipTxPending;
-
   /// Second half of the available line under the Invest and Predictions amounts, after a middle dot: the smallest amount the order takes. {amount} is formatted money.
   ///
   /// In en, this message translates to:
@@ -18822,12 +18588,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your {amount} is in Dollars. Tap to add margin.'**
   String hlMarginFundingReady(String amount);
-
-  /// A market screen's row under the chart, on every Investing market and on a Predictions market with a big move or a live game; opens Sal (the AI helper) explaining the move.
-  ///
-  /// In en, this message translates to:
-  /// **'Why is it moving?'**
-  String get salWhyMoving;
 
   /// Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order).
   ///

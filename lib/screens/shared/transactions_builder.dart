@@ -106,7 +106,7 @@ import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/services/polymarket_optimistic_activity_service.dart';
 import 'package:kute/services/polymarket_spark_txs_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/screens/shared/receipt_bar.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/deposit_quick_claim.dart';
 import 'package:kute/models/breez/deposit_update.dart' show sparkOutpointKey;
@@ -968,19 +968,20 @@ String _withTime(String context, DateTime at) {
 
 /// The top of every activity detail sheet: the row the person tapped,
 /// opened up. Same chrome as the app's other sheets (drag handle, the
-/// close X on the right, the Ask Sal chip on the left where the sheet
-/// offers one), then the row's own icon tile, its title, its signed
-/// amount and its one secondary figure, so the sheet reads as the row it
-/// came from. [row] is the activity row the list draws for this
+/// close X on the right), then the row's own icon tile, its title, its
+/// signed amount and its one secondary figure, so the sheet reads as the
+/// row it came from. [row] is the activity row the list draws for this
 /// transaction (`_build*Item`, `buildWalletActivityRow`). [note] adds one
 /// quiet line of context the row leaves out (a conversion's two legs).
+/// It holds the sheet's bar context ([receiptBarContext]): Sal is the
+/// bar, never a circle on the sheet.
 class TransactionDetailHeader extends StatelessWidget {
   final Widget row;
   final String? note;
 
   /// Names the kind of detail this sheet shows (for example
-  /// `btc_tx_detail`). When set, an Ask Sal chip sits on the sheet's
-  /// top row so Sal can explain what a pending or confirmed transaction
+  /// `btc_tx_detail`): the public context the bar's Sal question
+  /// carries, so Sal can explain what a pending or confirmed transaction
   /// means. Only the surface name ever leaves the device — never an
   /// address, id, label, counterparty or amount.
   final String? advisorSurface;
@@ -996,7 +997,9 @@ class TransactionDetailHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final face = row as _TransactionRow;
-    return Column(
+    return KuteBarContextScope(
+      barContext: receiptBarContext(context, advisorSurface: advisorSurface),
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
@@ -1006,10 +1009,6 @@ class TransactionDetailHeader extends StatelessWidget {
         SizedBox(height: 8.h),
         Row(
           children: [
-            if (advisorSurface != null)
-              AskSalChip(
-                advisorContext: AdvisorContext(surface: advisorSurface!),
-              ),
             const Spacer(),
             IconButton(
               tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
@@ -1062,7 +1061,7 @@ class TransactionDetailHeader extends StatelessWidget {
         ],
         SizedBox(height: 20.h),
       ],
-    );
+    ));
   }
 }
 
@@ -1970,25 +1969,10 @@ void _showPolymarketUsdcReceiveDetails(
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
               SizedBox(height: 16.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      launchUrl(Uri.parse('https://polygonscan.com/tx/$hash')),
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(
-                    context.l10n.activityViewOnBlockchain,
-                    style:
-                        TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarButton(
+                label: context.l10n.activityViewOnBlockchain,
+                onPressed: () =>
+                    launchUrl(Uri.parse('https://polygonscan.com/tx/$hash')),
               ),
               SizedBox(height: 10.h),
             ],
@@ -2048,25 +2032,10 @@ void _showNativeUsdcSendDetails(
                     copiable: true, isAddress: true, ctx: ctx),
               ]),
               SizedBox(height: 16.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () => launchUrl(Uri.parse(
-                      'https://polygonscan.com/address/${details.withdrawalAddress}')),
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(
-                    context.l10n.activityViewOnBlockchain,
-                    style:
-                        TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarButton(
+                label: context.l10n.activityViewOnBlockchain,
+                onPressed: () => launchUrl(Uri.parse(
+                    'https://polygonscan.com/address/${details.withdrawalAddress}')),
               ),
               SizedBox(height: 10.h),
             ],
@@ -2471,34 +2440,21 @@ void _showPendingUnclaimedSheet(
               ],
               SizedBox(height: 20.h),
               if (txid.isNotEmpty)
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.h,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      ctx.pop();
-                      final uri = Uri.parse('https://mempool.space/tx/$txid');
-                      // Match the polygonscan/sparkscan affordance —
-                      // SFSafariViewController on iOS, Chrome Custom
-                      // Tabs on Android. Falls back to the external
-                      // browser if the in-app surface isn't available.
-                      if (!await launchUrl(uri,
-                          mode: LaunchMode.inAppBrowserView)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                    label: Text(context.l10n.activityViewOnBlockchain,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                      side: BorderSide(color: c.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.buttonBorder),
-                    ),
-                  ),
+                ReceiptBarButton(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPressed: () async {
+                    ctx.pop();
+                    final uri = Uri.parse('https://mempool.space/tx/$txid');
+                    // Match the polygonscan/sparkscan affordance —
+                    // SFSafariViewController on iOS, Chrome Custom
+                    // Tabs on Android. Falls back to the external
+                    // browser if the in-app surface isn't available.
+                    if (!await launchUrl(uri,
+                        mode: LaunchMode.inAppBrowserView)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
             ],
           ),
@@ -2722,30 +2678,17 @@ void _showSparkPendingDepositDetails(
                 DepositEarlyClaim(txid: txid, amountSats: amountSats),
               ],
               SizedBox(height: 20.h),
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    context.pop();
-                    final uri = Uri.parse('https://mempool.space/tx/$txid');
-                    if (!await launchUrl(uri,
-                        mode: LaunchMode.inAppBrowserView)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    }
-                  },
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(context.l10n.activityViewOnBlockchain,
-                      style: TextStyle(
-                          fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarButton(
+                label: context.l10n.activityViewOnBlockchain,
+                onPressed: () async {
+                  context.pop();
+                  final uri = Uri.parse('https://mempool.space/tx/$txid');
+                  if (!await launchUrl(uri,
+                      mode: LaunchMode.inAppBrowserView)) {
+                    await launchUrl(uri,
+                        mode: LaunchMode.externalApplication);
+                  }
+                },
               ),
             ],
           ),
@@ -2880,28 +2823,15 @@ void _showUsdbTokenTxDetails(
               ]),
               SizedBox(height: 16.h),
               // SparkScan stays visible — primary explorer affordance.
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final cleanId = sparkPaymentId.contains(':')
-                        ? sparkPaymentId.split(':').first
-                        : sparkPaymentId;
-                    launchUrl(Uri.parse(
-                        'https://sparkscan.io/tx/$cleanId?network=mainnet'));
-                  },
-                  icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                  label: Text(context.l10n.activityViewOnBlockchain,
-                      style: TextStyle(
-                          fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.textPrimary,
-                    side: BorderSide(color: c.border),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.buttonBorder),
-                  ),
-                ),
+              ReceiptBarButton(
+                label: context.l10n.activityViewOnBlockchain,
+                onPressed: () {
+                  final cleanId = sparkPaymentId.contains(':')
+                      ? sparkPaymentId.split(':').first
+                      : sparkPaymentId;
+                  launchUrl(Uri.parse(
+                      'https://sparkscan.io/tx/$cleanId?network=mainnet'));
+                },
               ),
               SizedBox(height: 10.h),
             ],
@@ -3745,7 +3675,7 @@ class _SwapOrderDetailSheetState extends ConsumerState<_SwapOrderDetailSheet> {
 
                 if (isOrchestra) OrchestraSwapRefundAction(order: details),
 
-                ..._orchestraTrackExchange(context, c, details),
+                ..._orchestraTrackExchange(context, c, details, bar: true),
               ],
             ),
           ),
@@ -3944,8 +3874,12 @@ Future<Result<OrchestraOrder>> Function(String quoteId)?
 @visibleForTesting
 void Function(Uri uri)? debugOrchestraTrackLaunch;
 
+/// [bar]: the sheet's one action, pinned at its foot, is the floating bar
+/// ([ReceiptBarButton]); inside a leg's Nerd data (several per sheet) it
+/// stays the outlined button.
 List<Widget> _orchestraTrackExchange(
-    BuildContext context, AppColorsExtension c, SwapOrder details) {
+    BuildContext context, AppColorsExtension c, SwapOrder details,
+    {bool bar = false}) {
   if (details.id.isEmpty ||
       details.isStuckStandingDeposit ||
       !details.isOrchestra) {
@@ -3960,15 +3894,18 @@ List<Widget> _orchestraTrackExchange(
   }
   return [
     SizedBox(height: 20.h),
-    _OrchestraTrackExchangeButton(order: details),
+    _OrchestraTrackExchangeButton(order: details, bar: bar),
     SizedBox(height: 10.h),
   ];
 }
 
 class _OrchestraTrackExchangeButton extends ConsumerStatefulWidget {
-  const _OrchestraTrackExchangeButton({required this.order});
+  const _OrchestraTrackExchangeButton({required this.order, this.bar = false});
 
   final SwapOrder order;
+
+  /// The floating bar's primary button instead of the outlined one.
+  final bool bar;
 
   @override
   ConsumerState<_OrchestraTrackExchangeButton> createState() =>
@@ -4066,6 +4003,13 @@ class _OrchestraTrackExchangeButtonState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.bar) {
+      return ReceiptBarButton(
+        label: context.l10n.activityTrackExchange,
+        onPressed: _open,
+        busy: _resolving,
+      );
+    }
     final c = context.colors;
     return SizedBox(
       width: double.infinity,
@@ -4433,25 +4377,12 @@ void _showPolymarketTxDetails(
               // row keyed by its CLOB trade id has no chain hash yet.
               if (PolymarketOptimisticActivityService.isChainTxHash(
                   activity.transactionHash))
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.h,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      launchUrl(Uri.parse(
-                          'https://polygonscan.com/tx/${activity.transactionHash}'));
-                    },
-                    icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                    label: Text(context.l10n.activityViewOnBlockchain,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                      side: BorderSide(color: c.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.buttonBorder),
-                    ),
-                  ),
+                ReceiptBarButton(
+                  label: context.l10n.activityViewOnBlockchain,
+                  onPressed: () {
+                    launchUrl(Uri.parse(
+                        'https://polygonscan.com/tx/${activity.transactionHash}'));
+                  },
                 ),
               SizedBox(height: 10.h),
             ],
@@ -4521,24 +4452,12 @@ void showPredictionResultDetails(BuildContext context, PredictionResult result,
                 ),
                 SizedBox(height: 16.h),
                 if (event != null) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: OutlinedButton(
-                      onPressed: () => MarketDetailSheet.show(context,
-                          event: event,
-                          ledgerWalletId: ledgerWalletId,
-                          source: 'activity'),
-                      child: Text(l.salViewMarket,
-                          style: TextStyle(
-                              fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.textPrimary,
-                        side: BorderSide(color: c.border),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder),
-                      ),
-                    ),
+                  ReceiptBarButton(
+                    label: l.salViewMarket,
+                    onPressed: () => MarketDetailSheet.show(context,
+                        event: event,
+                        ledgerWalletId: ledgerWalletId,
+                        source: 'activity'),
                   ),
                   SizedBox(height: 10.h),
                 ],
@@ -4880,32 +4799,18 @@ void _showBitcoinTxDetails(
                       // its Ledger account one tap away (Phase 5 plan B13).
                       _LedgerSettlementLink(txid: txid),
                       // Mempool explorer stays visible — primary affordance.
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48.h,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            ctx.pop();
-                            final uri =
-                                Uri.parse('https://mempool.space/tx/$txid');
-                            if (!await launchUrl(uri,
-                                mode: LaunchMode.inAppBrowserView)) {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            }
-                          },
-                          icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                          label: Text(context.l10n.activityViewOnBlockchain,
-                              style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: c.textPrimary,
-                            side: BorderSide(color: c.border),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.buttonBorder),
-                          ),
-                        ),
+                      ReceiptBarButton(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPressed: () async {
+                          ctx.pop();
+                          final uri =
+                              Uri.parse('https://mempool.space/tx/$txid');
+                          if (!await launchUrl(uri,
+                              mode: LaunchMode.inAppBrowserView)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -5137,29 +5042,15 @@ void _showSparkTxDetails(
                       ]),
                       SizedBox(height: 16.h),
                       // Explorer button is a primary affordance — kept visible.
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48.h,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            final cleanId = sparkPaymentId.contains(':')
-                                ? sparkPaymentId.split(':').first
-                                : sparkPaymentId;
-                            launchUrl(Uri.parse(
-                                'https://sparkscan.io/tx/$cleanId?network=mainnet'));
-                          },
-                          icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-                          label: Text(context.l10n.activityViewOnBlockchain,
-                              style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: c.textPrimary,
-                            side: BorderSide(color: c.border),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.buttonBorder),
-                          ),
-                        ),
+                      ReceiptBarButton(
+                        label: context.l10n.activityViewOnBlockchain,
+                        onPressed: () {
+                          final cleanId = sparkPaymentId.contains(':')
+                              ? sparkPaymentId.split(':').first
+                              : sparkPaymentId;
+                          launchUrl(Uri.parse(
+                              'https://sparkscan.io/tx/$cleanId?network=mainnet'));
+                        },
                       ),
                       SizedBox(height: 10.h),
                     ],
@@ -6561,27 +6452,22 @@ class _MultiSourceMoveDetailSheetState
                   style:
                       TextStyle(fontSize: 14.sp, color: AppColors.marketDown),
                 ),
+                // Buy Bitcoin is the bar, unless Retry is (then it stays
+                // a text button above the bar).
                 if (buyAction && !retryPurchase) ...[
                   SizedBox(height: 12.h),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48.h,
-                    child: OutlinedButton(
+                  if (retryable)
+                    AppBottomSheetTextButton(
+                      text: l10n.moveBuyBitcoin,
                       onPressed: () =>
                           _continueMovePurchase(context, ref, move, finish),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: c.textPrimary,
-                        side: BorderSide(color: c.border),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: AppRadius.buttonBorder),
-                      ),
-                      child: Text(
-                        l10n.moveBuyBitcoin,
-                        style: TextStyle(
-                            fontSize: 16.sp, fontWeight: FontWeight.w600),
-                      ),
+                    )
+                  else
+                    ReceiptBarButton(
+                      label: l10n.moveBuyBitcoin,
+                      onPressed: () =>
+                          _continueMovePurchase(context, ref, move, finish),
                     ),
-                  ),
                 ],
               ],
               if (retryable) ...[
@@ -6603,46 +6489,27 @@ class _MultiSourceMoveDetailSheetState
                             ? c.textSecondary
                             : AppColors.marketDown),
                   ),
-                SizedBox(height: 12.h),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48.h,
-                  child: OutlinedButton(
-                    onPressed: retrying || _retryingDollars || _retryingSources
-                        ? null
-                        : () {
-                            if (retryDollars) {
-                              unawaited(_retryDollars(move));
-                            } else if (move.partial) {
-                              unawaited(_retry(move));
-                            } else {
-                              unawaited(continuePendingBitcoinPurchase(
-                                  context, ref, move.id,
-                                  moveWalletId: move.walletId));
-                            }
-                          },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.textPrimary,
-                      side: BorderSide(color: c.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.buttonBorder),
-                    ),
-                    child: retrying || _retryingDollars || _retryingSources
-                        ? SizedBox(
-                            width: 18.sp,
-                            height: 18.sp,
-                            child: const CircularProgressIndicator.adaptive(
-                                strokeWidth: 2))
-                        : Text(
-                            l10n.retry,
-                            style: TextStyle(
-                                fontSize: 16.sp, fontWeight: FontWeight.w600),
-                          ),
-                  ),
+                // Retry is the bar (founder, 1 November 2026), busy while
+                // a retry runs.
+                ReceiptBarButton(
+                  label: l10n.retry,
+                  busy: retrying || _retryingDollars || _retryingSources,
+                  onPressed: () {
+                    if (retryDollars) {
+                      unawaited(_retryDollars(move));
+                    } else if (move.partial) {
+                      unawaited(_retry(move));
+                    } else {
+                      unawaited(continuePendingBitcoinPurchase(
+                          context, ref, move.id,
+                          moveWalletId: move.walletId));
+                    }
+                  },
                 ),
               ],
               if (trackBelow)
-                ..._orchestraTrackExchange(context, c, orders.single),
+                ..._orchestraTrackExchange(context, c, orders.single,
+                    bar: true),
               SizedBox(height: 10.h),
             ],
           ),

@@ -7578,32 +7578,11 @@ class AppLocalizationsSl extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Ime denarnice';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Tega naročila ni več mogoče spremeniti.';
-
-  @override
   String get salControlUnavailable =>
       'Ta kontrolnik na tem zaslonu ni na voljo.';
 
   @override
-  String get salSwitchToLimitTitle => 'Preklopim na limitno naročilo?';
-
-  @override
-  String get salOpenLeverageTitle => 'Odprem nastavitve vzvoda?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'S tem se spremeni vrsta naročila. Pred oddajo naročila preglejte ceno in znesek.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Vzvod izberete sami. S tem se odprejo kontrolniki, vrednost pa se ne spremeni.';
-
-  @override
   String get salChatWith => 'Klepet s Salom';
-
-  @override
-  String get salAsk => 'Vprašaj Sala';
 
   @override
   String get salUnavailable => 'Sal trenutno ni na voljo.';
@@ -10481,150 +10460,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String get hlRejectOracle => 'Ta cena je preveč oddaljena od tržne cene.';
 
   @override
-  String get salIntroGeneral =>
-      'Raziskuj javne trge in spoznaj, kako vse deluje.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Raziskuj $market in spoznaj, kako deluje.';
-  }
-
-  @override
-  String get salIntroThisMarket => 'Raziskuj ta trg in spoznaj, kako deluje.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Spoznaj, kako delujejo naročila vrste $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'tržno',
-        'limit': 'limitno',
-        'scale': 'lestvično',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'naročilo',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Zakaj se $market danes premika?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Zakaj je financiranje na $market negativno?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Kako deluje financiranje za $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Kako lahko zaščitim pozicijo na $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Kako deluje likvidacija na $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Kaj poganja ceno za $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Kako se $market primerja s podobnimi trgi?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Zakaj se kvote na tem trgu premikajo?';
-
-  @override
-  String get salChipPmClosingSoon => 'Kaj se zgodi, ko se ta trg zapre?';
-
-  @override
-  String get salChipPmLiveGame => 'Kako tekma v živo premika te kvote?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Kaj bi lahko premaknilo kvote na tem trgu?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Kakšna so pravila razrešitve tega trga?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Kateri trgi so povezani s tem?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Katere so najnovejše novice o $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Kako deluje naročilo vrste $orderType za $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Kako se razlikujeta tržno in limitno naročilo?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Kako finančni vzvod spremeni tveganje likvidacije?';
-
-  @override
-  String get salChipEduFunding => 'Kaj je financiranje pri trajni pogodbi?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Kako delujejo trgi napovedi?';
-
-  @override
-  String get salChipWalletReceive => 'Kako prejmem bitcoin v Kute?';
-
-  @override
-  String get salChipWalletSend => 'Kako pošljem bitcoin v Kute?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Kakšna je razlika med delnicami in perpi?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Kaj je obnovitvena fraza?';
-
-  @override
-  String get salChipBackupHow => 'Kako deluje varnostna kopija denarnice?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Zakaj mora obnovitvena fraza ostati zasebna?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Kaj je potrditev v omrežju?';
-
-  @override
-  String get salChipNetworkFees => 'Kako delujejo provizije omrežja Bitcoin?';
-
-  @override
-  String get salChipTxPending => 'Zakaj lahko transakcija ostane v čakanju?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Najmanj $amount';
   }
@@ -11198,9 +11033,6 @@ class AppLocalizationsSl extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Vaših $amount je v Investments. Tapnite za dodajanje kritja.';
   }
-
-  @override
-  String get salWhyMoving => 'Zakaj se premika?';
 
   @override
   String get positionProtectIt => 'Zaščiti jo';

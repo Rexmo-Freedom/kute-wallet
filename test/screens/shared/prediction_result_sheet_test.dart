@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/helpers/prediction_results.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart'
@@ -221,7 +222,14 @@ void main() {
           polymarketEventTeamsProvider
               .overrideWith((ref, slug) async => const []),
         ]);
-    expect(_inSheet(find.text('View market')), findsOneWidget);
+    // The sheet's one action is the bar (receipt_bar.dart): its primary
+    // button, declared by the sheet.
+    expect(
+        _inSheet(find.byWidgetPredicate((w) =>
+            w is KuteBarContextScope &&
+            w.barContext.isPrimary &&
+            w.barContext.label == 'View market')),
+        findsOneWidget);
   });
 
   testWidgets('a Ledger account\'s won row opens the same sheet, no claim',

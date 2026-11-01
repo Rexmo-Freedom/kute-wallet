@@ -1,6 +1,8 @@
-// The Ask Sal sheet scrolls under the finger: reading upwards is never
-// snapped back to the bottom, the sheet does not dismiss on an inner
-// scroll, and streaming growth is followed only from the bottom.
+// Sal's conversation (sal_chat_panel.dart, in the app's full-height
+// sheet as the search sheet hosts it) scrolls under the finger: reading
+// upwards is never snapped back to the bottom, the sheet does not
+// dismiss on an inner scroll, and streaming growth is followed only from
+// the bottom.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +15,7 @@ import 'package:kute/models/advisor_model.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/screens/search/components/advisor_answer_surface.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart';
+import 'package:kute/screens/search/components/sal_chat_panel.dart';
 import 'package:kute/theme/app_theme.dart';
 
 const _paragraph =
@@ -71,10 +73,15 @@ void main() {
                     container =
                         ProviderScope.containerOf(context, listen: false);
                     return TextButton(
-                        onPressed: () => showAskSalSheet(
-                              context,
-                              advisorContext:
-                                  const AdvisorContext(surface: 'hl_order_slip'),
+                        onPressed: () => showAppBottomSheet<void>(
+                              context: context,
+                              builder: (_) => const AppBottomSheetContainer(
+                                maxHeight: 1.0,
+                                followKeyboard: true,
+                                child: SalChatPanel(
+                                    advisorContext:
+                                        AdvisorContext(surface: 'chat')),
+                              ),
                             ),
                         child: const Text('Open Sal'));
                   },

@@ -7233,28 +7233,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get btcSetupWalletNameHint => 'ウォレット名';
 
   @override
-  String get salOrderNoLongerAvailable => 'その注文はもう変更できません。';
-
-  @override
   String get salControlUnavailable => 'その操作はこの画面では利用できません。';
 
   @override
-  String get salSwitchToLimitTitle => '指値注文に切り替えますか？';
-
-  @override
-  String get salOpenLeverageTitle => 'レバレッジ設定を開きますか？';
-
-  @override
-  String get salSwitchToLimitBody => '注文の種類が変わります。注文する前に価格と数量を確認してください。';
-
-  @override
-  String get salOpenLeverageBody => 'レバレッジはご自身で選択してください。値は変更せずに設定画面を開きます。';
-
-  @override
   String get salChatWith => 'Salとチャット';
-
-  @override
-  String get salAsk => 'Salに質問';
 
   @override
   String get salUnavailable => '現在Salは利用できません。';
@@ -10043,143 +10025,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlRejectOracle => 'その価格は市場価格から離れすぎています。';
 
   @override
-  String get salIntroGeneral => '公開マーケットを見て、仕組みを学びましょう。';
-
-  @override
-  String salIntroMarket(String market) {
-    return '$marketを見て、仕組みを学びましょう。';
-  }
-
-  @override
-  String get salIntroThisMarket => 'このマーケットを見て、仕組みを学びましょう。';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return '$orderType注文の仕組みを学びましょう。';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': '成行',
-        'limit': '指値',
-        'scale': '分割',
-        'stopMarket': 'ストップ成行',
-        'stopLimit': 'ストップ指値',
-        'takeProfitMarket': '利益確定成行',
-        'takeProfitLimit': '利益確定指値',
-        'twap': 'TWAP',
-        'other': 'その他',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return '$marketが今日動いているのはなぜですか？';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return '$marketのファンディングがマイナスなのはなぜですか？';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return '$marketのファンディングはどのような仕組みですか？';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return '$marketのポジションを守るにはどうすればいいですか？';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return '$marketの清算はどのような仕組みですか？';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return '$marketの価格を動かす要因は何ですか？';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return '$marketは似たマーケットと比べてどうですか？';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'このマーケットのオッズが動いているのはなぜですか？';
-
-  @override
-  String get salChipPmClosingSoon => 'このマーケットが終了するとどうなりますか？';
-
-  @override
-  String get salChipPmLiveGame => '進行中の試合はこのオッズをどう動かしていますか？';
-
-  @override
-  String get salChipPmWhatMovesIt => 'このマーケットのオッズを動かしうるものは何ですか？';
-
-  @override
-  String get salChipPmResolutionRules => 'このマーケットの確定ルールは何ですか？';
-
-  @override
-  String get salChipPmRelatedMarkets => 'このマーケットに関連するマーケットはどれですか？';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return '$marketの最新ニュースは何ですか？';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return '$marketでの$orderType注文はどのような仕組みですか？';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit => '成行注文と指値注文はどう違いますか？';
-
-  @override
-  String get salChipEduLeverage => 'レバレッジは清算リスクをどう変えますか？';
-
-  @override
-  String get salChipEduFunding => '無期限先物のファンディングとは何ですか？';
-
-  @override
-  String get salChipEduPredictionBasics => '予測マーケットはどのような仕組みですか？';
-
-  @override
-  String get salChipWalletReceive => 'Kuteでビットコインを受け取るにはどうすればいいですか？';
-
-  @override
-  String get salChipWalletSend => 'Kuteでビットコインを送るにはどうすればいいですか？';
-
-  @override
-  String get salChipStocksVsPerps => '株式とパーペチュアルの違いは何ですか？';
-
-  @override
-  String get salChipRecoveryPhrase => 'リカバリーフレーズとは何ですか？';
-
-  @override
-  String get salChipBackupHow => 'ウォレットのバックアップはどのような仕組みですか？';
-
-  @override
-  String get salChipRecoveryPrivate => 'リカバリーフレーズを非公開にすべきなのはなぜですか？';
-
-  @override
-  String get salChipNetworkConfirmation => 'ネットワーク承認とは何ですか？';
-
-  @override
-  String get salChipNetworkFees => 'ビットコインのネットワーク手数料はどのような仕組みですか？';
-
-  @override
-  String get salChipTxPending => '取引が保留のままになるのはなぜですか？';
-
-  @override
   String amountMinimumInline(String amount) {
     return '最小額 $amount';
   }
@@ -10746,9 +10591,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return '$amountはInvestmentsにあります。タップして証拠金を追加してください。';
   }
-
-  @override
-  String get salWhyMoving => 'なぜ動いているのですか？';
 
   @override
   String get positionProtectIt => '保護する';

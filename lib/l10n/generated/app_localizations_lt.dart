@@ -7593,30 +7593,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Piniginės pavadinimas';
 
   @override
-  String get salOrderNoLongerAvailable => 'Šio pavedimo nebegalima keisti.';
-
-  @override
   String get salControlUnavailable => 'Šis valdiklis šiame ekrane negalimas.';
 
   @override
-  String get salSwitchToLimitTitle => 'Perjungti į limitinį pavedimą?';
-
-  @override
-  String get salOpenLeverageTitle => 'Atidaryti sverto nustatymus?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Tai pakeis pavedimo tipą. Prieš pateikdami pavedimą, peržiūrėkite kainą ir sumą.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Svertą pasirenkate patys. Tai atidaro valdiklius nekeičiant reikšmės.';
-
-  @override
   String get salChatWith => 'Kalbėtis su Sal';
-
-  @override
-  String get salAsk => 'Klausti Sal';
 
   @override
   String get salUnavailable => 'Sal šiuo metu nepasiekiamas.';
@@ -10495,150 +10475,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlRejectOracle => 'Ši kaina per toli nuo rinkos kainos.';
 
   @override
-  String get salIntroGeneral =>
-      'Tyrinėkite viešas rinkas ir sužinokite, kaip viskas veikia.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Tyrinėkite rinką $market ir sužinokite, kaip ji veikia.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Tyrinėkite šią rinką ir sužinokite, kaip ji veikia.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Sužinokite, kaip veikia pavedimo tipas $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'rinkos',
-        'limit': 'limitinis',
-        'scale': 'laiptinis',
-        'stopMarket': 'stop rinkos',
-        'stopLimit': 'stop limitinis',
-        'takeProfitMarket': 'take profit rinkos',
-        'takeProfitLimit': 'take profit limitinis',
-        'twap': 'TWAP',
-        'other': 'pavedimas',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Kodėl $market šiandien juda?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Kodėl rinkos $market finansavimas neigiamas?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Kaip veikia rinkos $market finansavimas?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Kaip galiu apsaugoti poziciją rinkoje $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Kaip veikia likvidavimas rinkoje $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Kas lemia rinkos $market kainą?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Kaip $market atrodo palyginti su panašiomis rinkomis?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Kodėl šios rinkos koeficientai juda?';
-
-  @override
-  String get salChipPmClosingSoon => 'Kas nutinka, kai ši rinka užsidaro?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Kaip vykstančios rungtynės keičia šiuos koeficientus?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Kas galėtų pakeisti šios rinkos koeficientus?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Kokios yra šios rinkos sprendimo taisyklės?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Kurios rinkos susijusios su šia?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Kokios naujausios žinios apie $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Kaip veikia pavedimo tipas $orderType rinkoje $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Kuo skiriasi rinkos ir limitiniai pavedimai?';
-
-  @override
-  String get salChipEduLeverage => 'Kaip svertas keičia likvidavimo riziką?';
-
-  @override
-  String get salChipEduFunding => 'Kas yra finansavimas amžinajame kontrakte?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Kaip veikia prognozių rinkos?';
-
-  @override
-  String get salChipWalletReceive => 'Kaip gauti bitcoin per Kute?';
-
-  @override
-  String get salChipWalletSend => 'Kaip siųsti bitcoin per Kute?';
-
-  @override
-  String get salChipStocksVsPerps => 'Kuo skiriasi akcijos ir perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Kas yra atkūrimo frazė?';
-
-  @override
-  String get salChipBackupHow => 'Kaip veikia piniginės atsarginė kopija?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Kodėl atkūrimo frazė turi likti privati?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Kas yra tinklo patvirtinimas?';
-
-  @override
-  String get salChipNetworkFees => 'Kaip veikia Bitcoin tinklo mokesčiai?';
-
-  @override
-  String get salChipTxPending => 'Kodėl operacija gali likti laukiama?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimumas $amount';
   }
@@ -11214,9 +11050,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Jūsų $amount yra Investments. Bakstelėkite, kad pridėtumėte maržos.';
   }
-
-  @override
-  String get salWhyMoving => 'Kodėl juda?';
 
   @override
   String get positionProtectIt => 'Apsaugok';

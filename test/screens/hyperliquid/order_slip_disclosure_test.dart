@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart' show AskSalChip;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/currency_conversions.dart';
@@ -269,7 +268,6 @@ void main() {
     // The title, and the empty ticket's button.
     expect(find.text('Long BTC'), findsOneWidget);
     expect(find.text(_emptyOrder), findsOneWidget);
-    expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.bySemanticsLabel('Ask Sal'), findsNothing);
     expect(find.byType(KuteCloseButton), findsOneWidget);

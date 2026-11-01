@@ -36,7 +36,6 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
         HlMarketDetailSheet,
         debugResetHlChartRail;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
 import 'package:kute/screens/hyperliquid/components/close_position_sheet.dart';
@@ -239,8 +238,6 @@ void main() {
         greaterThan(tester
             .getRect(find.byKey(const ValueKey('hl-position-margin')))
             .bottom));
-    expect(find.byType(AskSalChip), findsNothing);
-    expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);
     expect(find.byType(SalAiRing), findsNothing);
     // The Liquidation row says how far it is; no sentence under it on
@@ -653,7 +650,6 @@ void main() {
       // The row is gone (31 October 2026): the question is the Sal
       // sheet's first chip, nothing under the chart.
       expect(find.text('Why is it moving?'), findsNothing);
-      expect(find.byType(AskSalChip), findsNothing);
       expect(find.text('What drives the price of BTC?'), findsNothing);
       expect(find.textContaining('protect'), findsNothing);
       expect(aboutRow, findsOneWidget);
@@ -674,7 +670,6 @@ void main() {
         final header = headerRow();
         expect(find.descendant(of: header, matching: find.byType(HlWatchStar)),
             findsOneWidget);
-        expect(find.byType(AskSalChip), findsNothing);
         // The row is gone (31 October 2026): nothing between the chart
         // and About asks the question.
         expect(find.text('Why is it moving?'), findsNothing);
@@ -723,7 +718,6 @@ void main() {
           lessThanOrEqualTo(tester.getRect(protect).top + 0.5));
       expect(find.descendant(of: protect, matching: find.text('Stop loss')),
           findsOneWidget);
-      expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
       expect(tester.takeException(), isNull);
     });

@@ -7616,32 +7616,11 @@ class AppLocalizationsEl extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Όνομα πορτοφολιού';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Αυτή η εντολή δεν μπορεί πλέον να αλλάξει.';
-
-  @override
   String get salControlUnavailable =>
       'Αυτή η ρύθμιση δεν είναι διαθέσιμη σε αυτή την οθόνη.';
 
   @override
-  String get salSwitchToLimitTitle => 'Αλλαγή σε εντολή ορίου;';
-
-  @override
-  String get salOpenLeverageTitle => 'Άνοιγμα ρυθμίσεων μόχλευσης;';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Αυτό αλλάζει τον τύπο εντολής. Έλεγξε την τιμή και το ποσό πριν καταχωρίσεις την εντολή.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Τη μόχλευση την επιλέγεις εσύ. Αυτό ανοίγει τις ρυθμίσεις χωρίς να αλλάξει την τιμή.';
-
-  @override
   String get salChatWith => 'Συνομιλία με τον Sal';
-
-  @override
-  String get salAsk => 'Ρώτα τον Sal';
 
   @override
   String get salUnavailable => 'Ο Sal δεν είναι διαθέσιμος αυτή τη στιγμή.';
@@ -10521,158 +10500,6 @@ class AppLocalizationsEl extends AppLocalizations {
       'Αυτή η τιμή απέχει πολύ από την τιμή της αγοράς.';
 
   @override
-  String get salIntroGeneral =>
-      'Εξερεύνησε τις δημόσιες αγορές και μάθε πώς λειτουργούν όλα.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Εξερεύνησε το $market και μάθε πώς λειτουργεί.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Εξερεύνησε αυτή την αγορά και μάθε πώς λειτουργεί.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Μάθε πώς λειτουργούν οι εντολές τύπου $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'market',
-        'limit': 'ορίου',
-        'scale': 'κλιμάκωσης',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'εντολή',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Γιατί κινείται σήμερα το $market;';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Γιατί το funding στο $market είναι αρνητικό;';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Πώς λειτουργεί το funding στο $market;';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Πώς μπορώ να προστατέψω μια θέση στο $market;';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Πώς λειτουργεί η ρευστοποίηση στο $market;';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Τι κινεί την τιμή του $market;';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Πώς συγκρίνεται το $market με παρόμοιες αγορές;';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Γιατί κινούνται οι αποδόσεις σε αυτή την αγορά;';
-
-  @override
-  String get salChipPmClosingSoon => 'Τι συμβαίνει όταν κλείνει αυτή η αγορά;';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Πώς κινεί ο ζωντανός αγώνας αυτές τις αποδόσεις;';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Τι θα μπορούσε να κινήσει τις αποδόσεις σε αυτή την αγορά;';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Ποιοι είναι οι κανόνες επίλυσης αυτής της αγοράς;';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Ποιες αγορές σχετίζονται με αυτή;';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Ποια είναι τα τελευταία νέα για το $market;';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Πώς λειτουργεί μια εντολή τύπου $orderType στο $market;';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Σε τι διαφέρουν οι εντολές market από τις εντολές ορίου;';
-
-  @override
-  String get salChipEduLeverage =>
-      'Πώς αλλάζει η μόχλευση τον κίνδυνο ρευστοποίησης;';
-
-  @override
-  String get salChipEduFunding =>
-      'Τι είναι το funding σε ένα perpetual συμβόλαιο;';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Πώς λειτουργούν οι αγορές προβλέψεων;';
-
-  @override
-  String get salChipWalletReceive => 'Πώς λαμβάνω bitcoin στο Kute;';
-
-  @override
-  String get salChipWalletSend => 'Πώς στέλνω bitcoin στο Kute;';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Ποια είναι η διαφορά μεταξύ μετοχών και perps;';
-
-  @override
-  String get salChipRecoveryPhrase => 'Τι είναι μια φράση ανάκτησης;';
-
-  @override
-  String get salChipBackupHow =>
-      'Πώς λειτουργεί το αντίγραφο ασφαλείας ενός πορτοφολιού;';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Γιατί μια φράση ανάκτησης πρέπει να μένει ιδιωτική;';
-
-  @override
-  String get salChipNetworkConfirmation => 'Τι είναι μια επιβεβαίωση δικτύου;';
-
-  @override
-  String get salChipNetworkFees =>
-      'Πώς λειτουργούν τα τέλη του δικτύου Bitcoin;';
-
-  @override
-  String get salChipTxPending =>
-      'Γιατί μια συναλλαγή μπορεί να μείνει σε εκκρεμότητα;';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Ελάχιστο $amount';
   }
@@ -11247,9 +11074,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Τα $amount σου είναι στα Investments. Πάτησε για προσθήκη περιθωρίου.';
   }
-
-  @override
-  String get salWhyMoving => 'Γιατί κινείται;';
 
   @override
   String get positionProtectIt => 'Προστάτεψέ τη';

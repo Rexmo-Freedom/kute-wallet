@@ -28,7 +28,6 @@ import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
     show HlLiveDot;
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -324,7 +323,6 @@ void main() {
         expect(star, findsOneWidget);
         expect(tester.getRect(star).left,
             greaterThanOrEqualTo(tester.getRect(title).right));
-        expect(find.byType(AskSalChip), findsNothing);
         expect(find.byKey(const ValueKey('ask-sal-pill')), findsNothing);
         // Sal's Share pill is not in the header (founder, 31 October 2026):
         // it ends the headline row, centred on the leader's chance and

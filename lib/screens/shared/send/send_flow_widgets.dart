@@ -140,8 +140,8 @@ class _SendStepperFrameState extends State<SendStepperFrame> {
 /// 14 October 2026): the sheet's own header (close or back, the wallet
 /// pill) is all the chrome a step gets, and its content starts right
 /// under the progress bar. The step's name is still announced to screen
-/// readers as a header. [trailing] (Review's Ask Sal chip) sits on its
-/// own short row, right-aligned, above the content.
+/// readers as a header. [trailing], when given, sits on its own short
+/// row, right-aligned, above the content (Sal is the bar, never here).
 class SendStepPage extends StatelessWidget {
   const SendStepPage({
     super.key,

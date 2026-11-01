@@ -7542,31 +7542,11 @@ class AppLocalizationsEt extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Rahakoti nimi';
 
   @override
-  String get salOrderNoLongerAvailable => 'Seda tellimust ei saa enam muuta.';
-
-  @override
   String get salControlUnavailable =>
       'See juhtelement pole sellel ekraanil saadaval.';
 
   @override
-  String get salSwitchToLimitTitle => 'Kas lülituda limiittellimusele?';
-
-  @override
-  String get salOpenLeverageTitle => 'Kas avada finantsvõimenduse seaded?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'See muudab tellimuse tüüpi. Vaata enne tellimuse esitamist hind ja summa üle.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Valid finantsvõimenduse ise. See avab juhtelemendid väärtust muutmata.';
-
-  @override
   String get salChatWith => 'Vestle Saliga';
-
-  @override
-  String get salAsk => 'Küsi Salilt';
 
   @override
   String get salUnavailable => 'Sal pole praegu saadaval.';
@@ -10435,152 +10415,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlRejectOracle => 'See hind on turuhinnast liiga kaugel.';
 
   @override
-  String get salIntroGeneral =>
-      'Avasta avalikke turge ja õpi, kuidas kõik toimib.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Avasta turgu $market ja õpi, kuidas see toimib.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Avasta seda turgu ja õpi, kuidas see toimib.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Õpi, kuidas tellimuse tüüp $orderType toimib.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'turg',
-        'limit': 'limiit',
-        'scale': 'astmeline',
-        'stopMarket': 'stop-turg',
-        'stopLimit': 'stop-limiit',
-        'takeProfitMarket': 'take profit turg',
-        'takeProfitLimit': 'take profit limiit',
-        'twap': 'TWAP',
-        'other': 'tellimus',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Miks $market täna liigub?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Miks on rahastamine turul $market negatiivne?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Kuidas rahastamine turul $market toimib?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Kuidas saan turul $market positsiooni kaitsta?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Kuidas likvideerimine turul $market toimib?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Mis mõjutab turu $market hinda?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Kuidas $market sarnaste turgudega võrreldes paistab?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Miks selle turu koefitsiendid liiguvad?';
-
-  @override
-  String get salChipPmClosingSoon => 'Mis juhtub, kui see turg sulgub?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Kuidas käimasolev mäng neid koefitsiente liigutab?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Mis võiks selle turu koefitsiente liigutada?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Millised on selle turu lahendamise reeglid?';
-
-  @override
-  String get salChipPmRelatedMarkets =>
-      'Millised turud on selle turuga seotud?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Mis on viimased uudised turu $market kohta?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Kuidas tellimuse tüüp $orderType turul $market toimib?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Mille poolest erinevad turu- ja limiittellimused?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Kuidas võimendus likvideerimisriski muudab?';
-
-  @override
-  String get salChipEduFunding => 'Mis on rahastamine perpetual-lepingu puhul?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Kuidas ennustusturud toimivad?';
-
-  @override
-  String get salChipWalletReceive => 'Kuidas Kutes bitcoini vastu võtta?';
-
-  @override
-  String get salChipWalletSend => 'Kuidas Kutes bitcoini saata?';
-
-  @override
-  String get salChipStocksVsPerps => 'Mis vahe on aktsiatel ja perpidel?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Mis on taastefraas?';
-
-  @override
-  String get salChipBackupHow => 'Kuidas rahakoti varukoopia toimib?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Miks peab taastefraas jääma privaatseks?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Mis on võrgukinnitus?';
-
-  @override
-  String get salChipNetworkFees => 'Kuidas Bitcoini võrgutasud toimivad?';
-
-  @override
-  String get salChipTxPending => 'Miks võib tehing ootele jääda?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Miinimum $amount';
   }
@@ -11155,9 +10989,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Sinu $amount on kontol Investments. Puuduta, et lisada marginaali.';
   }
-
-  @override
-  String get salWhyMoving => 'Miks see liigub?';
 
   @override
   String get positionProtectIt => 'Kaitse seda';

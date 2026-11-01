@@ -7579,31 +7579,11 @@ class AppLocalizationsHu extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Tárca neve';
 
   @override
-  String get salOrderNoLongerAvailable => 'Ez a megbízás már nem módosítható.';
-
-  @override
   String get salControlUnavailable =>
       'Ez a vezérlő ezen a képernyőn nem érhető el.';
 
   @override
-  String get salSwitchToLimitTitle => 'Váltasz limitáras megbízásra?';
-
-  @override
-  String get salOpenLeverageTitle => 'Megnyitod a tőkeáttétel beállításait?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Ez megváltoztatja a megbízás típusát. A leadás előtt nézd át az árat és az összeget.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'A tőkeáttételt te magad választod. Ez megnyitja a vezérlőket, az értéket nem módosítja.';
-
-  @override
   String get salChatWith => 'Csevegés Sallal';
-
-  @override
-  String get salAsk => 'Kérdezd Salt';
 
   @override
   String get salUnavailable => 'Sal most nem érhető el.';
@@ -10472,153 +10452,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlRejectOracle => 'Ez az ár túl messze van a piaci ártól.';
 
   @override
-  String get salIntroGeneral =>
-      'Fedezd fel a nyilvános piacokat, és tudd meg, hogyan működik minden.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Fedezd fel a(z) $market piacot, és tudd meg, hogyan működik.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Fedezd fel ezt a piacot, és tudd meg, hogyan működik.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Tudd meg, hogyan működnek a $orderType típusú megbízások.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'piaci',
-        'limit': 'limitáras',
-        'scale': 'skálázott',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'megbízás',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Miért mozog ma a(z) $market?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Miért negatív a(z) $market finanszírozása?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Hogyan működik a(z) $market finanszírozása?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Hogyan védhetek meg egy pozíciót a(z) $market piacon?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Hogyan működik a likvidáció a(z) $market piacon?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Mi mozgatja a(z) $market árát?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Hogyan teljesít a(z) $market a hasonló piacokhoz képest?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Miért mozognak ennek a piacnak az oddsai?';
-
-  @override
-  String get salChipPmClosingSoon => 'Mi történik, amikor ez a piac lezárul?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Hogyan mozgatja az élő meccs ezeket az oddsokat?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Mi mozgathatja ennek a piacnak az oddsait?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Mik ennek a piacnak az eldöntési szabályai?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Mely piacok kapcsolódnak ehhez?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Mik a legfrissebb hírek a(z) $market piacról?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Hogyan működik egy $orderType típusú megbízás a(z) $market piacon?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Miben különbözik a piaci és a limitáras megbízás?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Hogyan változtatja meg a tőkeáttétel a likvidációs kockázatot?';
-
-  @override
-  String get salChipEduFunding => 'Mi a finanszírozás egy örökös szerződésnél?';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Hogyan működnek az előrejelzési piacok?';
-
-  @override
-  String get salChipWalletReceive => 'Hogyan fogadhatok bitcoint a Kute-ban?';
-
-  @override
-  String get salChipWalletSend => 'Hogyan küldhetek bitcoint a Kute-ban?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Mi a különbség a részvények és a perpek között?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Mi az a helyreállítási kifejezés?';
-
-  @override
-  String get salChipBackupHow => 'Hogyan működik a tárca biztonsági mentése?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Miért kell titokban tartani a helyreállítási kifejezést?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Mi az a hálózati megerősítés?';
-
-  @override
-  String get salChipNetworkFees => 'Hogyan működnek a Bitcoin-hálózati díjak?';
-
-  @override
-  String get salChipTxPending => 'Miért maradhat egy tranzakció függőben?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimum: $amount';
   }
@@ -11194,9 +11027,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'A(z) $amount az Investmentsben van. Koppints a fedezet hozzáadásához.';
   }
-
-  @override
-  String get salWhyMoving => 'Miért mozog?';
 
   @override
   String get positionProtectIt => 'Védd meg';

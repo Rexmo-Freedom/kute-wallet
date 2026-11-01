@@ -7574,32 +7574,11 @@ class AppLocalizationsBg extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Име на портфейла';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Тази поръчка вече не може да се променя.';
-
-  @override
   String get salControlUnavailable =>
       'Тази функция не е достъпна на този екран.';
 
   @override
-  String get salSwitchToLimitTitle => 'Да превключим ли към лимитна поръчка?';
-
-  @override
-  String get salOpenLeverageTitle => 'Да отворим ли настройките на ливъриджа?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Това променя типа на поръчката. Прегледай цената и сумата, преди да пуснеш поръчката.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Ти сам избираш ливъриджа. Това отваря настройките, без да променя стойността.';
-
-  @override
   String get salChatWith => 'Чат със Sal';
-
-  @override
-  String get salAsk => 'Питай Sal';
 
   @override
   String get salUnavailable => 'Sal не е достъпен в момента.';
@@ -10469,151 +10448,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlRejectOracle => 'Тази цена е твърде далеч от пазарната.';
 
   @override
-  String get salIntroGeneral =>
-      'Разгледай публичните пазари и научи как работи всичко.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Разгледай $market и научи как работи.';
-  }
-
-  @override
-  String get salIntroThisMarket => 'Разгледай този пазар и научи как работи.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Научи как работят поръчките от тип $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'пазарна',
-        'limit': 'лимитна',
-        'scale': 'стъпаловидна',
-        'stopMarket': 'стоп пазарна',
-        'stopLimit': 'стоп лимит',
-        'takeProfitMarket': 'take profit пазарна',
-        'takeProfitLimit': 'take profit лимит',
-        'twap': 'TWAP',
-        'other': 'поръчка',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Защо $market се движи днес?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Защо фандингът за $market е отрицателен?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Как работи фандингът за $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Как да защитя позиция в $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Как работи ликвидацията в $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Какво движи цената на $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Как се сравнява $market с подобни пазари?';
-  }
-
-  @override
-  String get salChipPmOddsMoving =>
-      'Защо коефициентите на този пазар се движат?';
-
-  @override
-  String get salChipPmClosingSoon =>
-      'Какво става, когато този пазар се затвори?';
-
-  @override
-  String get salChipPmLiveGame => 'Как мачът на живо движи тези коефициенти?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Какво може да промени коефициентите на този пазар?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Какви са правилата за разрешаване на този пазар?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Кои пазари са свързани с този?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Какви са последните новини за $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Как работи поръчка от тип $orderType за $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'По какво се различават пазарните и лимитните поръчки?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Как ливъриджът променя риска от ликвидация?';
-
-  @override
-  String get salChipEduFunding => 'Какво е фандинг при безсрочен договор?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Как работят пазарите за прогнози?';
-
-  @override
-  String get salChipWalletReceive => 'Как да получа биткойн в Kute?';
-
-  @override
-  String get salChipWalletSend => 'Как да изпратя биткойн в Kute?';
-
-  @override
-  String get salChipStocksVsPerps => 'Каква е разликата между акции и перпове?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Какво е фраза за възстановяване?';
-
-  @override
-  String get salChipBackupHow => 'Как работи резервното копие на портфейла?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Защо фразата за възстановяване трябва да остане лична?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Какво е мрежово потвърждение?';
-
-  @override
-  String get salChipNetworkFees => 'Как работят мрежовите такси на Bitcoin?';
-
-  @override
-  String get salChipTxPending => 'Защо една транзакция може да остане чакаща?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Минимум $amount';
   }
@@ -11187,9 +11021,6 @@ class AppLocalizationsBg extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Твоите $amount са в Investments. Докосни, за да добавиш маржин.';
   }
-
-  @override
-  String get salWhyMoving => 'Защо се движи?';
 
   @override
   String get positionProtectIt => 'Защити я';

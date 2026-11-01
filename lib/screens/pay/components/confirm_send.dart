@@ -1,3 +1,5 @@
+import 'package:kute/models/advisor_context.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart';
 import 'package:kute/services/security/address_guard.dart';
 import 'package:kute/screens/pay/components/bitcoin_coin_selection_sheet.dart';
@@ -17,7 +19,6 @@ import 'package:kute/models/transactions_model.dart'
 import 'package:kute/providers/transactions_provider.dart';
 import 'package:kute/models/bitcoin_model.dart' show TransactionBuilder;
 import 'package:kute/providers/wallet_scope_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/background_sync_service.dart';
 import 'package:kute/services/onchain/bitcoin_software_send.dart';
@@ -5324,10 +5325,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ),
         SendStepPage(
           title: context.l10n.sendReview,
-          trailing: const AskSalChip(
-            advisorContext: AdvisorContext(surface: 'send_review'),
+          // Sal is the bar (founder, 1 November 2026): a long press on
+          // Send asks with the review's public context, no circle here.
+          child: KuteBarContextScope(
+            active: _step == _kReviewPage,
+            barContext: KuteBarContext(
+              label: context.l10n.searchOrAskSalShort,
+              source: 'send_review',
+              advisorContext: const AdvisorContext(surface: 'send_review'),
+            ),
+            child: _reviewPage(c, btcFormat),
           ),
-          child: _reviewPage(c, btcFormat),
         ),
         // Step 3 (Sign) — only meaningful for hardware /
         // watch-only wallets; hot wallets reach broadcast

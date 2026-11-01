@@ -9,7 +9,7 @@ import 'package:kute/helpers/secure_screen.dart';
 import 'package:kute/helpers/seed_clipboard.dart';
 import 'package:kute/helpers/stored_seed_reveal.dart';
 import 'package:kute/providers/auth_provider.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
+import 'package:kute/models/advisor_context.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -398,6 +398,8 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
         clip: 'curious',
         question: context.l10n.barBackupQuestion,
         source: 'backup',
+        // The public context the small Ask Sal circle on the words carried.
+        advisorContext: const AdvisorContext(surface: 'backup_reveal'),
       ),
       child: SecureScreen(
       surface: 'backup_wallet',
@@ -497,17 +499,6 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
           child: _IntroCard(
             title: context.l10n.writeTheseDown,
             subtitle: context.l10n.wordsInOrderWarning(words.length),
-          ),
-        ),
-        SizedBox(height: 10.h),
-
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AskSalChip(
-              advisorContext: const AdvisorContext(surface: 'backup_reveal'),
-            ),
           ),
         ),
         SizedBox(height: 10.h),

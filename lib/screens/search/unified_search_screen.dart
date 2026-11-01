@@ -113,7 +113,7 @@ import 'package:kute/theme/app_theme.dart';
 import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart';
+import 'package:kute/screens/search/components/sal_chat_panel.dart';
 
 // ── Search analytics ──
 //
@@ -638,16 +638,19 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
     _queryDebounce?.cancel();
     _settleTimer?.cancel();
     // The first question turns this search into a Sal conversation: that
-    // is Sal opening from search (`sal_opened` otherwise only fires from
-    // the Ask Sal sheet). Follow-ups in the same conversation don't re-open.
+    // is Sal opening (the bar is the one way in). Follow-ups in the same
+    // conversation don't re-open.
     final session = ref.read(advisorSessionProvider.notifier);
     if (!ref.read(advisorSessionProvider).isActive) {
       TrackingService.salOpened(entry: 'search', surface: 'search');
     }
     session.setAnalyticsSurface('search');
     session.setEntrySource('search');
+    // The bar's context (a receipt, a market) grounds the answer.
     session.ask(q,
-        input: 'typed', locale: Localizations.localeOf(context).languageCode);
+        context: widget.barContext?.advisorContext,
+        input: 'typed',
+        locale: Localizations.localeOf(context).languageCode);
     _controller.clear();
     ref.read(searchQueryProvider.notifier).state = '';
   }
@@ -665,7 +668,6 @@ class _UnifiedSearchSurfaceState extends ConsumerState<UnifiedSearchSurface> {
         children: [
           Expanded(
             child: SalChatPanel(
-              embedded: true,
               advisorContext:
                   advisor.context ?? const AdvisorContext(surface: 'chat'),
             ),
