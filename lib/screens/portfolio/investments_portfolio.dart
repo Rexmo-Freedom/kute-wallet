@@ -47,14 +47,13 @@
 // THE PORTFOLIO SCREEN (portfolio_screen.dart, [sharesHeader]): the
 // section pills are the home strip (Portfolio | P&L Charts in two
 // halves, the picked one the white pill with the hairline and the
-// shadow, [_SectionPills]); on the Portfolio section the strip sits under
-// the shares card and Move money (BalancesOverview.sectionSwitch, handed
-// through the breakdown), on P&L Charts at the top of the list. Both
+// shadow, [_SectionPills]), under the ring block in ONE scroll with the
+// section, pinned at the top once it reaches it ([_PortfolioPage]). Both
 // sections speak one language (founder, 1 November 2026: "the vibes are
-// different"): flat on the page background in the 16 gutters, a 13 sp
-// sentence-case section title ("Investing · 2", "Profit and loss"), the
-// same rows (position_rows.dart: logo 32, title 15 w500, sub 13, figure
-// 15 w600 with its change 12 under it, a 14 rhythm), no card.
+// different"): a 13 sp sentence-case section title ("Investing · 2",
+// "Profit and loss") over soft cards of the same rows (position_rows.dart:
+// logo 32, title 15 w500, sub 13, figure 15 w600 with its change 12 under
+// it).
 //
 // Empty, both sections draw ONE empty state at one place under the strip
 // (founder, 1 November 2026; PortfolioSectionEmpty,
@@ -87,6 +86,7 @@ import 'package:kute/screens/portfolio/portfolio_orders.dart';
 import 'package:kute/screens/portfolio/portfolio_statistics.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
+import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
     show KutePill, KutePillSize;
 
@@ -155,70 +155,234 @@ class InvestmentsPortfolio extends ConsumerWidget {
         ? _SectionPills(selected: section, onPick: onSection)
         : const SizedBox.shrink();
     if (sharesHeader) {
-      // THE PINNED TOP (founder, 31 October 2026: "this part should remain
-      // stable in P&L"): one hero instance (the ring, the
-      // Invested / Available line, the strip) above every section, the
-      // same widget across switches, so nothing jumps; under it the
-      // section alone scrolls (the Balances venues, the P&L card, the
-      // the orders), with no strip of its own.
-      final venues = ref.watch(portfolioVenuesProvider);
-      // P&L Charts opens on its final state, never a blank frame: what it
-      // decides on is kept warm under the strip whatever section is on
-      // screen (the venues' P&L series are, by the ring's all-time P&L;
-      // the Investing fills here).
-      if (venues.trading) {
-        ref.listen(hyperliquidUserFillsProvider, (_, __) {});
-      }
-      // The ring adapts (founder, 1 November 2026): on P&L Charts, the
-      // venue picked in "By venue" (watched only there, so leaving the
-      // section clears the pick).
-      final picked = section == PortfolioSection.charts
-          ? ref.watch(pnlChartVenueProvider)
-          : null;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            key: const ValueKey('portfolio-pinned-top'),
-            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-            child: PortfolioBalanceBreakdown(
-              trading: venues.trading,
-              predictions: venues.predictions,
-              overview: true,
-              sharesHeader: true,
-              heroOnly: true,
-              sectionSwitch: pills,
-              focus: switch (picked) {
-                null => null,
-                PortfolioPerformanceVenue.predictions =>
-                  BalancesCategory.predictions,
-                PortfolioPerformanceVenue.trading => BalancesCategory.investing,
-              },
-            ),
-          ),
-          Expanded(
-            child: KeyedSubtree(
-              key: ValueKey('portfolio-section-${section.key}'),
-              child: switch (section) {
-                PortfolioSection.balances => const _Balances(
-                    pills: SizedBox.shrink(),
-                    sharesHeader: true,
-                    venuesOnly: true),
-                PortfolioSection.charts =>
-                  const _Charts(pills: SizedBox.shrink(), showPills: false),
-              },
-            ),
-          ),
-        ],
-      );
+      return _PortfolioPage(section: section, pills: pills);
     }
     return KeyedSubtree(
       key: ValueKey('portfolio-section-${section.key}'),
       child: switch (section) {
         PortfolioSection.balances =>
-          _Balances(pills: pills, sharesHeader: sharesHeader),
+          _Balances(pills: pills),
         PortfolioSection.charts => _Charts(pills: pills),
       },
+    );
+  }
+}
+
+/// THE PORTFOLIO SCREEN AS ONE SCROLL (founder, 1 November 2026: "the
+/// whole page must scroll"): the ring and its line scroll up with the
+/// section under them, and the Portfolio | P&L Charts strip pins at the
+/// top once it reaches it ([_StripHeader]), so the switch is always in
+/// reach. One hero instance, the same widget across switches; only the
+/// section under the strip changes. No jump on switch: the top block
+/// keeps its offset (the ring scrolled away stays away, the strip stays
+/// pinned; a section scrolled deep opens the next at its top under the
+/// pinned strip), and a short section is at least the viewport under the
+/// strip tall, so the strip never drops. The section ends with the bar's
+/// clearance (kuteBarScrollClearance) inside the scroll.
+class _PortfolioPage extends ConsumerStatefulWidget {
+  const _PortfolioPage({required this.section, required this.pills});
+
+  final PortfolioSection section;
+  final Widget pills;
+
+  @override
+  ConsumerState<_PortfolioPage> createState() => _PortfolioPageState();
+}
+
+class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
+  final _scroll = ScrollController();
+  final _top = GlobalKey();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Where the strip pins: the top block's height.
+  double get _pinAt => _top.currentContext?.size?.height ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
+    final venues = ref.watch(portfolioVenuesProvider);
+    // P&L Charts opens on its final state, never a blank frame: what it
+    // decides on is kept warm whatever section is on screen (the venues'
+    // P&L series are, by the ring's all-time P&L; the Investing fills
+    // here).
+    if (venues.trading) {
+      ref.listen(hyperliquidUserFillsProvider, (_, __) {});
+    }
+    // A switch keeps the top block where it is; a section scrolled past
+    // the pin opens the next at its top, the strip still pinned. Before
+    // the new section is built, so it never shows at the old depth.
+    ref.listen(portfolioSectionProvider, (prev, next) {
+      if (prev == next || !_scroll.hasClients) return;
+      final pin = _pinAt;
+      if (_scroll.offset > pin) _scroll.jumpTo(pin);
+    });
+    // The ring adapts (founder, 1 November 2026): on P&L Charts, the
+    // venue picked in "By venue" (watched only there, so leaving the
+    // section clears the pick).
+    final picked = section == PortfolioSection.charts
+        ? ref.watch(pnlChartVenueProvider)
+        : null;
+    final strip = _StripHeader(
+      pills: widget.pills,
+      background: context.colors.background,
+      extent: (_kStripTop + _kStripBottom).h + KutePillSize.regular.height.h,
+    );
+    return LayoutBuilder(builder: (context, box) {
+      // A short section still fills the viewport under the pinned strip.
+      final minSection = (box.maxHeight - strip.extent).clamp(0.0, double.infinity);
+      return CustomScrollView(
+        key: const ValueKey('portfolio-page-scroll'),
+        controller: _scroll,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              key: _top,
+              padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+              child: KeyedSubtree(
+                key: const ValueKey('portfolio-top'),
+                child: PortfolioBalanceBreakdown(
+                  trading: venues.trading,
+                  predictions: venues.predictions,
+                  overview: true,
+                  sharesHeader: true,
+                  heroOnly: true,
+                  focus: switch (picked) {
+                    null => null,
+                    PortfolioPerformanceVenue.predictions =>
+                      BalancesCategory.predictions,
+                    PortfolioPerformanceVenue.trading =>
+                      BalancesCategory.investing,
+                  },
+                ),
+              ),
+            ),
+          ),
+          SliverPersistentHeader(pinned: true, delegate: strip),
+          SliverToBoxAdapter(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minSection),
+              // The section from the top of that room, never centred in it.
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: KeyedSubtree(
+                  key: ValueKey('portfolio-section-${section.key}'),
+                  child: switch (section) {
+                    PortfolioSection.balances => const _BalancesBox(),
+                    PortfolioSection.charts => const _ChartsBox(),
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// The strip's room above and below its pills, design units.
+const double _kStripTop = 14;
+const double _kStripBottom = 4;
+
+/// The Portfolio | P&L Charts strip as a pinned sliver header, on the
+/// page's own background so the section scrolls under it.
+class _StripHeader extends SliverPersistentHeaderDelegate {
+  const _StripHeader(
+      {required this.pills, required this.background, required this.extent});
+
+  final Widget pills;
+  final Color background;
+  final double extent;
+
+  @override
+  double get minExtent => extent;
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      Container(
+        key: const ValueKey('portfolio-strip'),
+        color: background,
+        padding: EdgeInsets.fromLTRB(
+            16.w, _kStripTop.h, 16.w, _kStripBottom.h),
+        alignment: Alignment.topCenter,
+        child: pills,
+      );
+
+  @override
+  bool shouldRebuild(_StripHeader old) =>
+      old.pills != pills ||
+      old.background != background ||
+      old.extent != extent;
+}
+
+/// The end of the Portfolio screen's sections: clear of the home
+/// indicator and of the bar ([kuteBarScrollClearance], inside the scroll,
+/// so the last row can be seen and tapped).
+double _portfolioScrollEnd(BuildContext context) =>
+    32.h + kuteBarScrollClearance.h + kuteDockScrollClearance(context);
+
+/// The Portfolio section on the Portfolio screen: the venues' positions
+/// (PortfolioBalanceBreakdown.venuesOnly, no refresh of its own: the
+/// hero's read already runs), then the bar's clearance.
+class _BalancesBox extends ConsumerWidget {
+  const _BalancesBox();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final venues = ref.watch(portfolioVenuesProvider);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PortfolioBalanceBreakdown(
+              trading: venues.trading,
+              predictions: venues.predictions,
+              overview: true,
+              sharesHeader: true,
+              venuesOnly: true,
+              refreshOnOpen: false,
+              venues: portfolioVenueLists(context, ref, venues)),
+          SizedBox(height: _portfolioScrollEnd(context)),
+        ],
+      ),
+    );
+  }
+}
+
+/// P&L Charts on the Portfolio screen: the section as one box
+/// (PortfolioStatisticsOverview.boxed), its empty state the sections' one
+/// (portfolio_empty_state.dart) where Portfolio puts its own.
+class _ChartsBox extends ConsumerWidget {
+  const _ChartsBox();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final venues = ref.watch(portfolioVenuesProvider);
+    final sectionEmpty = Padding(
+      key: const ValueKey('statistics-chart-empty'),
+      padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
+      child: PortfolioSectionEmpty(
+          title: context.l10n.pnlNoHistoryTitle,
+          tagline: PortfolioSectionTagline.pnl),
+    );
+    if (!venues.any) return sectionEmpty;
+    return PortfolioStatisticsOverview(
+      key: const ValueKey('statistics-overview'),
+      trading: venues.trading,
+      predictions: venues.predictions,
+      orders: PortfolioOrdersBook.watch(ref, venues),
+      sectionEmpty: sectionEmpty,
+      boxed: true,
+      endClearance: _portfolioScrollEnd(context),
+      header: SizedBox(height: 4.h),
     );
   }
 }
@@ -269,42 +433,22 @@ Widget _pillsSliver(Widget pills) => SliverPadding(
     );
 
 /// The last row clear of the home indicator or the dock.
-/// The end of a section's scroll: clear of the dock or the home
-/// indicator, and under the Portfolio screen's bar ([bar]) clear of the
-/// bar too ([kuteBarScrollClearance], inside the scroll, so the last row
-/// can be seen and tapped).
-Widget _dockClearance(BuildContext context, {bool bar = false}) =>
-    SliverToBoxAdapter(
-        child: SizedBox(
-            height: 32.h +
-                (bar ? kuteBarScrollClearance.h : 0) +
-                kuteDockScrollClearance(context)));
+Widget _dockClearance(BuildContext context) => SliverToBoxAdapter(
+    child: SizedBox(height: 32.h + kuteDockScrollClearance(context)));
 
 /// P&L charts: the one card (the realised figure, the chart, the venue
 /// lines), the resting orders under it (see the file header).
 class _Charts extends ConsumerWidget {
-  const _Charts({required this.pills, this.showPills = true});
+  const _Charts({required this.pills});
 
   final Widget pills;
-
-  /// False under the Portfolio screen's pinned top, which holds the strip.
-  final bool showPills;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venues = ref.watch(portfolioVenuesProvider);
-    // Under the Portfolio screen's strip: the sections' one empty state
-    // (portfolio_empty_state.dart), where Portfolio puts its own.
-    final sectionEmpty = showPills
-        ? null
-        : PortfolioSectionEmptyPage(
-            key: const ValueKey('statistics-chart-empty'),
-            title: context.l10n.pnlNoHistoryTitle,
-            tagline: PortfolioSectionTagline.pnl);
     if (!venues.any) {
-      if (sectionEmpty != null) return sectionEmpty;
       return CustomScrollView(slivers: [
-        if (showPills) _pillsSliver(pills),
+        _pillsSliver(pills),
         SliverFillRemaining(
             child: PortfolioEmptyState(context.l10n.ledgerNoPositionsYet)),
       ]);
@@ -314,12 +458,7 @@ class _Charts extends ConsumerWidget {
       trading: venues.trading,
       predictions: venues.predictions,
       orders: PortfolioOrdersBook.watch(ref, venues),
-      sectionEmpty: sectionEmpty,
-      // Under the Portfolio screen's bar: the last row scrolls clear of it.
-      barClearance: !showPills,
-      header: showPills
-          ? Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills)
-          : SizedBox(height: 4.h),
+      header: Padding(padding: EdgeInsets.only(bottom: 12.h), child: pills),
     );
   }
 }
@@ -327,20 +466,11 @@ class _Charts extends ConsumerWidget {
 /// Balances: Available to invest with the ring, Move money under it, then
 /// each venue's first positions under it (PortfolioBalanceBreakdown in its
 /// overview layout, the rows from [portfolioVenueLists]). The Portfolio
-/// screen ([sharesHeader]): the shares card, Move money, the section
-/// strip under them, then the venues (see the file header).
+/// screen draws its own ([_PortfolioPage]).
 class _Balances extends ConsumerWidget {
-  const _Balances(
-      {required this.pills,
-      this.sharesHeader = false,
-      this.venuesOnly = false});
+  const _Balances({required this.pills});
 
   final Widget pills;
-  final bool sharesHeader;
-
-  /// Under the Portfolio screen's pinned top: only the venues' positions
-  /// (PortfolioBalanceBreakdown.venuesOnly), no hero, no strip.
-  final bool venuesOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -348,23 +478,18 @@ class _Balances extends ConsumerWidget {
     return CustomScrollView(
       key: const ValueKey('portfolio-balances-list'),
       slivers: [
-        if (!sharesHeader) _pillsSliver(pills),
+        _pillsSliver(pills),
         SliverPadding(
-          padding:
-              EdgeInsets.fromLTRB(16.w, sharesHeader ? 4.h : 12.h, 16.w, 0),
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
           sliver: SliverToBoxAdapter(
             child: PortfolioBalanceBreakdown(
                 trading: venues.trading,
                 predictions: venues.predictions,
                 overview: true,
-                sharesHeader: sharesHeader,
-                sectionSwitch: sharesHeader && !venuesOnly ? pills : null,
-                venuesOnly: venuesOnly,
-                refreshOnOpen: !venuesOnly,
                 venues: portfolioVenueLists(context, ref, venues)),
           ),
         ),
-        _dockClearance(context, bar: sharesHeader),
+        _dockClearance(context),
       ],
     );
   }

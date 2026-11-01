@@ -5,7 +5,7 @@
 //   * [PortfolioEmptyState]: an empty Portfolio tab on the older surfaces
 //     (a Ledger's tabs, the Portfolio screen the Predictions card opens),
 //     the app's empty state centred clear of the dock.
-//   * [PortfolioSectionEmpty] / [PortfolioSectionEmptyPage]: the Portfolio
+//   * [PortfolioSectionEmpty]: the Portfolio
 //     screen's sections under the pinned strip (Portfolio | P&L Charts;
 //     Activity moved to the Bitcoin home the same day). ONE treatment
 //     for both (founder, 1 November 2026: "empty states must be the same
@@ -21,9 +21,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
-    show KuteDockClearance, kuteDockScrollClearance;
-import 'package:kute/screens/shared/kute_bar_context.dart'
-    show kuteBarScrollClearance;
+    show KuteDockClearance;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -54,7 +52,7 @@ const double kPortfolioSectionEmptySal = 160;
 /// The room between the section's top (right under the pinned strip) and
 /// Sal, in design units. The Portfolio section reaches it as its list's 4
 /// top inset plus the overview's 18 gap (components/balances_overview.dart);
-/// the other two pad by it directly ([PortfolioSectionEmptyPage]).
+/// P&L Charts pads by it directly (investments_portfolio.dart, _ChartsBox).
 const double kPortfolioSectionEmptyTop = 22;
 
 /// Where each section starts the shared taglines, so the three never open
@@ -68,8 +66,8 @@ enum PortfolioSectionTagline {
 }
 
 /// A Portfolio section's empty state, the one treatment (see the file
-/// header). It carries no top gap: [PortfolioSectionEmptyPage] or its host
-/// puts it [kPortfolioSectionEmptyTop] under the strip.
+/// header). It carries no top gap: its host puts it
+/// [kPortfolioSectionEmptyTop] under the strip.
 class PortfolioSectionEmpty extends StatelessWidget {
   const PortfolioSectionEmpty(
       {super.key, required this.title, required this.tagline});
@@ -88,33 +86,5 @@ class PortfolioSectionEmpty extends StatelessWidget {
         subtitleSize: 15,
         subtitleColor: context.colors.textSecondary,
         taglineStart: tagline.start,
-      );
-}
-
-/// A whole section that is empty: [PortfolioSectionEmpty] at
-/// [kPortfolioSectionEmptyTop] under the strip, in a list so a short
-/// phone or large text still scrolls to the tagline.
-class PortfolioSectionEmptyPage extends StatelessWidget {
-  const PortfolioSectionEmptyPage(
-      {super.key, required this.title, required this.tagline});
-
-  final String title;
-  final PortfolioSectionTagline tagline;
-
-  @override
-  Widget build(BuildContext context) => CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(top: kPortfolioSectionEmptyTop.h),
-            sliver: SliverToBoxAdapter(
-              child: PortfolioSectionEmpty(title: title, tagline: tagline),
-            ),
-          ),
-          // The tagline scrolls clear of the Portfolio screen's bar.
-          SliverToBoxAdapter(
-              child: SizedBox(
-                  height: kuteBarScrollClearance.h +
-                      kuteDockScrollClearance(context))),
-        ],
       );
 }

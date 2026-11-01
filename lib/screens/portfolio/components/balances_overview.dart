@@ -88,7 +88,10 @@
 //     the others dim to 30% (the donut's morph on KuteMotion.settle, at
 //     once under Reduce Motion), the hole is the venue's name over its
 //     P&L for the chart's range ("Predictions", "▲ $7.61"), and the line
-//     under the ring is "● Invested in Predictions $4.24"; picked again,
+//     under the ring is "● Invested in Predictions $4.24", the dot in the
+//     venue's slice colour (the quiet tertiary when the venue has nothing
+//     at work, so the whole ring dims and no dot points at a missing
+//     slice); picked again,
 //     or another section, the allocation as above;
 //   * 14, then the section switch (Portfolio | P&L Charts | Activity, the
 //     home strip: equal thirds, the picked one the white pill with the
@@ -743,7 +746,12 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                   if (widget.focus case final venue?)
                     _LegendFigure(
                       key: const ValueKey('portfolio-legend-focus'),
-                      color: balancesCategoryColor(c, venue),
+                      // The dot is the venue's slice: its colour when the
+                      // ring draws one, the quiet tertiary when the venue
+                      // has nothing at work (no slice to point at).
+                      color: (shares[venue] ?? 0) > 0
+                          ? balancesCategoryColor(c, venue)
+                          : c.textTertiary,
                       label: l10n.portfolioInvestedInVenue(label(venue)),
                       figure: categories[venue] == null
                           ? const BalancesFigure('—', stale: true)

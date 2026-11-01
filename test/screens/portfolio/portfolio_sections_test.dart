@@ -366,6 +366,73 @@ String _centreAmount(WidgetTester tester) {
   return w is Text ? w.data! : (w as dynamic).text as String;
 }
 
+/// The Portfolio screen's one scroll (the ring, the strip, the section).
+final _pageScroll = find
+    .descendant(
+        of: find.byKey(const ValueKey('portfolio-page-scroll')),
+        matching: find.byType(Scrollable))
+    .first;
+
+/// The dot before a legend figure.
+Color _legendDot(WidgetTester tester, Finder figure) {
+  final dot = tester.widget<Container>(find
+      .descendant(
+          of: figure,
+          matching: find.byWidgetPredicate((w) =>
+              w is Container &&
+              w.decoration is BoxDecoration &&
+              (w.decoration! as BoxDecoration).shape == BoxShape.circle))
+      .first);
+  return (dot.decoration! as BoxDecoration).color!;
+}
+
+/// Lots to scroll: an Investing position and six predictions (open them
+/// all with [_seeAll]).
+List<Override> _manyRows() => [
+      polymarketActivePositionsProvider.overrideWith((_) => [
+            for (final t in ['a', 'b', 'c', 'd', 'e', 'f'])
+              PolymarketPosition(
+                  marketId: 'm-$t',
+                  marketQuestion: 'Will $t happen this year?',
+                  outcome: 'Yes',
+                  size: 2,
+                  avgPrice: 0.5,
+                  currentPrice: 0.6,
+                  pnl: 0,
+                  pnlPercent: 0,
+                  isResolved: false,
+                  tokenId: t),
+          ]),
+    ];
+
+const _btcHeld = HyperliquidTradingState(isInitialized: true, positions: [
+  HlPerpPosition(
+      coin: 'BTC',
+      szi: 0.1,
+      entryPx: 60000,
+      positionValue: 10812.37,
+      unrealizedPnl: 0.4,
+      returnOnEquity: 0.004,
+      liquidationPx: null,
+      marginUsed: 10811.97,
+      leverageType: 'isolated',
+      leverageValue: 1,
+      maxLeverage: 40),
+]);
+
+/// Opens the Predictions card past its first rows ("See all").
+Future<void> _seeAll(WidgetTester tester) async {
+  final fold =
+      find.byKey(const ValueKey('portfolio-balance-predictions-see-all'));
+  await tester.ensureVisible(fold);
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(fold);
+  await _settle(tester);
+  final scroll = tester.state<ScrollableState>(_pageScroll).position;
+  scroll.jumpTo(0);
+  await _settle(tester);
+}
+
 Future<void> _tapVenue(WidgetTester tester, String venue) async {
   final pick = find.byKey(ValueKey('pnl-venue-$venue-pick'));
   await tester.ensureVisible(pick);
@@ -439,6 +506,11 @@ void _ringAndCardsMain() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('portfolio-legend-available')),
         findsNothing);
+    // Its dot is the venue's slice colour.
+    final slice = _arcs(tester)
+        .firstWhere((a) => a.id == BalancesCategory.predictions)
+        .color;
+    expect(_legendDot(tester, focus), slice);
 
     // Picked again: All, the allocation and the all-time P&L again.
     await _tapVenue(tester, 'predictions');
@@ -530,11 +602,7 @@ void _ringAndCardsMain() {
         await _settle(tester);
       }
       expect(tester.takeException(), isNull);
-      final list = find
-          .descendant(
-              of: find.byKey(ValueKey('portfolio-section-${section.key}')),
-              matching: find.byType(Scrollable))
-          .first;
+      final list = _pageScroll;
       await tester.drag(list, const Offset(0, -4000));
       await _settle(tester);
       final last = section == PortfolioSection.charts
@@ -572,4 +640,145 @@ void _ringAndCardsMain() {
       await _unmount(tester);
     });
   }
+
+  testWidgets(
+      'a venue with nothing at work picked: the ring stays dimmed and the '
+      'dot is the quiet tertiary, never a colour no slice has',
+      (tester) async {
+    await _mount(tester,
+        state: const OneBalanceState(
+          investedUsd: 10,
+          investedByVenue: {OneBalanceVenue.investing: 10},
+          investingKnown: true,
+          predictionsKnown: true,
+          venueCash: {OneBalanceVenue.investing: 17.21},
+        ),
+        extra: [..._history(), ..._predictionsHistory()]);
+    await _pick(tester, PortfolioSection.charts);
+    await _settle(tester);
+    await _tapVenue(tester, 'predictions');
+    await _settle(tester);
+    expect(_arcs(tester).any((a) => a.id == BalancesCategory.predictions),
+        isFalse);
+    for (final a in _arcs(tester)) {
+      expect(a.color.a, moreOrLessEquals(kBalancesRingDimmed, epsilon: 0.01),
+          reason: '${a.id}');
+    }
+    final focus = find.byKey(const ValueKey('portfolio-legend-focus'));
+    expect(find.descendant(of: focus, matching: find.text('Invested in Predictions')),
+        findsOneWidget);
+    expect(_legendDot(tester, focus), AppColorsExtension.light().textTertiary);
+    await _unmount(tester);
+  });
+
+  group('the whole page scrolls', () {
+    // Short and at 130 % text, so the Portfolio section scrolls well past
+    // the pin.
+    const size = Size(375, 420);
+    final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
+    final strip = find.byKey(const ValueKey('portfolio-strip'));
+    double stripTop(WidgetTester tester) => tester.getRect(strip).top;
+    // Off screen above the strip (a finder skips what is off stage).
+    void heroAway(WidgetTester tester) {
+      final h = find.byKey(const ValueKey('portfolio-shares-hero'),
+          skipOffstage: false);
+      if (h.evaluate().isEmpty) return;
+      expect(tester.getRect(h).bottom, lessThanOrEqualTo(0.5));
+    }
+    ScrollPosition position(WidgetTester tester) =>
+        tester.state<ScrollableState>(_pageScroll).position;
+
+    testWidgets(
+        'one scroll: the ring scrolls away with the section, the strip '
+        'pins at the top once it gets there', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          size: size,
+          textScale: 1.3,
+          trading: _btcHeld,
+          extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
+      await _seeAll(tester);
+      final top0 = stripTop(tester);
+      expect(top0, greaterThan(tester.getRect(hero).bottom - 0.5));
+      // The ring, the line and the strip are in the same scroll as the
+      // section: no other scroll view.
+      expect(find.byType(Scrollable), findsOneWidget);
+      position(tester).jumpTo(60);
+      await _settle(tester);
+      // Moved up with the content, not yet pinned.
+      expect(stripTop(tester), moreOrLessEquals(top0 - 60, epsilon: 0.5));
+      await tester.drag(_pageScroll, const Offset(0, -2000));
+      await _settle(tester);
+      // Pinned at the top, the ring off screen above it.
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      heroAway(tester);
+      expect(position(tester).pixels, greaterThan(top0));
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a switch keeps the top block\'s offset: half scrolled stays half '
+        'scrolled; scrolled past the pin, the strip stays pinned and the '
+        'next section opens at its top', (tester) async {
+      await _mount(tester,
+          state: _bothAtWork,
+          size: size,
+          textScale: 1.3,
+          trading: _btcHeld,
+          extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
+      await _seeAll(tester);
+      final pin = stripTop(tester);
+      position(tester).jumpTo(40);
+      await _settle(tester);
+      final heroAt = tester.getRect(hero);
+      final stripAt = stripTop(tester);
+      await _pick(tester, PortfolioSection.charts);
+      await _settle(tester);
+      expect(tester.getRect(hero), heroAt);
+      expect(stripTop(tester), stripAt);
+      await _pick(tester, PortfolioSection.balances);
+      await _settle(tester);
+      expect(tester.getRect(hero), heroAt);
+
+      // Past the pin, deep into the section.
+      await tester.drag(_pageScroll, const Offset(0, -3000));
+      await _settle(tester);
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      expect(position(tester).pixels, greaterThan(pin));
+      await _pick(tester, PortfolioSection.charts);
+      await _settle(tester);
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      heroAway(tester);
+      // At the pin exactly: the new section from its top.
+      expect(position(tester).pixels, moreOrLessEquals(pin, epsilon: 0.5));
+      await _unmount(tester);
+    });
+
+    testWidgets(
+        'a short section never drops the strip: it is at least the '
+        'viewport under the strip tall', (tester) async {
+      // Long Portfolio, P&L Charts empty (nothing ever charted).
+      await _mount(tester,
+          state: _bothAtWork,
+          size: size,
+          textScale: 1.3,
+          trading: _btcHeld,
+          extra: _manyRows());
+      await _seeAll(tester);
+      await tester.drag(_pageScroll, const Offset(0, -3000));
+      await _settle(tester);
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      await _pick(tester, PortfolioSection.charts);
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('statistics-chart-empty')),
+          findsOneWidget);
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      heroAway(tester);
+      // And it stays there when dragged further.
+      await tester.drag(_pageScroll, const Offset(0, -3000));
+      await _settle(tester);
+      expect(stripTop(tester), moreOrLessEquals(0, epsilon: 0.5));
+      await _unmount(tester);
+    });
+  });
 }
