@@ -352,13 +352,13 @@ void main() {
         tester.element(find.byType(UsdAccountActionRow)));
     // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
     expect(actions.map((a) => a.label),
-        ['Manage with AI', 'Add', 'Portfolio', 'Send']);
+        ['Manage with AI', 'Portfolio', 'Add', 'Send']);
     expect(actions.map((a) => a.trackingId),
-        ['manage_with_ai', 'receive', 'portfolio', 'send']);
+        ['manage_with_ai', 'portfolio', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.auto_awesome_rounded,
-      Icons.south_west_rounded,
       InvestmentsTab.positions.icon,
+      Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
     expect(actions.map((a) => a.onTap), everyElement(isNotNull));

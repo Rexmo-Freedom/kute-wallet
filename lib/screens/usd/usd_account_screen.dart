@@ -1130,18 +1130,19 @@ class UsdAccountActionBar extends ConsumerWidget {
             surface: 'manage_with_ai',
           )),
         ),
-        KuteDockAction(
-          icon: Icons.south_west_rounded,
-          label: context.l10n.investmentsAdd,
-          trackingId: 'receive',
-          onTap: () => receive(context),
-        ),
-        // Portfolio in the middle (founder, 31 October 2026).
+        // Portfolio right after Manage with AI, then Add and Send
+        // (founder, 1 November 2026).
         KuteDockAction(
           icon: InvestmentsTab.positions.icon,
           label: context.l10n.walletPortfolioAction,
           trackingId: 'portfolio',
           onTap: () => openPortfolioScreen(context),
+        ),
+        KuteDockAction(
+          icon: Icons.south_west_rounded,
+          label: context.l10n.investmentsAdd,
+          trackingId: 'receive',
+          onTap: () => receive(context),
         ),
         KuteDockAction(
           icon: Icons.north_east_rounded,

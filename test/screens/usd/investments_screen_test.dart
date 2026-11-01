@@ -443,16 +443,16 @@ void main() {
     // "Manage with AI" leads the row (founder, 1 November 2026; Soon).
     expect(actions.map((a) => a.label), [
       l10n.connectAiAction,
-      l10n.investmentsAdd,
       l10n.walletPortfolioAction,
+      l10n.investmentsAdd,
       l10n.send
     ]);
     expect(actions.map((a) => a.trackingId),
-        ['manage_with_ai', 'receive', 'portfolio', 'send']);
+        ['manage_with_ai', 'portfolio', 'receive', 'send']);
     expect(actions.map((a) => a.icon), [
       Icons.auto_awesome_rounded,
-      Icons.south_west_rounded,
       Icons.pie_chart_rounded,
+      Icons.south_west_rounded,
       Icons.north_east_rounded
     ]);
     expect(find.text(l10n.investmentsAdd), findsOneWidget);
