@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+import 'package:kute/screens/share/brag/brag_data.dart' show bragHlPosition;
+import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
@@ -15,9 +15,9 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 //
 // The open-position screen of an Investing position, in plain words. It
 // reads like the market sheet of the same market: its header row (logo,
-// ticker), the live price as the big figure, Sal's Share pill at the end
-// of its row (founder, 31 October 2026: next to the big number, not in
-// the title row), its change today under it ("Low
+// ticker), the live price as the big figure (founder, 1 November 2026:
+// no Share pill beside it on a position; the share is a card under the
+// tiles, position_share_card.dart), its change today under it ("Low
 // liquidity" on a thin market) and the sheet's chart, clean, with its
 // pressure bar. Under the price, what is the user's: the side and the
 // leverage ("Long · 5x") and the profit or loss with the return on what
@@ -231,9 +231,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final editing = _advancedChart && m != null;
 
     // The page's Sal context, placed in its header (no bottom bar; its
-    // control, the Share pill, KuteSalHeaderButton, sits beside the
-    // price): the scope is around the whole page, so in chart-edit mode,
-    // with the header away, the bar stays away too.
+    // control is the share card under the tiles, PositionShareCard): the
+    // scope is around the whole page, so in chart-edit mode, with the
+    // header away, the bar stays away too.
     final bar = marketBarContext(
       context,
       title: widget.position.coin,
@@ -248,6 +248,21 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       searchHint: context.l10n.searchInvestmentsHint,
       source: 'trading',
       placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: current == null
+          ? null
+          : () => bragHlPosition(ref.read,
+              position: pos,
+              title: m?.coin ?? pos.coin,
+              side: pos.isLong
+                  ? context.l10n.longLabel
+                  : context.l10n.shortLabel,
+              pnl: pnl,
+              markPx: markPx,
+              wireCoin: m?.wireCoin,
+              iconUrl: m?.iconUrl,
+              category: m?.category,
+              decimalCap: m?.pxDecimalCap),
     );
     return KuteBarContextScope(
       barContext: bar,
@@ -313,8 +328,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           children: [
                             SizedBox(height: 10.h),
                             // The price now, large, as on the market screen
-                            // (a tick flashes and fades), Sal's Share pill
-                            // at the end of its row, centred on it; its
+                            // (a tick flashes and fades); its
                             // change today under it; then the position in
                             // plain words: its side and leverage, and the
                             // profit or loss with the return on what was
@@ -344,8 +358,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                     ),
                                   ),
                                 ),
-                                SizedBox(width: 8.w),
-                                KuteSalHeaderButton(barContext: bar),
                               ],
                             ),
                             SizedBox(height: 4.h),
@@ -469,6 +481,12 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   decimalCap: m?.pxDecimalCap,
                                 ),
                               ),
+                              // The share (founder, 1 November 2026: no
+                              // header pill on a position page): "Brag
+                              // about it" in profit, else "Send to a
+                              // friend" (position_share_card.dart).
+                              SizedBox(height: 12.h),
+                              PositionShareCard(bar: bar, brag: pnl >= 0.005),
                               SizedBox(height: 12.h),
                               if (canAdjustMargin)
                                 PositionLinkRow(

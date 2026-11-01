@@ -10583,6 +10583,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareHeaderLabel => 'Send to a friend';
 
   @override
+  String get bragPositionAction => 'Show off this position';
+
+  @override
+  String get bragPositionActionSub => 'A card with your result';
+
+  @override
+  String get bragPortfolioAction => 'Show off your portfolio';
+
+  @override
+  String get bragBarLabel => 'Share and brag';
+
+  @override
+  String get bragShowAmounts => 'Show amounts';
+
+  @override
+  String get bragShowAmountsSub =>
+      'Off: only signs and percents leave your phone';
+
+  @override
+  String bragShareText(String title, String link) {
+    return '$title on Kute $link';
+  }
+
+  @override
+  String get bragMyPortfolio => 'My portfolio';
+
+  @override
+  String get bragTopPositions => 'Top positions';
+
+  @override
+  String get bragTradeItOnKute => 'Trade it on Kute';
+
+  @override
+  String get bragCodeLabel => 'Code';
+
+  @override
+  String get bragEntry => 'Entry';
+
+  @override
+  String get bragNow => 'Now';
+
+  @override
+  String get bragAboutIt => 'Brag about it';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
+
+  @override
   String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
 
   @override

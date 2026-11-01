@@ -79,6 +79,7 @@ biometrics_toggle_cancelled
 biometrics_toggled
 block_explorer_opened
 bottom_bar_tapped
+brag_shared
 builder_combo_toggled
 builder_deposit_prompted
 builder_leg_added

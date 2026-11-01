@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteSalHeaderButton;
+import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
+import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -56,7 +56,6 @@ import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
 import 'package:kute/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -81,20 +80,19 @@ const Color _kPolyRed = AppColors.marketDown;
 // needle in the result's colour, the chance under the hub, drag to
 // explore: position_speedometer.dart); over it the result since the buy at
 // the left ("▲ $9.40", "+247% since 19¢"; while dragging, the what-if one),
-// the held side, and Sal's Share pill at the row's end, centred on the
-// result's figure (founder, 31 October 2026: the pill sits next to the big
-// number, not in the title row; once settled it ends the held side's
-// line); under it, until the dial's first drag on
+// and the held side (founder, 1 November 2026: no Share pill beside them
+// any more, it crowded "You hold No"); under it, until the dial's first
+// drag on
 // this device, a quiet "Drag the needle to see what it'd be worth" (the
 // needle leans once to show it moves),
 // and once settled the chance bar (position_chance_bar.dart). Then two
 // tiles: what it is worth now with the profit or loss, and the payout if
 // the held side wins with what was paid (once settled: what it paid out);
 // while the needle is dragged, what it would be worth then beside what it
-// is worth now. While open, the chart under the tiles, always (the held
-// side's chance since the buy in the result's colour, a dashed line at the
-// average price; from the price paid to now while the history has nothing
-// since the buy: position_journey.dart); the end as a pill; and plain
+// is worth now. Under the tiles the share card (founder, 1 November 2026:
+// in place of the small "Your avg" chart; "Brag about it" on an open
+// position in profit, else "Send to a friend": position_share_card.dart);
+// the end as a pill; and plain
 // rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
 // the shared bottom sheet, as on the Investing position), the closing
@@ -442,8 +440,8 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         pos.marketImage;
 
     // The page's Sal context, placed in its header (no bottom bar), held
-    // by the scope around the close button; its control, the Share pill
-    // (KuteSalHeaderButton), sits beside the result over the dial.
+    // by the scope around the close button; its control is the share card
+    // under the tiles (PositionShareCard), no header pill on a position.
     final bar = marketBarContext(
       context,
       title: widget.position.marketQuestion,
@@ -461,6 +459,14 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
       placement: KuteBarPlacement.header,
+      // An open position brags (kute_share_actions.dart).
+      brag: pos.isResolved
+          ? null
+          : () => bragPolyPosition(ref.read,
+              position: pos,
+              costBasis: costBasis,
+              currentPrice: currentPrice,
+              imageUrl: headerImage),
     );
     return Scaffold(
       backgroundColor: context.isDark
@@ -637,21 +643,6 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                             child: heldLine,
                                           ),
                                         ),
-                                        SizedBox(width: 8.w),
-                                        SizedBox(
-                                          height: PolyPositionResultLine
-                                              .figureLineHeight(context),
-                                          child: OverflowBox(
-                                            fit: OverflowBoxFit.deferToChild,
-                                            alignment: Alignment.center,
-                                            minHeight:
-                                                KuteSalHeaderButton.height,
-                                            maxHeight:
-                                                KuteSalHeaderButton.height,
-                                            child: KuteSalHeaderButton(
-                                                barContext: bar),
-                                          ),
-                                        ),
                                       ],
                                     ),
                                     SizedBox(height: 8.h),
@@ -706,15 +697,13 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   // Settled: the held side's line, centred
-                                  // in the room the Share pill leaves it,
-                                  // the pill at the row's end.
+                                  // (the share is the card under the
+                                  // tiles, position_share_card.dart).
                                   Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
                                       Expanded(child: heldLine),
-                                      SizedBox(width: 8.w),
-                                      KuteSalHeaderButton(barContext: bar),
                                     ],
                                   ),
                                   SizedBox(height: 14.h),
@@ -837,32 +826,26 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         },
                       ),
 
-                      // The journey since the buy: the held side's chance
-                      // from the first buy to now. Open only, and always
-                      // there once read (position_journey.dart: from the
-                      // price paid to now while the history is thin).
-                      if (showGauge)
-                        Consumer(builder: (context, journeyRef, _) {
-                          final journey = journeyRef
-                              .watch(polyPositionJourneyProvider((
-                                tokenId: pos.tokenId!,
-                                fallbackSince: pos.createdAt,
-                              )))
-                              .valueOrNull;
-                          if (journey == null) return const SizedBox.shrink();
-                          return Padding(
-                            padding: EdgeInsets.only(top: 20.h),
-                            child: PolyPositionJourneyLine(
-                              journey: journey,
-                              live: currentPrice,
-                              // The result's colour: up, down, or neutral.
-                              color: polyJourneyColor(pnl, c.textSecondary),
-                              entry: pos.size > 0 && costBasis > 0
-                                  ? costBasis / pos.size
-                                  : null,
-                            ),
-                          );
-                        }),
+                      // The share, where the small "Your avg" chart was
+                      // (founder, 1 November 2026: the chart is gone, and
+                      // the header pill crowded "You hold No"): one card
+                      // in the tiles' style, "Brag about it" on an open
+                      // position in profit (its brag preview), else "Send
+                      // to a friend" (the page's Sal sheet). The journey
+                      // since the buy stays read for the brag card's line.
+                      SizedBox(height: 12.h),
+                      Consumer(builder: (context, journeyRef, _) {
+                        if (showGauge) {
+                          journeyRef.watch(polyPositionJourneyProvider((
+                            tokenId: pos.tokenId!,
+                            fallbackSince: pos.createdAt,
+                          )));
+                        }
+                        return PositionShareCard(
+                          bar: bar,
+                          brag: !pos.isResolved && pnl >= 0.005,
+                        );
+                      }),
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[
