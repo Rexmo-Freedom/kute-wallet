@@ -20,8 +20,10 @@
 // (Portfolio | P&L Charts | Activity, the home strip); then the open
 // positions by venue under small-caps labels, each venue one soft card
 // (BalancesOverview.sharesHeader, components/balances_overview.dart). No
-// total: the Dollars tab has it. On P&L Charts and Activity the strip is
-// at the top of the list. No dock: Add and Send are not repeated here.
+// total: the Dollars tab has it. The WHOLE page scrolls (founder, 1
+// November 2026): the ring block scrolls away with the section and the
+// strip pins under the app bar (investments_portfolio.dart,
+// _PortfolioPage). No dock: Add and Send are not repeated here.
 //
 // A deep link naming a Portfolio section (`/usd?tab=portfolio|positions|
 // orders|activity…`, PortfolioSection.forLink) opens this screen on that

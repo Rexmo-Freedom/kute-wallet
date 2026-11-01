@@ -22,8 +22,6 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioCardList;
-import 'package:kute/screens/shared/kute_bar_context.dart'
-    show kuteBarScrollClearance;
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -211,7 +209,8 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.orders,
     this.footer = const [],
     this.footerEmpty = true,
-    this.barClearance = false,
+    this.boxed = false,
+    this.endClearance,
     this.header,
     this.sectionEmpty,
   });
@@ -241,10 +240,14 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   /// one empty state.
   final bool footerEmpty;
 
-  /// Under the Portfolio screen's bar: the page's end adds
-  /// [kuteBarScrollClearance] inside the scroll, so the last venue row
-  /// scrolls clear of the bar.
-  final bool barClearance;
+  /// The Portfolio screen (investments_portfolio.dart): the section as
+  /// one box in the page's own scroll, under its pinned strip, instead of
+  /// a scroll view of its own. Takes no [footer].
+  final bool boxed;
+
+  /// The room after the last row ([boxed]): the page's end, clear of the
+  /// bar; null: the dock's or home indicator's.
+  final double? endClearance;
 
   @override
   ConsumerState<PortfolioStatisticsOverview> createState() =>
@@ -278,6 +281,21 @@ class _PortfolioStatisticsOverviewState
   Widget _page(List<Widget> top) {
     final header = widget.header;
     final all = [if (header != null) header, ...top];
+    if (widget.boxed) {
+      assert(widget.footer.isEmpty, 'a boxed section takes no footer');
+      return Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ...all,
+            SizedBox(
+                height: widget.endClearance ??
+                    32.h + kuteDockScrollClearance(context)),
+          ],
+        ),
+      );
+    }
     return CustomScrollView(
       slivers: [
         if (all.isNotEmpty)
@@ -287,10 +305,7 @@ class _PortfolioStatisticsOverviewState
           ),
         ...widget.footer,
         SliverToBoxAdapter(
-            child: SizedBox(
-                height: 32.h +
-                    (widget.barClearance ? kuteBarScrollClearance.h : 0) +
-                    kuteDockScrollClearance(context))),
+            child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
       ],
     );
   }
@@ -300,6 +315,14 @@ class _PortfolioStatisticsOverviewState
   Widget _emptyPage(Widget empty) {
     final header = widget.header;
     if (header == null) return empty;
+    if (widget.boxed) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [header, empty]),
+      );
+    }
     return CustomScrollView(
       slivers: [
         SliverPadding(

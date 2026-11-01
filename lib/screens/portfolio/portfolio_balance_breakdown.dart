@@ -418,12 +418,13 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
   final bool trading;
   final bool predictions;
 
-  /// THE PINNED TOP (founder, 31 October 2026: "this part should remain
-  /// stable in P&L and Activity"): the Portfolio screen mounts this
+  /// THE TOP BLOCK (founder, 31 October 2026: "this part should remain
+  /// stable in P&L and Activity"; since 1 November it scrolls with the
+  /// page, the strip pinning): the Portfolio screen mounts this
   /// breakdown twice in the [sharesHeader] layout, one instance above the
   /// section strip drawing only the hero ring and the line under it
-  /// ([heroOnly], with [sectionSwitch]) and kept across the three
-  /// sections, and one inside the Balances section drawing only the
+  /// ([heroOnly]) and kept across the sections, and one inside the
+  /// Balances section drawing only the
   /// venues' positions ([venuesOnly], no refresh of its own: the hero's
   /// read already runs, [refreshOnOpen] false).
   final bool heroOnly;
