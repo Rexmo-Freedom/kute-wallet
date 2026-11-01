@@ -1883,13 +1883,19 @@ class _MoneyStepsViewState extends State<MoneyStepsView>
         )..layout();
         final width = math.min(tp.width.ceilToDouble() + 2, room);
         tp.dispose();
+        // Stacked rows: a source's amount ends at its disc's right edge
+        // (it may reach further left), clear of Sal taking the case up
+        // just right of the disc below it.
+        final right = geo.branches && plan.roads.any((r) => r.from == g.first)
+            ? math.min(hi, x + look.stationR)
+            : hi;
         final bottom = g
             .map((i) => geo.stations[i].dy)
             .reduce((a, b) => math.max(a, b));
         out.add(Positioned(
           key: ValueKey(
               'money-steps-station-amount-${plan.stations[g.first].id}'),
-          left: (x - width / 2).clamp(lo, math.max(lo, hi - width)),
+          left: (x - width / 2).clamp(lo, math.max(lo, right - width)),
           top: bottom + look.stackedNameDy,
           width: width,
           child: ExcludeSemantics(

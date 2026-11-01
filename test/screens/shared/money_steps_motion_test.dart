@@ -292,9 +292,11 @@ void main() {
         expect(tester.getTopLeft(label).dy,
             greaterThanOrEqualTo(tester.getBottomLeft(disc).dy),
             reason: 'under its disc');
-        expect((tester.getCenter(label).dx - tester.getCenter(disc).dx).abs(),
-            lessThan(tester.getSize(disc).width),
-            reason: 'centred under it (moved in at the row\'s edge)');
+        final cx = tester.getCenter(disc).dx;
+        expect(tester.getTopLeft(label).dx, lessThanOrEqualTo(cx),
+            reason: 'across its centre');
+        expect(tester.getTopRight(label).dx, greaterThanOrEqualTo(cx),
+            reason: 'across its centre');
       }
       expect(find.text('Bitcoin · Dollars · Investing'), findsNothing);
       final plan = MoneyJourneyPlan.of(
