@@ -46,6 +46,7 @@ import 'package:kute/theme/app_theme.dart';
 
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/kute_bar_test_support.dart';
 import '../../helpers/money_steps_finders.dart';
 
 final _t0 = DateTime.utc(2026, 10, 13, 12);
@@ -1086,11 +1087,12 @@ void main() {
 
     /// The value on the detail row labelled [label] (Date, Status,
     /// Received, Fees, Sent): the text beside it in its own Row.
+    /// [value] on the receipt tile labelled [label].
     Finder rowValue(String label, Finder value) => find.descendant(
-        of: find
-            .ancestor(of: find.text(label), matching: find.byType(Row))
-            .first,
-        matching: value);
+        of: find.byKey(ValueKey('receipt-tile-$label')), matching: value);
+
+    /// The receipt's quiet date line under the hero amount.
+    final heroDate = find.byKey(const ValueKey('receipt-hero-date'));
 
     /// [text] inside the Nerd data group of the order [orderId].
     Finder inLeg(String orderId, Finder finder) => find.descendant(
@@ -1163,7 +1165,8 @@ void main() {
           orders: [hlLanded(), pmRow(status: 'success', got: '14.80')]);
       // Header: the intent, then the move's own rows, once.
       expect(find.text('from Dollars to Bitcoin'), findsOneWidget);
-      expect(find.text('Date'), findsOneWidget);
+      // The date is the hero's quiet line; Status is a tile.
+      expect(heroDate, findsOneWidget);
       expect(find.text('Status'), findsOneWidget);
       expect(rowValue('Status', find.text('Needs attention')), findsOneWidget);
       // Received: what reached Bitcoin (the direct leg's bitcoin).
@@ -1246,6 +1249,8 @@ void main() {
                   status: MoneyStepStatus.failed, reason: 'not_sent'));
       await openSheet(tester, original.copyWith(steps: graph),
           orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      await tester.ensureVisible(find.text('Retry'));
+      await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Retry').hitTestable(), findsOneWidget);
       expect(find.text('Nerd data'), findsOneWidget);
       expect(find.text('Exchange ID'), findsNothing);
@@ -1270,6 +1275,8 @@ void main() {
       addTearDown(() => debugMultiSourceRetryApproval = null);
       await openSheet(tester, original.copyWith(steps: graph),
           orders: [hlLanded().copyWith(status: 'exchanging'), pmRow()]);
+      await tester.ensureVisible(find.text('Retry'));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.text('Retry'));
       await tester.pump();
       expect(prompts, hasLength(1));
@@ -1364,7 +1371,7 @@ void main() {
       expect(inLeg('ord_pm', find.text('Rate')), findsNothing);
       expect(find.textContaining('0.0000000'), findsNothing);
       // Still once for the move.
-      expect(find.text('Date'), findsOneWidget);
+      expect(heroDate, findsOneWidget);
       expect(find.text('Status'), findsOneWidget);
     });
 
@@ -1387,12 +1394,14 @@ void main() {
       await openSheet(
           tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
           orders: [hlLanded()]);
-      expect(find.text('Track this exchange'), findsOneWidget);
+      // The receipt's action: the bar's primary button, none drawn.
+      expect(kuteBarPrimaryContext(tester).label, 'Track this exchange');
+      expect(find.text('Track this exchange'), findsNothing);
       expect(find.text('Retry'), findsNothing);
       expect(find.text('Buy bitcoin'), findsNothing);
       await openNerd(tester);
       // Not repeated inside.
-      expect(find.text('Track this exchange'), findsOneWidget);
+      expect(find.text('Track this exchange'), findsNothing);
     });
 
     testWidgets('several orders: each link inside Nerd data, none below',
@@ -1455,7 +1464,7 @@ void main() {
       await openSheet(
           tester, _move(legs: [_leg(OneBalanceVenue.investing, op: 'op-hl')]),
           orders: [cctp]);
-      expect(find.text('Track this exchange'), findsOneWidget);
+      expect(kuteBarPrimaryContext(tester).label, 'Track this exchange');
     });
 
     testWidgets('a single-leg move reads exactly as the swap detail',
@@ -1504,11 +1513,15 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await openSwapSheet(tester, hlLanded());
       expect(seen(), move);
-      expect(move['Date'], 1);
+      // The date is the hero's quiet line and Track this exchange the
+      // bar's primary button, on both.
+      expect(move['Date'], 0);
+      expect(heroDate, findsOneWidget);
       expect(move['Status'], 1);
       expect(move['Fees'], 0);
       expect(move['Nerd data'], 1);
-      expect(move['Track this exchange'], 1);
+      expect(move['Track this exchange'], 0);
+      expect(kuteBarPrimaryContext(tester).label, 'Track this exchange');
       expect(move['Arrived in Bitcoin'], 1);
       expect(findMoneyStepContaining('Investing → Bitcoin · '), findsOneWidget);
     });

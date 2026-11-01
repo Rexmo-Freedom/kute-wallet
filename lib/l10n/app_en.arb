@@ -7471,5 +7471,9 @@
   "passkeyChoiceWorksWithApple": "Works with Apple Passwords",
   "@passkeyChoiceWorksWithApple": {"description": "iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
   "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager",
-  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."}
+  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
+  "receiptAskWhatHappened": "What happened here?",
+  "@receiptAskWhatHappened": {"description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."},
+  "receiptResult": "Result",
+  "@receiptResult": {"description": "Activity receipt tile label: the realised profit or loss of a sale or payout."}
 }

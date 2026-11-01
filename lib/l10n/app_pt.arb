@@ -3629,5 +3629,7 @@
   "passkeyPrfRestoreBody": "It doesn't support the key Kute needs to open your wallet. Restore with your recovery phrase instead.",
   "passkeyPrfRestoreWithPhrase": "Restore with your recovery phrase",
   "passkeyChoiceWorksWithApple": "Works with Apple Passwords",
-  "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager"
+  "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager",
+  "receiptAskWhatHappened": "What happened here?",
+  "receiptResult": "Result"
 }

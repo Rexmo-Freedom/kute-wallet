@@ -18,6 +18,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/l10n/l10n.dart';
@@ -25,8 +26,10 @@ import 'package:kute/models/share_link_model.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
+import 'package:kute/screens/shared/components/sheet_detail_row.dart'
+    show SheetScrollView;
 import 'package:kute/screens/shared/custom_button.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
 import 'package:kute/services/api/share_links_api.dart';
@@ -173,79 +176,118 @@ class _PendingShareLinkDetailState
     final c = context.colors;
     if (row == null) return const SizedBox.shrink();
     final open = row.status == ShareLinkStatus.open;
+    final done = row.status == ShareLinkStatus.paid ||
+        row.status == ShareLinkStatus.cancelled ||
+        row.status == ShareLinkStatus.expired;
+    final name = row.label?.trim() ?? '';
+    final pick = [
+      if (row.outcome?.trim().isNotEmpty == true) row.outcome!.trim(),
+      if (row.marketTitle?.trim().isNotEmpty == true) row.marketTitle!.trim(),
+    ].join(' · ');
+    String date(DateTime at) {
+      try {
+        return DateFormat('d MMM yyyy, HH:mm', l10n.localeName).format(at);
+      } catch (_) {
+        return DateFormat('d MMM yyyy, HH:mm').format(at);
+      }
+    }
+
+    // The receipt's one structure (receipt_parts.dart): the hero, the
+    // facts as tiles, the pick on its own row, Share again as the bar.
     return AppBottomSheetContainer(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppBottomSheetHeader(
-            title: l10n.shareSendToAnyone,
-            icon: Icons.ios_share_rounded,
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SendToListCard(
-                  colors: c,
-                  rows: [PendingShareLinkRow(row: row, onTap: () {})],
+      maxHeight: 0.9,
+      child: SheetScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 24.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ReceiptHero(
+              leading: Container(
+                width: 56.sp,
+                height: 56.sp,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: c.surfaceLight,
+                  shape: BoxShape.circle,
                 ),
-                if (_error != null) ...[
-                  SizedBox(height: 10.h),
-                  Text(
-                    _error!,
-                    style: TextStyle(
-                      color: AppColors.error,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                if (open) ...[
-                  SizedBox(height: 20.h),
-                  // A contact's number (kept on the phone only), prefilled
-                  // in WhatsApp or the SMS composer. These and Cancel link
-                  // stay on the sheet as text buttons above the bar.
-                  if (row.url.isNotEmpty && row.recipientPhone != null) ...[
-                    AppTextButton(
-                      key: const ValueKey('share-link-whatsapp'),
-                      text: l10n.shareSendAgainWhatsApp,
-                      onPressed: () => unawaited(resendShareLinkVia(
-                          context, ref, row, ShareLinkResendChannel.whatsapp)),
-                    ),
-                    AppTextButton(
-                      key: const ValueKey('share-link-sms'),
-                      text: l10n.shareSendAgainSms,
-                      onPressed: () => unawaited(resendShareLinkVia(
-                          context, ref, row, ShareLinkResendChannel.sms)),
-                    ),
-                  ],
-                  SizedBox(height: 8.h),
-                  AppTextButton(
-                    key: const ValueKey('share-link-cancel'),
-                    text: _cancelling ? '…' : l10n.shareLinkCancel,
-                    onPressed:
-                        _cancelling ? null : () => unawaited(_cancel(row)),
-                  ),
-                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Share
-                  // again is the floating Sal bar's primary action; the
-                  // sheet keeps clear of it.
-                  if (row.url.isNotEmpty)
-                    KuteBarContextScope(
-                      barContext: KuteBarContext.primary(
-                        label: l10n.shareLinkShareAgain,
-                        onPrimary: () => unawaited(_shareAgain(row)),
-                        source: 'share_link_detail',
-                        disabledLabel: null,
-                      ),
-                      child: SizedBox(height: kuteBarScrollClearance.h),
-                    ),
-                ],
-              ],
+                child: Icon(
+                  done ? Icons.check_rounded : Icons.ios_share_rounded,
+                  color: done ? c.textTertiary : c.textPrimary,
+                  size: 26.sp,
+                ),
+              ),
+              title: Text(
+                l10n.shareSendToAnyone,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              amount: Text(
+                shareLinkAmountLabel(context, ref, row.kind, row.amountMinor),
+                style: receiptAmountStyle(c),
+              ),
+              result: shareLinkStatusLabel(context, row),
+              resultColor: c.textSecondary,
             ),
-          ),
-        ],
+            ReceiptFactTiles(facts: [
+              if (name.isNotEmpty) ReceiptFact(label: l10n.to, value: name),
+              ReceiptFact(label: l10n.date, value: date(row.createdAt)),
+            ]),
+            if (pick.isNotEmpty)
+              ReceiptLongRow(label: l10n.betMarketCategory, value: pick),
+            if (_error != null) ...[
+              SizedBox(height: 10.h),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (open) ...[
+              SizedBox(height: 12.h),
+              // A contact's number (kept on the phone only), prefilled in
+              // WhatsApp or the SMS composer. These and Cancel link stay on
+              // the sheet as text buttons above the bar.
+              if (row.url.isNotEmpty && row.recipientPhone != null) ...[
+                AppTextButton(
+                  key: const ValueKey('share-link-whatsapp'),
+                  text: l10n.shareSendAgainWhatsApp,
+                  onPressed: () => unawaited(resendShareLinkVia(
+                      context, ref, row, ShareLinkResendChannel.whatsapp)),
+                ),
+                AppTextButton(
+                  key: const ValueKey('share-link-sms'),
+                  text: l10n.shareSendAgainSms,
+                  onPressed: () => unawaited(resendShareLinkVia(
+                      context, ref, row, ShareLinkResendChannel.sms)),
+                ),
+              ],
+              SizedBox(height: 8.h),
+              AppTextButton(
+                key: const ValueKey('share-link-cancel'),
+                text: _cancelling ? '…' : l10n.shareLinkCancel,
+                onPressed: _cancelling ? null : () => unawaited(_cancel(row)),
+              ),
+            ],
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): Share again is
+            // the floating Sal bar's primary action while the link is open
+            // and this device has its URL; the sheet keeps clear of it.
+            if (open && row.url.isNotEmpty)
+              ReceiptBarAction(
+                label: l10n.shareLinkShareAgain,
+                onPrimary: () => unawaited(_shareAgain(row)),
+              )
+            else
+              const ReceiptBarAction.none(),
+          ],
+        ),
       ),
     );
   }

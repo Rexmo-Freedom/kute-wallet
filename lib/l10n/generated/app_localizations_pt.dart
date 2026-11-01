@@ -12133,4 +12133,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get passkeyChoiceWorksWithGoogle =>
       'Works with Google Password Manager';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String get receiptResult => 'Result';
 }
