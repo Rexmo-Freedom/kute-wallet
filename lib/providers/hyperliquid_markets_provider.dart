@@ -1006,10 +1006,36 @@ class HlMarketDirectory {
   static final Map<String, HlMarket> _byWire = {};
 
   static void remember(Iterable<HlMarket> markets) {
+    var changed = false;
     for (final m in markets) {
+      final before = _byWire[m.wireCoin];
       _byWire[m.wireCoin] = m;
+      if (before == null || before.coin != m.coin) changed = true;
       if (m.isHip3 && m.dex.isNotEmpty && _dexes.add(m.dex)) dexEpoch++;
     }
+    if (changed) _shared = null;
+  }
+
+  /// Display symbols more than one perp lists ('ANTH' on two builder
+  /// dexes, 'ANT' on the main dex and a builder dex), rebuilt only when
+  /// the markets change.
+  static Set<String>? _shared;
+
+  /// Whether another perp shows under [m]'s symbol, so a list row has to
+  /// name [m]'s venue to tell the two apart. A spot token says "Spot" on
+  /// its own and is not counted.
+  static bool sharesSymbol(HlMarket m) {
+    if (m.isSpot) return false;
+    final shared = _shared ??= () {
+      final seen = <String>{};
+      final twice = <String>{};
+      for (final x in _byWire.values) {
+        if (x.isSpot) continue;
+        if (!seen.add(x.coin)) twice.add(x.coin);
+      }
+      return twice;
+    }();
+    return shared.contains(m.coin);
   }
 
   /// Every builder dex the venue lists, in its own order, including a dex

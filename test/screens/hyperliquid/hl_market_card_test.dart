@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlMarketDirectory;
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
@@ -224,6 +226,42 @@ void main() {
     expect(find.text('Gold'), findsOneWidget);
     expect(find.text('GOLD'), findsOneWidget);
     expect(find.textContaining('20x'), findsNothing);
+  });
+
+  testWidgets('two venues listing one symbol: each row names its venue',
+      (tester) async {
+    final a = _market(
+        coin: 'ANTH',
+        wireCoin: 'vntl:ANTH',
+        category: 'preipo',
+        isHip3: true,
+        dex: 'vntl',
+        px: 1805,
+        prevDayPx: 1780);
+    final b = _market(
+        coin: 'ANTH',
+        wireCoin: 'km:ANTH',
+        category: 'preipo',
+        isHip3: true,
+        dex: 'km',
+        px: 1805,
+        prevDayPx: 1809);
+    HlDexNames.remember('vntl', 'Ventuals');
+    HlMarketDirectory.remember([a, b]);
+    addTearDown(HlDexNames.debugReset);
+
+    await _pump(tester, a);
+    expect(find.text('Anthropic'), findsOneWidget);
+    expect(find.text('ANTH · Ventuals'), findsOneWidget);
+    // A venue whose own name was not read yet: its short id.
+    await _pump(tester, b);
+    expect(find.text('ANTH · KM'), findsOneWidget);
+    // A symbol only one venue lists says nothing of venues.
+    await _pump(tester, _market(coin: 'OAI', wireCoin: 'vntl:OAI',
+        category: 'preipo', isHip3: true, dex: 'vntl', px: 1405,
+        prevDayPx: 1380));
+    expect(find.text('OpenAI'), findsOneWidget);
+    expect(find.text('OAI'), findsOneWidget);
   });
 
   testWidgets('a spot token says Spot in the caption', (tester) async {

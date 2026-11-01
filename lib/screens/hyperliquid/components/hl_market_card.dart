@@ -53,6 +53,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/hyperliquid_markets_provider.dart'
+    show HlMarketDirectory;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
@@ -160,9 +162,13 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // (leverage is blocked in the app: no row hints at it). The ticker is
     // not said twice when the title already is the ticker (a market with
     // no name of its own), so such a perp has no caption: empty.
+    // Two venues can list a perp under one symbol (ANTH on two builder
+    // dexes): the row then names its venue ("ANTH · Ventuals"), so the
+    // two rows never read the same.
     final caption = [
       if (name != m.coin) m.coin,
       if (m.isSpot) context.l10n.investingSpot,
+      if (HlMarketDirectory.sharesSymbol(m)) HlDexNames.venueOf(m),
     ].join(' · ');
     // A thinly traded market says so, and draws no sparkline: its line is
     // a few carried-forward steps, and the room goes to the caption.

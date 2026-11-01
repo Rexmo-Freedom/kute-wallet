@@ -210,6 +210,9 @@ const Map<String, String> _kHlFriendlyNames = {
   'SPY': 'S&P 500',
   'TSLA': 'Tesla',
   'XAUT0': 'Tether Gold',
+  // Private companies' pre-IPO perps.
+  'ANTH': 'Anthropic',
+  'OAI': 'OpenAI',
   // Builder-dex commodity and index perps, by their bare symbol.
   'GOLD': 'Gold',
   'SILVER': 'Silver',

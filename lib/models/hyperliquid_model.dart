@@ -761,11 +761,9 @@ class HyperliquidModel {
       if (d is! Map) continue; // index 0 is null → the default dex
       final name = (d['name'] as String?)?.trim() ?? '';
       if (name.isEmpty) continue;
-      out.add(HlPerpDex(
-        name: name,
-        fullName: (d['fullName'] as String?)?.trim() ?? '',
-        index: i,
-      ));
+      final fullName = (d['fullName'] as String?)?.trim() ?? '';
+      out.add(HlPerpDex(name: name, fullName: fullName, index: i));
+      HlDexNames.remember(name, fullName);
     }
     return out;
   }

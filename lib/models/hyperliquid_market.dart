@@ -33,6 +33,8 @@
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:kute/constants/hyperliquid_constants.dart';
 
 enum HlMarketKind { perp, spot }
@@ -46,6 +48,30 @@ const double kHlLowLiquidityDayVolumeUsd = 50000;
 /// One tradable market (perp or USDC-quoted spot pair) with everything the
 /// order path needs: wire ids, rounding metadata, leverage caps, and the
 /// latest price/volume context.
+/// Each builder (HIP-3) dex's own name, as the venue's `perpDexs` list
+/// gives it ('Ventuals', 'Felix Exchange'), kept whenever that list is
+/// read. Two venues can list a perp under the same symbol, and a list
+/// row names its venue to tell them apart.
+class HlDexNames {
+  HlDexNames._();
+  static final Map<String, String> _full = {};
+
+  static void remember(String dex, String fullName) {
+    if (dex.isEmpty || fullName.isEmpty) return;
+    _full[dex] = fullName;
+  }
+
+  /// The venue a market trades on: the builder dex's own name, its short
+  /// id in capitals while that is unknown, "Hyperliquid" for the main dex.
+  static String venueOf(HlMarket m) {
+    if (!m.isHip3 || m.dex.isEmpty) return 'Hyperliquid';
+    return _full[m.dex] ?? m.dex.toUpperCase();
+  }
+
+  @visibleForTesting
+  static void debugReset() => _full.clear();
+}
+
 class HlMarket {
   /// Display symbol. Perp: 'BTC'. Spot: base token name, e.g. 'TSLA'.
   final String coin;
