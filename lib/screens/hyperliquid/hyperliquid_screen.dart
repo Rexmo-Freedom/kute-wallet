@@ -147,38 +147,35 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     return _subsCache.putIfAbsent(tab, () => hlSubsForTab(tab, universe));
   }
 
-  /// The "Moving now" strip's markets, memoized per list instance (the
-  /// lists are themselves memoized per universe, so this is once per
-  /// category per 30 s universe, not once per scroll-driven rebuild).
+  /// The big-card strip's markets, memoized per list instance (the lists
+  /// are themselves memoized per universe, so this is once per category
+  /// per 30 s universe, not once per scroll-driven rebuild). Trending
+  /// shows the hyped stocks and commodities of the whole [universe]
+  /// ([hlTrendingStrip]); every other category its own movers.
   List<HlMarket>? _moversListed;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
-  List<HlMarket> _moversFor(List<HlMarket> markets) {
+  List<HlMarket> _moversFor(
+      HlBrowseTab tab, List<HlMarket> markets, List<HlMarket> universe) {
     if (!identical(markets, _moversListed)) {
       _moversListed = markets;
-      _movers = hlMovingNow(markets);
+      final strip = tab == HlBrowseTab.trending
+          ? hlTrendingStrip(universe, markets)
+          : hlMovingNow(markets);
       // A market on the strip is not repeated in the list under it
       // (founder, 1 November 2026); and the strip never empties the
       // list: with fewer than [kHlMoverListKeeps] rows left, no strip.
-      final onStrip = {for (final m in _movers) m.wireCoin};
-      final rest = _movers.isEmpty
-          ? markets
-          : markets
-              .where((m) => !onStrip.contains(m.wireCoin))
-              .toList(growable: false);
-      if (_movers.isNotEmpty && rest.length < kHlMoverListKeeps) {
-        _movers = const [];
-        _rest = markets;
-      } else {
-        _rest = rest;
-      }
+      final rest = hlListUnderStrip(markets, strip);
+      _movers = rest == null ? const [] : strip;
+      _rest = rest ?? markets;
     }
     return _movers;
   }
 
   /// The list under the strip: [markets] less the strip's.
-  List<HlMarket> _listedFor(List<HlMarket> markets) {
-    _moversFor(markets);
+  List<HlMarket> _listedFor(
+      HlBrowseTab tab, List<HlMarket> markets, List<HlMarket> universe) {
+    _moversFor(tab, markets, universe);
     return _rest;
   }
 
@@ -582,18 +579,21 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           if (awaitingBuilderMarkets)
                             const SliverToBoxAdapter(child: _HlGroupSkeleton())
                           else ...[
-                            // "Moving now": the category's largest 24h
-                            // moves as large cards on a side-scrolling
-                            // strip, above the list (which keeps its own
-                            // order). Only with enough movers to make a
-                            // strip; search is its own screen, so the
-                            // list here is never a search result.
-                            if (_moversFor(markets).isNotEmpty)
+                            // The big cards: on Trending the hyped stocks
+                            // and commodities, elsewhere the category's
+                            // largest 24h moves, on a side-scrolling
+                            // strip above the list (which keeps its own
+                            // order, less the strip's names). Only with
+                            // enough to make a strip; search is its own
+                            // screen, so the list here is never a search
+                            // result.
+                            if (_moversFor(tab, markets, universe).isNotEmpty)
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
                                   child: HlMovingNowStrip(
-                                      markets: _moversFor(markets)),
+                                      markets: _moversFor(
+                                          tab, markets, universe)),
                                 ),
                               ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),
@@ -604,7 +604,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // scroll in, so every price on screen is live.
                             ...marketGroupSlivers<HlMarket>(
                               context,
-                              items: _listedFor(markets),
+                              items: _listedFor(tab, markets, universe),
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
                               divider: hlGroupRowDivider,

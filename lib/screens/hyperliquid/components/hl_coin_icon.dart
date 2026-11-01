@@ -251,6 +251,55 @@ class HlIconArt {
   final double? aspect;
 }
 
+final RegExp _svgShape = RegExp(
+    r'<(path|circle|rect|ellipse|polygon|polyline|line|text)\b([^>]*)>',
+    caseSensitive: false);
+
+bool _svgWhite(String paint) {
+  final p = paint.trim().toLowerCase().replaceAll(' ', '');
+  return p == 'white' ||
+      p == '#fff' ||
+      p == '#ffffff' ||
+      p == '#ffff' ||
+      p == '#ffffffff' ||
+      p == 'rgb(255,255,255)';
+}
+
+/// True when every shape of [svg] is painted white or not at all, and at
+/// least one is white: a mark drawn for a dark plate (XPL's logo is white
+/// strokes under a drop shadow flutter_svg does not paint), which on the
+/// app's light plate is an empty circle. Shapes outside `<defs>` only
+/// (a clip rect or mask is not drawn). Such a logo is not used: the
+/// letter tile or the category glyph shows instead.
+bool hlSvgPaintsOnlyWhite(String svg) {
+  final drawn = svg.replaceAll(
+      RegExp(r'<defs\b.*?</defs>', caseSensitive: false, dotAll: true), '');
+  var white = false;
+  for (final shape in _svgShape.allMatches(drawn)) {
+    final attrs = shape.group(2)!;
+    String? paint(String name) {
+      final attr = RegExp('(?:^|\\s)$name\\s*=\\s*["\']([^"\']*)["\']',
+              caseSensitive: false)
+          .firstMatch(attrs);
+      if (attr != null) return attr.group(1);
+      final style = RegExp('$name\\s*:\\s*([^;"\']+)', caseSensitive: false)
+          .firstMatch(attrs);
+      return style?.group(1);
+    }
+
+    final fill = paint('fill');
+    final stroke = paint('stroke');
+    // An unpainted fill is black: visible.
+    if (fill == null) return false;
+    for (final p in [fill, if (stroke != null) stroke]) {
+      if (p.trim().toLowerCase() == 'none') continue;
+      if (!_svgWhite(p)) return false;
+      white = true;
+    }
+  }
+  return white;
+}
+
 /// What the icon draws for a downloaded SVG body, or null when it is not
 /// a logo it can draw: too large, or neither a vector under
 /// [kHlIconMaxBytes] nor a wrapped raster under
@@ -270,6 +319,9 @@ HlIconArt? hlIconArtFromSvg(Uint8List body) {
         bytes: raster, raster: true, aspect: hlPngAspectRatio(raster));
   }
   if (body.length > kHlIconMaxBytes) return null;
+  // A white-only mark is invisible on the light plate: a miss, so the
+  // next candidate (or the letter tile) is drawn instead.
+  if (hlSvgPaintsOnlyWhite(text)) return null;
   // Two repairs, once, before the bytes are cached. Logos styled
   // through CSS classes (Zcash among them) lose every fill in
   // flutter_svg and arrive as a black silhouette. Logos wrapped
@@ -437,7 +489,11 @@ Future<HlIconArt?> _loadHlSvg(String url) {
               raster: entry.kind == IconCacheKind.raster);
           // The parse also compiles the picture into flutter_svg's cache,
           // keyed by these very bytes, so the icon paints at once.
-          if (art.raster || await _svgParses(art.bytes)) {
+          // A white-only logo an earlier build kept is a miss now: the
+          // download below records it as one.
+          final blank = !art.raster &&
+              hlSvgPaintsOnlyWhite(utf8.decode(art.bytes, allowMalformed: true));
+          if (!blank && (art.raster || await _svgParses(art.bytes))) {
             IconLoadStats.disk++;
             _hlSvgCache[url] = art;
             disk.touch(url);

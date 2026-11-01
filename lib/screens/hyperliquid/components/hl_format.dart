@@ -27,6 +27,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// Hyperliquid surface accent — the mint/emerald tone of the HL brand,
@@ -225,6 +226,92 @@ const Map<String, String> _kHlFriendlyNames = {
   'SP500': 'S&P 500',
   'XYZ100': 'Nasdaq 100',
 };
+
+/// The venue's asset classes whose markets are the same thing under
+/// several builders' tickers (gold on xyz, flx and km; Anthropic as ANTH,
+/// ANT and ANTHROPIC), where [hlUnderlyingKey] reads [_kHlUnderlyingAliases].
+const Set<String> _kHlAliasedCategories = {
+  'stocks',
+  'indices',
+  'commodities',
+  'preipo',
+};
+
+/// Every ticker and name, folded ([hlNormalizeName]), the builder dexes and
+/// tracker tokens use for one underlying, onto that underlying. Read only
+/// for the tradfi classes ([_kHlAliasedCategories]): the main dex's GAS
+/// is a crypto coin, flx:GAS is natural gas.
+const Map<String, String> _kHlUnderlyingAliases = {
+  'anthropic': 'anthropic',
+  'anth': 'anthropic',
+  'ant': 'anthropic',
+  'openai': 'openai',
+  'oai': 'openai',
+  'spacex': 'spacex',
+  'spcx': 'spacex',
+  'gold': 'gold',
+  'xaut': 'gold',
+  'xaut0': 'gold',
+  'tethergold': 'gold',
+  'paxg': 'gold',
+  'gld': 'gold',
+  'silver': 'silver',
+  'slv': 'silver',
+  'cl': 'wtioil',
+  'wti': 'wtioil',
+  'wtioil': 'wtioil',
+  'usoil': 'wtioil',
+  'oil': 'wtioil',
+  'crudeoil': 'wtioil',
+  'natgas': 'natgas',
+  'gas': 'natgas',
+  'naturalgas': 'natgas',
+  'sp500': 'sp500',
+  'spx': 'sp500',
+  'spy': 'sp500',
+  'us500': 'sp500',
+  'usa500': 'sp500',
+  'xyz100': 'nasdaq100',
+  'nasdaq100': 'nasdaq100',
+  'qqq': 'nasdaq100',
+  'ndx': 'nasdaq100',
+  'us100': 'nasdaq100',
+};
+
+/// Lower case with everything but letters and digits removed
+/// ("Tether Gold" → "tethergold", "S&P 500" → "sp500").
+String hlNormalizeName(String s) =>
+    s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+/// What [m] is a market ON, so two markets on one underlying count as one
+/// (the big-card strip never shows two cards for it, and the list under
+/// the strip never repeats it). Not the coin id: Anthropic trades as
+/// io:ANTH, para:ANTH, xyz:ANT and vntl:ANTHROPIC, gold as xyz:GOLD,
+/// flx:GOLD, km:GOLD and the XAUT0 token. A tradfi market resolves through
+/// [_kHlUnderlyingAliases] on its ticker, the app's name for it, the
+/// venue's display name or the Unit asset; anything else is its display
+/// name ([hlFriendlyName], the Unit asset, else the ticker), folded. The
+/// asset class leads the key, so a crypto token that borrows a tradfi
+/// name is never taken for the tradfi market.
+String hlUnderlyingKey(HlMarket m) {
+  final tradfi = _kHlAliasedCategories.contains(m.category) ||
+      m.category == 'fx';
+  final friendly = hlFriendlyName(m.coin);
+  if (_kHlAliasedCategories.contains(m.category)) {
+    for (final n in [
+      m.coin,
+      friendly,
+      m.annotatedName,
+      m.unitAssetName,
+    ]) {
+      if (n == null || n.isEmpty) continue;
+      final alias = _kHlUnderlyingAliases[hlNormalizeName(n)];
+      if (alias != null) return 't:$alias';
+    }
+  }
+  final name = hlNormalizeName(friendly ?? m.unitAssetName ?? m.coin);
+  return '${tradfi ? 't' : 'c'}:${name.isEmpty ? m.coin : name}';
+}
 
 /// Deterministic per-symbol tint for the letter badge (same HSL trick as
 /// the Polymarket comment avatars) — stable across sessions, no assets.
