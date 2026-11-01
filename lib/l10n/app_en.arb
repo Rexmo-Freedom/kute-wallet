@@ -7536,12 +7536,10 @@
   "@activityPaidFrom": {"description": "Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.", "placeholders": {"source": {"type": "String"}}},
   "activityPaidFromBoth": "Paid from {first} and {second}",
   "@activityPaidFromBoth": {"description": "Same as activityPaidFrom when the money came from two of the person's accounts.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}}},
-  "activityTodayIn": "In",
-  "@activityTodayIn": {"description": "Home Activity Today card: tile label for the money received today."},
-  "activityTodayOut": "Out",
-  "@activityTodayOut": {"description": "Home Activity Today card: tile label for the money sent today."},
-  "activityTodayPnl": "P&L",
-  "@activityTodayPnl": {"description": "Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change)."},
   "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
-  "@predictUpOrDownCompact": {"description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.", "placeholders": {"asset": {"type": "String"}, "minutes": {"type": "int"}}}
+  "@predictUpOrDownCompact": {"description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.", "placeholders": {"asset": {"type": "String"}, "minutes": {"type": "int"}}},
+  "activityLatest": "Latest",
+  "@activityLatest": {"description": "Bitcoin home Activity: heading over the four newest actions, shown as square tiles."},
+  "activityEarlier": "Earlier",
+  "@activityEarlier": {"description": "Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles."}
 }

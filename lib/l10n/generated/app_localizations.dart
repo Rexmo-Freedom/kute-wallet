@@ -20419,29 +20419,23 @@ abstract class AppLocalizations {
   /// **'Paid from {first} and {second}'**
   String activityPaidFromBoth(String first, String second);
 
-  /// Home Activity Today card: tile label for the money received today.
-  ///
-  /// In en, this message translates to:
-  /// **'In'**
-  String get activityTodayIn;
-
-  /// Home Activity Today card: tile label for the money sent today.
-  ///
-  /// In en, this message translates to:
-  /// **'Out'**
-  String get activityTodayOut;
-
-  /// Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change).
-  ///
-  /// In en, this message translates to:
-  /// **'P&L'**
-  String get activityTodayPnl;
-
   /// Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.
   ///
   /// In en, this message translates to:
   /// **'{asset} up or down · {minutes}m'**
   String predictUpOrDownCompact(String asset, int minutes);
+
+  /// Bitcoin home Activity: heading over the four newest actions, shown as square tiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest'**
+  String get activityLatest;
+
+  /// Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get activityEarlier;
 }
 
 class _AppLocalizationsDelegate

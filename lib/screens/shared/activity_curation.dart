@@ -21,8 +21,9 @@
 //     figures agree with the next leg's. What does not fold stays a row of
 //     its own in See all.
 //   * The home: the newest [kHomeActivityRows] actions
-//     ([homeActivityEntries]), and above them one "Today" card of what
-//     came in and went out today ([todayActivityFlows]).
+//     ([homeActivityEntries]): the first [kHomeActivityLatest] as square
+//     tiles ("Latest"), the rest as plain rows ("Earlier"). No Today card
+//     (founder, 1 November 2026: less clutter).
 
 import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
@@ -40,8 +41,12 @@ import 'package:kute/services/one_balance/venue_funder.dart'
 import 'package:kute/services/orchestra_routes.dart'
     show isOrchestraUsdLikeCoin;
 
-/// Rows the Bitcoin home's Activity shows before "See all".
-const int kHomeActivityRows = 5;
+/// Actions the Bitcoin home's Activity shows before "See all".
+const int kHomeActivityRows = 6;
+
+/// Of those, the newest this many are the "Latest" squares, two by two;
+/// the rest are the "Earlier" rows.
+const int kHomeActivityLatest = 4;
 
 /// How long before an action a funding leg may have left to fold into it.
 const Duration kActivityFundingWindow = Duration(minutes: 30);
@@ -95,15 +100,6 @@ double? _usd(String field) {
   final raw = double.tryParse(field) ?? 0;
   if (!raw.isFinite || raw <= 0) return null;
   return (raw >= 10000 && raw == raw.roundToDouble()) ? raw / 1e6 : raw;
-}
-
-/// Bitcoin in an Orchestra figure: whole sats or a BTC decimal.
-int _sats(String field) {
-  final raw = double.tryParse(field) ?? 0;
-  if (!raw.isFinite || raw <= 0) return 0;
-  return (raw >= 1 && raw == raw.roundToDouble())
-      ? raw.round()
-      : (raw * 100000000).round();
 }
 
 bool _dollarCoin(String coin) =>
@@ -363,89 +359,4 @@ List<AllActivityEntry> homeActivityEntries(
     out.add(e);
   }
   return out;
-}
-
-/// What came in and went out today, in dollars, across the actions of
-/// [entries] (plumbing never counts: it is the person's own money moving):
-///
-///   * in: bitcoin and dollars received, coins received into Dollars, a
-///     purchase, USDC received into Predictions;
-///   * out: bitcoin and dollars sent, a send paid from several places.
-///
-/// Bitcoin is valued at [btcUsd]. [any] says whether there was any action
-/// today at all (the card is hidden without one). A figure is null when
-/// it holds bitcoin and no price is known.
-typedef TodayActivityFlows = ({bool any, double? inUsd, double? outUsd});
-
-TodayActivityFlows todayActivityFlows(
-  List<AllActivityEntry> entries, {
-  required DateTime now,
-  required double btcUsd,
-  SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
-}) {
-  final today = DateTime(now.year, now.month, now.day);
-  final priced = btcUsd.isFinite && btcUsd > 0;
-  var any = false;
-  double? inUsd = 0;
-  double? outUsd = 0;
-  void addSats(int sats, {required bool incoming}) {
-    if (sats == 0) return;
-    final usd = priced ? sats.abs() / 1e8 * btcUsd : null;
-    if (incoming) {
-      inUsd = usd == null || inUsd == null ? null : inUsd! + usd;
-    } else {
-      outUsd = usd == null || outUsd == null ? null : outUsd! + usd;
-    }
-  }
-
-  void addUsd(double usd, {required bool incoming}) {
-    if (!usd.isFinite || usd <= 0) return;
-    if (incoming) {
-      if (inUsd != null) inUsd = inUsd! + usd;
-    } else {
-      if (outUsd != null) outUsd = outUsd! + usd;
-    }
-  }
-
-  void addCoin(String coin, String amount, {required bool incoming}) {
-    if (swapAssetIsBitcoin(coin)) {
-      addSats(_sats(amount), incoming: incoming);
-    } else if (_dollarCoin(coin)) {
-      addUsd(_usd(amount) ?? 0, incoming: incoming);
-    }
-  }
-
-  for (final e in entries) {
-    final local = e.time.toLocal();
-    if (DateTime(local.year, local.month, local.day) != today) continue;
-    if (activityPlumbingLeg(e, classify: classify) != null) continue;
-    any = true;
-    final tx = e.tx;
-    if (tx is SparkTransaction) {
-      addSats(tx.amountSats.abs(),
-          incoming: tx.type != TransactionType.sent);
-    } else if (tx is BitcoinTransaction) {
-      final net = tx.receivedSats - tx.sentSats;
-      addSats(net.abs(), incoming: net > 0);
-    } else if (tx is UsdbTokenTransaction) {
-      addUsd(tx.amount.toDouble() / 1e6,
-          incoming: tx.type == TransactionType.received);
-    } else if (tx is PolymarketUsdcReceive) {
-      addUsd(tx.amount.toDouble(), incoming: true);
-    } else if (tx is SwapOrderTransaction) {
-      final d = tx.details;
-      final kind =
-          d.isCashAppPurchase ? SwapActivityKind.purchase : classify(d);
-      if (kind == SwapActivityKind.send) {
-        addCoin(d.coinFrom, d.depositAmount, incoming: false);
-      } else if (kind == SwapActivityKind.receive ||
-          kind == SwapActivityKind.purchase) {
-        addCoin(d.coinTo, d.withdrawalAmount, incoming: true);
-      }
-    } else if (tx is MultiSourceMoveTransaction &&
-        tx.move.forAction == VenueCashFor.send) {
-      addUsd(tx.move.deliveredUsd, incoming: false);
-    }
-  }
-  return (any: any, inUsd: inUsd, outUsd: outUsd);
 }

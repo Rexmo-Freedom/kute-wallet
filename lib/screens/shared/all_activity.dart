@@ -19,8 +19,10 @@
 //
 // Curated (founder, 1 November 2026; activity_curation.dart): the
 // Bitcoin home shows the newest [kHomeActivityRows] actions, never the
-// money moving between the person's own accounts, under one "Today" card
-// (In, Out, P&L) when anything happened today ([AllActivityPreview]).
+// money moving between the person's own accounts: the first
+// [kHomeActivityLatest] as square tiles under "Latest", the rest as plain
+// rows under "Earlier" ([AllActivityPreview]; no Today card since the
+// declutter of 1 November 2026).
 // "See all" opens the Activity screen, which lists everything
 // ([AllActivitySliver]), built a page at a time as it scrolls, with each
 // funding chain folded into the action it paid for ("Paid from Bitcoin").
@@ -28,24 +30,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
-    show formatPolyAmount;
 import 'package:kute/helpers/swap_activity.dart'
     show SwapActivityKind, swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/swap_order_model.dart' show SwapOrder;
-import 'package:kute/providers/currency_conversions_provider.dart'
-    show currentBtcUsdProvider;
-import 'package:kute/providers/polymarket_live_prices_provider.dart'
-    show livePriceProvider;
-import 'package:kute/providers/portfolio_performance_provider.dart'
-    show portfolioPerformanceDisplayProvider;
-import 'package:kute/screens/portfolio/portfolio_filters.dart'
-    show portfolioVenuesProvider;
 import 'package:kute/screens/shared/activity_curation.dart';
-import 'package:kute/screens/shared/position_rows_card.dart'
-    show PositionStatTile, positionTileValueStyle;
+import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
@@ -213,10 +203,14 @@ List<Widget> allActivityDaySections(
   );
 }
 
-/// The Bitcoin home's Activity: the "Today" card and the newest [limit]
-/// actions of everything the spending account did (no money moving
-/// between its own accounts: activity_curation.dart), or [emptyState]
-/// when there is nothing yet.
+/// The Bitcoin home's Activity (founder, 1 November 2026: less clutter,
+/// each row one or two things): the newest [limit] actions of everything
+/// the spending account did (no money moving between its own accounts:
+/// activity_curation.dart). The first [kHomeActivityLatest] under
+/// "Latest" as square tiles two by two (the row's icon, the action, the
+/// amount large), the rest under "Earlier" as plain one-line rows on one
+/// card. A tap opens the same receipt as the row. [emptyState] when there
+/// is nothing yet.
 class AllActivityPreview extends ConsumerWidget {
   const AllActivityPreview({
     super.key,
@@ -236,18 +230,104 @@ class AllActivityPreview extends ConsumerWidget {
     if (shown.isEmpty) {
       return emptyState ?? buildNoTransactionsFound(context);
     }
-    final today = todayActivityFlows(activity.curated.entries,
-        now: DateTime.now(),
-        btcUsd: ref.watch(currentBtcUsdProvider),
-        classify: classify);
+    final l10n = context.l10n;
+    final latest = shown.take(kHomeActivityLatest).toList(growable: false);
+    final earlier = shown.skip(kHomeActivityLatest).toList(growable: false);
+    var index = 0;
+    Widget rowOf(AllActivityEntry e) => KuteStaggerIn(
+          index: index++,
+          child: e.fill != null
+              ? HyperliquidFillActivityRow(
+                  fill: e.fill!, compareWithSpendingWallet: true)
+              : buildUnifiedTransactionItem(e.tx!, context, ref),
+        );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (today.any) ActivityTodayCard(flows: today),
-        ...allActivityDaySections(context, ref, shown,
-            curated: activity.curated),
+        _HomeActivityHeading(l10n.activityLatest),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: ActivityRowLayout(
+            shape: ActivityRowShape.square,
+            child: ActivitySquareGrid(
+                children: [for (final e in latest) rowOf(e)]),
+          ),
+        ),
+        if (earlier.isNotEmpty) ...[
+          _HomeActivityHeading(l10n.activityEarlier),
+          ActivityRowLayout(
+            shape: ActivityRowShape.plain,
+            child: PremiumGroupContainer(
+              key: const ValueKey('activity-earlier'),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 4.h),
+                child: Column(
+                  children: [for (final e in earlier) rowOf(e)],
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+}
+
+/// "Latest" / "Earlier" over the home's Activity, in the day label's
+/// style ([ActivityDaySection]).
+class _HomeActivityHeading extends StatelessWidget {
+  const _HomeActivityHeading(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(28.w, 14.h, 28.w, 8.h),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: context.colors.textSecondary,
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
+        ),
+      );
+}
+
+/// [children] two to a row, 10 apart each way, each half the width less
+/// the gap (the home's "Latest" squares).
+class ActivitySquareGrid extends StatelessWidget {
+  const ActivitySquareGrid({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = 10.w;
+    return LayoutBuilder(builder: (context, box) {
+      final side = (box.maxWidth - gap) / 2;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < children.length; i += 2) ...[
+            if (i > 0) SizedBox(height: gap),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: side, child: children[i]),
+                if (i + 1 < children.length) ...[
+                  SizedBox(width: gap),
+                  SizedBox(width: side, child: children[i + 1]),
+                ],
+              ],
+            ),
+          ],
+        ],
+      );
+    });
   }
 }
 
@@ -339,109 +419,6 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
     return SliverList.builder(
       itemCount: children.length,
       itemBuilder: (_, i) => children[i],
-    );
-  }
-}
-
-
-/// Today's profit and loss on Investing and Predictions, in dollars: what
-/// each venue's own published P&L moved since local midnight (realised
-/// plus the open positions' change; Predictions rebuilt from the live
-/// positions as the Portfolio does). Null when neither venue has a figure.
-double? watchTodayInvestmentsPnl(WidgetRef ref, {DateTime? now}) {
-  final venues = ref.watch(portfolioVenuesProvider);
-  final at = now ?? DateTime.now();
-  final midnight = DateTime(at.year, at.month, at.day);
-  double? total;
-  for (final v in [
-    if (venues.trading) PortfolioPerformanceVenue.trading,
-    if (venues.predictions) PortfolioPerformanceVenue.predictions,
-  ]) {
-    final data = ref
-        .watch(portfolioPerformanceDisplayProvider(
-            PortfolioPerformanceRequest(venue: v)))
-        .valueOrNull;
-    if (data == null) continue;
-    final p = v == PortfolioPerformanceVenue.predictions &&
-            data.predictions != null
-        ? data.withLivePredictions(
-            ref.watch(livePriceProvider.select((s) => s.prices)))
-        : data;
-    final change = todayPnlOf(p, midnight);
-    if (change != null) total = (total ?? 0) + change;
-  }
-  return total;
-}
-
-/// What [p] moved since [midnight] (local): its latest observation against
-/// the last one at or before midnight (zero for an account younger than
-/// the day). Null when it has published nothing today.
-double? todayPnlOf(PortfolioPerformance p, DateTime midnight) {
-  if (p.points.isEmpty) return null;
-  final last = p.points.last;
-  final since = last.timestamp.toUtc().difference(midnight.toUtc());
-  if (since.isNegative) return null;
-  final change = p.rangeView(since).changeUsd;
-  return change != null && change.isFinite ? change : null;
-}
-
-/// The home Activity's "Today" card: three equal tiles in the position
-/// pages' tile style, what came in, what went out, and the venues' P&L
-/// (coloured; left out when there is no real figure).
-class ActivityTodayCard extends ConsumerWidget {
-  const ActivityTodayCard({super.key, required this.flows});
-
-  final TodayActivityFlows flows;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final l10n = context.l10n;
-    final visible =
-        ref.watch(settingsProvider.select((s) => s.transactionValuesVisible));
-    final pnl = watchTodayInvestmentsPnl(ref);
-    String money(double? usd) =>
-        !visible ? '••••' : usd == null ? '—' : formatPolyAmount(ref, usd);
-    Widget tile(String key, String label, String value, {Color? color}) =>
-        Expanded(
-          child: PositionStatTile(
-            key: ValueKey(key),
-            label: label,
-            value: Text(value,
-                maxLines: 1,
-                style: positionTileValueStyle(c, color: color).copyWith(
-                    fontSize: 18.sp, letterSpacing: -0.4)),
-          ),
-        );
-    final pnlUp = (pnl ?? 0) >= 0;
-    final pnlText = pnl == null
-        ? ''
-        : !visible
-            ? '••••'
-            : '${pnl > 0 ? '+' : pnl < 0 ? '−' : ''}${formatPolyAmount(ref, pnl.abs())}';
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            tile('activity-today-in', l10n.activityTodayIn,
-                money(flows.inUsd)),
-            SizedBox(width: 10.w),
-            tile('activity-today-out', l10n.activityTodayOut,
-                money(flows.outUsd)),
-            if (pnl != null) ...[
-              SizedBox(width: 10.w),
-              tile('activity-today-pnl', l10n.activityTodayPnl, pnlText,
-                  color: !visible || pnl == 0
-                      ? null
-                      : pnlUp
-                          ? AppColors.marketUp
-                          : AppColors.marketDown),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

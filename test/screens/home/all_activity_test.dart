@@ -2,7 +2,8 @@
 // (founder, 1 November 2026): bitcoin sends and receives, the Dollars
 // ledger and the Investments activity the Portfolio's Activity used to
 // list (Investing fills, Predictions bets, venue moves), merged by time,
-// the newest five actions on the home under a "Today" card; "See all"
+// the newest six actions on the home (four "Latest" squares and two
+// "Earlier" rows, no Today card since the declutter); "See all"
 // lists them all on one screen, each funding chain folded into the action
 // it paid for (activity_curation.dart, founder 1 November 2026).
 
@@ -20,11 +21,8 @@ import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart' show Activity;
-import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'
     show currentBtcUsdProvider;
-import 'package:kute/providers/portfolio_performance_provider.dart'
-    show portfolioPerformanceDisplayProvider;
 import 'package:kute/screens/shared/activity_curation.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
@@ -39,6 +37,8 @@ import 'package:kute/screens/shared/hyperliquid_fill_activity.dart'
     show HyperliquidFillActivityRow;
 import 'package:kute/screens/shared/transactions_builder.dart'
     show ActivityDaySection, ActivityRowNote, assembleActivityRows;
+import 'package:kute/screens/shared/components/receipt_parts.dart'
+    show ReceiptHero;
 import 'package:kute/services/orchestra/own_spark_arrivals.dart';
 import 'package:kute/services/orchestra_routes.dart'
     show kOrchestraUsdAssetCode;
@@ -178,8 +178,6 @@ const _kinds = {
 SwapActivityKind _classify(SwapOrder o) =>
     _kinds[o.id] ?? classifySwapActivity(o);
 
-AllActivityEntry _e(BaseTransaction tx) =>
-    (time: tx.timestamp, tx: tx, fill: null);
 AllActivityEntry _f(HlFill f) =>
     (time: DateTime.fromMillisecondsSinceEpoch(f.time), tx: null, fill: f);
 
@@ -397,7 +395,7 @@ void main() {
       expect(_ids(curated.entries), ['usd_to_pm']);
     });
 
-    test('the home lists actions only, five at most', () {
+    test('the home lists actions only, six at most', () {
       final manual = _swap('manual_usd',
           coinFrom: 'BTC',
           networkFrom: 'SPARK',
@@ -406,7 +404,7 @@ void main() {
           withdrawalAmount: '10.00',
           at: _t0.add(const Duration(hours: 2)));
       final rows = [
-        for (var i = 0; i < 7; i++)
+        for (var i = 0; i < 8; i++)
           _spark('rx$i', 1000, _t0.add(Duration(minutes: i))),
         manual,
       ];
@@ -414,74 +412,12 @@ void main() {
       final curated = curateAllActivity(entries, classify: _classify);
       // See all keeps the move between own accounts …
       expect(_ids(curated.entries).first, 'manual_usd');
-      // … the home never lists it, and stops at five.
+      // … the home never lists it, and stops at six: four squares, two
+      // rows.
       final home = homeActivityEntries(curated, classify: _classify);
-      expect(_ids(home), ['rx6', 'rx5', 'rx4', 'rx3', 'rx2']);
-      expect(kHomeActivityRows, 5);
-    });
-
-    test('Today: in and out from today\'s actions, none without any', () {
-      final now = DateTime(2026, 11, 1, 15);
-      final rx = _spark('rx', 20000, now.subtract(const Duration(hours: 1)));
-      final tx = _spark('tx', 5000, now.subtract(const Duration(hours: 2)),
-          direction: TransactionType.sent);
-      final usdIn = _dollars('usd_in',
-          usd: 12.5,
-          type: breez.PaymentType.receive,
-          at: now.subtract(const Duration(hours: 3)));
-      final old = _spark('old', 90000, now.subtract(const Duration(days: 1)));
-      final manual = _swap('manual_usd',
-          coinFrom: 'BTC',
-          networkFrom: 'SPARK',
-          coinTo: kOrchestraUsdAssetCode,
-          networkTo: 'SPARK',
-          depositAmount: '0.001',
-          withdrawalAmount: '100.00',
-          at: now.subtract(const Duration(minutes: 30)));
-      final entries = [_e(manual), _e(rx), _e(tx), _e(usdIn), _e(old)];
-      final flows = todayActivityFlows(entries,
-          now: now, btcUsd: 100000, classify: _classify);
-      expect(flows.any, isTrue);
-      // 20,000 sats at $100k = $20 + $12.50; the move is not money in.
-      expect(flows.inUsd, closeTo(32.5, 1e-9));
-      expect(flows.outUsd, closeTo(5, 1e-9));
-      // Only plumbing today, or nothing: no card.
-      expect(
-          todayActivityFlows([_e(manual), _e(old)],
-                  now: now, btcUsd: 100000, classify: _classify)
-              .any,
-          isFalse);
-      // No price: the bitcoin figure is unknown, never a wrong zero.
-      expect(
-          todayActivityFlows([_e(rx)],
-                  now: now, btcUsd: 0, classify: _classify)
-              .inUsd,
-          isNull);
-    });
-
-    test('Today P&L: the venue\'s move since midnight, none without data',
-        () {
-      final midnight = DateTime(2026, 11, 1);
-      PortfolioPerformance perf(List<PortfolioPnlPoint> points) =>
-          PortfolioPerformance(
-              points: points,
-              sourceLabel: '',
-              basisLabel: 'P&L',
-              coverageLabel: '');
-      expect(todayPnlOf(perf(const []), midnight), isNull);
-      final p = perf([
-        PortfolioPnlPoint(
-            timestamp: midnight.subtract(const Duration(hours: 2)), pnlUsd: 10),
-        PortfolioPnlPoint(
-            timestamp: midnight.add(const Duration(hours: 9)), pnlUsd: 12.5),
-      ]);
-      expect(todayPnlOf(p, midnight), closeTo(2.5, 1e-9));
-      // Nothing published since midnight: no figure for today.
-      final stale = perf([
-        PortfolioPnlPoint(
-            timestamp: midnight.subtract(const Duration(hours: 2)), pnlUsd: 10),
-      ]);
-      expect(todayPnlOf(stale, midnight), isNull);
+      expect(_ids(home), ['rx7', 'rx6', 'rx5', 'rx4', 'rx3', 'rx2']);
+      expect(kHomeActivityRows, 6);
+      expect(kHomeActivityLatest, 4);
     });
   });
 
@@ -550,7 +486,12 @@ void main() {
           ],
         );
 
-    testWidgets('the home shows the newest five of every account',
+    Finder inSquares(Finder f) => find.descendant(
+        of: find.byType(ActivitySquareGrid), matching: f);
+    Finder inEarlier(Finder f) => find.descendant(
+        of: find.byKey(const ValueKey('activity-earlier')), matching: f);
+
+    testWidgets('the home: the newest six, four squares and two rows',
         (tester) async {
       await pump(
           tester,
@@ -558,17 +499,68 @@ void main() {
               body: SingleChildScrollView(child: AllActivityPreview())),
           history: history(3),
           fills: [
-            for (var i = 0; i < 6; i++)
+            for (var i = 0; i < 7; i++)
               _fill(_t0.add(Duration(minutes: 10 + i)), oid: i),
           ]);
-      // 6 fills + 3 bets + 1 dollar deposit + 1 bitcoin receive = 11; the
-      // newest five: five of the fills, no bet.
+      // 7 fills + 3 bets + 1 dollar deposit + 1 bitcoin receive = 12; the
+      // newest six: six of the fills, no bet.
       expect(find.byType(HyperliquidFillActivityRow, skipOffstage: false),
-          findsNWidgets(5));
+          findsNWidgets(6));
+      expect(inSquares(find.byType(HyperliquidFillActivityRow)),
+          findsNWidgets(4));
+      expect(inEarlier(find.byType(HyperliquidFillActivityRow)),
+          findsNWidgets(2));
+      expect(find.text('Latest'), findsOneWidget);
+      expect(find.text('Earlier'), findsOneWidget);
       expect(find.text('Prediction · Yes', skipOffstage: false),
           findsNothing);
-      expect(find.byType(ActivityDaySection), findsOneWidget);
+      // No day cards and no Today tiles on the home.
+      expect(find.byType(ActivityDaySection), findsNothing);
+      expect(find.byKey(const ValueKey('activity-today-in')), findsNothing);
+      expect(find.text('P&L'), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a square and an Earlier row: one or two things, no context',
+        (tester) async {
+      await pump(
+          tester,
+          const Scaffold(
+              body: SingleChildScrollView(child: AllActivityPreview())),
+          history: history(4));
+      // 4 bets are the squares; the dollar deposit and the bitcoin
+      // receive the two Earlier rows.
+      expect(inSquares(find.text('Prediction · Yes')), findsNWidgets(4));
+      expect(inEarlier(find.text('Prediction · Yes')), findsNothing);
+      // Neither shape draws the row's context line (the time) or a second
+      // figure.
+      final time = DateFormat('HH:mm').format(_t0.toLocal());
+      expect(find.textContaining(time), findsNothing);
+      // A square is big: about half the screen wide, at least 140 tall.
+      final square = tester.getSize(find
+          .descendant(
+              of: find.byType(ActivitySquareGrid),
+              matching: find.byType(SizedBox))
+          .first);
+      expect(square.width, greaterThan(150));
+      expect(tester.getSize(find.byType(ActivitySquareGrid)).height,
+          greaterThanOrEqualTo((2 * 140 + 10) * 400 / 430 - 1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a tap on a square opens the same receipt as the row',
+        (tester) async {
+      await pump(
+          tester,
+          const Scaffold(
+              body: SingleChildScrollView(child: AllActivityPreview())),
+          history: history(0));
+      expect(find.byType(ReceiptHero), findsNothing);
+      await tester.tap(inSquares(find.text('Received')).first);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(ReceiptHero), findsOneWidget);
     });
 
     testWidgets('a short history: every row, bitcoin and Dollars included',
@@ -671,7 +663,7 @@ void main() {
           ],
         );
 
-    testWidgets('the home: the Today card, and a bet paid from Bitcoin',
+    testWidgets('the home: a bet paid from Bitcoin is one square',
         (tester) async {
       debugAllActivityClassify = _classify;
       addTearDown(() => debugAllActivityClassify = null);
@@ -680,55 +672,16 @@ void main() {
           const Scaffold(
               body: SingleChildScrollView(child: AllActivityPreview())),
           history: todayHistory(DateTime.now()));
-      expect(find.byType(ActivityTodayCard), findsOneWidget);
-      expect(find.byKey(const ValueKey('activity-today-in')), findsOneWidget);
-      expect(find.byKey(const ValueKey('activity-today-out')), findsOneWidget);
-      // 20,000 sats at $100k in, 5,000 out.
-      Finder inTile(String key, String text) => find.descendant(
-          of: find.byKey(ValueKey(key)), matching: find.text(text));
-      expect(inTile('activity-today-in', r'$20.00'), findsOneWidget);
-      expect(inTile('activity-today-out', r'$5.00'), findsOneWidget);
-      // No venue figure: no P&L tile.
-      expect(find.byKey(const ValueKey('activity-today-pnl')), findsNothing);
-      // The moves between own accounts are not rows; the bet carries them.
-      expect(find.text('Prediction · Yes'), findsOneWidget);
-      expect(find.textContaining('Paid from Bitcoin'), findsOneWidget);
-      expect(find.byType(ActivityRowNote), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('the Today card shows P&L when a venue has a figure',
-        (tester) async {
-      final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day);
-      final perf = PortfolioPerformance(points: [
-        PortfolioPnlPoint(
-            timestamp: midnight.subtract(const Duration(hours: 1)),
-            pnlUsd: 10),
-        PortfolioPnlPoint(timestamp: now, pnlUsd: 12.5),
-      ], sourceLabel: '', basisLabel: 'P&L', coverageLabel: '');
-      await pump(
-          tester,
-          const Scaffold(
-              body: SingleChildScrollView(child: AllActivityPreview())),
-          history: todayHistory(now),
-          extra: [
-            portfolioPerformanceDisplayProvider(const PortfolioPerformanceRequest(
-                    venue: PortfolioPerformanceVenue.trading))
-                .overrideWithValue(AsyncData(perf)),
-          ]);
-      expect(find.byKey(const ValueKey('activity-today-pnl')), findsOneWidget);
-      expect(find.text(r'+$2.50'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('no activity today: no Today card', (tester) async {
-      await pump(
-          tester,
-          const Scaffold(
-              body: SingleChildScrollView(child: AllActivityPreview())),
-          history: history(2));
-      expect(find.byType(ActivityTodayCard), findsNothing);
+      // No Today tiles.
+      expect(find.byKey(const ValueKey('activity-today-in')), findsNothing);
+      expect(find.byKey(const ValueKey('activity-today-out')), findsNothing);
+      // The moves between own accounts are not rows; the bet, the send
+      // and the receive are the three squares, nothing under Earlier.
+      expect(inSquares(find.text('Prediction · Yes')), findsOneWidget);
+      expect(find.byKey(const ValueKey('activity-earlier')), findsNothing);
+      // The square has no context line: where the money came from is on
+      // See all and the receipt.
+      expect(find.textContaining('Paid from Bitcoin'), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -753,10 +706,11 @@ void main() {
           findsOneWidget);
       expect(find.textContaining('Paid from Bitcoin', skipOffstage: false),
           findsOneWidget);
+      expect(find.byType(ActivityRowNote, skipOffstage: false),
+          findsOneWidget);
       // The manual move is listed here (and only here), on its own day.
       expect(find.byType(ActivityDaySection, skipOffstage: false),
           findsNWidgets(2));
-      expect(find.byType(ActivityTodayCard), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

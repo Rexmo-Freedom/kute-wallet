@@ -3427,8 +3427,7 @@
   "categoryFilterPrompt": "Filter",
   "activityPaidFrom": "Paid from {source}",
   "activityPaidFromBoth": "Paid from {first} and {second}",
-  "activityTodayIn": "In",
-  "activityTodayOut": "Out",
-  "activityTodayPnl": "P&L",
-  "predictUpOrDownCompact": "{asset} up or down · {minutes}m"
+  "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
+  "activityLatest": "Latest",
+  "activityEarlier": "Earlier"
 }

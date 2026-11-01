@@ -722,6 +722,32 @@ class ActivityRowNote extends InheritedWidget {
   bool updateShouldNotify(ActivityRowNote old) => old.note != note;
 }
 
+/// How the home draws an Activity row (founder, 1 November 2026: less
+/// clutter, each row one or two things): the list row every other list
+/// keeps; a square tile for the home's "Latest" grid (the row's icon at
+/// the top, then the action and the amount large); a plain one-line row
+/// for its "Earlier" card (icon, action, amount). Neither home shape has
+/// a context line or a second figure: those are on the receipt, which a
+/// tap opens exactly as from the row.
+enum ActivityRowShape { row, square, plain }
+
+class ActivityRowLayout extends InheritedWidget {
+  const ActivityRowLayout(
+      {super.key, required this.shape, required super.child});
+
+  final ActivityRowShape shape;
+
+  static ActivityRowShape of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ActivityRowLayout>()?.shape ??
+      ActivityRowShape.row;
+
+  @override
+  bool updateShouldNotify(ActivityRowLayout old) => old.shape != shape;
+}
+
+/// A home square's least height (the grid sets its width).
+const double kActivitySquareHeight = 140;
+
 class _TransactionRow extends ConsumerWidget {
   final Widget leading;
   final Widget title;
@@ -793,6 +819,10 @@ class _TransactionRow extends ConsumerWidget {
     final valuesVisible = !maskValues ||
         ref.watch(settingsProvider.select((s) => s.transactionValuesVisible));
     final shownAmount = valuesVisible ? _signed(amount) : '••••';
+    final shape = ActivityRowLayout.of(context);
+    if (shape != ActivityRowShape.row) {
+      return _homeShape(context, shape, shownAmount, valuesVisible);
+    }
     final compact = ActivityRowStyle.compactOf(context);
     final shownFiat = valuesVisible && !compact ? fiatAmount : '';
     final note = ActivityRowNote.of(context);
@@ -853,6 +883,109 @@ class _TransactionRow extends ConsumerWidget {
     );
     if (onTap == null) return row;
     return BouncyTouch(onTap: onTap!, child: row);
+  }
+
+  /// The home's square tile or plain row ([ActivityRowShape]). The amount
+  /// is green for money in or a profit, the primary colour otherwise; a
+  /// status (while something is unfinished) leads the action.
+  Widget _homeShape(BuildContext context, ActivityRowShape shape,
+      String shownAmount, bool valuesVisible) {
+    final c = context.colors;
+    final square = shape == ActivityRowShape.square;
+    final up = valuesVisible &&
+        (flow == ActivityFlow.moneyIn || amountColor == AppColors.marketUp);
+    final amountText = _AmountText(
+      amount: shownAmount,
+      brightColor: up ? AppColors.marketUp : c.textPrimary,
+      isBtc: amountIsBtc && valuesVisible,
+      dimColor: c.textTertiary,
+      fontSize: square ? 22 : 16,
+      letterSpacing: square ? -0.6 : -0.3,
+      fontWeight: FontWeight.w700,
+    );
+    final statusText = status == null
+        ? null
+        : Text(status!.text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: status!.color,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                height: 1.25));
+    final Widget body;
+    if (square) {
+      final scaler = MediaQuery.textScalerOf(context);
+      final content = 14.w * 2 +
+          _kRowIcon +
+          10.w +
+          (statusText == null ? 0 : scaler.scale(13.sp) * 1.25) +
+          scaler.scale(13.sp) * 1.25 +
+          4.h +
+          scaler.scale(22.sp) * 1.2 +
+          2;
+      final height = content > kActivitySquareHeight.w
+          ? content
+          : kActivitySquareHeight.w;
+      body = Container(
+        height: height,
+        padding: EdgeInsets.all(14.w),
+        decoration: PremiumGroupContainer.decorationOf(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RowIconTile(child: leading),
+            const Spacer(),
+            if (statusText != null) statusText,
+            title,
+            SizedBox(height: 4.h),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: amountText,
+            ),
+          ],
+        ),
+      );
+    } else {
+      body = Container(
+        color: Colors.transparent,
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: LayoutBuilder(builder: (context, box) {
+          return Row(
+            children: [
+              _RowIconTile(size: 36, child: leading),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (statusText != null) ...[
+                      Flexible(child: statusText),
+                      Text(' · ',
+                          style: TextStyle(
+                              color: c.textSecondary, fontSize: 13.sp)),
+                    ],
+                    Flexible(flex: 2, child: title),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12.w),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: box.maxWidth * 0.45),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: amountText,
+                ),
+              ),
+            ],
+          );
+        }),
+      );
+    }
+    if (onTap == null) return body;
+    return BouncyTouch(onTap: onTap!, child: body);
   }
 }
 
@@ -953,13 +1086,15 @@ class _RowTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // On a home square the action is the quiet line over the amount.
+    final square = ActivityRowLayout.of(context) == ActivityRowShape.square;
     return Text(
       text,
       style: TextStyle(
-        color: context.colors.textPrimary,
-        fontSize: 16.sp,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
+        color: square ? context.colors.textSecondary : context.colors.textPrimary,
+        fontSize: square ? 13.sp : 16.sp,
+        fontWeight: square ? FontWeight.w500 : FontWeight.w600,
+        letterSpacing: square ? -0.1 : -0.3,
         height: 1.25,
       ),
       maxLines: 1,
