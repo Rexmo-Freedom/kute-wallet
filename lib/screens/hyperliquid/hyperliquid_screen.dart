@@ -150,26 +150,32 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
 
   /// The big-card strip's markets, memoized per list instance (the lists
   /// are themselves memoized per universe, so this is once per category
-  /// per 30 s universe, not once per scroll-driven rebuild). Trending
-  /// shows the hyped stocks and commodities of the whole [universe]
-  /// ([hlTrendingStrip]); every other category its own movers.
+  /// per 30 s universe, not once per scroll-driven rebuild). Only the
+  /// default view (Trending, no subcategory) has a strip: the hyped
+  /// stocks and commodities of the whole [universe] ([hlTrendingStrip]).
+  /// A category or subcategory the person picks is the full plain list,
+  /// nothing excluded (founder, 1 November 2026).
   List<HlMarket>? _moversListed;
   bool _moversPerpsLanded = false;
+  bool _moversDefault = false;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
-  List<HlMarket> _moversFor(
-      HlBrowseTab tab, List<HlMarket> markets, List<HlMarket> universe) {
+  List<HlMarket> _moversFor(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
     // The full perp list landing recomputes the strip too: Trending's
     // waits for it ([_trendingStrip]).
     final perpsLanded =
         ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
+    final defaultView = hlBrowseIsDefaultView(tab, sub);
     if (!identical(markets, _moversListed) ||
-        perpsLanded != _moversPerpsLanded) {
+        perpsLanded != _moversPerpsLanded ||
+        defaultView != _moversDefault) {
       _moversListed = markets;
       _moversPerpsLanded = perpsLanded;
-      final strip = tab == HlBrowseTab.trending
+      _moversDefault = defaultView;
+      final strip = defaultView
           ? _trendingStrip(markets, universe)
-          : hlMovingNow(markets);
+          : const <HlMarket>[];
       // A market on the strip is not repeated in the list under it
       // (founder, 1 November 2026); and the strip never empties the
       // list: with fewer than [kHlMoverListKeeps] rows left, no strip.
@@ -207,9 +213,8 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// is listed in full.
   List<HlMarket> _listedFor(HlBrowseTab tab, HlBrowseSub sub,
       List<HlMarket> markets, List<HlMarket> universe) {
-    _moversFor(tab, markets, universe);
-    return hlBrowseRowsShown(
-        tab == HlBrowseTab.trending && sub == HlBrowseSub.all, _rest);
+    _moversFor(tab, sub, markets, universe);
+    return hlBrowseRowsShown(hlBrowseIsDefaultView(tab, sub), _rest);
   }
 
   /// The category whose subcategories the one browse row shows, in place
@@ -615,21 +620,21 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           if (awaitingBuilderMarkets)
                             const SliverToBoxAdapter(child: _HlGroupSkeleton())
                           else ...[
-                            // The big cards: on Trending the hyped stocks
-                            // and commodities, elsewhere the category's
-                            // largest 24h moves, on a side-scrolling
-                            // strip above the list (which keeps its own
-                            // order, less the strip's names). Only with
-                            // enough to make a strip; search is its own
-                            // screen, so the list here is never a search
-                            // result.
-                            if (_moversFor(tab, markets, universe).isNotEmpty)
+                            // The big cards, on the default view only
+                            // (Trending, no subcategory): the hyped stocks
+                            // and commodities on a side-scrolling strip
+                            // above the list (which keeps its own order,
+                            // less the strip's names). Only with enough
+                            // to make a strip; search is its own screen,
+                            // so the list here is never a search result.
+                            if (_moversFor(tab, sub, markets, universe)
+                                .isNotEmpty)
                               SliverToBoxAdapter(
                                 child: Padding(
                                   padding: EdgeInsets.only(top: 8.h),
                                   child: HlMovingNowStrip(
                                       markets: _moversFor(
-                                          tab, markets, universe)),
+                                          tab, sub, markets, universe)),
                                 ),
                               ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),

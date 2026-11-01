@@ -1,9 +1,11 @@
-// "Moving now": the strip of large cards above the Investing browse list
-// (founder, November 2026): the category's largest 24h moves, up to five,
-// ties by volume, thin markets left out; a card taps through to the
-// market sheet with 'moving_now' as its entry source; no strip under
-// three movers or on an empty list. The list under it keeps its own
-// (volume) order.
+// The strip of large cards above the Investing browse list (founder,
+// November 2026), on the default view (Trending) only: with no stocks or
+// commodities loaded, the largest 24h moves, up to five, ties by volume,
+// thin markets left out; a card taps through to the market sheet with
+// 'moving_now' as its entry source; no strip under three movers or on an
+// empty list, and none on a category the person picks (the full plain
+// list). The list under it keeps its own (volume) order. The cards are
+// calm since the declutter: logo, name, price and change, no sparkline.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,23 +160,29 @@ void main() {
     expect(tester.getTopLeft(find.byType(HlMarketCard).first).dy,
         greaterThan(stripBottom));
 
-    // The card: logo, name, ticker, a line across it, the short price and
-    // the arrowed change in the change's colour.
+    // The card: logo, name, the short price large and the arrowed change
+    // in the change's colour; no sparkline and no ticker line.
     final zec = find.byKey(const ValueKey('hl-mover-perp-ZEC'));
     expect(zec, findsOneWidget);
     expect(find.descendant(of: zec, matching: find.text('ZEC')), findsOneWidget);
     expect(
         find.descendant(of: zec, matching: find.byType(KutePressable)),
         findsOneWidget);
-    final line = tester.widget<HlLineSparkline>(
-        find.descendant(of: zec, matching: find.byType(HlLineSparkline)));
-    expect(line.baseline, isFalse);
-    expect(line.closes, isNotEmpty);
+    expect(find.descendant(of: zec, matching: find.byType(HlLineSparkline)),
+        findsNothing);
+    expect(
+        find.descendant(
+            of: zec,
+            matching: find.byWidgetPredicate(
+                (w) => w is Text && (w.data ?? '').contains('·'))),
+        findsNothing);
     final numbers = tester
         .widgetList<RollingNumberText>(
             find.descendant(of: zec, matching: find.byType(RollingNumberText)))
         .toList();
     expect(numbers.map((n) => n.text), [r'$112.00', '▲ 12.0%']);
+    expect(numbers[0].style.fontSize, moreOrLessEquals(22 * 390 / 430, epsilon: 0.5));
+    expect(numbers[0].style.fontWeight, FontWeight.w700);
     expect(numbers[1].style.color, AppColors.marketUp);
     final hype = find.byKey(const ValueKey('hl-mover-perp-HYPE'));
     expect(
@@ -188,9 +196,14 @@ void main() {
     // The cards run past the right edge, where the row scrolls.
     final first = tester.getRect(zec);
     expect(first.left, moreOrLessEquals(16, epsilon: 2));
-    // Square (founder, 1 November 2026): 148 design units on a side.
-    expect(first.width, moreOrLessEquals(148 * 390 / 430, epsilon: 1));
-    expect(first.height, moreOrLessEquals(first.width, epsilon: 1));
+    // Bigger (founder, 1 November 2026): two to a screen, the third
+    // peeking; about 150 tall.
+    const u = 390 / 430;
+    expect(first.width,
+        moreOrLessEquals((390 - 32 * u - 10 * u) / 2 - 14 * u, epsilon: 1));
+    expect(first.height, greaterThanOrEqualTo(150 * u - 1));
+    final second = tester.getRect(find.byType(HlMovingNowCard).at(1));
+    expect(second.right, lessThan(390));
     final last = tester.getRect(find.byType(HlMovingNowCard).last);
     expect(last.right, greaterThan(390));
     await tester.drag(_strip(), const Offset(-400, 0));
@@ -275,8 +288,18 @@ void main() {
     expect(hlBrowseRowsShown(true, rows.take(4).toList()), [0, 1, 2, 3]);
   });
 
+  test('only Trending at its default list has a strip', () {
+    expect(hlBrowseIsDefaultView(HlBrowseTab.trending, HlBrowseSub.all),
+        isTrue);
+    expect(hlBrowseIsDefaultView(HlBrowseTab.perps, HlBrowseSub.all),
+        isFalse);
+    expect(hlBrowseIsDefaultView(HlBrowseTab.trending, HlBrowseSub.meme),
+        isFalse);
+  });
+
   testWidgets('Trending lists six rows under the strip and nothing after; '
-      'a picked category lists every market', (tester) async {
+      'a picked category has no strip and lists every market',
+      (tester) async {
     final many = [
       for (var i = 0; i < 24; i++)
         _market('C$i', px: 100 + i.toDouble(), prev: 100, vlm: 9e9 - i * 1e8),
@@ -291,7 +314,8 @@ void main() {
         c.market.coin,
     ];
     expect(rows.toSet().intersection(onStrip), isEmpty);
-    // Perps (picked at the top): the whole list under its strip.
+    // Perps (picked at the top): no strip, the whole plain list, nothing
+    // left out (the markets Trending's strip carried are rows here).
     final container = ProviderScope.containerOf(
         tester.element(find.byType(HyperliquidScreen)));
     container.read(hlBrowseSelectionProvider.notifier).state = container
@@ -300,9 +324,14 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    final perpsRows =
-        find.byType(HlMarketCard, skipOffstage: false).evaluate().length;
-    expect(perpsRows, greaterThan(6));
+    expect(_strip(), findsNothing);
+    final perpsRows = [
+      for (final c in tester.widgetList<HlMarketCard>(
+          find.byType(HlMarketCard, skipOffstage: false)))
+        c.market.coin,
+    ];
+    expect(perpsRows, hasLength(24));
+    expect(perpsRows.toSet().containsAll(onStrip), isTrue);
     expect(tester.takeException(), isNull);
   });
 }

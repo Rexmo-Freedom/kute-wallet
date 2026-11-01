@@ -1,43 +1,30 @@
-import 'package:kute/l10n/l10n.dart';
 // lib/screens/hyperliquid/components/hl_market_card.dart
 //
 // The Investing browse lists' market card (Home and the Ledger tab).
 //
-// Layout: ONE row, about 70 px tall, on the app's card surface
-// (AppDecorations.card); with [HlMarketCard.inGroup] a row of a grouped
-// list card instead (market_groups.dart), the Investments lists' form.
-// Less dense since October 2026, after Robinhood / Public / Coinbase: no
-// hairline between the rows of a group ([hlGroupRowDivider] is nothing),
-// 15 of vertical padding, a 32 logo, a thin sparkline with no baseline,
-// and the change as an arrow glyph rather than a sign:
-//   * the market's logo, round (HlCoinIcon, glyph / letter fallback);
-//   * the market's NAME ("Bitcoin", "Tesla"; the ticker when no name is
-//     known) over a caption: the ticker for a perp ("BTC"), "TICKER ·
-//     Spot" for a spot token. The ticker is left out when the name
-//     already is the ticker: a spot token then reads "Spot", and a perp
-//     has no caption at all (its name sits centred in the row). Never a
-//     max leverage: leverage is blocked in the app, so no row hints at it;
-//   * a small LINE sparkline (HlLineSparkline, 52 wide, a 1.2 line at 70%
-//     of the colour, no dotted baseline) of the daily closes, in the up /
-//     down colour of the 24h change (neutral when flat or unknown), from
-//     the device cache (one request per coin per UTC day; see
-//     hyperliquid_sparkline_provider.dart), empty until the first lands;
+// Layout: ONE row, 56 px tall ([kHlMarketRowHeight]), on the app's card
+// surface (AppDecorations.card); with [HlMarketCard.inGroup] a row of a
+// grouped list card instead (market_groups.dart), the Investments lists'
+// form. Calm since the declutter (founder, 1 November 2026: each row one
+// or two things), no hairline between the rows of a group
+// ([hlGroupRowDivider] is nothing):
+//   * the market's logo (32), round (HlCoinIcon, glyph / letter fallback);
+//     a symbol two venues list carries its venue's monogram on the logo;
+//   * the market's NAME on one line ("Bitcoin", "Tesla"; the ticker when
+//     no name is known). No ticker or "Spot" caption, no "Low liquidity"
+//     note and no sparkline: the market page has all of that. Never a max
+//     leverage: leverage is blocked in the app, so no row hints at it;
 //   * the LIVE price, always in the primary text colour, written short
 //     (formatHlListPrice: "$47.91", "$4,128.40", "$2.631", "$0.2051" —
 //     four figures, two decimals at least; never the venue's five-figure
 //     tick, which is the charts' and the slip's), over the 24h % change
 //     as "▲ 0.4%" / "▼ 3.8%" in the up / down colour (no plus or minus
-//     sign; "0.0%" when flat, a dash when unknown).
+//     sign; "0.0%" when flat, a dash when unknown; nothing on a thinly
+//     traded market with no change to show).
 //
-// Above the list, the "Moving now" strip (hl_moving_now_strip.dart) shows
-// the category's largest 24h moves as large cards; the rows keep their
-// own order under it.
-//
-// A thinly traded market (HlMarket.isLowLiquidity) ends its caption with
-// " · Low liquidity" (on a second caption line when one cannot hold it:
-// never an ellipsis inside the caption), draws no sparkline (it would be
-// a few carried-forward steps) and, with no 24h change to show, nothing
-// under the price.
+// Above the default list (Trending), the strip (hl_moving_now_strip.dart)
+// shows the hyped names as large cards; the rows keep their own order
+// under it.
 //
 // No star, no volume line (the lists are ordered by volume), no kind
 // badge (the caption says it), no Long/Short CTAs — those live only in
@@ -56,19 +43,19 @@ import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show HlMarketDirectory;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
-import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
-import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The row's logo.
 const double kHlMarketRowIcon = 32;
+
+/// The row's height, in design units.
+const double kHlMarketRowHeight = 56;
 
 /// Where a grouped row's text starts (the row's 16 inset, the logo and the
 /// 12 gap after it): where a group's hairline would start, were one drawn.
@@ -78,9 +65,6 @@ double hlGroupRowIndent() => 16.w + kHlMarketRowIcon.w + 12.w;
 /// separates them (Robinhood / Public / Coinbase draw no hairlines).
 Widget hlGroupRowDivider(BuildContext context, double indent) =>
     const SizedBox.shrink();
-
-/// The sparkline's line colour: the change's, at 70%.
-const double kHlSparklineOpacity = 0.7;
 
 /// Browse card for one Hyperliquid market (perp or spot). Consumer-stateful
 /// so it can watch this coin's live mid + tick direction and register the
@@ -156,52 +140,12 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // token reads as the asset it holds (UBTC: Bitcoin), the way
     // Hyperliquid's own app names it. The ticker when no name is known.
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    // The ticker, and for a spot token that it is held outright: a spot
-    // market and a perp for the same underlying can share a list, and
-    // this line tells them apart. Never the perp's max leverage
-    // (leverage is blocked in the app: no row hints at it). The ticker is
-    // not said twice when the title already is the ticker (a market with
-    // no name of its own), so such a perp has no caption: empty.
     // Two venues can list a perp under one symbol (ANTH on two builder
-    // dexes): the row then names its venue ("ANTH · Ventuals"), so the
-    // two rows never read the same.
+    // dexes): the logo then carries the venue's monogram, so the two rows
+    // never read the same.
     final shared = HlMarketDirectory.sharesSymbol(m);
-    final caption = [
-      if (name != m.coin) m.coin,
-      if (m.isSpot) context.l10n.investingSpot,
-      if (shared) HlDexNames.venueOf(m),
-    ].join(' · ');
-    // A thinly traded market says so, and draws no sparkline: its line is
-    // a few carried-forward steps, and the room goes to the caption.
     final thin = m.isLowLiquidity;
-
-    // Daily closes for the line sparkline, from the device cache: drawn at
-    // once when this coin was seen before, fetched at most once per UTC
-    // day (hyperliquid_sparkline_provider.dart). Keyed by the wire coin,
-    // which is what candleSnapshot takes for perps, HIP-3 and spot alike.
-    // A thin market draws no line, so it asks for no candles either.
-    final spark =
-        thin ? null : ref.watch(hyperliquidSparklineProvider(m.wireCoin));
-    // Live tail: the series' last close is today's forming candle, so the
-    // live price replaces it and the line ticks with the price. A series
-    // from an earlier day (today's on its way) gets the live price as a
-    // new last point instead. Spot closes in raw pair units are rescaled
-    // onto the price's units (see hlSparklineWithLivePrice).
-    final closes = spark == null
-        ? const <double>[]
-        : hlSparklineWithLivePrice(
-            spark.closes,
-            price,
-            appendLive: spark.day < hlUtcDay(DateTime.now()),
-          );
-
     final titleStyle = AppTextStyles.settingsTitle(context);
-    final captionStyle = TextStyle(
-      color: c.textSecondary,
-      fontSize: 13.sp,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.1,
-    );
 
     // In a group the list draws the card; the row keeps its ink.
     final grouped = widget.inGroup;
@@ -214,162 +158,77 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
         child: InkWell(
           onTap: _openDetail,
           borderRadius: radius,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 15.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // The REAL coin/token logo (category glyph or letter badge
-                // on a miss), cut round for this row.
-                // A symbol two venues list carries its venue's mark on
-                // the logo, the way a wallet badges a token's network.
-                HlVenueBadged(
-                  monogram: shared ? HlDexNames.monogramOf(m) : null,
-                  ring: c.surface,
-                  child: ClipOval(
-                    child: HlCoinIcon(
-                      coin: m.coin,
-                      wireCoin: m.wireCoin,
-                      category: m.category,
-                      iconUrl: m.iconUrl,
-                      size: kHlMarketRowIcon,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: kHlMarketRowHeight.w),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // The REAL coin/token logo (category glyph or letter
+                  // badge on a miss), cut round for this row.
+                  HlVenueBadged(
+                    monogram: shared ? HlDexNames.monogramOf(m) : null,
+                    ring: c.surface,
+                    child: ClipOval(
+                      child: HlCoinIcon(
+                        coin: m.coin,
+                        wireCoin: m.wireCoin,
+                        category: m.category,
+                        iconUrl: m.iconUrl,
+                        size: kHlMarketRowIcon,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                      // No caption: the name alone, centred in the row.
-                      if (thin || caption.isNotEmpty)
-                        SizedBox(height: 2.h),
-                      if (thin)
-                        _ThinCaption(
-                          caption: caption,
-                          note: context.l10n.investingLowLiquidity,
-                          style: captionStyle,
-                        )
-                      else if (caption.isNotEmpty)
-                        Text(
-                          caption,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: captionStyle,
-                        ),
-                    ],
-                  ),
-                ),
-                // The line only: thin, a shade lighter than the change's
-                // colour, no baseline, no fill and no axes. Empty (same
-                // width, so the prices stay aligned) until the candles
-                // land. A thin market has none: see [thin].
-                if (!thin) ...[
                   SizedBox(width: 12.w),
-                  HlLineSparkline(
-                    closes: closes,
-                    width: 52,
-                    height: 24,
-                    strokeWidth: 1.2,
-                    baseline: false,
-                    upColor: changeColor.withValues(alpha: kHlSparklineOpacity),
-                    downColor:
-                        changeColor.withValues(alpha: kHlSparklineOpacity),
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  // A fixed minimum width, right-aligned, so the prices
+                  // line up down the list; a longer price widens it,
+                  // never wraps.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: 84.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Always the primary text colour: the digits roll
+                        // on a tick, the colour belongs to the change.
+                        RollingNumberText(
+                          text: formatHlListPrice(price,
+                              decimalCap: m.pxDecimalCap),
+                          style: titleStyle.copyWith(
+                            fontFeatures: const [
+                              FontFeature.tabularFigures()
+                            ],
+                          ),
+                        ),
+                        // No change to show on a thin market: the price
+                        // stands alone, centred, not over a lone dash.
+                        if (change != null || !thin) ...[
+                          SizedBox(height: 2.h),
+                          _ChangeText(
+                            text: change == null ? '—' : hlArrowPct(change),
+                            color: changeColor,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
-                SizedBox(width: 12.w),
-                // A fixed minimum width, right-aligned, so the prices line
-                // up down the list; a longer price widens it, never wraps.
-                ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: 84.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Always the primary text colour: the digits roll on
-                      // a tick, the colour belongs to the change below.
-                      RollingNumberText(
-                        text: formatHlListPrice(price,
-                            decimalCap: m.pxDecimalCap),
-                        style: titleStyle.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      // No change to show on a thin market: the price
-                      // stands alone, centred, not over a lone dash.
-                      if (change != null || !thin) ...[
-                        SizedBox(height: 2.h),
-                        _ChangeText(
-                          text: change == null ? '—' : hlArrowPct(change),
-                          color: changeColor,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-/// A thin market's caption: "TSLA · Spot · Low liquidity" on one line
-/// when it fits, and otherwise the note on a second line of its own. An
-/// ellipsis can only ever fall at the very end of the first line, never
-/// inside the caption.
-class _ThinCaption extends StatelessWidget {
-  final String caption;
-  final String note;
-  final TextStyle style;
-  const _ThinCaption({
-    required this.caption,
-    required this.note,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // A perp titled by its ticker has no caption: the note alone.
-    if (caption.isEmpty) {
-      return Text(note,
-          maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
-    }
-    final whole = '$caption · $note';
-    return LayoutBuilder(builder: (context, box) {
-      final painter = TextPainter(
-        // Measured in the face the line is drawn in.
-        text: TextSpan(
-            text: whole, style: DefaultTextStyle.of(context).style.merge(style)),
-        maxLines: 1,
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final fits = painter.width <= box.maxWidth;
-      painter.dispose();
-      if (fits) {
-        return Text(whole, maxLines: 1, softWrap: false, style: style);
-      }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(caption,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-          Text(note,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-        ],
-      );
-    });
   }
 }
 

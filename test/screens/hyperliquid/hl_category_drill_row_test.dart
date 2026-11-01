@@ -202,15 +202,22 @@ void main() {
       for (final row in tester.widgetList<HlMarketCard>(rows)) {
         expect(onStrip, isNot(contains(row.market.wireCoin)));
       }
-      // The "Moving now" strip comes straight under the pills, and the
-      // list straight under the strip (no title between them).
+      // On Trending the strip comes straight under the pills, and the
+      // list straight under the strip (no title between them). A picked
+      // category has no strip: the list comes straight under the pills.
       final pills = _inBrowser(find.byType(PolyDrillRow));
       final strip = _inBrowser(find.byType(HlMovingNowStrip));
-      expect(strip, findsOneWidget);
-      expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
-          lessThan(20));
-      expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
-          lessThan(20));
+      if (pill == 'Trending') {
+        expect(strip, findsOneWidget);
+        expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
+            lessThan(20));
+        expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
+            lessThan(20));
+      } else {
+        expect(strip, findsNothing);
+        expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
+            lessThan(28));
+      }
 
       // ONE grouped card, Home Activity's, holds every row: no card per
       // market, Home's inset hairline between rows.

@@ -12,23 +12,28 @@
 //     ranked by [hlHypeScore], at least [kHlHypeCommoditiesMin]
 //     commodities among the [kHlHypeCardMax], one card per underlying
 //     ([hlUnderlyingKey]). With fewer than [kHlMoverCardMin] such
-//     markets loaded (the builder dexes not read yet), the movers below.
-//   * Every other category ([hlMovingNow]): its largest absolute 24h
-//     changes, ties by volume, one card per underlying.
+//     markets loaded (the builder dexes not read yet), Trending's movers
+//     ([hlMovingNow]: the largest absolute 24h changes, ties by volume,
+//     one card per underlying).
+//   * Every other category or subcategory: no strip.
 // Thin markets ([HlMarket.isLowLiquidity]) and markets with no 24h change
 // to show are never on it. A market on the strip, or one on the same
 // underlying, is not repeated in the list under it ([hlListUnderStrip]).
 //
-// Each card (HlMovingNowCard, a 148 square, the app's card surface at the
-// grouped card's 20 radius, 14 padding; founder, 1 November 2026: the
-// portrait cards read stretched): on top the logo (28) beside the
-// market's name over its ticker, across the middle the row's line
-// sparkline (36 tall, the row's stroke and colour), and at the bottom the
-// live price (tabular, primary colour) left and the 24h change as the row
-// writes it ("▲ 3.9%", coloured) right, on one baseline. Plain coloured
-// text, no tinted chip (house rule: solid fills or neutral grey only). The whole card taps through
-// to HlMarketDetailSheet, entry_source 'moving_now', on the app's press
-// spring (KutePressable).
+// Each card (HlMovingNowCard; founder, 1 November 2026: bigger and
+// calmer): half the screen less the gap and a little more, so two show
+// and the third peeks ([hlMovingNowCardWidth]), about 150 tall, the app's
+// card surface at the grouped card's 20 radius, 14 padding. The logo (36)
+// at the top-left with the market's name (15, semibold) under it, and at
+// the bottom the live price (22 sp, bold, tabular) over the 24h change as
+// the row writes it ("▲ 3.9%", coloured, 13). No sparkline and no ticker
+// line. Plain coloured text, no tinted chip (house rule: solid fills or
+// neutral grey only). The whole card taps through to HlMarketDetailSheet,
+// entry_source 'moving_now', on the app's press spring (KutePressable).
+//
+// Only the default view (Trending, no subcategory) has a strip (founder,
+// 1 November 2026): a category or subcategory the person picks is the
+// full plain list, nothing excluded from it.
 //
 // The strip is only shown when at least [kHlMoverCardMin] markets
 // qualify: a strip of one card reads as a mistake.
@@ -40,23 +45,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
-    show HlBrowseTab, hlMarketMatchesTab;
-import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
+    show HlBrowseSub, HlBrowseTab, hlMarketMatchesTab;
 import 'package:kute/screens/home/components/action_pill.dart'
     show greenColor, redColor;
-import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
-    show hlArrowPct, kHlSparklineOpacity;
+    show hlArrowPct;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KutePressable;
 import 'package:kute/screens/shared/rolling_number_text.dart';
-import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// How many cards the strip shows at most.
@@ -65,19 +66,24 @@ const int kHlMoverCardMax = 5;
 /// Under this many movers the strip is not shown at all.
 const int kHlMoverCardMin = 3;
 
-/// A card's side (the cards are square) and the gap between two, in
-/// design units.
-const double kHlMoverCardWidth = 148;
+/// The gap between two cards, and how much less than half the row a card
+/// is, so the third card peeks in, in design units.
 const double kHlMoverCardGap = 10;
+const double kHlMoverCardPeek = 14;
+
+/// A card's least height, in design units.
+const double kHlMoverCardHeight = 150;
 
 /// The card's logo.
-const double kHlMoverCardIcon = 28;
-
-/// The card's sparkline: the card's inner width, this tall.
-const double kHlMoverSparklineHeight = 36;
+const double kHlMoverCardIcon = 36;
 
 /// The card's inner padding, in design units.
 const double _kPad = 14;
+
+/// A strip card's width: half the screen less its 16 margins and the gap,
+/// less [kHlMoverCardPeek] so the third card peeks.
+double hlMovingNowCardWidth() =>
+    (1.sw - 32.w - kHlMoverCardGap.w) / 2 - kHlMoverCardPeek.w;
 
 /// The [HlMarketDetailSheet] entry source a strip card reports.
 const String kHlMovingNowSource = 'moving_now';
@@ -231,6 +237,11 @@ List<HlMarket> hlTrendingStrip(
 /// person picks is listed in full: they asked for it.
 const int kHlTrendingListRows = 6;
 
+/// Whether [tab] at [sub] is the default view, the one view with a strip
+/// (Trending at its default list).
+bool hlBrowseIsDefaultView(HlBrowseTab tab, HlBrowseSub sub) =>
+    tab == HlBrowseTab.trending && sub == HlBrowseSub.all;
+
 /// The rows listed under the strip: the first
 /// [kHlTrendingListRows] of [rest] on the default view (Trending at its
 /// default list), all of [rest] on any other.
@@ -257,8 +268,8 @@ List<HlMarket>? hlListUnderStrip(List<HlMarket> markets, List<HlMarket> strip) {
   return rest.length < kHlMoverListKeeps ? null : rest;
 }
 
-/// The card's text: the name, the ticker caption, the price and the
-/// change, with the line heights the strip's height is computed from.
+/// The card's text: the name, the price and the change, with the line
+/// heights the strip's height is computed from.
 TextStyle _nameStyle(BuildContext context) => TextStyle(
       color: context.colors.textPrimary,
       fontSize: 15.sp,
@@ -267,36 +278,41 @@ TextStyle _nameStyle(BuildContext context) => TextStyle(
       height: 1.2,
     );
 
-TextStyle _captionStyle(BuildContext context) => TextStyle(
+TextStyle _priceStyle(BuildContext context) => TextStyle(
+      color: context.colors.textPrimary,
+      fontSize: 22.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.6,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+TextStyle _changeStyle(BuildContext context) => TextStyle(
       color: context.colors.textSecondary,
-      fontSize: 11.sp,
+      fontSize: 13.sp,
       fontWeight: FontWeight.w500,
       letterSpacing: -0.1,
       height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-TextStyle _changeStyle(BuildContext context) =>
-    _captionStyle(context).copyWith(fontSize: 12.sp);
-
-/// The strip's card height: the card's side ([kHlMoverCardWidth], square),
-/// or its content at the viewer's text size when that is taller, so no
-/// card overflows at an accessibility size.
+/// The strip's card height: [kHlMoverCardHeight], or its content at the
+/// viewer's text size when that is taller, so no card overflows at an
+/// accessibility size.
 double hlMovingNowCardHeight(BuildContext context) {
   final scaler = MediaQuery.textScalerOf(context);
   double line(double sp) => scaler.scale(sp.sp) * 1.2;
-  final top = line(15) + line(11);
   final content = _kPad.w * 2 +
-      (top > kHlMoverCardIcon.w ? top : kHlMoverCardIcon.w) +
-      8.w +
-      // The sparkline scales its height by the screen's height
-      // ([HlLineSparkline]); on a phone that is the same as its width.
-      kHlMoverSparklineHeight.h +
+      kHlMoverCardIcon.w +
       8.w +
       line(15) +
+      8.w +
+      line(22) +
+      line(13) +
       // A pixel of slack for rounding.
       2;
-  final side = kHlMoverCardWidth.w;
-  return content > side ? content : side;
+  final least = kHlMoverCardHeight.w;
+  return content > least ? content : least;
 }
 
 /// "Moving now" and its row of cards, one per market in [markets] (the
@@ -401,28 +417,11 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
             : redColor;
 
     final name = hlFriendlyName(m.coin) ?? m.unitAssetName ?? m.coin;
-    final caption = [
-      if (name != m.coin) m.coin,
-      if (m.isSpot) context.l10n.investingSpot,
-    ].join(' · ');
-
-    // The daily closes with their live end, as the row plots them.
-    final spark = ref.watch(hyperliquidSparklineProvider(m.wireCoin));
-    final closes = spark == null
-        ? const <double>[]
-        : hlSparklineWithLivePrice(
-            spark.closes,
-            price,
-            appendLive: spark.day < hlUtcDay(DateTime.now()),
-          );
-    final lineColor = changeColor.withValues(alpha: kHlSparklineOpacity);
 
     final radius = BorderRadius.circular(AppRadius.xl);
-    final inner = (kHlMoverCardWidth - _kPad * 2).w;
-    final tabular = const [FontFeature.tabularFigures()];
     return KutePressable(
       child: Container(
-        width: kHlMoverCardWidth.w,
+        width: hlMovingNowCardWidth(),
         decoration:
             AppDecorations.card(context).copyWith(borderRadius: radius),
         child: Material(
@@ -436,84 +435,37 @@ class _HlMovingNowCardState extends ConsumerState<HlMovingNowCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // The logo beside the name over its ticker.
-                  Row(
-                    children: [
-                      ClipOval(
-                        child: HlCoinIcon(
-                          coin: m.coin,
-                          wireCoin: m.wireCoin,
-                          category: m.category,
-                          iconUrl: m.iconUrl,
-                          size: kHlMoverCardIcon,
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _nameStyle(context),
-                            ),
-                            // An empty caption keeps its line, so every
-                            // card's rows sit at the same height.
-                            Text(
-                              caption.isEmpty ? ' ' : caption,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _captionStyle(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  ClipOval(
+                    child: HlCoinIcon(
+                      coin: m.coin,
+                      wireCoin: m.wireCoin,
+                      category: m.category,
+                      iconUrl: m.iconUrl,
+                      size: kHlMoverCardIcon,
+                    ),
+                  ),
+                  SizedBox(height: 8.w),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _nameStyle(context),
                   ),
                   const Spacer(),
-                  HlLineSparkline(
-                    closes: closes,
-                    width: kHlMoverCardWidth - _kPad * 2,
-                    height: kHlMoverSparklineHeight,
-                    strokeWidth: 1.2,
-                    baseline: false,
-                    upColor: lineColor,
-                    downColor: lineColor,
-                  ),
-                  const Spacer(),
-                  // The price left, the change right, on one baseline. A
-                  // price too wide for the card (BTC's) shrinks the row
-                  // rather than overflow it.
+                  // A price too wide for the card (BTC's) shrinks rather
+                  // than overflow it.
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: inner),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          RollingNumberText(
-                            text: formatHlListPrice(price,
-                                decimalCap: m.pxDecimalCap),
-                            style: _nameStyle(context)
-                                .copyWith(fontFeatures: tabular),
-                          ),
-                          SizedBox(width: 6.w),
-                          RollingNumberText(
-                            text: change == null ? '—' : hlArrowPct(change),
-                            style: _changeStyle(context).copyWith(
-                              color: changeColor,
-                              fontFeatures: tabular,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: RollingNumberText(
+                      text: formatHlListPrice(price,
+                          decimalCap: m.pxDecimalCap),
+                      style: _priceStyle(context),
                     ),
+                  ),
+                  RollingNumberText(
+                    text: change == null ? '—' : hlArrowPct(change),
+                    style: _changeStyle(context).copyWith(color: changeColor),
                   ),
                 ],
               ),
