@@ -45,6 +45,7 @@ import 'package:kute/screens/home/components/wallet_cards.dart';
 import 'package:kute/screens/home/home_wallet_switcher.dart';
 import 'package:kute/screens/activity/activity_history_screen.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/screens/shared/all_activity.dart' show AllActivityPreview;
 import 'package:kute/providers/breez_config_provider.dart'
     show breezSDKProvider;
 import 'package:kute/screens/shared/kute_skeleton.dart';
@@ -56,6 +57,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -850,26 +852,51 @@ class _ActivitySection extends ConsumerWidget {
             child: HomeAnalyticsWidget(
               surface: 'home',
               showPrice: false,
+              // `/home?tab=activity` (kHomeActivityLocation) lands on the
+              // Activity tab, whatever was selected.
+              selectActivityRequest: homeActivityRequest(context),
               onSeeAllActivity: () =>
                   showActivityHistory(context, source: 'home'),
               activityChild: breezWaking
                   ? const _ActivitySkeleton()
-                  : showEmptyState
-                      ? const NoActivityState()
-                      // Compact rows on Home: one line of context and one
-                      // figure each; the rest is in the row's detail.
-                      : const RepaintBoundary(
+                  // The spending wallet's Activity is everything it did,
+                  // every account merged by time (all_activity.dart); a
+                  // Ledger or watch-only wallet keeps its own history.
+                  // Compact rows on Home: one line of context and one
+                  // figure each; the rest is in the row's detail.
+                  : !isSavings
+                      ? const RepaintBoundary(
                           child: ActivityRowStyle(
                             compact: true,
-                            child:
-                                TransactionList(emptyState: NoActivityState()),
+                            child: AllActivityPreview(
+                                emptyState: NoActivityState()),
                           ),
-                        ),
+                        )
+                      : showEmptyState
+                          ? const NoActivityState()
+                          : const RepaintBoundary(
+                              child: ActivityRowStyle(
+                                compact: true,
+                                child: TransactionList(
+                                    emptyState: NoActivityState()),
+                              ),
+                            ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+/// The `/home?tab=activity` request in the current location (its whole
+/// location, so a new link asks again), or null. Null outside a router.
+String? homeActivityRequest(BuildContext context) {
+  try {
+    final uri = GoRouterState.of(context).uri;
+    return uri.queryParameters['tab'] == 'activity' ? uri.toString() : null;
+  } catch (_) {
+    return null;
   }
 }
 

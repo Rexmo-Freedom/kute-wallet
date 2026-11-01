@@ -56,6 +56,11 @@ import 'screens/app_shell.dart';
 import 'services/appsflyer_service.dart';
 import 'services/tracking_service.dart';
 
+/// The Bitcoin home with its Activity tab selected: where the old Dollars
+/// `?tab=activity` link and a trade receipt's "see in list" go now that the
+/// home's Activity lists everything (all_activity.dart).
+const String kHomeActivityLocation = '/home?tab=activity';
+
 class AppRouter {
   // The ROOT navigator. The persistent nav shell (KuteTopNavBar) is painted
   // by AppShell as a Positioned overlay ABOVE the branch navigators, so any

@@ -94,4 +94,64 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
   });
+
+  testWidgets('a ?tab=activity request selects Activity from Balance',
+      (tester) async {
+    tester.view.physicalSize = const Size(393, 852) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final settings = Settings(
+      currency: 'USD',
+      language: 'en',
+      btcFormat: 'sats',
+      backup: false,
+      biometricsEnabled: false,
+      bitcoinElectrumNode: '',
+      nodeType: '',
+      reviewDone: true,
+      activeWalletId: 'spending',
+      balancePrivacy: 0,
+      wallets: [WalletConfig(id: 'spending', name: 'Spending')],
+    );
+    Widget app(Object? request) => ProviderScope(
+          overrides: [
+            settingsProvider.overrideWith((_) => SettingsModel(settings)),
+          ],
+          child: ScreenUtilInit(
+            designSize: const Size(430, 932),
+            builder: (_, __) => MaterialApp(
+              locale: const Locale('en'),
+              theme: buildLightTheme(),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: HomeAnalyticsWidget(
+                    surface: 'home',
+                    activityAndBalanceOnly: true,
+                    activityChild: const Text('the rows'),
+                    valuationChild: const Text('the chart'),
+                    onSeeAllActivity: () {},
+                    selectActivityRequest: request,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+    await tester.pumpWidget(app(null));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Balance'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('the chart'), findsOneWidget);
+
+    await tester.pumpWidget(app('/home?tab=activity'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('the rows'), findsOneWidget);
+    expect(find.text('See all'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 2));
+  });
 }

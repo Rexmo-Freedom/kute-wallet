@@ -1353,11 +1353,18 @@ bool dollarSendDeliveredKnown(SwapOrder order) {
 /// [deliveryLinks] are the delivery reconciler's receive → row links
 /// (default: the stored ones): a linked receive folds into its row
 /// (own_bitcoin_deliveries.dart).
+///
+/// [allAccounts] is the Bitcoin home's whole Activity (all_activity.dart):
+/// neither ledger's filter runs, so the bitcoin rows, the dollar ledger and
+/// every venue move are listed together, and the leg collapse that follows
+/// still folds each conversion's dollar transfer and bitcoin receive into
+/// its one row. [onlyUsdb] is ignored then.
 List<BaseTransaction> assembleActivityRows(
   List<BaseTransaction> sorted, {
   required Set<String> ownAddresses,
   required bool isHardwareOrWatchOnly,
   required bool onlyUsdb,
+  bool allAccounts = false,
   bool keepVenueMoves = false,
   SwapActivityKind Function(SwapOrder order) classify = swapActivityFor,
   List<MultiSourceMove> moves = const [],
@@ -1391,7 +1398,10 @@ List<BaseTransaction> assembleActivityRows(
         .toList();
   }
 
-  if (onlyUsdb) {
+  if (allAccounts) {
+    // Every account at once: no ledger filter. The collapse below hides
+    // the legs behind the rows still listed.
+  } else if (onlyUsdb) {
     // USD tab: the dollar ledger only. Every conversion with a dollar leg
     // spends or fills this balance too, so it belongs here, including a
     // venue funded from or paid out to dollars (owner decision).
@@ -1498,7 +1508,8 @@ List<BaseTransaction> assembleActivityRows(
   // its legs fold into it (multi_source_move_activity.dart).
   if (moves.isEmpty || isHardwareOrWatchOnly) return collapsed;
   return collapseMultiSourceMoves(collapsed, moves,
-      onlyUsdb: onlyUsdb,
+      // Every account lists every move, as the dollar ledger does.
+      onlyUsdb: onlyUsdb || allAccounts,
       walletId: walletId,
       everyRow: sorted,
       dissolved: dissolved);

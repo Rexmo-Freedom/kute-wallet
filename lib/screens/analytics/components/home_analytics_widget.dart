@@ -115,6 +115,10 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
   /// the pill inert once selected.
   final VoidCallback? onSeeAllActivity;
 
+  /// A request to show the Activity tab (the home's `?tab=activity` link):
+  /// whenever it changes to a new non-null value, Activity is selected.
+  final Object? selectActivityRequest;
+
   /// When true the strip is the caller's own short strip — Activity and
   /// Balance — whatever the scope filters would otherwise allow. The
   /// Dollars tab passes it: a cash account has no price chart and no coins
@@ -147,6 +151,7 @@ class HomeAnalyticsWidget extends ConsumerStatefulWidget {
     this.showPrice = true,
     this.activityAndBalanceOnly = false,
     this.onSeeAllActivity,
+    this.selectActivityRequest,
   });
 
   @override
@@ -164,6 +169,18 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
       // Activity is the landing tab everywhere else — the list is the
       // primary content, the charts are the drill-down.
       _selectedTab = AnalyticsTab.activity;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeAnalyticsWidget old) {
+    super.didUpdateWidget(old);
+    final request = widget.selectActivityRequest;
+    if (request != null &&
+        request != old.selectActivityRequest &&
+        widget.activityChild != null &&
+        _selectedTab != AnalyticsTab.activity) {
+      setState(() => _selectedTab = AnalyticsTab.activity);
     }
   }
 
