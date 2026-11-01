@@ -306,7 +306,8 @@ void main() {
 
   testWidgets(
       'a long title and a long pick never overflow the preview row: the '
-      'title ellipsises, the figure keeps its fixed width', (tester) async {
+      'pick moves under the title, whole, instead of being cut',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -327,13 +328,99 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
-    final figure = tester.getSize(
-        find.byKey(const ValueKey('context-preview-figure')));
-    expect(figure.width,
-        lessThanOrEqualTo(kContextPreviewFigureWidth * 390 / 430 + 0.5));
-    await tester.pump(const Duration(seconds: 6));
+    _expectPickBelow(tester, 'Gen.G Esports Academy Challengers 47%');
+    await _closeSheet(tester);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (width, scale) in [(390.0, 1.0), (375.0, 1.3)]) {
+    Future<void> pumpAt(WidgetTester tester, String line) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpSheet(
+        tester,
+        KuteMarketBarContext(
+          label: 'Send to a friend',
+          preview: KuteBarPreview(title: 'Browns vs. Steelers', line: line),
+          actions: [
+            KuteMarketBarAction(
+                label: 'Send this prediction',
+                salClip: 'share',
+                onTap: (_) {}),
+          ],
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    }
+
+    testWidgets(
+        'the preview row at $width pt, text x$scale: a long pick ("Spread: '
+        'Steelers -3.5") moves under the title in textSecondary, whole, '
+        'nothing overflows', (tester) async {
+      await pumpAt(tester, 'Spread: Steelers -3.5');
+      _expectPickBelow(tester, 'Spread: Steelers -3.5');
+      final pick = tester.widget<Text>(
+          find.byKey(const ValueKey('context-preview-figure')));
+      expect(pick.style?.color, AppColorsExtension.light().textSecondary);
+      await _closeSheet(tester);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'the preview row at $width pt, text x$scale: a short pick stays at '
+        'the right, on the title\'s row, within 40%', (tester) async {
+      // Short in the test font too (a glyph is 1 em wide there).
+      await pumpAt(tester, '62%');
+      final card =
+          tester.getRect(find.byKey(const ValueKey('context-preview-card')));
+      final title =
+          tester.getRect(find.byKey(const ValueKey('context-preview-title')));
+      final figure =
+          tester.getRect(find.byKey(const ValueKey('context-preview-figure')));
+      expect(figure.right, moreOrLessEquals(card.right, epsilon: 0.5));
+      expect(figure.left, greaterThan(title.left));
+      expect(figure.top, lessThan(title.bottom));
+      expect(figure.width,
+          lessThanOrEqualTo(card.width * kContextPreviewPickShare + 0.5));
+      expect(
+          tester
+              .widget<Text>(find.descendant(
+                  of: find.byKey(const ValueKey('context-preview-figure')),
+                  matching: find.byType(Text)))
+              .data,
+          '62%');
+      await _closeSheet(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+/// Closes the open sheet, as a person would, so the next test can open
+/// one (the search opens once at a time).
+Future<void> _closeSheet(WidgetTester tester) async {
+  Navigator.of(
+          tester.element(find.byKey(const ValueKey('context-preview-card'))))
+      .pop();
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(seconds: 6));
+}
+
+/// The pick sits under the title, left-aligned with it, whole.
+void _expectPickBelow(WidgetTester tester, String pick) {
+  final title =
+      tester.getRect(find.byKey(const ValueKey('context-preview-title')));
+  final figureFinder = find.byKey(const ValueKey('context-preview-figure'));
+  final figure = tester.getRect(figureFinder);
+  expect(figure.top, greaterThanOrEqualTo(title.bottom - 0.5));
+  expect(figure.left, moreOrLessEquals(title.left, epsilon: 0.5));
+  expect(tester.widget<Text>(figureFinder).data, pick);
+  final card =
+      tester.getRect(find.byKey(const ValueKey('context-preview-card')));
+  expect(figure.right, lessThanOrEqualTo(card.right + 0.5));
 }
 
 /// Opens the Sal sheet with [barContext] (Sal off).

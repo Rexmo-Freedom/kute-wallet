@@ -6,7 +6,8 @@
 // nothing like the same choice on the spending account. That one is a
 // list: a mark, the source's name, a line of detail under it, and a
 // chevron. It reads the same way here now (user decision September
-// 2026: a Ledger surface matches its Home counterpart). A source that
+// 2026: a Ledger surface matches its Home counterpart), and since
+// November 2026 both draw their sources as big cards. A source that
 // does not exist here is left out, and so is an onramp Kute's policy
 // does not offer (founder decision, October 2026: see [onrampVisible]).
 
@@ -17,6 +18,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/services/onramp_visibility.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -79,21 +81,33 @@ Future<LedgerDepositSource?> showLedgerDepositSourceSheet(BuildContext context,
                   ),
                 ),
                 SizedBox(height: 16.h),
-                _SourceRow(
-                  asset: 'lib/assets/bitcoin-icon.svg',
-                  title: l10n.bitcoin,
-                  subtitle: l10n.ledgerTabBitcoin,
-                  onTap: () => Navigator.of(sheetContext)
-                      .pop(LedgerDepositSource.bitcoin),
-                ),
-                if (cashAppVisible)
-                  _SourceRow(
-                    asset: 'lib/assets/cashapp-logo.svg',
-                    title: 'Cash App',
-                    subtitle: l10n.deposit,
-                    onTap: () => Navigator.of(sheetContext)
-                        .pop(LedgerDepositSource.cashApp),
+                // Big squares, not a list (founder, 1 November 2026), as
+                // the spending account's picker draws them.
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: KuteActionCardGrid(
+                    key: const ValueKey('ledger-deposit-source-cards'),
+                    cards: [
+                      _sourceCard(
+                        key: const ValueKey('ledger-deposit-source-bitcoin'),
+                        asset: 'lib/assets/bitcoin-icon.svg',
+                        title: l10n.bitcoin,
+                        subtitle: l10n.ledgerTabBitcoin,
+                        onTap: () => Navigator.of(sheetContext)
+                            .pop(LedgerDepositSource.bitcoin),
+                      ),
+                      if (cashAppVisible)
+                        _sourceCard(
+                          key: const ValueKey('ledger-deposit-source-cashapp'),
+                          asset: 'lib/assets/cashapp-logo.svg',
+                          title: 'Cash App',
+                          subtitle: l10n.deposit,
+                          onTap: () => Navigator.of(sheetContext)
+                              .pop(LedgerDepositSource.cashApp),
+                        ),
+                    ],
                   ),
+                ),
                 SizedBox(height: 8.h),
               ],
             ),
@@ -103,62 +117,19 @@ Future<LedgerDepositSource?> showLedgerDepositSourceSheet(BuildContext context,
     );
 
 /// One source, in the same shape the spending account's picker uses: a
-/// 36 mark, the name, a quiet line under it, and a chevron.
-class _SourceRow extends StatelessWidget {
-  const _SourceRow({
-    this.asset,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final String? asset;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-          child: Row(
-            children: [
-              if (asset != null)
-                SvgPicture.asset(asset!, width: 36.sp, height: 36.sp),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 17.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2)),
-                    SizedBox(height: 3.h),
-                    Text(subtitle,
-                        style: TextStyle(
-                            color: c.textTertiary,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.1)),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Icon(Icons.chevron_right_rounded,
-                  color: c.textTertiary, size: 22.sp),
-            ],
-          ),
-        ),
-      ),
+/// big card with the 40 mark, the name and a quiet line under it.
+KuteActionCard _sourceCard({
+  required Key key,
+  required String asset,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) =>
+    KuteActionCard(
+      key: key,
+      visual: SvgPicture.asset(asset,
+          width: kKuteActionCardVisualSize, height: kKuteActionCardVisualSize),
+      title: title,
+      subtitle: subtitle,
+      onTap: onTap,
     );
-  }
-}

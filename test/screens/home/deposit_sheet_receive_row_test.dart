@@ -223,17 +223,20 @@ void main() {
     final bitcoinRow = find.text('Bitcoin').last;
     expect(find.textContaining(l10n.depositFromSpendingWallet), findsOneWidget);
     expect(find.text(l10n.spending), findsNothing);
-    // Then the way in from outside, in the picker's own row style: the
-    // inflow arrow, what it is and what it does.
+    // Then the way in from outside, in the picker's own card style (big
+    // squares, founder 1 November 2026): the inflow arrow, what it is and
+    // what it does.
     final other = find.text(l10n.depositFromAnotherWallet);
     expect(other, findsOneWidget);
     expect(find.text(l10n.depositFromAnotherWalletSubtitle), findsOneWidget);
     expect(find.byIcon(Icons.south_west_rounded), findsOneWidget);
     expect(find.text(l10n.receive), findsNothing);
+    // Two cards side by side: Bitcoin first (left), the other beside it.
+    expect(find.byKey(const ValueKey('move-picker-cards')), findsOneWidget);
     expect(tester.getTopLeft(bitcoinRow).dy,
-        lessThan(tester.getTopLeft(other).dy));
-    expect(tester.getTopLeft(other).dy - tester.getTopLeft(bitcoinRow).dy,
-        lessThan(120));
+        moreOrLessEquals(tester.getTopLeft(other).dy));
+    expect(tester.getTopLeft(bitcoinRow).dx,
+        lessThan(tester.getTopLeft(other).dx));
     // A way in, not a source to pay from: never marked selected.
     expect(find.text(l10n.moveSelectedBadge), findsNothing);
 

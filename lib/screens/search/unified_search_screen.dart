@@ -54,6 +54,7 @@ import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart'
     show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
@@ -1831,8 +1832,9 @@ class _RecentRow extends ConsumerWidget {
   }
 }
 
-/// The widest the context preview's trailing figure or pick may be.
-const double kContextPreviewFigureWidth = 112;
+/// The share of the context preview's text area the pick or figure may
+/// take at the row's end; the title keeps the rest (at least 60%).
+const double kContextPreviewPickShare = 0.4;
 
 /// The market's picture, drawn exactly as its page header draws it: an
 /// Investing market's logo through HlCoinIcon (the wire coin a
@@ -1855,16 +1857,57 @@ Widget contextPreviewLogo(BuildContext context, KuteBarPreview preview,
 
 /// The context screen's preview row, flat: the market's picture (36), its
 /// name on up to two lines (an Investing market's ticker under its display
-/// name) and the pick or the price at the end, in the sheet's row scale.
+/// name) and the pick or the price. The title and the pick share the row:
+/// the pick right-aligned in at most [kContextPreviewPickShare] of the text
+/// area, the title in the rest with an ellipsis. A pick that does not fit
+/// that share on one line ("Spread: Steelers -3.5" on "Browns vs.
+/// Steelers") moves under the title in textSecondary, whole, at the full
+/// width, rather than being cut to one word.
 class _ContextPreviewRow extends StatelessWidget {
   const _ContextPreviewRow({required this.preview});
 
   final KuteBarPreview preview;
 
+  /// Whether [line] fits [maxWidth] on one line in the figure style, at
+  /// the real text scale.
+  static bool _pickFits(BuildContext context, String line, double maxWidth) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: line,
+        style: DefaultTextStyle.of(context)
+            .style
+            .merge(SearchListRow.figureStyle(context)),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final fits = painter.width <= maxWidth;
+    painter.dispose();
+    return fits;
+  }
+
   @override
   Widget build(BuildContext context) {
     final line = preview.line;
     final subtitle = preview.subtitle;
+    final hasLine = line != null && line.isNotEmpty;
+    Widget title({required bool withSubtitle}) => Text(
+          preview.title,
+          key: const ValueKey('context-preview-title'),
+          maxLines: withSubtitle ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: SearchListRow.titleStyle(context),
+        );
+    final subtitleText = subtitle == null
+        ? null
+        : Text(
+            subtitle,
+            key: const ValueKey('context-preview-subtitle'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SearchListRow.subtitleStyle(context),
+          );
     return Container(
       key: const ValueKey('context-preview-card'),
       constraints: const BoxConstraints(minHeight: kSearchRowHeight),
@@ -1873,47 +1916,57 @@ class _ContextPreviewRow extends StatelessWidget {
           contextPreviewLogo(context, preview),
           SizedBox(width: 12.w),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  preview.title,
-                  key: const ValueKey('context-preview-title'),
-                  maxLines: subtitle == null ? 2 : 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: SearchListRow.titleStyle(context),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    key: const ValueKey('context-preview-subtitle'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: SearchListRow.subtitleStyle(context),
-                  ),
-              ],
-            ),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final pickMax = constraints.maxWidth * kContextPreviewPickShare;
+              final beside = hasLine && _pickFits(context, line, pickMax);
+              if (beside) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          title(withSubtitle: subtitleText != null),
+                          if (subtitleText != null) subtitleText,
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    ConstrainedBox(
+                      key: const ValueKey('context-preview-figure'),
+                      constraints: BoxConstraints(maxWidth: pickMax),
+                      child: Text(
+                        line,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: SearchListRow.figureStyle(context),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              // The title over the pick, each at the full width.
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title(withSubtitle: subtitleText != null),
+                  if (subtitleText != null) subtitleText,
+                  if (hasLine)
+                    Text(
+                      line,
+                      key: const ValueKey('context-preview-figure'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SearchListRow.subtitleStyle(context),
+                    ),
+                ],
+              );
+            }),
           ),
-          // The figure or the pick at a fixed width at most, one line: a
-          // long candidate ("Gen.G Esports 47%") overflowed the row by
-          // 96 px; the title gives way first, then the figure ellipsises.
-          if (line != null && line.isNotEmpty) ...[
-            SizedBox(width: 12.w),
-            ConstrainedBox(
-              key: const ValueKey('context-preview-figure'),
-              constraints:
-                  BoxConstraints(maxWidth: kContextPreviewFigureWidth.w),
-              child: Text(
-                line,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.end,
-                style: SearchListRow.figureStyle(context),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1921,10 +1974,10 @@ class _ContextPreviewRow extends StatelessWidget {
 }
 
 /// THE CONTEXT SCREEN'S SEND ACTIONS AS CARDS (founder, 1 November 2026):
-/// two actions side by side as two equal cards, 12 apart, in the Investing
-/// strip's big-card style (surface-1, dark surface; radius 20; a 1 px
-/// hairline; 16 padding); one action, one full-width card. A third or
-/// later action (none today) follows as the same card, full width.
+/// the shared big-square cards (kute_action_cards.dart): two actions side
+/// by side as two equal cards, 12 apart; one action, one full-width card;
+/// three (an open position's brag row) three across where they fit, else
+/// two over one.
 class _ContextActionCards extends StatelessWidget {
   const _ContextActionCards({required this.actions, this.preview});
 
@@ -1932,45 +1985,16 @@ class _ContextActionCards extends StatelessWidget {
   final KuteBarPreview? preview;
 
   @override
-  Widget build(BuildContext context) {
-    final gap = SizedBox(width: kContextCardGap.w, height: kContextCardGap.w);
-    // A card's foot line sits at its bottom: each card is as tall as the
-    // taller of the pair (IntrinsicHeight; its visual has a fixed box).
-    Widget card(KuteBarAction a) =>
-        IntrinsicHeight(child: _ContextActionCard(action: a, preview: preview));
-    return Column(
-      key: const ValueKey('context-actions-card'),
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (actions.length >= 2)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                    child: _ContextActionCard(
-                        action: actions[0], preview: preview)),
-                gap,
-                Expanded(
-                    child: _ContextActionCard(
-                        action: actions[1], preview: preview)),
-              ],
-            ),
-          )
-        else if (actions.isNotEmpty)
-          card(actions.first),
-        for (final a in actions.skip(2)) ...[gap, card(a)],
-      ],
-    );
-  }
+  Widget build(BuildContext context) => KuteActionCardGrid(
+        key: const ValueKey('context-actions-card'),
+        cards: [
+          for (final a in actions) _contextActionCard(context, a, preview),
+        ],
+      );
 }
 
-/// The space between the context screen's send cards.
-const double kContextCardGap = 12;
-
-/// The least height of a send card.
-const double kContextCardMinHeight = 170;
+/// The height of a send card's visual box: Sal's `share` face at 56.
+const double kContextCardVisualSlot = 56;
 
 /// One send card: a large visual at the top (the market's logo at 40 with
 /// a small share badge for the market's link; Sal's `share` face at 56 for
@@ -1979,154 +2003,79 @@ const double kContextCardMinHeight = 170;
 /// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
 /// for the pick. The press spring; a tap runs the action and the sheet
 /// closes.
-class _ContextActionCard extends StatelessWidget {
-  const _ContextActionCard({required this.action, this.preview});
-
-  final KuteBarAction action;
-  final KuteBarPreview? preview;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final isLight = Theme.of(context).brightness == Brightness.light;
-    final a = action;
-    final clip = a is KuteMarketBarAction ? a.salClip : null;
-    final icon = a is KuteMarketBarAction
-        ? (a.icon ?? Icons.arrow_forward_rounded)
-        : Icons.arrow_forward_rounded;
-    final p = preview;
-    final Widget visual;
-    if (clip != null) {
-      visual = SalSprite(
-        clip: clip,
-        size: 56,
-        fallback: SalSprite(
-            clip: 'happy',
-            size: 56,
-            fallback: KuteDogGlance(size: 48, color: c.accent)),
-      );
-    } else if (p != null) {
-      // The market's logo with a small share badge on its corner.
-      visual = SizedBox(
-        width: 52,
-        height: 56,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-                left: 0,
-                top: 8,
-                child: contextPreviewLogo(context, p, size: 40)),
-            Positioned(
-              left: 26,
-              top: 34,
-              child: Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: c.textPrimary,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: isLight ? Colors.white : c.surface, width: 2),
-                ),
-                child: Icon(icon,
-                    size: 12, color: isLight ? Colors.white : c.background),
+KuteActionCard _contextActionCard(
+    BuildContext context, KuteBarAction a, KuteBarPreview? p) {
+  final c = context.colors;
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  final clip = a is KuteMarketBarAction ? a.salClip : null;
+  final icon = a is KuteMarketBarAction
+      ? (a.icon ?? Icons.arrow_forward_rounded)
+      : Icons.arrow_forward_rounded;
+  final Widget visual;
+  if (clip != null) {
+    visual = SalSprite(
+      clip: clip,
+      size: 56,
+      fallback: SalSprite(
+          clip: 'happy',
+          size: 56,
+          fallback: KuteDogGlance(size: 48, color: c.accent)),
+    );
+  } else if (p != null) {
+    // The market's logo with a small share badge on its corner.
+    visual = SizedBox(
+      width: 52,
+      height: 56,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+              left: 0, top: 8, child: contextPreviewLogo(context, p, size: 40)),
+          Positioned(
+            left: 26,
+            top: 34,
+            child: Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: c.textPrimary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: isLight ? Colors.white : c.surface, width: 2),
               ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      visual = Container(
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: c.accent.withValues(alpha: 0.12),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 22, color: c.accent),
-      );
-    }
-    // What is sent: the pick on a card that sends it, else the market.
-    final sent = clip != null ? p?.line : p?.title;
-    return Semantics(
-      button: true,
-      label: [a.label, if (a.sublabel != null) a.sublabel!].join(', '),
-      excludeSemantics: true,
-      child: KutePressable(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            a.onTap(context);
-            Navigator.of(context).maybePop();
-          },
-          child: Container(
-            key: ValueKey('context-action-card-${a.label}'),
-            constraints: const BoxConstraints(minHeight: kContextCardMinHeight),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isLight ? c.surfaceLight : c.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                  color: isLight ? c.border : c.borderSubtle, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                    height: 56,
-                    child:
-                        Align(alignment: Alignment.centerLeft, child: visual)),
-                const SizedBox(height: 12),
-                Text(
-                  a.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                    height: 1.2,
-                  ),
-                ),
-                if (a.sublabel != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    a.sublabel!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.textSecondary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                if (sent != null && sent.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    sent,
-                    key: ValueKey('context-action-sent-${a.label}'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                  ),
-                ],
-              ],
+              child: Icon(icon,
+                  size: 12, color: isLight ? Colors.white : c.background),
             ),
           ),
-        ),
+        ],
       ),
     );
+  } else {
+    visual = Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: c.accent.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 22, color: c.accent),
+    );
   }
+  // What is sent: the pick on a card that sends it, else the market.
+  final sent = clip != null ? p?.line : p?.title;
+  return KuteActionCard(
+    key: ValueKey('context-action-card-${a.label}'),
+    visual: visual,
+    visualSlot: kContextCardVisualSlot,
+    title: a.label,
+    subtitle: a.sublabel,
+    footer: sent,
+    footerKey: ValueKey('context-action-sent-${a.label}'),
+    onTap: () {
+      a.onTap(context);
+      Navigator.of(context).maybePop();
+    },
+  );
 }
