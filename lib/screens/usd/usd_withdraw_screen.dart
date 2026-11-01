@@ -11,14 +11,15 @@
 //     dollar send recognises shows its resolved row first (the coin on its
 //     network) and the bar's Continue opens the dollar send on it; one
 //     that could land on several networks asks which in the coin sheet;
-//   * the Contacts list (send_contacts_list.dart): the recent dollar
-//     recipients (paid directly: the send opens on that coin and address)
-//     and the phone's contacts (a claim link for dollars to their number),
-//     filtered by the text, "Send a link to +351…" for a typed number;
 //   * the "Send to" card: "To your Bitcoin" (the Move money sheet,
 //     Dollars to Bitcoin), "A stock or prediction" (the market picker,
 //     send_pick_market_sheet.dart) and "Also sends to" (the coins, in the
-//     coin sheet, exactly as the Bitcoin send's row opens its own).
+//     coin sheet, exactly as the Bitcoin send's row opens its own);
+//   * the Contacts list under it (send_contacts_list.dart; founder: a
+//     growing list never hides the card): the recent dollar recipients
+//     (paid directly: the send opens on that coin and address) and the
+//     phone's contacts (a claim link for dollars to their number),
+//     filtered by the text, "Send a link to +351…" for a typed number.
 //
 // No big Bitcoin card and no inline coin grid any more. The bar is the
 // default "Search or ask Sal" (the rows are the actions), Continue while
@@ -314,15 +315,18 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 SizedBox(height: 10.h),
                 SendInlineError(message: error),
               ],
+              // The Send to card before Contacts (founder): a growing
+              // list never pushes it out of sight; Contacts scroll on to
+              // the bar's clearance.
+              SizedBox(height: 20.h),
+              SendSectionLabel(l10n.sendToLabel),
+              _sendToCard(c, offered),
               SendContactsSection(
                 query: text,
                 recents: _recentPeople(offered),
                 onPerson: (p) => _onPerson(p, offered),
                 onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
               ),
-              SizedBox(height: 20.h),
-              SendSectionLabel(l10n.sendToLabel),
-              _sendToCard(c, offered),
             ],
           ),
         ),

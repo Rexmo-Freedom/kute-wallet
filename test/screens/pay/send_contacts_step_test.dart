@@ -175,6 +175,17 @@ void main() {
     expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
     expect(find.byKey(const ValueKey('send-pick-market-row')), findsNothing);
+    // Top to bottom: the field, the Send to card, then the Contacts (a
+    // growing list never hides "Also sends to").
+    final sendTo = find.text(_l10n.sendToLabel);
+    expect(sendTo, findsOneWidget);
+    expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('send-recipient-search')))
+            .dy,
+        lessThan(tester.getTopLeft(sendTo).dy));
+    expect(tester.getTopLeft(sendTo).dy,
+        lessThan(tester.getTopLeft(find.byKey(ask)).dy));
     // Never a prompt on open.
     expect(_gateway.prompts, 0);
   });

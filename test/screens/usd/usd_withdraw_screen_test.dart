@@ -262,16 +262,22 @@ void main() {
       expect(pick.title, _l10n.usdSendPickRow);
       expect(pick.subtitle, _l10n.usdSendPickRowSub);
       expect(find.byKey(_alsoRow), findsOneWidget);
-      // Top to bottom: the field, the Contacts, the card.
+      // Top to bottom: the field, the Send to card, the Contacts (a
+      // growing list never hides the card).
       expect(
           tester
-              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
+              .getTopLeft(find.byKey(const ValueKey('send-recipient-search')))
               .dy,
           lessThan(tester.getTopLeft(find.byKey(_bitcoinRow)).dy));
       expect(tester.getTopLeft(find.byKey(_bitcoinRow)).dy,
           lessThan(tester.getTopLeft(find.byKey(_pickRow)).dy));
       expect(tester.getTopLeft(find.byKey(_pickRow)).dy,
           lessThan(tester.getTopLeft(find.byKey(_alsoRow)).dy));
+      expect(
+          tester.getTopLeft(find.byKey(_alsoRow)).dy,
+          lessThan(tester
+              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
+              .dy));
 
       // No old card, no inline grid, no friend row.
       expect(find.text(_l10n.usdWithdrawToYourWallet), findsNothing);

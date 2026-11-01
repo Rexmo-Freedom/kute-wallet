@@ -7969,10 +7969,12 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // a Spark link: the same source.
     final hot = !_isColdSource;
     final showSendToCard = !bitcoinDestination && (hot || needsPick);
-    // Scrollable so the matches, the recents and the card never
-    // overflow on a short screen or at a large text scale.
+    // Scrollable so the matches, the card and the contacts never
+    // overflow on a short screen or at a large text scale; the end clears
+    // the floating bar.
+    // Order: the field, the resolved row, the Send to card, Contacts.
     return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: kuteBarScrollClearance.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -8050,17 +8052,6 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
-          // Contacts (founder, 1 November 2026, Revolut's one list): the
-          // recents and the phone's contacts, filtered by what is typed,
-          // under the resolved row; never in the way of address entry. A
-          // link needs the spending wallet: hot sources only.
-          if (hot && !needsPick)
-            SendContactsSection(
-              query: query,
-              recents: recentPeople,
-              onPerson: _onPerson,
-              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
-            ),
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
             SendSectionLabel(context.l10n.sendToLabel),
@@ -8075,6 +8066,19 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ],
             ),
           ],
+          // Contacts (founder, 1 November 2026, Revolut's one list): the
+          // recents and the phone's contacts, filtered by what is typed.
+          // Under the Send to card (founder: a growing list must never
+          // push "Also sends to" out of sight), the list scrolling on to
+          // the bar's clearance. A link needs the spending wallet: hot
+          // sources only.
+          if (hot && !needsPick)
+            SendContactsSection(
+              query: query,
+              recents: recentPeople,
+              onPerson: _onPerson,
+              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
+            ),
         ],
       ),
     );
