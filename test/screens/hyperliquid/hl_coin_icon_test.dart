@@ -135,6 +135,43 @@ void main() {
     });
   });
 
+  group('a white-only logo is no logo', () {
+    // XPL's: white shapes under a drop shadow flutter_svg does not paint,
+    // an empty circle on the light plate.
+    const xpl = '''
+<svg width="162" height="162" viewBox="0 0 162 162" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g filter="url(#f)">
+<path d="M158 77.4H120.5V74.2H157.9Z" fill="white"/>
+<path d="M83.4 86.3L118.8 90.7Z" fill="#FFFFFF" stroke="none"/>
+</g>
+<defs>
+<filter id="f"><feFlood flood-opacity="0"/></filter>
+<clipPath id="c"><rect width="10" height="10" fill="black"/></clipPath>
+</defs>
+</svg>''';
+
+    test('white shapes only: a miss, so the letter tile shows', () {
+      expect(hlSvgPaintsOnlyWhite(xpl), isTrue);
+      expect(hlIconArtFromSvg(_bytes(xpl)), isNull);
+    });
+
+    test('a mark with any other paint, or an unpainted (black) shape, is '
+        'drawn', () {
+      // LIT's: white strokes on a black disc.
+      final lit = xpl.replaceFirst(
+          '<g filter', '<circle cx="81" cy="81" r="81" fill="black"/><g filter');
+      expect(hlSvgPaintsOnlyWhite(lit), isFalse);
+      expect(hlIconArtFromSvg(_bytes(lit)), isNotNull);
+      expect(
+          hlSvgPaintsOnlyWhite(
+              xpl.replaceFirst('fill="white"', 'style="fill:#0EA57C"')),
+          isFalse);
+      expect(hlSvgPaintsOnlyWhite(xpl.replaceFirst(' fill="white"', '')),
+          isFalse);
+      expect(hlSvgPaintsOnlyWhite(_vector), isFalse);
+    });
+  });
+
   group('a builder perp borrows its symbol from every builder dex', () {
     test('the same symbol on every other dex, in the venue\'s order', () {
       expect(hlBuilderTwinWires('mkts:US500', ['xyz', 'flx', 'km', 'mkts']),
