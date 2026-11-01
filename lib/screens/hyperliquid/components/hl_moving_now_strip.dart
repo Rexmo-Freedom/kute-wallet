@@ -71,6 +71,10 @@ const String kHlMovingNowSource = 'moving_now';
 /// volume, then by their place in the list. A market with no change to
 /// show (no previous-day price) or thinly traded ([HlMarket.isLowLiquidity])
 /// is left out. Empty, so no strip, under [min] candidates.
+/// The rows the list under the strip keeps at least; with fewer, the
+/// strip is not shown and every market is a row.
+const int kHlMoverListKeeps = 3;
+
 List<HlMarket> hlMovingNow(
   List<HlMarket> markets, {
   int min = kHlMoverCardMin,

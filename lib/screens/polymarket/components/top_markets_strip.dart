@@ -45,6 +45,10 @@ const double kPolyTopMarketCardHeight = 170;
 /// still open, by their last 24 hours' volume (`volume24hr`; the
 /// lifetime volume when the feed has none), up to [max]. Equal volumes
 /// keep the feed's order. Empty when fewer than [min] qualify.
+/// The rows the feed under the strip keeps at least; with fewer, the
+/// strip is not shown and every market is a row.
+const int kPolyTopMarketsListKeeps = 3;
+
 List<PolymarketEvent> polyTopMarkets(
   Iterable<PolymarketEvent> events, {
   int max = kPolyTopMarketsMax,

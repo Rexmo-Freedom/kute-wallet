@@ -134,7 +134,7 @@ void main() {
   });
 
   testWidgets('the strip shows the top movers in order over the list, which '
-      'keeps its own order', (tester) async {
+      'keeps its own order without them', (tester) async {
     await _pump(tester, _universe);
 
     expect(_strip(), findsOneWidget);
@@ -146,10 +146,13 @@ void main() {
     final cards = _cards(tester);
     expect(cards.length, inInclusiveRange(2, 5));
     expect(cards, ['ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL'].take(cards.length));
-    // The strip sits above the list.
+    // The strip sits above the list, and the list does not repeat the
+    // strip's markets (founder, 1 November 2026).
     final stripBottom = tester.getBottomLeft(_strip()).dy;
     final rows = tester.widgetList<HlMarketCard>(find.byType(HlMarketCard));
     expect(rows.first.market.coin, 'BTC');
+    expect(rows.map((r) => r.market.coin),
+        isNot(contains(anyOf('ZEC', 'HYPE', 'DOGE', 'NEAR', 'SOL'))));
     expect(tester.getTopLeft(find.byType(HlMarketCard).first).dy,
         greaterThan(stripBottom));
 

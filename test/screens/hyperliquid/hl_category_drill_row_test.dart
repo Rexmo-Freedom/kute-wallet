@@ -41,9 +41,17 @@ HlMarket _market(String coin,
       dex: isHip3 ? 'xyz' : '',
     );
 
+/// Enough perps that the "Moving now" strip (up to five) leaves rows
+/// under it: the strip never empties the list (founder, 1 November 2026).
 final _universe = [
   _market('BTC', vlm: 9e9),
   _market('DOGE', vlm: 5e8),
+  _market('ETH', vlm: 4e9),
+  _market('SOL', vlm: 2e9),
+  _market('XRP', vlm: 1e9),
+  _market('NEAR', vlm: 3e8),
+  _market('LINK', vlm: 2e8),
+  _market('AVAX', vlm: 1e8),
   _market('xyz:AAPL', category: 'stocks', isHip3: true),
   _market('xyz:SPX', category: 'indices', isHip3: true),
 ];
@@ -184,7 +192,16 @@ void main() {
 
       final rows = _inBrowser(find.byType(HlMarketCard));
       final n = rows.evaluate().length;
-      expect(n, greaterThan(1));
+      expect(n, greaterThan(0));
+      // The strip's markets are big cards, never rows as well (founder,
+      // 1 November 2026).
+      final onStrip = tester
+          .widgetList<HlMovingNowStrip>(_inBrowser(find.byType(HlMovingNowStrip)))
+          .expand((s) => s.markets.map((m) => m.wireCoin))
+          .toSet();
+      for (final row in tester.widgetList<HlMarketCard>(rows)) {
+        expect(onStrip, isNot(contains(row.market.wireCoin)));
+      }
       // The "Moving now" strip comes straight under the pills, and the
       // list straight under the strip (no title between them).
       final pills = _inBrowser(find.byType(PolyDrillRow));

@@ -890,9 +890,20 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       // The markets with the most volume in the day as big cards in a
       // side-scrolling strip, first in the feed (founder, 1 November
       // 2026); not over the watchlist, which is the user's own pick.
-      final top = query.pill == PolyPill.watchlist
+      var top = query.pill == PolyPill.watchlist
           ? const <PolymarketEvent>[]
           : polyTopMarkets(open);
+      // A market on the strip is not repeated in the list under it
+      // (founder, 1 November 2026); and the strip never empties the
+      // list: with fewer than [kPolyTopMarketsListKeeps] left, no strip.
+      final topIds = {for (final e in top) e.id};
+      var listed = topIds.isEmpty
+          ? events
+          : events.where((e) => !topIds.contains(e.id)).toList(growable: false);
+      if (top.isNotEmpty && listed.length < kPolyTopMarketsListKeeps) {
+        top = const <PolymarketEvent>[];
+        listed = events;
+      }
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
@@ -905,7 +916,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
           SliverToBoxAdapter(child: SizedBox(height: 8.h)),
         ],
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
-        ..._groupedSlivers(events, (market) => (
+        ..._groupedSlivers(listed, (market) => (
               isSportsCategory: market.category == 'sports',
               siblings: market.gameId != null
                   ? (siblings[market.gameId!] ?? const <PolymarketEvent>[])

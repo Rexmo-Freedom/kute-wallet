@@ -152,12 +152,34 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// category per 30 s universe, not once per scroll-driven rebuild).
   List<HlMarket>? _moversListed;
   List<HlMarket> _movers = const [];
+  List<HlMarket> _rest = const [];
   List<HlMarket> _moversFor(List<HlMarket> markets) {
     if (!identical(markets, _moversListed)) {
       _moversListed = markets;
       _movers = hlMovingNow(markets);
+      // A market on the strip is not repeated in the list under it
+      // (founder, 1 November 2026); and the strip never empties the
+      // list: with fewer than [kHlMoverListKeeps] rows left, no strip.
+      final onStrip = {for (final m in _movers) m.wireCoin};
+      final rest = _movers.isEmpty
+          ? markets
+          : markets
+              .where((m) => !onStrip.contains(m.wireCoin))
+              .toList(growable: false);
+      if (_movers.isNotEmpty && rest.length < kHlMoverListKeeps) {
+        _movers = const [];
+        _rest = markets;
+      } else {
+        _rest = rest;
+      }
     }
     return _movers;
+  }
+
+  /// The list under the strip: [markets] less the strip's.
+  List<HlMarket> _listedFor(List<HlMarket> markets) {
+    _moversFor(markets);
+    return _rest;
   }
 
   /// The category whose subcategories the one browse row shows, in place
@@ -582,7 +604,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // scroll in, so every price on screen is live.
                             ...marketGroupSlivers<HlMarket>(
                               context,
-                              items: markets,
+                              items: _listedFor(markets),
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
                               divider: hlGroupRowDivider,

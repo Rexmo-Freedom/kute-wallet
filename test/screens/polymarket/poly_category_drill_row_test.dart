@@ -15,6 +15,7 @@ import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
     show PolyDrillRow;
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
+import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart';
@@ -159,6 +160,11 @@ void main() {
       // group (Fed, BTC) → card (Trump) → group (Rain).
       final cards = _inBrowser(find.byType(MarketCard));
       expect(cards, findsNWidgets(4));
+      // The strip's five busy markets are big cards, not rows.
+      expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
+      for (final card in tester.widgetList<MarketCard>(cards)) {
+        expect(card.title, isNot(startsWith('Busy market')));
+      }
       final groups = _inBrowser(find.byType(DecoratedSliver));
       expect(groups, findsNWidgets(2));
       final context = tester.element(cards.first);
@@ -207,16 +213,19 @@ void main() {
   });
 }
 
-/// Two plain Yes/No markets, an event with many outcomes, another plain
-/// one: in every list.
+/// Five busy Yes/No markets the strip takes, then two plain Yes/No
+/// markets, an event with many outcomes, another plain one: in every
+/// list. The strip's five never repeat in the list (founder, 1 November
+/// 2026), so the list under it is the four.
 class _ThreeMarkets extends PolyFeedNotifier {
   @override
   PolyFeedState build(PolyFeedQuery arg) {
-    PolymarketEvent yesNo(String id, String title) => PolymarketEvent(
+    PolymarketEvent yesNo(String id, String title, {double volume = 1e6}) =>
+        PolymarketEvent(
           id: id,
           slug: id,
           title: title,
-          volume: 1e6,
+          volume: volume,
           liquidity: 1e5,
           category: 'finance',
           conditionId: id,
@@ -226,6 +235,8 @@ class _ThreeMarkets extends PolyFeedNotifier {
           ],
         );
     return PolyFeedState(done: true, events: [
+      for (var i = 1; i <= 5; i++)
+        yesNo('top$i', 'Busy market $i?', volume: 9e6 - i),
       yesNo('fed', 'Fed cuts in December?'),
       yesNo('btc', 'Bitcoin above 150k?'),
       PolymarketEvent(
