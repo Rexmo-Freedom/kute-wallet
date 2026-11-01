@@ -14,6 +14,9 @@ import 'package:kute/providers/advisor_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/polymarket_sports_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
+import 'package:kute/screens/hyperliquid/components/hl_format.dart'
+    show hlFriendlyName;
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -120,13 +123,35 @@ void main() {
     await tester.tap(find.text('Open search'));
     await tester.pumpAndSettle();
 
-    // The designed top: the preview, the one card with both rows, the chips.
+    // The designed top: the preview, then the two send cards side by
+    // side (founder, 1 November 2026), each saying what it sends at its
+    // foot: the market's name on the link card, the pick on the other.
     expect(find.byKey(const ValueKey('context-preview-card')), findsOneWidget);
-    expect(find.text('Gemini Carbon'), findsOneWidget);
-    expect(find.text('Yes 62%'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const ValueKey('context-preview-card')),
+            matching: find.text('Gemini Carbon')),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('context-actions-card')), findsOneWidget);
     expect(find.text('Share the market'), findsOneWidget);
     expect(find.text('Send this prediction'), findsOneWidget);
+    final link =
+        find.byKey(const ValueKey('context-action-card-Share the market'));
+    final pick =
+        find.byKey(const ValueKey('context-action-card-Send this prediction'));
+    expect(
+        find.descendant(of: link, matching: find.text('Gemini Carbon')),
+        findsOneWidget);
+    expect(find.descendant(of: pick, matching: find.text('Yes 62%')),
+        findsOneWidget);
+    // Equal widths, 12 apart, on one row, equally tall, ~170 at least.
+    final l = tester.getRect(link);
+    final r = tester.getRect(pick);
+    expect(l.top, moreOrLessEquals(r.top));
+    expect(l.height, moreOrLessEquals(r.height));
+    expect(l.width, moreOrLessEquals(r.width, epsilon: 0.5));
+    expect(r.left - l.right, moreOrLessEquals(12 * 390 / 430, epsilon: 0.5));
+    expect(l.height, greaterThanOrEqualTo(170));
     // No Ask Sal chips (founder, 31 October 2026).
     expect(find.text('Ask Sal'), findsNothing);
     expect(find.text('Explain the odds'), findsNothing);
@@ -207,6 +232,74 @@ void main() {
     expect(tapped, ['send']);
     expect(find.text('Send this investment'), findsNothing);
     // The dog glyph's delayed glance exits after unmount.
+    await tester.pump(const Duration(seconds: 6));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'an Investing builder-dex market (Nasdaq 100, xyz:XYZ100): the '
+      'preview and the link card show its display name with the ticker '
+      'under it, and its logo as the page header draws it', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    late KuteMarketBarContext bar;
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(builder: (context) {
+        // As the market page builds it (hyperliquid/market_detail_sheet).
+        bar = marketBarContext(
+          context,
+          title: hlFriendlyName('XYZ100') ?? 'XYZ100',
+          ticker: 'XYZ100',
+          wireCoin: 'xyz:XYZ100',
+          coinCategory: 'indices',
+          venue: kMarketLinkInvesting,
+          slug: 'XYZ100',
+          price: '25,100.0',
+          outcome: 'Long',
+          side: 'long',
+          position: false,
+          category: SearchCategory.perpetuals,
+          searchHint: null,
+          source: 'trading',
+        ) as KuteMarketBarContext;
+        return const SizedBox();
+      }),
+    ));
+    await _pumpSheet(tester, bar);
+    final card = find.byKey(const ValueKey('context-preview-card'));
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('context-preview-title')))
+            .data,
+        'Nasdaq 100');
+    expect(
+        tester
+            .widget<Text>(
+                find.byKey(const ValueKey('context-preview-subtitle')))
+            .data,
+        'XYZ100');
+    // The header's logo: HlCoinIcon with the wire coin and category, never
+    // a letter tile of the raw ticker.
+    final icon = tester.widget<HlCoinIcon>(
+        find.descendant(of: card, matching: find.byType(HlCoinIcon)));
+    expect(icon.coin, 'XYZ100');
+    expect(icon.wireCoin, 'xyz:XYZ100');
+    expect(icon.category, 'indices');
+    // The link card names it the same way and wears the same logo.
+    final linkCard = find.byKey(
+        ValueKey('context-action-card-${bar.actions.first.label}'));
+    expect(find.descendant(of: linkCard, matching: find.text('Nasdaq 100')),
+        findsOneWidget);
+    expect(find.descendant(of: linkCard, matching: find.byType(HlCoinIcon)),
+        findsOneWidget);
+    // Closed, as a person would: the sheet's own state goes with it.
+    await tester.tap(find.byKey(
+        ValueKey('context-action-card-${bar.actions.last.label}')));
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 6));
     expect(tester.takeException(), isNull);
   });

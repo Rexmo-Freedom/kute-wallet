@@ -325,7 +325,14 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
     // control, the Share pill (KuteSalHeaderButton), sits beside the price.
     final bar = marketBarContext(
       context,
-      title: widget.market.coin,
+      // As the header names it, the logo drawn as the header draws it
+      // (the Sal sheet's preview and send cards; founder: never the raw
+      // ticker and a letter tile).
+      title: hlFriendlyName(widget.market.coin) ?? widget.market.coin,
+      ticker: widget.market.coin,
+      wireCoin: widget.market.wireCoin,
+      coinCategory: widget.market.category,
+      coinIconUrl: widget.market.iconUrl,
       venue: kMarketLinkInvesting,
       slug: widget.market.coin,
       price: formatHlPrice(
