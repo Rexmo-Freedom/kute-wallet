@@ -73,12 +73,16 @@ import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/models/portfolio_performance.dart'
     show PortfolioPerformanceVenue;
+import 'package:kute/providers/portfolio_performance_provider.dart'
+    show PortfolioPerformanceRequest, portfolioPerformanceDisplayProvider;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show BalancesCategory;
+    show BalancesCategory, BalancesHeroMode;
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioSlice, PortfolioSliceScope, portfolioPositionFocusProvider;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlChartVenueProvider;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
-    show portfolioVenueLists;
+    show portfolioOpenSlices, portfolioVenueLists;
 import 'package:kute/screens/portfolio/portfolio_balance_breakdown.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart';
@@ -160,8 +164,7 @@ class InvestmentsPortfolio extends ConsumerWidget {
     return KeyedSubtree(
       key: ValueKey('portfolio-section-${section.key}'),
       child: switch (section) {
-        PortfolioSection.balances =>
-          _Balances(pills: pills),
+        PortfolioSection.balances => _Balances(pills: pills),
         PortfolioSection.charts => _Charts(pills: pills),
       },
     );
@@ -202,6 +205,12 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
   /// Where the strip pins: the top block's height.
   double get _pinAt => _top.currentContext?.size?.height ?? 0;
 
+  /// A row long-pressed: its position in the ring, or (again) none.
+  void _toggleFocus(String id) {
+    final focus = ref.read(portfolioPositionFocusProvider.notifier);
+    focus.state = focus.state == id ? null : id;
+  }
+
   @override
   Widget build(BuildContext context) {
     final section = widget.section;
@@ -212,6 +221,19 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
     // here).
     if (venues.trading) {
       ref.listen(hyperliquidUserFillsProvider, (_, __) {});
+    }
+    // ...and the venues' P&L series (the ring reads them only on P&L
+    // Charts now).
+    for (final (on, venue) in [
+      (venues.trading, PortfolioPerformanceVenue.trading),
+      (venues.predictions, PortfolioPerformanceVenue.predictions),
+    ]) {
+      if (on) {
+        ref.listen(
+            portfolioPerformanceDisplayProvider(
+                PortfolioPerformanceRequest(venue: venue)),
+            (_, __) {});
+      }
     }
     // A switch keeps the top block where it is; a section scrolled past
     // the pin opens the next at its top, the strip still pinned. Before
@@ -227,6 +249,16 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
     final picked = section == PortfolioSection.charts
         ? ref.watch(pnlChartVenueProvider)
         : null;
+    // The Portfolio section's ring: one slice per open position, the same
+    // colour as the dot on its row; a row long-pressed shows its position
+    // (watched only there, so leaving the section clears it). The row's
+    // tap keeps opening the position.
+    final positions = section == PortfolioSection.balances
+        ? portfolioOpenSlices(context, ref, venues)
+        : const <PortfolioSlice>[];
+    final positionFocus = section == PortfolioSection.balances
+        ? ref.watch(portfolioPositionFocusProvider)
+        : null;
     final strip = _StripHeader(
       pills: widget.pills,
       background: context.colors.background,
@@ -234,52 +266,64 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
     );
     return LayoutBuilder(builder: (context, box) {
       // A short section still fills the viewport under the pinned strip.
-      final minSection = (box.maxHeight - strip.extent).clamp(0.0, double.infinity);
-      return CustomScrollView(
-        key: const ValueKey('portfolio-page-scroll'),
-        controller: _scroll,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              key: _top,
-              padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
-              child: KeyedSubtree(
-                key: const ValueKey('portfolio-top'),
-                child: PortfolioBalanceBreakdown(
-                  trading: venues.trading,
-                  predictions: venues.predictions,
-                  overview: true,
-                  sharesHeader: true,
-                  heroOnly: true,
-                  focus: switch (picked) {
-                    null => null,
-                    PortfolioPerformanceVenue.predictions =>
-                      BalancesCategory.predictions,
-                    PortfolioPerformanceVenue.trading =>
-                      BalancesCategory.investing,
-                  },
-                ),
-              ),
-            ),
-          ),
-          SliverPersistentHeader(pinned: true, delegate: strip),
-          SliverToBoxAdapter(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minSection),
-              // The section from the top of that room, never centred in it.
-              child: Align(
-                alignment: Alignment.topCenter,
+      final minSection =
+          (box.maxHeight - strip.extent).clamp(0.0, double.infinity);
+      return PortfolioSliceScope(
+        colors: {for (final p in positions) p.id: p.color},
+        onToggle: _toggleFocus,
+        child: CustomScrollView(
+          key: const ValueKey('portfolio-page-scroll'),
+          controller: _scroll,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                key: _top,
+                padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 0),
                 child: KeyedSubtree(
-                  key: ValueKey('portfolio-section-${section.key}'),
-                  child: switch (section) {
-                    PortfolioSection.balances => const _BalancesBox(),
-                    PortfolioSection.charts => const _ChartsBox(),
-                  },
+                  key: const ValueKey('portfolio-top'),
+                  child: PortfolioBalanceBreakdown(
+                    trading: venues.trading,
+                    predictions: venues.predictions,
+                    overview: true,
+                    sharesHeader: true,
+                    heroOnly: true,
+                    heroMode: section == PortfolioSection.balances
+                        ? BalancesHeroMode.positions
+                        : BalancesHeroMode.pnl,
+                    positionSlices: positions,
+                    positionFocus: positions.any((p) => p.id == positionFocus)
+                        ? positionFocus
+                        : null,
+                    focus: switch (picked) {
+                      null => null,
+                      PortfolioPerformanceVenue.predictions =>
+                        BalancesCategory.predictions,
+                      PortfolioPerformanceVenue.trading =>
+                        BalancesCategory.investing,
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            SliverPersistentHeader(pinned: true, delegate: strip),
+            SliverToBoxAdapter(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minSection),
+                // The section from the top of that room, never centred in it.
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: KeyedSubtree(
+                    key: ValueKey('portfolio-section-${section.key}'),
+                    child: switch (section) {
+                      PortfolioSection.balances => const _BalancesBox(),
+                      PortfolioSection.charts => const _ChartsBox(),
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     });
   }
@@ -309,8 +353,7 @@ class _StripHeader extends SliverPersistentHeaderDelegate {
       Container(
         key: const ValueKey('portfolio-strip'),
         color: background,
-        padding: EdgeInsets.fromLTRB(
-            16.w, _kStripTop.h, 16.w, _kStripBottom.h),
+        padding: EdgeInsets.fromLTRB(16.w, _kStripTop.h, 16.w, _kStripBottom.h),
         alignment: Alignment.topCenter,
         child: pills,
       );

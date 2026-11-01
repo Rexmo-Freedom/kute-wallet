@@ -897,11 +897,11 @@ void main() {
         findsNothing);
     expect(find.text(l10n.moveTransfer), findsNothing);
     expect(find.byType(AppButton), findsNothing);
-    // The fintech layout (31 October 2026): the hero ring with the
-    // all-time P&L in its hole (the stub histories: nothing ever
-    // published, so nothing made), one quiet legend line under it (the
-    // three names with their dots, no amounts), the section strip under
-    // the legend.
+    // The fintech layout (31 October 2026), the ring reading the section
+    // (1 November 2026): on Portfolio, the open positions with
+    // "Invested" (what they are worth now) in its hole, one quiet line
+    // under it ("0 positions · ● Available $25.00"), the section strip
+    // under the line.
     final hero = find.byKey(const ValueKey('portfolio-shares-hero'));
     expect(hero, findsOneWidget);
     // The top block (the ring and its line, the strip) is ONE widget, at
@@ -924,16 +924,23 @@ void main() {
             of: hero,
             matching: find.byKey(const ValueKey('portfolio-all-time'))),
         findsOneWidget);
-    expect(find.text(l10n.portfolioAllTime), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(
+                find.byKey(const ValueKey('portfolio-all-time-caption')))
+            .data,
+        l10n.portfolioInvestedLabel);
     final legend = find.byKey(const ValueKey('portfolio-shares-legend'));
     expect(legend, findsOneWidget);
     expect(tester.getRect(legend).top,
         greaterThan(tester.getRect(hero).bottom));
-    // "● Invested $0.00   ● Available $25.00": Investing + Predictions at
-    // work (nothing open in the harness), the Dollars cash alone (the
-    // venues' own cash is not available here).
+    // "0 positions · ● Available $25.00": nothing open in the harness, the
+    // Dollars cash alone (the venues' own cash is not available here).
+    expect(
+        find.descendant(
+            of: legend, matching: find.text(l10n.portfolioPositionsCount(0))),
+        findsOneWidget);
     for (final (key, name, amount) in [
-      ('portfolio-legend-invested', l10n.portfolioInvestedLabel, '\$0.00'),
       ('portfolio-legend-available', l10n.portfolioAvailableLabel, '\$25.00'),
     ]) {
       final figure = find.byKey(ValueKey(key));

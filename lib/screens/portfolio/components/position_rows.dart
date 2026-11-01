@@ -40,6 +40,7 @@
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -181,6 +182,55 @@ class PortfolioRowInset extends InheritedWidget {
   bool updateShouldNotify(PortfolioRowInset oldWidget) =>
       horizontal != oldWidget.horizontal || vertical != oldWidget.vertical;
 }
+
+/// One open position as the Portfolio screen's ring draws it: its slice
+/// id (the row's own key, "hl-BTC", "poly-" and its token), its name, what it is
+/// worth now, its open P&L and the slice's colour.
+@immutable
+class PortfolioSlice {
+  const PortfolioSlice({
+    required this.id,
+    required this.name,
+    required this.valueUsd,
+    required this.color,
+    this.pnlUsd,
+    this.pnlPercent,
+  });
+
+  final String id;
+  final String name;
+  final double valueUsd;
+  final Color color;
+  final double? pnlUsd;
+  final double? pnlPercent;
+}
+
+/// The Portfolio screen's slices above its rows: each row with a
+/// [PortfolioPositionRow.sliceId] here draws its slice's dot, and a long
+/// press on it toggles the position in the ring ([onToggle]).
+class PortfolioSliceScope extends InheritedWidget {
+  const PortfolioSliceScope({
+    super.key,
+    required this.colors,
+    required this.onToggle,
+    required super.child,
+  });
+
+  final Map<String, Color> colors;
+  final ValueChanged<String> onToggle;
+
+  static PortfolioSliceScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PortfolioSliceScope>();
+
+  @override
+  bool updateShouldNotify(PortfolioSliceScope old) =>
+      !mapEquals(old.colors, colors) || old.onToggle != onToggle;
+}
+
+/// The Portfolio screen's highlighted position (a row long-pressed): its
+/// slice id, or null. Cleared once nothing watches it.
+final portfolioPositionFocusProvider =
+    StateProvider.autoDispose<String?>((ref) => null);
 
 /// The Portfolio's soft card list (founder, 1 November 2026: one style
 /// with the home Activity list): the Activity day card's surface, radius,
@@ -635,6 +685,7 @@ class PortfolioPositionRow extends StatelessWidget {
     this.pnl,
     this.detail,
     this.onTap,
+    this.sliceId,
   });
 
   final Widget leading;
@@ -642,6 +693,12 @@ class PortfolioPositionRow extends StatelessWidget {
   final String subtitle;
   final String value;
   final double? chance;
+
+  /// The position's slice of the Portfolio screen's ring
+  /// ([PortfolioSliceScope]): with a scope above that knows it, a small dot
+  /// in the slice's colour leads the line under the title, and a long
+  /// press shows the position in the ring (again: clears). Null: none.
+  final String? sliceId;
 
   /// The price the held side was bought at (0 to 1): a tick on the chance
   /// bar.
@@ -655,10 +712,21 @@ class PortfolioPositionRow extends StatelessWidget {
     final secondary = portfolioRowSubStyle(context);
     final under = pnl;
     final chance = this.chance;
+    final slices = PortfolioSliceScope.maybeOf(context);
+    final id = sliceId;
+    final dot = id == null ? null : slices?.colors[id];
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        // The ring shows this position (founder, 1 November 2026); the tap
+        // keeps opening it.
+        onLongPress: dot == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                slices!.onToggle(id!);
+              },
         child: Padding(
           padding: EdgeInsets.symmetric(
               horizontal: PortfolioRowInset.of(context),
@@ -690,11 +758,28 @@ class PortfolioPositionRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: portfolioRowTitleStyle(context)),
                       SizedBox(height: 2.h),
-                      Text(subtitle,
-                          key: const ValueKey('portfolio-row-subtitle'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: secondary),
+                      Row(
+                        children: [
+                          // Its slice's colour in the ring above.
+                          if (dot != null) ...[
+                            Container(
+                              key: const ValueKey('portfolio-row-dot'),
+                              width: 6.w,
+                              height: 6.w,
+                              decoration: BoxDecoration(
+                                  color: dot, shape: BoxShape.circle),
+                            ),
+                            SizedBox(width: 5.w),
+                          ],
+                          Flexible(
+                            child: Text(subtitle,
+                                key: const ValueKey('portfolio-row-subtitle'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: secondary),
+                          ),
+                        ],
+                      ),
                       if (chance != null) ...[
                         SizedBox(height: 7.h),
                         // Under the title, from where it starts; never
@@ -775,6 +860,20 @@ String Function(DateTime) _rowDate(BuildContext context) {
   final locale = Localizations.localeOf(context).toString();
   return (d) => DateFormat.MMMd(locale).format(d);
 }
+
+/// A held Polymarket position's row title ([polyPositionRowNames], an
+/// ISO date written in the app's language), its [event] when loaded: the
+/// name the Portfolio screen's ring gives its slice too.
+String polyPositionRowTitle(
+        BuildContext context, PolymarketPosition p, PolymarketEvent? event) =>
+    polyPositionRowNames(
+      question: p.marketQuestion,
+      side: p.outcome,
+      marketId: p.marketId,
+      tokenId: p.tokenId,
+      event: event,
+      date: _rowDate(context),
+    ).title;
 
 /// One held Polymarket position. Its value and its chance bar follow the
 /// held outcome's live price; a sale on its way, a resolved market or a
@@ -876,6 +975,7 @@ class PolyPositionRow extends ConsumerWidget {
         chance: p.isResolved ? null : price,
         entry: p.isResolved ? null : p.avgPrice,
         pnl: portfolioPnlPill(pnl, percent: pnlPercent),
+        sliceId: p.isResolved ? null : 'poly-${p.tokenId}',
         onTap: () {
           HapticFeedback.selectionClick();
           TrackingService.track('open_investments_position_tapped',
@@ -920,6 +1020,7 @@ class ComboPositionRow extends StatelessWidget {
               percent: p.stakeUsd > 0 ? pnl / p.stakeUsd * 100 : null)
           : null,
       detail: l10n.comboEstimatedValue,
+      sliceId: lost || settled != null ? null : 'combo-${p.conditionId}',
       onTap: () {
         HapticFeedback.selectionClick();
         TrackingService.track('open_investments_position_tapped',
@@ -1011,6 +1112,7 @@ class HlPositionRow extends ConsumerWidget {
           '${formatHlSize(p.szi.abs())} ${_ticker(coin)}',
       value: money(hlCloseValue(p, liveMid: mid)),
       pnl: portfolioPnlPill(pnl, percent: roe * 100),
+      sliceId: 'hl-${p.coin}',
       onTap: () {
         HapticFeedback.selectionClick();
         TrackingService.track('open_investments_position_tapped',
@@ -1056,6 +1158,7 @@ class HlSpotRow extends ConsumerWidget {
           ? null
           : portfolioPnlPill(pnl,
               percent: cost != null && cost > 0 ? pnl / cost * 100 : null),
+      sliceId: 'hl-spot-${balance.coin}',
       onTap: market == null
           ? null
           : () {
