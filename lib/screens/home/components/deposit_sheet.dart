@@ -1,5 +1,6 @@
 import 'package:kute/screens/shared/app_bottom_sheet.dart' show showKuteModalSheet;
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/side_tint_palette.dart';
 import 'package:kute/screens/shared/fee_copy.dart';
@@ -8985,20 +8986,40 @@ class MovePickerRow extends StatelessWidget {
   }) : assert((asset == null) != (icon == null),
             'A picker row wears one mark: an SVG asset or a glyph');
 
+  /// The row's mark at [size]: the brand SVG, or the glyph on its tile.
+  Widget _mark(AppColorsExtension c, double size) => icon != null
+      ? Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: c.textPrimary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(size * 11 / 36),
+          ),
+          child: Icon(icon, color: c.textPrimary, size: size * 20 / 36),
+        )
+      : SvgPicture.asset(asset!, width: size, height: size);
+
+  /// The same choice as a big card (kute_action_cards.dart), for a picker
+  /// of four entries or fewer: the mark at 40, the title over the
+  /// subtitle, the badge at the top right while [disabled]. The row's key
+  /// rides on the card.
+  KuteActionCard toCard() => KuteActionCard(
+        key: key,
+        // Built under the card, so the mark reads the picker's untinted
+        // palette, never the tinted sheet that opened it.
+        visual: Builder(
+            builder: (context) =>
+                _mark(context.colors, kKuteActionCardVisualSize)),
+        title: title,
+        subtitle: subtitle,
+        badge: disabled ? disabledLabel : null,
+        onTap: disabled ? null : onTap,
+      );
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final mark = icon != null
-        ? Container(
-            width: 36.sp,
-            height: 36.sp,
-            decoration: BoxDecoration(
-              color: c.textPrimary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11.r),
-            ),
-            child: Icon(icon, color: c.textPrimary, size: 20.sp),
-          )
-        : SvgPicture.asset(asset!, width: 36.sp, height: 36.sp);
+    final mark = _mark(c, 36.sp);
     // Custom Row instead of ListTile to control the exact left
     // padding. ListTile applied an implicit `_minLeadingWidth`
     // gap that left a visible empty band between the screen edge
@@ -9063,6 +9084,26 @@ class MovePickerRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A picker's entries: four or fewer choices as the big cards
+/// (founder, 1 November 2026: "instead of a list, big squares"), inset by
+/// the sheet's 20; a longer list keeps its rows.
+List<Widget> _movePickerBody(List<Widget> rows) {
+  if (rows.isEmpty ||
+      rows.length > 4 ||
+      rows.any((r) => r is! MovePickerRow)) {
+    return rows;
+  }
+  return [
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: KuteActionCardGrid(
+        key: const ValueKey('move-picker-cards'),
+        cards: [for (final r in rows.cast<MovePickerRow>()) r.toCard()],
+      ),
+    ),
+  ];
 }
 
 /// The chrome every picker in this sheet wears: the untinted surface,
@@ -9144,7 +9185,7 @@ Future<T?> _showMovePickerSheet<T>(
                   ),
                 ),
                 SizedBox(height: 16.h),
-                ...rows(sheetCtx, policy),
+                ..._movePickerBody(rows(sheetCtx, policy)),
                 SizedBox(height: 8.h),
               ],
             ),
