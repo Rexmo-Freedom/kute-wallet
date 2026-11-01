@@ -12,6 +12,7 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
@@ -726,16 +727,22 @@ class _ClaimFeePickerSheetState extends ConsumerState<ClaimFeePickerSheet> {
                 Text(context.l10n.claimFeeWarning,
                     style: TextStyle(color: c.accent)),
               SizedBox(height: 20.h),
-              AppButton(
-                  text: context.l10n.confirmClaim,
-                  onPressed: valid
-                      ? () {
-                          TrackingService.sparkDepositClaimFeeConfirmed();
-                          context.pop(amount);
-                        }
-                      : null),
+              // THE BAR IS THE BUTTON (founder, 31 October 2026;
+              // kute_bar_context.dart): Confirm claim is the floating Sal
+              // bar's primary action, off until the cap is valid; Cancel
+              // stays a text button above the bar's clearance.
               AppBottomSheetTextButton(
                   text: context.l10n.cancel, onPressed: () => context.pop()),
+              KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                      label: context.l10n.confirmClaim,
+                      onPrimary: () {
+                        TrackingService.sparkDepositClaimFeeConfirmed();
+                        context.pop(amount);
+                      },
+                      enabled: valid,
+                      source: 'claim_fee_picker'),
+                  child: SizedBox(height: kuteBarScrollClearance.h)),
             ]),
           ),
         ]),

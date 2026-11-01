@@ -11,7 +11,7 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -153,10 +153,18 @@ class _LabelEditorState extends ConsumerState<_LabelEditor> {
                               color: c.error)),
                     ],
                     SizedBox(height: 20.h),
-                    AppButton(
-                        text: context.l10n.save,
-                        onPressed: _saving ? null : _save,
-                        isLoading: _saving),
+                    // THE BAR IS THE BUTTON (founder, 31 October 2026;
+                    // kute_bar_context.dart): Save is the floating Sal
+                    // bar's primary action, busy while the label is
+                    // written; it rides above the keyboard with the field.
+                    KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                            label: context.l10n.save,
+                            onPrimary: _save,
+                            enabled: !_saving,
+                            busy: _saving,
+                            source: 'bitcoin_label'),
+                        child: SizedBox(height: kuteBarScrollClearance.h)),
                   ])),
         ]));
   }

@@ -5,9 +5,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/spark_transaction_details.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../helpers/kute_bar_test_support.dart';
 
 void main() {
   Future<void> pumpPicker(WidgetTester tester,
@@ -39,8 +40,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // Confirm claim is the shell bar's primary action
+  // (kute_bar_context.dart): read the way the drawn button was.
   VoidCallback? confirm(WidgetTester tester) =>
-      tester.widget<AppButton>(find.byType(AppButton)).onPressed;
+      kuteBarPrimaryProbe(tester).onPressed;
 
   test('suggested cap adds headroom to the last quote below the deposit', () {
     expect(suggestedClaimFeeSats(lastQuoteSats: 250, depositAmountSats: 1000),

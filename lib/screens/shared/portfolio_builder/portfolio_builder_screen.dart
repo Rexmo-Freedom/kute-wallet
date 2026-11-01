@@ -66,7 +66,6 @@ import 'package:kute/services/success_feedback.dart'
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -692,18 +691,16 @@ class _PortfolioBuilderScreenState
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  child: AppBottomSheetButton(
-                    text: context.l10n.builderSetAmount,
-                    onPressed: v > 0
-                        ? () {
-                            HapticFeedback.selectionClick();
-                            commit(v, spendAll);
-                            Navigator.of(ctx).pop();
-                          }
-                        : null,
-                  ),
+                // The sheet's Set amount is the bar too (see _bar), off
+                // until an amount is typed.
+                _bar(
+                  label: context.l10n.builderSetAmount,
+                  enabled: v > 0,
+                  onPrimary: () {
+                    HapticFeedback.selectionClick();
+                    commit(v, spendAll);
+                    Navigator.of(ctx).pop();
+                  },
                 ),
                 SizedBox(height: 8.h + MediaQuery.of(ctx).padding.bottom),
               ],
@@ -2296,7 +2293,9 @@ class _PortfolioBuilderScreenState
             children: [
               if (tradeBlock != null && !placed) ...[
                 CapabilityBlockNote(tradeBlock),
-                AppButton(text: context.l10n.comboPlace, onPressed: null),
+                // Off, as the drawn button was: the bar reads the label
+                // under the note, taking no tap.
+                _bar(label: context.l10n.comboPlace, onPrimary: null),
               ] else
                 ComboReviewPanel(
                   legs: legs,
