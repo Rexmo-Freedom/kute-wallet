@@ -186,9 +186,13 @@ final hlChartDrawingsProvider =
 class ChartPreferences {
   const ChartPreferences({
     this.indicators = const {'vol'},
-    this.magnet = false,
+    this.magnet = true,
   });
   final Set<String> indicators;
+
+  /// The drawing magnet (snap to candle prices). On by default; stored
+  /// as 'snap', so the old 'magnet' key (written false for everyone
+  /// while it defaulted off) is ignored.
   final bool magnet;
 
   ChartPreferences copyWith({
@@ -202,7 +206,7 @@ class ChartPreferences {
 
   Map<String, Object> toJson() => {
         'indicators': indicators.toList(),
-        'magnet': magnet,
+        'snap': magnet,
       };
 }
 
@@ -238,6 +242,12 @@ class ChartPreferencesNotifier
     kHlLayerCrowd,
     kHlLayerMacro,
   };
+  /// The indicators the Chart sheet lists (founder, 1 November 2026:
+  /// "keep only the ones that are actually useful on a phone"). Anything
+  /// else a record still carries (MA 20/50, Stoch, ATR, Vol MA, log
+  /// scale, the market-signal layers) loads as off; the series code stays.
+  static const shownIndicators = {'vol', 'ema', 'bb', 'rsi', 'macd', 'vwap'};
+
   bool _disposed = false;
   late Future<void> _loaded;
   Future<void> _writes = Future.value();
@@ -268,9 +278,9 @@ class ChartPreferencesNotifier
         indicators: indicators is List
             ? Set.unmodifiable(indicators
                 .whereType<String>()
-                .where(supportedIndicators.contains))
+                .where(shownIndicators.contains))
             : const {'vol'},
-        magnet: raw['magnet'] == true,
+        magnet: raw['snap'] != false,
       );
       if (encoded == null) await box.put(arg, jsonEncode(state.toJson()));
     } catch (_) {
@@ -300,6 +310,13 @@ class ChartPreferencesNotifier
       if (!next.add(key)) next.remove(key);
       return old.copyWith(indicators: Set.unmodifiable(next));
     });
+  }
+
+  /// Replaces the whole set at once (the sheet's two-pane rule and its
+  /// Reset), keeping the given order: the oldest pane comes first.
+  void setIndicators(Iterable<String> keys) {
+    _update((old) => old.copyWith(
+        indicators: Set.unmodifiable(keys.where(supportedIndicators.contains))));
   }
 
   void toggleMagnet() => _update((old) => old.copyWith(magnet: !old.magnet));

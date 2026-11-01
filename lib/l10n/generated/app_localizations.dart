@@ -20106,6 +20106,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other contacts'**
   String get sendOtherContacts;
+
+  /// Title of the chart sheet (style and indicators) on a market chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart'**
+  String get chartSheetTitle;
+
+  /// Section label above the three chart style cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get chartSheetStyle;
+
+  /// Indicator name: the EMA 9/21 trend lines.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving averages'**
+  String get chartIndEma;
+
+  /// One-line explanation of the moving averages indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Short and long trend lines'**
+  String get chartIndEmaNote;
+
+  /// Indicator name.
+  ///
+  /// In en, this message translates to:
+  /// **'Bollinger bands'**
+  String get chartIndBb;
+
+  /// One-line explanation of Bollinger bands.
+  ///
+  /// In en, this message translates to:
+  /// **'How far the price usually swings'**
+  String get chartIndBbNote;
+
+  /// Indicator name (relative strength index).
+  ///
+  /// In en, this message translates to:
+  /// **'RSI'**
+  String get chartIndRsi;
+
+  /// One-line explanation of RSI.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether buying or selling is overstretched'**
+  String get chartIndRsiNote;
+
+  /// Indicator name.
+  ///
+  /// In en, this message translates to:
+  /// **'MACD'**
+  String get chartIndMacd;
+
+  /// One-line explanation of MACD.
+  ///
+  /// In en, this message translates to:
+  /// **'Momentum turning up or down'**
+  String get chartIndMacdNote;
+
+  /// Indicator name (volume-weighted average price).
+  ///
+  /// In en, this message translates to:
+  /// **'VWAP'**
+  String get chartIndVwap;
+
+  /// One-line explanation of VWAP.
+  ///
+  /// In en, this message translates to:
+  /// **'Average price weighted by volume'**
+  String get chartIndVwapNote;
+
+  /// One-line explanation of the volume indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'How much traded each bar'**
+  String get chartIndVolumeNote;
+
+  /// Button restoring the chart's default style and indicators.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get chartReset;
+
+  /// Toast when a third pane below the chart replaces the oldest one.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is off: two fit below the chart'**
+  String chartPaneLimit(String name);
+
+  /// No description provided for @chartToolCursor.
+  ///
+  /// In en, this message translates to:
+  /// **'Cursor'**
+  String get chartToolCursor;
+
+  /// No description provided for @chartToolHorizontalLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Horizontal line'**
+  String get chartToolHorizontalLine;
+
+  /// No description provided for @chartMoreTools.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get chartMoreTools;
+
+  /// No description provided for @chartColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get chartColor;
+
+  /// No description provided for @chartBlueColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get chartBlueColor;
+
+  /// No description provided for @chartLineSolid.
+  ///
+  /// In en, this message translates to:
+  /// **'Solid line'**
+  String get chartLineSolid;
+
+  /// No description provided for @chartLineDashed.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashed line'**
+  String get chartLineDashed;
+
+  /// No description provided for @chartExtendLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Extend to the right'**
+  String get chartExtendLine;
+
+  /// No description provided for @chartLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock'**
+  String get chartLock;
+
+  /// No description provided for @chartUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get chartUnlock;
+
+  /// No description provided for @chartDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get chartDuplicate;
+
+  /// No description provided for @chartHintTapFirstPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the first point: {tool}'**
+  String chartHintTapFirstPoint(String tool);
+
+  /// No description provided for @chartHintTapSecondPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Now tap the second point.'**
+  String get chartHintTapSecondPoint;
+
+  /// No description provided for @chartHintToolKept.
+  ///
+  /// In en, this message translates to:
+  /// **'{tool} stays on. Tap it to stop.'**
+  String chartHintToolKept(String tool);
+
+  /// No description provided for @chartHintLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked. Unlock it to move it.'**
+  String get chartHintLocked;
+
+  /// No description provided for @chartHintPickToolKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a tool. Double-tap one to keep it on.'**
+  String get chartHintPickToolKeep;
+
+  /// About a market sheet: the quiet line under the market description. {venue} is the exchange or builder name, {kind} is Perp or Spot.
+  ///
+  /// In en, this message translates to:
+  /// **'Traded on {venue} · {kind}'**
+  String hlAboutTradedOn(String venue, String kind);
+
+  /// About a market sheet, fallback description: the market's name with its ticker, e.g. 'Bitcoin (BTC)'.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} ({ticker})'**
+  String hlAboutMarketLabel(String name, String ticker);
+
+  /// About a market sheet: the description when no curated text exists, for a market listed by a builder exchange on Hyperliquid. {kind} is a phrase like 'a stock-linked perpetual'.
+  ///
+  /// In en, this message translates to:
+  /// **'{market} · {kind} traded on {venue} via Hyperliquid.'**
+  String hlAboutFallbackBuilder(String market, String kind, String venue);
+
+  /// About a market sheet: the description when no curated text exists, for a market on Hyperliquid's own exchange. {kind} is a phrase like 'a spot token'.
+  ///
+  /// In en, this message translates to:
+  /// **'{market} · {kind} traded on Hyperliquid.'**
+  String hlAboutFallbackMain(String market, String kind);
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual on a crypto token'**
+  String get hlAboutKindCryptoPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a stock-linked perpetual'**
+  String get hlAboutKindStockPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a commodity-linked perpetual'**
+  String get hlAboutKindCommodityPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'an index-linked perpetual'**
+  String get hlAboutKindIndexPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a currency-pair perpetual'**
+  String get hlAboutKindFxPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual on a private company before its IPO'**
+  String get hlAboutKindPreIpoPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'an interest-rate perpetual'**
+  String get hlAboutKindRatesPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a perpetual'**
+  String get hlAboutKindPerp;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token'**
+  String get hlAboutKindSpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking a stock'**
+  String get hlAboutKindStockSpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking a commodity'**
+  String get hlAboutKindCommoditySpot;
+
+  /// Fallback market description: kind phrase, lower case, used inside a sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'a spot token tracking an index'**
+  String get hlAboutKindIndexSpot;
 }
 
 class _AppLocalizationsDelegate

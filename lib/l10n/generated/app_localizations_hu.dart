@@ -11986,4 +11986,161 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get sendOtherContacts => 'Other contacts';
+
+  @override
+  String get chartSheetTitle => 'Chart';
+
+  @override
+  String get chartSheetStyle => 'Style';
+
+  @override
+  String get chartIndEma => 'Moving averages';
+
+  @override
+  String get chartIndEmaNote => 'Short and long trend lines';
+
+  @override
+  String get chartIndBb => 'Bollinger bands';
+
+  @override
+  String get chartIndBbNote => 'How far the price usually swings';
+
+  @override
+  String get chartIndRsi => 'RSI';
+
+  @override
+  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+
+  @override
+  String get chartIndMacd => 'MACD';
+
+  @override
+  String get chartIndMacdNote => 'Momentum turning up or down';
+
+  @override
+  String get chartIndVwap => 'VWAP';
+
+  @override
+  String get chartIndVwapNote => 'Average price weighted by volume';
+
+  @override
+  String get chartIndVolumeNote => 'How much traded each bar';
+
+  @override
+  String get chartReset => 'Reset';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name is off: two fit below the chart';
+  }
+
+  @override
+  String get chartToolCursor => 'Cursor';
+
+  @override
+  String get chartToolHorizontalLine => 'Horizontal line';
+
+  @override
+  String get chartMoreTools => 'More';
+
+  @override
+  String get chartColor => 'Color';
+
+  @override
+  String get chartBlueColor => 'Blue';
+
+  @override
+  String get chartLineSolid => 'Solid line';
+
+  @override
+  String get chartLineDashed => 'Dashed line';
+
+  @override
+  String get chartExtendLine => 'Extend to the right';
+
+  @override
+  String get chartLock => 'Lock';
+
+  @override
+  String get chartUnlock => 'Unlock';
+
+  @override
+  String get chartDuplicate => 'Duplicate';
+
+  @override
+  String chartHintTapFirstPoint(String tool) {
+    return 'Tap the first point: $tool';
+  }
+
+  @override
+  String get chartHintTapSecondPoint => 'Now tap the second point.';
+
+  @override
+  String chartHintToolKept(String tool) {
+    return '$tool stays on. Tap it to stop.';
+  }
+
+  @override
+  String get chartHintLocked => 'Locked. Unlock it to move it.';
+
+  @override
+  String get chartHintPickToolKeep =>
+      'Pick a tool. Double-tap one to keep it on.';
+
+  @override
+  String hlAboutTradedOn(String venue, String kind) {
+    return 'Traded on $venue · $kind';
+  }
+
+  @override
+  String hlAboutMarketLabel(String name, String ticker) {
+    return '$name ($ticker)';
+  }
+
+  @override
+  String hlAboutFallbackBuilder(String market, String kind, String venue) {
+    return '$market · $kind traded on $venue via Hyperliquid.';
+  }
+
+  @override
+  String hlAboutFallbackMain(String market, String kind) {
+    return '$market · $kind traded on Hyperliquid.';
+  }
+
+  @override
+  String get hlAboutKindCryptoPerp => 'a perpetual on a crypto token';
+
+  @override
+  String get hlAboutKindStockPerp => 'a stock-linked perpetual';
+
+  @override
+  String get hlAboutKindCommodityPerp => 'a commodity-linked perpetual';
+
+  @override
+  String get hlAboutKindIndexPerp => 'an index-linked perpetual';
+
+  @override
+  String get hlAboutKindFxPerp => 'a currency-pair perpetual';
+
+  @override
+  String get hlAboutKindPreIpoPerp =>
+      'a perpetual on a private company before its IPO';
+
+  @override
+  String get hlAboutKindRatesPerp => 'an interest-rate perpetual';
+
+  @override
+  String get hlAboutKindPerp => 'a perpetual';
+
+  @override
+  String get hlAboutKindSpot => 'a spot token';
+
+  @override
+  String get hlAboutKindStockSpot => 'a spot token tracking a stock';
+
+  @override
+  String get hlAboutKindCommoditySpot => 'a spot token tracking a commodity';
+
+  @override
+  String get hlAboutKindIndexSpot => 'a spot token tracking an index';
 }
