@@ -257,8 +257,8 @@ void main() {
             .getSize(find.byKey(const ValueKey('money-steps-station-predictions')))
             .width /
         2;
-    // The pulse: up to 9 (scaled with the station's 5.5) past its edge.
-    final k = r / 5.5;
+    // The pulse: up to 9 (scaled with the station's 14) past its edge.
+    final k = r / 14;
     final pulseLeft = pm2.dx - r - 9 * k;
     expect(sal.dy, closeTo(pm2.dy, 0.5));
     expect(sal.dx, greaterThan(merge2.dx));
