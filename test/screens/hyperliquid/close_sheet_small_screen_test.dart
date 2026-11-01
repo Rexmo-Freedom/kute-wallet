@@ -201,6 +201,12 @@ Future<void> _pump(WidgetTester tester, {double scale = 1.0}) async {
   );
   await _frames(tester);
   expect(find.byType(HlClosePositionSheet), findsOneWidget);
+  // Opens empty; Max fills the whole position.
+  expect(
+      tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText,
+      isNot('33000'));
+  await tester.tap(find.bySemanticsLabel('Use maximum'));
+  await _frames(tester);
   expect(
       tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay)).amountText,
       '33000');

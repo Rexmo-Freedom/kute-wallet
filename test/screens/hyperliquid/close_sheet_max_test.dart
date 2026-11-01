@@ -193,7 +193,11 @@ void main() {
     final hero = find.byType(BigAmountDisplay);
     final max = find.descendant(of: hero, matching: find.byType(AmountMaxChip));
     expect(max, findsOneWidget);
-    // Opens on the whole position, in dollars: 0.5 BTC at 66,000.
+    // Opens empty: nothing is closed until the user says how much.
+    expect(_typed(tester), '');
+    // Max: the whole position, in dollars: 0.5 BTC at 66,000.
+    await tester.tap(find.bySemanticsLabel('Use maximum'));
+    await tester.pump();
     final whole = _typed(tester);
     expect(whole, '33000');
 

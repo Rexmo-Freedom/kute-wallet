@@ -278,6 +278,9 @@ void main() {
       ),
     ));
     await _frames(tester, 6);
+    // The ticket opens empty: Max fills the whole position.
+    await tester.tap(find.bySemanticsLabel('Use maximum'));
+    await _frames(tester, 6);
     return trading;
   }
 

@@ -331,7 +331,7 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   String? _stopReason;
   String? _lastErrorCategory;
   bool _closeSubmitted = false;
-  String _amountMethod = 'prefill';
+  String _amountMethod = 'none';
   late final String _settingsScope = 'hl_close_${identityHashCode(this)}';
 
   Map<String, Object> _closeInputs() {
@@ -422,11 +422,12 @@ class _HlClosePositionSheetState extends ConsumerState<HlClosePositionSheet> {
   @override
   void initState() {
     super.initState();
-    // Default to a full close, shown in the field so the user can edit it down
-    // to any custom size (adapts to THIS position — its coin, its max size).
-    _fraction = 1.0;
-    _amountCtrl.text = _fmtSize(_totalSize);
-    _usdText = _usdForSize(_totalSize);
+    // Opens empty, like the Predictions sell sheet: the user types what to
+    // close, or taps Max for the whole position. Nothing is closed by
+    // default, so a quick confirm never closes more than was asked.
+    _fraction = 0;
+    _amountCtrl.text = '';
+    _usdText = '';
     final draft = widget._initialDraft;
     if (draft != null) _applyDraft(draft);
     _amountCtrl.addListener(_onAmountChanged);
