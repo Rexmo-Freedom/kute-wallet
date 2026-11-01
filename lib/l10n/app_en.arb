@@ -7525,5 +7525,9 @@
   "hlAboutKindCommoditySpot": "a spot token tracking a commodity",
   "@hlAboutKindCommoditySpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
   "hlAboutKindIndexSpot": "a spot token tracking an index",
-  "@hlAboutKindIndexSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."}
+  "@hlAboutKindIndexSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "sendFrequent": "Frequent",
+  "@sendFrequent": {"description": "Send (Bitcoin and Dollars): the header over the row of big avatar circles of the people paid most recently."},
+  "sendAllContacts": "All contacts",
+  "@sendAllContacts": {"description": "Send: the header over the A–Z contacts list."}
 }

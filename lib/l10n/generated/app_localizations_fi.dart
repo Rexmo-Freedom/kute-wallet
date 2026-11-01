@@ -12125,4 +12125,10 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get sendFrequent => 'Frequent';
+
+  @override
+  String get sendAllContacts => 'All contacts';
 }

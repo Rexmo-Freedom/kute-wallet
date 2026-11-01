@@ -11,12 +11,30 @@
 //      row ("See your contacts") leads the list; tapping it prompts (or,
 //      refused for good, opens Settings).
 //
-// Each entry: an avatar circle (the photo, the initials, or the coin's
-// mark), the name and a quiet line; a BADGE on the avatar's corner
-// ([SendPersonBadge]): the Kute mark when the recipient is a Kute user
-// (a `@paykute.com` Lightning address, from a recent or a contact's
+// THE LOOK (founder, 1 November 2026: "these contacts must look better,
+// this page does not look fintech at all"):
+//
+//   * "Frequent" on top: a horizontal row of big avatar circles (56, the
+//     name under in 12 sp, at most 8): the recent recipients, newest
+//     first, a contact standing in for its own address (its name and
+//     photo). Hidden while typing and while a recipient is chosen.
+//   * "All contacts": an A–Z list with sticky letter headers (12 sp,
+//     textSecondary), each letter's rows in the soft card, 60 tall: the
+//     avatar at 44 (the photo, else the initials in one of six muted
+//     chart tints derived from the name, [sendAvatarTint]), the name
+//     16 w500, the address or number 13 textSecondary, no chevrons, the
+//     hairlines inset to the text. What is typed filters it.
+//
+// Every avatar wears a BADGE on its corner ([SendPersonBadge]): Sal's face
+// when the recipient is a Kute user (founder: "Kute is actually my Sal";
+// a `@paykute.com` Lightning address, from a recent or a contact's
 // email), ⚡ when it is any other Lightning address (or an LNURL); none
 // for a plain phone contact or a coin address.
+//
+// [SendContactsSection] is a SLIVER: the flows put it in their one
+// CustomScrollView under the field and the cards, so the list flows under
+// the floating bar with the bar's clearance at the scroll's end (the
+// Dollars Send reference), never in a clipped box of its own.
 //
 // A tap hands the entry to the flow ([SendContactsSection.onPerson]): an
 // entry with an address is paid directly (as a recent always was); a
@@ -38,9 +56,9 @@
 // list below drops them ([SendContactsSection.excludeAddress]) and, with
 // anyone left, reads "Other contacts".
 //
-// With no contacts (not granted, or an empty book) the recents keep their
-// circles row ([SendRecentCircles]); with contacts everything is the one
-// list. Everything is local: numbers never leave the phone.
+// Until the contacts are granted, "All contacts" holds the ask row (and,
+// while typing, the matching recents). Everything is local: numbers never
+// leave the phone.
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -222,8 +240,94 @@ String sendRecipientName(SendPerson? match, String address) {
   return name.isNotEmpty ? name : sendShortAddress(address.trim());
 }
 
-/// The Contacts section under a send's search field (see the file
-/// header).
+/// The most entries the Frequent row shows.
+const int kSendFrequentMax = 8;
+
+/// The Frequent row (see the file header): the recents, newest first,
+/// each standing as the contact that has its address when there is one,
+/// at most [kSendFrequentMax].
+List<SendPerson> sendFrequent({
+  required List<SendPerson> recents,
+  required List<SendContact> contacts,
+}) {
+  final byAddress = {
+    for (final ct in contacts)
+      if (sendAddressKey(ct.lightningAddress).isNotEmpty)
+        sendAddressKey(ct.lightningAddress): ct
+  };
+  final out = <SendPerson>[];
+  final seen = <String>{};
+  for (final r in recents) {
+    final key = sendAddressKey(r.address);
+    if (key.isEmpty || !seen.add(key)) continue;
+    final ct = byAddress[key];
+    out.add(ct != null ? SendPerson.contact(ct) : r);
+    if (out.length == kSendFrequentMax) break;
+  }
+  return out;
+}
+
+/// The letter an entry files under in the A–Z list: its name's first
+/// letter, upper case (accents folded for the Latin letters), else "#".
+String sendIndexLetter(String name) {
+  final t = name.trim();
+  if (t.isEmpty) return '#';
+  var ch = t.substring(0, 1).toUpperCase();
+  const folds = {
+    'Á': 'A', 'À': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A', 'Å': 'A',
+    'Ç': 'C', 'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+    'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I', 'Ñ': 'N',
+    'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O', 'Ø': 'O',
+    'Š': 'S', 'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U', 'Ý': 'Y', 'Ž': 'Z',
+  };
+  ch = folds[ch] ?? ch;
+  return RegExp(r'^[A-Z]$').hasMatch(ch) ? ch : '#';
+}
+
+/// [people] filed A–Z by [sendIndexLetter], each letter's entries by
+/// name, "#" last.
+List<(String, List<SendPerson>)> sendAlphabetical(List<SendPerson> people) {
+  final groups = <String, List<SendPerson>>{};
+  for (final p in people) {
+    groups.putIfAbsent(sendIndexLetter(p.name), () => []).add(p);
+  }
+  final letters = groups.keys.toList()
+    ..sort((a, b) {
+      if (a == '#') return b == '#' ? 0 : 1;
+      if (b == '#') return -1;
+      return a.compareTo(b);
+    });
+  return [
+    for (final l in letters)
+      (
+        l,
+        groups[l]!
+          ..sort((a, b) =>
+              a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+      ),
+  ];
+}
+
+/// The muted tint an initials avatar wears for [name]: one of the chart
+/// palette's six, picked by a hash of the name that never changes from
+/// one run to the next (String.hashCode may).
+int sendAvatarTintIndex(String name, {int tints = 6}) {
+  var h = 0;
+  for (final u in name.trim().toLowerCase().codeUnits) {
+    h = (h * 31 + u) & 0x3fffffff;
+  }
+  return h % tints;
+}
+
+/// The tint itself, from [c]'s chart palette.
+Color sendAvatarTint(AppColorsExtension c, String name) {
+  final palette = c.chartCategorical;
+  final n = palette.length < 6 ? palette.length : 6;
+  return palette[sendAvatarTintIndex(name, tints: n)];
+}
+
+/// The Contacts under a send's search field, as SLIVERS for the flow's
+/// one CustomScrollView (see the file header).
 class SendContactsSection extends ConsumerWidget {
   const SendContactsSection({
     super.key,
@@ -232,24 +336,27 @@ class SendContactsSection extends ConsumerWidget {
     required this.onPerson,
     required this.onPhoneLink,
     this.excludeAddress,
+    this.background,
   });
 
   /// What the field holds (filters the list).
   final String query;
-
-  /// The chosen recipient's address, while the field holds a resolved
-  /// destination: that person is left out (the recipient card shows
-  /// them), the field no longer filters (it holds an address, not a
-  /// search), and the list reads "Other contacts".
-  final String? excludeAddress;
   final List<SendPerson> recents;
   final ValueChanged<SendPerson> onPerson;
 
   /// A typed number no contact has: the claim link to it.
   final ValueChanged<String> onPhoneLink;
 
-  /// The most entries listed at once (type to find the rest).
-  static const int maxRows = 60;
+  /// The chosen recipient's address, while the field holds a resolved
+  /// destination: that person is left out (the recipient card shows
+  /// them), the field no longer filters (it holds an address, not a
+  /// search), Frequent hides and the list reads "Other contacts".
+  final String? excludeAddress;
+
+  /// What the sticky letter headers are painted with: the sheet's own
+  /// colour, so rows scroll under them cleanly. Defaults to the page
+  /// background.
+  final Color? background;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -260,11 +367,13 @@ class SendContactsSection extends ConsumerWidget {
     final chosenKey = sendAddressKey(excludeAddress);
     final chosen = chosenKey.isNotEmpty;
     // A recipient is chosen: the field holds its address, not a search.
-    final query = chosen ? '' : this.query;
+    final query = chosen ? '' : this.query.trim();
+    final typing = query.isNotEmpty;
     bool kept(SendPerson p) =>
         !chosen ||
         (sendAddressKey(p.address) != chosenKey &&
             sendAddressKey(p.contact?.lightningAddress) != chosenKey);
+
     final phone = chosen ? null : sendTypedPhone(query);
     final phoneDigits = phone?.replaceAll(RegExp(r'\D'), '');
     final phoneKnown = phoneDigits != null &&
@@ -282,7 +391,7 @@ class SendContactsSection extends ConsumerWidget {
             onTap: () => onPhoneLink(phone),
           )
         : null;
-    final Widget? askRow = state.granted || chosen
+    final Widget? askRow = state.granted || chosen || typing
         ? null
         : SendToListRow(
             key: const ValueKey('send-contacts-ask-row'),
@@ -303,81 +412,307 @@ class SendContactsSection extends ConsumerWidget {
             },
           );
 
-    // No book: the ask row, the recents' circles, the phone link.
-    if (contacts.isEmpty) {
-      final shown = [
-        for (final r in recents)
-          if (r.matches(query) && kept(r)) r
-      ];
-      final rows = [
-        if (phoneRow != null) phoneRow,
-        if (askRow != null && query.trim().isEmpty) askRow,
-      ];
-      if (rows.isEmpty && shown.isEmpty) return const SizedBox.shrink();
-      return Padding(
-        key: const ValueKey('send-contacts-section'),
-        padding: EdgeInsets.only(top: 20.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (rows.isNotEmpty) ...[
-              SendSectionLabel(l10n.sendContacts),
-              SendToListCard(colors: c, rows: rows),
-            ],
-            if (shown.isNotEmpty) ...[
-              if (rows.isNotEmpty) SizedBox(height: 20.h),
-              SendSectionLabel(l10n.sendRecentRecipients),
-              SendRecentCircles(items: [
-                for (final p in shown)
-                  SendRecentItem(
-                    id: p.id,
-                    label: p.name,
-                    initials: p.initials.isEmpty ? null : p.initials,
-                    icon: p.icon,
-                    mark: p.mark,
-                    onTap: () => onPerson(p),
+    final frequent = typing || chosen
+        ? const <SendPerson>[]
+        : sendFrequent(recents: recents, contacts: contacts);
+    // The A–Z list: everyone (recents and contacts, once each) with a
+    // book; without one, only while typing (the recents already sit in
+    // Frequent) or as the others beside a chosen recipient.
+    final listed = contacts.isNotEmpty || typing || chosen
+        ? [
+            for (final p in sendPeople(recents: recents, contacts: contacts))
+              if (p.matches(query) && kept(p)) p
+          ]
+        : const <SendPerson>[];
+    final groups = sendAlphabetical(listed);
+
+    if (frequent.isEmpty &&
+        groups.isEmpty &&
+        phoneRow == null &&
+        askRow == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    final headerColor = background ?? c.background;
+    return SliverMainAxisGroup(
+      key: const ValueKey('send-contacts-section'),
+      slivers: [
+        if (frequent.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 20.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SendSectionLabel(l10n.sendFrequent),
+                  SendFrequentRow(people: frequent, onPerson: onPerson),
+                ],
+              ),
+            ),
+          ),
+        if (phoneRow != null || askRow != null || groups.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 20.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SendSectionLabel(
+                      chosen ? l10n.sendOtherContacts : l10n.sendAllContacts),
+                  if (phoneRow != null || askRow != null)
+                    SendToListCard(colors: c, rows: [
+                      if (phoneRow != null) phoneRow,
+                      if (askRow != null) askRow,
+                    ]),
+                ],
+              ),
+            ),
+          ),
+        if (groups.isNotEmpty)
+          SliverMainAxisGroup(
+            key: const ValueKey('send-contacts-list'),
+            slivers: [
+              for (final (letter, people) in groups)
+                SliverMainAxisGroup(slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SendLetterHeader(
+                        letter: letter, color: headerColor, ink: c.textSecondary),
                   ),
-              ]),
+                  SliverToBoxAdapter(
+                    child: _SendContactCard(
+                      people: people,
+                      onPerson: onPerson,
+                    ),
+                  ),
+                ]),
             ],
-          ],
+          ),
+      ],
+    );
+  }
+}
+
+/// The height of a sticky letter header (design units).
+const double kSendLetterHeaderHeight = 30;
+
+/// A letter's sticky header: the letter in 12 sp textSecondary, on the
+/// sheet's own colour so rows pass under it cleanly.
+class _SendLetterHeader extends SliverPersistentHeaderDelegate {
+  _SendLetterHeader(
+      {required this.letter, required this.color, required this.ink});
+
+  final String letter;
+  final Color color;
+  final Color ink;
+
+  // Whole pixels: a fractional extent trips the pinned header's
+  // layout-versus-paint check once the group sums its children.
+  double get _h => kSendLetterHeaderHeight.h.roundToDouble();
+
+  @override
+  double get minExtent => _h;
+
+  @override
+  double get maxExtent => _h;
+
+  @override
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      Container(
+        key: ValueKey('send-letter-$letter'),
+        color: color,
+        alignment: Alignment.bottomLeft,
+        padding: EdgeInsets.only(left: 4.w, bottom: 6.h),
+        child: Text(
+          letter,
+          style: TextStyle(
+            color: ink,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
         ),
       );
-    }
 
-    final people = [
-      for (final p in sendPeople(recents: recents, contacts: contacts))
-        if (p.matches(query) && kept(p)) p
-    ];
-    final rows = <Widget>[
-      if (phoneRow != null) phoneRow,
-      for (final p in people.take(maxRows))
-        SendToListRow(
-          key: ValueKey('send-person-${p.id}'),
-          colors: c,
-          leading: SendPersonAvatar(person: p),
-          title: p.name,
-          subtitle: p.secondary,
-          onTap: () => onPerson(p),
-        ),
-    ];
-    if (rows.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      key: const ValueKey('send-contacts-section'),
-      padding: EdgeInsets.only(top: 20.h),
+  @override
+  bool shouldRebuild(_SendLetterHeader old) =>
+      old.letter != letter || old.color != color || old.ink != ink;
+}
+
+/// One letter's rows in the soft card, hairlines inset to the text.
+class _SendContactCard extends StatelessWidget {
+  const _SendContactCard({required this.people, required this.onPerson});
+
+  final List<SendPerson> people;
+  final ValueChanged<SendPerson> onPerson;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: c.surfaceLight,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: c.borderSubtle, width: 0.5),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SendSectionLabel(
-              chosen ? l10n.sendOtherContacts : l10n.sendContacts),
-          SendToListCard(
-              key: const ValueKey('send-contacts-list'), colors: c, rows: rows),
+          for (var i = 0; i < people.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 0.5,
+                thickness: 0.5,
+                color: c.borderSubtle,
+                indent: (kSendContactRowInset + 44 + 12).w,
+              ),
+            SendContactRow(
+              key: ValueKey('send-person-${people[i].id}'),
+              person: people[i],
+              onTap: () => onPerson(people[i]),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// An entry's 40 px avatar with its badge on the lower right corner.
+/// A row's side inset inside its card.
+const double kSendContactRowInset = 14;
+
+/// One A–Z row (see the file header): 60 tall, the avatar at 44, the name
+/// 16 w500 over the address or number 13 textSecondary, no chevron.
+class SendContactRow extends StatelessWidget {
+  const SendContactRow({super.key, required this.person, required this.onTap});
+
+  final SendPerson person;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final secondary = person.secondary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: 60.h),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: kSendContactRowInset.w, vertical: 8.h),
+            child: Row(
+              children: [
+                SendPersonAvatar(person: person, size: 44),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        person.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      if (secondary != null && secondary.isNotEmpty) ...[
+                        SizedBox(height: 2.h),
+                        Text(
+                          secondary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Frequent": big avatar circles (56) in one horizontal row, the name
+/// under each in 12 sp; a tap pays as the list does.
+class SendFrequentRow extends StatelessWidget {
+  const SendFrequentRow(
+      {super.key, required this.people, required this.onPerson});
+
+  final List<SendPerson> people;
+  final ValueChanged<SendPerson> onPerson;
+
+  static const double avatar = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    // As tall as a circle and one name line at the reader's text size.
+    final nameLine = MediaQuery.textScalerOf(context).scale(12.sp) * 1.4;
+    return SizedBox(
+      key: const ValueKey('send-frequent-row'),
+      height: avatar.sp + 8.h + nameLine + 4,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        clipBehavior: Clip.none,
+        itemCount: people.length,
+        separatorBuilder: (_, __) => SizedBox(width: 12.w),
+        itemBuilder: (context, i) {
+          final p = people[i];
+          return Semantics(
+            button: true,
+            label: p.name,
+            excludeSemantics: true,
+            child: GestureDetector(
+              key: ValueKey('send-frequent-${p.id}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onPerson(p),
+              child: SizedBox(
+                width: avatar.sp + 10.w,
+                child: Column(
+                  children: [
+                    SendPersonAvatar(person: p, size: avatar),
+                    SizedBox(height: 8.h),
+                    Text(
+                      p.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// An entry's avatar (40 by default) with its badge on the lower right
+/// corner: the photo, a coin mark, or the initials on their name's tint.
 class SendPersonAvatar extends StatelessWidget {
   const SendPersonAvatar({super.key, required this.person, this.size = 40});
 
@@ -401,7 +736,7 @@ class SendPersonAvatar extends StatelessWidget {
         child: Text(
           person.initials,
           style: TextStyle(
-            color: c.textPrimary,
+            color: sendAvatarTint(c, person.name),
             fontSize: (size * 0.36).sp,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
@@ -412,6 +747,9 @@ class SendPersonAvatar extends StatelessWidget {
       inner = Icon(person.icon ?? Icons.person_rounded,
           color: c.textPrimary, size: (size * 0.5).sp);
     }
+    final tinted = person.photo == null &&
+        person.mark == null &&
+        person.initials.isNotEmpty;
     final badge = d * 0.42;
     return SizedBox.square(
       dimension: d,
@@ -419,13 +757,21 @@ class SendPersonAvatar extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
+            key: const ValueKey('send-avatar-circle'),
             width: d,
             height: d,
-            decoration: BoxDecoration(
-              color: c.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: c.borderSubtle, width: 0.5),
-            ),
+            decoration: tinted
+                // Initials on a soft colour derived from the name.
+                ? BoxDecoration(
+                    color: sendAvatarTint(c, person.name)
+                        .withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  )
+                : BoxDecoration(
+                    color: c.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.borderSubtle, width: 0.5),
+                  ),
             child: inner,
           ),
           if (person.badge != SendPersonBadge.none)
@@ -440,8 +786,9 @@ class SendPersonAvatar extends StatelessWidget {
   }
 }
 
-/// The badge itself: the Kute mark (a "k" on the ink circle) or ⚡ (a bolt
-/// on amber), ringed in the card's surface.
+/// The badge itself: Sal's face for a Kute user (founder: "Kute is
+/// actually my Sal"; the idle clip's first frame, still) or ⚡ (a bolt on
+/// amber), in a small white-ringed circle.
 class SendPersonBadgeDot extends StatelessWidget {
   const SendPersonBadgeDot(
       {super.key, required this.badge, required this.size});
@@ -451,7 +798,6 @@ class SendPersonBadgeDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     final kute = badge == SendPersonBadge.kute;
     return Semantics(
       label:
@@ -462,21 +808,54 @@ class SendPersonBadgeDot extends StatelessWidget {
         height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: kute ? c.textPrimary : const Color(0xFFFFB300),
+          color: kute ? Colors.white : const Color(0xFFFFB300),
           shape: BoxShape.circle,
-          border: Border.all(color: c.surfaceLight, width: 1.5),
+          border: Border.all(color: Colors.white, width: 1.5),
         ),
         child: kute
-            ? Text(
-                'k',
-                style: TextStyle(
-                  color: c.surfaceLight,
-                  fontSize: size * 0.62,
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
-                ),
-              )
+            ? ClipOval(child: SendSalFaceStill(size: size - 3))
             : Icon(Icons.bolt_rounded, color: Colors.white, size: size * 0.78),
+      ),
+    );
+  }
+}
+
+/// Sal's face, still: the first frame of the `idle` sprite sheet (its
+/// framing is the face), cropped from the sheet without the sprite
+/// player, so a badge never animates or waits on the clip cache.
+class SendSalFaceStill extends StatelessWidget {
+  const SendSalFaceStill({super.key, required this.size});
+
+  final double size;
+
+  /// The sheet: 8 columns by 6 rows of the idle clip.
+  static const String asset = 'lib/assets/sal/idle@2x.webp';
+  static const int columns = 8;
+  static const int rows = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2;
+    return SizedBox.square(
+      key: const ValueKey('send-sal-face'),
+      dimension: size,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: size * columns,
+          maxWidth: size * columns,
+          minHeight: size * rows,
+          maxHeight: size * rows,
+          child: Image.asset(
+            asset,
+            width: size * columns,
+            height: size * rows,
+            fit: BoxFit.fill,
+            cacheWidth: (size * columns * dpr).ceil(),
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
+        ),
       ),
     );
   }
@@ -530,25 +909,9 @@ class SendRecipientCard extends ConsumerWidget {
       children: [
         SendSectionLabel(
           l10n.sendRecipientSendingTo,
-          trailing: Semantics(
-            button: true,
-            child: GestureDetector(
-              key: const ValueKey('send-recipient-change'),
-              behavior: HitTestBehavior.opaque,
-              onTap: onChange,
-              child: Padding(
-                padding: EdgeInsets.only(left: 12.w),
-                child: Text(
-                  l10n.sendRecipientChange,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ),
-            ),
+          trailing: SendChangeButton(
+            key: const ValueKey('send-recipient-change'),
+            onTap: onChange,
           ),
         ),
         Material(

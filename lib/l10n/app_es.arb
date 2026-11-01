@@ -3421,5 +3421,7 @@
   "hlAboutKindSpot": "a spot token",
   "hlAboutKindStockSpot": "a spot token tracking a stock",
   "hlAboutKindCommoditySpot": "a spot token tracking a commodity",
-  "hlAboutKindIndexSpot": "a spot token tracking an index"
+  "hlAboutKindIndexSpot": "a spot token tracking an index",
+  "sendFrequent": "Frequent",
+  "sendAllContacts": "All contacts"
 }
