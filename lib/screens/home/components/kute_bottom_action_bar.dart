@@ -243,17 +243,12 @@ class KuteActionRow extends StatelessWidget {
   }
 }
 
-/// Every action of a surface in ONE row under its balance, each a wide
-/// pill in the floating Sal pill's own chrome (founder, 1 November 2026:
-/// "the design should all be like Search or ask Sal", the pill look and
-/// its spring, the buttons adapting to the space): Purchase · Scan · Send
-/// · Receive on the Bitcoin tab, Add · Send on Investments, equal widths
-/// filling the row, icon and label inline, the label scaling down before
-/// it ever clips. A [KuteDockAction.solid] action (Purchase) keeps the
-/// primary fill; the rest wear the pill's white (surface in dark), border
-/// and soft shadow. Pressing is the app's press spring ([KutePressable]);
-/// a change of width (a row gaining or losing an action, a rotation) runs
-/// on the chip spring. Same events as the dock's buttons.
+/// Every action of a surface in ONE compact row under its balance: a squared
+/// button with its label under it (Purchase · Scan · Receive · Send on the
+/// Bitcoin tab, Add · Send on Investments), so the actions take one row,
+/// not two or three (founder, 31 October 2026). A [KuteDockAction.solid]
+/// action wears the primary fill (Purchase); the rest the neutral chrome.
+/// Same events as the dock's buttons.
 class KuteCompactActions extends StatelessWidget {
   const KuteCompactActions(
       {super.key, required this.actions, required this.source});
@@ -261,11 +256,8 @@ class KuteCompactActions extends StatelessWidget {
   final List<KuteDockAction> actions;
   final String source;
 
-  /// The pills' height: the Sal pill's.
-  static const double pillHeight = _kDockPillHeight;
-
-  /// The gap between two pills.
-  static const double gap = 8;
+  /// The action squares' side.
+  static const double squareSize = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -275,16 +267,11 @@ class KuteCompactActions extends StatelessWidget {
       key: const ValueKey('kute-compact-actions'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        for (var i = 0; i < actions.length; i++) ...[
-          if (i > 0) const SizedBox(width: gap),
+        for (final action in actions)
           Expanded(
             child: _CompactAction(
-                action: actions[i],
-                source: source,
-                isLight: isLight,
-                colors: c),
+                action: action, source: source, isLight: isLight, colors: c),
           ),
-        ],
       ],
     );
   }
@@ -308,13 +295,9 @@ class _CompactAction extends StatelessWidget {
     final enabled = action.onTap != null;
     final solid = action.solid;
     final foreground = solid ? context.ctaOnColor : c.textPrimary;
-    final iconColor = !solid && action.strongIcon
-        ? (isLight ? Colors.black : Colors.white)
-        : foreground;
-    final reduce = kuteReduceMotion(context);
-    final radius = BorderRadius.circular(KuteCompactActions.pillHeight / 2);
+    const size = KuteCompactActions.squareSize;
     return Opacity(
-      opacity: enabled ? 1 : (solid ? 0.35 : 0.45),
+      opacity: enabled ? 1 : 0.45,
       child: Semantics(
         button: true,
         enabled: enabled,
@@ -322,83 +305,66 @@ class _CompactAction extends StatelessWidget {
         excludeSemantics: true,
         child: KutePressable(
           enabled: enabled,
-          child: AnimatedContainer(
-            duration:
-                reduce ? KuteMotion.reducedDuration : KuteMotion.chipDuration,
-            curve: reduce ? Curves.linear : KuteMotion.chip,
-            height: KuteCompactActions.pillHeight,
-            decoration: BoxDecoration(
-              color: solid
-                  ? context.ctaFill
-                  : (isLight ? Colors.white : c.surface),
-              borderRadius: radius,
-              border: solid
-                  ? null
-                  : Border.all(
-                      color: isLight ? c.border : c.borderSubtle,
-                      width: isLight ? 1.0 : 0.5,
-                    ),
-              boxShadow: isLight && !solid
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                borderRadius: radius,
-                splashColor:
-                    solid ? foreground.withValues(alpha: 0.16) : null,
-                highlightColor:
-                    solid ? foreground.withValues(alpha: 0.10) : null,
-                onTap: !enabled
-                    ? null
-                    : () {
-                        HapticFeedback.lightImpact();
-                        TrackingService.quickAction(action.trackingId,
-                            source: source);
-                        action.onTap!();
-                      },
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(action.icon, size: 20, color: iconColor),
-                      SizedBox(width: 6.w),
-                      // The label gives way before the pill does: it scales
-                      // down to the room left on a narrow phone, never
-                      // clipped or wrapped.
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            action.label,
-                            maxLines: 1,
-                            softWrap: false,
-                            style: TextStyle(
-                              color: foreground,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -0.2,
+          child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: !enabled
+                ? null
+                : () {
+                    HapticFeedback.lightImpact();
+                    TrackingService.quickAction(action.trackingId,
+                        source: source);
+                    action.onTap!();
+                  },
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 4.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: solid
+                          ? context.ctaFill
+                          : (isLight ? Colors.white : c.surface),
+                      borderRadius: AppRadius.buttonBorder,
+                      border: solid
+                          ? null
+                          : Border.all(
+                              color: isLight ? c.border : c.borderSubtle,
+                              width: isLight ? 1.0 : 0.5,
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
+                      boxShadow: isLight && !solid
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(action.icon, size: 22, color: foreground),
                   ),
-                ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    action.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 12.5.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
         ),
       ),
     );
