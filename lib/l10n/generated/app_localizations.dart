@@ -19968,6 +19968,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manage with AI'**
   String get connectAiAction;
+
+  /// Sheet title when the password manager the user picked for their passkey (e.g. a third-party one) cannot produce the key Kute derives the wallet from.
+  ///
+  /// In en, this message translates to:
+  /// **'This password manager can\'t hold your Kute wallet'**
+  String get passkeyPrfUnsupportedTitle;
+
+  /// Sheet body under passkeyPrfUnsupportedTitle. One calm sentence; nothing was saved.
+  ///
+  /// In en, this message translates to:
+  /// **'It doesn\'t support the key Kute needs, so nothing was created.'**
+  String get passkeyPrfUnsupportedBody;
+
+  /// iOS primary action: run the passkey step again and save it to Apple's Passwords app.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Apple Passwords'**
+  String get passkeyPrfUseApplePasswords;
+
+  /// Android primary action: run the passkey step again and save it to Google Password Manager.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Google Password Manager'**
+  String get passkeyPrfUseGooglePasswordManager;
+
+  /// iOS hint under the passkey sheet actions: choose the Passwords app in the system sheet that follows.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick Passwords when asked'**
+  String get passkeyPrfPickApplePasswords;
+
+  /// Android hint under the passkey sheet actions: choose Google Password Manager in the system sheet that follows.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick Google Password Manager when asked'**
+  String get passkeyPrfPickGooglePasswordManager;
+
+  /// Secondary action: create the wallet with a 12-word recovery phrase instead of a passkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a recovery phrase instead'**
+  String get passkeyPrfUsePhraseInstead;
+
+  /// Run the same passkey step again.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get passkeyPrfTryAgain;
+
+  /// Sheet title when signing in with a passkey came back without the key that opens the wallet. Nothing is deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'This password manager didn\'t return your Kute key'**
+  String get passkeyPrfSignInTitle;
+
+  /// Sheet body under passkeyPrfSignInTitle when an existing wallet is being opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.'**
+  String get passkeyPrfSignInBody;
+
+  /// Sheet body under passkeyPrfSignInTitle in the restore flow.
+  ///
+  /// In en, this message translates to:
+  /// **'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.'**
+  String get passkeyPrfRestoreBody;
+
+  /// Action: restore the wallet by typing its recovery phrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore with your recovery phrase'**
+  String get passkeyPrfRestoreWithPhrase;
+
+  /// iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with Apple Passwords'**
+  String get passkeyChoiceWorksWithApple;
+
+  /// Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with Google Password Manager'**
+  String get passkeyChoiceWorksWithGoogle;
 }
 
 class _AppLocalizationsDelegate

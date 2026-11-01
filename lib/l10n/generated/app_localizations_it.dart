@@ -11974,4 +11974,54 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get connectAiAction => 'Manage with AI';
+
+  @override
+  String get passkeyPrfUnsupportedTitle =>
+      'This password manager can\'t hold your Kute wallet';
+
+  @override
+  String get passkeyPrfUnsupportedBody =>
+      'It doesn\'t support the key Kute needs, so nothing was created.';
+
+  @override
+  String get passkeyPrfUseApplePasswords => 'Use Apple Passwords';
+
+  @override
+  String get passkeyPrfUseGooglePasswordManager =>
+      'Use Google Password Manager';
+
+  @override
+  String get passkeyPrfPickApplePasswords => 'Pick Passwords when asked';
+
+  @override
+  String get passkeyPrfPickGooglePasswordManager =>
+      'Pick Google Password Manager when asked';
+
+  @override
+  String get passkeyPrfUsePhraseInstead => 'Use a recovery phrase instead';
+
+  @override
+  String get passkeyPrfTryAgain => 'Try again';
+
+  @override
+  String get passkeyPrfSignInTitle =>
+      'This password manager didn\'t return your Kute key';
+
+  @override
+  String get passkeyPrfSignInBody =>
+      'Nothing was changed. Try again and pick the password manager that holds your Kute passkey.';
+
+  @override
+  String get passkeyPrfRestoreBody =>
+      'It doesn\'t support the key Kute needs to open your wallet. Restore with your recovery phrase instead.';
+
+  @override
+  String get passkeyPrfRestoreWithPhrase => 'Restore with your recovery phrase';
+
+  @override
+  String get passkeyChoiceWorksWithApple => 'Works with Apple Passwords';
+
+  @override
+  String get passkeyChoiceWorksWithGoogle =>
+      'Works with Google Password Manager';
 }

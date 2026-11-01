@@ -365,6 +365,55 @@ class PasskeyService {
         e.field0 is PrfProviderError_CredentialNotFound;
   }
 
+  /// The password manager that answered the ceremony cannot produce the
+  /// WebAuthn PRF output Kute derives every passkey wallet from: it made
+  /// (or found) a passkey but returned no PRF key for it. Microsoft
+  /// Authenticator and some other third-party credential providers do
+  /// this. No retry against the same manager can succeed, and nothing
+  /// can be derived, so callers stop before saving anything and show the
+  /// "this password manager can't hold your Kute wallet" sheet.
+  ///
+  /// The shapes, by layer (breez SDK v0.26.1):
+  ///  * `register()`: the create ceremony succeeds without PRF outputs,
+  ///    the pinned assertion that follows returns none, and the SDK
+  ///    reports `PasskeyError.createdButNotDerived(source: …)`.
+  ///  * `signIn()`: `PasskeyError.prf(…)` with the same sources.
+  ///  * Source `prfNotSupported`: iOS answers with no `prf` output, or an
+  ///    `invalidResponse` (`ERR_PRF_NOT_SUPPORTED`); Android answers with
+  ///    no `clientExtensionResults.prf`.
+  ///  * Source `prfEvaluationFailed`, kept for any platform that maps it.
+  ///  * Android's `prf` with no `results` reaches Dart as a generic error
+  ///    carrying the plugin's fixed text ([_androidPrfEvaluationFailed]),
+  ///    because the plugin maps that kind to `ERR_PASSKEY`.
+  ///  * The legacy (pre-2.x) channel: `PRF_UNAVAILABLE` with the native
+  ///    "did not return PRF output" message (the same code also means "OS
+  ///    too old" / "no plugin", which are not about the manager).
+  ///
+  /// A cancel, a timeout or a missing credential is never this.
+  static bool isPrfUnsupportedError(Object e) {
+    PrfProviderError? source;
+    if (e is PasskeyError_Prf) source = e.field0;
+    if (e is PasskeyError_CreatedButNotDerived) source = e.source;
+    if (source != null) {
+      return source is PrfProviderError_PrfNotSupported ||
+          source is PrfProviderError_PrfEvaluationFailed ||
+          (source is PrfProviderError_Generic &&
+              source.field0.contains(_androidPrfEvaluationFailed));
+    }
+    return e is PlatformException &&
+        e.code == 'PRF_UNAVAILABLE' &&
+        (e.message ?? '').contains(_legacyNoPrfOutput);
+  }
+
+  /// Fixed text of the SDK Android plugin's `PrfEvaluationFailed` kind
+  /// (BreezSdkSparkPasskeyPlugin.kt), the only part of that error that
+  /// survives the `ERR_PASSKEY` mapping.
+  static const String _androidPrfEvaluationFailed = 'PRF evaluation failed';
+
+  /// Fixed text of the app's own legacy channel when the credential
+  /// returned no PRF output (PasskeyPrfPlugin.swift, MainActivity.kt).
+  static const String _legacyNoPrfOutput = 'did not return PRF output';
+
   /// Extract a BIP39 mnemonic from a [Seed] (entropy seeds convert via
   /// BDK). Returns null for entropy lengths BIP39 can't represent.
   static Future<String?> mnemonicOfSeed(Seed seed) async {

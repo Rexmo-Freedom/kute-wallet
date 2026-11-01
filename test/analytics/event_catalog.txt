@@ -378,6 +378,8 @@ passkey_label_customized
 passkey_label_pending_flag_failed
 passkey_label_published
 passkey_label_published_handler_failed
+passkey_prf_unsupported
+passkey_prf_unsupported_action
 passkey_restore_cancelled
 passkey_restore_failed
 passkey_restore_post_save_failed
