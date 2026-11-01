@@ -12,7 +12,7 @@
 // they go. Tapping it opens the Sal sheet with that context
 // (showKuteSearch). AS THE PRIMARY BUTTON IT RIDES ABOVE THE KEYBOARD
 // instead (founder, 31 October 2026): at the keyboard's top plus
-// [kBarKeyboardGap], full width, lifted on the sheet spring and back
+// [kBarKeyboardGap], centred at its own width, lifted on the sheet spring and back
 // down with the keys; a search or hidden context still slides under it.
 //
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a context's [actionRowHeight]
@@ -77,7 +77,7 @@ import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show KutePressable, kuteReduceMotion;
+    show KutePressable, kuteMotion, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
@@ -222,7 +222,7 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
     final keyboard = !morphed && inset > 0;
     // The primary button rides ABOVE the keyboard (founder, 31 October
     // 2026): a surface typing into a field keeps its Continue in reach,
-    // the bar at the keyboard's top plus 12 px, full width, on the sheet
+    // the bar at the keyboard's top plus 12 px, centred at its own width, on the sheet
     // spring. A search or hidden context still slides under it.
     final rides = keyboard && top != null && top.isPrimary && !top.hidden;
     final show = top != null &&
@@ -344,10 +344,11 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     // screen's 16 px gutters.
                     padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
                         ctx.isPrimary ? 16.w : 12.w, 2.h),
-                    // Centred; docked right while folded. As a primary
-                    // button it grows to the full width on the chip spring
-                    // (AnimatedSize; the pill's own elastic movement) and
-                    // springs back to the pill.
+                    // Centred; docked right while folded. Pill to button
+                    // and between the button's states the width springs
+                    // on the chip spring (AnimatedSize; the strip's own
+                    // elastic movement): the button is only as wide as
+                    // its words (KuteBarPrimaryButton).
                     child: AnimatedAlign(
                       alignment:
                           collapsed ? Alignment.centerRight : Alignment.center,
@@ -596,24 +597,35 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
   }
 }
 
-/// THE BAR AS THE PRIMARY BUTTON (founder, 31 October 2026; see
-/// KuteBarContext.primary): the screen's 16 px gutters, 56 tall, a PILL
-/// like the Sal pill it grows out of (founder, 1 November 2026: the big
-/// black buttons, Send bitcoin, the slips' Place, wear the pill's shape
-/// and its spring, the button filling the pill's space), the app's
-/// primary fill (textPrimary, the mode's contrast label, w600 16), Sal's
-/// 28 px face at the left: `curious` while the action is
-/// not available (no amount yet), `idle` when it is, `search` at 1.4x
-/// while busy. Disabled: the surface fill, a hairline and the quiet
-/// label; not tappable. Busy: the label beside the progress ring; taps
-/// ignored. A tap runs [KuteBarContext.onPrimary]; a long press (600 ms)
-/// opens the Sal sheet ([onAsk]) so asking Sal stays available.
+/// THE BAR AS THE PRIMARY BUTTON, AN ADAPTIVE PILL (founder, 1 November
+/// 2026; see KuteBarContext.primary). The button is only as wide as what
+/// it says, like the search pill: Sal's 28 px face, the label and the
+/// padding, at least [minWidth] and at most the screen less its 16 px
+/// gutters, centred, [height] tall, fully rounded. It morphs from the
+/// search pill and between its states with the Dollars strip's motion
+/// (kute_pill_tabs.dart): the width springs on [KuteMotion.chip] (the
+/// shell bar's AnimatedSize), the old words slide up and out and the new
+/// ones rise in from below, the fill and ink change on the settle. At once
+/// under Reduce Motion.
 ///
-/// On a tinted slip the context carries the slip's own button look
-/// ([KuteBarContext.style]; founder: never black on the green or red
-/// slip): its fill, ink, radius and weight, the whole button at 0.35
-/// while not available, as the slip's CTA was.
-class KuteBarPrimaryButton extends StatelessWidget {
+/// THREE STATES:
+///   * DISABLED says the step to take ([KuteBarContext.disabledLabel]:
+///     "Enter an amount", "Add who to send to") in the LIGHT pill look:
+///     white (surface in dark), a hairline, the textSecondary label, Sal
+///     `curious`. Never a black or grey-filled bar. Taps do nothing.
+///   * ENABLED is the action in the black look: textPrimary fill, the
+///     mode's contrast label at w600, Sal `idle`. A tinted slip keeps its
+///     own [KuteBarPrimaryStyle] (fill, ink, radius, weight).
+///   * BUSY keeps the size, says the busy label ("Sending…"), Sal plays
+///     `think` (`search` at 1.4x until that clip is there), and a thin
+///     shimmer sweeps left to right across the fill ([shimmerBand] of the
+///     width, [shimmerPeriod] a loop, the ink at 12%). Taps are ignored.
+///     Reduce Motion: no shimmer.
+///
+/// A tap runs [KuteBarContext.onPrimary] (through [onPrimaryTap], the
+/// shell bar's check of the live context); a long press opens the Sal
+/// sheet ([onAsk]).
+class KuteBarPrimaryButton extends StatefulWidget {
   const KuteBarPrimaryButton(
       {super.key,
       required this.barContext,
@@ -627,41 +639,226 @@ class KuteBarPrimaryButton extends StatelessWidget {
   /// [barContext]'s own handler.
   final VoidCallback? onPrimaryTap;
 
-  /// The button's height, and the pill radius that follows from it.
-  static const double height = 56;
+  /// The button's height, its narrowest width, and the pill radius that
+  /// follows from the height.
+  static const double height = 52;
+  static const double minWidth = 160;
   static final BorderRadius radius = BorderRadius.circular(height / 2);
+
+  /// Sal's face and the padding before it and after the label.
+  static const double salSize = 28;
+  static const double paddingStart = 12;
+  static const double paddingEnd = 20;
+
+  /// The busy shimmer: a band this share of the width, once across per
+  /// period.
+  static const double shimmerBand = 0.3;
+  static const Duration shimmerPeriod = Duration(milliseconds: 1200);
+
+  @override
+  State<KuteBarPrimaryButton> createState() => _KuteBarPrimaryButtonState();
+}
+
+class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmer = AnimationController(
+      vsync: this, duration: KuteBarPrimaryButton.shimmerPeriod);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncShimmer();
+  }
+
+  @override
+  void didUpdateWidget(covariant KuteBarPrimaryButton old) {
+    super.didUpdateWidget(old);
+    _syncShimmer();
+  }
+
+  /// The shimmer runs while busy, never under Reduce Motion.
+  void _syncShimmer() {
+    final on = widget.barContext.busy && !kuteReduceMotion(context);
+    if (on && !_shimmer.isAnimating) {
+      // ignore: discarded_futures
+      _shimmer.repeat();
+    } else if (!on && _shimmer.isAnimating) {
+      _shimmer.stop();
+      _shimmer.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _shimmer.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final ctx = barContext;
+    final ctx = widget.barContext;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final busy = ctx.busy;
-    final enabled = ctx.enabled && !busy && ctx.onPrimary != null;
+    final enabled = ctx.actionable;
+    // Live: the action, or the action running. Else the step to take.
     final live = enabled || busy;
     final style = ctx.style;
     final Color fill;
     final Color ink;
-    if (style != null) {
-      fill = live ? style.fill : (style.disabledFill ?? style.fill);
-      ink = live
-          ? style.foreground
-          : (style.disabledForeground ?? style.foreground);
+    final Color border;
+    if (!live) {
+      // The light pill (the search pill's own surface), never filled grey.
+      fill = isLight ? Colors.white : c.surface;
+      ink = c.textSecondary;
+      border = isLight ? c.border : c.borderSubtle;
+    } else if (style != null) {
+      fill = style.fill;
+      ink = style.foreground;
+      border = Colors.transparent;
     } else {
-      fill = live ? c.textPrimary : c.surfaceLight;
-      ink = live ? (isLight ? Colors.white : c.background) : c.textTertiary;
+      fill = c.textPrimary;
+      ink = isLight ? Colors.white : c.background;
+      border = Colors.transparent;
     }
-    // A styled button with no disabled colours of its own fades whole.
-    final faded = style != null && !live && style.disabledFill == null;
-    final clip = busy ? 'search' : (enabled ? 'idle' : 'curious');
-    final label = busy ? (ctx.busyLabel ?? ctx.label) : ctx.label;
+    final label = ctx.primaryLabel;
     final reduce = kuteReduceMotion(context);
-    // The bar sits over the Navigator, outside every page's Material, so
-    // its text would inherit MaterialApp's error style (monospace, a yellow
-    // double underline). The transparent Material gives it the theme's
-    // text style, as the Sal pill's own Material does.
-    return Material(
-      type: MaterialType.transparency,
+    final duration = reduce ? Duration.zero : KuteMotion.chipDuration;
+    final radius = live
+        ? (style?.radius ?? KuteBarPrimaryButton.radius)
+        : KuteBarPrimaryButton.radius;
+    final textStyle = KuteOverlaySurface.textStyle(context).copyWith(
+      color: ink,
+      fontSize: 16.sp,
+      fontWeight:
+          live ? (style?.fontWeight ?? FontWeight.w600) : FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.2,
+    );
+    final ValueKey<String> labelKey = ValueKey(
+        'primary-label|${busy ? 'busy' : enabled ? 'on' : 'off'}|$label');
+
+    // Sal: curious while the step is the person's, idle on the action,
+    // thinking while it runs (search at 1.4x until `think` is there).
+    final fallbackIcon = Icon(Icons.bolt_rounded, size: 22, color: ink);
+    final Widget sal = busy
+        ? SalReactionSprite(
+            key: const ValueKey('primary-sal-think'),
+            clip: 'think',
+            size: KuteBarPrimaryButton.salSize,
+            fallback: SalSprite(
+              clip: 'search',
+              size: KuteBarPrimaryButton.salSize,
+              speed: 1.4,
+              fallback: fallbackIcon,
+            ),
+          )
+        : SalReactionSprite(
+            key: ValueKey('primary-sal-${enabled ? 'idle' : 'curious'}'),
+            clip: enabled ? 'idle' : 'curious',
+            size: KuteBarPrimaryButton.salSize,
+            fallback: fallbackIcon,
+          );
+
+    // The words: the old slide up and out, the new rise from below (the
+    // pill's and the strip's cross-slide). Only the current words size
+    // the button; the leaving ones overflow it, centred, as they go.
+    final Widget words = AnimatedSwitcher(
+      duration: duration,
+      switchInCurve: reduce ? Curves.linear : KuteMotion.chip,
+      switchOutCurve: reduce ? Curves.linear : KuteMotion.settle,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.centerLeft,
+        clipBehavior: Clip.none,
+        children: [
+          for (final p in previous)
+            Positioned.fill(
+              child: OverflowBox(
+                alignment: Alignment.centerLeft,
+                maxWidth: double.infinity,
+                child: p,
+              ),
+            ),
+          if (current != null) current,
+        ],
+      ),
+      transitionBuilder: (child, animation) {
+        final incoming = child.key == labelKey;
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: Offset(0, incoming ? 0.6 : -0.6),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        label,
+        key: labelKey,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: textStyle,
+      ),
+    );
+
+    final Widget content = Padding(
+      padding: const EdgeInsetsDirectional.only(
+        start: KuteBarPrimaryButton.paddingStart,
+        end: KuteBarPrimaryButton.paddingEnd,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedSwitcher(
+            duration: kuteMotion(context, const Duration(milliseconds: 150)),
+            child: sal,
+          ),
+          SizedBox(width: 8.w),
+          Flexible(child: words),
+        ],
+      ),
+    );
+
+    final Widget capsule = AnimatedContainer(
+      key: const ValueKey('kute-bar-primary-button'),
+      duration: duration,
+      // The fill, the ink's ground and the hairline change on the settle:
+      // a decoration lerp never rides the spring (kute_motion.dart).
+      curve: reduce ? Curves.linear : KuteMotion.settle,
+      height: KuteBarPrimaryButton.height,
+      constraints:
+          const BoxConstraints(minWidth: KuteBarPrimaryButton.minWidth),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: radius,
+        border: Border.all(color: border, width: isLight ? 1.0 : 0.5),
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            content,
+            if (busy && !reduce)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _Shimmer(
+                    animation: _shimmer,
+                    color: ink.withValues(alpha: 0.12),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    return KuteOverlaySurface(
       child: Semantics(
         button: true,
         enabled: enabled,
@@ -673,85 +870,63 @@ class KuteBarPrimaryButton extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             // Always wired: the live context decides (see the shell bar's
             // _primaryTap); a drawn-disabled button whose action just came
-            // on takes the tap.
-            onTap: onPrimaryTap ??
+            // on takes the tap. Disabled or busy, nothing runs.
+            onTap: widget.onPrimaryTap ??
                 (enabled
                     ? () {
                         HapticFeedback.lightImpact();
                         ctx.onPrimary!();
                       }
                     : null),
-            onLongPress: onAsk,
-            child: AnimatedOpacity(
-              opacity: faded ? 0.35 : 1,
-              duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-              child: AnimatedContainer(
-                key: const ValueKey('kute-bar-primary-button'),
-                duration: reduce ? Duration.zero : KuteMotion.chipDuration,
-                curve: reduce ? Curves.linear : KuteMotion.chip,
-                height: KuteBarPrimaryButton.height,
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 14.w),
-                decoration: BoxDecoration(
-                  color: fill,
-                  borderRadius: style?.radius ?? KuteBarPrimaryButton.radius,
-                  border: Border.all(
-                    color: live || style != null
-                        ? Colors.transparent
-                        : (isLight ? c.border : c.borderSubtle),
-                    width: isLight ? 1.0 : 0.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    SalReactionSprite(
-                      key: ValueKey('primary-sal-$clip'),
-                      clip: clip,
-                      size: 28,
-                      speed: busy ? 1.4 : 1.0,
-                      fallback: Icon(Icons.bolt_rounded, size: 22, color: ink),
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      // The ink follows the fill on the same spring: switched
-                      // at once, a white label sat on the still-light fill.
-                      child: AnimatedDefaultTextStyle(
-                        duration:
-                            reduce ? Duration.zero : KuteMotion.chipDuration,
-                        curve: reduce ? Curves.linear : KuteMotion.chip,
-                        // The theme's own text style: this build's context is above
-                        // the Material that gives the bar one.
-                        style: (Theme.of(context).textTheme.bodyLarge ??
-                                const TextStyle())
-                            .copyWith(
-                          color: ink,
-                          fontSize: 16.sp,
-                          fontWeight: style?.fontWeight ?? FontWeight.w600,
-                          letterSpacing: -0.2,
-                        ),
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    if (busy) ...[
-                      SizedBox(width: 10.w),
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: ink),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            onLongPress: widget.onAsk,
+            child: capsule,
           ),
         ),
       ),
     );
   }
+}
+
+/// The busy shimmer: a band [KuteBarPrimaryButton.shimmerBand] of the
+/// width, [color] at its middle and clear at its edges, crossing the fill
+/// from just off its left edge to just off its right once per period.
+class _Shimmer extends StatelessWidget {
+  const _Shimmer({required this.animation, required this.color});
+
+  final Animation<double> animation;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, box) {
+          final width = box.maxWidth;
+          final band = width * KuteBarPrimaryButton.shimmerBand;
+          return AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(-band + (width + band) * animation.value, 0),
+              child: child,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                key: const ValueKey('kute-bar-primary-shimmer'),
+                width: band,
+                height: double.infinity,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        color.withValues(alpha: 0),
+                        color,
+                        color.withValues(alpha: 0)
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
 }

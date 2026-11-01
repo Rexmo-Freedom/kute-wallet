@@ -173,8 +173,8 @@ void main() {
   });
 
   testWidgets(
-      'as the primary button it rides above the keyboard: full width at the '
-      'keyboard\'s top plus 12, down again with the keys; the pill hides',
+      'as the primary button it rides above the keyboard: its own width at '
+      'the keyboard\'s top plus 12, down again with the keys; the pill hides',
       (tester) async {
     await _pump(tester);
     await _push(
@@ -195,7 +195,8 @@ void main() {
         moreOrLessEquals(336 + kBarKeyboardGap, epsilon: 1));
     expect(lifted.bottom, lessThanOrEqualTo(844 - 336 - kBarKeyboardGap));
     expect(lifted.width, moreOrLessEquals(rest.width, epsilon: 1));
-    expect(lifted.width, greaterThan(300));
+    expect(lifted.width,
+        greaterThanOrEqualTo(KuteBarPrimaryButton.minWidth - 0.5));
 
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
@@ -299,13 +300,14 @@ void main() {
   });
 
   testWidgets(
-      'as the primary button: the disabled label, then the enabled label '
-      'with the amount, a tap running the handler, a long press asking Sal',
-      (tester) async {
+      'as the primary button: the disabled label in the light look, then the '
+      'enabled label with the amount, a tap running the handler, a long '
+      'press asking Sal', (tester) async {
     await _pump(tester);
     var placed = 0;
     KuteBarContext primary({required bool enabled}) => KuteBarContext.primary(
-          label: enabled ? 'Place prediction · \$10' : 'Enter an amount',
+          label: 'Place prediction · \$10',
+          disabledLabel: 'Enter an amount',
           enabled: enabled,
           onPrimary: () => placed++,
         );
@@ -314,10 +316,13 @@ void main() {
     expect(find.byKey(const ValueKey('kute-bar-primary')), findsOneWidget);
     expect(find.byType(KuteSalPill), findsNothing);
     expect(find.text('Enter an amount'), findsOneWidget);
-    // Full width: the screen less the 16 gutters.
-    final rect = tester.getRect(find.byKey(const ValueKey('kute-bar-primary-button')));
-    expect(rect.height, 56);
-    expect(rect.width, greaterThan(300));
+    expect(find.text('Place prediction · \$10'), findsNothing);
+    // Its own width, centred, 52 tall.
+    final rect =
+        tester.getRect(find.byKey(const ValueKey('kute-bar-primary-button')));
+    expect(rect.height, KuteBarPrimaryButton.height);
+    expect(rect.center.dx, moreOrLessEquals(195, epsilon: 1));
+    expect(rect.width, lessThan(300));
     await tester.tap(find.text('Enter an amount'));
     await tester.pumpAndSettle();
     expect(placed, 0);
