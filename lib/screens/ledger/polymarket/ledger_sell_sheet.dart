@@ -48,8 +48,10 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/capability_unavailable_sheet.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/screens/shared/polymarket_fee_summary.dart';
 import 'package:kute/screens/shared/rubber_band_progress.dart';
@@ -897,12 +899,16 @@ class _LedgerSellAdvancedScreen extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 16.h),
-              child: AppButton(
-                text: l10n.done,
-                onPressed: () => Navigator.of(context).pop(),
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): Done is the
+            // floating Sal bar's primary action; the rows keep clear of it.
+            KuteBarContextScope(
+              barContext: KuteBarContext.primary(
+                label: l10n.done,
+                onPrimary: () => Navigator.of(context).pop(),
+                category: SearchCategory.predictions,
+                source: 'ledger_sell_advanced',
               ),
+              child: SizedBox(height: kuteBarScrollClearance.h),
             ),
           ],
         ),

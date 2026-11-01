@@ -636,12 +636,19 @@ class _BackupWalletState extends ConsumerState<BackupWallet> {
             ),
           ),
         ),
+        // The bar is Verify backup (kute_shell_bar.dart), busy while the
+        // backup is recorded; the same footer the reveal step keeps.
         Padding(
           padding: _footerPadding,
-          child: AppButton(
-            text: context.l10n.verifyBackup,
-            isLoading: _isSaving,
-            onPressed: _isSaving ? null : _verifyBackup,
+          child: KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: context.l10n.verifyBackup,
+              onPrimary: _verifyBackup,
+              enabled: !_isSaving,
+              busy: _isSaving,
+              source: 'backup_verify',
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
         ),
       ],

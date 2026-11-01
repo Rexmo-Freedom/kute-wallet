@@ -6768,18 +6768,27 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                     // landing, so keep checking until the session rules it out.
                     if (_cashAppSession.canOfferNewPurchase) ...[
                       SizedBox(height: 12.h),
-                      CustomButton(
-                        text: l10n.cashAppCreateNewPurchase,
-                        primaryColor: _kCashAppGreen,
-                        textColor: Colors.white,
-                        onPressed: _prepareNewCashAppPurchase,
-                      ),
-                      SizedBox(height: 8.h),
                       Text(
                         l10n.cashAppPreviousPurchaseTracked,
                         textAlign: TextAlign.center,
                         style:
                             TextStyle(color: c.textSecondary, fontSize: 12.sp),
+                      ),
+                      // THE BAR IS THE BUTTON (kute_bar_context.dart):
+                      // Create new purchase is the floating Sal bar's
+                      // primary action, in Cash App's green as the button
+                      // was; the note sits above it.
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: l10n.cashAppCreateNewPurchase,
+                          onPrimary: _prepareNewCashAppPurchase,
+                          style: const KuteBarPrimaryStyle(
+                            fill: _kCashAppGreen,
+                            foreground: Colors.white,
+                          ),
+                          source: 'cash_app_waiting',
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
                     ],
                   ],

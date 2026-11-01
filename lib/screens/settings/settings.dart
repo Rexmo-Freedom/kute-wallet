@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'dart:io';
 
 import 'package:kute/services/onchain/native_onchain_service.dart' show OnchainEndpoint;
@@ -51,7 +53,6 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/components/kute_list_row.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/custom_keypad.dart';
 import 'package:kute/screens/shared/kute_success_overlay.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -1561,15 +1562,19 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
             ),
           ),
           SizedBox(height: 20.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: AppButton(
-              text: _step == 2 ? context.l10n.save : context.l10n.next,
-              onPressed: canContinue ? _handleNextStep : null,
-              isLoading: _isLoading,
+          // THE BAR IS THE BUTTON (kute_bar_context.dart): Next / Save is
+          // the floating Sal bar's primary action, on once six digits are
+          // in, busy while the PIN is checked or saved.
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: _step == 2 ? context.l10n.save : context.l10n.next,
+              onPrimary: _handleNextStep,
+              enabled: canContinue,
+              busy: _isLoading,
+              source: 'change_pin',
             ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
           ),
-          SizedBox(height: 8.h),
         ],
       ),
     );
@@ -2102,10 +2107,18 @@ class _CustomNodeModalContentState
                   ),
                 ],
                 SizedBox(height: 20.h),
-                AppButton(
-                  text: context.l10n.save,
-                  onPressed: _testing ? null : handleSave,
-                  isLoading: _testing,
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Save is
+                // the floating Sal bar's primary action, riding above the
+                // keyboard, busy while the node is tested.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.save,
+                    onPrimary: handleSave,
+                    enabled: !_testing,
+                    busy: _testing,
+                    source: 'custom_node',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ],
             ),
@@ -2561,13 +2574,6 @@ class _TransactionExportWalletSelectorState
           ],
         ),
         SizedBox(height: 12.h),
-        AppButton(
-          text: context.l10n.export,
-          isLoading: _exporting != null,
-          onPressed:
-              canExport ? () => _startExport(context, wallets, _format) : null,
-        ),
-        SizedBox(height: 12.h),
         Text(
           context.l10n.exportOrientationOnly,
           textAlign: TextAlign.center,
@@ -2576,6 +2582,20 @@ class _TransactionExportWalletSelectorState
             fontSize: 12.5.sp,
             height: 1.35,
           ),
+        ),
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Export is the
+        // floating Sal bar's primary action, on while a wallet is picked,
+        // busy while the file is built; the note sits above it.
+        KuteBarContextScope(
+          barContext: KuteBarContext.primary(
+            label: context.l10n.export,
+            onPrimary: () => _startExport(context, wallets, _format),
+            enabled: canExport,
+            busy: _exporting != null,
+            category: SearchCategory.transactions,
+            source: 'export_transactions',
+          ),
+          child: SizedBox(height: kuteBarScrollClearance.h),
         ),
       ],
     );

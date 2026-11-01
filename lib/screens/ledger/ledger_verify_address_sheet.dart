@@ -18,6 +18,7 @@ import 'package:kute/models/settings_model.dart' show WalletConfig;
 import 'package:kute/screens/ledger/ledger_failure_copy.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/ledger_device_picker.dart';
 import 'package:kute/services/hardware/ledger/ledger_failure.dart';
 import 'package:kute/services/ledger_service.dart';
@@ -345,19 +346,30 @@ class _LedgerVerifyAddressSheetState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (_stage != _Stage.mismatch)
-                      AppButton(
-                        text: _stage == _Stage.failed
-                            ? l10n.tryAgain
-                            : l10n.ledgerVerifyAddressButton,
-                        isLoading: _busy,
-                        onPressed: _busy ? null : _verify,
-                      ),
-                    SizedBox(height: 8.h),
                     AppTextButton(
                       text: _stage == _Stage.mismatch ? l10n.close : l10n.cancel,
                       onPressed: _busy ? null : _close,
                     ),
+                    // THE BAR IS THE BUTTON (kute_bar_context.dart): Verify
+                    // on device / Try again is the floating Sal bar's
+                    // primary action, busy while the device is asked;
+                    // Cancel stays a text button above it. A mismatch has
+                    // no primary: the bar is Sal's, over the same room.
+                    if (_stage != _Stage.mismatch)
+                      KuteBarContextScope(
+                        barContext: KuteBarContext.primary(
+                          label: _stage == _Stage.failed
+                              ? l10n.tryAgain
+                              : l10n.ledgerVerifyAddressButton,
+                          onPrimary: _verify,
+                          enabled: !_busy,
+                          busy: _busy,
+                          source: 'ledger_verify_address',
+                        ),
+                        child: SizedBox(height: kuteBarScrollClearance.h),
+                      )
+                    else
+                      SizedBox(height: kuteBarScrollClearance.h),
                   ],
                 ),
               ),

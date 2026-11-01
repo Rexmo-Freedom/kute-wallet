@@ -9,6 +9,8 @@ import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlOpenOrder;
 import 'package:kute/providers/hyperliquid_markets_provider.dart'
     show hyperliquidWireMarketProvider, hlDisplayCoin;
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/ledger/funding/ledger_make_funds_available_sheet.dart';
 import 'package:kute/screens/ledger/hyperliquid/ledger_hl_execution_target.dart';
 import 'package:kute/screens/ledger/ledger_action_ui.dart';
@@ -17,6 +19,7 @@ import 'package:kute/screens/ledger/ledger_connect_steps.dart';
 import 'package:kute/screens/ledger/ledger_tab_actions.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/services/tracking_service.dart';
 
 /// Hooks backed by the Ledger sheets. Use as the value of
@@ -141,19 +144,29 @@ class _LedgerCancelOrderSheetState
         ),
       ],
       buttons: [
-        if (LedgerActions.opaqueHyperliquidAvailable) ...[
-          AppButton(
-            text: l10n.ledgerCancelOrderCta,
-            isLoading: _busy,
-            onPressed: _busy ? null : _cancel,
-          ),
-          SizedBox(height: 10.h),
-        ],
         AppButton(
           text: l10n.ledgerApprovalClose,
           variant: AppButtonVariant.secondary,
           onPressed: () => Navigator.of(context).pop(),
         ),
+        // THE BAR IS THE BUTTON (kute_bar_context.dart): Cancel order is
+        // the floating Sal bar's primary action, busy while the Ledger
+        // approval runs; Close stays drawn above it. Without the hook the
+        // bar is Sal's, over the same room.
+        if (LedgerActions.opaqueHyperliquidAvailable)
+          KuteBarContextScope(
+            barContext: KuteBarContext.primary(
+              label: l10n.ledgerCancelOrderCta,
+              onPrimary: _cancel,
+              enabled: !_busy,
+              busy: _busy,
+              category: SearchCategory.perpetuals,
+              source: 'ledger_hl_cancel',
+            ),
+            child: SizedBox(height: kuteBarScrollClearance.h),
+          )
+        else
+          SizedBox(height: kuteBarScrollClearance.h),
       ],
     );
   }
