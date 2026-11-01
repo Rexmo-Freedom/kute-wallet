@@ -5917,6 +5917,53 @@ class AppLocalizationsIt extends AppLocalizations {
   String get chartVolume => 'Volume';
 
   @override
+  String get chartSheetTitle => 'Chart';
+
+  @override
+  String get chartSheetStyle => 'Style';
+
+  @override
+  String get chartIndEma => 'Moving averages';
+
+  @override
+  String get chartIndEmaNote => 'Short and long trend lines';
+
+  @override
+  String get chartIndBb => 'Bollinger bands';
+
+  @override
+  String get chartIndBbNote => 'How far the price usually swings';
+
+  @override
+  String get chartIndRsi => 'RSI';
+
+  @override
+  String get chartIndRsiNote => 'Whether buying or selling is overstretched';
+
+  @override
+  String get chartIndMacd => 'MACD';
+
+  @override
+  String get chartIndMacdNote => 'Momentum turning up or down';
+
+  @override
+  String get chartIndVwap => 'VWAP';
+
+  @override
+  String get chartIndVwapNote => 'Average price weighted by volume';
+
+  @override
+  String get chartIndVolumeNote => 'How much traded each bar';
+
+  @override
+  String get chartReset => 'Reset';
+
+  @override
+  String chartPaneLimit(String name) {
+    return '$name is off: two fit below the chart';
+  }
+
+  @override
   String get chartLogScale => 'Scala logaritmica';
 
   @override

@@ -36,7 +36,6 @@ import 'package:kute/screens/polymarket/market_detail_sheet.dart'
 import 'package:kute/screens/shared/charts/kute_chart_signals.dart';
 import 'package:kute/services/hyperliquid/insights/hl_crowd_match.dart';
 import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
-import 'package:kute/services/runtime_capabilities_service.dart';
 // lib/screens/hyperliquid/market_detail_sheet.dart
 //
 // Fullscreen market detail for one Hyperliquid market (perp or spot) —
@@ -92,6 +91,7 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart';
 import 'package:kute/screens/hyperliquid/components/hl_drawing_tools.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_history.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_intervals.dart';
+import 'package:kute/screens/hyperliquid/components/hl_chart_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_opening.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
@@ -1056,84 +1056,25 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
   HlChartStyle get _style =>
       HlChartStyle.fromName(ref.read(hlChartLayoutProvider).style);
 
-  (IconData, String) _styleLook(HlChartStyle style) => switch (style) {
-        HlChartStyle.candles => (
-            Icons.candlestick_chart_rounded,
-            context.l10n.chartStyleCandles
-          ),
-        HlChartStyle.hollow => (
-            Icons.crop_square_rounded,
-            context.l10n.chartStyleHollow
-          ),
-        HlChartStyle.bars => (
-            Icons.bar_chart_rounded,
-            context.l10n.chartStyleBars
-          ),
-        HlChartStyle.heikinAshi => (
-            Icons.stacked_bar_chart_rounded,
-            context.l10n.chartStyleHeikinAshi
-          ),
-        HlChartStyle.line => (
-            Icons.show_chart_rounded,
-            context.l10n.chartStyleLine
-          ),
-        HlChartStyle.area => (
-            Icons.area_chart_rounded,
-            context.l10n.chartStyleArea
-          ),
-        HlChartStyle.baseline => (
-            Icons.align_horizontal_center_rounded,
-            context.l10n.chartStyleBaseline
-          ),
+  /// The chart button's glyph for [style] (one of HlChartStyle.picker).
+  IconData _styleIcon(HlChartStyle style) => switch (style) {
+        HlChartStyle.line => Icons.show_chart_rounded,
+        HlChartStyle.area => Icons.area_chart_rounded,
+        _ => Icons.candlestick_chart_rounded,
       };
 
-  /// One sheet with every chart style named, instead of two pills that
-  /// only knew line and candles.
-  Future<void> _pickChartStyle() async {
-    HapticFeedback.selectionClick();
-    final current = _style;
-    final picked = await showAppBottomSheet<HlChartStyle>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppBottomSheetHeader(
-              title: context.l10n.chartStyleTitle,
-              trailing: IconButton(
-                tooltip:
-                    MaterialLocalizations.of(sheetContext).closeButtonTooltip,
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ),
-            for (final style in HlChartStyle.values)
-              AppBottomSheetListTile(
-                title: _styleLook(style).$2,
-                icon: _styleLook(style).$1,
-                isSelected: style == current,
-                onTap: () => Navigator.of(sheetContext).pop(style),
-              ),
-            SizedBox(height: 8.h),
-          ],
-        ),
-      ),
-    );
-    if (picked == null || !mounted || picked == current) return;
-    // Only how the bars are drawn changes: the interval, the view and the
-    // history stay, on this market and every other one.
-    ref.read(hlChartLayoutProvider.notifier).setStyle(picked.name);
-    VenueAnalytics.settingChanged(
-      'chart_type_changed',
-      setting: 'chart_style',
-      value: picked.name,
-      extra: {
-        'type': picked.name,
-        'coin': widget.market.coin,
-        ...VenueAnalytics.hlAssetParams(widget.market.coin),
-      },
-    );
+  /// The Chart sheet (hl_chart_sheet.dart): the three style cards over
+  /// the indicators list. The Advanced editor opens one half from each of
+  /// its two buttons.
+  void _openChartSheet({bool style = true, bool indicators = true}) {
+    unawaited(showHlChartSheet(
+      context,
+      market: widget.market,
+      marketKey: _marketKey,
+      candles: _shownCandles ?? const <HyperliquidCandle>[],
+      showStyle: style,
+      showIndicators: indicators,
+    ));
   }
 
   /// Interval the live tape is actually painted at (the seed may refine a
@@ -1565,81 +1506,13 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
     widget.onAdvancedChanged?.call(entering);
   }
 
-  void _toggleIndicator(String key) {
-    HapticFeedback.selectionClick();
-    _preferences.toggleIndicator(key);
-    TrackingService.track('indicator_toggled', params: {
-      'indicator': key,
-      'enabled': ref
-          .read(hlChartPreferencesProvider(_marketKey))
-          .indicators
-          .contains(key),
-      'coin': widget.market.coin,
-      ...VenueAnalytics.hlAssetParams(widget.market.coin),
-    });
-  }
-
-  List<(String, String)> get _indicatorChips => [
-        ('ma', 'MA 20/50'),
-        ('ema', 'EMA 9/21'),
-        ('bb', 'BB 20/2'),
-        ('vwap', 'VWAP'),
-        ('rsi', 'RSI 14'),
-        ('macd', 'MACD'),
-        ('stoch', 'Stoch 14'),
-        ('atr', 'ATR 14'),
-        ('vol', context.l10n.chartVolume),
-        ('volma', 'Vol MA 20'),
-        ('log', context.l10n.chartLogScale),
-      ];
-
   // ─────────────────────── market-signal layers ───────────────────────
   //
-  // Optional marks about the market, listed under the indicators and
-  // stored with them per market. Every one is off until switched on
-  // there, except the pressure strip (on until switched off).
-
-  /// The layers this market can show: (key, title, note). Funding and
-  /// open interest exist on perps only; the Predictions layers only where
-  /// Predictions is offered, and its levels only for an asset it covers.
-  List<(String, String, String)> get _layers {
-    if (!widget.showSignals) return const [];
-    final l10n = context.l10n;
-    final m = widget.market;
-    final predictions =
-        ref.read(runtimeCapabilitiesProvider).allows('polymarket.browse');
-    return [
-      (kHlLayerPressureOff, l10n.hlLayerPressure, l10n.hlLayerPressureNote),
-      (kHlLayerBigTrades, l10n.hlLayerBigTrades, l10n.hlLayerBigTradesNote),
-      if (!m.isSpot) ...[
-        (kHlLayerFunding, l10n.hlLayerFunding, l10n.hlLayerFundingNote),
-        (kHlLayerOi, l10n.hlLayerOi, l10n.hlLayerOiNote),
-      ],
-      if (predictions && hlCrowdAssetFor(m) != null)
-        (kHlLayerCrowd, l10n.hlLayerCrowd, l10n.hlLayerCrowdNote),
-      if (predictions)
-        (kHlLayerMacro, l10n.hlLayerMacro, l10n.hlLayerMacroNote),
-    ];
-  }
-
-  /// A layer is on when its key is stored, except the pressure strip,
-  /// whose stored key switches it off.
-  static bool _layerOn(Set<String> stored, String key) =>
-      key == kHlLayerPressureOff ? !stored.contains(key) : stored.contains(key);
-
-  void _toggleLayer(String key) {
-    HapticFeedback.selectionClick();
-    final wasOn =
-        _layerOn(ref.read(hlChartPreferencesProvider(_marketKey)).indicators, key);
-    _preferences.toggleIndicator(key);
-    TrackingService.track('indicator_toggled', params: {
-      'indicator': key == kHlLayerPressureOff ? 'pressure' : key,
-      'enabled': !wasOn,
-      'layer': true,
-      'coin': widget.market.coin,
-      ...VenueAnalytics.hlAssetParams(widget.market.coin),
-    });
-  }
+  // Optional marks about the market, stored with the indicators per
+  // market. The Chart sheet no longer lists them (founder, 1 November
+  // 2026: only the useful indicators), so a stored one loads as off
+  // (ChartPreferencesNotifier.shownIndicators); the pressure strip, on
+  // until switched off, stays on.
 
   /// Funding flips, recomputed when a new history lands.
   Object? _flipsSource;
@@ -1787,64 +1660,6 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
       event: target.$1,
       ledgerWalletId: widget.ledgerWalletId,
       source: 'hl_chart',
-    );
-  }
-
-  /// Indicators sit behind one top-bar button (TradingView's "fx") as a
-  /// list that toggles in place, instead of a chip row under the chart.
-  Future<void> _pickIndicators() async {
-    HapticFeedback.selectionClick();
-    await showAppBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => AppBottomSheetContainer(
-        maxHeight: 0.8,
-        child: Consumer(
-          builder: (context, ref, _) {
-            final on =
-                ref.watch(hlChartPreferencesProvider(_marketKey)).indicators;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppBottomSheetHeader(
-                  title: context.l10n.chartIndicators,
-                  trailing: IconButton(
-                    tooltip: MaterialLocalizations.of(sheetContext)
-                        .closeButtonTooltip,
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.only(bottom: 12.h),
-                    children: [
-                      for (final (key, label) in _indicatorChips)
-                        AppBottomSheetListTile(
-                          title: label,
-                          subtitle: key == 'vwap'
-                              ? context.l10n.chartVwapWindow
-                              : null,
-                          isSelected: on.contains(key),
-                          onTap: () => _toggleIndicator(key),
-                        ),
-                      // The market-signal layers, in the same list.
-                      for (final (key, label, note) in _layers)
-                        AppBottomSheetListTile(
-                          title: label,
-                          subtitle: note,
-                          isSelected: _layerOn(on, key),
-                          onTap: () => _toggleLayer(key),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
     );
   }
 
@@ -2436,16 +2251,16 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
           SizedBox(width: 2.w),
           _editIconButton(
             c,
-            icon: _styleLook(_style).$1,
+            icon: _styleIcon(_style),
             tip: l10n.chartStyleTitle,
-            onTap: _pickChartStyle,
+            onTap: () => _openChartSheet(indicators: false),
           ),
           _editIconButton(
             c,
             icon: Icons.functions_rounded,
             tip: l10n.chartIndicators,
             active: indicators.isNotEmpty,
-            onTap: () => unawaited(_pickIndicators()),
+            onTap: () => _openChartSheet(style: false),
           ),
           _editIconButton(
             c,
@@ -2886,9 +2701,10 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             SizedBox(width: 6.w),
             // ── Chart style: one button, a named list behind it ────────
             Tooltip(
-              message: context.l10n.chartStyleTitle,
+              message: context.l10n.chartSheetTitle,
               child: GestureDetector(
-                onTap: _pickChartStyle,
+                key: const ValueKey('hl-chart-sheet-button'),
+                onTap: _openChartSheet,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 7.h),
                   decoration: BoxDecoration(
@@ -2898,7 +2714,7 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_styleLook(_style).$1,
+                      Icon(_styleIcon(_style),
                           size: 16.sp, color: c.textPrimary),
                       SizedBox(width: 4.w),
                       Icon(Icons.expand_more_rounded,
@@ -2979,6 +2795,8 @@ class _HlCandleChartState extends ConsumerState<HlCandleChart> {
             // chart has no live price pill, line or tag column, its levels
             // inside the plot and the position's lines as captions.
             cleanView: !_drawingMode,
+            // The tucked rail's tab sits at the plot's top left.
+            legendLeftInset: _drawingMode && !_railShown ? 48 : 0,
             positionView: positionView,
             // The interval's identity: a new one opens on its newest
             // bars.

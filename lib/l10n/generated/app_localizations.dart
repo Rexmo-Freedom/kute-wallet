@@ -10330,6 +10330,96 @@ abstract class AppLocalizations {
   /// **'Volume'**
   String get chartVolume;
 
+  /// Title of the chart sheet (style and indicators) on a market chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Chart'**
+  String get chartSheetTitle;
+
+  /// Section label above the three chart style cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get chartSheetStyle;
+
+  /// Indicator name: the EMA 9/21 trend lines.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving averages'**
+  String get chartIndEma;
+
+  /// One-line explanation of the moving averages indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Short and long trend lines'**
+  String get chartIndEmaNote;
+
+  /// Indicator name.
+  ///
+  /// In en, this message translates to:
+  /// **'Bollinger bands'**
+  String get chartIndBb;
+
+  /// One-line explanation of Bollinger bands.
+  ///
+  /// In en, this message translates to:
+  /// **'How far the price usually swings'**
+  String get chartIndBbNote;
+
+  /// Indicator name (relative strength index).
+  ///
+  /// In en, this message translates to:
+  /// **'RSI'**
+  String get chartIndRsi;
+
+  /// One-line explanation of RSI.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether buying or selling is overstretched'**
+  String get chartIndRsiNote;
+
+  /// Indicator name.
+  ///
+  /// In en, this message translates to:
+  /// **'MACD'**
+  String get chartIndMacd;
+
+  /// One-line explanation of MACD.
+  ///
+  /// In en, this message translates to:
+  /// **'Momentum turning up or down'**
+  String get chartIndMacdNote;
+
+  /// Indicator name (volume-weighted average price).
+  ///
+  /// In en, this message translates to:
+  /// **'VWAP'**
+  String get chartIndVwap;
+
+  /// One-line explanation of VWAP.
+  ///
+  /// In en, this message translates to:
+  /// **'Average price weighted by volume'**
+  String get chartIndVwapNote;
+
+  /// One-line explanation of the volume indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'How much traded each bar'**
+  String get chartIndVolumeNote;
+
+  /// Button restoring the chart's default style and indicators.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get chartReset;
+
+  /// Toast when a third pane below the chart replaces the oldest one.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is off: two fit below the chart'**
+  String chartPaneLimit(String name);
+
   /// No description provided for @chartLogScale.
   ///
   /// In en, this message translates to:
