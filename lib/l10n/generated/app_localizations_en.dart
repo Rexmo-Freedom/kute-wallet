@@ -11731,6 +11731,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Someone else';
 
   @override

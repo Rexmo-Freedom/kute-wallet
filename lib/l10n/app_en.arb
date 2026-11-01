@@ -7270,6 +7270,8 @@
   "sendContacts": "Contacts",
   "sendToAFriend": "Send to a friend",
   "sendToAFriendSub": "They claim it with Kute, no wallet needed",
+  "sendDollarsToAFriend": "Send dollars to a friend",
+  "@sendDollarsToAFriend": {"description": "Dollars send and withdraw: the friend-link row and the Sal bar there. Founder (1 November 2026): name the dollars on the Dollars side."},
   "sendSomeoneElse": "Someone else",
   "sendAllowContactsInSettings": "Allow contacts in Settings",
   "sendAllowContactsInSettingsSub": "Kute can only show contacts you allow",

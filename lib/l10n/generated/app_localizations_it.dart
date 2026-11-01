@@ -11827,6 +11827,9 @@ class AppLocalizationsIt extends AppLocalizations {
       'Lo riscuotono con Kute, senza bisogno di wallet';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Qualcun altro';
 
   @override

@@ -11776,6 +11776,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get sendToAFriendSub => 'De hämtar det med Kute, ingen plånbok behövs';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Någon annan';
 
   @override

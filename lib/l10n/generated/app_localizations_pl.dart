@@ -11816,6 +11816,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sendToAFriendSub => 'Odbiorą to w Kute, bez portfela';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Ktoś inny';
 
   @override

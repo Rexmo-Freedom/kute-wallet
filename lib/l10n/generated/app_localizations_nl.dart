@@ -11813,6 +11813,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sendToAFriendSub => 'Ze claimen het met Kute, geen wallet nodig';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Iemand anders';
 
   @override

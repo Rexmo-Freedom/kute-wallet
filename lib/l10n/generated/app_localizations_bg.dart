@@ -11797,6 +11797,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get sendToAFriendSub => 'Вземат го с Kute, без нужда от портфейл';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Някой друг';
 
   @override

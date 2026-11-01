@@ -11806,6 +11806,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sendToAFriendSub => 'A Kute-ban veszik át, tárca sem kell';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Valaki más';
 
   @override

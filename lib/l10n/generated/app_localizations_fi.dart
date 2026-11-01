@@ -11790,6 +11790,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get sendToAFriendSub => 'Lunastus Kutella, lompakkoa ei tarvita';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Joku muu';
 
   @override

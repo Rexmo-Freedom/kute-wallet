@@ -11344,6 +11344,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendToAFriendSub => 'ウォレット不要、Kuteで受け取れます';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => '別の人';
 
   @override

@@ -11842,6 +11842,9 @@ class AppLocalizationsRo extends AppLocalizations {
   String get sendToAFriendSub => 'Revendică cu Kute, fără portofel';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Altcineva';
 
   @override

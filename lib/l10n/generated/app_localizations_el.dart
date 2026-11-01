@@ -11862,6 +11862,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get sendToAFriendSub => 'Το εισπράττουν με το Kute, χωρίς πορτοφόλι';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Κάποιος άλλος';
 
   @override

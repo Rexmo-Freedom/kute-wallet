@@ -1208,6 +1208,7 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               ))),
             ),
             SendToFriendRow(
+              title: context.l10n.sendDollarsToAFriend,
               onPick: _pickContact,
               onSomeoneElse: () => unawaited(_afterLink(showSendToAnyoneSheet(
                 context,

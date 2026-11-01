@@ -11808,6 +11808,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get sendToAFriendSub => 'Preuzimaju u Kuteu, novčanik nije potreban';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Netko drugi';
 
   @override

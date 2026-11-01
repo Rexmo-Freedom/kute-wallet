@@ -11830,6 +11830,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get sendToAFriendSub => 'Atsiima su Kute, piniginės nereikia';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Kitas asmuo';
 
   @override

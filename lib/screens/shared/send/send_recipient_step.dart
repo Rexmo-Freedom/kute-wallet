@@ -756,10 +756,15 @@ class SendToFriendRow extends ConsumerWidget {
     super.key,
     required this.onPick,
     required this.onSomeoneElse,
+    this.title,
   });
 
   final ValueChanged<SendContact> onPick;
   final VoidCallback onSomeoneElse;
+
+  /// The row's words; null reads "Send to a friend". The Dollars send says
+  /// "Send dollars to a friend" (founder, 1 November 2026).
+  final String? title;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -768,7 +773,7 @@ class SendToFriendRow extends ConsumerWidget {
       key: const ValueKey('send-to-friend-row'),
       colors: context.colors,
       leading: const SendSalShareGlyph(),
-      title: l10n.sendToAFriend,
+      title: title ?? l10n.sendToAFriend,
       subtitle: l10n.sendToAFriendSub,
       onTap: () => unawaited(_open(context, ref)),
     );

@@ -11767,6 +11767,9 @@ class AppLocalizationsEt extends AppLocalizations {
       'Saaja võtab selle Kute\'iga kätte, rahakotti pole vaja';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Keegi teine';
 
   @override

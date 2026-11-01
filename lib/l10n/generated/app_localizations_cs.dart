@@ -11774,6 +11774,9 @@ class AppLocalizationsCs extends AppLocalizations {
       'Vyzvednou si to přes Kute, peněženka není potřeba';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Někdo jiný';
 
   @override

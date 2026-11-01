@@ -11872,6 +11872,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Récupération avec Kute, aucun portefeuille requis';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Quelqu\'un d\'autre';
 
   @override

@@ -126,13 +126,13 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
     // sheet for dollars.
     return KuteBarContextScope(
       barContext: KuteBarContext(
-        label: l10n.sendToAFriend,
+        label: l10n.sendDollarsToAFriend,
         sublabel: l10n.sendToAFriendSub,
         clip: 'share',
         source: kUsdWithdrawSheetSource,
         actions: [
           KuteMarketBarAction(
-            label: l10n.sendToAFriend,
+            label: l10n.sendDollarsToAFriend,
             sublabel: l10n.sendToAFriendSub,
             salClip: 'share',
             onTap: (_) => unawaited(showSendToAnyoneSheet(

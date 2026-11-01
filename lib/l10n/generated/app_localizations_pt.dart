@@ -11831,6 +11831,9 @@ class AppLocalizationsPt extends AppLocalizations {
       'Resgatam com a Kute, sem precisar de carteira';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Outra pessoa';
 
   @override

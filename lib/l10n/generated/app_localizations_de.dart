@@ -11865,6 +11865,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sendToAFriendSub => 'Abholung mit Kute, kein Wallet nötig';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Jemand anderes';
 
   @override

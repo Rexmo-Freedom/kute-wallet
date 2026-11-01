@@ -11812,6 +11812,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get sendToAFriendSub => 'Prevzamejo s Kute, denarnica ni potrebna';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Nekdo drug';
 
   @override

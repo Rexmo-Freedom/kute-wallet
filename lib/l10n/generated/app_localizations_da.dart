@@ -11778,6 +11778,9 @@ class AppLocalizationsDa extends AppLocalizations {
       'De indløser det med Kute, ingen tegnebog nødvendig';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'En anden';
 
   @override

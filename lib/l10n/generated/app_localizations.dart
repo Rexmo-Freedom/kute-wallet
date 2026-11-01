@@ -19699,6 +19699,12 @@ abstract class AppLocalizations {
   /// **'They claim it with Kute, no wallet needed'**
   String get sendToAFriendSub;
 
+  /// Dollars send and withdraw: the friend-link row and the Sal bar there. Founder (1 November 2026): name the dollars on the Dollars side.
+  ///
+  /// In en, this message translates to:
+  /// **'Send dollars to a friend'**
+  String get sendDollarsToAFriend;
+
   /// No description provided for @sendSomeoneElse.
   ///
   /// In en, this message translates to:

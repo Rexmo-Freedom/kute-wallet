@@ -11789,6 +11789,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get sendToAFriendSub => 'Vyzdvihnú si to cez Kute, bez peňaženky';
 
   @override
+  String get sendDollarsToAFriend => 'Send dollars to a friend';
+
+  @override
   String get sendSomeoneElse => 'Niekto iný';
 
   @override
