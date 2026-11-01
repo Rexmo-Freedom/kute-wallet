@@ -44,11 +44,11 @@
 // BRAG (founder, 1 November 2026: "open positions and the portfolio should
 // also be shareable with a friend, to brag"). An OPEN position page passes
 // [marketBarContext]'s `brag`, the card's data built on demand
-// (screens/share/brag/brag_data.dart): its header pill
-// (KuteSalHeaderButton) then reads "Brag" and opens the brag preview at
-// once ([KuteMarketBarContext.primaryAction]; the Sal sheet stays a long
-// press away), and the Sal sheet gets a third row, "Show off this
-// position". A settled position passes none and keeps the send rows only.
+// (screens/share/brag/brag_data.dart): the Sal sheet gets a third row,
+// "Show off this position", and [KuteMarketBarContext.primaryAction]
+// opens the brag preview at once, for the page's share card ("Brag about
+// it" in profit, screens/share/brag/position_share_card.dart). A settled
+// position passes none and keeps the send rows only.
 
 import 'dart:async';
 
@@ -160,8 +160,8 @@ class KuteMarketBarContext extends KuteBarContext {
 
   final KuteBarPreview preview;
 
-  /// What the page's header pill does on a tap instead of opening the Sal
-  /// sheet (an open position: its brag preview); null: the Sal sheet.
+  /// The page's direct action instead of the Sal sheet (an open
+  /// position: its brag preview, for the share card); null: none.
   final VoidCallback? primaryAction;
 
   /// The scope binds the context to its route (kute_bar_context.dart);

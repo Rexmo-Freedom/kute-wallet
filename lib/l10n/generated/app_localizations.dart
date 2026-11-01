@@ -18149,12 +18149,6 @@ abstract class AppLocalizations {
   /// **'Share and brag'**
   String get bragBarLabel;
 
-  /// Open position pages: the words on the compact Sal pill beside the big figure, opening the position's brag card preview. One short word.
-  ///
-  /// In en, this message translates to:
-  /// **'Brag'**
-  String get bragHeaderLabel;
-
   /// Brag preview sheet: the switch that draws money amounts on the card (off by default).
   ///
   /// In en, this message translates to:
@@ -18208,6 +18202,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Now'**
   String get bragNow;
+
+  /// Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Brag about it'**
+  String get bragAboutIt;
+
+  /// Position pages: the quiet line under the share card's title (Send to a friend / Brag about it).
+  ///
+  /// In en, this message translates to:
+  /// **'Send the market or show off your result'**
+  String get positionShareCardSub;
 
   /// The floating bar on the Dollars tab while Predictions is the picked half.
   ///

@@ -10639,9 +10639,6 @@ class AppLocalizationsDa extends AppLocalizations {
   String get bragBarLabel => 'Share and brag';
 
   @override
-  String get bragHeaderLabel => 'Brag';
-
-  @override
   String get bragShowAmounts => 'Show amounts';
 
   @override
@@ -10670,6 +10667,12 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get bragNow => 'Now';
+
+  @override
+  String get bragAboutIt => 'Brag about it';
+
+  @override
+  String get positionShareCardSub => 'Send the market or show off your result';
 
   @override
   String get searchPredictionsOrAskSal => 'Søg i forudsigelser eller spørg Sal';

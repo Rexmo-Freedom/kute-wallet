@@ -229,17 +229,16 @@ void main() {
     // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
         findsNothing);
-    // Sal's Share pill ends the price's row, centred on the price and
-    // right against the 20 pt gutter, not in the header (founder, 31
-    // October 2026).
-    final share = find.byKey(const ValueKey('kute-sal-header-button'));
+    // No Share pill on a position page (founder, 1 November 2026): the
+    // share is the full-width card under the tiles.
+    expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
+    final share = find.byKey(const ValueKey('position-share-card'));
     expect(share, findsOneWidget);
-    expect(find.descendant(of: header, matching: share), findsNothing);
-    final shareRect = tester.getRect(share);
-    final priceRect = tester.getRect(find.byType(HlTickPrice));
-    expect(shareRect.center.dy, closeTo(priceRect.center.dy, 2));
-    expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
-    expect(shareRect.left, greaterThanOrEqualTo(priceRect.right));
+    expect(
+        tester.getRect(share).top,
+        greaterThan(tester
+            .getRect(find.byKey(const ValueKey('hl-position-margin')))
+            .bottom));
     expect(find.byType(AskSalChip), findsNothing);
     expect(find.byType(SalWhyMovingRow), findsNothing);
     expect(find.byType(KuteDogGlance), findsNothing);

@@ -231,12 +231,11 @@ void main() {
     final dialRect =
         tester.getRect(find.byKey(PolyPositionSpeedometer.dialKey));
     expect(result.left, closeTo(dialRect.left, 1));
-    // The held line ends before the Share button beside it (which takes
-    // the row's right edge; see position_detail_sheet.dart).
+    // The held line keeps inside the dial's width; no Share pill beside
+    // it (founder, 1 November 2026: the share is the card under the
+    // tiles).
     expect(heldRect.right, lessThanOrEqualTo(dialRect.right + 1));
-    final share = find.byKey(const ValueKey('kute-sal-header-button'));
-    expect(share, findsOneWidget);
-    expect(heldRect.right, lessThanOrEqualTo(tester.getRect(share).left));
+    expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
     expect(result.bottom, lessThanOrEqualTo(dialRect.top));
     expect(heldRect.bottom, lessThanOrEqualTo(dialRect.top));
     // The sweep in the result's colour.
@@ -263,9 +262,10 @@ void main() {
             matching: find.text('If No wins')),
         findsOneWidget);
     expect(_rolling(r'$13.20'), findsOneWidget);
-    // No journey read (the provider answers null only without a token):
-    // no journey line.
+    // No journey chart under the tiles any more (founder, 1 November
+    // 2026): the share card in its place.
     expect(find.byType(PolyPositionJourneyLine), findsNothing);
+    expect(find.byKey(const ValueKey('position-share-card')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -535,8 +535,8 @@ void main() {
     expect(polyWhatIfSellPrice(0.0), 0.01);
   });
 
-  testWidgets('the chart: from the buy at 19¢ to now in the result\'s '
-      'colour, a dashed line at "Your avg 19¢"', (tester) async {
+  testWidgets('under the tiles: no chart (founder, 1 November 2026), the '
+      'share card, "Brag about it" in profit', (tester) async {
     final since = DateTime.now().subtract(const Duration(days: 9));
     await _pump(tester, _no, journey: (
       since: since,
@@ -548,42 +548,18 @@ void main() {
       ],
       fromBuy: true,
     ));
-    expect(find.byType(PolyPositionJourneyLine), findsOneWidget);
-    expect(find.text('Your avg 19¢'), findsOneWidget);
-    expect(find.text('Now'), findsOneWidget);
-    final painter = tester
-        .widget<CustomPaint>(find.byKey(PolyPositionJourneyLine.paintKey))
-        .painter! as PolyJourneyPainter;
-    // Starts at the price paid, ends on the live chance.
-    expect(painter.points.first.p, closeTo(0.19, 1e-9));
-    expect(painter.points.first.t, 0);
-    expect(painter.points.last.p, closeTo(0.66, 1e-9));
-    expect(painter.points.last.t, 1);
-    expect(painter.entry, closeTo(0.19, 1e-9));
-    // Up since the buy: the up colour.
-    expect(painter.color, AppColors.marketUp);
-    // Under the tiles.
+    expect(find.byType(PolyPositionJourneyLine), findsNothing);
+    expect(find.text('Your avg 19¢'), findsNothing);
+    final card = find.byKey(const ValueKey('position-share-card'));
+    expect(card, findsOneWidget);
     expect(
-        tester.getRect(find.byType(PolyPositionJourneyLine)).top,
+        find.descendant(of: card, matching: find.text('Brag about it')),
+        findsOneWidget);
+    expect(
+        tester.getRect(card).top,
         greaterThan(tester
             .getRect(find.byKey(const ValueKey('poly-position-value')))
             .bottom));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('just bought, no history since: the chart still shows, from '
-      'the price paid to the live chance', (tester) async {
-    await _pump(tester, _no, journey: (
-      since: DateTime.now().subtract(const Duration(minutes: 1)),
-      points: const [],
-      fromBuy: true,
-    ));
-    expect(find.byType(PolyPositionJourneyLine), findsOneWidget);
-    expect(find.text('Your avg 19¢'), findsOneWidget);
-    final painter = tester
-        .widget<CustomPaint>(find.byKey(PolyPositionJourneyLine.paintKey))
-        .painter! as PolyJourneyPainter;
-    expect(painter.points.map((p) => p.p), [0.19, 0.66]);
     expect(tester.takeException(), isNull);
   });
 
