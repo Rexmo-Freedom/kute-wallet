@@ -10670,10 +10670,12 @@ class AppLocalizationsLt extends AppLocalizations {
   String get shareHeaderLabel => 'Siųsti draugui';
 
   @override
-  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+  String get searchPredictionsOrAskSal =>
+      'Ieškokite prognozių arba klauskite Sal';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+  String get searchInvestmentsOrAskSal =>
+      'Ieškokite investicijų arba klauskite Sal';
 
   @override
   String get searchOrAskSalShort => 'Ieškokite arba klauskite Sal';
@@ -11356,30 +11358,29 @@ class AppLocalizationsLt extends AppLocalizations {
       'Kai turėsite dolerių, čia matysite savo likučio pokyčius';
 
   @override
-  String get chartPeriodPastWeek => 'Past week';
+  String get chartPeriodPastWeek => 'Pastaroji savaitė';
 
   @override
-  String get chartPeriodPastMonth => 'Past month';
+  String get chartPeriodPastMonth => 'Pastarasis mėnuo';
 
   @override
-  String get chartPeriodPast3Months => 'Past 3 months';
+  String get chartPeriodPast3Months => 'Pastarieji 3 mėnesiai';
 
   @override
-  String get chartPeriodPastYear => 'Past year';
+  String get chartPeriodPastYear => 'Pastarieji metai';
 
   @override
-  String get chartPeriodAllTime => 'All time';
+  String get chartPeriodAllTime => 'Visas laikas';
 
   @override
-  String get chartNoChange => 'No change';
+  String get chartNoChange => 'Be pokyčio';
 
   @override
-  String get pnlChartNoHistory =>
-      'Your P&L shows up after your first position.';
+  String get pnlChartNoHistory => 'Jūsų P&L atsiras po pirmosios pozicijos.';
 
   @override
   String get balanceChartNoHistory =>
-      'Your balance history starts with your first transaction.';
+      'Jūsų likučio istorija prasideda nuo pirmosios operacijos.';
 
   @override
   String get pnlChartEmpty =>
@@ -11427,160 +11428,163 @@ class AppLocalizationsLt extends AppLocalizations {
   String get purchaseShort => 'Pirkti';
 
   @override
-  String get categoryGroupDiscover => 'Discover';
+  String get categoryGroupDiscover => 'Atraskite';
 
   @override
-  String get categoryGroupMarkets => 'Markets';
+  String get categoryGroupMarkets => 'Rinkos';
 
   @override
-  String get categoryGroupTopics => 'Topics';
+  String get categoryGroupTopics => 'Temos';
 
   @override
   String categoryStatMarkets(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count markets',
-      one: '1 market',
+      other: '$count rinkų',
+      few: '$count rinkos',
+      one: '$count rinka',
     );
     return '$_temp0';
   }
 
   @override
-  String get categoryStatMostActive => 'Most active';
+  String get categoryStatMostActive => 'Aktyviausios';
 
   @override
-  String get categoryStatToday => 'today';
+  String get categoryStatToday => 'šiandien';
 
   @override
   String categoryStatVolToday(String amount) {
-    return '$amount vol today';
+    return '$amount apyv. šiandien';
   }
 
   @override
   String categoryAllOf(String group) {
-    return 'All $group';
+    return 'Visos: $group';
   }
 
   @override
-  String get searchHomeMovingNow => 'Moving now';
+  String get searchHomeMovingNow => 'Dabar juda';
 
   @override
-  String get searchHomeTrendingPredictions => 'Trending predictions';
+  String get searchHomeTrendingPredictions => 'Populiarios prognozės';
 
   @override
-  String get barPickMarketGroup => 'Pick a market group';
+  String get barPickMarketGroup => 'Pasirinkite rinkų grupę';
 
   @override
-  String get barPickMarketGroupSub => 'or ask Sal to find one';
+  String get barPickMarketGroupSub => 'arba paprašykite Sal ją rasti';
 
   @override
   String get barShareWithFriends => 'Siųsti draugui';
 
   @override
-  String get barShareMarketSub => 'Send the market or your prediction';
+  String get barShareMarketSub => 'Siųskite rinką arba savo prognozę';
 
   @override
-  String get barSharePositionSub => 'Send the market or your position';
+  String get barSharePositionSub => 'Siųskite rinką arba savo poziciją';
 
   @override
   String get shareTheMarket => 'Siųsti rinką';
 
   @override
-  String get shareTheMarketSub => 'A link they can open, with your code';
+  String get shareTheMarketSub =>
+      'Nuoroda, kurią galima atidaryti, su jūsų kodu';
 
   @override
   String get shareThisPosition => 'Siųsti šią poziciją';
 
   @override
-  String get shareThisPositionSub => 'The market and how you\'re doing';
+  String get shareThisPositionSub => 'Rinka ir kaip jums sekasi';
 
   @override
-  String get sendThisPrediction => 'Send this prediction';
+  String get sendThisPrediction => 'Siųsti šią prognozę';
 
   @override
-  String get sendThisInvestment => 'Send this investment';
+  String get sendThisInvestment => 'Siųsti šią investiciją';
 
   @override
-  String get sendThisPickSub => 'They get your pick, ready to place';
+  String get sendThisPickSub =>
+      'Gavėjas gaus jūsų pasirinkimą, paruoštą pateikti';
 
   @override
   String sharePickOn(String outcome, String title) {
-    return '$outcome on $title';
+    return '$title: $outcome';
   }
 
   @override
-  String get portfolioInvestedLabel => 'Invested';
+  String get portfolioInvestedLabel => 'Investuota';
 
   @override
-  String get portfolioAvailableLabel => 'Available';
+  String get portfolioAvailableLabel => 'Prieinama';
 
   @override
-  String get balanceNoHistoryTitle => 'No balance history yet';
+  String get balanceNoHistoryTitle => 'Likučio istorijos dar nėra';
 
   @override
-  String get balanceNoHistorySub => 'It starts with your first transaction.';
+  String get balanceNoHistorySub => 'Ji prasideda nuo pirmosios operacijos.';
 
   @override
-  String get pnlNoHistoryTitle => 'No P&L yet';
+  String get pnlNoHistoryTitle => 'P&L dar nėra';
 
   @override
-  String get portfolioAllTime => 'All time';
+  String get portfolioAllTime => 'Visas laikas';
 
   @override
-  String get barWhatIsThis => 'What is this?';
+  String get barWhatIsThis => 'Kas tai?';
 
   @override
-  String get barReceiveExplainSub => 'Sal explains how receiving works';
+  String get barReceiveExplainSub => 'Sal paaiškina, kaip veikia gavimas';
 
   @override
   String get barReceiveQuestion =>
-      'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means';
+      'Paaiškink šį gavimo ekraną: QR kodą, Lightning adresą, Bendras vs Tik Bitcoin vs Tik Lightning ir ką reiškia „Taip pat priima“';
 
   @override
-  String get barScannerLabel => 'What can I scan?';
+  String get barScannerLabel => 'Ką galiu nuskaityti?';
 
   @override
   String get barScannerQuestion =>
-      'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?';
+      'Ką galiu nuskaityti Kute skaitytuvu: adresus, sąskaitas, QR kodus, ir kas vyksta po nuskaitymo?';
 
   @override
-  String get barBackupLabel => 'Why back up?';
+  String get barBackupLabel => 'Kam atsarginė kopija?';
 
   @override
   String get barBackupQuestion =>
-      'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?';
+      'Kodėl turėčiau sukurti piniginės atsarginę kopiją, kas yra atkūrimo frazė ir kaip ją saugiai laikyti?';
 
   @override
-  String get barReceiptLabel => 'What happened here?';
+  String get barReceiptLabel => 'Kas čia įvyko?';
 
   @override
   String get barReceiptQuestion =>
-      'Explain this transaction receipt: what moved, the fees, the status and what each line means';
+      'Paaiškink šį operacijos kvitą: kas buvo perkelta, mokesčius, būseną ir ką reiškia kiekviena eilutė';
 
   @override
-  String get barAskSalSub => 'Ask Sal about this screen';
+  String get barAskSalSub => 'Klauskite Sal apie šį ekraną';
 
   @override
-  String get barMoveMoney => 'Move money';
+  String get barMoveMoney => 'Perkelti pinigus';
 
   @override
-  String get barMoveMoneySub => 'ask Sal where it should go';
+  String get barMoveMoneySub => 'klauskite Sal, kur juos nukreipti';
 
   @override
-  String get barAskWhatNext => 'Ask Sal what happens next';
+  String get barAskWhatNext => 'Klauskite Sal, kas bus toliau';
 
   @override
-  String get barAskAboutKute => 'Ask Sal about Kute';
+  String get barAskAboutKute => 'Klauskite Sal apie Kute';
 
   @override
-  String get searchHomeRecent => 'Recent';
+  String get searchHomeRecent => 'Naujausi';
 
   @override
-  String get searchHomeClear => 'Clear';
+  String get searchHomeClear => 'Išvalyti';
 
   @override
-  String get searchScopeTitle => 'Search in';
+  String get searchScopeTitle => 'Kur ieškoti';
 
   @override
   String marketMetaLine(String volume, String date) {
@@ -11593,156 +11597,159 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
-  String get shareSendToAnyone => 'Send to anyone';
+  String get shareSendToAnyone => 'Siųsti bet kam';
 
   @override
-  String get shareSendToAnyoneSubtitle => 'A link they claim with Kute';
+  String get shareSendToAnyoneSubtitle => 'Nuoroda, kurią atsiima su Kute';
 
   @override
-  String get shareWhoIsItFor => 'Who is it for?';
+  String get shareWhoIsItFor => 'Kam tai skirta?';
 
   @override
-  String get shareFirstNameHint => 'First name (optional)';
+  String get shareFirstNameHint => 'Vardas (neprivaloma)';
 
   @override
-  String get shareCreateLink => 'Create link';
+  String get shareCreateLink => 'Sukurti nuorodą';
 
   @override
-  String get shareCreatingLink => 'Creating link';
+  String get shareCreatingLink => 'Kuriama nuoroda';
 
   @override
-  String get shareCreateFailed => 'Could not create the link. Try again.';
+  String get shareCreateFailed =>
+      'Nepavyko sukurti nuorodos. Bandykite dar kartą.';
 
   @override
   String shareAmountInBitcoin(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount Bitcoin';
   }
 
   @override
   String shareMessageNamed(String name, String amount, String url) {
-    return '$name, I sent you $amount with Kute. Claim it here: $url';
+    return '$name, siunčiu tau $amount per Kute. Atsiimk čia: $url';
   }
 
   @override
   String shareMessageUnnamed(String amount, String url) {
-    return 'I sent you $amount with Kute. Claim it here: $url';
+    return 'Siunčiu tau $amount per Kute. Atsiimk čia: $url';
   }
 
   @override
   String shareMessagePredictionNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, siunčiu tau prognozę per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Siunčiu tau prognozę per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, siunčiu tau investiciją per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Siunčiu tau investiciją per Kute: $title: $outcome, $amount. Atsiimk: $url';
   }
 
   @override
   String shareLinkSentWaiting(String name) {
-    return 'Link sent · waiting for $name to claim';
+    return 'Nuoroda išsiųsta · laukiama, kol $name atsiims';
   }
 
   @override
-  String get shareLinkSentWaitingUnnamed => 'Link sent · waiting to be claimed';
+  String get shareLinkSentWaitingUnnamed =>
+      'Nuoroda išsiųsta · laukiama atsiėmimo';
 
   @override
-  String get shareLinkClaimedReady => 'Claimed · ready to send';
+  String get shareLinkClaimedReady => 'Atsiimta · paruošta siųsti';
 
   @override
-  String get shareLinkPaid => 'Sent';
+  String get shareLinkPaid => 'Išsiųsta';
 
   @override
-  String get shareLinkCancelled => 'Cancelled';
+  String get shareLinkCancelled => 'Atšaukta';
 
   @override
-  String get shareLinkExpired => 'Expired';
+  String get shareLinkExpired => 'Nebegalioja';
 
   @override
-  String get shareLinkCancel => 'Cancel link';
+  String get shareLinkCancel => 'Atšaukti nuorodą';
 
   @override
-  String get shareLinkCancelFailed => 'Could not cancel the link. Try again.';
+  String get shareLinkCancelFailed =>
+      'Nepavyko atšaukti nuorodos. Bandykite dar kartą.';
 
   @override
-  String get shareLinkShareAgain => 'Share again';
+  String get shareLinkShareAgain => 'Bendrinti dar kartą';
 
   @override
-  String get sharePendingLinksTitle => 'Links you sent';
+  String get sharePendingLinksTitle => 'Jūsų išsiųstos nuorodos';
 
   @override
   String shareClaimedPromptTitle(String name, String amount) {
-    return '$name claimed your $amount';
+    return '$name atsiėmė jūsų $amount';
   }
 
   @override
   String shareClaimedPromptTitleUnnamed(String amount) {
-    return 'Your $amount was claimed';
+    return 'Jūsų $amount atsiimta';
   }
 
   @override
   String get shareClaimedPromptBody =>
-      'Send it now to finish. It leaves your wallet only when you confirm.';
+      'Išsiųskite dabar, kad užbaigtumėte. Lėšos paliks piniginę tik jums patvirtinus.';
 
   @override
-  String get shareSendNow => 'Send now';
+  String get shareSendNow => 'Siųsti dabar';
 
   @override
-  String get shareLater => 'Later';
+  String get shareLater => 'Vėliau';
 
   @override
   String get shareSendFailed =>
-      'Could not send. Kute will ask again next time it opens.';
+      'Nepavyko išsiųsti. Kute paklaus dar kartą, kai kitą kartą bus atidaryta.';
 
   @override
   String claimTitle(String sender, String amount) {
-    return '$sender sent you $amount';
+    return '$sender atsiuntė jums $amount';
   }
 
   @override
-  String get claimSomeone => 'Someone';
+  String get claimSomeone => 'Kažkas';
 
   @override
   String claimMarketLine(String market) {
-    return 'to bet on $market';
+    return 'statymui rinkoje $market';
   }
 
   @override
-  String get claimButton => 'Claim';
+  String get claimButton => 'Atsiimti';
 
   @override
-  String get claimClaiming => 'Claiming';
+  String get claimClaiming => 'Atsiimama';
 
   @override
-  String get claimOnItsWay => 'On its way';
+  String get claimOnItsWay => 'Pakeliui';
 
   @override
   String claimArrivesWhenOpens(String sender) {
-    return 'It arrives when $sender opens Kute.';
+    return 'Lėšos atkeliaus, kai $sender atidarys Kute.';
   }
 
   @override
   String claimSentPrediction(String sender) {
-    return '$sender sent you a prediction';
+    return '$sender atsiuntė jums prognozę';
   }
 
   @override
   String claimSentInvestment(String sender) {
-    return '$sender sent you an investment';
+    return '$sender atsiuntė jums investiciją';
   }
 
   @override
@@ -11752,93 +11759,94 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String claimWaitingForSender(String sender) {
-    return 'Waiting for $sender to send it';
+    return 'Laukiama, kol $sender išsiųs';
   }
 
   @override
   String claimArrivedInDollars(String amount) {
-    return '$amount is in your Dollars';
+    return '$amount jau jūsų Doleriuose';
   }
 
   @override
-  String get claimPlacePrediction => 'Place the prediction';
+  String get claimPlacePrediction => 'Pateikti prognozę';
 
   @override
-  String get claimPlaceInvestment => 'Place the investment';
+  String get claimPlaceInvestment => 'Pateikti investiciją';
 
   @override
-  String get claimOpenMarket => 'Open the market';
+  String get claimOpenMarket => 'Atidaryti rinką';
 
   @override
-  String get claimAlreadyClaimed => 'This link was already claimed.';
+  String get claimAlreadyClaimed => 'Ši nuoroda jau atsiimta.';
 
   @override
-  String get claimExpired => 'This link has expired.';
+  String get claimExpired => 'Ši nuoroda nebegalioja.';
 
   @override
-  String get claimUnavailable => 'This link is not available.';
+  String get claimUnavailable => 'Ši nuoroda nepasiekiama.';
 
   @override
-  String get claimFailed => 'Could not claim. Try again.';
+  String get claimFailed => 'Nepavyko atsiimti. Bandykite dar kartą.';
 
   @override
   String get claimNeedsWallet =>
-      'Your wallet is still getting ready. Try again in a moment.';
+      'Jūsų piniginė dar ruošiama. Bandykite vėl po akimirkos.';
 
   @override
   String get shareMarketShareLink => 'Siųsti nuorodą';
 
   @override
   String shareMarketLookAt(String title, String link) {
-    return 'Look at this on Kute: $title $link';
+    return 'Pažiūrėk Kute: $title $link';
   }
 
   @override
   String shareMarketChance(String chance) {
-    return '$chance% chance';
+    return '$chance% tikimybė';
   }
 
   @override
-  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+  String get sendRecipientSearchHint =>
+      'Vardas, adresas, Lightning arba @naudotojas';
 
   @override
-  String get usdSendRecipientSearchHint => 'Name, address or ENS';
+  String get usdSendRecipientSearchHint => 'Vardas, adresas arba ENS';
 
   @override
-  String get sendDollarsTitle => 'Send dollars';
+  String get sendDollarsTitle => 'Siųsti dolerius';
 
   @override
   String sendCoinTitle(String coin) {
-    return 'Send $coin';
+    return 'Siųsti $coin';
   }
 
   @override
-  String get sendContacts => 'Contacts';
+  String get sendContacts => 'Kontaktai';
 
   @override
   String get sendToAFriend => 'Siųsti draugui';
 
   @override
-  String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
+  String get sendToAFriendSub => 'Atsiima su Kute, piniginės nereikia';
 
   @override
-  String get sendSomeoneElse => 'Someone else';
+  String get sendSomeoneElse => 'Kitas asmuo';
 
   @override
-  String get sendAllowContactsInSettings => 'Allow contacts in Settings';
+  String get sendAllowContactsInSettings => 'Leiskite kontaktus nustatymuose';
 
   @override
   String get sendAllowContactsInSettingsSub =>
-      'Kute can only show contacts you allow';
+      'Kute gali rodyti tik jūsų leistus kontaktus';
 
   @override
-  String get sendNoContactsMatch => 'No contacts match';
+  String get sendNoContactsMatch => 'Atitinkančių kontaktų nėra';
 
   @override
-  String get sendContactsSearchHint => 'Search contacts';
+  String get sendContactsSearchHint => 'Ieškoti kontaktų';
 
   @override
-  String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
+  String get sendRailBitcoinOnchain => 'Bitcoin · grandinėje';
 
   @override
   String get sendRailLightning => 'Lightning';
@@ -11848,7 +11856,7 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String usdSendNotNetworkAddress(String network) {
-    return 'Not an $network address';
+    return 'Tai ne $network adresas';
   }
 
   @override
@@ -11858,40 +11866,41 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String sendAlsoSendsToMore(String names, int count) {
-    return '$names and $count more';
+    return '$names ir dar $count';
   }
 
   @override
   String sendAlsoSendsToList(String names, String last) {
-    return '$names and $last';
+    return '$names ir $last';
   }
 
   @override
-  String get sendPickMarket => 'Send a prediction or investment';
+  String get sendPickMarket => 'Siųsti prognozę arba investiciją';
 
   @override
-  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+  String get sendPickMarketSub =>
+      'Pasirinkite rinką, gavėjas gaus ją paruoštą pateikti';
 
   @override
-  String get sendPickMarketSearchHint => 'Search predictions and investing';
+  String get sendPickMarketSearchHint => 'Ieškoti prognozių ir investicijų';
 
   @override
-  String get sendPickMarketNoResults => 'Nothing matches';
+  String get sendPickMarketNoResults => 'Nieko nerasta';
 
   @override
-  String get sendPickSideTitle => 'Which side?';
+  String get sendPickSideTitle => 'Kuri pusė?';
 
   @override
-  String get sendPickSideSub => 'What they get, ready to place';
+  String get sendPickSideSub => 'Ką gaus gavėjas, paruošta pateikti';
 
   @override
-  String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
+  String get shareSendAgainWhatsApp => 'Siųsti dar kartą per WhatsApp';
 
   @override
-  String get shareSendAgainSms => 'Send again via SMS';
+  String get shareSendAgainSms => 'Siųsti dar kartą SMS žinute';
 
   @override
-  String get sendToLabel => 'Send to';
+  String get sendToLabel => 'Gavėjas';
 
   @override
   String get predictionsChance => 'tikimybė';

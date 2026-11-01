@@ -10613,10 +10613,11 @@ class AppLocalizationsCs extends AppLocalizations {
   String get shareHeaderLabel => 'Poslat kamarádovi';
 
   @override
-  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+  String get searchPredictionsOrAskSal => 'Hledej predikce nebo se zeptej Sala';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+  String get searchInvestmentsOrAskSal =>
+      'Hledej investice nebo se zeptej Sala';
 
   @override
   String get searchOrAskSalShort => 'Hledej nebo se zeptej Sala';
@@ -11301,30 +11302,30 @@ class AppLocalizationsCs extends AppLocalizations {
       'Až budete mít dolary, uvidíte zde vývoj svého zůstatku';
 
   @override
-  String get chartPeriodPastWeek => 'Past week';
+  String get chartPeriodPastWeek => 'Poslední týden';
 
   @override
-  String get chartPeriodPastMonth => 'Past month';
+  String get chartPeriodPastMonth => 'Poslední měsíc';
 
   @override
-  String get chartPeriodPast3Months => 'Past 3 months';
+  String get chartPeriodPast3Months => 'Poslední 3 měsíce';
 
   @override
-  String get chartPeriodPastYear => 'Past year';
+  String get chartPeriodPastYear => 'Poslední rok';
 
   @override
-  String get chartPeriodAllTime => 'All time';
+  String get chartPeriodAllTime => 'Celé období';
 
   @override
-  String get chartNoChange => 'No change';
+  String get chartNoChange => 'Beze změny';
 
   @override
   String get pnlChartNoHistory =>
-      'Your P&L shows up after your first position.';
+      'Tvůj zisk a ztráta se zobrazí po první pozici.';
 
   @override
   String get balanceChartNoHistory =>
-      'Your balance history starts with your first transaction.';
+      'Historie zůstatku začíná tvou první transakcí.';
 
   @override
   String get pnlChartEmpty =>
@@ -11371,160 +11372,162 @@ class AppLocalizationsCs extends AppLocalizations {
   String get purchaseShort => 'Koupit';
 
   @override
-  String get categoryGroupDiscover => 'Discover';
+  String get categoryGroupDiscover => 'Objevuj';
 
   @override
-  String get categoryGroupMarkets => 'Markets';
+  String get categoryGroupMarkets => 'Trhy';
 
   @override
-  String get categoryGroupTopics => 'Topics';
+  String get categoryGroupTopics => 'Témata';
 
   @override
   String categoryStatMarkets(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count markets',
-      one: '1 market',
+      other: '$count trhů',
+      many: '$count trhu',
+      few: '$count trhy',
+      one: '1 trh',
     );
     return '$_temp0';
   }
 
   @override
-  String get categoryStatMostActive => 'Most active';
+  String get categoryStatMostActive => 'Nejaktivnější';
 
   @override
-  String get categoryStatToday => 'today';
+  String get categoryStatToday => 'dnes';
 
   @override
   String categoryStatVolToday(String amount) {
-    return '$amount vol today';
+    return 'Objem $amount dnes';
   }
 
   @override
   String categoryAllOf(String group) {
-    return 'All $group';
+    return 'Vše: $group';
   }
 
   @override
-  String get searchHomeMovingNow => 'Moving now';
+  String get searchHomeMovingNow => 'Právě v pohybu';
 
   @override
-  String get searchHomeTrendingPredictions => 'Trending predictions';
+  String get searchHomeTrendingPredictions => 'Populární predikce';
 
   @override
-  String get barPickMarketGroup => 'Pick a market group';
+  String get barPickMarketGroup => 'Vyber skupinu trhů';
 
   @override
-  String get barPickMarketGroupSub => 'or ask Sal to find one';
+  String get barPickMarketGroupSub => 'nebo nech Sala nějakou najít';
 
   @override
   String get barShareWithFriends => 'Poslat kamarádovi';
 
   @override
-  String get barShareMarketSub => 'Send the market or your prediction';
+  String get barShareMarketSub => 'Pošli trh nebo svou predikci';
 
   @override
-  String get barSharePositionSub => 'Send the market or your position';
+  String get barSharePositionSub => 'Pošli trh nebo svou pozici';
 
   @override
   String get shareTheMarket => 'Poslat trh';
 
   @override
-  String get shareTheMarketSub => 'A link they can open, with your code';
+  String get shareTheMarketSub => 'Odkaz k otevření, s tvým kódem';
 
   @override
   String get shareThisPosition => 'Poslat tuto pozici';
 
   @override
-  String get shareThisPositionSub => 'The market and how you\'re doing';
+  String get shareThisPositionSub => 'Trh a jak se ti daří';
 
   @override
-  String get sendThisPrediction => 'Send this prediction';
+  String get sendThisPrediction => 'Poslat tuto predikci';
 
   @override
-  String get sendThisInvestment => 'Send this investment';
+  String get sendThisInvestment => 'Poslat tuto investici';
 
   @override
-  String get sendThisPickSub => 'They get your pick, ready to place';
+  String get sendThisPickSub => 'Dostanou tvou volbu připravenou k zadání';
 
   @override
   String sharePickOn(String outcome, String title) {
-    return '$outcome on $title';
+    return '$title: $outcome';
   }
 
   @override
-  String get portfolioInvestedLabel => 'Invested';
+  String get portfolioInvestedLabel => 'Investováno';
 
   @override
-  String get portfolioAvailableLabel => 'Available';
+  String get portfolioAvailableLabel => 'Dostupné';
 
   @override
-  String get balanceNoHistoryTitle => 'No balance history yet';
+  String get balanceNoHistoryTitle => 'Zatím žádná historie zůstatku';
 
   @override
-  String get balanceNoHistorySub => 'It starts with your first transaction.';
+  String get balanceNoHistorySub => 'Začíná tvou první transakcí.';
 
   @override
-  String get pnlNoHistoryTitle => 'No P&L yet';
+  String get pnlNoHistoryTitle => 'Zatím žádný zisk a ztráta';
 
   @override
-  String get portfolioAllTime => 'All time';
+  String get portfolioAllTime => 'Celé období';
 
   @override
-  String get barWhatIsThis => 'What is this?';
+  String get barWhatIsThis => 'Co to je?';
 
   @override
-  String get barReceiveExplainSub => 'Sal explains how receiving works';
+  String get barReceiveExplainSub => 'Sal vysvětlí, jak funguje přijímání';
 
   @override
   String get barReceiveQuestion =>
-      'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means';
+      'Vysvětli mi tuto obrazovku pro přijetí: QR kód, Lightning adresu, Sjednocený vs Jen Bitcoin vs Jen Lightning a co znamená „Přijímá také“';
 
   @override
-  String get barScannerLabel => 'What can I scan?';
+  String get barScannerLabel => 'Co můžu naskenovat?';
 
   @override
   String get barScannerQuestion =>
-      'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?';
+      'Co můžu naskenovat skenerem Kute: adresy, faktury, QR kódy, a co se stane po naskenování?';
 
   @override
-  String get barBackupLabel => 'Why back up?';
+  String get barBackupLabel => 'Proč zálohovat?';
 
   @override
   String get barBackupQuestion =>
-      'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?';
+      'Proč zálohovat peněženku, co je obnovovací fráze a jak ji bezpečně uchovat?';
 
   @override
-  String get barReceiptLabel => 'What happened here?';
+  String get barReceiptLabel => 'Co se tu stalo?';
 
   @override
   String get barReceiptQuestion =>
-      'Explain this transaction receipt: what moved, the fees, the status and what each line means';
+      'Vysvětli mi toto potvrzení transakce: co se přesunulo, poplatky, stav a co znamená každý řádek';
 
   @override
-  String get barAskSalSub => 'Ask Sal about this screen';
+  String get barAskSalSub => 'Zeptej se Sala na tuto obrazovku';
 
   @override
-  String get barMoveMoney => 'Move money';
+  String get barMoveMoney => 'Přesunout peníze';
 
   @override
-  String get barMoveMoneySub => 'ask Sal where it should go';
+  String get barMoveMoneySub => 'zeptej se Sala, kam je poslat';
 
   @override
-  String get barAskWhatNext => 'Ask Sal what happens next';
+  String get barAskWhatNext => 'Zeptej se Sala, co bude dál';
 
   @override
-  String get barAskAboutKute => 'Ask Sal about Kute';
+  String get barAskAboutKute => 'Zeptej se Sala na Kute';
 
   @override
-  String get searchHomeRecent => 'Recent';
+  String get searchHomeRecent => 'Nedávné';
 
   @override
-  String get searchHomeClear => 'Clear';
+  String get searchHomeClear => 'Vymazat';
 
   @override
-  String get searchScopeTitle => 'Search in';
+  String get searchScopeTitle => 'Hledat v';
 
   @override
   String marketMetaLine(String volume, String date) {
@@ -11537,156 +11540,159 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get shareSendToAnyone => 'Send to anyone';
+  String get shareSendToAnyone => 'Poslat komukoli';
 
   @override
-  String get shareSendToAnyoneSubtitle => 'A link they claim with Kute';
+  String get shareSendToAnyoneSubtitle => 'Odkaz k vyzvednutí přes Kute';
 
   @override
-  String get shareWhoIsItFor => 'Who is it for?';
+  String get shareWhoIsItFor => 'Pro koho to je?';
 
   @override
-  String get shareFirstNameHint => 'First name (optional)';
+  String get shareFirstNameHint => 'Křestní jméno (nepovinné)';
 
   @override
-  String get shareCreateLink => 'Create link';
+  String get shareCreateLink => 'Vytvořit odkaz';
 
   @override
-  String get shareCreatingLink => 'Creating link';
+  String get shareCreatingLink => 'Vytváří se odkaz';
 
   @override
-  String get shareCreateFailed => 'Could not create the link. Try again.';
+  String get shareCreateFailed =>
+      'Odkaz se nepodařilo vytvořit. Zkus to znovu.';
 
   @override
   String shareAmountInBitcoin(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount v Bitcoinu';
   }
 
   @override
   String shareMessageNamed(String name, String amount, String url) {
-    return '$name, I sent you $amount with Kute. Claim it here: $url';
+    return '$name, posílám ti $amount přes Kute. Vyzvedni si to tady: $url';
   }
 
   @override
   String shareMessageUnnamed(String amount, String url) {
-    return 'I sent you $amount with Kute. Claim it here: $url';
+    return 'Posílám ti $amount přes Kute. Vyzvedni si to tady: $url';
   }
 
   @override
   String shareMessagePredictionNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, posílám ti predikci na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Posílám ti predikci na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, posílám ti investici na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Posílám ti investici na Kute: $title: $outcome, $amount. Vyzvedni si ji: $url';
   }
 
   @override
   String shareLinkSentWaiting(String name) {
-    return 'Link sent · waiting for $name to claim';
+    return 'Odkaz odeslán · čeká se, až si ho $name vyzvedne';
   }
 
   @override
-  String get shareLinkSentWaitingUnnamed => 'Link sent · waiting to be claimed';
+  String get shareLinkSentWaitingUnnamed =>
+      'Odkaz odeslán · čeká na vyzvednutí';
 
   @override
-  String get shareLinkClaimedReady => 'Claimed · ready to send';
+  String get shareLinkClaimedReady => 'Vyzvednuto · připraveno k odeslání';
 
   @override
-  String get shareLinkPaid => 'Sent';
+  String get shareLinkPaid => 'Odesláno';
 
   @override
-  String get shareLinkCancelled => 'Cancelled';
+  String get shareLinkCancelled => 'Zrušeno';
 
   @override
-  String get shareLinkExpired => 'Expired';
+  String get shareLinkExpired => 'Vypršelo';
 
   @override
-  String get shareLinkCancel => 'Cancel link';
+  String get shareLinkCancel => 'Zrušit odkaz';
 
   @override
-  String get shareLinkCancelFailed => 'Could not cancel the link. Try again.';
+  String get shareLinkCancelFailed =>
+      'Odkaz se nepodařilo zrušit. Zkus to znovu.';
 
   @override
-  String get shareLinkShareAgain => 'Share again';
+  String get shareLinkShareAgain => 'Sdílet znovu';
 
   @override
-  String get sharePendingLinksTitle => 'Links you sent';
+  String get sharePendingLinksTitle => 'Odeslané odkazy';
 
   @override
   String shareClaimedPromptTitle(String name, String amount) {
-    return '$name claimed your $amount';
+    return '$name si vyzvedává tvou částku $amount';
   }
 
   @override
   String shareClaimedPromptTitleUnnamed(String amount) {
-    return 'Your $amount was claimed';
+    return 'Tvoje částka $amount je vyzvednutá';
   }
 
   @override
   String get shareClaimedPromptBody =>
-      'Send it now to finish. It leaves your wallet only when you confirm.';
+      'Pošli ji teď a dokonči to. Peněženku opustí, až když to potvrdíš.';
 
   @override
-  String get shareSendNow => 'Send now';
+  String get shareSendNow => 'Poslat teď';
 
   @override
-  String get shareLater => 'Later';
+  String get shareLater => 'Později';
 
   @override
   String get shareSendFailed =>
-      'Could not send. Kute will ask again next time it opens.';
+      'Odeslání se nezdařilo. Kute se zeptá znovu při dalším otevření.';
 
   @override
   String claimTitle(String sender, String amount) {
-    return '$sender sent you $amount';
+    return '$sender ti posílá $amount';
   }
 
   @override
-  String get claimSomeone => 'Someone';
+  String get claimSomeone => 'Někdo';
 
   @override
   String claimMarketLine(String market) {
-    return 'to bet on $market';
+    return 'na sázku na $market';
   }
 
   @override
-  String get claimButton => 'Claim';
+  String get claimButton => 'Vyzvednout';
 
   @override
-  String get claimClaiming => 'Claiming';
+  String get claimClaiming => 'Vyzvedává se';
 
   @override
-  String get claimOnItsWay => 'On its way';
+  String get claimOnItsWay => 'Na cestě';
 
   @override
   String claimArrivesWhenOpens(String sender) {
-    return 'It arrives when $sender opens Kute.';
+    return 'Dorazí, jakmile $sender otevře Kute.';
   }
 
   @override
   String claimSentPrediction(String sender) {
-    return '$sender sent you a prediction';
+    return '$sender ti posílá predikci';
   }
 
   @override
   String claimSentInvestment(String sender) {
-    return '$sender sent you an investment';
+    return '$sender ti posílá investici';
   }
 
   @override
@@ -11696,90 +11702,92 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String claimWaitingForSender(String sender) {
-    return 'Waiting for $sender to send it';
+    return 'Čeká se, až to $sender pošle';
   }
 
   @override
   String claimArrivedInDollars(String amount) {
-    return '$amount is in your Dollars';
+    return '$amount je v tvých Dolarech';
   }
 
   @override
-  String get claimPlacePrediction => 'Place the prediction';
+  String get claimPlacePrediction => 'Zadat predikci';
 
   @override
-  String get claimPlaceInvestment => 'Place the investment';
+  String get claimPlaceInvestment => 'Zadat investici';
 
   @override
-  String get claimOpenMarket => 'Open the market';
+  String get claimOpenMarket => 'Otevřít trh';
 
   @override
-  String get claimAlreadyClaimed => 'This link was already claimed.';
+  String get claimAlreadyClaimed => 'Tento odkaz už byl vyzvednut.';
 
   @override
-  String get claimExpired => 'This link has expired.';
+  String get claimExpired => 'Platnost tohoto odkazu vypršela.';
 
   @override
-  String get claimUnavailable => 'This link is not available.';
+  String get claimUnavailable => 'Tento odkaz není dostupný.';
 
   @override
-  String get claimFailed => 'Could not claim. Try again.';
+  String get claimFailed => 'Vyzvednutí se nezdařilo. Zkus to znovu.';
 
   @override
   String get claimNeedsWallet =>
-      'Your wallet is still getting ready. Try again in a moment.';
+      'Tvoje peněženka se ještě připravuje. Zkus to za chvíli znovu.';
 
   @override
   String get shareMarketShareLink => 'Poslat odkaz';
 
   @override
   String shareMarketLookAt(String title, String link) {
-    return 'Look at this on Kute: $title $link';
+    return 'Mrkni na tohle na Kute: $title $link';
   }
 
   @override
   String shareMarketChance(String chance) {
-    return '$chance% chance';
+    return 'Šance $chance %';
   }
 
   @override
-  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+  String get sendRecipientSearchHint =>
+      'Jméno, adresa, Lightning nebo @uživatel';
 
   @override
-  String get usdSendRecipientSearchHint => 'Name, address or ENS';
+  String get usdSendRecipientSearchHint => 'Jméno, adresa nebo ENS';
 
   @override
-  String get sendDollarsTitle => 'Send dollars';
+  String get sendDollarsTitle => 'Poslat dolary';
 
   @override
   String sendCoinTitle(String coin) {
-    return 'Send $coin';
+    return 'Poslat $coin';
   }
 
   @override
-  String get sendContacts => 'Contacts';
+  String get sendContacts => 'Kontakty';
 
   @override
   String get sendToAFriend => 'Poslat kamarádovi';
 
   @override
-  String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
+  String get sendToAFriendSub =>
+      'Vyzvednou si to přes Kute, peněženka není potřeba';
 
   @override
-  String get sendSomeoneElse => 'Someone else';
+  String get sendSomeoneElse => 'Někdo jiný';
 
   @override
-  String get sendAllowContactsInSettings => 'Allow contacts in Settings';
+  String get sendAllowContactsInSettings => 'Povol kontakty v Nastavení';
 
   @override
   String get sendAllowContactsInSettingsSub =>
-      'Kute can only show contacts you allow';
+      'Kute může zobrazit jen kontakty, které povolíš';
 
   @override
-  String get sendNoContactsMatch => 'No contacts match';
+  String get sendNoContactsMatch => 'Žádné odpovídající kontakty';
 
   @override
-  String get sendContactsSearchHint => 'Search contacts';
+  String get sendContactsSearchHint => 'Hledat kontakty';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -11792,7 +11800,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String usdSendNotNetworkAddress(String network) {
-    return 'Not an $network address';
+    return 'Není to adresa $network';
   }
 
   @override
@@ -11802,40 +11810,40 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String sendAlsoSendsToMore(String names, int count) {
-    return '$names and $count more';
+    return '$names a ještě $count';
   }
 
   @override
   String sendAlsoSendsToList(String names, String last) {
-    return '$names and $last';
+    return '$names a $last';
   }
 
   @override
-  String get sendPickMarket => 'Send a prediction or investment';
+  String get sendPickMarket => 'Poslat predikci nebo investici';
 
   @override
-  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+  String get sendPickMarketSub => 'Vyber trh, dostanou ho připravený k zadání';
 
   @override
-  String get sendPickMarketSearchHint => 'Search predictions and investing';
+  String get sendPickMarketSearchHint => 'Hledat v predikcích a investování';
 
   @override
-  String get sendPickMarketNoResults => 'Nothing matches';
+  String get sendPickMarketNoResults => 'Nic neodpovídá';
 
   @override
-  String get sendPickSideTitle => 'Which side?';
+  String get sendPickSideTitle => 'Která strana?';
 
   @override
-  String get sendPickSideSub => 'What they get, ready to place';
+  String get sendPickSideSub => 'Co dostanou, připravené k zadání';
 
   @override
-  String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
+  String get shareSendAgainWhatsApp => 'Poslat znovu přes WhatsApp';
 
   @override
-  String get shareSendAgainSms => 'Send again via SMS';
+  String get shareSendAgainSms => 'Poslat znovu přes SMS';
 
   @override
-  String get sendToLabel => 'Send to';
+  String get sendToLabel => 'Příjemce';
 
   @override
   String get predictionsChance => 'šance';

@@ -10650,10 +10650,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareHeaderLabel => 'Küldés barátnak';
 
   @override
-  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+  String get searchPredictionsOrAskSal =>
+      'Keress előrejelzéseket, vagy kérdezd Salt';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+  String get searchInvestmentsOrAskSal =>
+      'Keress befektetéseket, vagy kérdezd Salt';
 
   @override
   String get searchOrAskSalShort => 'Keress, vagy kérdezd Salt';
@@ -11336,30 +11338,30 @@ class AppLocalizationsHu extends AppLocalizations {
       'Az egyenleged alakulása itt jelenik meg, amint lesz dollárod';
 
   @override
-  String get chartPeriodPastWeek => 'Past week';
+  String get chartPeriodPastWeek => 'Elmúlt hét';
 
   @override
-  String get chartPeriodPastMonth => 'Past month';
+  String get chartPeriodPastMonth => 'Elmúlt hónap';
 
   @override
-  String get chartPeriodPast3Months => 'Past 3 months';
+  String get chartPeriodPast3Months => 'Elmúlt 3 hónap';
 
   @override
-  String get chartPeriodPastYear => 'Past year';
+  String get chartPeriodPastYear => 'Elmúlt év';
 
   @override
-  String get chartPeriodAllTime => 'All time';
+  String get chartPeriodAllTime => 'Teljes időszak';
 
   @override
-  String get chartNoChange => 'No change';
+  String get chartNoChange => 'Nincs változás';
 
   @override
   String get pnlChartNoHistory =>
-      'Your P&L shows up after your first position.';
+      'Az eredményed az első pozíciód után jelenik meg.';
 
   @override
   String get balanceChartNoHistory =>
-      'Your balance history starts with your first transaction.';
+      'Az egyenlegelőzményed az első tranzakcióddal kezdődik.';
 
   @override
   String get pnlChartEmpty =>
@@ -11405,160 +11407,161 @@ class AppLocalizationsHu extends AppLocalizations {
   String get purchaseShort => 'Vásárlás';
 
   @override
-  String get categoryGroupDiscover => 'Discover';
+  String get categoryGroupDiscover => 'Felfedezés';
 
   @override
-  String get categoryGroupMarkets => 'Markets';
+  String get categoryGroupMarkets => 'Piacok';
 
   @override
-  String get categoryGroupTopics => 'Topics';
+  String get categoryGroupTopics => 'Témák';
 
   @override
   String categoryStatMarkets(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count markets',
-      one: '1 market',
+      other: '$count piac',
+      one: '1 piac',
     );
     return '$_temp0';
   }
 
   @override
-  String get categoryStatMostActive => 'Most active';
+  String get categoryStatMostActive => 'Legaktívabb';
 
   @override
-  String get categoryStatToday => 'today';
+  String get categoryStatToday => 'ma';
 
   @override
   String categoryStatVolToday(String amount) {
-    return '$amount vol today';
+    return '$amount forgalom ma';
   }
 
   @override
   String categoryAllOf(String group) {
-    return 'All $group';
+    return 'Összes: $group';
   }
 
   @override
-  String get searchHomeMovingNow => 'Moving now';
+  String get searchHomeMovingNow => 'Most mozog';
 
   @override
-  String get searchHomeTrendingPredictions => 'Trending predictions';
+  String get searchHomeTrendingPredictions => 'Felkapott előrejelzések';
 
   @override
-  String get barPickMarketGroup => 'Pick a market group';
+  String get barPickMarketGroup => 'Válassz piaccsoportot';
 
   @override
-  String get barPickMarketGroupSub => 'or ask Sal to find one';
+  String get barPickMarketGroupSub => 'vagy kérd meg Salt, hogy keressen egyet';
 
   @override
   String get barShareWithFriends => 'Küldés barátnak';
 
   @override
-  String get barShareMarketSub => 'Send the market or your prediction';
+  String get barShareMarketSub => 'Küldd el a piacot vagy az előrejelzésedet';
 
   @override
-  String get barSharePositionSub => 'Send the market or your position';
+  String get barSharePositionSub => 'Küldd el a piacot vagy a pozíciódat';
 
   @override
   String get shareTheMarket => 'Piac küldése';
 
   @override
-  String get shareTheMarketSub => 'A link they can open, with your code';
+  String get shareTheMarketSub => 'Egy megnyitható link a kódoddal';
 
   @override
   String get shareThisPosition => 'Pozíció küldése';
 
   @override
-  String get shareThisPositionSub => 'The market and how you\'re doing';
+  String get shareThisPositionSub => 'A piac, és hogy hogyan állsz';
 
   @override
-  String get sendThisPrediction => 'Send this prediction';
+  String get sendThisPrediction => 'Küldd el ezt az előrejelzést';
 
   @override
-  String get sendThisInvestment => 'Send this investment';
+  String get sendThisInvestment => 'Küldd el ezt a befektetést';
 
   @override
-  String get sendThisPickSub => 'They get your pick, ready to place';
+  String get sendThisPickSub => 'Megkapják a választásodat, leadásra készen';
 
   @override
   String sharePickOn(String outcome, String title) {
-    return '$outcome on $title';
+    return '$title: $outcome';
   }
 
   @override
-  String get portfolioInvestedLabel => 'Invested';
+  String get portfolioInvestedLabel => 'Befektetve';
 
   @override
-  String get portfolioAvailableLabel => 'Available';
+  String get portfolioAvailableLabel => 'Elérhető';
 
   @override
-  String get balanceNoHistoryTitle => 'No balance history yet';
+  String get balanceNoHistoryTitle => 'Még nincs egyenlegelőzmény';
 
   @override
-  String get balanceNoHistorySub => 'It starts with your first transaction.';
+  String get balanceNoHistorySub => 'Az első tranzakcióddal kezdődik.';
 
   @override
-  String get pnlNoHistoryTitle => 'No P&L yet';
+  String get pnlNoHistoryTitle => 'Még nincs eredmény';
 
   @override
-  String get portfolioAllTime => 'All time';
+  String get portfolioAllTime => 'Teljes időszak';
 
   @override
-  String get barWhatIsThis => 'What is this?';
+  String get barWhatIsThis => 'Mi ez?';
 
   @override
-  String get barReceiveExplainSub => 'Sal explains how receiving works';
+  String get barReceiveExplainSub =>
+      'Sal elmagyarázza, hogyan működik a fogadás';
 
   @override
   String get barReceiveQuestion =>
-      'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means';
+      'Magyarázd el ezt a fogadási képernyőt: a QR-kódot, a Lightning-címet, az Egységes, Csak Bitcoin és Csak Lightning közti különbséget, és hogy mit jelent az „Ezt is fogadja”';
 
   @override
-  String get barScannerLabel => 'What can I scan?';
+  String get barScannerLabel => 'Mit szkennelhetek?';
 
   @override
   String get barScannerQuestion =>
-      'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?';
+      'Mit szkennelhetek a Kute szkennerével: címeket, számlákat, QR-kódokat, és mi történik a szkennelés után?';
 
   @override
-  String get barBackupLabel => 'Why back up?';
+  String get barBackupLabel => 'Miért kell mentés?';
 
   @override
   String get barBackupQuestion =>
-      'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?';
+      'Miért kell biztonsági mentést készítenem a tárcámról, mi a helyreállítási kifejezés, és hogyan őrizzem biztonságban?';
 
   @override
-  String get barReceiptLabel => 'What happened here?';
+  String get barReceiptLabel => 'Mi történt itt?';
 
   @override
   String get barReceiptQuestion =>
-      'Explain this transaction receipt: what moved, the fees, the status and what each line means';
+      'Magyarázd el ezt a tranzakciós bizonylatot: mi mozdult, a díjakat, az állapotot, és mit jelentenek az egyes sorok';
 
   @override
-  String get barAskSalSub => 'Ask Sal about this screen';
+  String get barAskSalSub => 'Kérdezd Salt erről a képernyőről';
 
   @override
-  String get barMoveMoney => 'Move money';
+  String get barMoveMoney => 'Pénz mozgatása';
 
   @override
-  String get barMoveMoneySub => 'ask Sal where it should go';
+  String get barMoveMoneySub => 'kérdezd Salt, hová kerüljön';
 
   @override
-  String get barAskWhatNext => 'Ask Sal what happens next';
+  String get barAskWhatNext => 'Kérdezd Salt, mi jön ezután';
 
   @override
-  String get barAskAboutKute => 'Ask Sal about Kute';
+  String get barAskAboutKute => 'Kérdezd Salt a Kute-ról';
 
   @override
-  String get searchHomeRecent => 'Recent';
+  String get searchHomeRecent => 'Legutóbbiak';
 
   @override
-  String get searchHomeClear => 'Clear';
+  String get searchHomeClear => 'Törlés';
 
   @override
-  String get searchScopeTitle => 'Search in';
+  String get searchScopeTitle => 'Keresés itt';
 
   @override
   String marketMetaLine(String volume, String date) {
@@ -11571,156 +11574,159 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get shareSendToAnyone => 'Send to anyone';
+  String get shareSendToAnyone => 'Küldés bárkinek';
 
   @override
-  String get shareSendToAnyoneSubtitle => 'A link they claim with Kute';
+  String get shareSendToAnyoneSubtitle =>
+      'Egy link, amit a Kute-ban vehetnek át';
 
   @override
-  String get shareWhoIsItFor => 'Who is it for?';
+  String get shareWhoIsItFor => 'Kinek szól?';
 
   @override
-  String get shareFirstNameHint => 'First name (optional)';
+  String get shareFirstNameHint => 'Keresztnév (nem kötelező)';
 
   @override
-  String get shareCreateLink => 'Create link';
+  String get shareCreateLink => 'Link létrehozása';
 
   @override
-  String get shareCreatingLink => 'Creating link';
+  String get shareCreatingLink => 'Link létrehozása folyamatban';
 
   @override
-  String get shareCreateFailed => 'Could not create the link. Try again.';
+  String get shareCreateFailed =>
+      'Nem sikerült létrehozni a linket. Próbáld újra.';
 
   @override
   String shareAmountInBitcoin(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount Bitcoinban';
   }
 
   @override
   String shareMessageNamed(String name, String amount, String url) {
-    return '$name, I sent you $amount with Kute. Claim it here: $url';
+    return '$name, küldtem neked $amount összeget a Kute-ban. Itt veheted át: $url';
   }
 
   @override
   String shareMessageUnnamed(String amount, String url) {
-    return 'I sent you $amount with Kute. Claim it here: $url';
+    return 'Küldtem neked $amount összeget a Kute-ban. Itt veheted át: $url';
   }
 
   @override
   String shareMessagePredictionNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Küldtem neked egy előrejelzést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Küldtem neked egy befektetést a Kute-ban: $title: $outcome, $amount. Itt veheted át: $url';
   }
 
   @override
   String shareLinkSentWaiting(String name) {
-    return 'Link sent · waiting for $name to claim';
+    return 'Link elküldve · arra vár, hogy $name átvegye';
   }
 
   @override
-  String get shareLinkSentWaitingUnnamed => 'Link sent · waiting to be claimed';
+  String get shareLinkSentWaitingUnnamed => 'Link elküldve · átvételre vár';
 
   @override
-  String get shareLinkClaimedReady => 'Claimed · ready to send';
+  String get shareLinkClaimedReady => 'Átvéve · küldésre kész';
 
   @override
-  String get shareLinkPaid => 'Sent';
+  String get shareLinkPaid => 'Elküldve';
 
   @override
-  String get shareLinkCancelled => 'Cancelled';
+  String get shareLinkCancelled => 'Visszavonva';
 
   @override
-  String get shareLinkExpired => 'Expired';
+  String get shareLinkExpired => 'Lejárt';
 
   @override
-  String get shareLinkCancel => 'Cancel link';
+  String get shareLinkCancel => 'Link visszavonása';
 
   @override
-  String get shareLinkCancelFailed => 'Could not cancel the link. Try again.';
+  String get shareLinkCancelFailed =>
+      'Nem sikerült visszavonni a linket. Próbáld újra.';
 
   @override
-  String get shareLinkShareAgain => 'Share again';
+  String get shareLinkShareAgain => 'Megosztás újra';
 
   @override
-  String get sharePendingLinksTitle => 'Links you sent';
+  String get sharePendingLinksTitle => 'Elküldött linkjeid';
 
   @override
   String shareClaimedPromptTitle(String name, String amount) {
-    return '$name claimed your $amount';
+    return '$name átvette a(z) $amount összeget';
   }
 
   @override
   String shareClaimedPromptTitleUnnamed(String amount) {
-    return 'Your $amount was claimed';
+    return 'A(z) $amount összeget átvették';
   }
 
   @override
   String get shareClaimedPromptBody =>
-      'Send it now to finish. It leaves your wallet only when you confirm.';
+      'Küldd el most a befejezéshez. Csak akkor hagyja el a tárcádat, ha megerősíted.';
 
   @override
-  String get shareSendNow => 'Send now';
+  String get shareSendNow => 'Küldés most';
 
   @override
-  String get shareLater => 'Later';
+  String get shareLater => 'Később';
 
   @override
   String get shareSendFailed =>
-      'Could not send. Kute will ask again next time it opens.';
+      'Nem sikerült elküldeni. A Kute a következő megnyitáskor újra rákérdez.';
 
   @override
   String claimTitle(String sender, String amount) {
-    return '$sender sent you $amount';
+    return '$sender küldött neked $amount összeget';
   }
 
   @override
-  String get claimSomeone => 'Someone';
+  String get claimSomeone => 'Valaki';
 
   @override
   String claimMarketLine(String market) {
-    return 'to bet on $market';
+    return 'fogadásra erre: $market';
   }
 
   @override
-  String get claimButton => 'Claim';
+  String get claimButton => 'Átvétel';
 
   @override
-  String get claimClaiming => 'Claiming';
+  String get claimClaiming => 'Átvétel folyamatban';
 
   @override
-  String get claimOnItsWay => 'On its way';
+  String get claimOnItsWay => 'Úton van';
 
   @override
   String claimArrivesWhenOpens(String sender) {
-    return 'It arrives when $sender opens Kute.';
+    return 'Akkor érkezik meg, amikor $sender megnyitja a Kute-ot.';
   }
 
   @override
   String claimSentPrediction(String sender) {
-    return '$sender sent you a prediction';
+    return '$sender küldött neked egy előrejelzést';
   }
 
   @override
   String claimSentInvestment(String sender) {
-    return '$sender sent you an investment';
+    return '$sender küldött neked egy befektetést';
   }
 
   @override
@@ -11730,90 +11736,91 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String claimWaitingForSender(String sender) {
-    return 'Waiting for $sender to send it';
+    return 'Várakozás, hogy $sender elküldje';
   }
 
   @override
   String claimArrivedInDollars(String amount) {
-    return '$amount is in your Dollars';
+    return '$amount megérkezett a Dollár egyenlegedre';
   }
 
   @override
-  String get claimPlacePrediction => 'Place the prediction';
+  String get claimPlacePrediction => 'Előrejelzés leadása';
 
   @override
-  String get claimPlaceInvestment => 'Place the investment';
+  String get claimPlaceInvestment => 'Befektetés leadása';
 
   @override
-  String get claimOpenMarket => 'Open the market';
+  String get claimOpenMarket => 'Piac megnyitása';
 
   @override
-  String get claimAlreadyClaimed => 'This link was already claimed.';
+  String get claimAlreadyClaimed => 'Ezt a linket már átvették.';
 
   @override
-  String get claimExpired => 'This link has expired.';
+  String get claimExpired => 'Ez a link lejárt.';
 
   @override
-  String get claimUnavailable => 'This link is not available.';
+  String get claimUnavailable => 'Ez a link nem érhető el.';
 
   @override
-  String get claimFailed => 'Could not claim. Try again.';
+  String get claimFailed => 'Nem sikerült az átvétel. Próbáld újra.';
 
   @override
   String get claimNeedsWallet =>
-      'Your wallet is still getting ready. Try again in a moment.';
+      'A tárcád még készül. Próbáld újra egy kicsit később.';
 
   @override
   String get shareMarketShareLink => 'Link küldése';
 
   @override
   String shareMarketLookAt(String title, String link) {
-    return 'Look at this on Kute: $title $link';
+    return 'Nézd meg ezt a Kute-ban: $title $link';
   }
 
   @override
   String shareMarketChance(String chance) {
-    return '$chance% chance';
+    return '$chance% esély';
   }
 
   @override
-  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+  String get sendRecipientSearchHint => 'Név, cím, Lightning vagy @felhasználó';
 
   @override
-  String get usdSendRecipientSearchHint => 'Name, address or ENS';
+  String get usdSendRecipientSearchHint => 'Név, cím vagy ENS';
 
   @override
-  String get sendDollarsTitle => 'Send dollars';
+  String get sendDollarsTitle => 'Dollár küldése';
 
   @override
   String sendCoinTitle(String coin) {
-    return 'Send $coin';
+    return '$coin küldése';
   }
 
   @override
-  String get sendContacts => 'Contacts';
+  String get sendContacts => 'Névjegyek';
 
   @override
   String get sendToAFriend => 'Küldés barátnak';
 
   @override
-  String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
+  String get sendToAFriendSub => 'A Kute-ban veszik át, tárca sem kell';
 
   @override
-  String get sendSomeoneElse => 'Someone else';
+  String get sendSomeoneElse => 'Valaki más';
 
   @override
-  String get sendAllowContactsInSettings => 'Allow contacts in Settings';
+  String get sendAllowContactsInSettings =>
+      'Engedélyezd a névjegyeket a Beállításokban';
 
   @override
   String get sendAllowContactsInSettingsSub =>
-      'Kute can only show contacts you allow';
+      'A Kute csak az általad engedélyezett névjegyeket mutatja';
 
   @override
-  String get sendNoContactsMatch => 'No contacts match';
+  String get sendNoContactsMatch => 'Nincs egyező névjegy';
 
   @override
-  String get sendContactsSearchHint => 'Search contacts';
+  String get sendContactsSearchHint => 'Névjegyek keresése';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -11826,7 +11833,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String usdSendNotNetworkAddress(String network) {
-    return 'Not an $network address';
+    return 'Nem $network-cím';
   }
 
   @override
@@ -11836,40 +11843,41 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String sendAlsoSendsToMore(String names, int count) {
-    return '$names and $count more';
+    return '$names és még $count';
   }
 
   @override
   String sendAlsoSendsToList(String names, String last) {
-    return '$names and $last';
+    return '$names és $last';
   }
 
   @override
-  String get sendPickMarket => 'Send a prediction or investment';
+  String get sendPickMarket => 'Előrejelzés vagy befektetés küldése';
 
   @override
-  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+  String get sendPickMarketSub => 'Válassz piacot, leadásra készen kapják meg';
 
   @override
-  String get sendPickMarketSearchHint => 'Search predictions and investing';
+  String get sendPickMarketSearchHint =>
+      'Keresés az előrejelzésekben és befektetésekben';
 
   @override
-  String get sendPickMarketNoResults => 'Nothing matches';
+  String get sendPickMarketNoResults => 'Nincs találat';
 
   @override
-  String get sendPickSideTitle => 'Which side?';
+  String get sendPickSideTitle => 'Melyik oldal?';
 
   @override
-  String get sendPickSideSub => 'What they get, ready to place';
+  String get sendPickSideSub => 'Amit kapnak, leadásra készen';
 
   @override
-  String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
+  String get shareSendAgainWhatsApp => 'Újraküldés WhatsAppon';
 
   @override
-  String get shareSendAgainSms => 'Send again via SMS';
+  String get shareSendAgainSms => 'Újraküldés SMS-ben';
 
   @override
-  String get sendToLabel => 'Send to';
+  String get sendToLabel => 'Címzett';
 
   @override
   String get predictionsChance => 'esély';

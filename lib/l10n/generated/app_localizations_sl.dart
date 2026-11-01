@@ -10656,10 +10656,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get shareHeaderLabel => 'Pošlji prijatelju';
 
   @override
-  String get searchPredictionsOrAskSal => 'Search predictions or ask Sal';
+  String get searchPredictionsOrAskSal => 'Iščite napovedi ali vprašajte Sala';
 
   @override
-  String get searchInvestmentsOrAskSal => 'Search investments or ask Sal';
+  String get searchInvestmentsOrAskSal => 'Iščite naložbe ali vprašajte Sala';
 
   @override
   String get searchOrAskSalShort => 'Iščite ali vprašajte Sala';
@@ -11341,30 +11341,30 @@ class AppLocalizationsSl extends AppLocalizations {
       'Ko boste imeli dolarje, bo tukaj prikazano gibanje vašega stanja';
 
   @override
-  String get chartPeriodPastWeek => 'Past week';
+  String get chartPeriodPastWeek => 'Zadnji teden';
 
   @override
-  String get chartPeriodPastMonth => 'Past month';
+  String get chartPeriodPastMonth => 'Zadnji mesec';
 
   @override
-  String get chartPeriodPast3Months => 'Past 3 months';
+  String get chartPeriodPast3Months => 'Zadnji 3 meseci';
 
   @override
-  String get chartPeriodPastYear => 'Past year';
+  String get chartPeriodPastYear => 'Zadnje leto';
 
   @override
-  String get chartPeriodAllTime => 'All time';
+  String get chartPeriodAllTime => 'Vse';
 
   @override
-  String get chartNoChange => 'No change';
+  String get chartNoChange => 'Brez spremembe';
 
   @override
   String get pnlChartNoHistory =>
-      'Your P&L shows up after your first position.';
+      'Vaš dobiček/izguba se prikaže po prvi poziciji.';
 
   @override
   String get balanceChartNoHistory =>
-      'Your balance history starts with your first transaction.';
+      'Zgodovina stanja se začne z vašo prvo transakcijo.';
 
   @override
   String get pnlChartEmpty =>
@@ -11412,160 +11412,162 @@ class AppLocalizationsSl extends AppLocalizations {
   String get purchaseShort => 'Kupi';
 
   @override
-  String get categoryGroupDiscover => 'Discover';
+  String get categoryGroupDiscover => 'Odkrijte';
 
   @override
-  String get categoryGroupMarkets => 'Markets';
+  String get categoryGroupMarkets => 'Trgi';
 
   @override
-  String get categoryGroupTopics => 'Topics';
+  String get categoryGroupTopics => 'Teme';
 
   @override
   String categoryStatMarkets(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count markets',
-      one: '1 market',
+      other: '$count trgov',
+      few: '$count trgi',
+      two: '$count trga',
+      one: '$count trg',
     );
     return '$_temp0';
   }
 
   @override
-  String get categoryStatMostActive => 'Most active';
+  String get categoryStatMostActive => 'Najbolj dejavni';
 
   @override
-  String get categoryStatToday => 'today';
+  String get categoryStatToday => 'danes';
 
   @override
   String categoryStatVolToday(String amount) {
-    return '$amount vol today';
+    return '$amount obseg danes';
   }
 
   @override
   String categoryAllOf(String group) {
-    return 'All $group';
+    return 'Vse: $group';
   }
 
   @override
-  String get searchHomeMovingNow => 'Moving now';
+  String get searchHomeMovingNow => 'Zdaj v gibanju';
 
   @override
-  String get searchHomeTrendingPredictions => 'Trending predictions';
+  String get searchHomeTrendingPredictions => 'Priljubljene napovedi';
 
   @override
-  String get barPickMarketGroup => 'Pick a market group';
+  String get barPickMarketGroup => 'Izberite skupino trgov';
 
   @override
-  String get barPickMarketGroupSub => 'or ask Sal to find one';
+  String get barPickMarketGroupSub => 'ali prosite Sala, naj jo poišče';
 
   @override
   String get barShareWithFriends => 'Pošlji prijatelju';
 
   @override
-  String get barShareMarketSub => 'Send the market or your prediction';
+  String get barShareMarketSub => 'Pošljite trg ali svojo napoved';
 
   @override
-  String get barSharePositionSub => 'Send the market or your position';
+  String get barSharePositionSub => 'Pošljite trg ali svojo pozicijo';
 
   @override
   String get shareTheMarket => 'Pošlji trg';
 
   @override
-  String get shareTheMarketSub => 'A link they can open, with your code';
+  String get shareTheMarketSub => 'Povezava, ki jo lahko odprejo, z vašo kodo';
 
   @override
   String get shareThisPosition => 'Pošlji to pozicijo';
 
   @override
-  String get shareThisPositionSub => 'The market and how you\'re doing';
+  String get shareThisPositionSub => 'Trg in kako vam gre';
 
   @override
-  String get sendThisPrediction => 'Send this prediction';
+  String get sendThisPrediction => 'Pošlji to napoved';
 
   @override
-  String get sendThisInvestment => 'Send this investment';
+  String get sendThisInvestment => 'Pošlji to naložbo';
 
   @override
-  String get sendThisPickSub => 'They get your pick, ready to place';
+  String get sendThisPickSub => 'Prejmejo vašo izbiro, pripravljeno za oddajo';
 
   @override
   String sharePickOn(String outcome, String title) {
-    return '$outcome on $title';
+    return '$title: $outcome';
   }
 
   @override
-  String get portfolioInvestedLabel => 'Invested';
+  String get portfolioInvestedLabel => 'Vloženo';
 
   @override
-  String get portfolioAvailableLabel => 'Available';
+  String get portfolioAvailableLabel => 'Na voljo';
 
   @override
-  String get balanceNoHistoryTitle => 'No balance history yet';
+  String get balanceNoHistoryTitle => 'Še ni zgodovine stanja';
 
   @override
-  String get balanceNoHistorySub => 'It starts with your first transaction.';
+  String get balanceNoHistorySub => 'Začne se z vašo prvo transakcijo.';
 
   @override
-  String get pnlNoHistoryTitle => 'No P&L yet';
+  String get pnlNoHistoryTitle => 'Še ni dobička/izgube';
 
   @override
-  String get portfolioAllTime => 'All time';
+  String get portfolioAllTime => 'Vse';
 
   @override
-  String get barWhatIsThis => 'What is this?';
+  String get barWhatIsThis => 'Kaj je to?';
 
   @override
-  String get barReceiveExplainSub => 'Sal explains how receiving works';
+  String get barReceiveExplainSub => 'Sal razloži, kako deluje prejemanje';
 
   @override
   String get barReceiveQuestion =>
-      'Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what \'Also accepts\' means';
+      'Razloži mi ta zaslon za prejemanje: kodo QR, naslov Lightning, Poenoteno vs Samo Bitcoin vs Samo Lightning in kaj pomeni »Sprejema tudi«';
 
   @override
-  String get barScannerLabel => 'What can I scan?';
+  String get barScannerLabel => 'Kaj lahko skeniram?';
 
   @override
   String get barScannerQuestion =>
-      'What can I scan with Kute\'s scanner: addresses, invoices, QR codes, and what happens after a scan?';
+      'Kaj lahko skeniram s skenerjem Kute: naslove, račune, kode QR, in kaj se zgodi po skeniranju?';
 
   @override
-  String get barBackupLabel => 'Why back up?';
+  String get barBackupLabel => 'Zakaj varnostna kopija?';
 
   @override
   String get barBackupQuestion =>
-      'Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?';
+      'Zakaj naj naredim varnostno kopijo denarnice, kaj je obnovitvena fraza in kako jo varno shranim?';
 
   @override
-  String get barReceiptLabel => 'What happened here?';
+  String get barReceiptLabel => 'Kaj se je zgodilo tukaj?';
 
   @override
   String get barReceiptQuestion =>
-      'Explain this transaction receipt: what moved, the fees, the status and what each line means';
+      'Razloži mi to potrdilo o transakciji: kaj se je premaknilo, provizije, stanje in kaj pomeni vsaka vrstica';
 
   @override
-  String get barAskSalSub => 'Ask Sal about this screen';
+  String get barAskSalSub => 'Vprašajte Sala o tem zaslonu';
 
   @override
-  String get barMoveMoney => 'Move money';
+  String get barMoveMoney => 'Premakni denar';
 
   @override
-  String get barMoveMoneySub => 'ask Sal where it should go';
+  String get barMoveMoneySub => 'vprašajte Sala, kam naj gre';
 
   @override
-  String get barAskWhatNext => 'Ask Sal what happens next';
+  String get barAskWhatNext => 'Vprašajte Sala, kaj sledi';
 
   @override
-  String get barAskAboutKute => 'Ask Sal about Kute';
+  String get barAskAboutKute => 'Vprašajte Sala o Kute';
 
   @override
-  String get searchHomeRecent => 'Recent';
+  String get searchHomeRecent => 'Nedavni';
 
   @override
-  String get searchHomeClear => 'Clear';
+  String get searchHomeClear => 'Počisti';
 
   @override
-  String get searchScopeTitle => 'Search in';
+  String get searchScopeTitle => 'Išči v';
 
   @override
   String marketMetaLine(String volume, String date) {
@@ -11578,156 +11580,159 @@ class AppLocalizationsSl extends AppLocalizations {
   }
 
   @override
-  String get shareSendToAnyone => 'Send to anyone';
+  String get shareSendToAnyone => 'Pošlji komurkoli';
 
   @override
-  String get shareSendToAnyoneSubtitle => 'A link they claim with Kute';
+  String get shareSendToAnyoneSubtitle => 'Povezava, ki jo prevzamejo s Kute';
 
   @override
-  String get shareWhoIsItFor => 'Who is it for?';
+  String get shareWhoIsItFor => 'Za koga je?';
 
   @override
-  String get shareFirstNameHint => 'First name (optional)';
+  String get shareFirstNameHint => 'Ime (neobvezno)';
 
   @override
-  String get shareCreateLink => 'Create link';
+  String get shareCreateLink => 'Ustvari povezavo';
 
   @override
-  String get shareCreatingLink => 'Creating link';
+  String get shareCreatingLink => 'Ustvarjanje povezave';
 
   @override
-  String get shareCreateFailed => 'Could not create the link. Try again.';
+  String get shareCreateFailed =>
+      'Povezave ni bilo mogoče ustvariti. Poskusite znova.';
 
   @override
   String shareAmountInBitcoin(String amount) {
-    return '$amount in Bitcoin';
+    return '$amount v Bitcoinu';
   }
 
   @override
   String shareMessageNamed(String name, String amount, String url) {
-    return '$name, I sent you $amount with Kute. Claim it here: $url';
+    return '$name, pošiljam ti $amount prek Kute. Prevzemi tukaj: $url';
   }
 
   @override
   String shareMessageUnnamed(String amount, String url) {
-    return 'I sent you $amount with Kute. Claim it here: $url';
+    return 'Pošiljam ti $amount prek Kute. Prevzemi tukaj: $url';
   }
 
   @override
   String shareMessagePredictionNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, pošiljam ti napoved v Kute: $title: $outcome, $amount. Prevzemi jo: $url';
   }
 
   @override
   String shareMessagePredictionUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you a prediction on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Pošiljam ti napoved v Kute: $title: $outcome, $amount. Prevzemi jo: $url';
   }
 
   @override
   String shareMessageInvestmentNamed(
       String name, String outcome, String title, String amount, String url) {
-    return '$name, I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return '$name, pošiljam ti naložbo v Kute: $title: $outcome, $amount. Prevzemi jo: $url';
   }
 
   @override
   String shareMessageInvestmentUnnamed(
       String outcome, String title, String amount, String url) {
-    return 'I sent you an investment on Kute: $outcome on $title, $amount. Claim it: $url';
+    return 'Pošiljam ti naložbo v Kute: $title: $outcome, $amount. Prevzemi jo: $url';
   }
 
   @override
   String shareLinkSentWaiting(String name) {
-    return 'Link sent · waiting for $name to claim';
+    return 'Povezava poslana · čaka, da jo $name prevzame';
   }
 
   @override
-  String get shareLinkSentWaitingUnnamed => 'Link sent · waiting to be claimed';
+  String get shareLinkSentWaitingUnnamed =>
+      'Povezava poslana · čaka na prevzem';
 
   @override
-  String get shareLinkClaimedReady => 'Claimed · ready to send';
+  String get shareLinkClaimedReady => 'Prevzeto · pripravljeno za pošiljanje';
 
   @override
-  String get shareLinkPaid => 'Sent';
+  String get shareLinkPaid => 'Poslano';
 
   @override
-  String get shareLinkCancelled => 'Cancelled';
+  String get shareLinkCancelled => 'Preklicano';
 
   @override
-  String get shareLinkExpired => 'Expired';
+  String get shareLinkExpired => 'Poteklo';
 
   @override
-  String get shareLinkCancel => 'Cancel link';
+  String get shareLinkCancel => 'Prekliči povezavo';
 
   @override
-  String get shareLinkCancelFailed => 'Could not cancel the link. Try again.';
+  String get shareLinkCancelFailed =>
+      'Povezave ni bilo mogoče preklicati. Poskusite znova.';
 
   @override
-  String get shareLinkShareAgain => 'Share again';
+  String get shareLinkShareAgain => 'Deli znova';
 
   @override
-  String get sharePendingLinksTitle => 'Links you sent';
+  String get sharePendingLinksTitle => 'Poslane povezave';
 
   @override
   String shareClaimedPromptTitle(String name, String amount) {
-    return '$name claimed your $amount';
+    return '$name prevzema vaš znesek $amount';
   }
 
   @override
   String shareClaimedPromptTitleUnnamed(String amount) {
-    return 'Your $amount was claimed';
+    return 'Vaš znesek $amount je prevzet';
   }
 
   @override
   String get shareClaimedPromptBody =>
-      'Send it now to finish. It leaves your wallet only when you confirm.';
+      'Pošljite zdaj za dokončanje. Denarnico zapusti šele, ko potrdite.';
 
   @override
-  String get shareSendNow => 'Send now';
+  String get shareSendNow => 'Pošlji zdaj';
 
   @override
-  String get shareLater => 'Later';
+  String get shareLater => 'Pozneje';
 
   @override
   String get shareSendFailed =>
-      'Could not send. Kute will ask again next time it opens.';
+      'Pošiljanje ni uspelo. Kute bo znova vprašal ob naslednjem odpiranju.';
 
   @override
   String claimTitle(String sender, String amount) {
-    return '$sender sent you $amount';
+    return '$sender vam pošilja $amount';
   }
 
   @override
-  String get claimSomeone => 'Someone';
+  String get claimSomeone => 'Nekdo';
 
   @override
   String claimMarketLine(String market) {
-    return 'to bet on $market';
+    return 'za stavo na $market';
   }
 
   @override
-  String get claimButton => 'Claim';
+  String get claimButton => 'Prevzemi';
 
   @override
-  String get claimClaiming => 'Claiming';
+  String get claimClaiming => 'Prevzemanje';
 
   @override
-  String get claimOnItsWay => 'On its way';
+  String get claimOnItsWay => 'Na poti';
 
   @override
   String claimArrivesWhenOpens(String sender) {
-    return 'It arrives when $sender opens Kute.';
+    return 'Prispe, ko $sender odpre Kute.';
   }
 
   @override
   String claimSentPrediction(String sender) {
-    return '$sender sent you a prediction';
+    return '$sender vam pošilja napoved';
   }
 
   @override
   String claimSentInvestment(String sender) {
-    return '$sender sent you an investment';
+    return '$sender vam pošilja naložbo';
   }
 
   @override
@@ -11737,90 +11742,90 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String claimWaitingForSender(String sender) {
-    return 'Waiting for $sender to send it';
+    return 'Čakamo, da $sender pošlje';
   }
 
   @override
   String claimArrivedInDollars(String amount) {
-    return '$amount is in your Dollars';
+    return '$amount je v vaših Dolarjih';
   }
 
   @override
-  String get claimPlacePrediction => 'Place the prediction';
+  String get claimPlacePrediction => 'Oddaj napoved';
 
   @override
-  String get claimPlaceInvestment => 'Place the investment';
+  String get claimPlaceInvestment => 'Oddaj naložbo';
 
   @override
-  String get claimOpenMarket => 'Open the market';
+  String get claimOpenMarket => 'Odpri trg';
 
   @override
-  String get claimAlreadyClaimed => 'This link was already claimed.';
+  String get claimAlreadyClaimed => 'Ta povezava je že prevzeta.';
 
   @override
-  String get claimExpired => 'This link has expired.';
+  String get claimExpired => 'Ta povezava je potekla.';
 
   @override
-  String get claimUnavailable => 'This link is not available.';
+  String get claimUnavailable => 'Ta povezava ni na voljo.';
 
   @override
-  String get claimFailed => 'Could not claim. Try again.';
+  String get claimFailed => 'Prevzem ni uspel. Poskusite znova.';
 
   @override
   String get claimNeedsWallet =>
-      'Your wallet is still getting ready. Try again in a moment.';
+      'Vaša denarnica se še pripravlja. Poskusite znova čez trenutek.';
 
   @override
   String get shareMarketShareLink => 'Pošlji povezavo';
 
   @override
   String shareMarketLookAt(String title, String link) {
-    return 'Look at this on Kute: $title $link';
+    return 'Poglej to v Kute: $title $link';
   }
 
   @override
   String shareMarketChance(String chance) {
-    return '$chance% chance';
+    return '$chance % verjetnost';
   }
 
   @override
-  String get sendRecipientSearchHint => 'Name, address, Lightning or @user';
+  String get sendRecipientSearchHint => 'Ime, naslov, Lightning ali @uporabnik';
 
   @override
-  String get usdSendRecipientSearchHint => 'Name, address or ENS';
+  String get usdSendRecipientSearchHint => 'Ime, naslov ali ENS';
 
   @override
-  String get sendDollarsTitle => 'Send dollars';
+  String get sendDollarsTitle => 'Pošlji dolarje';
 
   @override
   String sendCoinTitle(String coin) {
-    return 'Send $coin';
+    return 'Pošlji $coin';
   }
 
   @override
-  String get sendContacts => 'Contacts';
+  String get sendContacts => 'Stiki';
 
   @override
   String get sendToAFriend => 'Pošlji prijatelju';
 
   @override
-  String get sendToAFriendSub => 'They claim it with Kute, no wallet needed';
+  String get sendToAFriendSub => 'Prevzamejo s Kute, denarnica ni potrebna';
 
   @override
-  String get sendSomeoneElse => 'Someone else';
+  String get sendSomeoneElse => 'Nekdo drug';
 
   @override
-  String get sendAllowContactsInSettings => 'Allow contacts in Settings';
+  String get sendAllowContactsInSettings => 'Dovolite stike v Nastavitvah';
 
   @override
   String get sendAllowContactsInSettingsSub =>
-      'Kute can only show contacts you allow';
+      'Kute lahko prikaže samo stike, ki jih dovolite';
 
   @override
-  String get sendNoContactsMatch => 'No contacts match';
+  String get sendNoContactsMatch => 'Ni ujemajočih se stikov';
 
   @override
-  String get sendContactsSearchHint => 'Search contacts';
+  String get sendContactsSearchHint => 'Iskanje stikov';
 
   @override
   String get sendRailBitcoinOnchain => 'Bitcoin · on-chain';
@@ -11833,7 +11838,7 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String usdSendNotNetworkAddress(String network) {
-    return 'Not an $network address';
+    return 'To ni naslov $network';
   }
 
   @override
@@ -11843,40 +11848,41 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String sendAlsoSendsToMore(String names, int count) {
-    return '$names and $count more';
+    return '$names in še $count';
   }
 
   @override
   String sendAlsoSendsToList(String names, String last) {
-    return '$names and $last';
+    return '$names in $last';
   }
 
   @override
-  String get sendPickMarket => 'Send a prediction or investment';
+  String get sendPickMarket => 'Pošlji napoved ali naložbo';
 
   @override
-  String get sendPickMarketSub => 'Pick a market, they get it ready to place';
+  String get sendPickMarketSub =>
+      'Izberite trg, prejmejo ga pripravljenega za oddajo';
 
   @override
-  String get sendPickMarketSearchHint => 'Search predictions and investing';
+  String get sendPickMarketSearchHint => 'Iskanje napovedi in investiranja';
 
   @override
-  String get sendPickMarketNoResults => 'Nothing matches';
+  String get sendPickMarketNoResults => 'Ni zadetkov';
 
   @override
-  String get sendPickSideTitle => 'Which side?';
+  String get sendPickSideTitle => 'Katera stran?';
 
   @override
-  String get sendPickSideSub => 'What they get, ready to place';
+  String get sendPickSideSub => 'Kar prejmejo, pripravljeno za oddajo';
 
   @override
-  String get shareSendAgainWhatsApp => 'Send again via WhatsApp';
+  String get shareSendAgainWhatsApp => 'Pošlji znova prek WhatsAppa';
 
   @override
-  String get shareSendAgainSms => 'Send again via SMS';
+  String get shareSendAgainSms => 'Pošlji znova po SMS-u';
 
   @override
-  String get sendToLabel => 'Send to';
+  String get sendToLabel => 'Prejemnik';
 
   @override
   String get predictionsChance => 'verjetnost';
