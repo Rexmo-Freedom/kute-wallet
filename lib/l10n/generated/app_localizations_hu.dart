@@ -10662,13 +10662,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragBarLabel => 'Share and brag';
 
   @override
-  String get bragShowAmounts => 'Show amounts';
-
-  @override
-  String get bragShowAmountsSub =>
-      'Off: only signs and percents leave your phone';
-
-  @override
   String bragShareText(String title, String link) {
     return '$title on Kute $link';
   }

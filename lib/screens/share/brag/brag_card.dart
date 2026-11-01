@@ -22,8 +22,8 @@
 // ([kBragWinkFrame], [kBragShakeNoFrame]: frame 0 of both is his neutral
 // face) drawn from the decoded sheet ([SalSpriteCache]); no sheet, no Sal.
 //
-// AMOUNTS (brag_data.dart): with [BragCard.showAmounts] off every money
-// figure is masked ("+$•••"): the sign, the colour and the percents stay.
+// AMOUNTS (founder, 1 November 2026: "don't even give the option"): the
+// card always shows the real amounts, with the percents where they exist.
 //
 // The footer, both cards: the "kute." wordmark over "Trade it on Kute",
 // and the sharer's referral code in a chip at the end when they have one.
@@ -58,14 +58,6 @@ const int kBragShakeNoFrame = 5;
 /// The clip for a result.
 String bragSalClip(BragData data) => data.up ? kBragWinkClip : kBragShakeNoClip;
 
-/// The masked form of a money text: its sign and currency symbol kept,
-/// the figure replaced ("+$36.90" → "+$•••", "−12,00 €" → "−••• €").
-String bragMask(String money) {
-  final m = RegExp(r'^([^\d]*)[\d.,\s  ]*\d([^\d]*)$').firstMatch(money);
-  if (m == null) return '•••';
-  return '${m.group(1)}•••${m.group(2)}';
-}
-
 const String _font = 'Inter';
 
 TextStyle _t(double size, FontWeight weight, Color color,
@@ -85,12 +77,10 @@ class BragCard extends StatelessWidget {
   const BragCard({
     super.key,
     required this.data,
-    this.showAmounts = false,
     this.sal,
   });
 
   final BragData data;
-  final bool showAmounts;
 
   /// The decoded clip for [bragSalClip] (null: no Sal on the card).
   final SalClip? sal;
@@ -129,9 +119,9 @@ class BragCard extends StatelessWidget {
                   Expanded(
                     child: switch (data) {
                       final BragPosition p => _PositionBody(
-                          data: p, showAmounts: showAmounts, sal: sal, c: c),
+                          data: p, sal: sal, c: c),
                       final BragPortfolio p => _PortfolioBody(
-                          data: p, showAmounts: showAmounts, sal: sal, c: c),
+                          data: p, sal: sal, c: c),
                     },
                   ),
                   _Footer(code: data.referralCode, c: c),
@@ -203,13 +193,11 @@ Widget? _sal(BragData data, SalClip? clip, double size) {
 class _PositionBody extends StatelessWidget {
   const _PositionBody({
     required this.data,
-    required this.showAmounts,
     required this.sal,
     required this.c,
   });
 
   final BragPosition data;
-  final bool showAmounts;
   final SalClip? sal;
   final AppColorsExtension c;
 
@@ -221,16 +209,8 @@ class _PositionBody extends StatelessWidget {
     final pct = r.percent;
     // The big figure: the amount when shown, else the percent, else the
     // masked amount; the percent under the amount when both show.
-    final String big;
-    String? under;
-    if (showAmounts) {
-      big = r.text;
-      under = pct != null ? bragPercent(pct) : null;
-    } else if (pct != null) {
-      big = bragPercent(pct);
-    } else {
-      big = bragMask(r.text);
-    }
+    final String big = r.text;
+    final String? under = pct != null ? bragPercent(pct) : null;
     final face = _sal(data, sal, 84);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,17 +500,15 @@ Color bragSliceColor(AppColorsExtension c, BragSlicePart part) =>
 class _PortfolioBody extends StatelessWidget {
   const _PortfolioBody({
     required this.data,
-    required this.showAmounts,
     required this.sal,
     required this.c,
   });
 
   final BragPortfolio data;
-  final bool showAmounts;
   final SalClip? sal;
   final AppColorsExtension c;
 
-  String _money(BragResult r) => showAmounts ? r.text : bragMask(r.text);
+  String _money(BragResult r) => r.text;
 
   @override
   Widget build(BuildContext context) {
@@ -688,7 +666,6 @@ class _PortfolioBody extends StatelessWidget {
                   _TopRow(
                       key: ValueKey('brag-card-top-$i'),
                       row: data.top[i],
-                      showAmounts: showAmounts,
                       c: c),
                 ],
               ],
@@ -714,12 +691,10 @@ class _TopRow extends StatelessWidget {
   const _TopRow({
     super.key,
     required this.row,
-    required this.showAmounts,
     required this.c,
   });
 
   final BragTopPosition row;
-  final bool showAmounts;
   final AppColorsExtension c;
 
   @override
@@ -727,9 +702,7 @@ class _TopRow extends StatelessWidget {
     final r = row.result;
     final color = _resultColor(r, c);
     final pct = r.percent;
-    final String figure = pct != null
-        ? bragPercent(pct)
-        : (showAmounts ? r.text : bragMask(r.text));
+    final String figure = pct != null ? bragPercent(pct) : r.text;
     return SizedBox(
       height: 31,
       child: Row(
@@ -750,7 +723,7 @@ class _TopRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          if (showAmounts && pct != null) ...[
+          if (pct != null) ...[
             Text(r.text,
                 style: _t(12, FontWeight.w500, c.textSecondary, tabular: true)),
             const SizedBox(width: 8),

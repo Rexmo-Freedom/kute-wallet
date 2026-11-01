@@ -16,11 +16,10 @@
 //     it), the past month's change when the series reaches it, and the
 //     three open positions with the best result.
 //
-// PRIVACY: a brag card leaves the phone. It never carries a balance:
-// allocation is percentages only, and every money amount is drawn only
-// when the person turns "Show amounts" on in the preview
-// (brag_preview_sheet.dart); percents and signs show either way. A figure
-// the providers do not have is left out, never estimated.
+// AMOUNTS: the card always shows the real money figures (founder,
+// 1 November 2026: "don't even give the option"), with the percents where
+// a cost base exists. The allocation stays shares only (no balance). A
+// figure the providers do not have is left out, never estimated.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';

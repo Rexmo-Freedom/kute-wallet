@@ -18149,18 +18149,6 @@ abstract class AppLocalizations {
   /// **'Share and brag'**
   String get bragBarLabel;
 
-  /// Brag preview sheet: the switch that draws money amounts on the card (off by default).
-  ///
-  /// In en, this message translates to:
-  /// **'Show amounts'**
-  String get bragShowAmounts;
-
-  /// Brag preview sheet: the quiet line under bragShowAmounts.
-  ///
-  /// In en, this message translates to:
-  /// **'Off: only signs and percents leave your phone'**
-  String get bragShowAmountsSub;
-
   /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
   ///
   /// In en, this message translates to:

@@ -43,7 +43,7 @@ void main() {
       'portfolio': fakeBragPortfolio(),
     };
     for (final MapEntry(key: name, value: data) in frames.entries) {
-      for (final amounts in [false, true]) {
+      {
         final key = GlobalKey();
         await tester.pumpWidget(ScreenUtilInit(
             designSize: const Size(430, 932),
@@ -61,7 +61,6 @@ void main() {
                       key: key,
                       child: BragCard(
                         data: data,
-                        showAmounts: amounts,
                         sal: data.up ? wink : shake,
                       ),
                     ),
@@ -78,7 +77,7 @@ void main() {
           expect(image.height, 1350);
           final png = await image.toByteData(format: ui.ImageByteFormat.png);
           Directory(dir).createSync(recursive: true);
-          File('$dir/brag_${name}_${amounts ? 'amounts_on' : 'amounts_off'}.png')
+          File('$dir/brag_$name.png')
               .writeAsBytesSync(png!.buffer.asUint8List());
         });
       }

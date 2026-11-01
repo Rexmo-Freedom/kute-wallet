@@ -2,9 +2,8 @@
 //
 // THE BRAG PREVIEW (founder, 1 November 2026). A sheet with the card
 // (brag_card.dart) scaled to fit, exactly the pixels that will be sent,
-// one switch, "Show amounts" (OFF by default: a card leaves the phone, so
-// money is masked and only signs and percents show until the person turns
-// it on), and the bar as the primary button, "Share": the card captured
+// always with the real amounts (founder: "don't even give the option"),
+// and the bar as the primary button, "Share": the card captured
 // from its RepaintBoundary at 1080 × 1350 (toImage → PNG), handed to the
 // OS share sheet with "{title} on Kute {link}", the sharer's referral code
 // on the link as `?ref=CODE` (share_market_sheet.dart).
@@ -17,7 +16,7 @@
 //     card follows the live providers while the sheet is up
 //     (bragPortfolio).
 //
-// Analytics: `brag_shared {kind: position | portfolio, amounts_shown}`
+// Analytics: `brag_shared {kind: position | portfolio}`
 // once the OS share sheet has been opened and not dismissed. No market,
 // no id, no figure.
 
@@ -88,7 +87,6 @@ class BragPreviewSheet extends ConsumerStatefulWidget {
 
 class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
   final GlobalKey _boundary = GlobalKey();
-  bool _showAmounts = false;
   bool _busy = false;
 
   @override
@@ -115,7 +113,6 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     final origin = box != null && box.hasSize
         ? (box.localToGlobal(Offset.zero) & box.size)
         : (Offset.zero & const Size(1, 1));
-    final shown = _showAmounts;
     setState(() => _busy = true);
     try {
       final image = await boundary.toImage(pixelRatio: kBragCardPixelRatio);
@@ -136,7 +133,6 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
       if (opened) {
         TrackingService.track('brag_shared', params: {
           'kind': data.kind.name,
-          'amounts_shown': shown,
         });
       }
     } catch (_) {
@@ -188,56 +184,10 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                   child: RepaintBoundary(
                     key: _boundary,
                     child: BragCard(
-                        data: data, showAmounts: _showAmounts, sal: sal),
+                        data: data, sal: sal),
                   ),
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(20.w, 16.h, 12.w, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.bragShowAmounts,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        l10n.bragShowAmountsSub,
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // The Settings switch's look.
-                Switch(
-                  key: const ValueKey('brag-show-amounts'),
-                  value: _showAmounts,
-                  onChanged: (v) => setState(() => _showAmounts = v),
-                  activeThumbColor: context.ctaOnColor,
-                  activeTrackColor: context.ctaFill,
-                  inactiveThumbColor: c.textSecondary,
-                  inactiveTrackColor: c.surfaceLight,
-                  trackOutlineColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? Colors.transparent
-                        : c.borderSubtle,
-                  ),
-                ),
-              ],
             ),
           ),
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Share is the
@@ -252,7 +202,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
               category: SearchCategory.all,
               source: 'brag_preview',
             ),
-            child: SizedBox(height: (kuteBarScrollClearance + 8).h),
+            child: SizedBox(height: (kuteBarScrollClearance + 24).h),
           ),
         ],
       ),
