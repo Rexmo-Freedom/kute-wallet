@@ -126,5 +126,12 @@ void main() {
     expect(kuteBarPrimaryWithText('Share again'), findsOneWidget);
     expect(find.text('Cancel link'), findsOneWidget);
     expect(kuteBarPrimaryEnabled(tester), isTrue);
+    // The receipt's one structure: the hero with the amount and the
+    // status under it, the recipient and the date as tiles.
+    expect(find.byKey(const ValueKey('receipt-hero')), findsOneWidget);
+    expect(find.text(r'$10.00'), findsOneWidget);
+    expect(find.text('Link sent · waiting for Ana to claim'), findsOneWidget);
+    expect(find.byKey(const ValueKey('receipt-tile-To')), findsOneWidget);
+    expect(find.byKey(const ValueKey('receipt-tile-Date')), findsOneWidget);
   });
 }
