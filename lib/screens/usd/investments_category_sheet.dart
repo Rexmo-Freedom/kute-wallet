@@ -94,6 +94,13 @@
 // closes; a tile without subcategories picks and closes at once. The
 // pick writes the same providers and sends the same events the pills did.
 //
+// THE BAR OVER THIS SHEET reads "Pick a market group"; tapped, the Sal
+// sheet opens with every category of the venue under its composer, as
+// these same tiles in the same two-column grid, the picked one in the
+// white-pill style (founder, 1 November 2026: "user has clicked, so show
+// the market categories"; [_SalCategoryGrid]). A tap there picks and
+// closes both sheets. Never generic recommendation cards.
+//
 // The Portfolio section (three tiles, no numbers) is here for the
 // Portfolio's own screen (portfolio_screen.dart); the page's pill row no
 // longer offers Portfolio.
@@ -321,6 +328,75 @@ IconData _portfolioIcon(PortfolioSection s) => switch (s) {
       PortfolioSection.charts => Icons.show_chart_rounded,
     };
 
+// ── What the tiles show ────────────────────────────────────────────────
+
+/// The tiles' data from what is already loaded (see the file header),
+/// shared by the sheet and its Sal-sheet grid ([_SalCategoryGrid]).
+mixin _CategoryData<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+  List<HlMarket> _hlList(HlBrowseTab t, [HlBrowseSub s = HlBrowseSub.all]) {
+    final universe =
+        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
+            const <HlMarket>[];
+    final watchlist = ref.watch(hlWatchlistProvider);
+    return hlBrowseListForTab(t, universe, sub: s, watchlist: watchlist);
+  }
+
+  /// The venue's own logos of a category's top markets, for its tile.
+  List<Widget> _hlLogos(List<HlMarket> markets) => [
+        for (final m in markets.take(_kLogos))
+          HlCoinIcon(
+              coin: m.coin,
+              wireCoin: m.wireCoin,
+              iconUrl: m.iconUrl,
+              category: m.category,
+              size: _kLogo),
+      ];
+
+  List<HlBrowseSub> _hlSubs(HlBrowseTab t) {
+    final universe =
+        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
+            const <HlMarket>[];
+    final awaitingBuilder =
+        ref.watch(hyperliquidBuilderMarketsMissingProvider);
+    final subs = awaitingBuilder && hlTabNeedsBuilderMarkets(t)
+        ? const <HlBrowseSub>[]
+        : hlSubsForTab(t, universe);
+    return subs.length > 1 ? subs : const [];
+  }
+
+  /// The events a category's feed holds already: the picked category's
+  /// (loaded for the list behind the sheet), or one browsed earlier whose
+  /// feed is still alive. Nothing is read for a tile: a feed that does
+  /// not exist is left alone and the tile shows its icon.
+  List<PolymarketEvent> _polyLoaded(PolyPill p, [String? sub]) {
+    final sel = ref.watch(polyBrowseSelectionProvider);
+    final query = p == PolyPill.live
+        ? const PolyFeedQuery(pill: PolyPill.live)
+        : PolyFeedQuery(pill: p, sub: sub ?? sel.subOf(p));
+    final onScreen =
+        p == sel.pill && (sub == null || sub == sel.subOf(p));
+    if (!onScreen && !ref.exists(polyBrowseFeedProvider(query))) {
+      return const [];
+    }
+    return ref.watch(polyBrowseFeedProvider(query)).events;
+  }
+
+  List<Widget> _polyLogos(List<PolymarketEvent> events) => [
+        for (final e in events)
+          if (e.imageUrl != null && e.imageUrl!.isNotEmpty)
+            PolyCrestImage(url: e.imageUrl!, size: _kLogo, radius: _kLogo / 2),
+      ].take(_kLogos).toList();
+
+  List<PolySub> _polySubs(PolyPill p) {
+    var subs = polySubsFor(ref, p);
+    if (subs.isNotEmpty && !subs.any((s) => s.key == p.defaultSub)) {
+      subs = [PolySub(p.defaultSub), ...subs];
+    }
+    return subs.length > 1 ? subs : const [];
+  }
+
+}
+
 // ── The sheet ──────────────────────────────────────────────────────────
 
 class _InvestmentsCategorySheet extends ConsumerStatefulWidget {
@@ -334,7 +410,8 @@ class _InvestmentsCategorySheet extends ConsumerStatefulWidget {
 }
 
 class _InvestmentsCategorySheetState
-    extends ConsumerState<_InvestmentsCategorySheet> {
+    extends ConsumerState<_InvestmentsCategorySheet>
+    with _CategoryData<_InvestmentsCategorySheet> {
   /// The group whose subcategories are on screen (an [HlBrowseTab] or a
   /// [PolyPill]); null for the section's own grid.
   Object? _group;
@@ -352,19 +429,50 @@ class _InvestmentsCategorySheetState
       _pending == null ? current : _pending == (a, b);
 
   /// A pick: the tile's state springs on, holds 140 ms, then the sheet
-  /// closes and [write] runs (the providers, the event).
-  void _pick((Object, Object) key, VoidCallback write) {
+  /// closes and [write] runs (the providers, the event). Without [hold]
+  /// (a pick made in the Sal sheet over this one, which held it already)
+  /// the sheet closes and [write] runs at once.
+  void _pick((Object, Object) key, VoidCallback write, {bool hold = true}) {
     if (_pending != null) return;
-    HapticFeedback.selectionClick();
+    if (hold) HapticFeedback.selectionClick();
     setState(() => _pending = key);
+    void close() {
+      if (!mounted) return;
+      _closeSheet();
+      write();
+    }
+
+    if (!hold) return close();
     final wait = kuteReduceMotion(context)
         ? Duration.zero
         : const Duration(milliseconds: 140);
-    Future<void>.delayed(wait, () {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      write();
-    });
+    Future<void>.delayed(wait, close);
+  }
+
+  /// This sheet closes: popped while it is on top, else (the Sal sheet
+  /// over it still on its way out) taken out from under it.
+  void _closeSheet() {
+    final navigator = Navigator.of(context);
+    final route = ModalRoute.of(context);
+    if (route == null || route.isCurrent) {
+      navigator.pop();
+    } else if (route.isActive) {
+      navigator.removeRoute(route);
+    }
+  }
+
+  /// A tile picked in the Sal sheet's grid ([_SalCategoryGrid]): the Sal
+  /// sheet has closed; this one closes too and the pick is written, with
+  /// the same providers and events as a tile here.
+  void _pickFromSal(Object group, Object sub) {
+    switch ((group, sub)) {
+      case (final HlBrowseTab t, final HlBrowseSub s):
+        _pickHl(t, s, hold: false);
+      case (final PolyPill p, final String s):
+        _pickPoly(p, PolySub(s), hold: false);
+      case (final PortfolioSection s, _):
+        _pickPortfolio(s, hold: false);
+    }
   }
 
   void _open(Object group) {
@@ -477,43 +585,18 @@ class _InvestmentsCategorySheetState
   }
 
   /// The bar while this sheet is up (kute_bar_context.dart): "Pick a
-  /// market group" over "or ask Sal to find one", and its Sal sheet's
-  /// recommended rows: the three categories moving most today (Investing)
-  /// or the first three on offer (Predictions), a row picking and closing.
+  /// market group" over "or ask Sal to find one". Tapped, the Sal sheet
+  /// opens with every category of the venue under its composer, as this
+  /// sheet's own tiles ([_SalCategoryGrid]; founder, 1 November 2026:
+  /// "user has clicked, so show the market categories"), never generic
+  /// recommendation cards.
   KuteBarContext _barContext(BuildContext context) {
     final l10n = context.l10n;
-    final actions = <KuteBarAction>[];
-    switch (widget.tab) {
-      case InvestmentsTab.investing:
-        final ranked = [
-          for (final t in hlCategoriesOnOffer(ref))
-            if (t != HlBrowseTab.watchlist) (t, _hlStat(_hlList(t)))
-        ]..sort((a, b) =>
-            (b.$2.move?.abs() ?? -1).compareTo(a.$2.move?.abs() ?? -1));
-        for (final (t, stat) in ranked.take(3)) {
-          actions.add(KuteBarAction(
-            label: t.localizedLabel(l10n),
-            sublabel: l10n.categoryStatMarkets(stat.count),
-            onTap: (_) => _pickHl(t, HlBrowseSub.all),
-          ));
-        }
-      case InvestmentsTab.predictions:
-        final policy = ref.read(runtimeCapabilitiesProvider);
-        for (final p in PolyPill.values
-            .where((p) => p != PolyPill.watchlist && polyPillOffered(p, policy))
-            .take(3)) {
-          actions.add(KuteBarAction(
-            label: polyPillLabel(l10n, p),
-            onTap: (_) => _pickPoly(p, PolySub(p.defaultSub)),
-          ));
-        }
-      case InvestmentsTab.positions:
-        break;
-    }
     return KuteBarContext(
       label: l10n.barPickMarketGroup,
       sublabel: l10n.barPickMarketGroupSub,
-      actions: actions,
+      sheetHome: (_) =>
+          _SalCategoryGrid(tab: widget.tab, onPick: _pickFromSal),
       category: widget.tab == InvestmentsTab.predictions
           ? SearchCategory.predictions
           : SearchCategory.perpetuals,
@@ -574,7 +657,8 @@ class _InvestmentsCategorySheetState
 
   // ── Investing ────────────────────────────────────────────────────────
 
-  void _pickHl(HlBrowseTab t, HlBrowseSub s) => _pick((t, s), () {
+  void _pickHl(HlBrowseTab t, HlBrowseSub s, {bool hold = true}) =>
+      _pick((t, s), hold: hold, () {
         final current = ref.read(hlBrowseSelectionProvider);
         if (t == current.tab && s == current.sub) return;
         TrackingService.track('hl_category_pill_tapped', params: {
@@ -584,37 +668,6 @@ class _InvestmentsCategorySheetState
         ref.read(hlBrowseSelectionProvider.notifier).state =
             current.copyWith(tab: t, sub: s);
       });
-
-  List<HlMarket> _hlList(HlBrowseTab t, [HlBrowseSub s = HlBrowseSub.all]) {
-    final universe =
-        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
-            const <HlMarket>[];
-    final watchlist = ref.watch(hlWatchlistProvider);
-    return hlBrowseListForTab(t, universe, sub: s, watchlist: watchlist);
-  }
-
-  /// The venue's own logos of a category's top markets, for its tile.
-  List<Widget> _hlLogos(List<HlMarket> markets) => [
-        for (final m in markets.take(_kLogos))
-          HlCoinIcon(
-              coin: m.coin,
-              wireCoin: m.wireCoin,
-              iconUrl: m.iconUrl,
-              category: m.category,
-              size: _kLogo),
-      ];
-
-  List<HlBrowseSub> _hlSubs(HlBrowseTab t) {
-    final universe =
-        ref.watch(hyperliquidBrowseUniverseProvider).valueOrNull ??
-            const <HlMarket>[];
-    final awaitingBuilder =
-        ref.watch(hyperliquidBuilderMarketsMissingProvider);
-    final subs = awaitingBuilder && hlTabNeedsBuilderMarkets(t)
-        ? const <HlBrowseSub>[]
-        : hlSubsForTab(t, universe);
-    return subs.length > 1 ? subs : const [];
-  }
 
   List<Widget> _investing(BuildContext context) {
     final l10n = context.l10n;
@@ -718,7 +771,8 @@ class _InvestmentsCategorySheetState
 
   // ── Predictions ──────────────────────────────────────────────────────
 
-  void _pickPoly(PolyPill p, PolySub s) => _pick((p, s.key), () {
+  void _pickPoly(PolyPill p, PolySub s, {bool hold = true}) =>
+      _pick((p, s.key), hold: hold, () {
         final current = ref.read(polyBrowseSelectionProvider);
         if (p == current.pill && s.key == current.subOf(p)) return;
         TrackingService.track('category_pill_tapped', params: {
@@ -728,37 +782,6 @@ class _InvestmentsCategorySheetState
         ref.read(polyBrowseSelectionProvider.notifier).state =
             current.copyWith(pill: p).copyWith(sub: s.key);
       });
-
-  /// The events a category's feed holds already: the picked category's
-  /// (loaded for the list behind the sheet), or one browsed earlier whose
-  /// feed is still alive. Nothing is read for a tile: a feed that does
-  /// not exist is left alone and the tile shows its icon.
-  List<PolymarketEvent> _polyLoaded(PolyPill p, [String? sub]) {
-    final sel = ref.watch(polyBrowseSelectionProvider);
-    final query = p == PolyPill.live
-        ? const PolyFeedQuery(pill: PolyPill.live)
-        : PolyFeedQuery(pill: p, sub: sub ?? sel.subOf(p));
-    final onScreen =
-        p == sel.pill && (sub == null || sub == sel.subOf(p));
-    if (!onScreen && !ref.exists(polyBrowseFeedProvider(query))) {
-      return const [];
-    }
-    return ref.watch(polyBrowseFeedProvider(query)).events;
-  }
-
-  List<Widget> _polyLogos(List<PolymarketEvent> events) => [
-        for (final e in events)
-          if (e.imageUrl != null && e.imageUrl!.isNotEmpty)
-            PolyCrestImage(url: e.imageUrl!, size: _kLogo, radius: _kLogo / 2),
-      ].take(_kLogos).toList();
-
-  List<PolySub> _polySubs(PolyPill p) {
-    var subs = polySubsFor(ref, p);
-    if (subs.isNotEmpty && !subs.any((s) => s.key == p.defaultSub)) {
-      subs = [PolySub(p.defaultSub), ...subs];
-    }
-    return subs.length > 1 ? subs : const [];
-  }
 
   List<Widget> _predictions(BuildContext context) {
     final l10n = context.l10n;
@@ -886,20 +909,180 @@ class _InvestmentsCategorySheetState
             tint: tint,
             name: portfolioSectionLabel(l10n, s),
             picked: _picked(s, s, s == current),
-            onTap: () => _pick((s, s), () {
-              if (s == current) return;
-              TrackingService.track('analytics_tab_selected', params: {
-                'tab': InvestmentsTab.positions.key,
-                'from_tab': InvestmentsTab.positions.key,
-                'surface': 'investments',
-                'sub': s.key,
-                'from_sub': current.key,
-              });
-              ref.read(portfolioSectionProvider.notifier).state = s;
-            }),
+            onTap: () => _pickPortfolio(s),
           ),
       ]),
     ];
+  }
+
+  void _pickPortfolio(PortfolioSection s, {bool hold = true}) =>
+      _pick((s, s), hold: hold, () {
+        final current = ref.read(portfolioSectionProvider);
+        if (s == current) return;
+        TrackingService.track('analytics_tab_selected', params: {
+          'tab': InvestmentsTab.positions.key,
+          'from_tab': InvestmentsTab.positions.key,
+          'surface': 'investments',
+          'sub': s.key,
+          'from_sub': current.key,
+        });
+        ref.read(portfolioSectionProvider.notifier).state = s;
+      });
+}
+
+/// THE CATEGORIES IN THE SAL SHEET (founder, 1 November 2026: "user has
+/// clicked, so show the market categories"). Tapping the bar while the
+/// category sheet is up opens the Sal sheet with EVERY category of the
+/// venue under its composer, as the sheet's own tiles in its two-column
+/// grid, 8 apart: Investing's logo stacks with their numbers (96 px),
+/// Predictions' Polymarket glyphs with their names (56 px), the
+/// Portfolio's sections; the picked one in the white-pill style. A group
+/// picks whole (its All). A tap springs the tile on, holds 140 ms (at
+/// once under Reduce Motion), then the Sal sheet and the category sheet
+/// close together and the pick is written as from the sheet itself.
+class _SalCategoryGrid extends ConsumerStatefulWidget {
+  const _SalCategoryGrid({required this.tab, required this.onPick});
+
+  final InvestmentsTab tab;
+
+  /// The pick, once the Sal sheet has closed: (group, sub) as the sheet's
+  /// own tiles key them.
+  final void Function(Object group, Object sub) onPick;
+
+  @override
+  ConsumerState<_SalCategoryGrid> createState() => _SalCategoryGridState();
+}
+
+class _SalCategoryGridState extends ConsumerState<_SalCategoryGrid>
+    with _CategoryData<_SalCategoryGrid> {
+  (Object, Object)? _pending;
+
+  bool _picked(Object a, Object b, bool current) =>
+      _pending == null ? current : _pending == (a, b);
+
+  void _tap(Object group, Object sub) {
+    if (_pending != null) return;
+    HapticFeedback.selectionClick();
+    setState(() => _pending = (group, sub));
+    final wait = kuteReduceMotion(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 140);
+    Future<void>.delayed(wait, () {
+      if (!mounted) return;
+      // The Sal sheet first, then the category sheet under it.
+      Navigator.of(context).pop();
+      widget.onPick(group, sub);
+    });
+  }
+
+  List<Widget> _investing(AppLocalizations l10n, AppColorsExtension c) {
+    // What hlCategoriesOnOffer reads, watched so the grid follows it.
+    ref.watch(hyperliquidBrowseUniverseProvider);
+    ref.watch(hlWatchlistProvider);
+    ref.watch(hyperliquidBuilderMarketsMissingProvider);
+    final sel = ref.watch(hlBrowseSelectionProvider);
+    // The coins the tiles before already show, so the stacks differ;
+    // Trending keeps its top three by volume, the Watchlist its newest.
+    final shown = <String>{};
+    return [
+      for (final t in hlCategoriesOnOffer(ref))
+        () {
+          final list = _hlList(t);
+          final stat = _hlStat(list);
+          final lead = t == HlBrowseTab.trending;
+          final List<HlMarket> top;
+          if (lead || t == HlBrowseTab.watchlist) {
+            top = list.take(_kLogos).toList();
+            shown.addAll(top.map((m) => m.coin.toUpperCase()));
+          } else {
+            top = hlTileMovers(list, shown);
+          }
+          return _Tile(
+            key: ValueKey('sal-category-tile-${t.key}'),
+            logos: _hlLogos(top),
+            tint: _hlTint(c, t),
+            name: t == HlBrowseTab.watchlist
+                ? l10n.polyPillWatchlist
+                : t.localizedLabel(l10n),
+            stat: _StatLine(
+                lead: lead ? l10n.categoryStatMostActive : null,
+                count: lead ? null : stat.count,
+                move: stat.move,
+                tail: lead ? l10n.categoryStatToday : null),
+            picked: _picked(t, HlBrowseSub.all, sel.tab == t),
+            onTap: () => _tap(t, HlBrowseSub.all),
+          );
+        }(),
+    ];
+  }
+
+  List<Widget> _predictions(AppLocalizations l10n, AppColorsExtension c) {
+    final sel = ref.watch(polyBrowseSelectionProvider);
+    final policy = ref.watch(runtimeCapabilitiesProvider);
+    final watchlist = ref.watch(polyWatchlistProvider);
+    return [
+      for (final p in PolyPill.values)
+        if (polyPillOffered(p, policy) &&
+            (p != PolyPill.watchlist || watchlist.isNotEmpty))
+          _Tile.compact(
+            key: ValueKey('sal-category-tile-${p.key}'),
+            asset: _polyIconAsset(p),
+            tint: _polyTint(c, p),
+            name: p == PolyPill.watchlist
+                ? l10n.polyPillWatchlist
+                : polyPillLabel(l10n, p),
+            picked: _picked(p, p.defaultSub, sel.pill == p),
+            onTap: () => _tap(p, p.defaultSub),
+          ),
+    ];
+  }
+
+  List<Widget> _portfolio(AppLocalizations l10n, AppColorsExtension c) {
+    final current = ref.watch(portfolioSectionProvider);
+    return [
+      for (final s in PortfolioSection.values)
+        _Tile(
+          key: ValueKey('sal-category-tile-${s.key}'),
+          glyph: _portfolioIcon(s),
+          tint: c.chartCategorical[4],
+          name: portfolioSectionLabel(l10n, s),
+          picked: _picked(s, s, s == current),
+          onTap: () => _tap(s, s),
+        ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final c = context.colors;
+    final tiles = switch (widget.tab) {
+      InvestmentsTab.investing => _investing(l10n, c),
+      InvestmentsTab.predictions => _predictions(l10n, c),
+      InvestmentsTab.positions => _portfolio(l10n, c),
+    };
+    return GridView.builder(
+      key: const ValueKey('sal-category-grid'),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        mainAxisExtent: widget.tab == InvestmentsTab.predictions
+            ? _Tile.compactHeight
+            : _Tile.gridHeight,
+      ),
+      itemCount: tiles.length,
+      itemBuilder: (_, i) => KuteStaggerIn(
+        index: i,
+        step: const Duration(milliseconds: 16),
+        rise: 6,
+        limit: 64,
+        child: tiles[i],
+      ),
+    );
   }
 }
 
