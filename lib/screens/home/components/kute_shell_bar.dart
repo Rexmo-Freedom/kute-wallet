@@ -79,8 +79,9 @@ import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_motion.dart'
-    show KutePressable, kuteMotion, kuteReduceMotion;
+    show KutePressable, kuteReduceMotion;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
+import 'package:kute/screens/shared/kute_morph_label.dart';
 import 'package:kute/screens/shared/sal_reactions.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -348,28 +349,22 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                         ctx.isPrimary ? 16.w : 12.w, 2.h),
                     // Centred; docked right while folded. Pill to button
                     // and between the button's states the width springs
-                    // on the chip spring (AnimatedSize; the strip's own
+                    // on the chip spring (KuteMorphSize; the strip's own
                     // elastic movement): the button is only as wide as
-                    // its words (KuteBarPrimaryButton).
+                    // its words (KuteBarPrimaryButton). At once under
+                    // Reduce Motion.
                     child: AnimatedAlign(
                       alignment:
                           collapsed ? Alignment.centerRight : Alignment.center,
                       duration:
                           reduce ? Duration.zero : KuteMotion.chipDuration,
                       curve: KuteMotion.chip,
-                      // The size tween of the morph; a zero-length
-                      // AnimatedSize re-dirties itself in layout (a Flutter
-                      // assertion), so Reduce Motion switches at once.
-                      child: reduce
-                          ? bar
-                          : AnimatedSize(
-                              duration: KuteMotion.chipDuration,
-                              curve: KuteMotion.chip,
-                              alignment: collapsed
-                                  ? Alignment.centerRight
-                                  : Alignment.center,
-                              child: bar,
-                            ),
+                      child: KuteMorphSize(
+                        alignment: collapsed
+                            ? Alignment.centerRight
+                            : Alignment.center,
+                        child: bar,
+                      ),
                     ),
                   ),
                 ),
@@ -777,8 +772,10 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
 /// gutters, centred, [height] tall, fully rounded. It morphs from the
 /// search pill and between its states with the Dollars strip's motion
 /// (kute_pill_tabs.dart): the width springs on [KuteMotion.chip] (the
-/// shell bar's AnimatedSize), the old words slide up and out and the new
-/// ones rise in from below, the fill and ink change on the settle. At once
+/// shell bar's [KuteMorphSize]), the old words slide up and out and the
+/// new ones rise in from below ([KuteMorphLabel]), Sal's clip crossfades
+/// ([KuteMorphFace]), the fill and ink change on the settle. The Sal pill
+/// changes its words with the same pieces (kute_morph_label.dart). At once
 /// under Reduce Motion.
 ///
 /// THREE STATES:
@@ -1094,43 +1091,10 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
           );
 
     // The words: the old slide up and out, the new rise from below (the
-    // pill's and the strip's cross-slide). Only the current words size
-    // the button; the leaving ones overflow it, centred, as they go.
-    final Widget words = AnimatedSwitcher(
-      duration: duration,
-      // The old words leave quicker than the new ones arrive: a tap is
-      // felt at once (the busy label alone within 300 ms).
-      reverseDuration: reduce ? Duration.zero : _kWordsOut,
-      switchInCurve: reduce ? Curves.linear : KuteMotion.chip,
-      switchOutCurve: reduce ? Curves.linear : KuteMotion.settle,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.centerLeft,
-        clipBehavior: Clip.none,
-        children: [
-          for (final p in previous)
-            Positioned.fill(
-              child: OverflowBox(
-                alignment: Alignment.centerLeft,
-                maxWidth: double.infinity,
-                child: p,
-              ),
-            ),
-          if (current != null) current,
-        ],
-      ),
-      transitionBuilder: (child, animation) {
-        final incoming = child.key == labelKey;
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: Offset(0, incoming ? 0.6 : -0.6),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
+    // pill's and the strip's cross-slide, kute_morph_label.dart). Only the
+    // current words size the button; the leaving ones overflow it as they
+    // go.
+    final Widget words = KuteMorphLabel(
       child: Text(
         label,
         key: labelKey,
@@ -1150,10 +1114,7 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedSwitcher(
-            duration: kuteMotion(context, const Duration(milliseconds: 150)),
-            child: sal,
-          ),
+          KuteMorphFace(child: sal),
           SizedBox(width: 8.w),
           Flexible(child: words),
         ],
@@ -1231,9 +1192,6 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     );
   }
 }
-
-/// How long the primary button's old words take to slide out.
-const Duration _kWordsOut = Duration(milliseconds: 200);
 
 /// The busy shimmer: a band [KuteBarPrimaryButton.shimmerBand] of the
 /// width, [color] at its middle and clear at its edges, crossing the fill
