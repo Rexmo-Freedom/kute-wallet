@@ -346,7 +346,14 @@ class _CompactAction extends StatelessWidget {
                             ]
                           : null,
                     ),
-                    child: Icon(action.icon, size: 22, color: foreground),
+                    // The bitcoin glyph is a thin letterform next to the
+                    // arrows and the ring, so it reads a size up (founder,
+                    // 1 November 2026).
+                    child: Icon(action.icon,
+                        size: action.icon == Icons.currency_bitcoin_rounded
+                            ? 28
+                            : 22,
+                        color: foreground),
                   ),
                   SizedBox(height: 6.h),
                   Text(
