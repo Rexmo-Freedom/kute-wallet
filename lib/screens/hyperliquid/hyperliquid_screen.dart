@@ -200,11 +200,16 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     return hlTrendingStrip([...universe, ...lent], markets, fallback: false);
   }
 
-  /// The list under the strip: [markets] less the strip's.
-  List<HlMarket> _listedFor(
-      HlBrowseTab tab, List<HlMarket> markets, List<HlMarket> universe) {
+  /// The list under the strip: [markets] less the strip's; on the
+  /// default view (Trending at its default list) only its first
+  /// [kHlTrendingListRows], nothing after them: the floating bar
+  /// searches everything (founder, 1 November 2026). Any other category
+  /// is listed in full.
+  List<HlMarket> _listedFor(HlBrowseTab tab, HlBrowseSub sub,
+      List<HlMarket> markets, List<HlMarket> universe) {
     _moversFor(tab, markets, universe);
-    return _rest;
+    return hlBrowseRowsShown(
+        tab == HlBrowseTab.trending && sub == HlBrowseSub.all, _rest);
   }
 
   /// The category whose subcategories the one browse row shows, in place
@@ -635,7 +640,7 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                             // scroll in, so every price on screen is live.
                             ...marketGroupSlivers<HlMarket>(
                               context,
-                              items: _listedFor(tab, markets, universe),
+                              items: _listedFor(tab, sub, markets, universe),
                               groups: (_) => true,
                               dividerIndent: hlGroupRowIndent(),
                               divider: hlGroupRowDivider,

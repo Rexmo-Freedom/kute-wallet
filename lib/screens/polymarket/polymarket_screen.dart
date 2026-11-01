@@ -542,10 +542,16 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     final isLiveList = pill == PolyPill.live ||
         (pill == PolyPill.sports && selection.sub == 'live');
 
+    // The default view (Trending at its default list) is a curated slice:
+    // the strip and [kPolyTrendingListRows] markets, nothing after them
+    // and no further pages (the floating bar searches everything). Any
+    // other category is listed in full.
+    final curated =
+        pill == PolyPill.trending && selection.sub == pill.defaultSub;
     final feed = canBrowse && !fiveMinOnly
         ? ref.watch(polyBrowseFeedProvider(query))
         : const PolyFeedState(done: true);
-    _feedQuery = canBrowse && !fiveMinOnly ? query : null;
+    _feedQuery = canBrowse && !fiveMinOnly && !curated ? query : null;
     // Once the list on screen lands, the lists next to it are read too
     // (one at a time), so opening one of them paints at once.
     if (canBrowse && !fiveMinOnly) {
@@ -688,6 +694,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
                               query: query,
                               isLiveList: isLiveList,
                               liveLeague: liveLeague,
+                              curated: curated,
                             ),
                         ],
                       ),
@@ -850,6 +857,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     required PolyFeedQuery query,
     required bool isLiveList,
     String? liveLeague,
+    bool curated = false,
   }) {
     if (feed.events.isEmpty) {
       if (feed.loading) {
@@ -904,6 +912,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         top = const <PolymarketEvent>[];
         listed = events;
       }
+      listed = polyBrowseRowsShown(curated, listed);
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
@@ -927,7 +936,7 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
     }
     return [
       ...body,
-      if (feed.loadingMore)
+      if (feed.loadingMore && !curated)
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 16.h),

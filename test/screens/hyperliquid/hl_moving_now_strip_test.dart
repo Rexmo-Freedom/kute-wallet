@@ -95,9 +95,11 @@ List<String> _cards(WidgetTester tester) => [
     ];
 
 Future<void> _pump(WidgetTester tester, List<HlMarket> universe,
-    {List<Override> overrides = const []}) async {
+    {List<Override> overrides = const [],
+    Size size = const Size(390, 844)}) async {
   await pumpInvestments(tester,
       browseInvesting: true,
+      size: size,
       child: const Scaffold(body: HyperliquidScreen()),
       overrides: [
         hyperliquidBrowseUniverseProvider
@@ -263,5 +265,44 @@ void main() {
     expect(formatHlListPrice(0.2), r'$0.20');
     expect(formatHlListPrice(0.2051, decimalCap: 2), r'$0.21');
     expect(formatHlListPrice(0), '—');
+  });
+
+  test('the default view keeps six rows; any other list is whole', () {
+    final rows = List.generate(20, (i) => i);
+    expect(hlBrowseRowsShown(true, rows), [0, 1, 2, 3, 4, 5]);
+    expect(kHlTrendingListRows, 6);
+    expect(hlBrowseRowsShown(false, rows), rows);
+    expect(hlBrowseRowsShown(true, rows.take(4).toList()), [0, 1, 2, 3]);
+  });
+
+  testWidgets('Trending lists six rows under the strip and nothing after; '
+      'a picked category lists every market', (tester) async {
+    final many = [
+      for (var i = 0; i < 24; i++)
+        _market('C$i', px: 100 + i.toDouble(), prev: 100, vlm: 9e9 - i * 1e8),
+    ];
+    await _pump(tester, many, size: const Size(390, 4000));
+    expect(_strip(), findsOneWidget);
+    expect(find.byType(HlMarketCard, skipOffstage: false), findsNWidgets(6));
+    final onStrip = _cards(tester).toSet();
+    final rows = [
+      for (final c in tester.widgetList<HlMarketCard>(
+          find.byType(HlMarketCard, skipOffstage: false)))
+        c.market.coin,
+    ];
+    expect(rows.toSet().intersection(onStrip), isEmpty);
+    // Perps (picked at the top): the whole list under its strip.
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HyperliquidScreen)));
+    container.read(hlBrowseSelectionProvider.notifier).state = container
+        .read(hlBrowseSelectionProvider)
+        .copyWith(tab: HlBrowseTab.perps);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final perpsRows =
+        find.byType(HlMarketCard, skipOffstage: false).evaluate().length;
+    expect(perpsRows, greaterThan(6));
+    expect(tester.takeException(), isNull);
   });
 }
