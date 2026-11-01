@@ -48,11 +48,13 @@
 // the sheet spring when the row appears or goes.
 //
 // Tapping the bar ALWAYS opens the same search / Sal sheet as Home, with
-// the context's block on top: a "Recommended" block with the screen's
-// action rows ([actions]: "Send the market", "Send dollars for this
-// market"; the top categories of the category grid), Sal's prompt chips
-// tuned to the screen ([prompts]), and the composer scoped to that venue
-// ([category], [searchHint]). A keyboard-driven surface, and the Sal
+// the context's block on top: a market page's preview and its send cards
+// ([actions]: "Share the market", "Send this prediction"; drawn only with
+// a market's preview, never as generic arrow cards), or the surface's own
+// widget in place of the home's blocks ([sheetHome]: over the category
+// sheet, every category of the venue as the grid's own tiles), Sal's
+// prompt chips tuned to the screen ([prompts]), and the composer scoped
+// to that venue ([category], [searchHint]). A keyboard-driven surface, and the Sal
 // sheet itself, push a [hidden] context: the bar slides away.
 //
 // Share links: the two market rows go through the share flow in
@@ -151,6 +153,7 @@ class KuteBarContext {
     this.question,
     this.advisorContext,
     this.placement = KuteBarPlacement.bottom,
+    this.sheetHome,
   })  : kind = KuteBarKind.search,
         enabled = true,
         busy = false,
@@ -209,7 +212,8 @@ class KuteBarContext {
         prompts = const [],
         hidden = false,
         actionRowHeight = 0,
-        placement = KuteBarPlacement.bottom;
+        placement = KuteBarPlacement.bottom,
+        sheetHome = null;
 
   final KuteBarKind kind;
   final bool enabled;
@@ -263,6 +267,7 @@ class KuteBarContext {
         disabledLabel = null,
         pairedWidth = null,
         placement = KuteBarPlacement.bottom,
+        sheetHome = null,
         style = null;
 
   /// The Sal control is the page's own header circle, not the pill.
@@ -299,7 +304,15 @@ class KuteBarContext {
   /// is current. Null: always honoured (the Sal sheet's hidden context).
   final Route<dynamic>? route;
 
-  bool get hasRecommendations => actions.isNotEmpty;
+  /// The Sal sheet's home while this context opened it, in place of the
+  /// home's blocks, under the composer: the surface's own widget, built
+  /// in the Sal sheet with its context (the Investments category sheet:
+  /// every category of the venue as the grid's own tiles, a tap picking
+  /// it and closing both sheets). Null: the home, or the market preview
+  /// and its cards.
+  final WidgetBuilder? sheetHome;
+
+  bool get hasRecommendations => actions.isNotEmpty || sheetHome != null;
 
   /// A market or position page's context: the bar moves with the page
   /// there (kute_shell_bar.dart). Its clip is the `share` one
@@ -342,6 +355,7 @@ class KuteBarContext {
           question: question,
           advisorContext: advisorContext,
           placement: placement,
+          sheetHome: sheetHome,
         );
 }
 

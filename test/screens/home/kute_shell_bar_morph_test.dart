@@ -24,6 +24,8 @@ import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/kute_share_actions.dart'
+    show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -83,16 +85,17 @@ Future<void> _pump(WidgetTester tester, {bool reduce = false}) async {
 
 NavigatorState _nav() => AppRouter.rootNavigatorKey.currentState!;
 
-/// A market page's context: an action row, so the sheet is the context
-/// variant (no browse feeds read).
+/// A market page's context: its preview and a send card, so the sheet is
+/// the context variant (no browse feeds read).
 KuteBarContext _market(
         {KuteBarPlacement placement = KuteBarPlacement.bottom}) =>
-    KuteBarContext(
+    KuteMarketBarContext(
       label: 'Share with your friends',
       clip: 'share',
       placement: placement,
+      preview: const KuteBarPreview(title: 'Gemini Carbon', line: 'Yes 62%'),
       actions: [
-        KuteBarAction(label: 'Share the market', onTap: (_) {}),
+        KuteMarketBarAction(label: 'Share the market', onTap: (_) {}),
       ],
     );
 
