@@ -46,6 +46,7 @@ import 'package:kute/providers/usdb_provider.dart' show usdbTokenIdentifier;
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_mascot.dart';
 import 'package:kute/services/api/share_links_api.dart';
 import 'package:kute/services/funding/hot_settlement.dart' show HotSettlement;
@@ -190,18 +191,25 @@ class _ClaimedPromptSheetState extends ConsumerState<ClaimedPromptSheet> {
                 ),
               ),
               SizedBox(height: 24.h),
-              AppButton(
-                key: const ValueKey('share-claimed-send-now'),
-                text: l10n.shareSendNow,
-                isLoading: _sending,
-                onPressed: _sending ? null : _send,
-              ),
-              SizedBox(height: 8.h),
+              // Later stays on the sheet, a text button above the bar.
               AppTextButton(
                 key: const ValueKey('share-claimed-later'),
                 text: l10n.shareLater,
                 onPressed:
                     _sending ? null : () => Navigator.of(context).maybePop(),
+              ),
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): Send now is
+              // the floating Sal bar's primary action, busy while the
+              // payment runs; the sheet keeps clear of it.
+              KuteBarContextScope(
+                barContext: KuteBarContext.primary(
+                  label: l10n.shareSendNow,
+                  onPrimary: _send,
+                  enabled: !_sending,
+                  busy: _sending,
+                  source: 'share_claimed_prompt',
+                ),
+                child: SizedBox(height: kuteBarScrollClearance.h),
               ),
             ],
           ],

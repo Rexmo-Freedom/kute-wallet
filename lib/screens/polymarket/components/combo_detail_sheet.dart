@@ -28,6 +28,8 @@ import 'package:kute/providers/polymarket_browse_provider.dart'
     show PolyPriceHistoryCache;
 import 'package:kute/providers/polymarket_combos_provider.dart';
 import 'package:kute/providers/polymarket_trading_provider.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/polymarket/components/combo_copy.dart';
 import 'package:kute/screens/polymarket/components/combo_position_card.dart'
@@ -35,7 +37,6 @@ import 'package:kute/screens/polymarket/components/combo_position_card.dart'
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/services/polymarket/combos/combo_analytics.dart';
@@ -415,7 +416,8 @@ class _Actions extends StatelessWidget {
     if (!p.isOpen) return const SizedBox.shrink();
     // THE BAR IS THE BUTTON (kute_bar_context.dart): Close combo is the
     // floating Sal bar's primary action. The close sheet it opens is a
-    // short sheet and keeps its own buttons.
+    // short sheet whose own confirm is the bar too (its primary context
+    // beats the short sheet's hidden one, kuteBarTop).
     return KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: context.l10n.comboClose,
@@ -649,19 +651,31 @@ class _CloseComboSheetState extends ConsumerState<_CloseComboSheet> {
                   style: TextStyle(color: c.textSecondary, fontSize: 13.sp)),
             ],
             SizedBox(height: 16.h),
-            q == null && !_loading
-                ? AppButton(
-                    text: l10n.comboGetNewPrice,
-                    onPressed: () {
-                      _auto = 0;
-                      _requestQuote();
-                    },
-                  )
-                : AppButton(
-                    text: l10n.comboClose,
-                    isLoading: _loading || _placing,
-                    onPressed: q != null && !_placing ? _confirm : null,
-                  ),
+            // THE BAR IS THE BUTTON (kute_bar_context.dart): the sheet's
+            // one action, Get a new price when the quote failed, else
+            // Close combo (busy while the quote loads or the close runs),
+            // is the floating Sal bar; the sheet keeps clear of it.
+            KuteBarContextScope(
+              barContext: q == null && !_loading
+                  ? KuteBarContext.primary(
+                      label: l10n.comboGetNewPrice,
+                      onPrimary: () {
+                        _auto = 0;
+                        _requestQuote();
+                      },
+                      category: SearchCategory.predictions,
+                      source: 'combo_close',
+                    )
+                  : KuteBarContext.primary(
+                      label: l10n.comboClose,
+                      onPrimary: _confirm,
+                      enabled: q != null && !_placing,
+                      busy: _loading || _placing,
+                      category: SearchCategory.predictions,
+                      source: 'combo_close',
+                    ),
+              child: SizedBox(height: kuteBarScrollClearance.h),
+            ),
           ],
         ),
       ),

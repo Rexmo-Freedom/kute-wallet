@@ -27,9 +27,12 @@ import 'package:share_plus/share_plus.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/unified_search_provider.dart'
+    show SearchCategory;
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_wordmark.dart';
 import 'package:kute/services/share_link_events.dart';
 import 'package:kute/services/tracking_service.dart';
@@ -253,18 +256,28 @@ class ShareMarketSheet extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(height: 20.h),
-                AppButton(
-                  key: const ValueKey('share-market-link'),
-                  text: l10n.shareMarketShareLink,
-                  onPressed: () => unawaited(_share(context)),
-                ),
-                SizedBox(height: 8.h),
+                // The second button stays on the sheet, as a text button
+                // above the bar.
                 AppTextButton(
                   key: const ValueKey('share-market-send-pick'),
                   text: _investing
                       ? l10n.sendThisInvestment
                       : l10n.sendThisPrediction,
                   onPressed: () => unawaited(_sendPick(context)),
+                ),
+                // THE BAR IS THE BUTTON (kute_bar_context.dart): Send the
+                // link is the floating Sal bar's primary action; the sheet
+                // keeps clear of it.
+                KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: l10n.shareMarketShareLink,
+                    onPrimary: () => unawaited(_share(context)),
+                    category: _investing
+                        ? SearchCategory.perpetuals
+                        : SearchCategory.predictions,
+                    source: 'share_market',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ],
             ),

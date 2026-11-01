@@ -3554,13 +3554,22 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): Save is the
+              // floating Sal bar's primary action, riding above the
+              // keyboard while the note is typed; the sheet keeps clear
+              // of it.
               Padding(
                 padding: EdgeInsets.all(20.w),
-                child: AppButton(
-                  text: context.l10n.save,
-                  onPressed: _text.text.trim().isEmpty
-                      ? null
-                      : () => Navigator.of(context).pop(_text.text.trim()),
+                child: KuteBarContextScope(
+                  barContext: KuteBarContext.primary(
+                    label: context.l10n.save,
+                    onPrimary: () =>
+                        Navigator.of(context).pop(_text.text.trim()),
+                    enabled: _text.text.trim().isNotEmpty,
+                    category: SearchCategory.perpetuals,
+                    source: 'chart_note',
+                  ),
+                  child: SizedBox(height: kuteBarScrollClearance.h),
                 ),
               ),
             ],

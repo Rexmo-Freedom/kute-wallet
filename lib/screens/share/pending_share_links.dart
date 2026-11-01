@@ -26,6 +26,7 @@ import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show SendToListCard, SendToListRow, SendToSectionHeader;
 import 'package:kute/services/api/share_links_api.dart';
@@ -203,16 +204,10 @@ class _PendingShareLinkDetailState
                 ],
                 if (open) ...[
                   SizedBox(height: 20.h),
-                  if (row.url.isNotEmpty)
-                    AppButton(
-                      key: const ValueKey('share-link-share-again'),
-                      text: l10n.shareLinkShareAgain,
-                      onPressed: () => unawaited(_shareAgain(row)),
-                    ),
                   // A contact's number (kept on the phone only), prefilled
-                  // in WhatsApp or the SMS composer.
+                  // in WhatsApp or the SMS composer. These and Cancel link
+                  // stay on the sheet as text buttons above the bar.
                   if (row.url.isNotEmpty && row.recipientPhone != null) ...[
-                    SizedBox(height: 8.h),
                     AppTextButton(
                       key: const ValueKey('share-link-whatsapp'),
                       text: l10n.shareSendAgainWhatsApp,
@@ -233,6 +228,18 @@ class _PendingShareLinkDetailState
                     onPressed:
                         _cancelling ? null : () => unawaited(_cancel(row)),
                   ),
+                  // THE BAR IS THE BUTTON (kute_bar_context.dart): Share
+                  // again is the floating Sal bar's primary action; the
+                  // sheet keeps clear of it.
+                  if (row.url.isNotEmpty)
+                    KuteBarContextScope(
+                      barContext: KuteBarContext.primary(
+                        label: l10n.shareLinkShareAgain,
+                        onPrimary: () => unawaited(_shareAgain(row)),
+                        source: 'share_link_detail',
+                      ),
+                      child: SizedBox(height: kuteBarScrollClearance.h),
+                    ),
                 ],
               ],
             ),
