@@ -10474,9 +10474,6 @@ class AppLocalizationsCs extends AppLocalizations {
   String get bragCodeLabel => 'Kód';
 
   @override
-  String get bragBeatMeOnKute => 'Překonej mě na Kute';
-
-  @override
   String get bragSinceYouBought => 'Od nákupu';
 
   @override
@@ -10512,12 +10509,6 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Trpělivost je taky pozice.';
-
-  @override
-  String get bragEntry => 'Vstup';
-
-  @override
-  String get bragNow => 'Teď';
 
   @override
   String get bragAboutIt => 'Pochlub se tím';
@@ -12149,45 +12140,43 @@ class AppLocalizationsCs extends AppLocalizations {
   String get shareCardReadyTitle => 'Tvoje karta je hotová';
 
   @override
-  String get shareCardJoinMeOnKute => 'Přidej se ke mně na Kute';
-
-  @override
-  String get shareCardClaimChip => 'Vyzvedni na Kute';
-
-  @override
-  String get shareCardPlaceChip => 'Vsaď na Kute';
-
-  @override
-  String get shareCardTradeChip => 'Obchoduj na Kute';
-
-  @override
-  String get shareCardCallChip => 'Tipni si na Kute';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, posílám ti';
-  }
-
-  @override
-  String get shareCardSentYou => 'Posílám ti';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, posílám ti tip';
-  }
-
-  @override
-  String get shareCardSentPick => 'Posílám ti tip';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return 'Vloženo $amount';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change dnes';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, pro tebe';
+  }
+
+  @override
+  String get shareCardForYou => 'Pro tebe';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, tip pro tebe';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Tip pro tebe';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'v bitcoinu · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Šance na $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount na $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Moje pozice';
 
   @override
   String get shareCardOutcomeYes => 'Ano';
@@ -12347,21 +12336,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get claimCardPick => 'Kamarád ti posílá tip';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome na $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Je to tvoje. Klepni na Vyzvednout.';
-
-  @override
-  String get claimCardLineNeedThis => 'Kamarád si myslí, že tohle potřebuješ.';
-
-  @override
-  String get claimCardLineLikesYou => 'Někdo tě má rád. Tady je důkaz.';
-
-  @override
-  String get claimCardLineNoCatch => 'Žádný háček. Jen dárek.';
 
   @override
   String get activityLatest => 'Latest';

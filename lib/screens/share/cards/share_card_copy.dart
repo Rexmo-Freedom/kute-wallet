@@ -1,21 +1,25 @@
 // lib/screens/share/cards/share_card_copy.dart
 //
-// THE WORDS ON A SHARE CARD, in the app's language.
+// THE WORDS OF A SHARE, in the app's language.
 //
 //   * THE HEADLINE (founder, 1 November 2026: "state the price/odds
 //     clearly, in an interesting, topic-aware way"): the clear, neutral
-//     fact right under the logo, the numbers emphasised. A stock "Tesla is
-//     $242.10, up 3.4% today"; a pre-IPO company "OpenAI trades at an
-//     implied $X"; oil "Crude oil at $102.50 a barrel", gold "an ounce".
-//     A prediction by its topic: politics "Markets give Lula a 41% chance",
-//     sports "Gen.G are 47% favourites vs T1", crypto "18% odds it
-//     happens", economics "71% chance of 25 bps cut", anything else "47%
-//     say yes", and "{Outcome}: {chance} chance" when nothing fits. Built
-//     only from the market's own data (the outcome, the chance, the
-//     price, the change): the market's odds, never our opinion.
-//   * SAL'S LINE: the playful one-liner in the bubble, a pool per card;
-//     the preview picks a seed once on open so the line holds while the
-//     figures move. PG: the image leaves the phone.
+//     fact, now the FIRST LINE OF THE SHARE MESSAGE (the image carries the
+//     one big number; restrained premium, founder 1 November 2026). A
+//     stock "Tesla is $242.10, up 3.4% today"; a pre-IPO company "OpenAI
+//     trades at an implied $X"; oil "Crude oil at $102.50 a barrel", gold
+//     "an ounce". A prediction by its topic: politics "Markets give Lula a
+//     41% chance", sports "Gen.G are 47% favourites vs T1", crypto "18%
+//     odds it happens", economics "71% chance of 25 bps cut", anything
+//     else "47% say yes", and "{Outcome}: {chance} chance" when nothing
+//     fits. Built only from the market's own data: the market's odds,
+//     never our opinion.
+//   * SAL'S LINE: the playful one-liner, a pool per card, the message's
+//     line after the headline ([shareCardMessage]); the preview picks a
+//     seed once on open. PG: the message leaves the phone.
+//   * THE CAPS LINE at the top of the card ([shareCardTopLine]): "For
+//     Daniel", "Ana, a pick for you", the recipient's "Daniel, a friend
+//     sent you", or the venue on a market shared without a link.
 //   * THE FIGURES: prices, percents and amounts in the locale's own number
 //     format ("41 %", "242,10 $" in German).
 
@@ -180,13 +184,6 @@ ShareCardHeadlineText? investmentHeadline(
 
 /// Sal's lines for [data] (see the file header).
 List<String> shareCardLines(AppLocalizations l10n, ShareCardData data) {
-  if (data.audience == ShareCardAudience.recipient) {
-    return [
-      l10n.claimCardLineNeedThis,
-      l10n.claimCardLineLikesYou,
-      l10n.claimCardLineNoCatch,
-    ];
-  }
   return switch (data) {
     MoneyCardData() => [
         l10n.shareCardLineClaimIt,
@@ -217,26 +214,50 @@ String shareCardLine(AppLocalizations l10n, ShareCardData data, int seed) {
   return pool[seed.abs() % pool.length];
 }
 
-/// The small line at the top: "{Name}, I sent you" (money), "{Name}, I
-/// sent you a pick", or the recipient's "{Name}, a friend sent you";
-/// null on a market shared without a link.
-String? shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
+/// The caps line at the top of [data]'s card (see the file header).
+String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
   final n = data.recipient?.trim() ?? '';
   final recipient = data.audience == ShareCardAudience.recipient;
   final bool pick = switch (data) {
-    MoneyCardData() => false,
+    MoneyCardData() => true,
     PredictionCardData(:final picked) => picked,
     InvestmentCardData(:final picked) => picked,
   };
+  if (!pick) {
+    return data is InvestmentCardData ? l10n.trading : l10n.predictions;
+  }
   if (data is MoneyCardData) {
     if (recipient) {
       return n.isEmpty ? l10n.claimCardFromFriend : l10n.claimCardFromFriendNamed(n);
     }
-    return n.isEmpty ? l10n.shareCardSentYou : l10n.shareCardSentYouNamed(n);
+    return n.isEmpty ? l10n.shareCardForYou : l10n.shareCardForNamed(n);
   }
-  if (!pick) return null;
   if (recipient) {
     return n.isEmpty ? l10n.claimCardPick : l10n.claimCardPickNamed(n);
   }
-  return n.isEmpty ? l10n.shareCardSentPick : l10n.shareCardSentPickNamed(n);
+  return n.isEmpty ? l10n.shareCardPickForYou : l10n.shareCardPickForNamed(n);
+}
+
+/// The headline of [data] (see the file header); null on a money card
+/// or without the figure.
+ShareCardHeadlineText? shareCardHeadline(
+        AppLocalizations l10n, ShareCardData data) =>
+    switch (data) {
+      MoneyCardData() => null,
+      final PredictionCardData d => predictionHeadline(l10n, d),
+      final InvestmentCardData d => investmentHeadline(l10n, d),
+    };
+
+/// The share message: the headline first, Sal's line (at [seed]) after
+/// it, then [message] (the entry point's own text, with the link). A card
+/// without a headline (money) leads with [message] and Sal follows.
+String shareCardMessage(
+    AppLocalizations l10n, ShareCardData data, int seed, String message) {
+  final headline = shareCardHeadline(l10n, data)?.text;
+  final line = shareCardLine(l10n, data, seed);
+  return [
+    headline ?? message,
+    line,
+    if (headline != null) message,
+  ].join('\n');
 }

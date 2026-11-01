@@ -1,11 +1,12 @@
-// The brag cards (screens/share/brag/): both variants render from fake
-// data, always with the real amounts (no toggle); the background, Sal's
-// still (sunglasses only on a big win) and his one-liner follow the
-// result's tone; Share hands the OS a PNG and the link with the referral
-// code, and `brag_shared` says which card.
+// The brag cards (screens/share/brag/), restrained premium: both
+// variants render from fake data on one near-black background, always
+// with the real amounts (no toggle), ONE big number (the P&L), the footer
+// mark and code, no chip, pill, bubble, ring or Sal pose. Sal's one-liner
+// follows the result's tone in the share MESSAGE; Share hands the OS a
+// PNG and the link with the referral code, and `brag_shared` says which
+// card.
 
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,7 +15,8 @@ import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/brag/brag_preview_sheet.dart';
-import 'package:kute/screens/share/brag/brag_sal.dart';
+import 'package:kute/screens/share/cards/share_card_frame.dart'
+    show ShareCardPalette;
 import 'package:share_plus/share_plus.dart' show XFile;
 
 import '../../../helpers/kute_bar_test_support.dart';
@@ -36,28 +38,39 @@ void main() {
     BragPreviewSheet.debugLineSeed = null;
   });
 
-  Widget card(BragData data, {ui.Image? sal, int seed = 0}) =>
-      Center(child: BragCard(data: data, sal: sal, lineSeed: seed));
+  Widget card(BragData data) => Center(child: BragCard(data: data));
 
   String resultText(WidgetTester tester) =>
-      tester.widget<Text>(find.byKey(const ValueKey('brag-card-result'))).data!;
+      tester.widget<Text>(find.byKey(const ValueKey('brag-card-number'))).data!;
 
-  String lineText(WidgetTester tester) =>
-      tester.widget<Text>(find.byKey(const ValueKey('brag-card-line'))).data!;
+  Text textAt(WidgetTester tester, String key) =>
+      tester.widget<Text>(find.byKey(ValueKey(key)));
 
-  List<Color> background(WidgetTester tester) => (tester
-          .widget<DecoratedBox>(find.byKey(const ValueKey('brag-card-bg')))
-          .decoration as BoxDecoration)
-      .gradient!
-      .colors;
-
-  Future<ui.Image> dummyImage(WidgetTester tester) async =>
-      (await tester.runAsync(() {
-        final rec = ui.PictureRecorder();
-        Canvas(rec).drawRect(
-            const Rect.fromLTWH(0, 0, 4, 4), Paint()..color = Colors.orange);
-        return rec.endRecording().toImage(4, 4);
-      }))!;
+  void expectRestrained(WidgetTester tester, {required bool code}) {
+    final box = tester
+        .widget<DecoratedBox>(find.byKey(const ValueKey('brag-card-bg')))
+        .decoration as BoxDecoration;
+    expect(box.gradient, isNull);
+    expect(box.color, ShareCardPalette.dark.background);
+    expect(find.byKey(const ValueKey('brag-card-number')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brag-card-mark')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brag-card-wordmark')), findsOneWidget);
+    expect(find.byKey(const ValueKey('brag-card-code')),
+        code ? findsOneWidget : findsNothing);
+    for (final gone in const [
+      'brag-card-line',
+      'brag-card-percent',
+      'brag-card-side',
+      'brag-card-allocation',
+      'brag-card-entry-now',
+      'brag-card-sal',
+      'brag-card-sal-shades',
+    ]) {
+      expect(find.byKey(ValueKey(gone)), findsNothing, reason: gone);
+    }
+    expect(find.byType(RawImage), findsNothing);
+    expect(find.text('Beat me on Kute'), findsNothing);
+  }
 
   group('tone', () {
     test('the tone follows the sign and the size of the result', () {
@@ -76,29 +89,6 @@ void main() {
       expect(fakeBragFlatPortfolio().tone, BragTone.flat);
       expect(fakeBragPosition().tone, BragTone.bigWin);
       expect(fakeBragLosingPosition().tone, BragTone.loss);
-    });
-
-    test('sunglasses only on a big win; the loss still is unbothered', () {
-      for (final t in BragTone.values) {
-        expect(bragSalWearsShades(t), t == BragTone.bigWin, reason: '$t');
-      }
-      expect(bragSalAsset(BragTone.bigWin), 'lib/assets/sal/brag_shades.webp');
-      expect(bragSalAsset(BragTone.win), 'lib/assets/sal/brag_smug.webp');
-      expect(bragSalAsset(BragTone.smallWin), 'lib/assets/sal/brag_smug.webp');
-      expect(bragSalAsset(BragTone.flat), 'lib/assets/sal/brag_smug.webp');
-      expect(
-          bragSalAsset(BragTone.loss), 'lib/assets/sal/brag_unbothered.webp');
-    });
-
-    testWidgets('every still is bundled and decodes', (tester) async {
-      BragSalStills.debugReset();
-      for (final t in BragTone.values) {
-        final image = await tester.runAsync(() => BragSalStills.load(t));
-        expect(image, isNotNull, reason: '$t');
-        expect(image!.width / image.height, closeTo(kBragSalAspect, 0.01));
-        expect(BragSalStills.peek(t), same(image));
-      }
-      BragSalStills.debugReset();
     });
 
     testWidgets('one-liner pool by sign, PG', (tester) async {
@@ -130,72 +120,43 @@ void main() {
           isIn(bragLines(l10n, BragTone.loss)));
     });
 
-    testWidgets('the card: background, Sal and his line follow the tone',
+    testWidgets('every tone: the same restrained card, laid out',
         (tester) async {
-      final sal = await dummyImage(tester);
-      final cases = <BragData, BragTone>{
-        fakeBragPortfolio(): BragTone.bigWin,
-        fakeBragSmallWinPortfolio(): BragTone.smallWin,
-        fakeBragLosingPortfolio(): BragTone.loss,
-        fakeBragFlatPortfolio(): BragTone.flat,
-        fakeBragPosition(): BragTone.bigWin,
-        fakeBragLosingPosition(): BragTone.loss,
-      };
-      for (final MapEntry(key: data, value: tone) in cases.entries) {
-        for (final seed in [0, 1, 2]) {
-          await pumpShareWidget(tester, env, card(data, sal: sal, seed: seed));
-          expect(background(tester), bragBackground(tone), reason: '$tone');
-          final l10n =
-              AppLocalizations.of(tester.element(find.byType(BragCard)));
-          expect(lineText(tester), bragLine(l10n, tone, seed));
-          expect(lineText(tester), isIn(bragLines(l10n, tone)));
-          expect(find.byKey(const ValueKey('brag-card-sal-shades')),
-              tone == BragTone.bigWin ? findsOneWidget : findsNothing,
-              reason: '$tone');
-          expect(find.byKey(const ValueKey('brag-card-sal')),
-              tone == BragTone.bigWin ? findsNothing : findsOneWidget,
-              reason: '$tone');
-          expect(tester.takeException(), isNull);
-        }
+      for (final data in <BragData>[
+        fakeBragPortfolio(),
+        fakeBragSmallWinPortfolio(),
+        fakeBragLosingPortfolio(),
+        fakeBragFlatPortfolio(),
+        fakeBragPosition(),
+        fakeBragLosingPosition(),
+      ]) {
+        await pumpShareWidget(tester, env, card(data));
+        expectRestrained(tester, code: true);
+        expect(tester.takeException(), isNull, reason: '${data.tone}');
       }
-      // Green up, red down, near-black flat.
-      final up = bragBackground(BragTone.win).first;
-      final down = bragBackground(BragTone.loss).first;
-      final flat = bragBackground(BragTone.flat).first;
-      expect(up.g, greaterThan(up.r));
-      expect(down.r, greaterThan(down.g));
-      expect(flat.r, closeTo(flat.g, 0.02));
-      expect(flat.computeLuminance(), lessThan(0.05));
-    });
-
-    testWidgets('no still: no Sal, the line still says it', (tester) async {
-      await pumpShareWidget(tester, env, card(fakeBragPortfolio()));
-      expect(find.byKey(const ValueKey('brag-card-sal')), findsNothing);
-      expect(find.byKey(const ValueKey('brag-card-sal-shades')), findsNothing);
-      expect(find.byKey(const ValueKey('brag-card-line')), findsOneWidget);
     });
   });
 
   group('position card', () {
-    testWidgets('the real amount big, the percent beside it, the market',
-        (tester) async {
+    testWidgets(
+        'MY POSITION, the market and the side, the P&L big, since you '
+        'bought with the percent in colour, the line', (tester) async {
       await pumpShareWidget(tester, env, card(fakeBragPosition()));
+      expectRestrained(tester, code: true);
+      expect(textAt(tester, 'brag-card-caps').data, 'MY POSITION');
       expect(resultText(tester), r'+$36.90');
-      expect(find.text('+42.1%'), findsOneWidget);
+      expect(textAt(tester, 'brag-card-fact').data, 'Since you bought · +42.1%');
+      expect(textAt(tester, 'brag-card-fact').style!.color,
+          ShareCardPalette.dark.up);
       expect(find.text('LoL Worlds 2026: Gen.G vs T1'), findsOneWidget);
-      expect(find.text('Gen.G'), findsOneWidget);
-      expect(find.text('PREDICTIONS · SINCE YOU BOUGHT'), findsOneWidget);
+      expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
       expect(find.byKey(const ValueKey('brag-card-logo')), findsOneWidget);
       expect(find.byKey(const ValueKey('brag-card-chart')), findsOneWidget);
-      expect(find.text('41%'), findsOneWidget);
-      expect(find.text('58%'), findsOneWidget);
-      expect(find.text('Beat me on Kute'), findsOneWidget);
-      expect(find.textContaining(kBragTestCode, findRichText: true),
-          findsOneWidget);
+      expect(find.text('CODE $kBragTestCode'), findsOneWidget);
       expect(tester.getSize(find.byType(BragCard)), kBragCardSize);
     });
 
-    testWidgets('no cost base: the amount alone, no code without one',
+    testWidgets('a loss reads red; no cost base, no line, no code',
         (tester) async {
       const data = BragPosition(
         title: 'BTC',
@@ -205,26 +166,24 @@ void main() {
         result: BragResult(usd: -5, text: '−\$5.00'),
       );
       await pumpShareWidget(tester, env, card(data));
+      expectRestrained(tester, code: false);
       expect(resultText(tester), '−\$5.00');
-      expect(find.byKey(const ValueKey('brag-card-percent')), findsNothing);
-      expect(find.byKey(const ValueKey('brag-card-code')), findsNothing);
+      expect(textAt(tester, 'brag-card-fact').data, 'Since you bought');
+      expect(textAt(tester, 'brag-card-fact').style!.color,
+          ShareCardPalette.dark.down);
       expect(find.byKey(const ValueKey('brag-card-chart')), findsNothing);
-      expect(find.byKey(const ValueKey('brag-card-entry-now')), findsNothing);
     });
   });
 
   group('portfolio card', () {
     testWidgets(
-        'the all-time P&L, All time, the ring in the corner and the top '
-        'three as chips with their results', (tester) async {
+        'MY PORTFOLIO, the all-time P&L big, All time, the top three as '
+        'plain rows with their results, no ring', (tester) async {
       await pumpShareWidget(tester, env, card(fakeBragPortfolio()));
+      expectRestrained(tester, code: true);
+      expect(textAt(tester, 'brag-card-caps').data, 'MY PORTFOLIO');
       expect(resultText(tester), r'+$412.35');
-      expect(find.text('My portfolio'), findsOneWidget);
-      expect(find.text('ALL TIME'), findsOneWidget);
-      expect(
-          find.byKey(const ValueKey('brag-card-allocation')), findsOneWidget);
-      // No legend: the ring is shares only, never money.
-      expect(find.text('58%'), findsNothing);
+      expect(textAt(tester, 'brag-card-fact').data, 'All time');
       // The combined return is the tone's, never drawn.
       expect(find.textContaining('24.6'), findsNothing);
       for (var i = 0; i < 3; i++) {
@@ -236,7 +195,9 @@ void main() {
       expect(find.text('+18.4%'), findsOneWidget);
       expect(find.text('+42.1%'), findsOneWidget);
       expect(find.text('+12.5%'), findsOneWidget);
-      expect(find.byKey(const ValueKey('brag-card-code')), findsOneWidget);
+      expect(
+          tester.widget<Text>(find.text('+18.4%')).style!.color,
+          ShareCardPalette.dark.up);
     });
   });
 
@@ -262,6 +223,7 @@ void main() {
       final sent = <(XFile, String)>[];
       BragPreviewSheet.debugSharer =
           (file, text) async => sent.add((file, text));
+      BragPreviewSheet.debugLineSeed = 3;
       await pumpShareWidget(
           tester, env, BragPreviewSheet(data: fakeBragPosition()));
 
@@ -274,11 +236,13 @@ void main() {
       expect(file.mimeType, 'image/png');
       final bytes = await tester.runAsync(file.readAsBytes) as Uint8List;
       expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
+      // The link first, Sal's line for the tone (big win, seed 3) after it.
       expect(
           text,
           'LoL Worlds 2026: Gen.G vs T1 on Kute '
           'https://backend.kutewallet.com/m/predictions/lol-worlds-geng-t1'
-          '?ref=$kBragTestCode');
+          '?ref=$kBragTestCode\n'
+          'Told you so.');
       expect(env.paramsOf('brag_shared').single, {'kind': 'position'});
     });
 

@@ -1,6 +1,10 @@
-// The share card family (cards/): each card draws its data, the
-// headline follows the market's topic and the locale's numbers, the
-// right card is chosen per entry point, every card lays out in German
+// The share card family (cards/), restrained premium: each card is one
+// solid background, the caps line, the identity row, ONE big number with
+// its fact line, at most one thin graphic, one plain line, and the footer
+// (Sal's small mark, the wordmark, the code); no chip, no bubble, no
+// headline on the image. The headline follows the market's topic and the
+// locale's numbers and leads the share message with Sal's line after it;
+// the right card is chosen per entry point, every card lays out in German
 // and Japanese, and a pending link's Share again shows the card first
 // and hands the OS the PNG.
 
@@ -14,6 +18,7 @@ import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/cards/share_cards.dart';
@@ -151,7 +156,7 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-investment_market')),
           findsOneWidget);
       expect(find.text('Tesla'), findsOneWidget);
-      expect(find.text('Trade it on Kute'), findsOneWidget);
+      expect(find.text('INVESTING'), findsOneWidget);
     });
 
     testWidgets('a link with a pick, from the providers\' fallbacks',
@@ -201,46 +206,130 @@ void main() {
                   )));
     }
 
-    testWidgets('money: the line over the big amount and the claim chip',
+    String textOf(WidgetTester tester, String key) =>
+        tester.widget<Text>(find.byKey(ValueKey(key))).data!;
+
+    Color background(WidgetTester tester) => (tester
+            .widget<DecoratedBox>(find.byKey(const ValueKey('share-card-bg')))
+            .decoration as BoxDecoration)
+        .color!;
+
+    /// What every card shares: one solid background (no gradient), one
+    /// big number, the footer's mark and wordmark, and none of the old
+    /// chrome (chips, bubbles, pills, headline, Sal's poses).
+    void expectRestrained(WidgetTester tester, {required bool code}) {
+      final box = tester
+          .widget<DecoratedBox>(find.byKey(const ValueKey('share-card-bg')))
+          .decoration as BoxDecoration;
+      expect(box.gradient, isNull);
+      expect(find.byKey(const ValueKey('share-card-number')), findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-mark')), findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-wordmark')), findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-code')),
+          code ? findsOneWidget : findsNothing);
+      if (code) {
+        expect(find.text('CODE $kShareTestCode'), findsOneWidget);
+      }
+      for (final gone in const [
+        'share-card-chip',
+        'share-card-line',
+        'share-card-headline',
+        'share-card-pick',
+        'share-card-change',
+        'share-card-side',
+        'share-card-amount-sub',
+      ]) {
+        expect(find.byKey(ValueKey(gone)), findsNothing, reason: gone);
+      }
+      expect(find.byType(RawImage), findsNothing, reason: 'no Sal pose');
+      for (final cta in const [
+        'Claim on Kute',
+        'Trade it on Kute',
+        'Place it on Kute',
+        'Beat me on Kute',
+        'Join me on Kute',
+      ]) {
+        expect(find.text(cta), findsNothing, reason: cta);
+      }
+    }
+
+    testWidgets('money: FOR DANIEL, the value big, in bitcoin under it',
         (tester) async {
       await pumpIn(tester, fakeBitcoinCard(), const Locale('en'));
-      expect(find.text('Daniel, I sent you'), findsOneWidget);
-      expect(find.text('₿12,000'), findsOneWidget);
-      expect(find.text(r'$9.40'), findsOneWidget);
-      expect(find.text('Claim on Kute'), findsOneWidget);
-      expect(find.byKey(const ValueKey('share-card-code')), findsOneWidget);
-      expect(find.text('Join me on Kute'), findsOneWidget);
+      expectRestrained(tester, code: true);
+      expect(textOf(tester, 'share-card-caps'), 'FOR DANIEL');
+      expect(find.text('Bitcoin'), findsOneWidget);
+      expect(textOf(tester, 'share-card-number'), r'$9.40');
+      expect(textOf(tester, 'share-card-fact'), 'in bitcoin · ₿12,000');
+      expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
+      expect(background(tester), ShareCardPalette.dark.background);
+      // Each figure once.
+      expect(find.textContaining('₿12,000'), findsOneWidget);
     });
 
-    testWidgets('a prediction pick: question, headline, pill, amount, line',
+    testWidgets('dollars: the amount big, no fact, no graphic',
         (tester) async {
+      await pumpIn(tester, fakeDollarsCard(), const Locale('en'));
+      expectRestrained(tester, code: true);
+      expect(textOf(tester, 'share-card-caps'), 'FOR ANA');
+      expect(textOf(tester, 'share-card-number'), r'$10.00');
+      expect(find.byKey(const ValueKey('share-card-fact')), findsNothing);
+      expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
+    });
+
+    testWidgets(
+        'a prediction pick: white, the question, the chance big, the odds '
+        'bar with both outcomes, the amount on the pick', (tester) async {
       await pumpIn(tester, fakePredictionPick(), const Locale('en'));
+      expectRestrained(tester, code: true);
+      expect(background(tester), ShareCardPalette.light.background);
+      expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
       expect(find.text('LoL Worlds 2026 Final: Gen.G vs T1'), findsOneWidget);
-      expect(find.byKey(const ValueKey('share-card-headline')), findsOneWidget);
-      expect(find.text('Gen.G · 47%'), findsOneWidget);
-      expect(find.text(r'$10 on it'), findsOneWidget);
-      expect(find.byKey(const ValueKey('share-card-chart')), findsOneWidget);
-      expect(find.text('Place it on Kute'), findsOneWidget);
-      expect(find.text('Trust me on this one.'), findsOneWidget);
+      expect(textOf(tester, 'share-card-number'), '47%');
+      expect(textOf(tester, 'share-card-fact'), 'Chance of Gen.G');
+      expect(find.byKey(const ValueKey('share-card-odds')), findsOneWidget);
+      expect(find.text('T1'), findsOneWidget);
+      expect(textOf(tester, 'share-card-plain'), r'$10 on Gen.G');
+      // The line is the stock card's graphic, never a second one here.
+      expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
     });
 
-    testWidgets('a stock: name, ticker, change pill, side, chart',
-        (tester) async {
+    testWidgets('a stock pick: logo, name, ticker, the price big, today in '
+        'colour, the line, Long · amount', (tester) async {
       await pumpIn(tester, fakeTeslaPick(), const Locale('en'));
+      expectRestrained(tester, code: true);
+      expect(background(tester), ShareCardPalette.dark.background);
+      expect(textOf(tester, 'share-card-caps'), 'ANA, A PICK FOR YOU');
       expect(find.text('Tesla'), findsOneWidget);
       expect(find.text('TSLA'), findsOneWidget);
-      expect(find.text('+3.4% today'), findsOneWidget);
-      expect(find.text('Long'), findsOneWidget);
+      expect(textOf(tester, 'share-card-number'), r'$242.10');
+      expect(textOf(tester, 'share-card-fact'), '+3.4% today');
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('share-card-fact')))
+              .style!
+              .color,
+          ShareCardPalette.dark.up);
       expect(find.byKey(const ValueKey('share-card-chart')), findsOneWidget);
-      expect(find.text('Trade it on Kute'), findsOneWidget);
+      expect(textOf(tester, 'share-card-plain'), r'Long · $25');
+      expect(find.text('Long'), findsNothing, reason: 'the side once');
     });
 
-    testWidgets('a prediction market: no pick, make your call',
+    testWidgets('a prediction market: the venue on top, no pick line',
         (tester) async {
       await pumpIn(tester, fakePredictionMarket(), const Locale('en'));
-      expect(find.byKey(const ValueKey('share-card-pick')), findsNothing);
-      expect(find.text('Make your call on Kute'), findsOneWidget);
-      expect(find.text('What do you think?'), findsOneWidget);
+      expectRestrained(tester, code: true);
+      expect(textOf(tester, 'share-card-caps'), 'PREDICTIONS');
+      expect(textOf(tester, 'share-card-number'), '41%');
+      expect(find.byKey(const ValueKey('share-card-plain')), findsNothing);
+    });
+
+    testWidgets('the claim hero: a friend sent you, tap claim, no code',
+        (tester) async {
+      await pumpIn(tester, fakeBitcoinCard().asRecipient(), const Locale('en'));
+      expectRestrained(tester, code: false);
+      expect(textOf(tester, 'share-card-caps'), 'DANIEL, A FRIEND SENT YOU');
+      expect(textOf(tester, 'share-card-plain'), "It's yours. Tap claim.");
     });
 
     testWidgets('missing data is left out', (tester) async {
@@ -248,9 +337,10 @@ void main() {
           tester,
           const InvestmentCardData(title: 'Tesla', coin: 'TSLA'),
           const Locale('en'));
-      expect(find.byKey(const ValueKey('share-card-headline')), findsNothing);
-      expect(find.byKey(const ValueKey('share-card-change')), findsNothing);
+      expect(find.byKey(const ValueKey('share-card-number')), findsNothing);
+      expect(find.byKey(const ValueKey('share-card-fact')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
+      expect(find.byKey(const ValueKey('share-card-mark')), findsOneWidget);
     });
 
     for (final locale in const [Locale('de'), Locale('ja')]) {
@@ -264,8 +354,9 @@ void main() {
           fakeTeslaPick(),
           fakeNasdaqMarket(),
           fakeOilMarket(),
-          fakeBitcoinCard().recipientCopy(),
-          fakePredictionPick().recipientCopy(),
+          fakeBitcoinCard().asRecipient(),
+          fakePredictionPick().asRecipient(),
+          fakeTeslaPick().asRecipient(),
         ]) {
           await pumpIn(tester, data, locale);
           expect(tester.takeException(), isNull,
@@ -273,6 +364,37 @@ void main() {
         }
       });
     }
+  });
+
+  group('share message', () {
+    test('the headline first, Sal\'s line after it, then the text and link',
+        () {
+      expect(
+          shareCardMessage(_en, fakeTeslaPick(), 0, 'Look https://x.test'),
+          'Tesla is \$242.10, up 3.4% today\n'
+          'This one\'s going places.\n'
+          'Look https://x.test');
+      expect(
+          shareCardMessage(_en, fakePredictionPick(), 1, 'Pick https://x.test')
+              .split('\n'),
+          [
+            'Gen.G are 47% favourites vs T1',
+            'I already know how this ends.',
+            'Pick https://x.test',
+          ]);
+    });
+
+    test('money: no headline, the text first and Sal after it', () {
+      expect(shareCardMessage(_en, fakeDollarsCard(), 0, 'I sent you'),
+          'I sent you\nClaim it before I change my mind.');
+    });
+
+    test('no figure: no headline, never estimated', () {
+      expect(
+          shareCardMessage(_en,
+              const InvestmentCardData(title: 'Tesla', coin: 'TSLA'), 0, 'T'),
+          'T\nThis one\'s going places.');
+    });
   });
 
   testWidgets('pending link: Share again shows the card, Share hands the OS '
@@ -315,34 +437,12 @@ void main() {
     expect(image.mimeType, 'image/png');
     final bytes = await tester.runAsync(image.readAsBytes) as Uint8List;
     expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
-    expect(text,
-        r'Ana, I sent you $10.00 with Kute. Claim it here: https://web.test/c/lnk_3');
+    expect(
+        text,
+        'Ana, I sent you \$10.00 with Kute. Claim it here: '
+        'https://web.test/c/lnk_3\n'
+        'Claim it before I change my mind.');
     expect(env.paramsOf('share_link_shared').single,
         {'kind': 'dollars', 'result': 'success'});
   });
-}
-
-extension on ShareCardData {
-  /// The same card as the recipient's claim hero.
-  ShareCardData recipientCopy() => switch (this) {
-        final MoneyCardData d => MoneyCardData(
-            bitcoin: d.bitcoin,
-            amount: d.amount,
-            amountSub: d.amountSub,
-            recipient: d.recipient,
-            audience: ShareCardAudience.recipient),
-        final PredictionCardData d => PredictionCardData(
-            question: d.question,
-            outcome: d.outcome,
-            chance: d.chance,
-            binary: d.binary,
-            topic: d.topic,
-            opponent: d.opponent,
-            picked: true,
-            amount: d.amount,
-            series: d.series,
-            recipient: d.recipient,
-            audience: ShareCardAudience.recipient),
-        final InvestmentCardData d => d,
-      };
 }

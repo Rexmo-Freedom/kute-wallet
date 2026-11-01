@@ -10452,9 +10452,6 @@ class AppLocalizationsLv extends AppLocalizations {
   String get bragCodeLabel => 'Kods';
 
   @override
-  String get bragBeatMeOnKute => 'Pārspēj mani ar Kute';
-
-  @override
   String get bragSinceYouBought => 'Kopš pirkuma';
 
   @override
@@ -10489,12 +10486,6 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Pacietība arī ir pozīcija.';
-
-  @override
-  String get bragEntry => 'Pirkts';
-
-  @override
-  String get bragNow => 'Tagad';
 
   @override
   String get bragAboutIt => 'Palielies';
@@ -12115,45 +12106,43 @@ class AppLocalizationsLv extends AppLocalizations {
   String get shareCardReadyTitle => 'Tava kartīte ir gatava';
 
   @override
-  String get shareCardJoinMeOnKute => 'Pievienojies man Kute';
-
-  @override
-  String get shareCardClaimChip => 'Saņem ar Kute';
-
-  @override
-  String get shareCardPlaceChip => 'Prognozē ar Kute';
-
-  @override
-  String get shareCardTradeChip => 'Tirgo ar Kute';
-
-  @override
-  String get shareCardCallChip => 'Izvēlies pusi ar Kute';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, es tev aizsūtīju';
-  }
-
-  @override
-  String get shareCardSentYou => 'Es tev aizsūtīju';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, aizsūtīju tev ieteikumu';
-  }
-
-  @override
-  String get shareCardSentPick => 'Aizsūtīju tev ieteikumu';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return 'Ieguldīts $amount';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change šodien';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, tev';
+  }
+
+  @override
+  String get shareCardForYou => 'Tev';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, ieteikums tev';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Ieteikums tev';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitkoinos · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: varbūtība';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Mana pozīcija';
 
   @override
   String get shareCardOutcomeYes => 'Jā';
@@ -12311,21 +12300,7 @@ class AppLocalizationsLv extends AppLocalizations {
   String get claimCardPick => 'Draugs tev atsūtīja ieteikumu';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome: $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Tas ir tavs. Pieskaries „Saņemt”.';
-
-  @override
-  String get claimCardLineNeedThis => 'Tavs draugs domā, ka tev to vajag.';
-
-  @override
-  String get claimCardLineLikesYou => 'Tu kādam patīc. Lūk, pierādījums.';
-
-  @override
-  String get claimCardLineNoCatch => 'Nekādu āķu. Vienkārši dāvana.';
 
   @override
   String get activityLatest => 'Latest';

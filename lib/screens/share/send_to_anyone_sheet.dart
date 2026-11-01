@@ -46,6 +46,8 @@ import 'package:kute/providers/asset_icon_provider.dart'
 import 'package:kute/providers/currency_conversions_provider.dart'
     show conversionProvider, conversionToFiatProvider, inputToSatsProvider;
 import 'package:kute/providers/settings_provider.dart';
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardMessage;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -277,13 +279,17 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     if (_sharing) return;
     final amount =
         shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
-    final text = shareLinkMessage(context,
-        name: row.label,
-        amount: amount,
-        url: row.url,
-        outcome: row.outcome,
-        title: row.marketTitle,
-        venue: row.venue);
+    final text = shareCardMessage(
+        context.l10n,
+        card,
+        _seed,
+        shareLinkMessage(context,
+            name: row.label,
+            amount: amount,
+            url: row.url,
+            outcome: row.outcome,
+            title: row.marketTitle,
+            venue: row.venue));
     setState(() => _sharing = true);
     final result =
         await shareCardImage(context, _boundary, text: text, name: card.kind);
@@ -441,7 +447,6 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           key: const ValueKey('share-live-card'),
           data: _card(_amountMinor(), label.isEmpty ? null : label),
           boundaryKey: _liveBoundary,
-          lineSeed: _seed,
           widthFraction: 0.6,
           heightFraction: 0.34,
         ),
@@ -504,7 +509,6 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
         ShareCardPreviewBox(
           data: card,
           boundaryKey: _boundary,
-          lineSeed: _seed,
           heightFraction: row.recipientPhone != null ? 0.34 : 0.42,
         ),
         SizedBox(height: 12.h),

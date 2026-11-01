@@ -10536,9 +10536,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get bragCodeLabel => 'Cod';
 
   @override
-  String get bragBeatMeOnKute => 'Întrece-mă în Kute';
-
-  @override
   String get bragSinceYouBought => 'De la cumpărare';
 
   @override
@@ -10573,12 +10570,6 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Răbdarea e tot o poziție.';
-
-  @override
-  String get bragEntry => 'Intrare';
-
-  @override
-  String get bragNow => 'Acum';
 
   @override
   String get bragAboutIt => 'Laudă-te';
@@ -12208,45 +12199,43 @@ class AppLocalizationsRo extends AppLocalizations {
   String get shareCardReadyTitle => 'Cardul tău e gata';
 
   @override
-  String get shareCardJoinMeOnKute => 'Hai cu mine în Kute';
-
-  @override
-  String get shareCardClaimChip => 'Revendică în Kute';
-
-  @override
-  String get shareCardPlaceChip => 'Plasează în Kute';
-
-  @override
-  String get shareCardTradeChip => 'Investește în Kute';
-
-  @override
-  String get shareCardCallChip => 'Alege în Kute';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, ți-am trimis';
-  }
-
-  @override
-  String get shareCardSentYou => 'Ți-am trimis';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, ți-am trimis un pont';
-  }
-
-  @override
-  String get shareCardSentPick => 'Ți-am trimis un pont';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return '$amount pe asta';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change azi';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return 'Pentru $name';
+  }
+
+  @override
+  String get shareCardForYou => 'Pentru tine';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, un pont pentru tine';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Un pont pentru tine';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'în bitcoin · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Șanse pentru $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount pe $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Poziția mea';
 
   @override
   String get shareCardOutcomeYes => 'Da';
@@ -12403,22 +12392,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get claimCardPick => 'Un prieten ți-a trimis un pont';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome la $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Sunt ai tăi. Atinge Revendică.';
-
-  @override
-  String get claimCardLineNeedThis =>
-      'Prietenul tău crede că ai nevoie de asta.';
-
-  @override
-  String get claimCardLineLikesYou => 'Cineva te place. Uite dovada.';
-
-  @override
-  String get claimCardLineNoCatch => 'Fără capcane. Doar un cadou.';
 
   @override
   String get activityLatest => 'Latest';

@@ -6755,15 +6755,11 @@
   },
   "bragCodeLabel": "Code",
   "@bragCodeLabel": {
-    "description": "Brag card footer: the small label before the sharer's referral code in its chip."
-  },
-  "bragBeatMeOnKute": "Beat me on Kute",
-  "@bragBeatMeOnKute": {
-    "description": "Brag card footer, under the kute. wordmark, beside the sharer's referral code: a cocky invitation."
+    "description": "Share card footer: the word before the sharer's referral code, drawn uppercase ('CODE JOAO42')."
   },
   "bragSinceYouBought": "Since you bought",
   "@bragSinceYouBought": {
-    "description": "Position brag card: the tiny period line beside the side pill (the result is since the buy)."
+    "description": "Position brag card: the line under the big P&L ('Since you bought · +42%'); the result is since the buy."
   },
   "bragLineBeatThat": "Beat that.",
   "@bragLineBeatThat": {
@@ -6808,14 +6804,6 @@
   "bragLinePatience": "Patience is a position.",
   "@bragLinePatience": {
     "description": "Brag card one-liner (Sal, deadpan; PG): a flat result."
-  },
-  "bragEntry": "Entry",
-  "@bragEntry": {
-    "description": "Position brag card: small caps label over the price paid."
-  },
-  "bragNow": "Now",
-  "@bragNow": {
-    "description": "Position brag card: small caps label over the price now."
   },
   "bragAboutIt": "Brag about it",
   "@bragAboutIt": {
@@ -9138,69 +9126,74 @@
   "@shareCardReadyTitle": {
     "description": "Share card preview sheet: its title, over the image card about to be shared (a send-money link or a pick)."
   },
-  "shareCardJoinMeOnKute": "Join me on Kute",
-  "@shareCardJoinMeOnKute": {
-    "description": "Share card footer under the kute. wordmark on a send-money card (a gift link): a warm invitation."
+  "shareCardToday": "{change} today",
+  "@shareCardToday": {
+    "description": "Stock share card: the line under the big price with today's change, e.g. '+3.4% today'. {change} is a signed formatted percent.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
   },
-  "shareCardClaimChip": "Claim on Kute",
-  "@shareCardClaimChip": {
-    "description": "Send-money share card: the white chip telling the recipient what to do with the link."
-  },
-  "shareCardPlaceChip": "Place it on Kute",
-  "@shareCardPlaceChip": {
-    "description": "Prediction pick share card: the white chip (place the bet on Kute)."
-  },
-  "shareCardTradeChip": "Trade it on Kute",
-  "@shareCardTradeChip": {
-    "description": "Stock / investment share card: the white chip."
-  },
-  "shareCardCallChip": "Make your call on Kute",
-  "@shareCardCallChip": {
-    "description": "Prediction market share card (no pick): the white chip inviting the reader to pick a side."
-  },
-  "shareCardSentYouNamed": "{name}, I sent you",
-  "@shareCardSentYouNamed": {
-    "description": "Send-money share card: the line over the big amount. {name} is the recipient's first name.",
+  "shareCardForNamed": "For {name}",
+  "@shareCardForNamed": {
+    "description": "Send-money share card: the small caps line at the top (drawn uppercase), e.g. 'FOR DANIEL'. {name} is the recipient's first name.",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "shareCardSentYou": "I sent you",
-  "@shareCardSentYou": {
-    "description": "Send-money share card without a name: the line over the big amount."
+  "shareCardForYou": "For you",
+  "@shareCardForYou": {
+    "description": "Send-money share card: the small caps line at the top when the recipient has no name (drawn uppercase)."
   },
-  "shareCardSentPickNamed": "{name}, I sent you a pick",
-  "@shareCardSentPickNamed": {
-    "description": "Pick share card (a prediction or an investment sent as a gift): the small line at the top. {name} is the recipient's first name.",
+  "shareCardPickForNamed": "{name}, a pick for you",
+  "@shareCardPickForNamed": {
+    "description": "Pick share card (a prediction or an investment sent as a gift): the small caps line at the top (drawn uppercase), e.g. 'ANA, A PICK FOR YOU'. {name} is the recipient's first name.",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "shareCardSentPick": "I sent you a pick",
-  "@shareCardSentPick": {
-    "description": "Pick share card without a name: the small line at the top."
+  "shareCardPickForYou": "A pick for you",
+  "@shareCardPickForYou": {
+    "description": "Pick share card: the small caps line at the top when the recipient has no name (drawn uppercase)."
   },
-  "shareCardAmountOnIt": "{amount} on it",
-  "@shareCardAmountOnIt": {
-    "description": "Pick share card: the amount put on the pick, e.g. '$10 on it'. {amount} is a formatted money amount.",
+  "shareCardInBitcoin": "in bitcoin · {amount}",
+  "@shareCardInBitcoin": {
+    "description": "Bitcoin send share card: the muted line under the big amount (its value in the person's currency), e.g. 'in bitcoin · ₿12,000'. {amount} is the bitcoin amount.",
     "placeholders": {
       "amount": {
         "type": "String"
       }
     }
   },
-  "shareCardToday": "{change} today",
-  "@shareCardToday": {
-    "description": "Stock share card: the pill with today's price change, e.g. '+3.4% today'. {change} is a signed formatted percent.",
+  "shareCardChanceOf": "Chance of {outcome}",
+  "@shareCardChanceOf": {
+    "description": "Prediction share card: the muted line under the big chance ('47%'). {outcome} is the outcome ('Gen.G', 'Yes').",
     "placeholders": {
-      "change": {
+      "outcome": {
         "type": "String"
       }
     }
+  },
+  "shareCardAmountOn": "{amount} on {outcome}",
+  "@shareCardAmountOn": {
+    "description": "Prediction pick share card: the plain line saying what was put on the pick, e.g. '$10 on Gen.G'. {amount} is a formatted amount, {outcome} the outcome.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "bragMyPosition": "My position",
+  "@bragMyPosition": {
+    "description": "Position brag card: the small caps line at the top (drawn uppercase)."
   },
   "shareCardOutcomeYes": "Yes",
   "@shareCardOutcomeYes": {
@@ -9212,7 +9205,7 @@
   },
   "shareCardLineClaimIt": "Claim it before I change my mind.",
   "@shareCardLineClaimIt": {
-    "description": "Sal the dog's playful one-liner in a speech bubble on a send-money card (PG, the image leaves the phone)."
+    "description": "Sal the dog's playful one-liner in the share message of a send-money card (PG, the message leaves the phone)."
   },
   "shareCardLineDontSpend": "It's yours. Don't spend it all on memes.",
   "@shareCardLineDontSpend": {
@@ -9506,33 +9499,9 @@
   "@claimCardPick": {
     "description": "Claim screen hero card for a pick, without a name."
   },
-  "claimCardPickChance": "{outcome} at {chance}",
-  "@claimCardPickChance": {
-    "description": "Claim screen hero card: the pick and its chance now, e.g. 'Gen.G at 47%'.",
-    "placeholders": {
-      "outcome": {
-        "type": "String"
-      },
-      "chance": {
-        "type": "String"
-      }
-    }
-  },
   "claimCardTapClaim": "It's yours. Tap claim.",
   "@claimCardTapClaim": {
     "description": "Claim screen hero card: the short line under the amount, before the Claim button."
-  },
-  "claimCardLineNeedThis": "Your friend thinks you need this.",
-  "@claimCardLineNeedThis": {
-    "description": "Sal's playful one-liner in a speech bubble on the claim screen (PG)."
-  },
-  "claimCardLineLikesYou": "Someone likes you. Here's proof.",
-  "@claimCardLineLikesYou": {
-    "description": "Sal's playful one-liner on the claim screen (PG)."
-  },
-  "claimCardLineNoCatch": "No catch. Just a gift.",
-  "@claimCardLineNoCatch": {
-    "description": "Sal's playful one-liner on the claim screen (PG)."
   },
   "activityLatest": "Latest",
   "@activityLatest": {

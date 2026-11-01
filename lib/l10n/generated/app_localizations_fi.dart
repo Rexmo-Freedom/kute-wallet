@@ -10491,9 +10491,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get bragCodeLabel => 'Koodi';
 
   @override
-  String get bragBeatMeOnKute => 'Voita minut Kutessa';
-
-  @override
   String get bragSinceYouBought => 'Ostosta lähtien';
 
   @override
@@ -10529,12 +10526,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Kärsivällisyys on positio.';
-
-  @override
-  String get bragEntry => 'Osto';
-
-  @override
-  String get bragNow => 'Nyt';
 
   @override
   String get bragAboutIt => 'Leveile sillä';
@@ -12160,45 +12151,43 @@ class AppLocalizationsFi extends AppLocalizations {
   String get shareCardReadyTitle => 'Korttisi on valmis';
 
   @override
-  String get shareCardJoinMeOnKute => 'Liity seuraani Kuteen';
-
-  @override
-  String get shareCardClaimChip => 'Lunasta Kutessa';
-
-  @override
-  String get shareCardPlaceChip => 'Ennusta Kutessa';
-
-  @override
-  String get shareCardTradeChip => 'Käy kauppaa Kutessa';
-
-  @override
-  String get shareCardCallChip => 'Tee valintasi Kutessa';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, lähetin sinulle';
-  }
-
-  @override
-  String get shareCardSentYou => 'Lähetin sinulle';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, lähetin sinulle vinkin';
-  }
-
-  @override
-  String get shareCardSentPick => 'Lähetin sinulle vinkin';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return '$amount panoksena';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change tänään';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, sinulle';
+  }
+
+  @override
+  String get shareCardForYou => 'Sinulle';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, vinkki sinulle';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Vinkki sinulle';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitcoinina · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: todennäköisyys';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Oma positio';
 
   @override
   String get shareCardOutcomeYes => 'Kyllä';
@@ -12356,21 +12345,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get claimCardPick => 'Ystävä lähetti sinulle vinkin';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome: $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Se on sinun. Napauta Lunasta.';
-
-  @override
-  String get claimCardLineNeedThis => 'Ystäväsi uskoo, että tarvitset tätä.';
-
-  @override
-  String get claimCardLineLikesYou => 'Joku tykkää sinusta. Tässä todiste.';
-
-  @override
-  String get claimCardLineNoCatch => 'Ei koukkuja. Pelkkä lahja.';
 
   @override
   String get activityLatest => 'Latest';

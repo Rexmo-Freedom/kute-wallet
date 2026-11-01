@@ -8,8 +8,9 @@
 //   * [ShareCardPreviewBox]: the card (share_cards.dart) scaled to fit the
 //     sheet, exactly the pixels that will be sent, in a RepaintBoundary;
 //   * [shareCardImage]: captures that boundary at 1080 × 1350 (toImage →
-//     PNG) and hands the OS share sheet the PNG with the entry point's own
-//     text and link;
+//     PNG) and hands the OS share sheet the PNG with the message: the
+//     card's headline, Sal's line, then the entry point's own text and
+//     link (shareCardMessage, share_card_copy.dart);
 //   * [showShareCardPreviewSheet]: a sheet with the box and the bar as
 //     the primary button, "Share" (a pending link's Share again).
 //
@@ -27,6 +28,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:kute/l10n/l10n.dart';
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardMessage;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart'
@@ -43,7 +47,7 @@ abstract final class ShareCardShare {
   @visibleForTesting
   static Future<String> Function(XFile image, String text)? debugSharer;
 
-  /// Sal's line seed (null: random on open).
+  /// Sal's line seed for the message (null: random on open).
   @visibleForTesting
   static int? debugLineSeed;
 
@@ -91,14 +95,12 @@ class ShareCardPreviewBox extends StatefulWidget {
     super.key,
     required this.data,
     required this.boundaryKey,
-    required this.lineSeed,
     this.heightFraction = 0.52,
     this.widthFraction = 1,
   });
 
   final ShareCardData data;
   final GlobalKey boundaryKey;
-  final int lineSeed;
   final double heightFraction;
 
   /// The share of the sheet's width it may take (the naming step's live
@@ -113,8 +115,8 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
   @override
   void initState() {
     super.initState();
-    if (ShareCardSal.peek(shareCardSalAsset(widget.data)) == null) {
-      unawaited(ShareCardSal.loadAll().then((_) {
+    if (ShareCardSal.peek() == null) {
+      unawaited(ShareCardSal.load().then((_) {
         if (mounted) setState(() {});
       }));
     }
@@ -136,7 +138,8 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
         width: width,
         height: width * kShareCardSize.height / kShareCardSize.width,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20 * width / 320),
+          borderRadius:
+              BorderRadius.circular(kShareCardRadius * width / kShareCardSize.width),
           border: Border.all(color: c.borderSubtle, width: 0.5),
           boxShadow: [
             BoxShadow(
@@ -147,15 +150,12 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20 * width / 320),
+          borderRadius:
+              BorderRadius.circular(kShareCardRadius * width / kShareCardSize.width),
           child: FittedBox(
             child: RepaintBoundary(
               key: widget.boundaryKey,
-              child: ShareCard(
-                data: widget.data,
-                sal: ShareCardSal.peek(shareCardSalAsset(widget.data)),
-                lineSeed: widget.lineSeed,
-              ),
+              child: ShareCard(data: widget.data, mark: ShareCardSal.peek()),
             ),
           ),
         ),
@@ -221,8 +221,10 @@ class _ShareCardPreviewSheetState extends ConsumerState<ShareCardPreviewSheet> {
   Future<void> _share(ShareCardData data) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final result = await shareCardImage(context, _boundary,
-        text: widget.text(context), name: data.kind);
+    final text = shareCardMessage(
+        context.l10n, data, _seed, widget.text(context));
+    final result =
+        await shareCardImage(context, _boundary, text: text, name: data.kind);
     widget.onShared?.call(result);
     if (mounted) setState(() => _busy = false);
   }
@@ -237,8 +239,7 @@ class _ShareCardPreviewSheetState extends ConsumerState<ShareCardPreviewSheet> {
         children: [
           AppBottomSheetHeader(
               title: widget.title, icon: Icons.ios_share_rounded),
-          ShareCardPreviewBox(
-              data: data, boundaryKey: _boundary, lineSeed: _seed),
+          ShareCardPreviewBox(data: data, boundaryKey: _boundary),
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Share.
           KuteBarContextScope(
             barContext: KuteBarContext.primary(

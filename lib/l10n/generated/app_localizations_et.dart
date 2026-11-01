@@ -10469,9 +10469,6 @@ class AppLocalizationsEt extends AppLocalizations {
   String get bragCodeLabel => 'Kood';
 
   @override
-  String get bragBeatMeOnKute => 'Löö mind Kute\'is üle';
-
-  @override
   String get bragSinceYouBought => 'Ostust saati';
 
   @override
@@ -10506,12 +10503,6 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Kannatlikkus on ka positsioon.';
-
-  @override
-  String get bragEntry => 'Sisenemine';
-
-  @override
-  String get bragNow => 'Praegu';
 
   @override
   String get bragAboutIt => 'Uhkelda sellega';
@@ -12138,45 +12129,43 @@ class AppLocalizationsEt extends AppLocalizations {
   String get shareCardReadyTitle => 'Sinu kaart on valmis';
 
   @override
-  String get shareCardJoinMeOnKute => 'Liitu minuga Kute\'is';
-
-  @override
-  String get shareCardClaimChip => 'Võta Kute\'is kätte';
-
-  @override
-  String get shareCardPlaceChip => 'Ennusta Kute\'is';
-
-  @override
-  String get shareCardTradeChip => 'Kauple Kute\'is';
-
-  @override
-  String get shareCardCallChip => 'Tee oma valik Kute\'is';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, saatsin sulle';
-  }
-
-  @override
-  String get shareCardSentYou => 'Saatsin sulle';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, saatsin sulle oma valiku';
-  }
-
-  @override
-  String get shareCardSentPick => 'Saatsin sulle oma valiku';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return 'Panus: $amount';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change täna';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, sulle';
+  }
+
+  @override
+  String get shareCardForYou => 'Sulle';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, valik sulle';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Valik sulle';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitcoinis · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: tõenäosus';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Minu positsioon';
 
   @override
   String get shareCardOutcomeYes => 'Jah';
@@ -12335,22 +12324,7 @@ class AppLocalizationsEt extends AppLocalizations {
   String get claimCardPick => 'Sõber saatis sulle oma valiku';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome: $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'See on sinu. Puuduta „Võta kätte“.';
-
-  @override
-  String get claimCardLineNeedThis => 'Su sõber arvab, et sul on seda vaja.';
-
-  @override
-  String get claimCardLineLikesYou =>
-      'Keegi peab sinust lugu. Siin on tõestus.';
-
-  @override
-  String get claimCardLineNoCatch => 'Mingit konksu pole. Lihtsalt kingitus.';
 
   @override
   String get activityLatest => 'Latest';

@@ -10535,9 +10535,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get bragCodeLabel => 'Código';
 
   @override
-  String get bragBeatMeOnKute => 'Supérame en Kute';
-
-  @override
   String get bragSinceYouBought => 'Desde la compra';
 
   @override
@@ -10573,12 +10570,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'La paciencia también es una posición.';
-
-  @override
-  String get bragEntry => 'Entrada';
-
-  @override
-  String get bragNow => 'Ahora';
 
   @override
   String get bragAboutIt => 'Presúmelo';
@@ -12202,45 +12193,43 @@ class AppLocalizationsEs extends AppLocalizations {
   String get shareCardReadyTitle => 'Tu tarjeta está lista';
 
   @override
-  String get shareCardJoinMeOnKute => 'Únete a Kute conmigo';
-
-  @override
-  String get shareCardClaimChip => 'Reclámalo en Kute';
-
-  @override
-  String get shareCardPlaceChip => 'Predice en Kute';
-
-  @override
-  String get shareCardTradeChip => 'Opéralo en Kute';
-
-  @override
-  String get shareCardCallChip => 'Elige bando en Kute';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, te he enviado';
-  }
-
-  @override
-  String get shareCardSentYou => 'Te he enviado';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, te paso una jugada';
-  }
-
-  @override
-  String get shareCardSentPick => 'Te paso una jugada';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return '$amount en juego';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change hoy';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return 'Para $name';
+  }
+
+  @override
+  String get shareCardForYou => 'Para ti';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, una jugada para ti';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Una jugada para ti';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'en bitcoin · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Probabilidad de $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount a $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Mi posición';
 
   @override
   String get shareCardOutcomeYes => 'Sí';
@@ -12398,21 +12387,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get claimCardPick => 'Un amigo te pasa una jugada';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome al $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Es tuyo. Toca Reclamar.';
-
-  @override
-  String get claimCardLineNeedThis => 'Tu amigo cree que lo necesitas.';
-
-  @override
-  String get claimCardLineLikesYou => 'Le caes bien a alguien. Aquí la prueba.';
-
-  @override
-  String get claimCardLineNoCatch => 'Sin trampa. Solo un regalo.';
 
   @override
   String get activityLatest => 'Latest';

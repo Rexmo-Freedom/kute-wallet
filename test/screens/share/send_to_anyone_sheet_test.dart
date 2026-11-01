@@ -64,11 +64,11 @@ void main() {
     expect(find.byKey(const ValueKey('share-card-send_dollars')),
         findsOneWidget);
     expect(find.text('\$12.00'), findsOneWidget);
-    expect(find.text('I sent you'), findsOneWidget);
+    expect(find.text('FOR YOU'), findsOneWidget);
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
-    expect(find.text('Ana, I sent you'), findsOneWidget);
+    expect(find.text('FOR ANA'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
     // The card first: nothing shared until Share.
@@ -88,8 +88,11 @@ void main() {
       'senderLabel': 'Ana',
     });
     // The OS share sheet got the card as a PNG with the message and link.
-    expect(shared.single,
-        'Ana, I sent you \$12.00 with Kute. Claim it here: https://web.test/c/lnk_1');
+    expect(
+        shared.single,
+        'Ana, I sent you \$12.00 with Kute. Claim it here: '
+        'https://web.test/c/lnk_1\n'
+        'Claim it before I change my mind.');
     expect(images.single.mimeType, 'image/png');
     final bytes = await tester.runAsync(images.single.readAsBytes) as Uint8List;
     expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
@@ -131,8 +134,11 @@ void main() {
 
     expect(env.fake.calls.single.$2['marketSlug'], 'will-it-rain');
     expect(env.fake.calls.single.$2['senderLabel'], isNull);
-    expect(shared.single,
-        'I sent you \$5.00 with Kute. Claim it here: https://web.test/c/lnk_1');
+    expect(
+        shared.single,
+        'I sent you \$5.00 with Kute. Claim it here: '
+        'https://web.test/c/lnk_1\n'
+        'Claim it before I change my mind.');
     expect(find.text('Link sent · waiting to be claimed'), findsOneWidget);
     expect(env.paramsOf('share_link_created').single,
         containsPair('market', 'will-it-rain'));
@@ -168,11 +174,11 @@ void main() {
     // The pick's card, live: the prediction with the pick and amount.
     expect(find.byKey(const ValueKey('share-card-send_prediction')),
         findsOneWidget);
-    expect(find.text(r'$20 on it'), findsOneWidget);
+    expect(find.text(r'$20 on Yes'), findsOneWidget);
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
-    expect(find.text('Ana, I sent you a pick'), findsOneWidget);
+    expect(find.text('ANA, A PICK FOR YOU'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
     await shareCardAndWait(tester, shared);
@@ -191,7 +197,8 @@ void main() {
     expect(
         shared.single,
         'Ana, I sent you a prediction on Kute: Yes on Gemini Carbon, '
-        '\$20.00. Claim it: https://web.test/c/lnk_1');
+        '\$20.00. Claim it: https://web.test/c/lnk_1\n'
+        'Trust me on this one.');
     final row = ShareLinksStore.byId('lnk_1')!;
     expect(row.outcome, 'Yes');
     expect(row.marketTitle, 'Gemini Carbon');
@@ -226,7 +233,7 @@ void main() {
     await settle(tester);
     expect(find.byKey(const ValueKey('share-card-send_investment')),
         findsOneWidget);
-    expect(find.byKey(const ValueKey('share-card-side')), findsOneWidget);
+    expect(find.text(r'Long · $5'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
     await shareCardAndWait(tester, shared);
@@ -235,7 +242,8 @@ void main() {
     expect(
         shared.single,
         'I sent you an investment on Kute: Long on BTC, \$5.00. '
-        'Claim it: https://web.test/c/lnk_1');
+        'Claim it: https://web.test/c/lnk_1\n'
+        "This one's going places.");
   });
 
   testWidgets('a backend failure keeps the name step with a note',

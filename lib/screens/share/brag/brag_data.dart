@@ -16,15 +16,14 @@
 //     it), and the three open positions with the best result, each with
 //     its logo.
 //
-// THE TONE ([BragTone], founder 1 November 2026: "much more fun, Sal
-// should be like 'I am better'"): the card's background, Sal's still and
-// his one-liner follow the result: a BIG WIN (a percent of at least
-// [kBragBigWinPercent]: Sal in sunglasses), a WIN, a SMALL WIN (under
-// [kBragSmallWinPercent], or under [kBragSmallWinUsd] when there is no
-// percent), a LOSS, or FLAT. The portfolio has no all-time percent (no
-// provider gives a base for it), so its tone reads the open positions'
-// combined return ([BragPortfolio.returnPercent]: their P&L over what
-// they cost) when there are any; that figure is never drawn.
+// THE TONE ([BragTone]): Sal's one-liner in the share message follows
+// the result (brag_lines.dart): a BIG WIN (a percent of at least
+// [kBragBigWinPercent]), a WIN, a SMALL WIN (under [kBragSmallWinPercent],
+// or under [kBragSmallWinUsd] when there is no percent), a LOSS, or FLAT.
+// The portfolio has no all-time percent (no provider gives a base for
+// it), so its tone reads the open positions' combined return
+// ([BragPortfolio.returnPercent]: their P&L over what they cost) when
+// there are any; that figure is never drawn.
 //
 // AMOUNTS: the card always shows the real money figures (founder,
 // 1 November 2026: "don't even give the option"), with the percents where
@@ -93,8 +92,8 @@ sealed class BragData {
   /// `?ref=CODE` when there is one (share_market_sheet.dart).
   final String link;
 
-  /// The sharer's own referral code (AffiliateService), drawn as the chip
-  /// in the footer; null without one.
+  /// The sharer's own referral code (AffiliateService), drawn in the
+  /// footer; null without one.
   final String? referralCode;
 
   BragKind get kind;
@@ -102,14 +101,14 @@ sealed class BragData {
   /// The result reads up rather than down.
   bool get up;
 
-  /// The card's tone: its background, Sal and his line.
+  /// The result's tone: Sal's line in the share message.
   BragTone get tone;
 }
 
 /// How the result reads on the card (see the file header).
 enum BragTone { bigWin, win, smallWin, loss, flat }
 
-/// At or over this percent a win is big (Sal's sunglasses).
+/// At or over this percent a win is big.
 const double kBragBigWinPercent = 10;
 
 /// Under this percent a win is small.
@@ -190,7 +189,7 @@ class BragPosition extends BragData {
   /// null when the page has not read it (no line is drawn).
   final List<double>? series;
 
-  /// The price paid on [series]' scale: a dashed line across it.
+  /// The price paid on [series]' scale.
   final double? entryValue;
 
   @override

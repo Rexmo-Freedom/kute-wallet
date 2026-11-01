@@ -1,7 +1,7 @@
-// The share cards as images, for a look by eye, at 1080 × 1350 with the
-// real Sal stills: bitcoin and dollars sends, a prediction pick, a
-// prediction market, a stock pick (Tesla), a stock market (Nasdaq 100),
-// oil, German and Japanese, and the claim hero; then the phone screens
+// The share cards as images, for a look by eye, at 1080 × 1350 with Sal's
+// real face in the footer mark: bitcoin and dollars sends, a prediction
+// pick, a prediction market, a stock pick (Tesla), a stock market (Nasdaq
+// 100), oil, German and Japanese, and the claim heroes; then the phone screens
 // that show them: Send to anyone's "Who is it for?" step with the live
 // card, and the Claim screen. Every frame lays out without an overflow;
 // the PNGs are written only when asked:
@@ -138,7 +138,8 @@ void main() {
     await tester.runAsync(loadShareCardFonts);
     ShareCardSal.debugReset();
     addTearDown(ShareCardSal.debugReset);
-    await tester.runAsync(ShareCardSal.loadAll);
+    await tester.runAsync(loadShareCardSal);
+    expect(ShareCardSal.peek(), isNotNull, reason: "Sal's face decodes");
     tester.view.physicalSize = const Size(1080, 1350);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetPhysicalSize);
@@ -195,29 +196,31 @@ void main() {
       }
     }
 
-    final frames = <String, (ShareCardData, int, Locale)>{
-      '1_send_bitcoin': (fakeBitcoinCard(), 0, const Locale('en')),
-      '1_send_dollars': (fakeDollarsCard(), 2, const Locale('en')),
-      '2_send_prediction': (pickCard, 0, const Locale('en')),
-      '3_send_stock_tesla': (fakeTeslaPick(), 0, const Locale('en')),
-      '3_market_nasdaq100': (fakeNasdaqMarket(), 1, const Locale('en')),
-      '3_market_crude_oil': (fakeOilMarket(), 2, const Locale('en')),
-      '4_market_prediction': (marketCard, 0, const Locale('en')),
-      'de_send_stock_tesla': (fakeTeslaPick(), 2, const Locale('de')),
-      'ja_send_prediction': (pickCard, 1, const Locale('ja')),
+    final frames = <String, (ShareCardData, Locale)>{
+      '1_send_bitcoin': (fakeBitcoinCard(), const Locale('en')),
+      '1_send_dollars': (fakeDollarsCard(), const Locale('en')),
+      '2_send_prediction': (pickCard, const Locale('en')),
+      '3_send_stock_tesla': (fakeTeslaPick(), const Locale('en')),
+      '3_market_nasdaq100': (fakeNasdaqMarket(), const Locale('en')),
+      '3_market_crude_oil': (fakeOilMarket(), const Locale('en')),
+      '4_market_prediction': (marketCard, const Locale('en')),
+      'de_send_stock_tesla': (fakeTeslaPick(), const Locale('de')),
+      'ja_send_prediction': (pickCard, const Locale('ja')),
       'claim_hero_bitcoin': (
-        MoneyCardData(
+        const MoneyCardData(
             bitcoin: true,
             amount: '₿12,000',
             amountSub: r'$9.40',
             recipient: 'Daniel',
             audience: ShareCardAudience.recipient),
-        1,
+        const Locale('en')
+      ),
+      'claim_hero_prediction': (
+        fakePredictionPick(name: 'Daniel').asRecipient(),
         const Locale('en')
       ),
     };
-    for (final MapEntry(key: name, value: (data, seed, locale))
-        in frames.entries) {
+    for (final MapEntry(key: name, value: (data, locale)) in frames.entries) {
       final key = GlobalKey();
       final app = ScreenUtilInit(
           designSize: const Size(430, 932),
@@ -233,11 +236,7 @@ void main() {
                   alignment: Alignment.topLeft,
                   child: RepaintBoundary(
                     key: key,
-                    child: ShareCard(
-                      data: data,
-                      sal: ShareCardSal.peek(shareCardSalAsset(data)),
-                      lineSeed: seed,
-                    ),
+                    child: ShareCard(data: data, mark: ShareCardSal.peek()),
                   ),
                 ),
               ));
@@ -296,7 +295,7 @@ void main() {
 
     testWidgets('Who is it for? with the live card', (tester) async {
       await tester.runAsync(loadShareCardFonts);
-      await tester.runAsync(ShareCardSal.loadAll);
+      await tester.runAsync(loadShareCardSal);
       await pumpShareWidget(
           tester,
           env,
@@ -309,13 +308,13 @@ void main() {
       await settle(tester);
       await tester.tap(kuteBarPrimaryWithText('Continue'));
       await settle(tester);
-      expect(find.text('Daniel, I sent you'), findsOneWidget);
+      expect(find.text('FOR DANIEL'), findsOneWidget);
       await capture(tester, 'screen_who_is_it_for');
     });
 
     testWidgets('Claim screen hero', (tester) async {
       await tester.runAsync(loadShareCardFonts);
-      await tester.runAsync(ShareCardSal.loadAll);
+      await tester.runAsync(loadShareCardSal);
       ClaimScreen.debugDestination = (_) async => 'spark1recipient';
       addTearDown(() => ClaimScreen.debugDestination = null);
       env.fake.seed(ShareLink(
@@ -328,7 +327,7 @@ void main() {
         expiresAt: DateTime.now().add(const Duration(days: 7)),
       ));
       await pumpShareWidget(tester, env, framed(const ClaimScreen(id: 'lnk_1')));
-      expect(find.text('Daniel, a friend sent you'), findsOneWidget);
+      expect(find.text('DANIEL, A FRIEND SENT YOU'), findsOneWidget);
       await capture(tester, 'screen_claim');
     });
   });

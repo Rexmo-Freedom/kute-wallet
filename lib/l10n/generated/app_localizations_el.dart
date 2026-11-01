@@ -10554,9 +10554,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragCodeLabel => 'Κωδικός';
 
   @override
-  String get bragBeatMeOnKute => 'Νίκησέ με στο Kute';
-
-  @override
   String get bragSinceYouBought => 'Από την αγορά';
 
   @override
@@ -10591,12 +10588,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'Η υπομονή είναι κι αυτή θέση.';
-
-  @override
-  String get bragEntry => 'Είσοδος';
-
-  @override
-  String get bragNow => 'Τώρα';
 
   @override
   String get bragAboutIt => 'Κάνε φιγούρα';
@@ -12228,45 +12219,43 @@ class AppLocalizationsEl extends AppLocalizations {
   String get shareCardReadyTitle => 'Η κάρτα σου είναι έτοιμη';
 
   @override
-  String get shareCardJoinMeOnKute => 'Έλα κι εσύ στο Kute';
-
-  @override
-  String get shareCardClaimChip => 'Είσπραξη στο Kute';
-
-  @override
-  String get shareCardPlaceChip => 'Βάλ\' το στο Kute';
-
-  @override
-  String get shareCardTradeChip => 'Συναλλαγή στο Kute';
-
-  @override
-  String get shareCardCallChip => 'Διάλεξε στο Kute';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, σου στέλνω';
-  }
-
-  @override
-  String get shareCardSentYou => 'Σου στέλνω';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, σου στέλνω μια επιλογή';
-  }
-
-  @override
-  String get shareCardSentPick => 'Σου στέλνω μια επιλογή';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return '$amount σε αυτό';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change σήμερα';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, για σένα';
+  }
+
+  @override
+  String get shareCardForYou => 'Για σένα';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, μια επιλογή για σένα';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Μια επιλογή για σένα';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'σε bitcoin · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return 'Πιθανότητα για $outcome';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount στο $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Η θέση μου';
 
   @override
   String get shareCardOutcomeYes => 'Ναι';
@@ -12424,21 +12413,7 @@ class AppLocalizationsEl extends AppLocalizations {
   String get claimCardPick => 'Ένας φίλος σου στέλνει μια επιλογή';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome στο $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'Δικά σου. Πάτα Είσπραξη.';
-
-  @override
-  String get claimCardLineNeedThis => 'Ο φίλος σου πιστεύει ότι το χρειάζεσαι.';
-
-  @override
-  String get claimCardLineLikesYou => 'Κάποιος σε συμπαθεί. Ιδού η απόδειξη.';
-
-  @override
-  String get claimCardLineNoCatch => 'Χωρίς παγίδα. Απλώς ένα δώρο.';
 
   @override
   String get activityLatest => 'Latest';

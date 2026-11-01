@@ -29,11 +29,12 @@
 // THE HERO (founder, 1 November 2026: "the recipient side must match"):
 // while the link waits to be claimed the screen shows the sender's share
 // card in its recipient version (cards/share_cards.dart,
-// ShareCardAudience.recipient): "{Name}, a friend sent you" over the
-// amount big ("₿12,000" with its value, or "$50.00"), "It's yours. Tap
-// claim." and Sal with a warm line; a pick's card ("{Name}, a friend sent
-// you a pick": the market's picture and odds, the pick "Gen.G at 47%",
-// "$10 on it"; or the actual stock). The link's `senderLabel` is the first
+// ShareCardAudience.recipient), the share cards' restrained language at
+// screen scale: "{NAME}, A FRIEND SENT YOU" over the amount big (a
+// bitcoin send's value, "in bitcoin · ₿12,000" under it, or "$50.00"),
+// "It's yours. Tap claim.", Sal's small mark; a pick's card ("{NAME}, A
+// FRIEND SENT YOU A PICK": the market's picture, the chance big, the odds
+// bar, "$10 on Gen.G"; or the actual stock, "Long · $10"). The link's `senderLabel` is the first
 // name the SENDER typed for the recipient ("Who is it for?"), so the card
 // greets the recipient by it; the link carries no sender name, so the
 // sender is "a friend". Claim is the bar.
@@ -135,9 +136,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   bool get _investing => _link?.venue == 'hyperliquid';
 
-  /// The hero card's capture key (never captured here) and Sal's line.
+  /// The hero card's capture key (never captured here).
   final GlobalKey _heroBoundary = GlobalKey();
-  final int _heroSeed = ShareCardShare.seed();
 
   /// The hero: the sender's card in its recipient version (see the file
   /// header).
@@ -514,7 +514,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                               key: const ValueKey('claim-hero-card'),
                               data: _hero(link),
                               boundaryKey: _heroBoundary,
-                              lineSeed: _heroSeed,
                               heightFraction: 0.62,
                             ),
                           // A plain link that names a market: its line

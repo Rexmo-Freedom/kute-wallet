@@ -1,10 +1,15 @@
 // The share cards' fonts for the tests and the renders: Inter (the card's
-// family), the Material icons (the chip's arrow) and, when this machine
-// has it, Hiragino for the Japanese frames.
+// family), the Material icons and, when this machine has it, Hiragino for
+// the Japanese frames; and Sal's face for the footer mark.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:kute/screens/share/cards/share_card_frame.dart'
+    show ShareCardSal;
+import 'package:kute/screens/shared/sal_sprite.dart'
+    show SalSpriteCache, kSalSpriteDir;
 
 import '../brag/brag_test_fonts.dart';
 
@@ -33,4 +38,15 @@ Future<void> loadShareCardFonts() async {
     } catch (_) {}
   }
   _loaded = true;
+}
+
+/// Sal's face for the cards' footer mark, decoded from the bundle (the
+/// manifest read directly: the sprite cache's own read does not run in a
+/// test).
+Future<void> loadShareCardSal() async {
+  if (ShareCardSal.peek() != null) return;
+  SalSpriteCache.debugSetManifest(jsonDecode(
+          await rootBundle.loadString('$kSalSpriteDir/manifest.json'))
+      as Map<String, dynamic>);
+  await ShareCardSal.load();
 }

@@ -10506,9 +10506,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragCodeLabel => 'Kód';
 
   @override
-  String get bragBeatMeOnKute => 'Győzz le a Kute-ban';
-
-  @override
   String get bragSinceYouBought => 'Vétel óta';
 
   @override
@@ -10543,12 +10540,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get bragLinePatience => 'A türelem is pozíció.';
-
-  @override
-  String get bragEntry => 'Belépés';
-
-  @override
-  String get bragNow => 'Most';
 
   @override
   String get bragAboutIt => 'Dicsekedj vele';
@@ -12177,45 +12168,43 @@ class AppLocalizationsHu extends AppLocalizations {
   String get shareCardReadyTitle => 'Kész a kártyád';
 
   @override
-  String get shareCardJoinMeOnKute => 'Csatlakozz hozzám a Kute-ban';
-
-  @override
-  String get shareCardClaimChip => 'Vedd át a Kute-ban';
-
-  @override
-  String get shareCardPlaceChip => 'Tippelj a Kute-ban';
-
-  @override
-  String get shareCardTradeChip => 'Kereskedj a Kute-ban';
-
-  @override
-  String get shareCardCallChip => 'Döntsd el a Kute-ban';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$name, küldtem neked';
-  }
-
-  @override
-  String get shareCardSentYou => 'Küldtem neked';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$name, küldtem egy tippet';
-  }
-
-  @override
-  String get shareCardSentPick => 'Küldtem egy tippet';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return 'Tét: $amount';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '$change ma';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$name, neked';
+  }
+
+  @override
+  String get shareCardForYou => 'Neked';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$name, egy tipp neked';
+  }
+
+  @override
+  String get shareCardPickForYou => 'Egy tipp neked';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'bitcoinban · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcome: esély';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$amount: $outcome';
+  }
+
+  @override
+  String get bragMyPosition => 'Az én pozícióm';
 
   @override
   String get shareCardOutcomeYes => 'Igen';
@@ -12373,21 +12362,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get claimCardPick => 'Egy barátod küldött egy tippet';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome: $chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'A tiéd. Koppints az Átvétel gombra.';
-
-  @override
-  String get claimCardLineNeedThis => 'A barátod szerint erre szükséged van.';
-
-  @override
-  String get claimCardLineLikesYou => 'Valaki kedvel. Itt a bizonyíték.';
-
-  @override
-  String get claimCardLineNoCatch => 'Nincs csapda. Csak egy ajándék.';
 
   @override
   String get activityLatest => 'Latest';

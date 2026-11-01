@@ -17927,19 +17927,13 @@ abstract class AppLocalizations {
   /// **'My portfolio'**
   String get bragMyPortfolio;
 
-  /// Brag card footer: the small label before the sharer's referral code in its chip.
+  /// Share card footer: the word before the sharer's referral code, drawn uppercase ('CODE JOAO42').
   ///
   /// In en, this message translates to:
   /// **'Code'**
   String get bragCodeLabel;
 
-  /// Brag card footer, under the kute. wordmark, beside the sharer's referral code: a cocky invitation.
-  ///
-  /// In en, this message translates to:
-  /// **'Beat me on Kute'**
-  String get bragBeatMeOnKute;
-
-  /// Position brag card: the tiny period line beside the side pill (the result is since the buy).
+  /// Position brag card: the line under the big P&L ('Since you bought · +42%'); the result is since the buy.
   ///
   /// In en, this message translates to:
   /// **'Since you bought'**
@@ -18010,18 +18004,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Patience is a position.'**
   String get bragLinePatience;
-
-  /// Position brag card: small caps label over the price paid.
-  ///
-  /// In en, this message translates to:
-  /// **'Entry'**
-  String get bragEntry;
-
-  /// Position brag card: small caps label over the price now.
-  ///
-  /// In en, this message translates to:
-  /// **'Now'**
-  String get bragNow;
 
   /// Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview.
   ///
@@ -20443,71 +20425,59 @@ abstract class AppLocalizations {
   /// **'Your card is ready'**
   String get shareCardReadyTitle;
 
-  /// Share card footer under the kute. wordmark on a send-money card (a gift link): a warm invitation.
-  ///
-  /// In en, this message translates to:
-  /// **'Join me on Kute'**
-  String get shareCardJoinMeOnKute;
-
-  /// Send-money share card: the white chip telling the recipient what to do with the link.
-  ///
-  /// In en, this message translates to:
-  /// **'Claim on Kute'**
-  String get shareCardClaimChip;
-
-  /// Prediction pick share card: the white chip (place the bet on Kute).
-  ///
-  /// In en, this message translates to:
-  /// **'Place it on Kute'**
-  String get shareCardPlaceChip;
-
-  /// Stock / investment share card: the white chip.
-  ///
-  /// In en, this message translates to:
-  /// **'Trade it on Kute'**
-  String get shareCardTradeChip;
-
-  /// Prediction market share card (no pick): the white chip inviting the reader to pick a side.
-  ///
-  /// In en, this message translates to:
-  /// **'Make your call on Kute'**
-  String get shareCardCallChip;
-
-  /// Send-money share card: the line over the big amount. {name} is the recipient's first name.
-  ///
-  /// In en, this message translates to:
-  /// **'{name}, I sent you'**
-  String shareCardSentYouNamed(String name);
-
-  /// Send-money share card without a name: the line over the big amount.
-  ///
-  /// In en, this message translates to:
-  /// **'I sent you'**
-  String get shareCardSentYou;
-
-  /// Pick share card (a prediction or an investment sent as a gift): the small line at the top. {name} is the recipient's first name.
-  ///
-  /// In en, this message translates to:
-  /// **'{name}, I sent you a pick'**
-  String shareCardSentPickNamed(String name);
-
-  /// Pick share card without a name: the small line at the top.
-  ///
-  /// In en, this message translates to:
-  /// **'I sent you a pick'**
-  String get shareCardSentPick;
-
-  /// Pick share card: the amount put on the pick, e.g. '$10 on it'. {amount} is a formatted money amount.
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} on it'**
-  String shareCardAmountOnIt(String amount);
-
-  /// Stock share card: the pill with today's price change, e.g. '+3.4% today'. {change} is a signed formatted percent.
+  /// Stock share card: the line under the big price with today's change, e.g. '+3.4% today'. {change} is a signed formatted percent.
   ///
   /// In en, this message translates to:
   /// **'{change} today'**
   String shareCardToday(String change);
+
+  /// Send-money share card: the small caps line at the top (drawn uppercase), e.g. 'FOR DANIEL'. {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'For {name}'**
+  String shareCardForNamed(String name);
+
+  /// Send-money share card: the small caps line at the top when the recipient has no name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
+  String get shareCardForYou;
+
+  /// Pick share card (a prediction or an investment sent as a gift): the small caps line at the top (drawn uppercase), e.g. 'ANA, A PICK FOR YOU'. {name} is the recipient's first name.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, a pick for you'**
+  String shareCardPickForNamed(String name);
+
+  /// Pick share card: the small caps line at the top when the recipient has no name (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'A pick for you'**
+  String get shareCardPickForYou;
+
+  /// Bitcoin send share card: the muted line under the big amount (its value in the person's currency), e.g. 'in bitcoin · ₿12,000'. {amount} is the bitcoin amount.
+  ///
+  /// In en, this message translates to:
+  /// **'in bitcoin · {amount}'**
+  String shareCardInBitcoin(String amount);
+
+  /// Prediction share card: the muted line under the big chance ('47%'). {outcome} is the outcome ('Gen.G', 'Yes').
+  ///
+  /// In en, this message translates to:
+  /// **'Chance of {outcome}'**
+  String shareCardChanceOf(String outcome);
+
+  /// Prediction pick share card: the plain line saying what was put on the pick, e.g. '$10 on Gen.G'. {amount} is a formatted amount, {outcome} the outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} on {outcome}'**
+  String shareCardAmountOn(String amount, String outcome);
+
+  /// Position brag card: the small caps line at the top (drawn uppercase).
+  ///
+  /// In en, this message translates to:
+  /// **'My position'**
+  String get bragMyPosition;
 
   /// Prediction share card: the Yes outcome of a yes/no market.
   ///
@@ -20521,7 +20491,7 @@ abstract class AppLocalizations {
   /// **'No'**
   String get shareCardOutcomeNo;
 
-  /// Sal the dog's playful one-liner in a speech bubble on a send-money card (PG, the image leaves the phone).
+  /// Sal the dog's playful one-liner in the share message of a send-money card (PG, the message leaves the phone).
   ///
   /// In en, this message translates to:
   /// **'Claim it before I change my mind.'**
@@ -20732,35 +20702,11 @@ abstract class AppLocalizations {
   /// **'A friend sent you a pick'**
   String get claimCardPick;
 
-  /// Claim screen hero card: the pick and its chance now, e.g. 'Gen.G at 47%'.
-  ///
-  /// In en, this message translates to:
-  /// **'{outcome} at {chance}'**
-  String claimCardPickChance(String outcome, String chance);
-
   /// Claim screen hero card: the short line under the amount, before the Claim button.
   ///
   /// In en, this message translates to:
   /// **'It\'s yours. Tap claim.'**
   String get claimCardTapClaim;
-
-  /// Sal's playful one-liner in a speech bubble on the claim screen (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Your friend thinks you need this.'**
-  String get claimCardLineNeedThis;
-
-  /// Sal's playful one-liner on the claim screen (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Someone likes you. Here\'s proof.'**
-  String get claimCardLineLikesYou;
-
-  /// Sal's playful one-liner on the claim screen (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'No catch. Just a gift.'**
-  String get claimCardLineNoCatch;
 
   /// Bitcoin home Activity: heading over the four newest actions, shown as square tiles.
   ///

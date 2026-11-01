@@ -100,3 +100,43 @@ InvestmentCardData fakeOilMarket() => const InvestmentCardData(
       change: 0.012,
       referralCode: kShareTestCode,
     );
+
+extension ShareCardRecipientCopy on ShareCardData {
+  /// The same card as the recipient's claim hero.
+  ShareCardData asRecipient() => switch (this) {
+        final MoneyCardData d => MoneyCardData(
+            bitcoin: d.bitcoin,
+            amount: d.amount,
+            amountSub: d.amountSub,
+            recipient: d.recipient,
+            audience: ShareCardAudience.recipient),
+        final PredictionCardData d => PredictionCardData(
+            question: d.question,
+            outcome: d.outcome,
+            chance: d.chance,
+            binary: d.binary,
+            topic: d.topic,
+            opponent: d.opponent,
+            imageUrl: d.imageUrl,
+            picked: true,
+            amount: d.amount,
+            series: d.series,
+            recipient: d.recipient,
+            audience: ShareCardAudience.recipient),
+        final InvestmentCardData d => InvestmentCardData(
+            title: d.title,
+            ticker: d.ticker,
+            coin: d.coin,
+            wireCoin: d.wireCoin,
+            iconUrl: d.iconUrl,
+            category: d.category,
+            price: d.price,
+            decimalCap: d.decimalCap,
+            change: d.change,
+            series: d.series,
+            side: d.side,
+            amount: d.amount,
+            recipient: d.recipient,
+            audience: ShareCardAudience.recipient),
+      };
+}

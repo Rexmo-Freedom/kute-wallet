@@ -9,8 +9,9 @@
 // the prediction market's odds by topic on Predictions, live from the
 // providers (cards/share_card_sources.dart), over two buttons:
 //
-//   * Share, the bar: the card as a PNG in the OS share sheet with "Look
-//     at this on Kute: {title} {deepLink}", the sender's referral code on
+//   * Share, the bar: the card as a PNG in the OS share sheet with the
+//     card's headline, Sal's line and "Look at this on Kute: {title}
+//     {deepLink}" (shareCardMessage), the sender's referral code on
 //     the link as `?ref=CODE` (the affiliate code AffiliateService already
 //     holds) and drawn on the card's footer.
 //   * Send this prediction (Send this investment on Investing): Send to
@@ -31,6 +32,8 @@ import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
+import 'package:kute/screens/share/cards/share_card_copy.dart'
+    show shareCardMessage;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
@@ -190,7 +193,9 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
   Future<void> _share(ShareCardData data) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final text = context.l10n.shareMarketLookAt(widget.title, _link);
+    final l10n = context.l10n;
+    final text = shareCardMessage(
+        l10n, data, _seed, l10n.shareMarketLookAt(widget.title, _link));
     final result = await shareCardImage(context, _boundary,
         text: text, name: data.kind);
     TrackingService.track('share_market_link_shared', params: {
@@ -234,7 +239,6 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
             key: const ValueKey('share-market-preview'),
             data: data,
             boundaryKey: _boundary,
-            lineSeed: _seed,
             heightFraction: 0.48,
           ),
           Padding(

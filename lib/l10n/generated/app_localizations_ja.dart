@@ -10079,9 +10079,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bragCodeLabel => 'コード';
 
   @override
-  String get bragBeatMeOnKute => 'Kuteで超えてみな';
-
-  @override
   String get bragSinceYouBought => '購入時から';
 
   @override
@@ -10116,12 +10113,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bragLinePatience => '忍耐もポジションのうち。';
-
-  @override
-  String get bragEntry => '購入時';
-
-  @override
-  String get bragNow => '現在';
 
   @override
   String get bragAboutIt => '自慢しよう';
@@ -11724,45 +11715,43 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareCardReadyTitle => 'カードの準備ができました';
 
   @override
-  String get shareCardJoinMeOnKute => 'Kuteで一緒に始めよう';
-
-  @override
-  String get shareCardClaimChip => 'Kuteで受け取る';
-
-  @override
-  String get shareCardPlaceChip => 'Kuteでこの予測に乗る';
-
-  @override
-  String get shareCardTradeChip => 'Kuteで取引しよう';
-
-  @override
-  String get shareCardCallChip => 'Kuteで予測しよう';
-
-  @override
-  String shareCardSentYouNamed(String name) {
-    return '$nameさん、送ったよ';
-  }
-
-  @override
-  String get shareCardSentYou => '送ったよ';
-
-  @override
-  String shareCardSentPickNamed(String name) {
-    return '$nameさんにおすすめを送ったよ';
-  }
-
-  @override
-  String get shareCardSentPick => 'おすすめを送ったよ';
-
-  @override
-  String shareCardAmountOnIt(String amount) {
-    return '$amount分';
-  }
-
-  @override
   String shareCardToday(String change) {
     return '今日 $change';
   }
+
+  @override
+  String shareCardForNamed(String name) {
+    return '$nameさんへ';
+  }
+
+  @override
+  String get shareCardForYou => 'あなたへ';
+
+  @override
+  String shareCardPickForNamed(String name) {
+    return '$nameさんへのおすすめ';
+  }
+
+  @override
+  String get shareCardPickForYou => 'あなたへのおすすめ';
+
+  @override
+  String shareCardInBitcoin(String amount) {
+    return 'ビットコインで · $amount';
+  }
+
+  @override
+  String shareCardChanceOf(String outcome) {
+    return '$outcomeの確率';
+  }
+
+  @override
+  String shareCardAmountOn(String amount, String outcome) {
+    return '$outcomeに$amount';
+  }
+
+  @override
+  String get bragMyPosition => '私のポジション';
 
   @override
   String get shareCardOutcomeYes => 'Yes';
@@ -11919,21 +11908,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get claimCardPick => '友達からおすすめが届きました';
 
   @override
-  String claimCardPickChance(String outcome, String chance) {
-    return '$outcome：$chance';
-  }
-
-  @override
   String get claimCardTapClaim => 'あなたのものです。「受け取る」をタップ。';
-
-  @override
-  String get claimCardLineNeedThis => 'これが必要だって、友達が。';
-
-  @override
-  String get claimCardLineLikesYou => '誰かに好かれてるよ。これが証拠。';
-
-  @override
-  String get claimCardLineNoCatch => '裏はないよ。ただのプレゼント。';
 
   @override
   String get activityLatest => 'Latest';
