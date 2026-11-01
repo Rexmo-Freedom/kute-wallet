@@ -13,8 +13,18 @@
 //   * the PORTFOLIO ([BragPortfolio]): the allocation as shares only, the
 //     all-time P&L (each venue's PortfolioPerformance.totalPnlUsd, the
 //     predictions at the live prices, as the Portfolio ring's hole reads
-//     it), the past month's change when the series reaches it, and the
-//     three open positions with the best result.
+//     it), and the three open positions with the best result, each with
+//     its logo.
+//
+// THE TONE ([BragTone], founder 1 November 2026: "much more fun, Sal
+// should be like 'I am better'"): the card's background, Sal's still and
+// his one-liner follow the result: a BIG WIN (a percent of at least
+// [kBragBigWinPercent]: Sal in sunglasses), a WIN, a SMALL WIN (under
+// [kBragSmallWinPercent], or under [kBragSmallWinUsd] when there is no
+// percent), a LOSS, or FLAT. The portfolio has no all-time percent (no
+// provider gives a base for it), so its tone reads the open positions'
+// combined return ([BragPortfolio.returnPercent]: their P&L over what
+// they cost) when there are any; that figure is never drawn.
 //
 // AMOUNTS: the card always shows the real money figures (founder,
 // 1 November 2026: "don't even give the option"), with the percents where
@@ -38,7 +48,10 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart'
 import 'package:kute/providers/one_balance_provider.dart'
     show oneBalanceProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
-    show PolymarketPosition, polymarketActivePositionsProvider;
+    show
+        PolymarketPosition,
+        polymarketActivePositionsProvider,
+        positionCrestImage;
 import 'package:kute/providers/polymarket_cost_basis_provider.dart'
     show polymarketPositionCostBasis;
 import 'package:kute/providers/polymarket_live_prices_provider.dart'
@@ -86,8 +99,37 @@ sealed class BragData {
 
   BragKind get kind;
 
-  /// The result reads up (green, Sal winks) rather than down.
+  /// The result reads up rather than down.
   bool get up;
+
+  /// The card's tone: its background, Sal and his line.
+  BragTone get tone;
+}
+
+/// How the result reads on the card (see the file header).
+enum BragTone { bigWin, win, smallWin, loss, flat }
+
+/// At or over this percent a win is big (Sal's sunglasses).
+const double kBragBigWinPercent = 10;
+
+/// Under this percent a win is small.
+const double kBragSmallWinPercent = 2;
+
+/// Without a percent, a win under this many dollars is small (and never
+/// big).
+const double kBragSmallWinUsd = 10;
+
+/// The tone of [usd] with its [percent] when there is one.
+BragTone bragTone(double usd, {double? percent}) {
+  if (usd <= -kBragCentUsd) return BragTone.loss;
+  if (usd < kBragCentUsd) return BragTone.flat;
+  final pct = percent != null && percent.isFinite ? percent : null;
+  if (pct == null) {
+    return usd < kBragSmallWinUsd ? BragTone.smallWin : BragTone.win;
+  }
+  if (pct >= kBragBigWinPercent) return BragTone.bigWin;
+  if (pct < kBragSmallWinPercent) return BragTone.smallWin;
+  return BragTone.win;
 }
 
 /// A signed result: [usd] (exact, for the colour and the order) and its
@@ -156,6 +198,9 @@ class BragPosition extends BragData {
 
   @override
   bool get up => !result.down;
+
+  @override
+  BragTone get tone => bragTone(result.usd, percent: result.percent);
 }
 
 /// One slice of the allocation ring: its share 0..1 only, never money.
@@ -174,11 +219,27 @@ class BragTopPosition {
     required this.title,
     required this.result,
     this.side,
+    this.investing = false,
+    this.coin,
+    this.wireCoin,
+    this.iconUrl,
+    this.category,
+    this.imageUrl,
   });
 
   final String title;
   final String? side;
   final BragResult result;
+
+  /// An Investing position: its logo is the coin icon ([coin], [wireCoin],
+  /// [iconUrl], [category], HlCoinIcon's inputs); a prediction's is the
+  /// market's picture ([imageUrl]).
+  final bool investing;
+  final String? coin;
+  final String? wireCoin;
+  final String? iconUrl;
+  final String? category;
+  final String? imageUrl;
 }
 
 class BragPortfolio extends BragData {
@@ -188,7 +249,7 @@ class BragPortfolio extends BragData {
     super.referralCode,
     this.slices = const [],
     this.allTime,
-    this.month,
+    this.returnPercent,
     this.top = const [],
   });
 
@@ -198,8 +259,9 @@ class BragPortfolio extends BragData {
   /// The all-time P&L (no percent: no cost base for the combined figure).
   final BragResult? allTime;
 
-  /// The change over the past month, when the series reaches it.
-  final BragResult? month;
+  /// The open positions' combined return in percent (their P&L over
+  /// what they cost), for the tone only; null without an open position.
+  final double? returnPercent;
 
   /// Up to three open positions, best result first.
   final List<BragTopPosition> top;
@@ -209,6 +271,13 @@ class BragPortfolio extends BragData {
 
   @override
   bool get up => !(allTime?.down ?? false);
+
+  @override
+  BragTone get tone {
+    final r = allTime;
+    if (r == null) return BragTone.flat;
+    return bragTone(r.usd, percent: r.percent ?? returnPercent);
+  }
 
   /// Something to brag about: a position open or a P&L that is not zero.
   bool get hasSomething =>
@@ -333,12 +402,11 @@ BragPosition bragPolyPosition(
 
 // ─── Portfolio ───────────────────────────────────────────────────────
 
-/// The all-time P&L and the past month's change, each venue's published
-/// figure added (the Portfolio ring's hole, balances_overview.dart); null
-/// while any venue's history is unread.
-({double allTime, double? month})? bragPortfolioPnl(BragWatch watch) {
+/// The all-time P&L, each venue's published figure added (the Portfolio
+/// ring's hole, balances_overview.dart); null while any venue's history
+/// is unread.
+double? bragPortfolioPnl(BragWatch watch) {
   double total = 0;
-  double? month = 0;
   for (final v in PortfolioPerformanceVenue.values) {
     final data = watch(portfolioPerformanceDisplayProvider(
             PortfolioPerformanceRequest(venue: v)))
@@ -351,10 +419,8 @@ BragPosition bragPolyPosition(
     final usd = p.totalPnlUsd;
     if (usd == null || !usd.isFinite) return null;
     total += usd;
-    final change = p.rangeView(const Duration(days: 30)).changeUsd;
-    month = change == null || month == null ? null : month + change;
   }
-  return (allTime: total, month: month);
+  return total;
 }
 
 /// The allocation as shares (cash anywhere, Investing at work,
@@ -383,17 +449,27 @@ List<BragSlice> bragSlices(OneBalanceState s) {
 BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
   final watch = ref.watch;
   final top = <BragTopPosition>[];
+  // The open positions' combined return (the tone's, never drawn).
+  double openPnl = 0, openBase = 0;
   for (final p in ref.watch(hyperliquidPerpPositionsProvider)) {
     final pnl =
         hlLivePnl(p, liveMid: ref.watch(hyperliquidLiveMidProvider(p.coin)));
     final margin = hlPositionMargin(p);
-    final name =
-        ref.watch(hyperliquidAccountMarketProvider(p.coin))?.coin ?? p.coin;
+    final m = ref.watch(hyperliquidAccountMarketProvider(p.coin));
+    if (margin > 0 && pnl.isFinite) {
+      openPnl += pnl;
+      openBase += margin;
+    }
     top.add(BragTopPosition(
-      title: name,
+      title: m?.coin ?? p.coin,
       side: null,
       result: bragResult(watch, pnl,
           percent: margin > 0 ? pnl / margin * 100 : null),
+      investing: true,
+      coin: m?.coin ?? p.coin,
+      wireCoin: m?.wireCoin ?? p.coin,
+      iconUrl: m?.iconUrl,
+      category: m?.category,
     ));
   }
   final live = ref.watch(livePriceProvider).prices;
@@ -402,11 +478,16 @@ BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
         (p.tokenId != null ? live[p.tokenId] : null) ?? p.currentPrice;
     final cost = polymarketPositionCostBasis(ref, p);
     final pnl = price * p.size - cost;
+    if (cost > 0 && pnl.isFinite) {
+      openPnl += pnl;
+      openBase += cost;
+    }
     top.add(BragTopPosition(
       title: p.marketQuestion,
       side: p.outcome,
       result:
           bragResult(watch, pnl, percent: cost > 0 ? pnl / cost * 100 : null),
+      imageUrl: positionCrestImage(ref, p),
     ));
   }
   top.sort((a, b) => b.result.usd.compareTo(a.result.usd));
@@ -416,8 +497,8 @@ BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
     link: marketShareLink(venue: kMarketLinkInvesting, slug: null),
     referralCode: _referralCode(),
     slices: bragSlices(ref.watch(oneBalanceProvider)),
-    allTime: pnl == null ? null : bragResult(watch, pnl.allTime),
-    month: pnl?.month == null ? null : bragResult(watch, pnl!.month!),
+    allTime: pnl == null ? null : bragResult(watch, pnl),
+    returnPercent: openBase > 0 ? openPnl / openBase * 100 : null,
     top: top.take(3).toList(growable: false),
   );
 }
@@ -428,7 +509,7 @@ final bragPortfolioAvailableProvider = Provider.autoDispose<bool>((ref) {
   if (ref.watch(hyperliquidPerpPositionsProvider).isNotEmpty) return true;
   if (ref.watch(polymarketActivePositionsProvider).isNotEmpty) return true;
   final pnl = bragPortfolioPnl(ref.watch);
-  return pnl != null && pnl.allTime.abs() >= kBragCentUsd;
+  return pnl != null && pnl.abs() >= kBragCentUsd;
 });
 
 String? _referralCode() {

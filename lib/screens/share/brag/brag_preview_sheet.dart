@@ -35,19 +35,16 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/brag_sal.dart';
 import 'package:kute/screens/share/share_market_sheet.dart'
     show shareLinkWithReferral;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
-import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The preview's route name, for the route observers.
 const String kBragPreviewRouteName = 'brag_preview';
-
-/// The density Sal's sheet is read at for the card (captured at 3x).
-const int _kSalDensity = 3;
 
 /// Opens the preview for [data] (a position page's card).
 Future<void> showBragPreviewSheet(BuildContext context, BragData data) =>
@@ -81,21 +78,29 @@ class BragPreviewSheet extends ConsumerStatefulWidget {
   @visibleForTesting
   static Future<void> Function(XFile image, String text)? debugSharer;
 
+  /// Test seam: Sal's line seed (null: random on open).
+  @visibleForTesting
+  static int? debugLineSeed;
+
   @override
   ConsumerState<BragPreviewSheet> createState() => _BragPreviewSheetState();
 }
 
 class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
   final GlobalKey _boundary = GlobalKey();
+
+  /// Sal's line, picked once on open so it holds while the figures move.
+  final int _lineSeed =
+      BragPreviewSheet.debugLineSeed ?? math.Random().nextInt(1 << 16);
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    // Both faces, so the card never waits on the switch of a result.
-    unawaited(SalSpriteCache.warm(
-            const [kBragWinkClip, kBragShakeNoClip], _kSalDensity)
-        .then((_) {
+    // Every still, so the card never waits on a change of tone.
+    unawaited(
+        Future.wait([for (final t in BragTone.values) BragSalStills.load(t)])
+            .then((_) {
       if (mounted) setState(() {});
     }));
   }
@@ -147,7 +152,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     final c = context.colors;
     final l10n = context.l10n;
     final data = _data(context);
-    final sal = SalSpriteCache.peek(bragSalClip(data), _kSalDensity);
+    final sal = BragSalStills.peek(data.tone);
     final size = MediaQuery.sizeOf(context);
     final width = math.min(size.width - 40,
         size.height * 0.52 * kBragCardSize.width / kBragCardSize.height);
@@ -183,8 +188,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: BragCard(
-                        data: data, sal: sal),
+                    child: BragCard(data: data, sal: sal, lineSeed: _lineSeed),
                   ),
                 ),
               ),

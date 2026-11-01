@@ -1,32 +1,34 @@
 // lib/screens/share/brag/brag_card.dart
 //
-// THE BRAG CARD (founder, 1 November 2026): a 4:5 share image, laid out
+// THE BRAG CARD (founder, 1 November 2026: "must look much better, much
+// more fun. Sal should be like 'I am better'"). A 4:5 share image laid out
 // at [kBragCardSize] logical pixels and captured at [kBragCardPixelRatio]
-// (1080 × 1350, the feed size every network takes whole), in the premium
-// share-your-trade style (Robinhood, Revolut): a light page, the app's
-// Inter, 24 of margin all round, one big figure in the result colour.
+// (1080 × 1350, the feed size every network takes whole), in the share-
+// card energy of Spotify Wrapped and Robinhood: full bleed, loud, one big
+// number, the mascot as the hero.
 //
-//   * POSITION: the market's logo and title (two lines), the side pill
-//     ("Long", "Yes", a candidate) beside the venue's name; the BIG result
-//     in colour (the signed amount with its percent under it, or the
-//     percent alone while amounts are hidden), Sal's face at its end; the
-//     held side's thin line since the buy when the page has it (a dashed
-//     line at the price paid); Entry → Now.
-//   * PORTFOLIO: "My portfolio", the all-time P&L big in colour with the
-//     past month under it and Sal beside it; the allocation ring with the
-//     share of each part (percent only: a brag card never shows a
-//     balance); the top three open positions with their results.
-//
-// Sal is sarcastic about it (founder): a WINK when the result is up, a
-// SHAKE-NO when it is down, one key frame of each clip
-// ([kBragWinkFrame], [kBragShakeNoFrame]: frame 0 of both is his neutral
-// face) drawn from the decoded sheet ([SalSpriteCache]); no sheet, no Sal.
+//   * BACKGROUND: a saturated gradient that follows the tone
+//     ([bragBackground]): deep green when up (brighter on a big win), deep
+//     red when down, near-black when flat; a soft glow behind Sal. White
+//     type throughout.
+//   * HEADLINE: the result big and confident ("+$7.57"), the percent in a
+//     white pill under it when there is one ("+42.1%"), a tiny period line
+//     ("All time", "Since you bought").
+//   * SAL, LARGE (about 40% of the card's height, [kBragSalHeight]) at the
+//     bottom right: the tone's still (brag_sal.dart; smug, sunglasses only
+//     on a big win, unbothered on a loss) with his one-liner in a white
+//     speech bubble pointing at him (brag_lines.dart, PG).
+//   * PORTFOLIO: "My portfolio" over "All time", the allocation ring small
+//     in the top right corner (shares only, no legend), the top three open
+//     positions as bold chips with their logos and results.
+//   * POSITION: the market's logo and title, the side pill beside the
+//     period line, the held side's line since the buy and Entry → Now in
+//     the left column when the page has them.
+//   * FOOTER: the "kute." wordmark over "Beat me on Kute", and the
+//     sharer's referral code as a bold white chip.
 //
 // AMOUNTS (founder, 1 November 2026: "don't even give the option"): the
 // card always shows the real amounts, with the percents where they exist.
-//
-// The footer, both cards: the "kute." wordmark over "Trade it on Kute",
-// and the sharer's referral code in a chip at the end when they have one.
 //
 // The card never reads a provider or the screen's scale: the same pixels
 // at every size, so the preview is exactly the image (the coin icon's own
@@ -40,7 +42,8 @@ import 'package:flutter/material.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
-import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
+import 'package:kute/screens/share/brag/brag_lines.dart';
+import 'package:kute/screens/share/brag/brag_sal.dart';
 import 'package:kute/theme/app_theme.dart';
 
 /// The card's logical size: 4:5.
@@ -49,16 +52,23 @@ const Size kBragCardSize = Size(360, 450);
 /// The capture's pixel ratio: [kBragCardSize] × 3 = 1080 × 1350.
 const double kBragCardPixelRatio = 3;
 
-/// Sal's clips on the card and the frame of each that carries the face.
-const String kBragWinkClip = 'wink';
-const String kBragShakeNoClip = 'shake_no';
-const int kBragWinkFrame = 12;
-const int kBragShakeNoFrame = 5;
+/// Sal's height on the card: about 40% of it.
+const double kBragSalHeight = 184;
 
-/// The clip for a result.
-String bragSalClip(BragData data) => data.up ? kBragWinkClip : kBragShakeNoClip;
+/// The card's gradient for [tone], top left to bottom right.
+List<Color> bragBackground(BragTone tone) => switch (tone) {
+      BragTone.bigWin => const [Color(0xFF17B35E), Color(0xFF065A2E)],
+      BragTone.win || BragTone.smallWin => const [
+          Color(0xFF0E8A47),
+          Color(0xFF04401F)
+        ],
+      BragTone.loss => const [Color(0xFFC8283C), Color(0xFF570B16)],
+      BragTone.flat => const [Color(0xFF2A2A2E), Color(0xFF0B0B0D)],
+    };
 
 const String _font = 'Inter';
+const Color _ink = Colors.white;
+const Color _dark = Color(0xFF111214);
 
 TextStyle _t(double size, FontWeight weight, Color color,
         {double spacing = 0, double height = 1.2, bool tabular = false}) =>
@@ -78,55 +88,90 @@ class BragCard extends StatelessWidget {
     super.key,
     required this.data,
     this.sal,
+    this.lineSeed = 0,
   });
 
   final BragData data;
 
-  /// The decoded clip for [bragSalClip] (null: no Sal on the card).
-  final SalClip? sal;
+  /// The decoded still for the tone (BragSalStills); null: no Sal.
+  final ui.Image? sal;
+
+  /// Picks Sal's line in the tone's pool (bragLine).
+  final int lineSeed;
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColorsExtension.light();
-    final tint = data.up ? AppColors.marketUp : AppColors.marketDown;
+    final tone = data.tone;
+    final line = bragLine(context.l10n, tone, lineSeed);
     final theme = Theme.of(context);
     return Theme(
-      // The card is always the light page, whatever the app's mode: the
-      // icons inside read the light colours.
-      data: theme.copyWith(brightness: Brightness.light, extensions: [c]),
+      // The light colours for the icons inside, whatever the app's mode.
+      data: theme.copyWith(
+          brightness: Brightness.light,
+          extensions: [AppColorsExtension.light()]),
       child: MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
         child: SizedBox.fromSize(
           size: kBragCardSize,
           child: DecoratedBox(
+            key: const ValueKey('brag-card-bg'),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color.alphaBlend(tint.withValues(alpha: 0.08), Colors.white),
-                  Colors.white,
-                  const Color(0xFFF7F7F5),
-                ],
-                stops: const [0, 0.55, 1],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: bragBackground(tone),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: switch (data) {
-                      final BragPosition p => _PositionBody(
-                          data: p, sal: sal, c: c),
-                      final BragPortfolio p => _PortfolioBody(
-                          data: p, sal: sal, c: c),
-                    },
+            child: Stack(
+              children: [
+                // The glow behind Sal.
+                Positioned(
+                  right: -80,
+                  bottom: -10,
+                  width: 340,
+                  height: 340,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(colors: [
+                        Colors.white.withValues(alpha: 0.22),
+                        Colors.white.withValues(alpha: 0),
+                      ]),
+                    ),
                   ),
-                  _Footer(code: data.referralCode, c: c),
-                ],
-              ),
+                ),
+                if (sal != null)
+                  Positioned(
+                    right: 4,
+                    bottom: 60,
+                    height: kBragSalHeight,
+                    width: kBragSalHeight * kBragSalAspect,
+                    child: RawImage(
+                      key: ValueKey(bragSalWearsShades(tone)
+                          ? 'brag-card-sal-shades'
+                          : 'brag-card-sal'),
+                      image: sal,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: switch (data) {
+                          final BragPosition p =>
+                            _PositionBody(data: p, line: line),
+                          final BragPortfolio p =>
+                            _PortfolioBody(data: p, line: line),
+                        },
+                      ),
+                      _Footer(code: data.referralCode),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -135,241 +180,234 @@ class BragCard extends StatelessWidget {
   }
 }
 
-Color _resultColor(BragResult r, AppColorsExtension c) => r.up
-    ? AppColors.marketUp
-    : r.down
-        ? AppColors.marketDown
-        : c.textPrimary;
+/// The left column beside Sal: the card's width less the margins and
+/// Sal, a little under him.
+const double _kColumnWidth = 360 - 44 - kBragSalHeight * kBragSalAspect + 18;
 
-/// Sal's face: one frame of [clip], drawn into [size].
-class _SalFace extends StatelessWidget {
-  const _SalFace({required this.clip, required this.frame, required this.size});
+// ─── Headline ────────────────────────────────────────────────────────
 
-  final SalClip clip;
-  final int frame;
-  final double size;
+/// The big result with its percent pill.
+class _Headline extends StatelessWidget {
+  const _Headline({required this.result});
+
+  final BragResult? result;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-        key: const ValueKey('brag-card-sal'),
-        dimension: size,
-        child: CustomPaint(painter: _SalPainter(clip, frame)),
-      );
+  Widget build(BuildContext context) {
+    final r = result;
+    final pct = r?.percent;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              r?.text ?? '—',
+              key: const ValueKey('brag-card-result'),
+              maxLines: 1,
+              style: _t(64, FontWeight.w800, _ink,
+                  spacing: -2.6, height: 1.0, tabular: true),
+            ),
+          ),
+        ),
+        if (pct != null) ...[
+          const SizedBox(width: 10),
+          Container(
+            key: const ValueKey('brag-card-percent'),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              color: _ink,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              bragPercent(pct),
+              maxLines: 1,
+              style: _t(17, FontWeight.w800, _dark,
+                  spacing: -0.4, height: 1.1, tabular: true),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-class _SalPainter extends CustomPainter {
-  _SalPainter(this.clip, this.frame);
+/// The small caps period line ("ALL TIME").
+Widget _period(String text, {Key? key}) => Text(
+      text.toUpperCase(),
+      key: key,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style:
+          _t(11, FontWeight.w700, _ink.withValues(alpha: 0.75), spacing: 1.2),
+    );
 
-  final SalClip clip;
-  final int frame;
+// ─── Sal's line ──────────────────────────────────────────────────────
+
+/// Sal's one-liner in a white speech bubble, its tail at the right
+/// pointing down at him.
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.text});
+
+  final String text;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawImageRect(
-      clip.image,
-      // A pixel in from the cell's edges: the neighbour cells never bleed.
-      clip.cell(frame).deflate(1),
-      Offset.zero & size,
-      Paint()
-        ..filterQuality = FilterQuality.high
-        ..isAntiAlias = true,
+  Widget build(BuildContext context) {
+    final long = text.length > 24;
+    return CustomPaint(
+      painter: _BubblePainter(),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
+        child: Text(
+          text,
+          key: const ValueKey('brag-card-line'),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: _t(long ? 15 : 20, FontWeight.w800, _dark,
+              spacing: long ? -0.3 : -0.6, height: 1.15),
+        ),
+      ),
     );
+  }
+}
+
+class _BubblePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _ink;
+    final body =
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(16));
+    // The tail: from the right edge near the bottom, out toward Sal.
+    final tail = Path()
+      ..moveTo(size.width - 2, size.height - 26)
+      ..lineTo(size.width + 18, size.height + 8)
+      ..lineTo(size.width - 26, size.height - 1)
+      ..close();
+    final shape = Path()
+      ..addRRect(body)
+      ..addPath(tail, Offset.zero);
+    canvas.drawShadow(shape, Colors.black.withValues(alpha: 0.6), 5, false);
+    canvas.drawRRect(body, paint);
+    canvas.drawPath(tail, paint);
   }
 
   @override
-  bool shouldRepaint(_SalPainter old) => old.clip != clip || old.frame != frame;
-}
-
-Widget? _sal(BragData data, SalClip? clip, double size) {
-  if (clip == null) return null;
-  return _SalFace(
-      clip: clip,
-      frame: data.up ? kBragWinkFrame : kBragShakeNoFrame,
-      size: size);
+  bool shouldRepaint(_BubblePainter old) => false;
 }
 
 // ─── Position ────────────────────────────────────────────────────────
 
 class _PositionBody extends StatelessWidget {
-  const _PositionBody({
-    required this.data,
-    required this.sal,
-    required this.c,
-  });
+  const _PositionBody({required this.data, required this.line});
 
   final BragPosition data;
-  final SalClip? sal;
-  final AppColorsExtension c;
+  final String line;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final r = data.result;
-    final color = _resultColor(r, c);
-    final pct = r.percent;
-    // The big figure: the amount when shown, else the percent, else the
-    // masked amount; the percent under the amount when both show.
-    final String big = r.text;
-    final String? under = pct != null ? bragPercent(pct) : null;
-    final face = _sal(data, sal, 84);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _Logo(data: data, c: c),
-            const SizedBox(width: 12),
+            _Logo(
+              key: const ValueKey('brag-card-logo'),
+              size: 38,
+              title: data.title,
+              investing: data.investing,
+              coin: data.coin,
+              wireCoin: data.wireCoin,
+              iconUrl: data.iconUrl,
+              category: data.category,
+              imageUrl: data.imageUrl,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 data.title,
                 key: const ValueKey('brag-card-title'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: _t(18, FontWeight.w700, c.textPrimary,
-                    spacing: -0.3, height: 1.22),
+                style:
+                    _t(15.5, FontWeight.w800, _ink, spacing: -0.3, height: 1.2),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Row(
           children: [
-            _Pill(
+            Container(
               key: const ValueKey('brag-card-side'),
-              text: data.side,
-              fill: c.textPrimary,
-              ink: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: _ink,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                data.side,
+                maxLines: 1,
+                style: _t(12, FontWeight.w800, _dark, spacing: -0.1),
+              ),
             ),
             const SizedBox(width: 8),
-            Text(
-              data.investing ? l10n.trading : l10n.predictions,
-              style: _t(13, FontWeight.w600, c.textSecondary),
-            ),
-          ],
-        ),
-        const SizedBox(height: 22),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      big,
-                      key: const ValueKey('brag-card-result'),
-                      maxLines: 1,
-                      style: _t(54, FontWeight.w800, color,
-                          spacing: -2, height: 1.05, tabular: true),
-                    ),
-                  ),
-                  if (under != null) ...[
-                    const SizedBox(height: 6),
-                    _Pill(
-                      key: const ValueKey('brag-card-percent'),
-                      text: under,
-                      fill: color.withValues(alpha: 0.12),
-                      ink: color,
-                      size: 15,
-                    ),
-                  ],
-                ],
-              ),
+              child: _period(
+                  '${data.investing ? l10n.trading : l10n.predictions}'
+                  ' · ${l10n.bragSinceYouBought}',
+                  key: const ValueKey('brag-card-period')),
             ),
-            if (face != null) ...[const SizedBox(width: 8), face],
           ],
         ),
-        // The line takes the room left (none drawn without a series).
+        const SizedBox(height: 10),
+        _Headline(result: data.result),
+        const SizedBox(height: 16),
         Expanded(
-          child: data.series == null
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: SizedBox(
-                    key: const ValueKey('brag-card-line'),
-                    width: double.infinity,
-                    child: CustomPaint(
-                      painter: _LinePainter(
-                        points: data.series!,
-                        entry: data.entryValue,
-                        color: color,
-                        guide: c.textTertiary,
+          child: SizedBox(
+            width: _kColumnWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: _Bubble(text: line),
+                ),
+                if (data.series != null)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 14, bottom: 8),
+                      child: SizedBox(
+                        key: const ValueKey('brag-card-chart'),
+                        width: double.infinity,
+                        child: CustomPaint(
+                          painter: _LinePainter(
+                              points: data.series!, entry: data.entryValue),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  const Spacer(),
+                if (data.entryText != null || data.nowText != null)
+                  _EntryNow(entry: data.entryText, now: data.nowText),
+                const SizedBox(height: 14),
+              ],
+            ),
+          ),
         ),
-        if (data.entryText != null || data.nowText != null)
-          _EntryNow(entry: data.entryText, now: data.nowText, c: c),
-        const SizedBox(height: 16),
       ],
     );
   }
 }
 
-class _Logo extends StatelessWidget {
-  const _Logo({required this.data, required this.c});
-
-  final BragPosition data;
-  final AppColorsExtension c;
-
-  static const double size = 46;
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget fallback = Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: c.surfaceLight,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        data.title.isEmpty ? '?' : data.title.characters.first.toUpperCase(),
-        style: _t(20, FontWeight.w700, c.textSecondary),
-      ),
-    );
-    final Widget child;
-    if (data.investing && data.coin != null) {
-      child = FittedBox(
-        child: HlCoinIcon(
-          coin: data.coin!,
-          wireCoin: data.wireCoin,
-          iconUrl: data.iconUrl,
-          category: data.category,
-          size: size,
-        ),
-      );
-    } else if (data.imageUrl case final url? when url.isNotEmpty) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          url,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => fallback,
-        ),
-      );
-    } else {
-      child = fallback;
-    }
-    return SizedBox.square(
-        key: const ValueKey('brag-card-logo'), dimension: size, child: child);
-  }
-}
-
 class _EntryNow extends StatelessWidget {
-  const _EntryNow({required this.entry, required this.now, required this.c});
+  const _EntryNow({required this.entry, required this.now});
 
   final String? entry;
   final String? now;
-  final AppColorsExtension c;
 
   @override
   Widget build(BuildContext context) {
@@ -379,30 +417,34 @@ class _EntryNow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(label.toUpperCase(),
-                style: _t(10.5, FontWeight.w600, c.textTertiary, spacing: 0.8)),
-            const SizedBox(height: 4),
-            Text(value,
-                maxLines: 1,
-                style: _t(17, FontWeight.w700, c.textPrimary,
-                    spacing: -0.3, tabular: true)),
+                style: _t(9.5, FontWeight.w700, _ink.withValues(alpha: 0.72),
+                    spacing: 1)),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value,
+                  maxLines: 1,
+                  style: _t(16, FontWeight.w800, _ink,
+                      spacing: -0.3, tabular: true)),
+            ),
           ],
         );
     return Container(
       key: const ValueKey('brag-card-entry-now'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.borderSubtle, width: 0.8),
+        color: Colors.black.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           if (entry != null) Expanded(child: figure(l10n.bragEntry, entry!)),
           if (entry != null && now != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('\u2192',
-                  style: _t(18, FontWeight.w600, c.textTertiary)),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text('→',
+                  style: _t(16, FontWeight.w700, _ink.withValues(alpha: 0.72))),
             ),
           if (now != null) Expanded(child: figure(l10n.bragNow, now!)),
         ],
@@ -412,21 +454,14 @@ class _EntryNow extends StatelessWidget {
 }
 
 class _LinePainter extends CustomPainter {
-  _LinePainter({
-    required this.points,
-    required this.entry,
-    required this.color,
-    required this.guide,
-  });
+  _LinePainter({required this.points, required this.entry});
 
   final List<double> points;
   final double? entry;
-  final Color color;
-  final Color guide;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
+    if (points.length < 2 || size.height < 8) return;
     var lo = points.reduce(math.min);
     var hi = points.reduce(math.max);
     if (entry != null) {
@@ -437,7 +472,7 @@ class _LinePainter extends CustomPainter {
       hi += 0.5;
       lo -= 0.5;
     }
-    const pad = 6.0;
+    const pad = 7.0;
     double y(double v) =>
         pad + (1 - (v - lo) / (hi - lo)) * (size.height - 2 * pad);
     double x(int i) => i / (points.length - 1) * (size.width - pad);
@@ -452,16 +487,13 @@ class _LinePainter extends CustomPainter {
     canvas.drawPath(
       fill,
       Paint()
-        ..shader = ui.Gradient.linear(
-          Offset.zero,
-          Offset(0, size.height),
-          [color.withValues(alpha: 0.18), color.withValues(alpha: 0)],
-        ),
+        ..shader = ui.Gradient.linear(Offset.zero, Offset(0, size.height),
+            [_ink.withValues(alpha: 0.28), _ink.withValues(alpha: 0)]),
     );
     if (entry != null) {
       final ey = y(entry!);
       final dash = Paint()
-        ..color = guide
+        ..color = _ink.withValues(alpha: 0.5)
         ..strokeWidth = 1;
       for (double dx = 0; dx < size.width; dx += 7) {
         canvas.drawLine(
@@ -471,56 +503,38 @@ class _LinePainter extends CustomPainter {
     canvas.drawPath(
       line,
       Paint()
-        ..color = color
+        ..color = _ink
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4
+        ..strokeWidth = 2.6
         ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );
     final end = Offset(x(points.length - 1), y(points.last));
-    canvas.drawCircle(end, 6, Paint()..color = color.withValues(alpha: 0.2));
-    canvas.drawCircle(end, 3.4, Paint()..color = color);
+    canvas.drawCircle(end, 6.5, Paint()..color = _ink.withValues(alpha: 0.3));
+    canvas.drawCircle(end, 3.6, Paint()..color = _ink);
   }
 
   @override
   bool shouldRepaint(_LinePainter old) =>
-      old.points != points || old.entry != entry || old.color != color;
+      old.points != points || old.entry != entry;
 }
 
 // ─── Portfolio ───────────────────────────────────────────────────────
 
-Color bragSliceColor(AppColorsExtension c, BragSlicePart part) =>
-    switch (part) {
-      // The Portfolio ring's own colours (balancesCategoryColor).
-      BragSlicePart.dollars => c.chartCategorical[0],
-      BragSlicePart.investing => c.chartCategorical[1],
-      BragSlicePart.predictions => c.chartCategorical[2],
-    };
-
 class _PortfolioBody extends StatelessWidget {
-  const _PortfolioBody({
-    required this.data,
-    required this.sal,
-    required this.c,
-  });
+  const _PortfolioBody({required this.data, required this.line});
 
   final BragPortfolio data;
-  final SalClip? sal;
-  final AppColorsExtension c;
-
-  String _money(BragResult r) => r.text;
+  final String line;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final face = _sal(data, sal, 76);
-    final allTime = data.allTime;
-    final month = data.month;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
@@ -529,206 +543,123 @@ class _PortfolioBody extends StatelessWidget {
                   Text(
                     data.title,
                     key: const ValueKey('brag-card-title'),
-                    style:
-                        _t(19, FontWeight.w800, c.textPrimary, spacing: -0.4),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _t(18, FontWeight.w800, _ink, spacing: -0.4),
                   ),
-                  const SizedBox(height: 8),
-                  Text(l10n.portfolioAllTime.toUpperCase(),
-                      style: _t(10.5, FontWeight.w600, c.textTertiary,
-                          spacing: 0.8)),
-                  const SizedBox(height: 2),
-                  if (allTime != null)
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _money(allTime),
-                        key: const ValueKey('brag-card-result'),
-                        maxLines: 1,
-                        style: _t(42, FontWeight.w800, _resultColor(allTime, c),
-                            spacing: -1.6, height: 1.05, tabular: true),
-                      ),
-                    )
-                  else
-                    Text('—',
-                        key: const ValueKey('brag-card-result'),
-                        style: _t(42, FontWeight.w800, c.textTertiary,
-                            height: 1.05)),
-                  if (month != null) ...[
-                    const SizedBox(height: 6),
-                    Text.rich(
-                      key: const ValueKey('brag-card-month'),
-                      TextSpan(children: [
-                        TextSpan(
-                            text: '${l10n.chartPeriodPastMonth}  ',
-                            style: _t(13, FontWeight.w500, c.textSecondary)),
-                        TextSpan(
-                            text: month.up
-                                ? '▲ '
-                                : month.down
-                                    ? '▼ '
-                                    : '',
-                            style: _t(
-                                11, FontWeight.w700, _resultColor(month, c))),
-                        TextSpan(
-                            text: _money(month),
-                            style: _t(
-                                13, FontWeight.w700, _resultColor(month, c),
-                                tabular: true)),
-                      ]),
-                    ),
-                  ],
+                  const SizedBox(height: 3),
+                  _period(l10n.portfolioAllTime,
+                      key: const ValueKey('brag-card-period')),
                 ],
               ),
             ),
-            if (face != null) ...[const SizedBox(width: 8), face],
+            if (data.slices.isNotEmpty)
+              SizedBox.square(
+                key: const ValueKey('brag-card-allocation'),
+                dimension: 40,
+                child: CustomPaint(painter: _RingPainter(slices: data.slices)),
+              ),
           ],
         ),
-        if (data.slices.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Row(
-            key: const ValueKey('brag-card-allocation'),
-            children: [
-              SizedBox.square(
-                dimension: 66,
-                child: CustomPaint(
-                  painter: _RingPainter(
-                    slices: data.slices,
-                    colors: [
-                      for (final s in data.slices) bragSliceColor(c, s.part)
-                    ],
-                    track: c.surfaceLight,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final s in data.slices)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2.5),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: bragSliceColor(c, s.part),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                switch (s.part) {
-                                  BragSlicePart.investing => l10n.trading,
-                                  BragSlicePart.predictions => l10n.predictions,
-                                  BragSlicePart.dollars =>
-                                    l10n.portfolioBalanceDollars,
-                                },
-                                style: _t(13, FontWeight.w500, c.textSecondary),
-                              ),
-                            ),
-                            Text(
-                              _sharePercent(s.share),
-                              style: _t(13, FontWeight.w700, c.textPrimary,
-                                  tabular: true),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-        const Spacer(),
-        if (data.top.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(l10n.bragTopPositions.toUpperCase(),
-              style: _t(10.5, FontWeight.w600, c.textTertiary, spacing: 0.8)),
-          const SizedBox(height: 6),
-          Container(
-            key: const ValueKey('brag-card-top'),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: c.borderSubtle, width: 0.8),
-            ),
+        const SizedBox(height: 14),
+        _Headline(result: data.allTime),
+        const SizedBox(height: 18),
+        Expanded(
+          child: SizedBox(
+            width: _kColumnWidth,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: _Bubble(text: line),
+                ),
+                const Spacer(),
                 for (var i = 0; i < data.top.length; i++) ...[
-                  if (i > 0) Container(height: 0.6, color: c.borderSubtle),
-                  _TopRow(
-                      key: ValueKey('brag-card-top-$i'),
-                      row: data.top[i],
-                      c: c),
+                  if (i > 0) const SizedBox(height: 7),
+                  _TopChip(key: ValueKey('brag-card-top-$i'), row: data.top[i]),
                 ],
+                const SizedBox(height: 16),
               ],
             ),
           ),
-        ],
-        const SizedBox(height: 14),
+        ),
       ],
     );
   }
 }
 
-/// A share as the Portfolio legend writes it (balancesPercent).
-String _sharePercent(double share) {
-  if (!share.isFinite || share <= 0) return '0%';
-  final pct = share * 100;
-  if (pct < 1) return '<1%';
-  if (pct > 99 && pct < 100) return '>99%';
-  return '${pct.round()}%';
-}
-
-class _TopRow extends StatelessWidget {
-  const _TopRow({
-    super.key,
-    required this.row,
-    required this.c,
-  });
+/// One of the top positions as a bold chip: its logo, its name (a
+/// prediction's named outcome, else the market) and its result (the
+/// percent, else the amount) in the result's colour.
+class _TopChip extends StatelessWidget {
+  const _TopChip({super.key, required this.row});
 
   final BragTopPosition row;
-  final AppColorsExtension c;
 
   @override
   Widget build(BuildContext context) {
     final r = row.result;
-    final color = _resultColor(r, c);
     final pct = r.percent;
-    final String figure = pct != null ? bragPercent(pct) : r.text;
-    return SizedBox(
-      height: 31,
+    final side = row.side;
+    // A named outcome ("Gen.G") says more than the long question; a Yes
+    // or No does not.
+    final named = side != null &&
+        side.isNotEmpty &&
+        !row.investing &&
+        !const {'yes', 'no'}.contains(side.trim().toLowerCase());
+    final name = named ? side : row.title;
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
+      decoration: BoxDecoration(
+        color: _ink,
+        borderRadius: BorderRadius.circular(100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Row(
         children: [
+          _Logo(
+            size: 24,
+            round: true,
+            title: row.title,
+            investing: row.investing,
+            coin: row.coin,
+            wireCoin: row.wireCoin,
+            iconUrl: row.iconUrl,
+            category: row.category,
+            imageUrl: row.imageUrl,
+          ),
+          const SizedBox(width: 7),
           Expanded(
-            child: Text.rich(
-              TextSpan(children: [
-                if (row.side case final side? when side.isNotEmpty)
-                  TextSpan(
-                      text: '$side · ',
-                      style: _t(13, FontWeight.w700, c.textPrimary)),
-                TextSpan(
-                    text: row.title,
-                    style: _t(13, FontWeight.w500, c.textPrimary)),
-              ]),
+            child: Text(
+              name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: _t(13, FontWeight.w700, _dark, spacing: -0.2),
             ),
           ),
-          const SizedBox(width: 10),
-          if (pct != null) ...[
-            Text(r.text,
-                style: _t(12, FontWeight.w500, c.textSecondary, tabular: true)),
-            const SizedBox(width: 8),
-          ],
-          Text(figure, style: _t(13.5, FontWeight.w700, color, tabular: true)),
+          const SizedBox(width: 6),
+          Text(
+            pct != null ? bragPercent(pct) : r.text,
+            maxLines: 1,
+            style: _t(
+                13.5,
+                FontWeight.w800,
+                r.up
+                    ? const Color(0xFF0E8A47)
+                    : r.down
+                        ? const Color(0xFFC8283C)
+                        : _dark,
+                spacing: -0.3,
+                tabular: true),
+          ),
         ],
       ),
     );
@@ -736,16 +667,19 @@ class _TopRow extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter(
-      {required this.slices, required this.colors, required this.track});
+  _RingPainter({required this.slices});
 
   final List<BragSlice> slices;
-  final List<Color> colors;
-  final Color track;
+
+  static double _alpha(BragSlicePart part) => switch (part) {
+        BragSlicePart.investing => 1.0,
+        BragSlicePart.predictions => 0.62,
+        BragSlicePart.dollars => 0.32,
+      };
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 11.0;
+    const stroke = 7.0;
     final rect = (Offset.zero & size).deflate(stroke / 2);
     canvas.drawArc(
         rect,
@@ -753,25 +687,24 @@ class _RingPainter extends CustomPainter {
         math.pi * 2,
         false,
         Paint()
-          ..color = track
+          ..color = _ink.withValues(alpha: 0.14)
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke);
     final shown = [
       for (var i = 0; i < slices.length; i++)
         if (slices[i].share > 0.001) i
     ];
-    final gap = shown.length > 1 ? 0.06 : 0.0;
+    final gap = shown.length > 1 ? 0.12 : 0.0;
     var start = -math.pi / 2;
     for (final i in shown) {
       final sweep = slices[i].share * math.pi * 2;
-      final drawn = math.max(0.0, sweep - gap);
       canvas.drawArc(
         rect,
         start + gap / 2,
-        drawn,
+        math.max(0.0, sweep - gap),
         false,
         Paint()
-          ..color = colors[i]
+          ..color = _ink.withValues(alpha: _alpha(slices[i].part))
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke,
       );
@@ -780,60 +713,97 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) =>
-      old.slices != slices || old.colors != colors;
+  bool shouldRepaint(_RingPainter old) => old.slices != slices;
 }
 
 // ─── Shared ──────────────────────────────────────────────────────────
 
-class _Pill extends StatelessWidget {
-  const _Pill({
+/// A market's logo: the coin icon on an Investing position, the market's
+/// picture on a prediction, else its first letter.
+class _Logo extends StatelessWidget {
+  const _Logo({
     super.key,
-    required this.text,
-    required this.fill,
-    required this.ink,
-    this.size = 13,
+    required this.size,
+    required this.title,
+    required this.investing,
+    this.round = false,
+    this.coin,
+    this.wireCoin,
+    this.iconUrl,
+    this.category,
+    this.imageUrl,
   });
 
-  final String text;
-  final Color fill;
-  final Color ink;
   final double size;
+  final String title;
+  final bool investing;
+  final bool round;
+  final String? coin;
+  final String? wireCoin;
+  final String? iconUrl;
+  final String? category;
+  final String? imageUrl;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding:
-            EdgeInsets.symmetric(horizontal: size * 0.8, vertical: size * 0.35),
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _t(size, FontWeight.w700, ink, spacing: -0.1, tabular: true),
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(round ? size / 2 : size * 0.26);
+    final Widget fallback = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: round ? const Color(0xFFEDEDED) : _ink,
+        borderRadius: radius,
+      ),
+      child: Text(
+        title.isEmpty ? '?' : title.characters.first.toUpperCase(),
+        style: _t(size * 0.45, FontWeight.w800, _dark),
+      ),
+    );
+    final Widget child;
+    if (investing && coin != null) {
+      child = FittedBox(
+        child: HlCoinIcon(
+          coin: coin!,
+          wireCoin: wireCoin,
+          iconUrl: iconUrl,
+          category: category,
+          size: size,
         ),
       );
+    } else if (imageUrl case final url? when url.isNotEmpty) {
+      child = ClipRRect(
+        borderRadius: radius,
+        child: Image.network(
+          url,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
+      );
+    } else {
+      child = fallback;
+    }
+    return SizedBox.square(dimension: size, child: child);
+  }
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.code, required this.c});
+  const _Footer({required this.code});
 
   final String? code;
-  final AppColorsExtension c;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final mark =
-        _t(24, FontWeight.w800, c.textPrimary, spacing: -0.6, height: 1.0);
+    final mark = _t(26, FontWeight.w800, _ink, spacing: -0.8, height: 1.0);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(height: 0.8, color: c.borderSubtle),
-        const SizedBox(height: 14),
+        Container(height: 0.8, color: _ink.withValues(alpha: 0.22)),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -850,9 +820,11 @@ class _Footer extends StatelessWidget {
                           style: mark.copyWith(color: AppColors.accent)),
                     ]),
                   ),
-                  const SizedBox(height: 4),
-                  Text(l10n.bragTradeItOnKute,
-                      style: _t(12, FontWeight.w500, c.textSecondary)),
+                  const SizedBox(height: 3),
+                  Text(l10n.bragBeatMeOnKute,
+                      key: const ValueKey('brag-card-cta'),
+                      style: _t(
+                          12.5, FontWeight.w700, _ink.withValues(alpha: 0.85))),
                 ],
               ),
             ),
@@ -860,23 +832,26 @@ class _Footer extends StatelessWidget {
               Container(
                 key: const ValueKey('brag-card-code'),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.1),
+                  color: _ink,
                   borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.35),
-                      width: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Text.rich(TextSpan(children: [
                   TextSpan(
                       text: '${l10n.bragCodeLabel.toUpperCase()}  ',
-                      style: _t(10, FontWeight.w600, c.textSecondary,
-                          spacing: 0.8)),
+                      style: _t(10, FontWeight.w700, const Color(0xFF6B6B70),
+                          spacing: 1)),
                   TextSpan(
                       text: code,
-                      style:
-                          _t(14, FontWeight.w800, c.textPrimary, spacing: 0.4)),
+                      style: _t(17, FontWeight.w900, _dark, spacing: 0.6)),
                 ])),
               ),
           ],
