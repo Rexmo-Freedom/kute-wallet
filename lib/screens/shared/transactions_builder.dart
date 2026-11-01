@@ -706,6 +706,22 @@ class ActivityRowStyle extends InheritedWidget {
   bool updateShouldNotify(ActivityRowStyle old) => old.compact != compact;
 }
 
+/// A quiet note that leads a row's context line ("Paid from Bitcoin ·
+/// 14:21"): the home Activity folds the funding moves an action paid
+/// with into the action's row and says where the money came from here
+/// (all_activity.dart). Rows without one read as before.
+class ActivityRowNote extends InheritedWidget {
+  const ActivityRowNote({super.key, required this.note, required super.child});
+
+  final String note;
+
+  static String? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ActivityRowNote>()?.note;
+
+  @override
+  bool updateShouldNotify(ActivityRowNote old) => old.note != note;
+}
+
 class _TransactionRow extends ConsumerWidget {
   final Widget leading;
   final Widget title;
@@ -779,6 +795,7 @@ class _TransactionRow extends ConsumerWidget {
     final shownAmount = valuesVisible ? _signed(amount) : '••••';
     final compact = ActivityRowStyle.compactOf(context);
     final shownFiat = valuesVisible && !compact ? fiatAmount : '';
+    final note = ActivityRowNote.of(context);
     final row = Container(
       color: Colors.transparent,
       padding: EdgeInsets.symmetric(
@@ -795,7 +812,12 @@ class _TransactionRow extends ConsumerWidget {
                       color: status!.color, fontWeight: FontWeight.w600)),
               if (subtitle.isNotEmpty) const TextSpan(text: ' · '),
             ],
-            TextSpan(text: subtitle),
+            TextSpan(
+                text: note == null
+                    ? subtitle
+                    : subtitle.isEmpty
+                        ? note
+                        : '$note · $subtitle'),
           ]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

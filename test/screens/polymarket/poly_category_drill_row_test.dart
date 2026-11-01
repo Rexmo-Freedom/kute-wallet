@@ -211,6 +211,45 @@ void main() {
     await unmountInvestments(tester);
     await tester.pump(const Duration(seconds: 31));
   });
+
+  test('the default view keeps six markets; any other list is whole', () {
+    final rows = List.generate(20, (i) => i);
+    expect(kPolyTrendingListRows, 6);
+    expect(polyBrowseRowsShown(true, rows), [0, 1, 2, 3, 4, 5]);
+    expect(polyBrowseRowsShown(false, rows), rows);
+  });
+
+  testWidgets(
+      'Trending: the strip, six markets and nothing after; a picked '
+      'category lists every market', (tester) async {
+    await pumpInvestments(tester,
+        browsePredictions: true,
+        size: const Size(390, 5000),
+        child: const Scaffold(body: PolymarketScreen()),
+        overrides: [
+          polyBrowseFeedProvider.overrideWith(_ManyMarkets.new),
+          ...offlineVenueOverrides,
+        ]);
+    expect(_selected(tester, 'Trending'), isTrue);
+    expect(_inBrowser(find.byType(PolyTopMarketCard)), findsNWidgets(5));
+    expect(_inBrowser(find.byType(MarketCard)), findsNWidgets(6));
+    for (final card
+        in tester.widgetList<MarketCard>(_inBrowser(find.byType(MarketCard)))) {
+      expect(card.title, isNot(startsWith('Busy market')));
+    }
+    await _tap(tester, _pill('New'));
+    await _settle(tester);
+    expect(_selected(tester, 'New'), isTrue);
+    // Every plain market under the strip's five, down to the last.
+    expect(_inBrowser(find.byType(MarketCard)).evaluate().length,
+        greaterThan(6));
+    await tester.scrollUntilVisible(find.text('Plain market 20?'), 400,
+        scrollable: _inBrowser(find.byType(Scrollable)).first);
+    expect(find.text('Plain market 20?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
+    await tester.pump(const Duration(seconds: 31));
+  });
 }
 
 /// Five busy Yes/No markets the strip takes, then two plain Yes/No
@@ -259,6 +298,34 @@ class _ThreeMarkets extends PolyFeedNotifier {
         ],
       ),
       yesNo('rain', 'Rain in London tomorrow?'),
+    ]);
+  }
+}
+
+
+/// Five busy markets for the strip, then twenty plain ones: in every list.
+class _ManyMarkets extends PolyFeedNotifier {
+  @override
+  PolyFeedState build(PolyFeedQuery arg) {
+    PolymarketEvent yesNo(String id, String title, {double volume = 1e6}) =>
+        PolymarketEvent(
+          id: id,
+          slug: id,
+          title: title,
+          volume: volume,
+          liquidity: 1e5,
+          category: 'finance',
+          conditionId: id,
+          outcomes: const [
+            PolymarketOutcome(name: 'Yes', price: 0.4),
+            PolymarketOutcome(name: 'No', price: 0.6),
+          ],
+        );
+    return PolyFeedState(done: true, events: [
+      for (var i = 1; i <= 5; i++)
+        yesNo('top$i', 'Busy market $i?', volume: 9e6 - i),
+      for (var i = 1; i <= 20; i++)
+        yesNo('m$i', 'Plain market $i?', volume: 1e6 - i),
     ]);
   }
 }

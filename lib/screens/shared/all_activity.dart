@@ -17,13 +17,36 @@
 // under Today (the one row that needs a tap). Every row is the widget its
 // own surface draws, on the same day cards as before: nothing restyled.
 //
-// The Bitcoin home previews the newest [kHomeActivityPreviewRows]
-// ([AllActivityPreview]); "See all" opens the Activity screen, which lists
-// them all ([AllActivitySliver]), built a page at a time as it scrolls.
+// Curated (founder, 1 November 2026; activity_curation.dart): the
+// Bitcoin home shows the newest [kHomeActivityRows] actions, never the
+// money moving between the person's own accounts, under one "Today" card
+// (In, Out, P&L) when anything happened today ([AllActivityPreview]).
+// "See all" opens the Activity screen, which lists everything
+// ([AllActivitySliver]), built a page at a time as it scrolls, with each
+// funding chain folded into the action it paid for ("Paid from Bitcoin").
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart'
+    show formatPolyAmount;
+import 'package:kute/helpers/swap_activity.dart'
+    show SwapActivityKind, swapActivityFor;
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/portfolio_performance.dart';
+import 'package:kute/models/swap_order_model.dart' show SwapOrder;
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show currentBtcUsdProvider;
+import 'package:kute/providers/polymarket_live_prices_provider.dart'
+    show livePriceProvider;
+import 'package:kute/providers/portfolio_performance_provider.dart'
+    show portfolioPerformanceDisplayProvider;
+import 'package:kute/screens/portfolio/portfolio_filters.dart'
+    show portfolioVenuesProvider;
+import 'package:kute/screens/shared/activity_curation.dart';
+import 'package:kute/screens/shared/position_rows_card.dart'
+    show PositionStatTile, positionTileValueStyle;
+import 'package:kute/theme/app_theme.dart';
 import 'package:kute/models/hyperliquid_market.dart' show HlFill;
 import 'package:kute/models/polymarket_model.dart' show ActivityType;
 import 'package:kute/models/transactions_model.dart';
@@ -43,7 +66,12 @@ import 'package:kute/services/orchestra/own_spark_arrivals.dart'
     show ownSparkArrivalsProvider;
 
 /// Rows the Bitcoin home's Activity shows before "See all".
-const int kHomeActivityPreviewRows = 8;
+const int kHomeActivityPreviewRows = kHomeActivityRows;
+
+/// Tests and the render harness read swaps' intent without the settlement
+/// store; null in the app (swapActivityFor).
+@visibleForTesting
+SwapActivityKind Function(SwapOrder order)? debugAllActivityClassify;
 
 /// One entry of the merged list: a transaction row or a fill, with the
 /// time it sorts by.
@@ -82,6 +110,7 @@ List<AllActivityEntry> mergeAllActivity({
 /// whether the Investing history is still on its way or failed.
 typedef AllActivity = ({
   List<AllActivityEntry> entries,
+  CuratedActivity curated,
   bool loading,
   bool failed,
 });
@@ -108,6 +137,11 @@ AllActivity watchAllActivity(WidgetRef ref) {
     isHardwareOrWatchOnly: false,
     onlyUsdb: false,
     allAccounts: true,
+    // The conversions into and out of Predictions stay listed: the
+    // curation folds them into the bet they paid for, or keeps the one
+    // row that names both ends (activity_curation.dart).
+    keepVenueMoves: true,
+    classify: debugAllActivityClassify ?? swapActivityFor,
     moves: moves,
     walletId: walletId,
     // A move over with nothing delivered has no row; its legs show.
@@ -125,35 +159,64 @@ AllActivity watchAllActivity(WidgetRef ref) {
   ];
   final fills = ref.watch(hyperliquidActivityFillsProvider);
   final history = ref.watch(hyperliquidUserFillsProvider);
+  final entries =
+      mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills);
   return (
-    entries:
-        mergeAllActivity(walletRows: walletRows, bets: bets, fills: fills),
+    entries: entries,
+    curated: curateAllActivity(entries,
+        classify: debugAllActivityClassify ?? swapActivityFor),
     loading: history.isLoading,
     failed: history.hasError,
   );
 }
 
+/// The note on a row whose funding was folded into it ("Paid from
+/// Bitcoin"), or null.
+String? activityPaidFromNote(
+    AppLocalizations l10n, List<ActivityAccount>? from) {
+  if (from == null || from.isEmpty) return null;
+  String name(ActivityAccount a) => switch (a) {
+        ActivityAccount.bitcoin => l10n.bitcoin,
+        ActivityAccount.dollars => l10n.assetDollars,
+        ActivityAccount.investing => l10n.trading,
+        ActivityAccount.predictions => l10n.predictions,
+      };
+  return from.length == 1
+      ? l10n.activityPaidFrom(name(from.first))
+      : l10n.activityPaidFromBoth(name(from[0]), name(from[1]));
+}
+
 /// [entries] on the day cards, each row the widget its own surface draws.
 /// A waiting deposit is listed under Today, whenever it arrived.
+///
+/// [curated] says which rows took their funding in (the note on the row).
 List<Widget> allActivityDaySections(
-    BuildContext context, WidgetRef ref, List<AllActivityEntry> entries) {
+    BuildContext context, WidgetRef ref, List<AllActivityEntry> entries,
+    {CuratedActivity? curated}) {
   final now = DateTime.now();
+  final l10n = context.l10n;
   var index = 0;
   return activityDaySections<AllActivityEntry>(
     entries,
     timeOf: (e) => e.tx != null && isWaitingDeposit(e.tx!) ? now : e.time,
-    rowOf: (e) => KuteStaggerIn(
-      index: index++,
-      child: e.fill != null
+    rowOf: (e) {
+      final Widget row = e.fill != null
           ? HyperliquidFillActivityRow(
               fill: e.fill!, compareWithSpendingWallet: true)
-          : buildUnifiedTransactionItem(e.tx!, context, ref),
-    ),
+          : buildUnifiedTransactionItem(e.tx!, context, ref);
+      final note = activityPaidFromNote(l10n, curated?.paidFromOf(e));
+      return KuteStaggerIn(
+        index: index++,
+        child: note == null ? row : ActivityRowNote(note: note, child: row),
+      );
+    },
   );
 }
 
-/// The Bitcoin home's Activity: the newest [limit] entries of everything
-/// the spending account did, or [emptyState] when there is nothing yet.
+/// The Bitcoin home's Activity: the "Today" card and the newest [limit]
+/// actions of everything the spending account did (no money moving
+/// between its own accounts: activity_curation.dart), or [emptyState]
+/// when there is nothing yet.
 class AllActivityPreview extends ConsumerWidget {
   const AllActivityPreview({
     super.key,
@@ -166,15 +229,24 @@ class AllActivityPreview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entries = watchAllActivity(ref).entries;
-    if (entries.isEmpty) {
+    final activity = watchAllActivity(ref);
+    final classify = debugAllActivityClassify ?? swapActivityFor;
+    final shown =
+        homeActivityEntries(activity.curated, limit: limit, classify: classify);
+    if (shown.isEmpty) {
       return emptyState ?? buildNoTransactionsFound(context);
     }
-    final shown =
-        entries.length > limit ? entries.sublist(0, limit) : entries;
+    final today = todayActivityFlows(activity.curated.entries,
+        now: DateTime.now(),
+        btcUsd: ref.watch(currentBtcUsdProvider),
+        classify: classify);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: allActivityDaySections(context, ref, shown),
+      children: [
+        if (today.any) ActivityTodayCard(flows: today),
+        ...allActivityDaySections(context, ref, shown,
+            curated: activity.curated),
+      ],
     );
   }
 }
@@ -233,7 +305,7 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
   @override
   Widget build(BuildContext context) {
     final activity = watchAllActivity(ref);
-    final entries = activity.entries;
+    final entries = activity.curated.entries;
     _total = entries.length;
     // A page that does not fill the screen loads the next one at once.
     if (_limit < _total) {
@@ -254,7 +326,8 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
     }
     final shown =
         entries.length > _limit ? entries.sublist(0, _limit) : entries;
-    final sections = allActivityDaySections(context, ref, shown);
+    final sections =
+        allActivityDaySections(context, ref, shown, curated: activity.curated);
     final children = <Widget>[
       if (activity.failed)
         TextButton.icon(
@@ -266,6 +339,109 @@ class _AllActivitySliverState extends ConsumerState<AllActivitySliver> {
     return SliverList.builder(
       itemCount: children.length,
       itemBuilder: (_, i) => children[i],
+    );
+  }
+}
+
+
+/// Today's profit and loss on Investing and Predictions, in dollars: what
+/// each venue's own published P&L moved since local midnight (realised
+/// plus the open positions' change; Predictions rebuilt from the live
+/// positions as the Portfolio does). Null when neither venue has a figure.
+double? watchTodayInvestmentsPnl(WidgetRef ref, {DateTime? now}) {
+  final venues = ref.watch(portfolioVenuesProvider);
+  final at = now ?? DateTime.now();
+  final midnight = DateTime(at.year, at.month, at.day);
+  double? total;
+  for (final v in [
+    if (venues.trading) PortfolioPerformanceVenue.trading,
+    if (venues.predictions) PortfolioPerformanceVenue.predictions,
+  ]) {
+    final data = ref
+        .watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v)))
+        .valueOrNull;
+    if (data == null) continue;
+    final p = v == PortfolioPerformanceVenue.predictions &&
+            data.predictions != null
+        ? data.withLivePredictions(
+            ref.watch(livePriceProvider.select((s) => s.prices)))
+        : data;
+    final change = todayPnlOf(p, midnight);
+    if (change != null) total = (total ?? 0) + change;
+  }
+  return total;
+}
+
+/// What [p] moved since [midnight] (local): its latest observation against
+/// the last one at or before midnight (zero for an account younger than
+/// the day). Null when it has published nothing today.
+double? todayPnlOf(PortfolioPerformance p, DateTime midnight) {
+  if (p.points.isEmpty) return null;
+  final last = p.points.last;
+  final since = last.timestamp.toUtc().difference(midnight.toUtc());
+  if (since.isNegative) return null;
+  final change = p.rangeView(since).changeUsd;
+  return change != null && change.isFinite ? change : null;
+}
+
+/// The home Activity's "Today" card: three equal tiles in the position
+/// pages' tile style, what came in, what went out, and the venues' P&L
+/// (coloured; left out when there is no real figure).
+class ActivityTodayCard extends ConsumerWidget {
+  const ActivityTodayCard({super.key, required this.flows});
+
+  final TodayActivityFlows flows;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final visible =
+        ref.watch(settingsProvider.select((s) => s.transactionValuesVisible));
+    final pnl = watchTodayInvestmentsPnl(ref);
+    String money(double? usd) =>
+        !visible ? '••••' : usd == null ? '—' : formatPolyAmount(ref, usd);
+    Widget tile(String key, String label, String value, {Color? color}) =>
+        Expanded(
+          child: PositionStatTile(
+            key: ValueKey(key),
+            label: label,
+            value: Text(value,
+                maxLines: 1,
+                style: positionTileValueStyle(c, color: color).copyWith(
+                    fontSize: 18.sp, letterSpacing: -0.4)),
+          ),
+        );
+    final pnlUp = (pnl ?? 0) >= 0;
+    final pnlText = pnl == null
+        ? ''
+        : !visible
+            ? '••••'
+            : '${pnl > 0 ? '+' : pnl < 0 ? '−' : ''}${formatPolyAmount(ref, pnl.abs())}';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            tile('activity-today-in', l10n.activityTodayIn,
+                money(flows.inUsd)),
+            SizedBox(width: 10.w),
+            tile('activity-today-out', l10n.activityTodayOut,
+                money(flows.outUsd)),
+            if (pnl != null) ...[
+              SizedBox(width: 10.w),
+              tile('activity-today-pnl', l10n.activityTodayPnl, pnlText,
+                  color: !visible || pnl == 0
+                      ? null
+                      : pnlUp
+                          ? AppColors.marketUp
+                          : AppColors.marketDown),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

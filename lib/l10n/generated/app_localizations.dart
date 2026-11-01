@@ -20406,6 +20406,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Filter'**
   String get categoryFilterPrompt;
+
+  /// Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid from {source}'**
+  String activityPaidFrom(String source);
+
+  /// Same as activityPaidFrom when the money came from two of the person's accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid from {first} and {second}'**
+  String activityPaidFromBoth(String first, String second);
+
+  /// Home Activity Today card: tile label for the money received today.
+  ///
+  /// In en, this message translates to:
+  /// **'In'**
+  String get activityTodayIn;
+
+  /// Home Activity Today card: tile label for the money sent today.
+  ///
+  /// In en, this message translates to:
+  /// **'Out'**
+  String get activityTodayOut;
+
+  /// Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change).
+  ///
+  /// In en, this message translates to:
+  /// **'P&L'**
+  String get activityTodayPnl;
+
+  /// Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.
+  ///
+  /// In en, this message translates to:
+  /// **'{asset} up or down · {minutes}m'**
+  String predictUpOrDownCompact(String asset, int minutes);
 }
 
 class _AppLocalizationsDelegate

@@ -225,6 +225,20 @@ List<HlMarket> hlTrendingStrip(
   return picked;
 }
 
+/// Rows the default view (Trending) lists under its
+/// strip (founder, 1 November 2026: the home of Investing is a curated
+/// slice; the floating bar searches everything). Any other category the
+/// person picks is listed in full: they asked for it.
+const int kHlTrendingListRows = 6;
+
+/// The rows listed under the strip: the first
+/// [kHlTrendingListRows] of [rest] on the default view (Trending at its
+/// default list), all of [rest] on any other.
+List<T> hlBrowseRowsShown<T>(bool defaultView, List<T> rest) =>
+    defaultView && rest.length > kHlTrendingListRows
+        ? rest.sublist(0, kHlTrendingListRows)
+        : rest;
+
 /// The list under a strip of [strip]: [markets] less the strip's markets
 /// and any other market on the same underlying (founder, 1 November
 /// 2026: the strip's names are not repeated). Null when that would leave

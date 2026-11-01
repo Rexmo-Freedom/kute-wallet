@@ -49,6 +49,19 @@ const double kPolyTopMarketCardHeight = 170;
 /// strip is not shown and every market is a row.
 const int kPolyTopMarketsListKeeps = 3;
 
+/// Markets the default view (Trending at its default list) lists under
+/// its strip (founder, 1 November 2026: a curated slice; the floating bar
+/// searches everything). Any other category the person picks is listed
+/// in full, page after page.
+const int kPolyTrendingListRows = 6;
+
+/// The markets listed under the strip: the first [kPolyTrendingListRows]
+/// of [listed] on the default view, all of them on any other.
+List<T> polyBrowseRowsShown<T>(bool defaultView, List<T> listed) =>
+    defaultView && listed.length > kPolyTrendingListRows
+        ? listed.sublist(0, kPolyTrendingListRows)
+        : listed;
+
 List<PolymarketEvent> polyTopMarkets(
   Iterable<PolymarketEvent> events, {
   int max = kPolyTopMarketsMax,

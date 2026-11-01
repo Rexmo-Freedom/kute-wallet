@@ -3424,5 +3424,11 @@
   "hlAboutKindIndexSpot": "a spot token tracking an index",
   "receiptAskWhatHappened": "What happened here?",
   "receiptResult": "Result",
-  "categoryFilterPrompt": "Filter"
+  "categoryFilterPrompt": "Filter",
+  "activityPaidFrom": "Paid from {source}",
+  "activityPaidFromBoth": "Paid from {first} and {second}",
+  "activityTodayIn": "In",
+  "activityTodayOut": "Out",
+  "activityTodayPnl": "P&L",
+  "predictUpOrDownCompact": "{asset} up or down · {minutes}m"
 }
