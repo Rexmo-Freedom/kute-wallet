@@ -177,6 +177,17 @@ class _Trading extends PolymarketTradingNotifier {
     return BigInt.from((amount * 1e6).round());
   }
 
+  /// The watch that converts a delivered deposit: started by every rail
+  /// into Predictions.
+  @override
+  void wrapIncomingUsdcEToPusd({
+    Duration timeout = const Duration(minutes: 8),
+    Duration interval = const Duration(seconds: 4),
+    Duration lateInterval = const Duration(seconds: 15),
+  }) {
+    _arrivalWatches++;
+  }
+
   /// The account's one-time setup, asked for before a move leaves
   /// Predictions. Done, unless [_setupFailure] says it cannot finish.
   @override
@@ -197,6 +208,7 @@ int _setupAsked = 0;
 
 /// What the live balance read throws, when it cannot be read.
 Object? _readFailure;
+int _arrivalWatches = 0;
 double _predictions = 20;
 double _dollars = 20;
 
@@ -559,6 +571,7 @@ void main() {
     _setupFailure = null;
     _setupAsked = 0;
     _readFailure = null;
+    _arrivalWatches = 0;
     _deposit = null;
     _predictions = 20;
     _dollars = 20;
@@ -978,6 +991,8 @@ void main() {
         InvestingWithdrawalDestination.predictions);
     expect(_cctp.moves.single.usd, 5);
     expect(_approvals.intents, hasLength(1));
+    // The CCTP arrival converts to pUSD like any other deposit.
+    expect(_arrivalWatches, 1);
     expect(find.byKey(const ValueKey('money-movement-sheet')), findsNothing);
     final completed = _last('move_completed');
     expect(completed['route'], 'cctp');

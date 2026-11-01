@@ -1471,13 +1471,11 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
       // refresh). Consumed receive ids share the delivery tag box for
       // persistence; the home feed's hide only applies to
       // SparkTransaction ids, so tagging these is inert on-screen.
+      // Every rail into Predictions: the Orchestra deposit rows (USDC)
+      // and the Investing → Predictions CCTP rows (USDC.e) alike.
       final polygonPending = ref
           .read(swapOrdersProvider)
-          .where((e) =>
-              e.providerName == 'Orchestra' &&
-              e.networkTo == 'POLYGON' &&
-              e.coinTo == 'USDC' &&
-              e.isPending)
+          .where((e) => isPredictionsDepositOrder(e) && e.isPending)
           .toList();
       if (polygonPending.isEmpty) return;
       final usdcRx = <PolymarketUsdcReceive>[];
@@ -1521,6 +1519,10 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
         ref
             .read(walletTransactionCacheProvider.notifier)
             .mergeSwapOrder(settled);
+        // The wallet's own receive is the delivery: the money arrived,
+        // so it converts and shows now, the same path a status poll's
+        // "success" takes. Settling the row alone left it as USDC.e.
+        unawaited(_finishPredictionsDeposit(settled));
       }
     } catch (_) {}
   }

@@ -5140,8 +5140,12 @@ class PolymarketTradingNotifier
       return (eoa: eoa, wallet: wallet, key: key);
     },
     ready: () => tradingReady,
-    wrap: (a) => _wrapHeldUsdcE(
-        eoa: a.eoa, privateKey: a.key, wallet: a.wallet, trigger: 'arrival'),
+    wrap: (a) async {
+      final wrapped = await _wrapHeldUsdcE(
+          eoa: a.eoa, privateKey: a.key, wallet: a.wallet, trigger: 'arrival');
+      if (wrapped > BigInt.zero) await _showArrival();
+      return wrapped;
+    },
     onItsWay: _depositOnItsWay,
     waitForAccount: _waitForAccount,
     gone: () => _disposed,
@@ -5156,6 +5160,24 @@ class PolymarketTradingNotifier
     },
     log: _devLog,
   );
+
+  /// A deposit just became pUSD outside the delivered path (the arrival
+  /// watch for a rail no status poll reports, an idle conversion on open):
+  /// the balance on screen reads it now instead of on the next poll, and
+  /// a queued bet's autofire hears it, as after [onDepositDelivered].
+  Future<void> _showArrival() async {
+    if (_disposed) return;
+    invalidateBalanceCache();
+    try {
+      await refresh();
+    } catch (_) {
+      // The periodic poll reads it on its next tick.
+    }
+    if (_disposed) return;
+    if (!_depositSettledController.isClosed) {
+      _depositSettledController.add(null);
+    }
+  }
 
   /// A Predictions deposit into [wallet] is still on its way by its row.
   bool _depositOnItsWay(String wallet) {
@@ -5314,8 +5336,9 @@ class PolymarketTradingNotifier
               wallet.toLowerCase()) {
         return;
       }
-      await _wrapHeldUsdcE(
+      final wrapped = await _wrapHeldUsdcE(
           eoa: eoa, privateKey: key, wallet: wallet, trigger: trigger);
+      if (wrapped > BigInt.zero) await _showArrival();
     } catch (e) {
       _devLog('[wrap] idle conversion threw: $e');
     }

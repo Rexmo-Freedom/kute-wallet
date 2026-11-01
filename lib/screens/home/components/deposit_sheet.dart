@@ -5517,12 +5517,14 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                 );
         sentUsd = result.sentUsd;
       }
-      // The direct route delivers USDC.e to the deposit wallet: the
-      // arrival watch converts it to pUSD the moment it lands, as for a
-      // deposit from Bitcoin or Dollars.
-      if (route == 'direct') {
-        ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
-      }
+      // Both routes deliver USDC.e to the deposit wallet: the arrival
+      // watch converts it to pUSD the moment it lands, as for a deposit
+      // from Bitcoin or Dollars. CCTP takes longer than the watch's first
+      // window; the watch keeps going while the move's row is on its way,
+      // and the row's delivery (the status poll, or the wallet's own
+      // receive) converts it too. Before this only the direct route
+      // started the watch, so a CCTP arrival sat as raw USDC.e.
+      ref.read(polymarketTradingProvider.notifier).wrapIncomingUsdcEToPusd();
       // Handed to the runner (or the CCTP watcher); the reconciler reports
       // the outcome.
       TrackingService.hyperliquidWithdrawSubmitted(
