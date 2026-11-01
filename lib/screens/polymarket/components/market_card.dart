@@ -15,7 +15,6 @@ import 'package:kute/services/polymarket/market_buy_quote.dart'
 import 'package:kute/services/polymarket/market_card_shape.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'dart:math' show pi;
-import 'dart:ui' show PointMode;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
@@ -89,20 +88,29 @@ void polyCardOpenSlip(
 ///     chance, and the score once the game is on), with the card's
 ///     caption footer (clock, draw chance, volume) under it;
 ///   * a single Yes/No market (October 2026, after Kalshi / Polymarket):
-///     the question (two lines at most, its year dropped when the meta
-///     line already says it), one meta line under it in the secondary
-///     colour ("$27.8K · closes Jan 2027"), the Yes chance as a small
-///     half-ring gauge with the number under it on the right, and under
-///     them two small Yes / No price pills, right-aligned, that open the
-///     slip on that side ([onPickSide]). The day's move is left to the
-///     market page;
+///     the market's image (40, rounded 10; the category glyph on the
+///     neutral ground when it has none), the question (two lines at
+///     most, its year dropped when the meta line already says it), one
+///     meta line under it in the secondary colour, the date first and
+///     the volume last ("Closes Jan 2027 · $27.8K"; founder, 1 November
+///     2026), the Yes chance as a small half-ring gauge with the number
+///     under it on the right, and under them two small Yes / No price
+///     pills, right-aligned, that open the slip on that side
+///     ([onPickSide]). The day's move is left to the market page;
 ///   * an event with many outcomes: the question and the same meta line,
-///     then its two most likely outcomes as "Name …… 41%" rows and
-///     "+N more ›"; no pills (the card opens the event).
+///     then its three most likely outcomes as rows of the name, a thin
+///     chance bar and the percent ("Name ▬▬▬▬ 41%") and "+N more ›"; no
+///     pills (the card opens the event).
+///
+/// The pills are quiet (founder, 1 November 2026): the neutral surface
+/// as their fill, the side's market colour as their ink; no solid green
+/// or red blocks on a list, and no tinted chips anywhere in the app.
 ///
 /// Which shape, and every number on it, comes from the event the feed
 /// already gave (market_card_shape.dart). The whole card is one tap
 /// target that opens the detail sheet; only the pills tap elsewhere.
+/// The Top markets strip over the feed (top_markets_strip.dart) is
+/// built from the same pieces ([PolySidePill], [PolyCardThumbnail]).
 class MarketCard extends ConsumerWidget {
   final String title;
   final String? imageUrl;
@@ -631,13 +639,13 @@ class MarketCard extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _SidePill(
+              PolySidePill(
                 text: '${l10n.yes} ${polymarketCentsLabel(yesPrice)}',
                 color: AppColors.marketUp,
                 onTap: onPickSide == null ? null : () => onPickSide!('yes'),
               ),
               SizedBox(width: 6.w),
-              _SidePill(
+              PolySidePill(
                 text: '${l10n.betNo} ${polymarketCentsLabel(noPrice)}',
                 color: AppColors.marketDown,
                 onTap: onPickSide == null ? null : () => onPickSide!('no'),
@@ -649,10 +657,11 @@ class MarketCard extends ConsumerWidget {
     );
   }
 
-  /// The one quiet line under a question: the volume, compact, and when
-  /// the market closes ("$27.8K · closes Jan 2027"; a round's window or
-  /// "Starts in 2h" in its place), with the match's other markets as a
-  /// link when it has them. Null when there is nothing to say.
+  /// The one quiet line under a question: when the market closes (a
+  /// round's window or "Starts in 2h" in its place) and then the volume,
+  /// compact ("Closes Jan 2027 · $27.8K": the date first, the volume
+  /// last), with the match's other markets as a link when it has them.
+  /// Null when there is nothing to say.
   Widget? _buildMeta(
       BuildContext context, WidgetRef ref, AppColorsExtension c) {
     final l10n = context.l10n;
@@ -674,7 +683,7 @@ class MarketCard extends ConsumerWidget {
       text = round == null && _hasStarted
           ? l10n.marketMetaLine(
               volumeText, DateFormat('MMM yyyy').format(endDate!))
-          : '$volumeText · $when';
+          : '$when · $volumeText';
     } else {
       text = volumeText ?? when;
     }
@@ -716,17 +725,22 @@ class MarketCard extends ConsumerWidget {
         );
       });
 
+  /// The outcomes an event's card lists before "+N more".
+  static const int _kOutcomeRows = 3;
+
   /// An event with many outcomes: the question over its meta line, then
-  /// its two most likely outcomes as "Name …… 41%" rows (the first in the
-  /// primary colour) and "+N more ›" when there are more.
+  /// its three most likely outcomes as rows of the name (the first in
+  /// the primary colour), a thin chance bar and the percent, and
+  /// "+N more ›" when there are more.
   Widget _buildOutcomes(BuildContext context, WidgetRef ref,
       AppColorsExtension c, String? image) {
-    final top = polyCardTopOutcomes(outcomes, live: livePrices);
+    final top =
+        polyCardTopOutcomes(outcomes, live: livePrices, count: _kOutcomeRows);
     // One market with two named sides (Up / Down), not two Yes/No markets.
     final twoSided =
         outcomes.length == 2 && !outcomes.any((o) => o.hasYesNo);
     // Fillers with no market behind them are not "more" outcomes.
-    final more = polyRealOutcomes(outcomes).length - 2;
+    final more = polyRealOutcomes(outcomes).length - _kOutcomeRows;
     final meta = _buildMeta(context, ref, c);
     // The rows start where the title does.
     final indent = EdgeInsets.only(left: kPolyCardImage.w + kPolyCardImageGap.w);
@@ -742,9 +756,13 @@ class MarketCard extends ConsumerWidget {
         fontWeight: FontWeight.w600,
         fontFeatures: const [FontFeature.tabularFigures()],
       );
+      // The two sides of one market add up to 100.
+      final price = twoSided && !first
+          ? 1 - _effectivePrice(top.first)
+          : _effectivePrice(o);
       return _OutcomeLine(
         name: o.name,
-        // The two sides of one market add up to 100.
+        fraction: price.clamp(0.0, 1.0),
         chance: twoSided && !first
             ? polyCardOtherSideChance(_effectivePrice(top.first))
             : polyCardChance(_effectivePrice(o)),
@@ -842,7 +860,7 @@ class MarketCard extends ConsumerWidget {
       ref.watch(polyMinuteTickProvider);
     }
     // Fillers with no market behind them are not "more" outcomes.
-    final more = polyRealOutcomes(outcomes).length - 2;
+    final more = polyRealOutcomes(outcomes).length - _kOutcomeRows;
     String leftText({required bool year}) => <String>[
           ...switch (shape) {
             PolyCardShape.game => [
@@ -1054,16 +1072,22 @@ class _HalfRingPainter extends CustomPainter {
       old.stroke != stroke;
 }
 
-/// A Yes / No price pill under a single market's row: small (72 by 28),
-/// the side's label and price ("Yes 29¢") in white on the side's solid
-/// market colour, the market page's big Yes / No buttons in miniature (no
-/// tint: solid fills or neutral grey only). Taps [onTap]; with none it is
+/// A Yes / No price pill under a single market's row, and on a Top
+/// markets card: small (72 by 28), the side's label and price ("Yes 29¢")
+/// in the side's market colour on the neutral surface (founder, 1
+/// November 2026: quiet pills, no solid green / red blocks on a list; no
+/// tinted chips anywhere in the app, so the ground is the surface
+/// colour, never a tint of the side's). Taps [onTap]; with none it is
 /// part of the row.
-class _SidePill extends StatelessWidget {
+class PolySidePill extends StatelessWidget {
   final String text;
+
+  /// The side's market colour ([AppColors.marketUp] / [marketDown]): the
+  /// pill's ink.
   final Color color;
   final VoidCallback? onTap;
-  const _SidePill({required this.text, required this.color, this.onTap});
+  const PolySidePill(
+      {super.key, required this.text, required this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1071,10 +1095,8 @@ class _SidePill extends StatelessWidget {
       width: 72.w,
       height: 28.h,
       alignment: Alignment.center,
-      // Solid, as the market page's big Yes / No buttons (founder, 31
-      // October 2026: no tinted chips anywhere in the app).
       decoration: BoxDecoration(
-        color: color,
+        color: context.colors.surfaceLight,
         borderRadius: BorderRadius.circular(9.r),
       ),
       child: Text(
@@ -1083,7 +1105,7 @@ class _SidePill extends StatelessWidget {
         softWrap: false,
         overflow: TextOverflow.fade,
         style: TextStyle(
-          color: Colors.white,
+          color: color,
           fontSize: 11.sp,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
@@ -1100,16 +1122,21 @@ class _SidePill extends StatelessWidget {
   }
 }
 
-/// One outcome of an event's row: its name, a dotted leader to the right
-/// edge, its chance ("Name …… 41%"). The name takes what it needs up to
-/// most of the line, cut only then; the leader takes the rest.
+/// One outcome of an event's row: its name, a thin chance bar and its
+/// chance ("Name ▬▬▬▬ 41%"). The name takes what it needs up to most of
+/// the line, cut only then; the bar takes the rest, and the figure keeps
+/// its width in tabular figures so the bars of the rows end together.
 class _OutcomeLine extends StatelessWidget {
   final String name;
+
+  /// The outcome's chance, 0 to 1: the bar's fill.
+  final double fraction;
   final String chance;
   final TextStyle nameStyle;
   final TextStyle chanceStyle;
   const _OutcomeLine({
     required this.name,
+    required this.fraction,
     required this.chance,
     required this.nameStyle,
     required this.chanceStyle,
@@ -1117,57 +1144,55 @@ class _OutcomeLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return LayoutBuilder(builder: (context, constraints) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.7),
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
             child: Text(name,
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle),
           ),
-          SizedBox(width: 6.w),
-          Expanded(
-            child: SizedBox(
-              height: 12.h,
-              child: CustomPaint(painter: _DotLeaderPainter(color: c.border)),
-            ),
+          SizedBox(width: 8.w),
+          Expanded(child: PolyOutcomeChanceBar(fraction: fraction)),
+          SizedBox(width: 8.w),
+          // Wide enough for "100%": the bars end on one edge.
+          ConstrainedBox(
+            constraints: BoxConstraints(minWidth: 36.w),
+            child: Text(chance, textAlign: TextAlign.right, style: chanceStyle),
           ),
-          SizedBox(width: 6.w),
-          Text(chance, style: chanceStyle),
         ],
       );
     });
   }
 }
 
-/// The dotted leader of an [_OutcomeLine]: round dots, 1.5 wide and 4
-/// apart, on the line's middle.
-class _DotLeaderPainter extends CustomPainter {
-  final Color color;
-  const _DotLeaderPainter({required this.color});
+/// An outcome's chance as a thin bar: 4 tall, rounded, the track in the
+/// border colour and [fraction] of it filled in the primary text colour
+/// (neutral, as the Yes/No gauge: a chance is not good or bad).
+class PolyOutcomeChanceBar extends StatelessWidget {
+  final double fraction;
+  const PolyOutcomeChanceBar({super.key, required this.fraction});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const spacing = 4.0;
-    final count = (size.width / spacing).floor();
-    if (count <= 0) return;
-    final start = (size.width - (count - 1) * spacing) / 2;
-    final y = size.height * 0.62;
-    final points = [
-      for (var i = 0; i < count; i++) Offset(start + i * spacing, y),
-    ];
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPoints(PointMode.points, points, paint);
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: SizedBox(
+        height: 4,
+        child: ColoredBox(
+          color: c.border,
+          child: FractionallySizedBox(
+            alignment: AlignmentDirectional.centerStart,
+            widthFactor: fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0,
+            heightFactor: 1,
+            child: ColoredBox(color: c.textPrimary),
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant _DotLeaderPainter old) => old.color != color;
 }
 
 /// A team's name, never cut while it can be written: whole on one line,

@@ -96,8 +96,8 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // The one meta line is whole: the volume and when it closes.
-    final meta = find.text(r'$2.5M · closes Oct 2026');
+    // The one meta line is whole: when it closes, then the volume.
+    final meta = find.text(r'Closes Oct 2026 · $2.5M');
     expect(meta, findsNWidgets(_longest.length));
     for (final e in meta.evaluate()) {
       expect((e.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
@@ -128,7 +128,7 @@ void main() {
       expect(text.maxLines, 2, reason: q);
       expect(text.overflow, TextOverflow.ellipsis, reason: q);
     }
-    // An outcome row is "Name …… 41%": the name keeps to its one line.
+    // An outcome row is "Name ▬▬▬ 41%": the name keeps to its one line.
     for (final e in find.text(first).evaluate()) {
       final text = e.widget as Text;
       expect(text.maxLines, 1);

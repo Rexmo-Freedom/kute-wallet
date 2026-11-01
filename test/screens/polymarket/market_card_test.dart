@@ -168,18 +168,20 @@ void main() {
     expect(_rolled('24%'), findsOneWidget);
     expect(_rolled('76%'), findsNothing);
     // No day move on the row (the gauge carries the chance): one quiet
-    // meta line, the volume and when it closes, and the two side pills.
+    // meta line, when it closes and then the volume, and the two side
+    // pills.
     expect(find.textContaining('today'), findsNothing);
     expect(find.text('Dec 31, 2030'), findsNothing);
-    expect(find.text(r'$1.5K · closes Dec 2030'), findsOneWidget);
+    expect(find.text(r'Closes Dec 2030 · $1.5K'), findsOneWidget);
     expect(find.text('Yes ${polymarketCentsLabel(0.24)}'), findsOneWidget);
     expect(find.text('No ${polymarketCentsLabel(0.76)}'), findsOneWidget);
-    // The pills are the market page's big Yes / No buttons in miniature:
-    // solid market fills, white text, no tint.
+    // The pills are quiet: the side's market colour as ink on the
+    // neutral surface, no solid green / red block and no tint.
+    final c = AppColorsExtension.light();
     final yes = tester.widget<Text>(find.text('Yes ${polymarketCentsLabel(0.24)}'));
     final no = tester.widget<Text>(find.text('No ${polymarketCentsLabel(0.76)}'));
-    expect(yes.style?.color, Colors.white);
-    expect(no.style?.color, Colors.white);
+    expect(yes.style?.color, AppColors.marketUp);
+    expect(no.style?.color, AppColors.marketDown);
     expect(yes.style?.fontWeight, FontWeight.w600);
     final yesPill = tester.widget<Container>(find.ancestor(
         of: find.text('Yes ${polymarketCentsLabel(0.24)}'),
@@ -187,10 +189,13 @@ void main() {
     final noPill = tester.widget<Container>(find.ancestor(
         of: find.text('No ${polymarketCentsLabel(0.76)}'),
         matching: find.byType(Container)).first);
-    expect((yesPill.decoration as BoxDecoration).color, AppColors.marketUp);
-    expect((noPill.decoration as BoxDecoration).color, AppColors.marketDown);
+    expect((yesPill.decoration as BoxDecoration).color, c.surfaceLight);
+    expect((noPill.decoration as BoxDecoration).color, c.surfaceLight);
     expect(tester.getSize(find.byWidget(yesPill)).height,
         moreOrLessEquals(28.h, epsilon: 0.5));
+    // Both pills sit on one line.
+    expect(tester.getTopLeft(find.byWidget(yesPill)).dy,
+        tester.getTopLeft(find.byWidget(noPill)).dy);
   });
 
   testWidgets('a flat or unknown day shows no move', (tester) async {
@@ -211,8 +216,8 @@ void main() {
     expect(find.textContaining('today'), findsNothing);
   });
 
-  testWidgets('many outcomes: the two most likely and how many more',
-      (tester) async {
+  testWidgets('many outcomes: the three most likely, each with its chance '
+      'bar, and how many more', (tester) async {
     await _pump(
       tester,
       const MarketCard(
@@ -232,9 +237,21 @@ void main() {
     expect(find.text('84%'), findsOneWidget);
     expect(find.text('Portugal'), findsOneWidget);
     expect(find.text('16%'), findsOneWidget);
-    expect(find.text('France'), findsNothing);
-    expect(find.text('+2 more'), findsOneWidget);
+    expect(find.text('France'), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+    expect(find.text('Brazil'), findsNothing);
+    expect(find.text('+1 more'), findsOneWidget);
     expect(find.textContaining('outcomes'), findsNothing);
+    // A thin bar per row, filled to the outcome's chance, in order.
+    final bars = tester
+        .widgetList<PolyOutcomeChanceBar>(find.byType(PolyOutcomeChanceBar))
+        .map((b) => b.fraction)
+        .toList();
+    expect(bars, [0.84, 0.16, 0.05]);
+    expect(tester.getSize(find.byType(PolyOutcomeChanceBar).first).height, 4);
+    // The figures end on one edge, so the bars do too.
+    expect(tester.getTopRight(find.text('84%')).dx,
+        tester.getTopRight(find.text('5%')).dx);
   });
 
   testWidgets(

@@ -32,6 +32,7 @@ import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_category_icons.dart';
 import 'package:kute/screens/polymarket/components/poly_crest_image.dart';
 import 'package:kute/screens/polymarket/components/poly_feed_utils.dart';
+import 'package:kute/screens/polymarket/components/top_markets_strip.dart';
 import 'package:kute/screens/polymarket/group_landing_screen.dart';
 import 'package:kute/screens/polymarket/components/bet_slip_sheet.dart';
 import 'package:kute/screens/polymarket/components/price_format.dart';
@@ -886,10 +887,23 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
       final open = feed.events.where((e) => !e.ended).toList(growable: false);
       final events = collapseByGameId(open);
       final siblings = siblingsByGameId(open);
+      // The markets with the most volume in the day as big cards in a
+      // side-scrolling strip, first in the feed (founder, 1 November
+      // 2026); not over the watchlist, which is the user's own pick.
+      final top = query.pill == PolyPill.watchlist
+          ? const <PolymarketEvent>[]
+          : polyTopMarkets(open);
       // Plain Yes/No markets share one grouped card like Home's
       // Activity; an event with many outcomes or a game keeps its own
       // card and breaks the group (founder, October 2026).
       body = [
+        if (top.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: _SectionHeader(label: context.l10n.predictionsTopMarkets),
+          ),
+          SliverToBoxAdapter(child: _topMarketsStrip(top)),
+          SliverToBoxAdapter(child: SizedBox(height: 8.h)),
+        ],
         SliverToBoxAdapter(child: SizedBox(height: 8.h)),
         ..._groupedSlivers(events, (market) => (
               isSportsCategory: market.category == 'sports',
@@ -916,6 +930,34 @@ class _PolymarketScreenState extends ConsumerState<PolymarketScreen> {
         ),
     ];
   }
+
+  /// The Top markets strip: a card opens the market page as a list card
+  /// does, a pill the slip on that side, both marked as from the strip.
+  Widget _topMarketsStrip(List<PolymarketEvent> top) => PolyTopMarketsStrip(
+        markets: top,
+        // The chart's history starts reading as the finger comes down.
+        onOpenDown: MarketDetailSheet.prefetch,
+        onOpen: (market) {
+          HapticFeedback.mediumImpact();
+          MarketDetailSheet.show(
+            context,
+            event: market,
+            onDeposit: () async {
+              if (context.mounted) _openPredictionsDeposit(context, ref);
+            },
+            source: 'top_markets',
+          );
+        },
+        onPickSide: (market, side) => polyCardOpenSlip(
+          context,
+          event: market,
+          side: side,
+          onDeposit: () async {
+            if (context.mounted) _openPredictionsDeposit(context, ref);
+          },
+          source: 'top_markets',
+        ),
+      );
 
   /// The games in play by league, the league with the most games first.
   /// Games of a league Polymarket's league list does not name share one
