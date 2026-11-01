@@ -14,6 +14,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kute/screens/home/components/kute_shell_bar.dart' show KuteBarPrimaryButton;
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/shared/kute_bar_context.dart';
@@ -393,7 +394,9 @@ class PolySlipCta extends StatelessWidget {
         style: KuteBarPrimaryStyle(
           fill: fill,
           foreground: fg,
-          radius: BorderRadius.circular(16.r),
+          // The bar's own pill shape (kute_shell_bar.dart): the slip's
+          // button is the same pill in the slip's colour.
+          radius: KuteBarPrimaryButton.radius,
           fontWeight: FontWeight.w800,
         ),
         category: SearchCategory.predictions,

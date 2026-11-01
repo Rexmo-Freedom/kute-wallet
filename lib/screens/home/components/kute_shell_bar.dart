@@ -341,22 +341,23 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                   padding: EdgeInsets.fromLTRB(ctx.isPrimary ? 16.w : 12.w, 0,
                       ctx.isPrimary ? 16.w : 12.w, 2.h),
                   // Centred; docked right while folded. As a primary
-                  // button it morphs to the full width on the sheet
-                  // spring (AnimatedSize) and back.
+                  // button it grows to the full width on the chip spring
+                  // (AnimatedSize; the pill's own elastic movement) and
+                  // springs back to the pill.
                   child: AnimatedAlign(
                     alignment:
                         collapsed ? Alignment.centerRight : Alignment.center,
                     duration:
-                        reduce ? Duration.zero : KuteMotion.sheetInDuration,
-                    curve: KuteMotion.sheetIn,
+                        reduce ? Duration.zero : KuteMotion.chipDuration,
+                    curve: KuteMotion.chip,
                     // The size tween of the morph; a zero-length
                     // AnimatedSize re-dirties itself in layout (a Flutter
                     // assertion), so Reduce Motion switches at once.
                     child: reduce
                         ? bar
                         : AnimatedSize(
-                            duration: KuteMotion.sheetInDuration,
-                            curve: KuteMotion.sheetIn,
+                            duration: KuteMotion.chipDuration,
+                            curve: KuteMotion.chip,
                             alignment: collapsed
                                 ? Alignment.centerRight
                                 : Alignment.center,
@@ -591,9 +592,12 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
 }
 
 /// THE BAR AS THE PRIMARY BUTTON (founder, 31 October 2026; see
-/// KuteBarContext.primary): the screen's 16 px gutters, 56 tall, the
-/// app's primary button (textPrimary fill, the mode's contrast label,
-/// w600 16), Sal's 28 px face at the left: `curious` while the action is
+/// KuteBarContext.primary): the screen's 16 px gutters, 56 tall, a PILL
+/// like the Sal pill it grows out of (founder, 1 November 2026: the big
+/// black buttons, Send bitcoin, the slips' Place, wear the pill's shape
+/// and its spring, the button filling the pill's space), the app's
+/// primary fill (textPrimary, the mode's contrast label, w600 16), Sal's
+/// 28 px face at the left: `curious` while the action is
 /// not available (no amount yet), `idle` when it is, `search` at 1.4x
 /// while busy. Disabled: the surface fill, a hairline and the quiet
 /// label; not tappable. Busy: the label beside the progress ring; taps
@@ -617,6 +621,10 @@ class KuteBarPrimaryButton extends StatelessWidget {
   /// Runs the tap against the live context (the shell bar's); null runs
   /// [barContext]'s own handler.
   final VoidCallback? onPrimaryTap;
+
+  /// The button's height, and the pill radius that follows from it.
+  static const double height = 56;
+  static final BorderRadius radius = BorderRadius.circular(height / 2);
 
   @override
   Widget build(BuildContext context) {
@@ -670,12 +678,12 @@ class KuteBarPrimaryButton extends StatelessWidget {
             key: const ValueKey('kute-bar-primary-button'),
             duration: reduce ? Duration.zero : KuteMotion.chipDuration,
             curve: reduce ? Curves.linear : KuteMotion.chip,
-            height: 56,
+            height: KuteBarPrimaryButton.height,
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 14.w),
             decoration: BoxDecoration(
               color: fill,
-              borderRadius: style?.radius ?? AppRadius.buttonBorder,
+              borderRadius: style?.radius ?? KuteBarPrimaryButton.radius,
               border: Border.all(
                 color: live || style != null
                     ? Colors.transparent
