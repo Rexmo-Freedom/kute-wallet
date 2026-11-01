@@ -480,8 +480,9 @@ void main() {
       'the P&L chart leads, the sub-tab pills under it, then the card with '
       'the category donut and the tiles', (tester) async {
     await _pump(tester, predictions: true);
-    // The chart card: caption, the account's P&L (6 realised + 10 open)
-    // and the line over the range picked under it.
+    // The chart card: caption, the P&L over the month picked (−5 a month
+    // ago to 16 now, 6 realised + 10 open: +21) and the line naming the
+    // range under it.
     expect(_chartCard, findsOneWidget);
     expect(find.byType(PortfolioPnlChart), findsOneWidget);
     expect(find.text('Profit and loss'), findsOneWidget);
@@ -490,7 +491,8 @@ void main() {
             .widget<RollingNumberText>(
                 find.byKey(const ValueKey('statistics-pnl-headline')))
             .text,
-        r'+$16.00');
+        r'+$21.00');
+    expect(find.text('Past month'), findsOneWidget);
     final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
     // The result colour (up over the month), one line.
     expect(chart.lineColor, AppColors.marketUp);
@@ -651,7 +653,14 @@ void main() {
       final chart = tester.widget<KuteTrendChart>(find.byType(KuteTrendChart));
       expect(chart.values.first, 5);
       expect(chart.values.last, 5);
-      expect(find.text('No change · Past month'), findsOneWidget);
+      // Nothing made or lost in the month: $0.00 over "Past month".
+      expect(
+          tester
+              .widget<RollingNumberText>(
+                  find.byKey(const ValueKey('statistics-pnl-headline')))
+              .text,
+          r'$0.00');
+      expect(find.text('Past month'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1611,8 +1620,9 @@ void main() {
         (tester) async {
       await pumpOverview(tester);
       expectFlatSection(tester);
-      // 16 now at Predictions (6 realised, 10 open), 15 at Investing.
-      expect(headline(tester), r'+$31.00');
+      // 16 now at Predictions (6 realised, 10 open), 15 at Investing; each
+      // −5 a month ago: the figure is the month's, +21 and +20.
+      expect(headline(tester), r'+$41.00');
       expect(headlineColor(tester), AppColors.marketUp);
       expect(venueAmount(tester, 'predictions'), r'+$16.00');
       expect(venueAmountColor(tester, 'predictions'), AppColors.marketUp);
@@ -1721,7 +1731,8 @@ void main() {
       expect(opacity('predictions'), 1);
 
       await open(tester, pick('investing'));
-      expect(headline(tester), r'+$15.00');
+      // Investing's month: −5 to 15.
+      expect(headline(tester), r'+$20.00');
       // The line is Investing's alone, ending on its P&L now.
       expect(
           tester.widget<KuteTrendChart>(find.byType(KuteTrendChart)).values.last,
@@ -1734,7 +1745,7 @@ void main() {
       expect(opacity('predictions'), greaterThan(0.4));
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$16.00');
+      expect(headline(tester), r'+$21.00');
       expect(statFigure(tester, 'realised'), r'+$6.00');
       expect(statFigure(tester, 'unrealised'), r'+$10.00');
       // One closed win, one closed loss.
@@ -1743,7 +1754,7 @@ void main() {
       expect(opacity('predictions'), 1);
 
       await open(tester, pick('predictions'));
-      expect(headline(tester), r'+$31.00');
+      expect(headline(tester), r'+$41.00');
       expect(stat('win-rate'), findsNothing);
       expect(opacity('investing'), 1);
       expect(
@@ -1804,7 +1815,7 @@ void main() {
       expect(venueRow('predictions'), findsOneWidget);
       expect(venueRow('investing'), findsNothing);
       expect(pick('predictions'), findsNothing);
-      expect(headline(tester), r'+$16.00');
+      expect(headline(tester), r'+$21.00');
       expect(statFigure(tester, 'win-rate'), '50%');
       expect(tester.takeException(), isNull);
     });

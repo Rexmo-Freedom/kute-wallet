@@ -21,7 +21,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/screens/home/components/kute_dock_host.dart'
-    show KuteDockClearance;
+    show KuteDockClearance, kuteDockScrollClearance;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 import 'package:kute/screens/shared/no_activity_state.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -108,6 +110,11 @@ class PortfolioSectionEmptyPage extends StatelessWidget {
               child: PortfolioSectionEmpty(title: title, tagline: tagline),
             ),
           ),
+          // The tagline scrolls clear of the Portfolio screen's bar.
+          SliverToBoxAdapter(
+              child: SizedBox(
+                  height: kuteBarScrollClearance.h +
+                      kuteDockScrollClearance(context))),
         ],
       );
 }

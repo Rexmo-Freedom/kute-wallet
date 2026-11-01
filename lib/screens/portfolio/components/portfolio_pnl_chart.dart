@@ -14,13 +14,14 @@
 //     Statistics keeps the same content in its card, among its other
 //     cards;
 //   * the caption "Profit and loss" (13 sp, textSecondary), then the P&L
-//     now (realised plus open, the line's last point) as the figure, 34 sp
-//     w700 tabular, rolling, in marketUp / marketDown (textPrimary at
-//     zero), then the change line "▲ $31.84 (+7.4%) · Past month": the
-//     arrow and amount in the change's colour, the percent only where a
-//     real base exists ([PortfolioPnlChart.percentBaseUsd]; none today, a
-//     P&L series has no base of its own, so never invented), the period
-//     after a middle dot; flat: "No change · Past month";
+//     OVER THE RANGE picked as the figure (founder, 1 November 2026: an
+//     all-time figure over "Past week" read as a contradiction;
+//     [pnlRangeChange]: the line's end less the range's start, ALL the
+//     all-time P&L), 34 sp w700 tabular, rolling, signed, in marketUp /
+//     marketDown (textPrimary at zero), then the line naming the range
+//     ("Past week"), after the percent only where a real base exists
+//     ([PortfolioPnlChart.percentBaseUsd]; none today, a P&L series has
+//     no base of its own, so never invented);
 //   * the plot full-bleed to the gutters, 220 tall: [KuteTrendChart] as
 //     it is (the thin line in the RESULT colour of the range,
 //     [pnlResultColor]; the dashed hairline at the range's start; the
@@ -31,14 +32,17 @@
 //     px under the plot, 1M to start and remembered for the session;
 //     picking a range morphs the line;
 //   * SCRUB: a horizontal drag (or a long press, then slide) puts the P&L
-//     under the finger in the figure, and its change since the range's
-//     start and its moment in the change line ("▼ $6.38 · Oct 16 14:00");
-//     release puts the P&L now back;
+//     under the finger since the range's start in the figure (ALL: the
+//     P&L at that point) and its moment in the line under it ("Oct 16
+//     14:00"); release puts the range's P&L back;
 //   * the STATS STRIP ([PortfolioPnlChart.stats], [PnlStatsFigures]) in
 //     ONE soft card (founder, 1 November 2026: the home Activity list's
 //     card, PortfolioCardList in position_rows.dart, its rows' 16 / 13
 //     padding): one row, three equal columns, 12 sp labels in
-//     textSecondary over 15 w600 figures: Realised, Unrealised, Win rate.
+//     textSecondary over 15 w600 figures: All time realised, All time
+//     unrealised, Win rate. They do NOT follow the range (the providers
+//     give the realised P&L and the open P&L as totals), so their labels
+//     say all time.
 //     A figure no provider gives is not a dash: its column is left out
 //     (Win rate needs closed-trade counts, which only Predictions has);
 //   * "By venue" (13 sp, textSecondary) and the venue rows
@@ -123,6 +127,33 @@ Color pnlResultColor(AppColorsExtension c, double change) => change > 0
 /// month to start. One choice for every series (the toggle keeps it).
 final pnlChartRangeProvider =
     StateProvider<BalanceRange>((ref) => BalanceRange.month);
+
+/// The venue picked in "By venue" on the spending account's P&L Charts
+/// (portfolio_statistics.dart): the chart draws it alone and the Portfolio
+/// screen's ring above shows it (balances_overview.dart). Null: All.
+/// Cleared once nothing watches it (the section left).
+final pnlChartVenueProvider =
+    StateProvider.autoDispose<PortfolioPerformanceVenue?>((ref) => null);
+
+/// The P&L over [range] of a window's [values] (oldest first): the line's
+/// end (or [at], a point under the finger) less the range's start; for
+/// ALL the line's own value, the P&L since the account began. Null with
+/// no points.
+double? pnlRangeChange(List<double> values, BalanceRange range,
+    {double? at}) {
+  if (values.isEmpty) return null;
+  final end = at ?? values.last;
+  return range == BalanceRange.all ? end : end - values.first;
+}
+
+/// [data]'s P&L over [range] ending [now] ([pnlRangeChange]); null with
+/// no points.
+double? pnlVenueRangeChange(
+    PortfolioPerformance data, BalanceRange range, DateTime now) {
+  final series = pnlSeries(data, now);
+  return pnlRangeChange(
+      kuteTrendWindow(series, series.spanFor(range)).values, range);
+}
 
 /// The stats strip's figures for the series drawn. Null is not given by
 /// any provider: that column is left out, never a dash or a zero.
@@ -267,9 +298,11 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
         ? c.textPrimary
         : pnlResultColor(c, values.last - values.first);
 
-    // The figure: the P&L now (the line's last point), or the P&L under
-    // the finger.
-    final headline = scrubbing ? scrub.value : series.values.last;
+    // The figure: the P&L over the range picked, or since the range's
+    // start to the point under the finger (ALL: the P&L at that point).
+    final headline = pnlRangeChange(values, range,
+            at: scrubbing ? scrub.value : null) ??
+        series.values.last;
     final headlineColor =
         !visible ? c.textPrimary : pnlResultColor(c, headline);
 
@@ -299,42 +332,35 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       ),
     );
 
-    // The change line: the change over the range (or to the finger), its
-    // percent of a real base, and the period (or the moment under the
-    // finger).
+    // The line under the figure: the range the figure is over ("Past
+    // week"), or the moment under the finger, after the figure's percent
+    // of a real base (none today).
     Widget changeLine() {
       if (values.length < 2) return const SizedBox.shrink();
-      final to = scrubbing ? scrub.value : values.last;
-      final delta = to - values.first;
       final tail = scrubbing
           ? timeOf(scrub.time ?? times.last)
           : kuteTrendPeriodLabel(l10n, range);
-      final color = delta > 0
+      final color = headline > 0
           ? AppColors.marketUp
-          : delta < 0
+          : headline < 0
               ? AppColors.marketDown
               : c.textSecondary;
       final base = widget.percentBaseUsd;
-      final percent = visible && base != null && base > 0 && delta != 0
-          ? ' (${kuteSignedPercent(delta / base * 100)})'
-          : '';
+      final percent = visible && base != null && base > 0 && headline != 0
+          ? kuteSignedPercent(headline / base * 100)
+          : null;
       return Padding(
         padding: EdgeInsets.only(top: 6.h),
         child: Text.rich(
           TextSpan(children: [
-            if (delta == 0 && visible)
-              TextSpan(text: l10n.chartNoChange)
-            else
+            if (percent != null) ...[
               TextSpan(
-                // Hidden: dots alone, no arrow to read a direction from.
-                text: visible
-                    ? '${kuteTrendArrow(delta)}${money(delta)}$percent'
-                    : money(delta),
-                style: TextStyle(
-                    color: visible ? color : c.textPrimary,
-                    fontWeight: FontWeight.w700),
+                text: percent,
+                style: TextStyle(color: color, fontWeight: FontWeight.w700),
               ),
-            TextSpan(text: ' · $tail'),
+              const TextSpan(text: ' · '),
+            ],
+            TextSpan(text: tail),
           ]),
           key: const ValueKey('statistics-pnl-header'),
           maxLines: 1,
@@ -478,10 +504,11 @@ class PnlStatsStrip extends ConsumerWidget {
         : '••••••';
     Color colorOf(double v) => visible ? pnlResultColor(c, v) : c.textPrimary;
     final columns = <(String, String, String, Color)>[
+      // All time: the providers give these as totals, not over a range.
       if (stats.realisedUsd case final v?)
-        ('realised', l10n.pnlStatRealised, signed(v), colorOf(v)),
+        ('realised', l10n.pnlStatRealisedAllTime, signed(v), colorOf(v)),
       if (stats.unrealisedUsd case final v?)
-        ('unrealised', l10n.pnlStatUnrealised, signed(v), colorOf(v)),
+        ('unrealised', l10n.pnlStatUnrealisedAllTime, signed(v), colorOf(v)),
       if (stats.winRate case final v?)
         (
           'win-rate',

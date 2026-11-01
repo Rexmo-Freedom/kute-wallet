@@ -11571,6 +11571,17 @@ class AppLocalizationsLv extends AppLocalizations {
   String get pnlStatUnrealised => 'Unrealised';
 
   @override
+  String get pnlStatRealisedAllTime => 'All time realised';
+
+  @override
+  String get pnlStatUnrealisedAllTime => 'All time unrealised';
+
+  @override
+  String portfolioInvestedInVenue(String venue) {
+    return 'Invested in $venue';
+  }
+
+  @override
   String get pnlStatWinRate => 'Win rate';
 
   @override

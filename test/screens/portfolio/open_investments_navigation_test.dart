@@ -629,9 +629,9 @@ void main() {
           .widget<RollingNumberText>(
               find.byKey(const ValueKey('statistics-pnl-headline')))
           .text;
-      // The P&L now: Investing's 15 and Predictions' 4 (nothing closed
-      // yet, all of it open).
-      expect(headline(), r'+$19.00');
+      // The P&L over the month picked: Investing −5 a month ago to 15 now,
+      // Predictions' 4 (nothing closed yet, all of it open): +24.
+      expect(headline(), r'+$24.00');
       // Each venue's line with its own "No … yet".
       expect(find.text('No predictions yet'), findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
@@ -692,7 +692,8 @@ void main() {
               .widget<RollingNumberText>(
                   find.byKey(const ValueKey('statistics-pnl-headline')))
               .text,
-          r'+$15.00');
+          // Investing's month: −5 to 15.
+          r'+$20.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
       expect(

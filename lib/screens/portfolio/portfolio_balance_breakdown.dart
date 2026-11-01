@@ -408,7 +408,12 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.heroOnly = false,
     this.venuesOnly = false,
     this.refreshOnOpen = true,
+    this.focus,
   });
+
+  /// The venue picked on P&L Charts, shown by the hero
+  /// (BalancesOverview.focus); null: the allocation.
+  final BalancesCategory? focus;
 
   final bool trading;
   final bool predictions;
@@ -749,6 +754,7 @@ class _PortfolioBalanceBreakdownState
         sectionSwitch: widget.sectionSwitch,
         heroOnly: widget.heroOnly,
         venuesOnly: widget.venuesOnly,
+        focus: widget.focus,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),

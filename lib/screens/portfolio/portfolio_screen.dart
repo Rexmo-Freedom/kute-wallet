@@ -124,19 +124,13 @@ class PortfolioScreen extends ConsumerWidget {
                       label: context.l10n.searchOrAskSalShort,
                       source: 'portfolio',
                     ),
-              // The bar floats over the list (nothing reserves room); the
-              // lists pad their own end by the bar's clearance, read from
-              // the MediaQuery padding they already use.
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  padding: MediaQuery.paddingOf(context).copyWith(
-                      bottom: MediaQuery.paddingOf(context).bottom +
-                          kuteBarScrollClearance.h),
-                ),
-                child: InvestmentsPortfolio(
-                  sharesHeader: true,
-                  onSection: (section) => pickSection(ref, section),
-                ),
+              // The bar floats over the list (nothing reserves room); each
+              // section ends its own scroll with the bar's clearance
+              // (kuteBarScrollClearance, investments_portfolio.dart), so
+              // the last row scrolls clear of the bar.
+              child: InvestmentsPortfolio(
+                sharesHeader: true,
+                onSection: (section) => pickSection(ref, section),
               ),
             ),
           ),

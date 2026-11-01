@@ -22,6 +22,8 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioCardList;
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarScrollClearance;
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -209,6 +211,7 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
     this.orders,
     this.footer = const [],
     this.footerEmpty = true,
+    this.barClearance = false,
     this.header,
     this.sectionEmpty,
   });
@@ -238,6 +241,11 @@ class PortfolioStatisticsOverview extends ConsumerStatefulWidget {
   /// one empty state.
   final bool footerEmpty;
 
+  /// Under the Portfolio screen's bar: the page's end adds
+  /// [kuteBarScrollClearance] inside the scroll, so the last venue row
+  /// scrolls clear of the bar.
+  final bool barClearance;
+
   @override
   ConsumerState<PortfolioStatisticsOverview> createState() =>
       _PortfolioStatisticsOverviewState();
@@ -253,15 +261,16 @@ String _eventVenue(PortfolioPerformanceVenue? venue) => switch (venue) {
 
 class _PortfolioStatisticsOverviewState
     extends ConsumerState<PortfolioStatisticsOverview> {
-  /// The venue the chart draws; null: All.
-  PortfolioPerformanceVenue? _charted;
+  /// The venue the chart draws; null: All. Shared with the Portfolio
+  /// screen's ring ([pnlChartVenueProvider]).
+  PortfolioPerformanceVenue? get _charted => ref.watch(pnlChartVenueProvider);
 
   void _chart(PortfolioPerformanceVenue? next) {
-    if (next == _charted) return;
+    if (next == ref.read(pnlChartVenueProvider)) return;
     HapticFeedback.selectionClick();
     TrackingService.track('portfolio_statistics_venue_toggled',
         params: {'venue': _eventVenue(next)});
-    setState(() => _charted = next);
+    ref.read(pnlChartVenueProvider.notifier).state = next;
   }
 
   /// [top] on the lists' 16 gutter, then the footer, the last row clear
@@ -278,7 +287,10 @@ class _PortfolioStatisticsOverviewState
           ),
         ...widget.footer,
         SliverToBoxAdapter(
-            child: SizedBox(height: 32.h + kuteDockScrollClearance(context))),
+            child: SizedBox(
+                height: 32.h +
+                    (widget.barClearance ? kuteBarScrollClearance.h : 0) +
+                    kuteDockScrollClearance(context))),
       ],
     );
   }
@@ -403,6 +415,15 @@ class _OverviewBody extends ConsumerWidget {
     ];
     final toggled = moving.length > 1 && moving.contains(charted);
     final series = toggled ? charted! : single;
+    // A pick the figures no longer allow (one venue moving now) is
+    // dropped, so the ring above never shows a venue the chart does not.
+    if (charted != null && !toggled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ref.read(pnlChartVenueProvider.notifier).state = null;
+        }
+      });
+    }
 
     // Each venue's history, and the venues' added.
     final byVenue = {

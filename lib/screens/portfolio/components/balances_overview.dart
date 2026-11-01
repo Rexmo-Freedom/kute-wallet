@@ -83,6 +83,13 @@
 //     colour, the amounts w600 tabular; the first dot in the Investing
 //     colour, the second in the Dollars colour; Invested is Investing
 //     plus Predictions at work, Available the Dollars cash;
+//   * THE RING ADAPTS (founder, 1 November 2026; [BalancesOverview.focus]):
+//     on P&L Charts with a venue picked in "By venue" its slice stays and
+//     the others dim to 30% (the donut's morph on KuteMotion.settle, at
+//     once under Reduce Motion), the hole is the venue's name over its
+//     P&L for the chart's range ("Predictions", "▲ $7.61"), and the line
+//     under the ring is "● Invested in Predictions $4.24"; picked again,
+//     or another section, the allocation as above;
 //   * 14, then the section switch (Portfolio | P&L Charts | Activity, the
 //     home strip: equal thirds, the picked one the white pill with the
 //     hairline and the shadow; [sectionSwitch], the Portfolio page hands
@@ -118,6 +125,8 @@ import 'package:kute/providers/polymarket_live_prices_provider.dart'
 import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlChartRangeProvider, pnlVenueRangeChange;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
         PortfolioCardList,
@@ -170,6 +179,9 @@ TextStyle balancesFlatSectionTitle(BuildContext context) => TextStyle(
 
 /// The Portfolio screen's hero ring (see the file header).
 const double kBalancesSharesRingDiameter = 150;
+
+/// A slice's opacity while another venue is picked on P&L Charts.
+const double kBalancesRingDimmed = 0.3;
 const double kBalancesSharesRingThickness = 14;
 
 /// How many of a venue's open rows its card lists before "See all".
@@ -394,7 +406,17 @@ class BalancesOverview extends StatefulWidget {
     this.sectionSwitch,
     this.heroOnly = false,
     this.venuesOnly = false,
+    this.focus,
   });
+
+  /// The venue picked in "By venue" on P&L Charts (founder, 1 November
+  /// 2026: the top ring adapts), in the [sharesHeader] hero: its slice
+  /// stays, the others dim to [kBalancesRingDimmed] (on the settle curve;
+  /// at once under Reduce Motion), the hole is the venue's name over its
+  /// P&L for the chart's range, and the line under the ring is "Invested
+  /// in {venue}" with what it has at work. Null: the allocation, as on
+  /// Portfolio.
+  final BalancesCategory? focus;
 
   /// The [sharesHeader] layout split in two (PortfolioBalanceBreakdown
   /// .heroOnly): only the hero ring, its line and [sectionSwitch]; or
@@ -683,6 +705,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             child: BalancesRing(
               categories: categories.keys.toList(),
               shares: shares,
+              focus: widget.focus,
               diameter: kBalancesSharesRingDiameter,
               thickness: kBalancesSharesRingThickness,
               semantics: [
@@ -696,6 +719,9 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 trading: investing != null,
                 predictions: predictions != null,
                 money: money,
+                focus: widget.focus,
+                focusLabel:
+                    widget.focus == null ? null : label(widget.focus!),
               ),
             ),
           ),
@@ -713,6 +739,17 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                 key: const ValueKey('portfolio-shares-legend'),
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // A venue picked on P&L Charts: what it has at work.
+                  if (widget.focus case final venue?)
+                    _LegendFigure(
+                      key: const ValueKey('portfolio-legend-focus'),
+                      color: balancesCategoryColor(c, venue),
+                      label: l10n.portfolioInvestedInVenue(label(venue)),
+                      figure: categories[venue] == null
+                          ? const BalancesFigure('—', stale: true)
+                          : figure(categories[venue]!),
+                    )
+                  else ...[
                   _LegendFigure(
                     key: const ValueKey('portfolio-legend-invested'),
                     color: balancesCategoryColor(c, BalancesCategory.investing),
@@ -727,6 +764,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
                     label: l10n.portfolioAvailableLabel,
                     figure: availableFigure,
                   ),
+                  ],
                 ],
               ),
             ),
@@ -1160,12 +1198,18 @@ class BalancesRing extends StatelessWidget {
     this.diameter = kBalancesRingDiameter,
     this.thickness = kBalancesRingThickness,
     this.center,
+    this.focus,
   });
 
   final List<BalancesCategory> categories;
   final Map<BalancesCategory, double> shares;
   final String semantics;
   final Key chartKey;
+
+  /// The slice kept at full colour, the others at [kBalancesRingDimmed];
+  /// null: every slice at full colour. The change morphs on
+  /// [KuteMotion.settle] (at once under Reduce Motion).
+  final BalancesCategory? focus;
 
   /// What sits in the hole (the Portfolio screen's all-time P&L); null
   /// for the bare ring.
@@ -1190,13 +1234,17 @@ class BalancesRing extends StatelessWidget {
           trackColor: context.isDark ? c.surfaceLight : c.surfaceElevated,
           onSelected: (_) {},
           center: center,
+          morphCurve: KuteMotion.settle,
           segments: [
             for (final k in categories)
               if ((shares[k] ?? 0) > 0)
                 KuteDonutSegment(
                   id: k,
                   value: shares[k]!,
-                  color: balancesCategoryColor(c, k),
+                  color: focus == null || focus == k
+                      ? balancesCategoryColor(c, k)
+                      : balancesCategoryColor(c, k)
+                          .withValues(alpha: kBalancesRingDimmed),
                   semanticsLabel: '',
                 ),
           ],
@@ -1375,21 +1423,37 @@ class _AllTimeCentre extends ConsumerWidget {
     required this.trading,
     required this.predictions,
     required this.money,
+    this.focus,
+    this.focusLabel,
   });
 
   final bool trading;
   final bool predictions;
   final String Function(double usd) money;
 
+  /// A venue picked on P&L Charts: its name ([focusLabel]) over its P&L
+  /// for the chart's range (pnlVenueRangeChange), in place of "All time".
+  final BalancesCategory? focus;
+  final String? focusLabel;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final l10n = context.l10n;
     final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
-    final venues = [
-      if (trading) PortfolioPerformanceVenue.trading,
-      if (predictions) PortfolioPerformanceVenue.predictions,
-    ];
+    final focused = focus;
+    final venues = focused != null
+        ? [
+            focused == BalancesCategory.predictions
+                ? PortfolioPerformanceVenue.predictions
+                : PortfolioPerformanceVenue.trading
+          ]
+        : [
+            if (trading) PortfolioPerformanceVenue.trading,
+            if (predictions) PortfolioPerformanceVenue.predictions,
+          ];
+    final range = focused == null ? null : ref.watch(pnlChartRangeProvider);
+    final caption = focusLabel ?? l10n.portfolioAllTime;
     double? total = 0;
     for (final v in venues) {
       final data = ref
@@ -1404,8 +1468,13 @@ class _AllTimeCentre extends ConsumerWidget {
           ? data.withLivePredictions(
               ref.watch(livePriceProvider.select((s) => s.prices)))
           : data;
-      // Never published anything: nothing made or lost.
-      final usd = p.points.isEmpty ? 0.0 : p.totalPnlUsd;
+      // Never published anything: nothing made or lost. A picked venue:
+      // its P&L over the chart's range, as the chart's figure reads it.
+      final usd = p.points.isEmpty
+          ? 0.0
+          : range != null
+              ? pnlVenueRangeChange(p, range, DateTime.now())
+              : p.totalPnlUsd;
       if (usd == null || !usd.isFinite) {
         total = null;
         break;
@@ -1455,12 +1524,13 @@ class _AllTimeCentre extends ConsumerWidget {
             12.w;
     return Semantics(
       container: true,
-      label: '${l10n.portfolioAllTime}, $text',
+      label: focused != null ? '$caption · $text' : '$caption, $text',
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.portfolioAllTime,
+          Text(caption,
+              key: const ValueKey('portfolio-all-time-caption'),
               style: TextStyle(
                 color: c.textSecondary,
                 fontSize: 11.sp,
