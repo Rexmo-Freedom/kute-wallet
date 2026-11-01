@@ -50,11 +50,21 @@
 // shadow, [_SectionPills]); on the Portfolio section the strip sits under
 // the shares card and Move money (BalancesOverview.sectionSwitch, handed
 // through the breakdown), on the other two at the top of the list.
+//
+// Empty, the three sections draw ONE empty state at one place under the
+// strip (founder, 1 November 2026; PortfolioSectionEmpty,
+// portfolio_empty_state.dart): the hero Sal at 160, "No open positions",
+// "No P&L yet" or "No activity yet" and the tagline; switching moves
+// nothing but the copy. P&L Charts never opens on a blank frame: what it
+// decides on is kept warm under the strip, and a read genuinely still on
+// its way is a skeleton of the chart's own size.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
+    show hyperliquidUserFillsProvider;
 import 'package:kute/screens/home/components/kute_dock_host.dart'
     show kuteDockScrollClearance;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
@@ -140,6 +150,13 @@ class InvestmentsPortfolio extends ConsumerWidget {
       // section alone scrolls (the Balances venues, the P&L card, the
       // activity), with no strip of its own.
       final venues = ref.watch(portfolioVenuesProvider);
+      // P&L Charts opens on its final state, never a blank frame: what it
+      // decides on is kept warm under the strip whatever section is on
+      // screen (the venues' P&L series are, by the ring's all-time P&L;
+      // the Investing fills here).
+      if (venues.trading) {
+        ref.listen(hyperliquidUserFillsProvider, (_, __) {});
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

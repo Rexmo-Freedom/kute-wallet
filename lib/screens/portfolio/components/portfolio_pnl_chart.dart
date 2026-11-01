@@ -67,6 +67,7 @@ import 'package:kute/screens/shared/charts/kute_trend_chart.dart';
 import 'package:kute/screens/shared/charts/kute_trend_window.dart';
 import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
+import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/rolling_number_text.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -358,4 +359,32 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
       ),
     );
   }
+}
+
+/// The P&L section's shape while a read is genuinely on its way (never a
+/// blank frame): the caption, the figure and the change line as bars, the
+/// plot's block at the plot's own height and the range row under it, so
+/// nothing moves when the chart lands.
+class PortfolioPnlSkeleton extends StatelessWidget {
+  const PortfolioPnlSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => KuteSkeleton(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 16.h),
+            SkeletonBar(96.w, 13.sp),
+            SizedBox(height: 8.h),
+            SkeletonBar(150.w, 34.sp, radius: 8.r),
+            SizedBox(height: 8.h),
+            SkeletonBar(140.w, 13.sp),
+            SizedBox(height: 16.h),
+            SkeletonBar(double.infinity, kPnlChartPlotHeight.h, radius: 12.r),
+            SizedBox(height: kKuteTrendRangeGap.h),
+            Center(child: SkeletonBar(260.w, 28.h, radius: 14.h)),
+          ],
+        ),
+      );
 }

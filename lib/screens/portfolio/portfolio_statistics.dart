@@ -305,13 +305,12 @@ class _PortfolioStatisticsOverviewState
     // A header keeps the page a scrolling list whatever the figures say.
     final footer = !widget.footerEmpty || widget.header != null;
     // As the venue's own tab: a reload keeps the last figures up.
+    // A read genuinely on its way: the chart's own shape, never a blank
+    // frame and never cards that are not there.
     if (results.values.any((r) => !r.hasValue && !r.hasError)) {
       return _page([
-        SkeletonCardList(
-            key: const ValueKey('portfolio-performance-loading'),
-            count: 3,
-            height: 164.h,
-            padding: EdgeInsets.zero),
+        const PortfolioPnlSkeleton(
+            key: ValueKey('portfolio-performance-loading')),
       ]);
     }
     final data = <PortfolioPerformanceVenue, PortfolioPerformance>{};
@@ -413,6 +412,18 @@ class _OverviewBody extends ConsumerWidget {
     // Never traded: no chart, no history, nothing resting. The page is
     // one empty state (the chart's words); or only the footer's rows.
     final resting = orders != null && !orders!.isEmpty;
+    // Whether it never traded is not known while the Investing fills are
+    // still on their way (the Portfolio screen keeps them warm, so this is
+    // a cold read): the chart's skeleton, never a card that then goes.
+    if (!combined.hasMovement &&
+        !resting &&
+        trading != null &&
+        trading.book == null &&
+        ref.watch(hyperliquidUserFillsProvider).isLoading) {
+      return page(const [
+        PortfolioPnlSkeleton(key: ValueKey('portfolio-performance-loading')),
+      ]);
+    }
     if (!combined.hasMovement && !resting && _Figures.quiet(figures)) {
       final text = single == PortfolioPerformanceVenue.predictions
           ? l10n.betHistoryEmpty

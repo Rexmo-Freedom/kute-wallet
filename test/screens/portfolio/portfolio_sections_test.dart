@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
-import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
     show hyperliquidActivityFillsProvider;
@@ -203,6 +202,31 @@ void main() {
     }
     // The same size the P&L one had: the hero 160.
     expect(base.width, moreOrLessEquals(160.sp));
+    await _unmount(tester);
+  });
+
+  testWidgets('P&L Charts, never traded: the first frame is the empty state',
+      (tester) async {
+    await _mount(tester);
+    await _pick(tester, PortfolioSection.charts);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('statistics-chart-empty')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
+        findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('P&L Charts with history: the first frame is the chart',
+      (tester) async {
+    await _mount(tester, extra: _history());
+    await _pick(tester, PortfolioSection.charts);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('statistics-pnl-chart')), findsOneWidget);
+    expect(find.byKey(const ValueKey('statistics-pnl-headline')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-performance-loading')),
+        findsNothing);
     await _unmount(tester);
   });
 }
