@@ -617,7 +617,9 @@
   "sendCouldNotPrepare": "Couldn't prepare this payment. Check the amount and address, then try again.",
   "scanCouldNotRead": "Couldn't read that code. Try again.",
   "scanSecretRefused": "This code looks like a recovery phrase or private key, not an address. Keep it private.",
-  "@scanSecretRefused": {"description": "Scanner: the code scanned is a recovery phrase or a private key, never an address; nothing is put into Send."},
+  "@scanSecretRefused": {
+    "description": "Scanner: the code scanned is a recovery phrase or a private key, never an address; nothing is put into Send."
+  },
   "walletImportCouldNotImport": "Couldn't import this wallet. Try again.",
   "receiveWithdrawalCouldNotClaim": "Couldn't claim this withdrawal. Try again.",
   "hwCouldNotReadSignedFile": "Couldn't read that file. Pick the signed transaction file and try again.",
@@ -3083,7 +3085,9 @@
   "chartToolsButton": "Tools",
   "chartStyleTitle": "Chart style",
   "hlAdvancedChart": "Advanced chart",
-  "@hlAdvancedChart": {"description": "Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators."},
+  "@hlAdvancedChart": {
+    "description": "Row under a Hyperliquid chart (market screen, above About; position screen, above Details) that opens the chart in its editing mode: drawing tools and indicators."
+  },
   "chartStyleCandles": "Candles",
   "chartStyleHollow": "Hollow candles",
   "chartStyleBars": "Bars",
@@ -3198,25 +3202,78 @@
   "chartLiquidationPrice": "Liquidation price",
   "chartYouHold": "You hold",
   "polyPosIfReaches": "If {side} reaches",
-  "@polyPosIfReaches": {"description": "Predictions open-position speedometer, while the user drags the needle to explore: small line above the hypothetical chance ('If No reaches' / '72%'). {side} is the held outcome (Yes, No, a candidate, a team).", "placeholders": {"side": {"type": "String"}}},
+  "@polyPosIfReaches": {
+    "description": "Predictions open-position speedometer, while the user drags the needle to explore: small line above the hypothetical chance ('If No reaches' / '72%'). {side} is the held outcome (Yes, No, a candidate, a team).",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
   "polyPosWorthNow": "Worth now",
-  "@polyPosWorthNow": {"description": "Predictions open-position screen: label of the tile with what the position is worth at the live price."},
+  "@polyPosWorthNow": {
+    "description": "Predictions open-position screen: label of the tile with what the position is worth at the live price."
+  },
   "polyPosWorthThen": "Worth then",
-  "@polyPosWorthThen": {"description": "Predictions open-position screen, while the user drags the speedometer needle: label of the tile with what the position would be worth at the hypothetical chance."},
+  "@polyPosWorthThen": {
+    "description": "Predictions open-position screen, while the user drags the speedometer needle: label of the tile with what the position would be worth at the hypothetical chance."
+  },
   "polyPosNow": "Now",
-  "@polyPosNow": {"description": "Predictions open-position screen: 'Now' — the tile with the live value while exploring, and the right end of the journey chart's time axis."},
+  "@polyPosNow": {
+    "description": "Predictions open-position screen: 'Now' — the tile with the live value while exploring, and the right end of the journey chart's time axis."
+  },
   "polyPosIfWins": "If {side} wins",
-  "@polyPosIfWins": {"description": "Predictions open-position screen: label of the tile with the payout if the held side wins. {side} is the held outcome (Yes, No, a candidate, a team).", "placeholders": {"side": {"type": "String"}}},
+  "@polyPosIfWins": {
+    "description": "Predictions open-position screen: label of the tile with the payout if the held side wins. {side} is the held outcome (Yes, No, a candidate, a team).",
+    "placeholders": {
+      "side": {
+        "type": "String"
+      }
+    }
+  },
   "polyPosSetSellAt": "Set a sell at {percent}%",
-  "@polyPosSetSellAt": {"description": "Predictions open-position screen: quiet button shown after the user drags the speedometer needle; opens a limit sell at that chance. {percent} is the chance without the percent sign.", "placeholders": {"percent": {"type": "String"}}},
+  "@polyPosSetSellAt": {
+    "description": "Predictions open-position screen: quiet button shown after the user drags the speedometer needle; opens a limit sell at that chance. {percent} is the chance without the percent sign.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "polyPosSinceBoughtAt": "since you bought at {price}",
-  "@polyPosSinceBoughtAt": {"description": "Predictions open-position screen: quiet second line under the result ('▲ $9.40 · +247%'). {price} is the average price paid in cents, e.g. 'since you bought at 19¢'. Lowercase.", "placeholders": {"price": {"type": "String"}}},
+  "@polyPosSinceBoughtAt": {
+    "description": "Predictions open-position screen: quiet second line under the result ('▲ $9.40 · +247%'). {price} is the average price paid in cents, e.g. 'since you bought at 19¢'. Lowercase.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "polyPosDragHint": "Drag the needle to see what it'd be worth",
-  "@polyPosDragHint": {"description": "Predictions open-position screen: quiet hint under the result line, shown until the user first drags the dial's needle (the needle sets a hypothetical chance and the tiles show what the position would be worth then). Short; 'it' is the position."},
+  "@polyPosDragHint": {
+    "description": "Predictions open-position screen: quiet hint under the result line, shown until the user first drags the dial's needle (the needle sets a hypothetical chance and the tiles show what the position would be worth then). Short; 'it' is the position."
+  },
   "polyPosChangeSince": "{percent} since {price}",
-  "@polyPosChangeSince": {"description": "Predictions open-position screen: small line under the profit at the top left, e.g. '+31% since 36¢'. {percent} is the signed change in percent ('+31%', '-0.3%'), {price} the average price paid in cents. Short.", "placeholders": {"percent": {"type": "String"}, "price": {"type": "String"}}},
+  "@polyPosChangeSince": {
+    "description": "Predictions open-position screen: small line under the profit at the top left, e.g. '+31% since 36¢'. {percent} is the signed change in percent ('+31%', '-0.3%'), {price} the average price paid in cents. Short.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "polyPosYourAvg": "Your avg {price}",
-  "@polyPosYourAvg": {"description": "Predictions open-position screen: small label at the left of the chart's dashed line at the user's average price, e.g. 'Your avg 19¢'. {price} is in cents; abbreviate 'average' as is natural.", "placeholders": {"price": {"type": "String"}}},
+  "@polyPosYourAvg": {
+    "description": "Predictions open-position screen: small label at the left of the chart's dashed line at the user's average price, e.g. 'Your avg 19¢'. {price} is in cents; abbreviate 'average' as is natural.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "chartNoData": "No chart data",
   "ledgerBetPrepared": "Spending enabled. Review your prediction to continue.",
   "moveAddPredictions": "Add to Predictions",
@@ -3333,7 +3390,9 @@
   "investingFeeApprovalFailed": "Fee approval was not completed. Please try again.",
   "investingFeeSettingsUnavailable": "Investing fee settings could not be verified. Try again.",
   "investingViewOrders": "View orders",
-  "@investingViewOrders": {"description": "Secondary button on a resting order's confirmation (Investing order placed, Predictions limit sell, a partly filled limit buy): opens Investments, Portfolio, P&L charts, where the open orders are listed."},
+  "@investingViewOrders": {
+    "description": "Secondary button on a resting order's confirmation (Investing order placed, Predictions limit sell, a partly filled limit buy): opens Investments, Portfolio, P&L charts, where the open orders are listed."
+  },
   "investingViewPositions": "View positions",
   "investingBought": "Bought",
   "investingSold": "Sold",
@@ -3461,21 +3520,37 @@
   "portfolioTabOrders": "Orders",
   "portfolioTabStatistics": "Statistics",
   "portfolioBalanceDollars": "Dollars",
-  "@portfolioBalanceDollars": {"description": "Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows."},
+  "@portfolioBalanceDollars": {
+    "description": "Title of the Dollars (USDB) row in the Portfolio's balance breakdown, above the Investing (Hyperliquid) and Predictions (Polymarket) rows."
+  },
   "portfolioRebalance": "Rebalance",
-  "@portfolioRebalance": {"description": "Button on the Portfolio's balance breakdown that moves all movable Investing and Predictions cash home to Dollars (USDB) now."},
+  "@portfolioRebalance": {
+    "description": "Button on the Portfolio's balance breakdown that moves all movable Investing and Predictions cash home to Dollars (USDB) now."
+  },
   "portfolioRebalanceMoving": "Moving to USDB…",
-  "@portfolioRebalanceMoving": {"description": "Line under a venue row in the Portfolio's balance breakdown while its cash is on its way to Dollars (USDB)."},
+  "@portfolioRebalanceMoving": {
+    "description": "Line under a venue row in the Portfolio's balance breakdown while its cash is on its way to Dollars (USDB)."
+  },
   "portfolioRebalanceMovingMinutes": "Moving to USDB… takes a few minutes",
-  "@portfolioRebalanceMovingMinutes": {"description": "Line under the Investing row while its cash is on its way to Dollars (USDB); this route takes a few minutes."},
+  "@portfolioRebalanceMovingMinutes": {
+    "description": "Line under the Investing row while its cash is on its way to Dollars (USDB); this route takes a few minutes."
+  },
   "portfolioRebalanceHeldOrders": "Held by open orders",
-  "@portfolioRebalanceHeldOrders": {"description": "Line under a venue row after Rebalance: its cash stayed because open orders hold it."},
+  "@portfolioRebalanceHeldOrders": {
+    "description": "Line under a venue row after Rebalance: its cash stayed because open orders hold it."
+  },
   "portfolioRebalanceHeldMargin": "Kept as margin for open positions",
-  "@portfolioRebalanceHeldMargin": {"description": "Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions."},
+  "@portfolioRebalanceHeldMargin": {
+    "description": "Line under the Investing row after Rebalance: its cash stayed because it is margin for open (cross) positions."
+  },
   "portfolioRebalanceBelowMinimum": "Below the minimum to move",
-  "@portfolioRebalanceBelowMinimum": {"description": "Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved."},
+  "@portfolioRebalanceBelowMinimum": {
+    "description": "Line under a venue row after Rebalance: its cash stayed because it is below the smallest amount that can be moved."
+  },
   "portfolioRebalanceNotNow": "Couldn't move now. Tap Rebalance to try again.",
-  "@portfolioRebalanceNotNow": {"description": "Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself."},
+  "@portfolioRebalanceNotNow": {
+    "description": "Line under a venue row after Rebalance: the cash could not move right now (a trade or claim settling, the route busy); the app retries by itself."
+  },
   "sendMoreThanAvailable": "That is more than you have available.",
   "receiveRequestAmount": "Request amount",
   "sendRecentRecipients": "Recent",
@@ -3493,7 +3568,9 @@
   "searchPredictionsHint": "Search predictions",
   "assetDollars": "Dollars",
   "moveSourceInvestments": "Investments",
-  "@moveSourceInvestments": {"description": "The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab."},
+  "@moveSourceInvestments": {
+    "description": "The pinned source row of the withdrawal sheet (Investments to Bitcoin): the Investments balance by the name of its tab."
+  },
   "@assetDollars": {
     "description": "Name of the dollar balance (Investments) as a source or destination row: the cross asset pickers, the Move route card, the move overlays. Its row wears the Investments arrow, never the USDB coin."
   },
@@ -3799,13 +3876,29 @@
   },
   "quotedReceiveWalletChanged": "Your account changed. Close this and start again.",
   "onetimeRefundAddressTitle": "Return address",
-  "@onetimeRefundAddressTitle": {"description": "Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back."},
+  "@onetimeRefundAddressTitle": {
+    "description": "Title of the optional return-address step of a one-time receive of another coin: where a deposit that cannot be completed is sent back."
+  },
   "optionalLabel": "Optional",
-  "@optionalLabel": {"description": "The word Optional on its own, starting a short subtitle such as 'Optional · USDC on HyperEVM' (the return-address step)."},
+  "@optionalLabel": {
+    "description": "The word Optional on its own, starting a short subtitle such as 'Optional · USDC on HyperEVM' (the return-address step)."
+  },
   "quotedReceiveReturnsTo": "Returns to",
-  "@quotedReceiveReturnsTo": {"description": "Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit."},
+  "@quotedReceiveReturnsTo": {
+    "description": "Label of the review line on the one-time receive address screen showing the return address (shortened) for a failed deposit."
+  },
   "activityReturnedTo": "Returned to {address} on {network}",
-  "@activityReturnedTo": {"description": "Line in a one-time receive's Activity detail once its deposit was sent back. {address} is the shortened return address, {network} the network.", "placeholders": {"address": {"type": "String"}, "network": {"type": "String"}}},
+  "@activityReturnedTo": {
+    "description": "Line in a one-time receive's Activity detail once its deposit was sent back. {address} is the shortened return address, {network} the network.",
+    "placeholders": {
+      "address": {
+        "type": "String"
+      },
+      "network": {
+        "type": "String"
+      }
+    }
+  },
   "stepUpReasonWithdrawWithSourceFee": "Confirm withdrawal of {amount}, with up to {fee} network fee. Maximum debit: {total}.",
   "@stepUpReasonWithdrawWithSourceFee": {
     "placeholders": {
@@ -4429,7 +4522,9 @@
   "moveInvestingDepositsUnavailable": "Investing deposits are temporarily unavailable.",
   "movePredictionsWalletNotReady": "Predictions wallet is not ready yet.",
   "predictionsUnreachableNothingSent": "Predictions couldn't be reached right now. Nothing was sent. Check your connection and try again.",
-  "@predictionsUnreachableNothingSent": {"description": "Move sheet: setup of the Predictions account failed on a Polygon read or the network before anything was quoted or sent."},
+  "@predictionsUnreachableNothingSent": {
+    "description": "Move sheet: setup of the Predictions account failed on a Polygon read or the network before anything was quoted or sent."
+  },
   "moveDepositRouteUnavailable": "This deposit route is temporarily unavailable. Try again later.",
   "moveWalletNotReady": "Wallet not ready yet. Try again in a moment.",
   "moveSelectCurrency": "Select currency",
@@ -5078,17 +5173,60 @@
   "hlChartEntry": "Entry",
   "hlChartLiq": "Liq",
   "hlChartYourEntry": "Your entry {price}",
-  "@hlChartYourEntry": {"description": "Investing open-position chart: small caption at the left of the dashed line at the position's entry price, e.g. 'Your entry $64,000'. Mirrors the Predictions position chart's 'Your avg 19¢'. {price} is the formatted price.", "placeholders": {"price": {"type": "String"}}},
+  "@hlChartYourEntry": {
+    "description": "Investing open-position chart: small caption at the left of the dashed line at the position's entry price, e.g. 'Your entry $64,000'. Mirrors the Predictions position chart's 'Your avg 19¢'. {price} is the formatted price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartLiquidationCaption": "Liquidation {price}",
-  "@hlChartLiquidationCaption": {"description": "Investing market chart: small caption at the left of the dashed line at the position's liquidation price, e.g. 'Liquidation $58,000'. {price} is the formatted price.", "placeholders": {"price": {"type": "String"}}},
+  "@hlChartLiquidationCaption": {
+    "description": "Investing market chart: small caption at the left of the dashed line at the position's liquidation price, e.g. 'Liquidation $58,000'. {price} is the formatted price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "hlPositionYouPutIn": "You put in",
-  "@hlPositionYouPutIn": {"description": "Investing open-position screen: label of the tile with the money the user put into the position (its margin), e.g. 'You put in $6,400.00'. Plain words, no trading jargon."},
+  "@hlPositionYouPutIn": {
+    "description": "Investing open-position screen: label of the tile with the money the user put into the position (its margin), e.g. 'You put in $6,400.00'. Plain words, no trading jargon."
+  },
   "hlPositionWorthNow": "Worth {amount} now",
-  "@hlPositionWorthNow": {"description": "Investing open-position screen: subline under 'You put in': what that money is worth now (margin plus the open profit or loss), e.g. 'Worth $7,400.00 now'.", "placeholders": {"amount": {"type": "String"}}},
+  "@hlPositionWorthNow": {
+    "description": "Investing open-position screen: subline under 'You put in': what that money is worth now (margin plus the open profit or loss), e.g. 'Worth $7,400.00 now'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlPositionProfit": "Profit {amount} ({percent})",
-  "@hlPositionProfit": {"description": "Investing open-position screen: the open result in plain words when it is a gain, e.g. 'Profit +$1,000.00 (+15.6%)'. {amount} is signed money, {percent} the signed return on what was put in.", "placeholders": {"amount": {"type": "String"}, "percent": {"type": "String"}}},
+  "@hlPositionProfit": {
+    "description": "Investing open-position screen: the open result in plain words when it is a gain, e.g. 'Profit +$1,000.00 (+15.6%)'. {amount} is signed money, {percent} the signed return on what was put in.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "hlPositionLoss": "Loss {amount} ({percent})",
-  "@hlPositionLoss": {"description": "Investing open-position screen: the open result in plain words when it is a loss, e.g. 'Loss −$500.00 (−7.8%)'. {amount} is signed money, {percent} the signed return on what was put in.", "placeholders": {"amount": {"type": "String"}, "percent": {"type": "String"}}},
+  "@hlPositionLoss": {
+    "description": "Investing open-position screen: the open result in plain words when it is a loss, e.g. 'Loss −$500.00 (−7.8%)'. {amount} is signed money, {percent} the signed return on what was put in.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartTrail": "Trail",
   "hlChartStop": "Stop",
   "hlTakeProfit": "Take profit",
@@ -5124,33 +5262,107 @@
   "hlChartYouBought": "You bought here",
   "hlChartYouSold": "You sold here",
   "hlChartOpenedLong": "Opened long {size}",
-  "@hlChartOpenedLong": {"description": "Investing chart fill tooltip headline: a fill that opened a long position. {size} is the size with the symbol, e.g. '0.5 ETH'.", "placeholders": {"size": {"type": "String"}}},
+  "@hlChartOpenedLong": {
+    "description": "Investing chart fill tooltip headline: a fill that opened a long position. {size} is the size with the symbol, e.g. '0.5 ETH'.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartOpenedShort": "Opened short {size}",
-  "@hlChartOpenedShort": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartOpenedShort": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartAddedLong": "Added to long {size}",
-  "@hlChartAddedLong": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartAddedLong": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartAddedShort": "Added to short {size}",
-  "@hlChartAddedShort": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartAddedShort": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartReducedLong": "Reduced long {size}",
-  "@hlChartReducedLong": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartReducedLong": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartReducedShort": "Reduced short {size}",
-  "@hlChartReducedShort": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartReducedShort": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartClosedLong": "Closed long {size}",
-  "@hlChartClosedLong": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartClosedLong": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartClosedShort": "Closed short {size}",
-  "@hlChartClosedShort": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartClosedShort": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartFlippedLong": "Flipped to long {size}",
-  "@hlChartFlippedLong": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartFlippedLong": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartFlippedShort": "Flipped to short {size}",
-  "@hlChartFlippedShort": {"placeholders": {"size": {"type": "String"}}},
+  "@hlChartFlippedShort": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartLiquidatedSize": "Liquidated {size}",
-  "@hlChartLiquidatedSize": {"description": "Investing chart fill tooltip headline: a liquidation fill. {size} is the size with the symbol.", "placeholders": {"size": {"type": "String"}}},
+  "@hlChartLiquidatedSize": {
+    "description": "Investing chart fill tooltip headline: a liquidation fill. {size} is the size with the symbol.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartYouWentLong": "You went long here",
-  "@hlChartYouWentLong": {"description": "Investing chart: caption over a bar where the user opened or added to a long."},
+  "@hlChartYouWentLong": {
+    "description": "Investing chart: caption over a bar where the user opened or added to a long."
+  },
   "hlChartYouWentShort": "You went short here",
-  "@hlChartYouWentShort": {"description": "Investing chart: caption over a bar where the user opened or added to a short."},
+  "@hlChartYouWentShort": {
+    "description": "Investing chart: caption over a bar where the user opened or added to a short."
+  },
   "hlChartYouClosedHere": "You closed here",
-  "@hlChartYouClosedHere": {"description": "Investing chart: caption over a bar where the user closed or reduced a position."},
+  "@hlChartYouClosedHere": {
+    "description": "Investing chart: caption over a bar where the user closed or reduced a position."
+  },
   "hlWithdrawalsUnavailable": "Withdrawals are temporarily unavailable. Try again later.",
   "hlNoMarketsNow": "No markets to show right now",
   "hlChartFillTitle": "{action}{coin} at {price}",
@@ -5613,7 +5825,20 @@
     }
   },
   "hlFundingRateLine": "{payer} {hourly}/hr (≈ {annual} annualized)",
-  "@hlFundingRateLine": {"description": "A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.", "placeholders": {"payer": {"type": "String"}, "hourly": {"type": "String"}, "annual": {"type": "String"}}},
+  "@hlFundingRateLine": {
+    "description": "A perp's funding line in its About sheet. {payer} is 'Longs pay shorts' or 'Shorts pay longs'; {hourly} is the hourly rate such as 0.0013%; {annual} is that rate over a year such as 11.0%.",
+    "placeholders": {
+      "payer": {
+        "type": "String"
+      },
+      "hourly": {
+        "type": "String"
+      },
+      "annual": {
+        "type": "String"
+      }
+    }
+  },
   "hlWideSpreadAck": "I understand this market has a very wide spread right now.",
   "hlTwapOver": "TWAP · {size} over {minutes}m",
   "@hlTwapOver": {
@@ -6135,31 +6360,139 @@
   "hlOrderEndedRejected": "Rejected by Hyperliquid.",
   "hlOrderEndedOther": "Ended by Hyperliquid.",
   "hlBannerFilled": "{coin} order filled",
-  "@hlBannerFilled": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlBannerFilled": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerTakeProfit": "{coin} take-profit triggered",
-  "@hlBannerTakeProfit": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlBannerTakeProfit": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerStopLoss": "{coin} stop-loss triggered",
-  "@hlBannerStopLoss": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlBannerStopLoss": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerTriggered": "{coin} trigger order sent",
-  "@hlBannerTriggered": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlBannerTriggered": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerLiquidated": "Your {coin} position was liquidated",
-  "@hlBannerLiquidated": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlBannerLiquidated": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerLiquidationRisk": "{coin} is {distance} from its liquidation price ({price}). Add margin or reduce the position.",
-  "@hlBannerLiquidationRisk": {"placeholders": {"coin": {"type": "String"}, "distance": {"type": "String"}, "price": {"type": "String"}}},
+  "@hlBannerLiquidationRisk": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerFunding": "{coin} funding is high: your position pays about {amount} a day.",
-  "@hlBannerFunding": {"placeholders": {"coin": {"type": "String"}, "amount": {"type": "String"}}},
+  "@hlBannerFunding": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerOrderCancelled": "{coin} order: {reason}",
-  "@hlBannerOrderCancelled": {"placeholders": {"coin": {"type": "String"}, "reason": {"type": "String"}}},
+  "@hlBannerOrderCancelled": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "hlNextFundingPay": "Next funding in {time}: you pay about {amount}",
-  "@hlNextFundingPay": {"placeholders": {"time": {"type": "String"}, "amount": {"type": "String"}}},
+  "@hlNextFundingPay": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlNextFundingReceive": "Next funding in {time}: you receive about {amount}",
-  "@hlNextFundingReceive": {"placeholders": {"time": {"type": "String"}, "amount": {"type": "String"}}},
+  "@hlNextFundingReceive": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlMinutesShort": "{count} min",
-  "@hlMinutesShort": {"placeholders": {"count": {"type": "int"}}},
+  "@hlMinutesShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hlBannerTakeProfitNear": "{coin} is {distance} from your take-profit price ({price}).",
-  "@hlBannerTakeProfitNear": {"placeholders": {"coin": {"type": "String"}, "distance": {"type": "String"}, "price": {"type": "String"}}},
+  "@hlBannerTakeProfitNear": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "hlBannerStopLossNear": "{coin} is {distance} from your stop-loss price ({price}).",
-  "@hlBannerStopLossNear": {"placeholders": {"coin": {"type": "String"}, "distance": {"type": "String"}, "price": {"type": "String"}}},
+  "@hlBannerStopLossNear": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      },
+      "distance": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "hlLayerPressure": "Buy/sell pressure",
   "hlLayerPressureNote": "Share bought and sold over the last 5 minutes",
   "hlLayerBigTrades": "Big trades",
@@ -6173,58 +6506,169 @@
   "hlLayerMacro": "Fed and inflation dates",
   "hlLayerMacroNote": "Next Fed decision and US inflation report",
   "hlChartCrowdLevel": "{percent} by {date}",
-  "@hlChartCrowdLevel": {"placeholders": {"percent": {"type": "String"}, "date": {"type": "String"}}},
+  "@hlChartCrowdLevel": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "hlChartFedDecision": "Fed decision",
   "hlChartUsInflation": "US inflation",
   "hlChartFundingPositive": "Funding +",
   "hlChartFundingNegative": "Funding −",
   "hlChartOiRising": "Open interest rising: {percent} in {minutes} min",
-  "@hlChartOiRising": {"placeholders": {"percent": {"type": "String"}, "minutes": {"type": "int"}}},
+  "@hlChartOiRising": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "hlChartOiFalling": "Open interest falling: {percent} in {minutes} min",
-  "@hlChartOiFalling": {"placeholders": {"percent": {"type": "String"}, "minutes": {"type": "int"}}},
+  "@hlChartOiFalling": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "hlMarginAdd": "Add margin",
   "hlMarginRemove": "Remove margin",
   "hlMarginAddExplain": "More margin moves the liquidation price further away. It comes from your available cash.",
   "hlMarginRemoveExplain": "Less margin brings the liquidation price closer. It goes back to your available cash.",
   "hlMarginCanAdd": "Available: {amount}",
-  "@hlMarginCanAdd": {"placeholders": {"amount": {"type": "String"}}},
+  "@hlMarginCanAdd": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginCanRemove": "Can remove: {amount}",
-  "@hlMarginCanRemove": {"placeholders": {"amount": {"type": "String"}}},
+  "@hlMarginCanRemove": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginLeverageAfter": "Leverage after",
   "hlMarginTooMuch": "That's more than you can move.",
   "hlMarginAdded": "Margin added",
   "hlMarginRemoved": "Margin removed",
   "hlMarginStepUp": "Change margin on {coin}",
-  "@hlMarginStepUp": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlMarginStepUp": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlPositionMoney": "Your money in it",
   "hlIfYouCloseNow": "If you close now",
-  "@hlIfYouCloseNow": {"description": "Label over the big figure on an open Investing position screen: the money closing the position now gives back (its margin plus the profit or loss), before fees."},
+  "@hlIfYouCloseNow": {
+    "description": "Label over the big figure on an open Investing position screen: the money closing the position now gives back (its margin plus the profit or loss), before fees."
+  },
   "hlMargin": "Margin",
-  "@hlMargin": {"description": "Row on an isolated Investing position: the margin the person put in, with any added since, without the profit or loss."},
+  "@hlMargin": {
+    "description": "Row on an isolated Investing position: the margin the person put in, with any added since, without the profit or loss."
+  },
   "hlPositionSizeExplain": "Position size is what your leverage controls, not your money. Closing gives you back your margin plus the profit or loss.",
-  "@hlPositionSizeExplain": {"description": "One quiet line in the Details sheet of an open Investing position: the Position size row is the notional the leverage controls; the headline is what closing gives back."},
+  "@hlPositionSizeExplain": {
+    "description": "One quiet line in the Details sheet of an open Investing position: the Position size row is the notional the leverage controls; the headline is what closing gives back."
+  },
   "hlLiquidation": "Liquidation",
   "hlLiqAway": "{percent} away",
-  "@hlLiqAway": {"placeholders": {"percent": {"type": "String"}}},
+  "@hlLiqAway": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "hlNoLiquidationPrice": "No liquidation price",
   "hlMarginModeAdd": "Add",
   "hlMarginModeRemove": "Remove",
   "hlMarginAddTitle": "Add margin to {coin}",
-  "@hlMarginAddTitle": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlMarginAddTitle": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginRemoveTitle": "Remove margin from {coin}",
-  "@hlMarginRemoveTitle": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlMarginRemoveTitle": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginAddSummary": "Adds {amount} from your Investing balance to this position.",
-  "@hlMarginAddSummary": {"placeholders": {"amount": {"type": "String"}}},
+  "@hlMarginAddSummary": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginRemoveSummary": "Takes {amount} out of this position back to your Investing balance.",
-  "@hlMarginRemoveSummary": {"placeholders": {"amount": {"type": "String"}}},
+  "@hlMarginRemoveSummary": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginLiqMoves": "Liquidation price moves from {from} to {to}.",
-  "@hlMarginLiqMoves": {"placeholders": {"from": {"type": "String"}, "to": {"type": "String"}}},
+  "@hlMarginLiqMoves": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginCashMoves": "Your Investing balance goes from {from} to {to}.",
-  "@hlMarginCashMoves": {"placeholders": {"from": {"type": "String"}, "to": {"type": "String"}}},
+  "@hlMarginCashMoves": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
   "hlSlipChangesPosition": "This also changes the leverage and margin mode of your open {coin} position.",
-  "@hlSlipChangesPosition": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlSlipChangesPosition": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlSlipOiCapWarning": "{coin} is at its open-interest limit. Orders that grow a position may be rejected; reducing or closing still works.",
-  "@hlSlipOiCapWarning": {"placeholders": {"coin": {"type": "String"}}},
+  "@hlSlipOiCapWarning": {
+    "placeholders": {
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlRejectTick": "The price doesn't fit this market's price steps. Try a rounder price.",
   "hlRejectMinNotional": "Orders must be worth at least $10.",
   "hlRejectReduceOnly": "This order can only shrink your position, and it would have grown it. The position may already be closed.",
@@ -6274,105 +6718,213 @@
     }
   },
   "shareHeaderLabel": "Send to a friend",
-  "@shareHeaderLabel": {"description": "Market and position page headers (Predictions and Investing): the words on the compact Sal pill (Sal's share face + this), beside the headline figure, opening the Sal sheet with the send rows. Founder (1 November 2026): say \"Send to a friend\", never \"Share\"."},
+  "@shareHeaderLabel": {
+    "description": "Market and position page headers (Predictions and Investing): the words on the compact Sal pill (Sal's share face + this), beside the headline figure, opening the Sal sheet with the send rows. Founder (1 November 2026): say \"Send to a friend\", never \"Share\"."
+  },
   "bragPositionAction": "Show off this position",
-  "@bragPositionAction": {"description": "Position pages (Predictions and Investing): the brag row in the Sal sheet and the title of the brag preview sheet: a shareable image card of the open position's result."},
+  "@bragPositionAction": {
+    "description": "Position pages (Predictions and Investing): the brag row in the Sal sheet and the title of the brag preview sheet: a shareable image card of the open position's result."
+  },
   "bragPositionActionSub": "A card with your result",
-  "@bragPositionActionSub": {"description": "Under bragPositionAction in the Sal sheet's action row."},
+  "@bragPositionActionSub": {
+    "description": "Under bragPositionAction in the Sal sheet's action row."
+  },
   "bragPortfolioAction": "Show off your portfolio",
-  "@bragPortfolioAction": {"description": "The title of the portfolio brag preview sheet (a shareable image card of the portfolio's P&L)."},
+  "@bragPortfolioAction": {
+    "description": "The title of the portfolio brag preview sheet (a shareable image card of the portfolio's P&L)."
+  },
   "bragBarLabel": "Share and brag",
-  "@bragBarLabel": {"description": "Portfolio screen: the floating bar as its primary button, opening the portfolio brag card preview."},
+  "@bragBarLabel": {
+    "description": "Portfolio screen: the floating bar as its primary button, opening the portfolio brag card preview."
+  },
   "bragShareText": "{title} on Kute {link}",
-  "@bragShareText": {"description": "The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.", "placeholders": {"title": {"type": "String"}, "link": {"type": "String"}}},
+  "@bragShareText": {
+    "description": "The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "link": {
+        "type": "String"
+      }
+    }
+  },
   "bragMyPortfolio": "My portfolio",
-  "@bragMyPortfolio": {"description": "Portfolio brag card: its title, and the title in the share text."},
+  "@bragMyPortfolio": {
+    "description": "Portfolio brag card: its title, and the title in the share text."
+  },
   "bragCodeLabel": "Code",
-  "@bragCodeLabel": {"description": "Brag card footer: the small label before the sharer's referral code in its chip."},
+  "@bragCodeLabel": {
+    "description": "Brag card footer: the small label before the sharer's referral code in its chip."
+  },
   "bragBeatMeOnKute": "Beat me on Kute",
-  "@bragBeatMeOnKute": {"description": "Brag card footer, under the kute. wordmark, beside the sharer's referral code: a cocky invitation."},
+  "@bragBeatMeOnKute": {
+    "description": "Brag card footer, under the kute. wordmark, beside the sharer's referral code: a cocky invitation."
+  },
   "bragSinceYouBought": "Since you bought",
-  "@bragSinceYouBought": {"description": "Position brag card: the tiny period line beside the side pill (the result is since the buy)."},
+  "@bragSinceYouBought": {
+    "description": "Position brag card: the tiny period line beside the side pill (the result is since the buy)."
+  },
   "bragLineBeatThat": "Beat that.",
-  "@bragLineBeatThat": {"description": "Brag card one-liner (Sal, cocky; PG, it leaves the phone): a gain."},
+  "@bragLineBeatThat": {
+    "description": "Brag card one-liner (Sal, cocky; PG, it leaves the phone): a gain."
+  },
   "bragLineNotLuck": "Not luck. Talent.",
-  "@bragLineNotLuck": {"description": "Brag card one-liner (Sal, cocky; PG): a gain."},
+  "@bragLineNotLuck": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
+  },
   "bragLineYourMove": "Your move.",
-  "@bragLineYourMove": {"description": "Brag card one-liner (Sal, cocky; PG): a gain."},
+  "@bragLineYourMove": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
+  },
   "bragLineToldYouSo": "Told you so.",
-  "@bragLineToldYouSo": {"description": "Brag card one-liner (Sal, cocky; PG): a gain."},
+  "@bragLineToldYouSo": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
+  },
   "bragLineLookEasy": "I make this look easy.",
-  "@bragLineLookEasy": {"description": "Brag card one-liner (Sal, cocky; PG): a gain."},
+  "@bragLineLookEasy": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
+  },
   "bragLineUpOnly": "Up only.",
-  "@bragLineUpOnly": {"description": "Brag card one-liner (Sal, cocky; PG): a gain."},
+  "@bragLineUpOnly": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
+  },
   "bragLineSmallWins": "Small wins still count. Still better than you.",
-  "@bragLineSmallWins": {"description": "Brag card one-liner (Sal, cocky; PG): a small gain."},
+  "@bragLineSmallWins": {
+    "description": "Brag card one-liner (Sal, cocky; PG): a small gain."
+  },
   "bragLineDownBad": "Down bad. Back soon.",
-  "@bragLineDownBad": {"description": "Brag card one-liner (Sal, unbothered; PG): a loss."},
+  "@bragLineDownBad": {
+    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
+  },
   "bragLineCharacter": "Character building.",
-  "@bragLineCharacter": {"description": "Brag card one-liner (Sal, unbothered; PG): a loss."},
+  "@bragLineCharacter": {
+    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
+  },
   "bragLineBuyTheDip": "Buy the dip, they said.",
-  "@bragLineBuyTheDip": {"description": "Brag card one-liner (Sal, unbothered; PG): a loss."},
+  "@bragLineBuyTheDip": {
+    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
+  },
   "bragLinePatience": "Patience is a position.",
-  "@bragLinePatience": {"description": "Brag card one-liner (Sal, deadpan; PG): a flat result."},
+  "@bragLinePatience": {
+    "description": "Brag card one-liner (Sal, deadpan; PG): a flat result."
+  },
   "bragEntry": "Entry",
-  "@bragEntry": {"description": "Position brag card: small caps label over the price paid."},
+  "@bragEntry": {
+    "description": "Position brag card: small caps label over the price paid."
+  },
   "bragNow": "Now",
-  "@bragNow": {"description": "Position brag card: small caps label over the price now."},
+  "@bragNow": {
+    "description": "Position brag card: small caps label over the price now."
+  },
   "bragAboutIt": "Brag about it",
-  "@bragAboutIt": {"description": "Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview."},
+  "@bragAboutIt": {
+    "description": "Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview."
+  },
   "positionShareCardSub": "Send the market or show off your result",
-  "@positionShareCardSub": {"description": "Position pages: the quiet line under the share card's title (Send to a friend / Brag about it)."},
+  "@positionShareCardSub": {
+    "description": "Position pages: the quiet line under the share card's title (Send to a friend / Brag about it)."
+  },
   "recoverYourAccountTitle": "Recover your account",
-  "@recoverYourAccountTitle": {"description": "The Recover screen's title (sentence case, founder 1 November 2026), above the two ways back in: the Apple / Google account and the recovery phrase."},
+  "@recoverYourAccountTitle": {
+    "description": "The Recover screen's title (sentence case, founder 1 November 2026), above the two ways back in: the Apple / Google account and the recovery phrase."
+  },
   "barNeedAmount": "Enter an amount",
-  "@barNeedAmount": {"description": "The bar's primary button while no amount is typed yet (founder, 1 November 2026: a disabled button says the step to take, never the greyed action)."},
+  "@barNeedAmount": {
+    "description": "The bar's primary button while no amount is typed yet (founder, 1 November 2026: a disabled button says the step to take, never the greyed action)."
+  },
   "barNeedLowerAmount": "Lower the amount",
-  "@barNeedLowerAmount": {"description": "Disabled primary button: the typed amount is more than can be spent."},
+  "@barNeedLowerAmount": {
+    "description": "Disabled primary button: the typed amount is more than can be spent."
+  },
   "barNeedRaiseAmount": "Raise the amount",
-  "@barNeedRaiseAmount": {"description": "Disabled primary button: the typed amount is under the minimum."},
+  "@barNeedRaiseAmount": {
+    "description": "Disabled primary button: the typed amount is under the minimum."
+  },
   "barNeedRecipient": "Add who to send to",
-  "@barNeedRecipient": {"description": "Disabled primary button on a send flow's first step, before a recipient is entered."},
+  "@barNeedRecipient": {
+    "description": "Disabled primary button on a send flow's first step, before a recipient is entered."
+  },
   "barNeedNetwork": "Pick a network",
-  "@barNeedNetwork": {"description": "Disabled primary button: the address needs a network picked before continuing."},
+  "@barNeedNetwork": {
+    "description": "Disabled primary button: the address needs a network picked before continuing."
+  },
   "barNeedCoin": "Pick a coin",
-  "@barNeedCoin": {"description": "Disabled primary button: a coin must be picked first."},
+  "@barNeedCoin": {
+    "description": "Disabled primary button: a coin must be picked first."
+  },
   "barNeedAddress": "Paste an address",
-  "@barNeedAddress": {"description": "Disabled primary button while the address field is empty."},
+  "@barNeedAddress": {
+    "description": "Disabled primary button while the address field is empty."
+  },
   "barNeedValidAddress": "Check the address",
-  "@barNeedValidAddress": {"description": "Disabled primary button: the address typed is not valid for this network."},
+  "@barNeedValidAddress": {
+    "description": "Disabled primary button: the address typed is not valid for this network."
+  },
   "barNeedTick": "Tick the box to continue",
-  "@barNeedTick": {"description": "Disabled primary button until the acknowledgement box is ticked."},
+  "@barNeedTick": {
+    "description": "Disabled primary button until the acknowledgement box is ticked."
+  },
   "barNeedPin": "Enter your 6-digit PIN",
-  "@barNeedPin": {"description": "Disabled primary button until a 6-digit PIN is typed."},
+  "@barNeedPin": {
+    "description": "Disabled primary button until a 6-digit PIN is typed."
+  },
   "barNeedPinAgain": "Enter the PIN again",
-  "@barNeedPinAgain": {"description": "Disabled primary button on the confirm-PIN step until the PIN is typed again."},
+  "@barNeedPinAgain": {
+    "description": "Disabled primary button on the confirm-PIN step until the PIN is typed again."
+  },
   "barNeedName": "Enter a name",
-  "@barNeedName": {"description": "Disabled primary button until a name is typed."},
+  "@barNeedName": {
+    "description": "Disabled primary button until a name is typed."
+  },
   "barNeedCode": "Enter a code",
-  "@barNeedCode": {"description": "Disabled primary button until a code is typed."},
+  "@barNeedCode": {
+    "description": "Disabled primary button until a code is typed."
+  },
   "barNeedPhrase": "Enter your 12 words",
-  "@barNeedPhrase": {"description": "Disabled primary button on recovery until the 12-word phrase is entered."},
+  "@barNeedPhrase": {
+    "description": "Disabled primary button on recovery until the 12-word phrase is entered."
+  },
   "barNeedPublicKey": "Paste a public key",
-  "@barNeedPublicKey": {"description": "Disabled primary button on the watch-only import until a valid extended public key is pasted."},
+  "@barNeedPublicKey": {
+    "description": "Disabled primary button on the watch-only import until a valid extended public key is pasted."
+  },
   "barNeedNote": "Write a note",
-  "@barNeedNote": {"description": "Disabled primary button on the chart note sheet while the note is empty."},
+  "@barNeedNote": {
+    "description": "Disabled primary button on the chart note sheet while the note is empty."
+  },
   "barNeedFee": "Pick a fee",
-  "@barNeedFee": {"description": "Disabled primary button on the claim fee picker until a valid fee is picked."},
+  "@barNeedFee": {
+    "description": "Disabled primary button on the claim fee picker until a valid fee is picked."
+  },
   "barNeedPrice": "Getting a price…",
-  "@barNeedPrice": {"description": "Disabled primary button while a fresh price is fetched."},
+  "@barNeedPrice": {
+    "description": "Disabled primary button while a fresh price is fetched."
+  },
   "barNeedOption": "Pick an option",
-  "@barNeedOption": {"description": "Disabled primary button until one option is picked."},
+  "@barNeedOption": {
+    "description": "Disabled primary button until one option is picked."
+  },
   "barNeedWallet": "Pick a wallet",
-  "@barNeedWallet": {"description": "Disabled primary button on the transactions export until at least one wallet is picked."},
+  "@barNeedWallet": {
+    "description": "Disabled primary button on the transactions export until at least one wallet is picked."
+  },
   "barNeedCheckAmount": "Check the amount",
-  "@barNeedCheckAmount": {"description": "Disabled primary button: the typed amount is outside what this request or move allows (the line above the keypad says why)."},
+  "@barNeedCheckAmount": {
+    "description": "Disabled primary button: the typed amount is outside what this request or move allows (the line above the keypad says why)."
+  },
   "barNeedWait": "One moment…",
-  "@barNeedWait": {"description": "Disabled primary button while something it needs is still loading."},
+  "@barNeedWait": {
+    "description": "Disabled primary button while something it needs is still loading."
+  },
   "searchPredictionsOrAskSal": "Search predictions or ask Sal",
-  "@searchPredictionsOrAskSal": {"description": "The floating bar on the Dollars tab while Predictions is the picked half."},
+  "@searchPredictionsOrAskSal": {
+    "description": "The floating bar on the Dollars tab while Predictions is the picked half."
+  },
   "searchInvestmentsOrAskSal": "Search investments or ask Sal",
-  "@searchInvestmentsOrAskSal": {"description": "The floating bar on the Dollars tab while Investing is the picked half."},
+  "@searchInvestmentsOrAskSal": {
+    "description": "The floating bar on the Dollars tab while Investing is the picked half."
+  },
   "searchOrAskSalShort": "Search or ask Sal",
   "@searchOrAskSalShort": {
     "description": "Tooltip and screen-reader label of the dock's square button (Sal holding a magnifying glass) when Sal is available, and the placeholder of the search sheet's field it opens. Short: it is the one door to both search and Ask Sal."
@@ -6733,7 +7285,13 @@
   "addMoneyToInvestments": "Add money to Dollars",
   "depositFromSpendingWallet": "Your spending wallet",
   "depositFromSpendingWalletWithBalance": "Your spending wallet · {amount}",
-  "@depositFromSpendingWalletWithBalance": {"placeholders": {"amount": {"type": "String"}}},
+  "@depositFromSpendingWalletWithBalance": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "depositFromAnotherWallet": "Another wallet or exchange",
   "depositFromAnotherWalletSubtitle": "Get an address to send dollars to",
   "portfolioStatOpenPnl": "Open P&L",
@@ -6741,341 +7299,1094 @@
     "description": "Statistics tile on Active: the profit or loss of the positions still open (Predictions at live prices, Investing perps unrealised)."
   },
   "stepUpReasonBetReady": "Get your {amount} prediction ready",
-  "@stepUpReasonBetReady": {"description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.", "placeholders": {"amount": {"type": "String"}}},
+  "@stepUpReasonBetReady": {
+    "description": "Step-up prompt reason when a fast prediction (a 5- or 15-minute round or a game in play) is got ready before Confirm: the one approval moves the money into Predictions now and also approves the bet itself.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "multiMoveSendTitle": "Send {amount}",
-  "@multiMoveSendTitle": {"description": "Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "@multiMoveSendTitle": {
+    "description": "Activity row title of a send that took its dollars from more than one place (Dollars plus cash brought back from Predictions or Investing): one row for the whole send. {amount} is the formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "multiMoveTitle": "Move {amount} to {destination}",
-  "@multiMoveTitle": {"description": "Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).", "placeholders": {"amount": {"type": "String"}, "destination": {"type": "String"}}},
+  "@multiMoveTitle": {
+    "description": "Activity row title of one action that moved money from more than one place (Dollars plus Predictions or Investing cash) to one destination: one row for the whole move, its parts listed in the detail sheet. {amount} is the formatted dollar amount, {destination} the destination's display name (Bitcoin, Predictions, Trading).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "multiMoveDeliveredRemaining": "{delivered} delivered · {remaining} remaining",
-  "@multiMoveDeliveredRemaining": {"description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.", "placeholders": {"delivered": {"type": "String"}, "remaining": {"type": "String"}}},
+  "@multiMoveDeliveredRemaining": {
+    "description": "Detail sheet line of a move that took money from more than one place when one part failed: what reached the destination and what is still where it was. Both are formatted dollar amounts.",
+    "placeholders": {
+      "delivered": {
+        "type": "String"
+      },
+      "remaining": {
+        "type": "String"
+      }
+    }
+  },
   "activityPartlyDone": "Partly done",
-  "@activityPartlyDone": {"description": "Activity row and detail status of one action that moved money from more than one place when part of it went and the rest never left where it was (proven unsent): not an error, nothing is lost, Retry moves the rest."},
+  "@activityPartlyDone": {
+    "description": "Activity row and detail status of one action that moved money from more than one place when part of it went and the rest never left where it was (proven unsent): not an error, nothing is lost, Retry moves the rest."
+  },
   "multiMoveStillIn": "{amount} is still in {place}",
-  "@multiMoveStillIn": {"description": "Activity row and detail line of a partly done move: the part that never left its account, said plainly ('$16.53 is still in Investing'). {amount} is a formatted dollar amount, {place} the account's display name (Investing, Predictions).", "placeholders": {"amount": {"type": "String"}, "place": {"type": "String"}}},
+  "@multiMoveStillIn": {
+    "description": "Activity row and detail line of a partly done move: the part that never left its account, said plainly ('$16.53 is still in Investing'). {amount} is a formatted dollar amount, {place} the account's display name (Investing, Predictions).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
   "multiMovePurchaseWaiting": "Your {amount} is in {balance}. Tap to buy Bitcoin",
-  "@multiMovePurchaseWaiting": {"description": "Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "@multiMovePurchaseWaiting": {
+    "description": "Activity row of a Buy bitcoin whose money came home first and whose purchase now waits on the person (the approval ran out or the app restarted): the money is in the spending dollar balance and one tap buys the bitcoin. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "balance": {
+        "type": "String"
+      }
+    }
+  },
   "multiMoveSendWaiting": "Your {amount} is in {balance}. The send didn't go through",
-  "@multiMoveSendWaiting": {"description": "Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "@multiMoveSendWaiting": {
+    "description": "Activity row and detail of a send that took money from more than one place whose money came home to the spending dollar balance but whose send never went: the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "balance": {
+        "type": "String"
+      }
+    }
+  },
   "usdReceiveDepositNow": "Deposit now",
-  "@usdReceiveDepositNow": {"description": "Dollars receive screen, From your wallet: the button on the Bitcoin card that moves bitcoin into the Dollars balance."},
+  "@usdReceiveDepositNow": {
+    "description": "Dollars receive screen, From your wallet: the button on the Bitcoin card that moves bitcoin into the Dollars balance."
+  },
   "usdReceiveFromYourWallet": "From your wallet",
-  "@usdReceiveFromYourWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin."},
+  "@usdReceiveFromYourWallet": {
+    "description": "Section label on the first step of the Investments (dollars) receive sheet, above the card that moves money in from the person's own spending bitcoin."
+  },
   "usdReceiveFromAnotherWallet": "From another wallet or exchange",
-  "@usdReceiveFromAnotherWallet": {"description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."},
+  "@usdReceiveFromAnotherWallet": {
+    "description": "Section label on the first step of the Investments (dollars) receive sheet, above the grid of coins that can be sent in from another wallet or an exchange."
+  },
   "usdWithdrawToYourWallet": "To your wallet",
-  "@usdWithdrawToYourWallet": {"description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin."},
+  "@usdWithdrawToYourWallet": {
+    "description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the card that moves money home to the person's own spending bitcoin."
+  },
   "usdWithdrawToAnotherWallet": "To another wallet or exchange",
-  "@usdWithdrawToAnotherWallet": {"description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the grid of coins the dollars can be sent out as, to another wallet or an exchange."},
+  "@usdWithdrawToAnotherWallet": {
+    "description": "Section label on the first step of the Investments (dollars) withdraw sheet, above the grid of coins the dollars can be sent out as, to another wallet or an exchange."
+  },
   "usdWithdrawNow": "Withdraw now",
-  "@usdWithdrawNow": {"description": "Dollars withdraw sheet, To your wallet: the button on the Bitcoin card that moves dollars home to the Bitcoin balance."},
+  "@usdWithdrawNow": {
+    "description": "Dollars withdraw sheet, To your wallet: the button on the Bitcoin card that moves dollars home to the Bitcoin balance."
+  },
   "slipStepAddingToInvestments": "Adding {amount} to Dollars",
-  "@slipStepAddingToInvestments": {"description": "Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "@slipStepAddingToInvestments": {
+    "description": "Step 1 of a slip funded from bitcoin: the person's own bitcoin becoming Investments dollars. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "slipStepPreparingPrediction": "Getting your prediction ready",
-  "@slipStepPreparingPrediction": {"description": "Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments."},
+  "@slipStepPreparingPrediction": {
+    "description": "Step 2 of a prediction slip funded from Investments: the money moving into the prediction venue, phrased around the bet, never as a move into Investments."
+  },
   "slipStepPreparingOrder": "Preparing your order",
-  "@slipStepPreparingOrder": {"description": "Step 2 of an Investing order slip funded from Investments: the money moving into the trading venue, phrased around the order."},
+  "@slipStepPreparingOrder": {
+    "description": "Step 2 of an Investing order slip funded from Investments: the money moving into the trading venue, phrased around the order."
+  },
   "slipStepPlacingBet": "Placing {amount} on {side}",
-  "@slipStepPlacingBet": {"description": "Step 3 of a funded prediction slip: the bet being placed at a fresh price. {amount} is the stake, {side} the outcome (Yes, No, a team).", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}}},
+  "@slipStepPlacingBet": {
+    "description": "Step 3 of a funded prediction slip: the bet being placed at a fresh price. {amount} is the stake, {side} the outcome (Yes, No, a team).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      }
+    }
+  },
   "slipStepOpeningOrder": "Opening {amount} {side} {market}",
-  "@slipStepOpeningOrder": {"description": "Step 3 of a funded Investing order slip: the order being placed. {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Opening $5 Long NVIDIA).", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}, "market": {"type": "String"}}},
+  "@slipStepOpeningOrder": {
+    "description": "Step 3 of a funded Investing order slip: the order being placed. {amount} is the margin, {side} Long/Short/Buy, {market} the market's short name (e.g. Opening $5 Long NVIDIA).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      }
+    }
+  },
   "slipStepTakingLonger": "Taking longer than expected. Hang tight, almost done.",
-  "@slipStepTakingLonger": {"description": "Calm line under a money journey (an order's funding on the slip, a move in its Activity detail) once it runs longer than expected: 1.5 times its estimate, or 90 seconds without one. The money is safe; nothing to do."},
+  "@slipStepTakingLonger": {
+    "description": "Calm line under a money journey (an order's funding on the slip, a move in its Activity detail) once it runs longer than expected: 1.5 times its estimate, or 90 seconds without one. The money is safe; nothing to do."
+  },
   "slipFundingReadyToPlace": "Your {amount} is in Dollars. Tap to place.",
-  "@slipFundingReadyToPlace": {"description": "Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "@slipFundingReadyToPlace": {
+    "description": "Line above a slip's button when its funding stopped with the money in Investments and the order not placed: one tap places it. {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "slipFundingBitcoinBack": "Adding to Dollars didn't go through. Your bitcoin is coming back.",
-  "@slipFundingBitcoinBack": {"description": "Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet."},
+  "@slipFundingBitcoinBack": {
+    "description": "Slip message when the bitcoin to Investments conversion failed and the provider refunds the bitcoin to the person's wallet."
+  },
   "slipFundingPriceMoved": "Price moved too fast.",
-  "@slipFundingPriceMoved": {"description": "Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is."},
+  "@slipFundingPriceMoved": {
+    "description": "Slip funding steps, the line under a failed placement step: the order was refused because the price moved past the approved maximum while the money was on its way. Followed by where the money is."
+  },
   "slipFundingRoundClosed": "This round closed before your money arrived.",
-  "@slipFundingRoundClosed": {"description": "Slip funding steps, the line under a failed step: a short (5 or 15 minute) prediction round closed before the money moved for the bet arrived. Followed by where the money is."},
+  "@slipFundingRoundClosed": {
+    "description": "Slip funding steps, the line under a failed step: a short (5 or 15 minute) prediction round closed before the money moved for the bet arrived. Followed by where the money is."
+  },
   "slipFundingRoundPriceMoved": "Price changed to {price} while your money was moving.",
-  "@slipFundingRoundPriceMoved": {"description": "Slip funding steps, the line under a failed placement step of a 5-minute crypto Up or Down round: the price moved past what was approved while the money was moving. {price} is the price now as a chance (\"81%\"). Followed by where the money is; the button retries at that price.", "placeholders": {"price": {"type": "String"}}},
+  "@slipFundingRoundPriceMoved": {
+    "description": "Slip funding steps, the line under a failed placement step of a 5-minute crypto Up or Down round: the price moved past what was approved while the money was moving. {price} is the price now as a chance (\"81%\"). Followed by where the money is; the button retries at that price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "slipFundingRoundEnded": "This round ended while your money was moving. Your {amount} is in Predictions.",
-  "@slipFundingRoundEnded": {"description": "Slip funding steps, the whole line under a failed step of a 5-minute crypto Up or Down round that ended while the money for the bet was moving. {amount} is a formatted dollar amount, now Predictions cash.", "placeholders": {"amount": {"type": "String"}}},
+  "@slipFundingRoundEnded": {
+    "description": "Slip funding steps, the whole line under a failed step of a 5-minute crypto Up or Down round that ended while the money for the bet was moving. {amount} is a formatted dollar amount, now Predictions cash.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "slipFundingInPredictions": "Your {amount} is in Predictions. Tap to try again.",
-  "@slipFundingInPredictions": {"description": "Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "@slipFundingInPredictions": {
+    "description": "Slip funding steps: after a funded prediction did not place, where its money is now (as Predictions cash, available). {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "slipFundingInInvesting": "Your {amount} is in Investing. Tap to try again.",
-  "@slipFundingInInvesting": {"description": "Slip funding steps: after a funded Investing order did not place, where its money is now (as Investing cash, available). {amount} is a formatted dollar amount.", "placeholders": {"amount": {"type": "String"}}},
+  "@slipFundingInInvesting": {
+    "description": "Slip funding steps: after a funded Investing order did not place, where its money is now (as Investing cash, available). {amount} is a formatted dollar amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "oneBalancePlacingBet": "Placing {amount} on {side} · {market}",
-  "@oneBalancePlacingBet": {"description": "In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.", "placeholders": {"amount": {"type": "String"}, "side": {"type": "String"}, "market": {"type": "String"}}},
+  "@oneBalancePlacingBet": {
+    "description": "In-flight line on the Investments header while money moves to place a specific prediction. {amount} is the stake, {side} the outcome, {market} the market's short name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "side": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      }
+    }
+  },
   "oneBalanceOpeningOrder": "Opening {amount} {market} order",
-  "@oneBalanceOpeningOrder": {"description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).", "placeholders": {"amount": {"type": "String"}, "market": {"type": "String"}}},
+  "@oneBalanceOpeningOrder": {
+    "description": "In-flight line on the Investments header while money moves to open a specific Investing order. {amount} is the margin, {market} the market's short name (e.g. Opening $5 NVDA order).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginStepAdding": "Adding {amount} margin to {coin}",
-  "@hlMarginStepAdding": {"description": "The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).", "placeholders": {"amount": {"type": "String"}, "coin": {"type": "String"}}},
+  "@hlMarginStepAdding": {
+    "description": "The margin sheet's last funding step, and the Investments header's in-flight line, while money moves to add margin to an isolated Investing position. {amount} is the margin added, {coin} the market (e.g. Adding $5 margin to BTC).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "coin": {
+        "type": "String"
+      }
+    }
+  },
   "hlMarginFundingReady": "Your {amount} is in Dollars. Tap to add margin.",
-  "@hlMarginFundingReady": {"description": "Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.", "placeholders": {"amount": {"type": "String"}}},
+  "@hlMarginFundingReady": {
+    "description": "Line above the margin sheet's button when adding margin funded from bitcoin stopped with the money in Investments and the margin not added. {amount} is what the bitcoin added.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "positionProtectIt": "Protect it",
-  "@positionProtectIt": {"description": "Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order)."},
+  "@positionProtectIt": {
+    "description": "Label of an open position's row that opens its protective orders (stop loss, trailing stop, or a sell-at-a-price order)."
+  },
   "hlRiskLiquidationLong": "If {market} falls to {price}, this position closes and you lose {amount}.",
-  "@hlRiskLiquidationLong": {"description": "Risk line on an open long Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price, {amount} the money lost when the position is liquidated there.", "placeholders": {"market": {"type": "String"}, "price": {"type": "String"}, "amount": {"type": "String"}}},
+  "@hlRiskLiquidationLong": {
+    "description": "Risk line on an open long Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price, {amount} the money lost when the position is liquidated there.",
+    "placeholders": {
+      "market": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "hlRiskLiquidationShort": "If {market} rises to {price}, this position closes and you lose {amount}.",
-  "@hlRiskLiquidationShort": {"description": "Risk line on an open short Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price (above the current price), {amount} the money lost when the position is liquidated there.", "placeholders": {"market": {"type": "String"}, "price": {"type": "String"}, "amount": {"type": "String"}}},
+  "@hlRiskLiquidationShort": {
+    "description": "Risk line on an open short Investing position. {market} is the ticker (e.g. NVDA), {price} its liquidation price (above the current price), {amount} the money lost when the position is liquidated there.",
+    "placeholders": {
+      "market": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "polyRiskOutcome": "If {outcome} loses, you lose {cost}; if it wins, you get {payout}.",
-  "@polyRiskOutcome": {"description": "Risk line on an open prediction. {outcome} is the held outcome (e.g. Yes, a team), {cost} what was paid (lost if it loses), {payout} what the shares pay if it wins.", "placeholders": {"outcome": {"type": "String"}, "cost": {"type": "String"}, "payout": {"type": "String"}}},
+  "@polyRiskOutcome": {
+    "description": "Risk line on an open prediction. {outcome} is the held outcome (e.g. Yes, a team), {cost} what was paid (lost if it loses), {payout} what the shares pay if it wins.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      },
+      "payout": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMovingFrom": "Moving {amount} from {source}",
-  "@moneyStepMovingFrom": {"description": "A money step running: {amount} (formatted dollars) leaving the balance {source} (Bitcoin, Dollars, Predictions, Investing) for an order or a move. Shown with a small spinner under the slip or sheet button.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "@moneyStepMovingFrom": {
+    "description": "A money step running: {amount} (formatted dollars) leaving the balance {source} (Bitcoin, Dollars, Predictions, Investing) for an order or a move. Shown with a small spinner under the slip or sheet button.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMovedFrom": "Moved {amount} from {source}",
-  "@moneyStepMovedFrom": {"description": "The same money step once it landed (shown with a check). {amount} formatted dollars, {source} the balance it came from.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "@moneyStepMovedFrom": {
+    "description": "The same money step once it landed (shown with a check). {amount} formatted dollars, {source} the balance it came from.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMovingFromTo": "Moving {amount} from {source} → {destination}",
-  "@moneyStepMovingFromTo": {"description": "A money step running between two named balances, e.g. Moving $12.00 from Investing → Bitcoin. {amount} formatted dollars, {source} and {destination} balance names.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}, "destination": {"type": "String"}}},
+  "@moneyStepMovingFromTo": {
+    "description": "A money step running between two named balances, e.g. Moving $12.00 from Investing → Bitcoin. {amount} formatted dollars, {source} and {destination} balance names.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMovedFromTo": "Moved {amount} from {source} → {destination}",
-  "@moneyStepMovedFromTo": {"description": "The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}, "destination": {"type": "String"}}},
+  "@moneyStepMovedFromTo": {
+    "description": "The same step once it landed (shown with a check). {amount} formatted dollars, {source} and {destination} balance names.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMoveFailed": "{amount} from {source} didn't move",
-  "@moneyStepMoveFailed": {"description": "A money step that failed (shown with the error sign). {amount} formatted dollars, {source} the balance name. The line under the steps says where the money is.", "placeholders": {"amount": {"type": "String"}, "source": {"type": "String"}}},
+  "@moneyStepMoveFailed": {
+    "description": "A money step that failed (shown with the error sign). {amount} formatted dollars, {source} the balance name. The line under the steps says where the money is.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepFellBack": "{source} route busy, going via {via}",
-  "@moneyStepFellBack": {"description": "A direct route was refused before any money left, so the money takes the longer way through another balance, e.g. Bitcoin route busy, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "@moneyStepFellBack": {
+    "description": "A direct route was refused before any money left, so the money takes the longer way through another balance, e.g. Bitcoin route busy, going via Dollars. {source} and {via} are balance names.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "via": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepViaDollars": "{source} going via {via}",
-  "@moneyStepViaDollars": {"description": "A direct route was not taken before any money left, for a reason the person cannot act on, so the money takes the longer way through another balance, e.g. Predictions going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "@moneyStepViaDollars": {
+    "description": "A direct route was not taken before any money left, for a reason the person cannot act on, so the money takes the longer way through another balance, e.g. Predictions going via Dollars. {source} and {via} are balance names.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "via": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepRouteUnavailable": "{source} route unavailable, going via {via}",
-  "@moneyStepRouteUnavailable": {"description": "A direct route is not offered right now (not available, paused or refused recently), so before any money left it takes the longer way through another balance, e.g. Predictions route unavailable, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "@moneyStepRouteUnavailable": {
+    "description": "A direct route is not offered right now (not available, paused or refused recently), so before any money left it takes the longer way through another balance, e.g. Predictions route unavailable, going via Dollars. {source} and {via} are balance names.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "via": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepTooSmallDirect": "Too small to go straight from {source}, going via {via}",
-  "@moneyStepTooSmallDirect": {"description": "The amount is under what the direct route takes, so the money takes the longer way through another balance, e.g. Too small to go straight from Predictions, going via Dollars. {source} and {via} are balance names.", "placeholders": {"source": {"type": "String"}, "via": {"type": "String"}}},
+  "@moneyStepTooSmallDirect": {
+    "description": "The amount is under what the direct route takes, so the money takes the longer way through another balance, e.g. Too small to go straight from Predictions, going via Dollars. {source} and {via} are balance names.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "via": {
+        "type": "String"
+      }
+    }
+  },
   "multiMoveOrderWaiting": "Your {amount} is in {balance}. The order didn't go through",
-  "@multiMoveOrderWaiting": {"description": "Activity row and detail of a move whose money was for an order (Investing or Predictions): the money came home to the spending dollar balance but the order and its move into the venue never went, so the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.", "placeholders": {"amount": {"type": "String"}, "balance": {"type": "String"}}},
+  "@multiMoveOrderWaiting": {
+    "description": "Activity row and detail of a move whose money was for an order (Investing or Predictions): the money came home to the spending dollar balance but the order and its move into the venue never went, so the money is in that balance. {amount} is a formatted dollar amount, {balance} the dollar balance's display name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "balance": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepConverting": "Converting to pUSD",
-  "@moneyStepConverting": {"description": "Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running."},
+  "@moneyStepConverting": {
+    "description": "Predictions readiness sub-step: the dollars that arrived (USDC.e) are converted to pUSD, the token predictions are placed with. Running."
+  },
   "moneyStepConverted": "Converted to pUSD",
-  "@moneyStepConverted": {"description": "The same sub-step once done (shown with a check)."},
+  "@moneyStepConverted": {
+    "description": "The same sub-step once done (shown with a check)."
+  },
   "moneyStepGathering": "{count, plural, =2{Waiting for both to arrive} other{Waiting for all of it to arrive}}",
-  "@moneyStepGathering": {"description": "Money steps checkpoint at the venue (Predictions, Investing) while two or more funding legs converge on it: nothing at the venue (the pUSD conversion, the allowance, the order) runs until the venue's own balances show every leg's money. {count} is the number of legs (2 = both). Running.", "placeholders": {"count": {"type": "int"}}},
+  "@moneyStepGathering": {
+    "description": "Money steps checkpoint at the venue (Predictions, Investing) while two or more funding legs converge on it: nothing at the venue (the pUSD conversion, the allowance, the order) runs until the venue's own balances show every leg's money. {count} is the number of legs (2 = both). Running.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "moneyStepGathered": "{count, plural, =2{Both arrived} other{All of it arrived}}",
-  "@moneyStepGathered": {"description": "The same checkpoint, done: every leg's money is confirmed at the venue. {count} is the number of legs (2 = both).", "placeholders": {"count": {"type": "int"}}},
+  "@moneyStepGathered": {
+    "description": "The same checkpoint, done: every leg's money is confirmed at the venue. {count} is the number of legs (2 = both).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "moneyStepMovingTwo": "Moving {amount1} from {source1} and {amount2} from {source2}",
-  "@moneyStepMovingTwo": {"description": "The money journey's status line while two funding legs run at the same time: {amount1} (formatted dollars) leaving the balance {source1} and {amount2} leaving {source2} (Bitcoin, Dollars, Predictions, Investing).", "placeholders": {"amount1": {"type": "String"}, "source1": {"type": "String"}, "amount2": {"type": "String"}, "source2": {"type": "String"}}},
+  "@moneyStepMovingTwo": {
+    "description": "The money journey's status line while two funding legs run at the same time: {amount1} (formatted dollars) leaving the balance {source1} and {amount2} leaving {source2} (Bitcoin, Dollars, Predictions, Investing).",
+    "placeholders": {
+      "amount1": {
+        "type": "String"
+      },
+      "source1": {
+        "type": "String"
+      },
+      "amount2": {
+        "type": "String"
+      },
+      "source2": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepMovingMany": "Moving {amount} from {count} balances",
-  "@moneyStepMovingMany": {"description": "The money journey's status line while three or more funding legs run at the same time: {amount} (formatted dollars, all of them together) leaving {count} balances.", "placeholders": {"amount": {"type": "String"}, "count": {"type": "int"}}},
+  "@moneyStepMovingMany": {
+    "description": "The money journey's status line while three or more funding legs run at the same time: {amount} (formatted dollars, all of them together) leaving {count} balances.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "moneyStepApproving": "Approving spend",
-  "@moneyStepApproving": {"description": "Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running."},
+  "@moneyStepApproving": {
+    "description": "Predictions readiness sub-step, only when needed: the prediction venue is allowed to spend the account's pUSD. Running."
+  },
   "moneyStepApproved": "Spend approved",
-  "@moneyStepApproved": {"description": "The same sub-step once done (shown with a check)."},
+  "@moneyStepApproved": {
+    "description": "The same sub-step once done (shown with a check)."
+  },
   "moneyStepConfirming": "Confirming balance",
-  "@moneyStepConfirming": {"description": "Predictions readiness sub-step: waiting until the prediction venue itself shows the balance that covers the bet. Running."},
+  "@moneyStepConfirming": {
+    "description": "Predictions readiness sub-step: waiting until the prediction venue itself shows the balance that covers the bet. Running."
+  },
   "moneyStepConfirmed": "Balance confirmed",
-  "@moneyStepConfirmed": {"description": "The same sub-step once done (shown with a check)."},
+  "@moneyStepConfirmed": {
+    "description": "The same sub-step once done (shown with a check)."
+  },
   "moneyStepCrediting": "Crediting to trading balance",
-  "@moneyStepCrediting": {"description": "Investing readiness sub-step: the dollars that arrived are being credited where the order draws from. Running."},
+  "@moneyStepCrediting": {
+    "description": "Investing readiness sub-step: the dollars that arrived are being credited where the order draws from. Running."
+  },
   "moneyStepCredited": "Credited to trading balance",
-  "@moneyStepCredited": {"description": "The same sub-step once done (shown with a check)."},
+  "@moneyStepCredited": {
+    "description": "The same sub-step once done (shown with a check)."
+  },
   "moneyStepBuying": "Buying {amount} of Bitcoin",
-  "@moneyStepBuying": {"description": "A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "@moneyStepBuying": {
+    "description": "A Buy bitcoin step running: Dollars buying bitcoin. {amount} formatted dollars.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepBought": "Bought {amount} of Bitcoin",
-  "@moneyStepBought": {"description": "The same step once done (shown with a check). {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "@moneyStepBought": {
+    "description": "The same step once done (shown with a check). {amount} formatted dollars.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepArriving": "Arriving in Bitcoin",
-  "@moneyStepArriving": {"description": "The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running."},
+  "@moneyStepArriving": {
+    "description": "The last step of a move to Bitcoin: the bitcoin landing in the wallet. Running."
+  },
   "moneyStepArrived": "Arrived in Bitcoin",
-  "@moneyStepArrived": {"description": "The same step once the bitcoin is in the wallet (shown with a check)."},
+  "@moneyStepArrived": {
+    "description": "The same step once the bitcoin is in the wallet (shown with a check)."
+  },
   "moneyStepSending": "Sending {amount}",
-  "@moneyStepSending": {"description": "The last step of a send from Investments, running: the dollars leaving Dollars for the recipient once the money that came home from the venues landed. {amount} formatted dollars. Shown with a small spinner.", "placeholders": {"amount": {"type": "String"}}},
+  "@moneyStepSending": {
+    "description": "The last step of a send from Investments, running: the dollars leaving Dollars for the recipient once the money that came home from the venues landed. {amount} formatted dollars. Shown with a small spinner.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepSent": "Sent {amount}",
-  "@moneyStepSent": {"description": "The same step once the send settled (shown with a check). {amount} formatted dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "@moneyStepSent": {
+    "description": "The same step once the send settled (shown with a check). {amount} formatted dollars.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "moneyStepCompact": "{source} → {destination} · {amount}",
-  "@moneyStepCompact": {"description": "One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.", "placeholders": {"source": {"type": "String"}, "destination": {"type": "String"}, "amount": {"type": "String"}}},
+  "@moneyStepCompact": {
+    "description": "One step of a money move in its Activity detail, compact: where the money went and how much, e.g. Investing → Dollars · $20.69. The line's icon says whether it is running, done or failed. {source} and {destination} are balance names (or where a send went), {amount} formatted dollars.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "destination": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "moneyJourneyAt": "At {place}",
-  "@moneyJourneyAt": {"description": "Money journey: the small heading over the checkpoints listed under the map, the sub-steps happening at the destination balance (e.g. At Predictions: Approving spend, Confirming balance, Placing $12 on Yes). {place} is the balance name (Bitcoin, Dollars, Investing, Predictions).", "placeholders": {"place": {"type": "String"}}},
+  "@moneyJourneyAt": {
+    "description": "Money journey: the small heading over the checkpoints listed under the map, the sub-steps happening at the destination balance (e.g. At Predictions: Approving spend, Confirming balance, Placing $12 on Yes). {place} is the balance name (Bitcoin, Dollars, Investing, Predictions).",
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
   "moneyJourneyArrived": "{count} of {total} arrived",
-  "@moneyJourneyArrived": {"description": "Money journey: the small chip under the destination station while several legs are still on their way, how many of them have landed there. {count} and {total} are small whole numbers.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}},
+  "@moneyJourneyArrived": {
+    "description": "Money journey: the small chip under the destination station while several legs are still on their way, how many of them have landed there. {count} and {total} are small whole numbers.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "moneyJourneyPlaced": "Placed!",
-  "@moneyJourneyPlaced": {"description": "Money journey: the status line on top of the map once a funded order (a bet, an Investing order, added margin) placed; one cheerful word, beside the amount."},
+  "@moneyJourneyPlaced": {
+    "description": "Money journey: the status line on top of the map once a funded order (a bet, an Investing order, added margin) placed; one cheerful word, beside the amount."
+  },
   "cctpRefundReturnedTo": "Refunded to your {network} address {address}.",
-  "@cctpRefundReturnedTo": {"description": "Activity detail of an Investing move by CCTP whose one-time quote was refunded: the USDC went back to the wallet's own EVM address on Arbitrum. Plain caption; tapping it copies the full address. {network} is the network name (Arbitrum), {address} the address shortened (0x1234…abcd).", "placeholders": {"network": {"type": "String"}, "address": {"type": "String"}}},
+  "@cctpRefundReturnedTo": {
+    "description": "Activity detail of an Investing move by CCTP whose one-time quote was refunded: the USDC went back to the wallet's own EVM address on Arbitrum. Plain caption; tapping it copies the full address. {network} is the network name (Arbitrum), {address} the address shortened (0x1234…abcd).",
+    "placeholders": {
+      "network": {
+        "type": "String"
+      },
+      "address": {
+        "type": "String"
+      }
+    }
+  },
   "cctpRefundMoveWithWallet": "To move it, use a wallet like MetaMask with the same recovery phrase.",
-  "@cctpRefundMoveWithWallet": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the standard format (m/44'/60'/0'/0/0 from the recovery phrase): the refunded USDC can be moved by importing the same 12 words into a wallet like MetaMask. MetaMask is a product name."},
+  "@cctpRefundMoveWithWallet": {
+    "description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the standard format (m/44'/60'/0'/0/0 from the recovery phrase): the refunded USDC can be moved by importing the same 12 words into a wallet like MetaMask. MetaMask is a product name."
+  },
   "cctpRefundContactSupport": "To move it, contact Support.",
-  "@cctpRefundContactSupport": {"description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."},
+  "@cctpRefundContactSupport": {
+    "description": "Second caption under cctpRefundReturnedTo, for a wallet whose EVM key uses the legacy format (other wallets do not reproduce it from the phrase): Support helps move the refunded USDC."
+  },
   "portfolioSectionPnlCharts": "P&L Charts",
   "portfolioSectionBalances": "Portfolio",
-  "@portfolioSectionBalances": {"description": "Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was \"Balances\"."},
+  "@portfolioSectionBalances": {
+    "description": "Investments, Portfolio pill: the small pill (beside P&L charts and Activity) for the section with Available to invest, the Move money button and the Predictions and Investing positions. Reads the same as the Portfolio pill above it (founder, October 2026); was \"Balances\"."
+  },
   "balanceChangePastWeek": "{change} past week",
-  "@balanceChangePastWeek": {"description": "Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.", "placeholders": {"change": {"type": "String"}}},
+  "@balanceChangePastWeek": {
+    "description": "Balance chart (Bitcoin home, Dollars), header above the line for the 1W range: {change} is the signed amount, e.g. '+₿6,938' or '−$12.30', optionally followed by a small percent.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangePastMonth": "{change} past month",
-  "@balanceChangePastMonth": {"description": "Balance chart header for the 1M range; {change} as in balanceChangePastWeek.", "placeholders": {"change": {"type": "String"}}},
+  "@balanceChangePastMonth": {
+    "description": "Balance chart header for the 1M range; {change} as in balanceChangePastWeek.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangePast3Months": "{change} past 3 months",
-  "@balanceChangePast3Months": {"description": "Balance chart header for the 3M range; {change} as in balanceChangePastWeek.", "placeholders": {"change": {"type": "String"}}},
+  "@balanceChangePast3Months": {
+    "description": "Balance chart header for the 3M range; {change} as in balanceChangePastWeek.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangePastYear": "{change} past year",
-  "@balanceChangePastYear": {"description": "Balance chart header for the 1Y range; {change} as in balanceChangePastWeek.", "placeholders": {"change": {"type": "String"}}},
+  "@balanceChangePastYear": {
+    "description": "Balance chart header for the 1Y range; {change} as in balanceChangePastWeek.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangeAllTime": "{change} all time",
-  "@balanceChangeAllTime": {"description": "Balance chart header for the ALL range (the whole history); {change} as in balanceChangePastWeek.", "placeholders": {"change": {"type": "String"}}},
+  "@balanceChangeAllTime": {
+    "description": "Balance chart header for the ALL range (the whole history); {change} as in balanceChangePastWeek.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangeSince": "{change} since {date}",
-  "@balanceChangeSince": {"description": "Balance chart header after a pinch or pan, for a window ending now: {change} as in balanceChangePastWeek, {date} the window's first day ('Oct 6').", "placeholders": {"change": {"type": "String"}, "date": {"type": "String"}}},
+  "@balanceChangeSince": {
+    "description": "Balance chart header after a pinch or pan, for a window ending now: {change} as in balanceChangePastWeek, {date} the window's first day ('Oct 6').",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChangeBetween": "{change}, {start} – {end}",
-  "@balanceChangeBetween": {"description": "Balance chart header after a pan back in time: {change} as in balanceChangePastWeek, {start} and {end} the window's first and last dates.", "placeholders": {"change": {"type": "String"}, "start": {"type": "String"}, "end": {"type": "String"}}},
+  "@balanceChangeBetween": {
+    "description": "Balance chart header after a pan back in time: {change} as in balanceChangePastWeek, {start} and {end} the window's first and last dates.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "balanceNoChangePastWeek": "No change in the past week",
-  "@balanceNoChangePastWeek": {"description": "Balance chart header for the 1W range when the balance is the same at both ends."},
+  "@balanceNoChangePastWeek": {
+    "description": "Balance chart header for the 1W range when the balance is the same at both ends."
+  },
   "balanceNoChangePastMonth": "No change in the past month",
-  "@balanceNoChangePastMonth": {"description": "Balance chart header for the 1M range when the balance is the same at both ends."},
+  "@balanceNoChangePastMonth": {
+    "description": "Balance chart header for the 1M range when the balance is the same at both ends."
+  },
   "balanceNoChangePast3Months": "No change in the past 3 months",
-  "@balanceNoChangePast3Months": {"description": "Balance chart header for the 3M range when the balance is the same at both ends."},
+  "@balanceNoChangePast3Months": {
+    "description": "Balance chart header for the 3M range when the balance is the same at both ends."
+  },
   "balanceNoChangePastYear": "No change in the past year",
-  "@balanceNoChangePastYear": {"description": "Balance chart header for the 1Y range when the balance is the same at both ends."},
+  "@balanceNoChangePastYear": {
+    "description": "Balance chart header for the 1Y range when the balance is the same at both ends."
+  },
   "balanceNoChangeSince": "No change since {date}",
-  "@balanceNoChangeSince": {"description": "Balance chart header, balance the same at both ends of a window ending now (ALL, or after a pinch); {date} the window's first day.", "placeholders": {"date": {"type": "String"}}},
+  "@balanceNoChangeSince": {
+    "description": "Balance chart header, balance the same at both ends of a window ending now (ALL, or after a pinch); {date} the window's first day.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "balanceNoChangeBetween": "No change, {start} – {end}",
-  "@balanceNoChangeBetween": {"description": "Balance chart header, balance the same at both ends of a window panned back in time; {start} and {end} its dates.", "placeholders": {"start": {"type": "String"}, "end": {"type": "String"}}},
+  "@balanceNoChangeBetween": {
+    "description": "Balance chart header, balance the same at both ends of a window panned back in time; {start} and {end} its dates.",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "balanceChartEmptyBitcoin": "Your balance over time shows here once you hold bitcoin",
-  "@balanceChartEmptyBitcoin": {"description": "Quiet one-line message centred on the Bitcoin balance chart when the balance is zero across the whole selected range."},
+  "@balanceChartEmptyBitcoin": {
+    "description": "Quiet one-line message centred on the Bitcoin balance chart when the balance is zero across the whole selected range."
+  },
   "balanceChartEmptyDollars": "Your balance over time shows here once you hold dollars",
-  "@balanceChartEmptyDollars": {"description": "Quiet one-line message centred on the Dollars balance chart when the balance is zero across the whole selected range."},
+  "@balanceChartEmptyDollars": {
+    "description": "Quiet one-line message centred on the Dollars balance chart when the balance is zero across the whole selected range."
+  },
   "chartPeriodPastWeek": "Past week",
-  "@chartPeriodPastWeek": {"description": "Trend charts (P&L, Bitcoin Balance, Dollars balance): the period named after the change line's figures for the 1W range, e.g. '▲ $31.84 · Past week'."},
+  "@chartPeriodPastWeek": {
+    "description": "Trend charts (P&L, Bitcoin Balance, Dollars balance): the period named after the change line's figures for the 1W range, e.g. '▲ $31.84 · Past week'."
+  },
   "chartPeriodPastMonth": "Past month",
-  "@chartPeriodPastMonth": {"description": "Trend charts: the period after the change for the 1M range."},
+  "@chartPeriodPastMonth": {
+    "description": "Trend charts: the period after the change for the 1M range."
+  },
   "chartPeriodPast3Months": "Past 3 months",
-  "@chartPeriodPast3Months": {"description": "Trend charts: the period after the change for the 3M range."},
+  "@chartPeriodPast3Months": {
+    "description": "Trend charts: the period after the change for the 3M range."
+  },
   "chartPeriodPastYear": "Past year",
-  "@chartPeriodPastYear": {"description": "Trend charts: the period after the change for the 1Y range."},
+  "@chartPeriodPastYear": {
+    "description": "Trend charts: the period after the change for the 1Y range."
+  },
   "chartPeriodAllTime": "All time",
-  "@chartPeriodAllTime": {"description": "Trend charts: the period after the change for the ALL range (the whole history)."},
+  "@chartPeriodAllTime": {
+    "description": "Trend charts: the period after the change for the ALL range (the whole history)."
+  },
   "chartNoChange": "No change",
-  "@chartNoChange": {"description": "Trend charts: the change line when the value is the same at both ends of the period, e.g. 'No change · Past month'."},
+  "@chartNoChange": {
+    "description": "Trend charts: the change line when the value is the same at both ends of the period, e.g. 'No change · Past month'."
+  },
   "pnlChartNoHistory": "Your P&L shows up after your first position.",
-  "@pnlChartNoHistory": {"description": "Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn."},
+  "@pnlChartNoHistory": {
+    "description": "Portfolio P&L chart: the one quiet caption under the headline when there is no P&L history yet; no chart is drawn."
+  },
   "balanceChartNoHistory": "Your balance history starts with your first transaction.",
-  "@balanceChartNoHistory": {"description": "Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn."},
+  "@balanceChartNoHistory": {
+    "description": "Bitcoin and Dollars balance charts: the one quiet caption under the headline when the account has no history yet; no chart is drawn."
+  },
   "pnlChartEmpty": "Your profit and loss shows here once you trade or predict",
-  "@pnlChartEmpty": {"description": "Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction."},
+  "@pnlChartEmpty": {
+    "description": "Quiet one-line message centred on the Portfolio profit and loss chart (P&L charts) when the P&L is zero across the whole selected range, e.g. before the first trade or prediction."
+  },
   "portfolioPositionsCount": "{count, plural, =1{1 position} other{{count} positions}}",
-  "@portfolioPositionsCount": {"description": "Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.", "placeholders": {"count": {"type": "int"}}},
+  "@portfolioPositionsCount": {
+    "description": "Investments, Portfolio: small secondary line, how many open positions there are (Investing positions and predictions together): above the Positions list.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "portfolioBuyingPower": "Available to invest",
-  "@portfolioBuyingPower": {"description": "Investments, Portfolio, Balances: row title for all spare cash added up (Dollars plus the cash at Hyperliquid and Polymarket): money ready for a new trade or prediction, not in positions. Was \"Buying power\" until October 2026."},
+  "@portfolioBuyingPower": {
+    "description": "Investments, Portfolio, Balances: row title for all spare cash added up (Dollars plus the cash at Hyperliquid and Polymarket): money ready for a new trade or prediction, not in positions. Was \"Buying power\" until October 2026."
+  },
   "portfolioNoOpenPositions": "No open positions",
-  "@portfolioNoOpenPositions": {"description": "Investments, Portfolio, Balances: small secondary line under \"Investing\" when no Investing position is open."},
+  "@portfolioNoOpenPositions": {
+    "description": "Investments, Portfolio, Balances: small secondary line under \"Investing\" when no Investing position is open."
+  },
   "portfolioRowShares": "{shares} shares · avg {price}",
-  "@portfolioRowShares": {"description": "Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).", "placeholders": {"shares": {"type": "String"}, "price": {"type": "String"}}},
+  "@portfolioRowShares": {
+    "description": "Investments, Portfolio, Positions: a Predictions row's facts after the outcome ('Yes · 4.99 shares · avg 72¢'). {shares} is the number of shares, {price} the average price paid in cents (72¢).",
+    "placeholders": {
+      "shares": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "portfolioRowEntry": "entry {price}",
-  "@portfolioRowEntry": {"description": "Investments, Portfolio, Positions: an Investing row's entry price at the end of its facts ('Long · 0.00012 BTC · entry $90,120'). Lowercase mid-line. {price} is a formatted dollar price.", "placeholders": {"price": {"type": "String"}}},
+  "@portfolioRowEntry": {
+    "description": "Investments, Portfolio, Positions: an Investing row's entry price at the end of its facts ('Long · 0.00012 BTC · entry $90,120'). Lowercase mid-line. {price} is a formatted dollar price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
   "investmentsAdd": "Add",
-  "@investmentsAdd": {"description": "Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'."},
+  "@investmentsAdd": {
+    "description": "Investments, the action row under the balance: moves money into Dollars (from Bitcoin or another wallet). Replaces 'Deposit'."
+  },
   "activityOnItsWay": "On its way",
-  "@activityOnItsWay": {"description": "Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows."},
+  "@activityOnItsWay": {
+    "description": "Activity row status while money moves between the person's own places (an Orchestra move, a venue cash pull) and has not landed yet. Replaces 'Pending' on those rows."
+  },
   "investingTradfi": "Stocks and shares",
-  "@investingTradfi": {"description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."},
+  "@investingTradfi": {
+    "description": "Investing browser pill for the venue's Tradfi group (stocks, indices, commodities, FX, pre-IPO). Plain word, not the site's jargon."
+  },
   "purchaseShort": "Purchase",
-  "@purchaseShort": {"description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."},
+  "@purchaseShort": {
+    "description": "Home, the compact action row under the balance: the Purchase bitcoin action's one-word label under its round button (the big button says Purchase Bitcoin)."
+  },
   "categoryGroupDiscover": "Discover",
-  "@categoryGroupDiscover": {"description": "Investments category sheet: the small label over the first card, the starred, trending, breaking, new and live categories of a venue."},
+  "@categoryGroupDiscover": {
+    "description": "Investments category sheet: the small label over the first card, the starred, trending, breaking, new and live categories of a venue."
+  },
   "categoryGroupMarkets": "Markets",
-  "@categoryGroupMarkets": {"description": "Investments category sheet, Investing: the label over the card of market categories (Traditional, Crypto, Perps, Spot, Pre-launch)."},
+  "@categoryGroupMarkets": {
+    "description": "Investments category sheet, Investing: the label over the card of market categories (Traditional, Crypto, Perps, Spot, Pre-launch)."
+  },
   "categoryGroupTopics": "Topics",
-  "@categoryGroupTopics": {"description": "Investments category sheet, Predictions: the label over the card of subject categories (Politics, Sports, Crypto…)."},
+  "@categoryGroupTopics": {
+    "description": "Investments category sheet, Predictions: the label over the card of subject categories (Politics, Sports, Crypto…)."
+  },
   "categoryStatMarkets": "{count, plural, =1{1 market} other{{count} markets}}",
-  "@categoryStatMarkets": {"description": "Category sheet tile, second line: how many markets the category holds. {count} is the number.", "placeholders": {"count": {"type": "int"}}},
+  "@categoryStatMarkets": {
+    "description": "Category sheet tile, second line: how many markets the category holds. {count} is the number.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "categoryStatMostActive": "Most active",
-  "@categoryStatMostActive": {"description": "Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'."},
+  "@categoryStatMostActive": {
+    "description": "Category sheet, the Trending tile's second line lead: 'Most active · ▲ 1.8% today'."
+  },
   "categoryStatToday": "today",
-  "@categoryStatToday": {"description": "Category sheet, the Trending tile's second line tail, after the median move: '▲ 1.8% today'. Lowercase mid-line."},
+  "@categoryStatToday": {
+    "description": "Category sheet, the Trending tile's second line tail, after the median move: '▲ 1.8% today'. Lowercase mid-line."
+  },
   "categoryStatVolToday": "{amount} vol today",
-  "@categoryStatVolToday": {"description": "Category sheet, a Predictions tile's second line: the loaded events' 24h volume added up. {amount} is compact money ($12M).", "placeholders": {"amount": {"type": "String"}}},
+  "@categoryStatVolToday": {
+    "description": "Category sheet, a Predictions tile's second line: the loaded events' 24h volume added up. {amount} is compact money ($12M).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "categoryAllOf": "All {group}",
-  "@categoryAllOf": {"description": "Category sheet, the wide tile at the top of a group's subcategory grid: the whole group, no subcategory ('All Traditional', 'All Politics'). {group} is the group's name.", "placeholders": {"group": {"type": "String"}}},
+  "@categoryAllOf": {
+    "description": "Category sheet, the wide tile at the top of a group's subcategory grid: the whole group, no subcategory ('All Traditional', 'All Politics'). {group} is the group's name.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
+  },
   "searchHomeMovingNow": "Moving now",
-  "@searchHomeMovingNow": {"description": "Search sheet, before any text: the small label over the row of chips with the day's biggest Investing moves."},
+  "@searchHomeMovingNow": {
+    "description": "Search sheet, before any text: the small label over the row of chips with the day's biggest Investing moves."
+  },
   "searchHomeTrendingPredictions": "Trending predictions",
-  "@searchHomeTrendingPredictions": {"description": "Search sheet, before any text: the small label over three trending prediction rows."},
+  "@searchHomeTrendingPredictions": {
+    "description": "Search sheet, before any text: the small label over three trending prediction rows."
+  },
   "barPickMarketGroup": "Pick a market group",
-  "@barPickMarketGroup": {"description": "The floating Sal bar while the category grid sheet is open."},
+  "@barPickMarketGroup": {
+    "description": "The floating Sal bar while the category grid sheet is open."
+  },
   "barPickMarketGroupSub": "or ask Sal to find one",
-  "@barPickMarketGroupSub": {"description": "Second line of the floating Sal bar while the category grid sheet is open."},
+  "@barPickMarketGroupSub": {
+    "description": "Second line of the floating Sal bar while the category grid sheet is open."
+  },
   "barShareWithFriends": "Send to a friend",
-  "@barShareWithFriends": {"description": "The floating Sal bar on a market or position page (Predictions and Investing): the recommended action. Founder (1 November 2026): say \"Send to a friend\", never \"Share\"."},
+  "@barShareWithFriends": {
+    "description": "The floating Sal bar on a market or position page (Predictions and Investing): the recommended action. Founder (1 November 2026): say \"Send to a friend\", never \"Share\"."
+  },
   "barShareMarketSub": "Send the market or your prediction",
-  "@barShareMarketSub": {"description": "Second line of the floating Sal bar on a market page."},
+  "@barShareMarketSub": {
+    "description": "Second line of the floating Sal bar on a market page."
+  },
   "barSharePositionSub": "Send the market or your position",
-  "@barSharePositionSub": {"description": "Second line of the floating Sal bar on a position page."},
+  "@barSharePositionSub": {
+    "description": "Second line of the floating Sal bar on a position page."
+  },
   "shareTheMarket": "Send the market",
-  "@shareTheMarket": {"description": "Action row on a market page: sends a link to the market (opens the market send sheet). Founder: never \"Share\" on Predictions or Investing."},
+  "@shareTheMarket": {
+    "description": "Action row on a market page: sends a link to the market (opens the market send sheet). Founder: never \"Share\" on Predictions or Investing."
+  },
   "shareTheMarketSub": "A link they can open, with your code",
-  "@shareTheMarketSub": {"description": "Second line of the Share the market row."},
+  "@shareTheMarketSub": {
+    "description": "Second line of the Share the market row."
+  },
   "shareThisPosition": "Send this position",
-  "@shareThisPosition": {"description": "Action row on a position page: sends the market and how the position is doing. Founder: never \"Share\" on Predictions or Investing."},
+  "@shareThisPosition": {
+    "description": "Action row on a position page: sends the market and how the position is doing. Founder: never \"Share\" on Predictions or Investing."
+  },
   "shareThisPositionSub": "The market and how you're doing",
-  "@shareThisPositionSub": {"description": "Second line of the Share this position row."},
+  "@shareThisPositionSub": {
+    "description": "Second line of the Share this position row."
+  },
   "sendThisPrediction": "Send this prediction",
-  "@sendThisPrediction": {"description": "Action row on a Predictions market or position page, and the send sheet's title: sends the pick (outcome and amount) as a link the recipient places."},
+  "@sendThisPrediction": {
+    "description": "Action row on a Predictions market or position page, and the send sheet's title: sends the pick (outcome and amount) as a link the recipient places."
+  },
   "sendThisInvestment": "Send this investment",
-  "@sendThisInvestment": {"description": "Action row on an Investing market or position page, and the send sheet's title: sends the pick (Long / Short and amount) as a link the recipient places."},
+  "@sendThisInvestment": {
+    "description": "Action row on an Investing market or position page, and the send sheet's title: sends the pick (Long / Short and amount) as a link the recipient places."
+  },
   "sendThisPickSub": "They get your pick, ready to place",
-  "@sendThisPickSub": {"description": "Second line of the Send this prediction / investment row and the send sheet's subtitle."},
+  "@sendThisPickSub": {
+    "description": "Second line of the Send this prediction / investment row and the send sheet's subtitle."
+  },
   "sharePickOn": "{outcome} on {title}",
   "@sharePickOn": {
     "description": "The pick line: the outcome ('Yes', 'Long') on the market's title. Shown above the amount on the send sheet and on the Claim screen's preview card.",
     "placeholders": {
-      "outcome": {"type": "String"},
-      "title": {"type": "String"}
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
     }
   },
   "portfolioInvestedLabel": "Invested",
-  "@portfolioInvestedLabel": {"description": "Portfolio screen, the line under the hero ring: the label before what is invested (Investing + Predictions at work)."},
+  "@portfolioInvestedLabel": {
+    "description": "Portfolio screen, the line under the hero ring: the label before what is invested (Investing + Predictions at work)."
+  },
   "portfolioAvailableLabel": "Available",
-  "@portfolioAvailableLabel": {"description": "Portfolio screen, the line under the hero ring: the label before the Dollars cash."},
+  "@portfolioAvailableLabel": {
+    "description": "Portfolio screen, the line under the hero ring: the label before the Dollars cash."
+  },
   "balanceNoHistoryTitle": "No balance history yet",
-  "@balanceNoHistoryTitle": {"description": "Bitcoin Balance tab and Dollars balance chart, empty: the title over Sal."},
+  "@balanceNoHistoryTitle": {
+    "description": "Bitcoin Balance tab and Dollars balance chart, empty: the title over Sal."
+  },
   "balanceNoHistorySub": "It starts with your first transaction.",
-  "@balanceNoHistorySub": {"description": "Bitcoin Balance tab and Dollars balance chart, empty: the line under the title."},
+  "@balanceNoHistorySub": {
+    "description": "Bitcoin Balance tab and Dollars balance chart, empty: the line under the title."
+  },
   "pnlNoHistoryTitle": "No P&L yet",
-  "@pnlNoHistoryTitle": {"description": "Portfolio P&L Charts, empty: the title over Sal."},
+  "@pnlNoHistoryTitle": {
+    "description": "Portfolio P&L Charts, empty: the title over Sal."
+  },
   "pnlByVenue": "By venue",
-  "@pnlByVenue": {"description": "Portfolio P&L Charts: the small title over the per-venue P&L rows."},
+  "@pnlByVenue": {
+    "description": "Portfolio P&L Charts: the small title over the per-venue P&L rows."
+  },
   "pnlStatRealised": "Realised",
-  "@pnlStatRealised": {"description": "Portfolio P&L Charts stats strip: label over the P&L made by closed positions."},
+  "@pnlStatRealised": {
+    "description": "Portfolio P&L Charts stats strip: label over the P&L made by closed positions."
+  },
   "pnlStatUnrealised": "Unrealised",
-  "@pnlStatUnrealised": {"description": "Portfolio P&L Charts stats strip: label over the P&L of positions still open."},
+  "@pnlStatUnrealised": {
+    "description": "Portfolio P&L Charts stats strip: label over the P&L of positions still open."
+  },
   "pnlStatRealisedAllTime": "All time realised",
-  "@pnlStatRealisedAllTime": {"description": "Portfolio P&L Charts stats card: label over the P&L made by closed positions since the account began (it does not follow the chart's range)."},
+  "@pnlStatRealisedAllTime": {
+    "description": "Portfolio P&L Charts stats card: label over the P&L made by closed positions since the account began (it does not follow the chart's range)."
+  },
   "pnlStatUnrealisedAllTime": "All time unrealised",
-  "@pnlStatUnrealisedAllTime": {"description": "Portfolio P&L Charts stats card: label over what the positions still open stand at (it does not follow the chart's range)."},
+  "@pnlStatUnrealisedAllTime": {
+    "description": "Portfolio P&L Charts stats card: label over what the positions still open stand at (it does not follow the chart's range)."
+  },
   "portfolioInvestedInVenue": "Invested in {venue}",
-  "@portfolioInvestedInVenue": {"description": "Portfolio screen, the line under the hero ring while a venue is picked on P&L Charts: the label before what is invested at that venue. venue: the venue's name (Predictions, Investing).", "placeholders": {"venue": {"type": "String"}}},
+  "@portfolioInvestedInVenue": {
+    "description": "Portfolio screen, the line under the hero ring while a venue is picked on P&L Charts: the label before what is invested at that venue. venue: the venue's name (Predictions, Investing).",
+    "placeholders": {
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
   "pnlStatWinRate": "Win rate",
-  "@pnlStatWinRate": {"description": "Portfolio P&L Charts stats strip: label over the share of closed positions that made money."},
+  "@pnlStatWinRate": {
+    "description": "Portfolio P&L Charts stats strip: label over the share of closed positions that made money."
+  },
   "portfolioAllTime": "All time",
-  "@portfolioAllTime": {"description": "Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss (\"All time ▲ $120.10\")."},
+  "@portfolioAllTime": {
+    "description": "Portfolio screen, shares card: the label of the stats line under the hairline, before the account's all-time profit or loss (\"All time ▲ $120.10\")."
+  },
   "barWhatIsThis": "What is this?",
-  "@barWhatIsThis": {"description": "The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen."},
+  "@barWhatIsThis": {
+    "description": "The floating Sal bar on an informational screen (Receive, scanner, Backup, a receipt): tapping asks Sal to explain the screen."
+  },
   "barReceiveExplainSub": "Sal explains how receiving works",
-  "@barReceiveExplainSub": {"description": "Second line of the bar on the Receive sheet."},
+  "@barReceiveExplainSub": {
+    "description": "Second line of the bar on the Receive sheet."
+  },
   "barReceiveQuestion": "Explain this receive screen: the QR, the Lightning address, Unified vs Bitcoin only vs Lightning only, and what 'Also accepts' means",
-  "@barReceiveQuestion": {"description": "The question the Receive sheet's bar sends to Sal."},
+  "@barReceiveQuestion": {
+    "description": "The question the Receive sheet's bar sends to Sal."
+  },
   "barScannerLabel": "What can I scan?",
-  "@barScannerLabel": {"description": "The bar on the scanner."},
+  "@barScannerLabel": {
+    "description": "The bar on the scanner."
+  },
   "barScannerQuestion": "What can I scan with Kute's scanner: addresses, invoices, QR codes, and what happens after a scan?",
-  "@barScannerQuestion": {"description": "The question the scanner's bar sends to Sal."},
+  "@barScannerQuestion": {
+    "description": "The question the scanner's bar sends to Sal."
+  },
   "barBackupLabel": "Why back up?",
-  "@barBackupLabel": {"description": "The bar on Backup and recovery."},
+  "@barBackupLabel": {
+    "description": "The bar on Backup and recovery."
+  },
   "barBackupQuestion": "Why should I back up my wallet, what is the recovery phrase, and how do I keep it safe?",
-  "@barBackupQuestion": {"description": "The question the Backup screen's bar sends to Sal."},
+  "@barBackupQuestion": {
+    "description": "The question the Backup screen's bar sends to Sal."
+  },
   "barReceiptLabel": "What happened here?",
-  "@barReceiptLabel": {"description": "The bar on a transaction receipt."},
+  "@barReceiptLabel": {
+    "description": "The bar on a transaction receipt."
+  },
   "barReceiptQuestion": "Explain this transaction receipt: what moved, the fees, the status and what each line means",
-  "@barReceiptQuestion": {"description": "The question a receipt's bar sends to Sal."},
+  "@barReceiptQuestion": {
+    "description": "The question a receipt's bar sends to Sal."
+  },
   "barAskSalSub": "Ask Sal about this screen",
-  "@barAskSalSub": {"description": "Second line of the bar on an informational screen other than Receive."},
+  "@barAskSalSub": {
+    "description": "Second line of the bar on an informational screen other than Receive."
+  },
   "barMoveMoney": "Move money",
-  "@barMoveMoney": {"description": "The floating Sal bar over the Move money screen."},
+  "@barMoveMoney": {
+    "description": "The floating Sal bar over the Move money screen."
+  },
   "barMoveMoneySub": "ask Sal where it should go",
-  "@barMoveMoneySub": {"description": "Second line of the floating Sal bar over the Move money screen."},
+  "@barMoveMoneySub": {
+    "description": "Second line of the floating Sal bar over the Move money screen."
+  },
   "barAskWhatNext": "Ask Sal what happens next",
-  "@barAskWhatNext": {"description": "The floating Sal bar over a receipt or a pending result."},
+  "@barAskWhatNext": {
+    "description": "The floating Sal bar over a receipt or a pending result."
+  },
   "barAskAboutKute": "Ask Sal about Kute",
-  "@barAskAboutKute": {"description": "The floating Sal bar over Settings."},
+  "@barAskAboutKute": {
+    "description": "The floating Sal bar over Settings."
+  },
   "searchHomeRecent": "Recent",
-  "@searchHomeRecent": {"description": "Search sheet, before any text: the small label over the last things opened or typed."},
+  "@searchHomeRecent": {
+    "description": "Search sheet, before any text: the small label over the last things opened or typed."
+  },
   "searchHomeClear": "Clear",
-  "@searchHomeClear": {"description": "Search sheet, Recent: clears the list."},
+  "@searchHomeClear": {
+    "description": "Search sheet, Recent: clears the list."
+  },
   "searchScopeTitle": "Search in",
-  "@searchScopeTitle": {"description": "Search sheet: the title of the short menu the scope chip (\"All\") opens while typing, listing All / Predictions / Investing / Transactions."},
+  "@searchScopeTitle": {
+    "description": "Search sheet: the title of the short menu the scope chip (\"All\") opens while typing, listing All / Predictions / Investing / Transactions."
+  },
   "marketMetaLine": "Closes {date} · {volume}",
   "@marketMetaLine": {
     "description": "Predictions list row, the one quiet line under the question: the month and year the market closes ('Jan 2027') first, then its volume, compact ('$27.8K'): 'Closes Jan 2027 · $27.8K'. Starts the line, so capitalised.",
     "placeholders": {
-      "volume": {"type": "String"},
-      "date": {"type": "String"}
+      "volume": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "marketCloses": "Closes {date}",
   "@marketCloses": {
     "description": "Predictions list row and Top markets card, the line under the question when there is no volume to show: the month and year the market closes ('Closes Jan 2027'). Starts the line, so capitalised.",
     "placeholders": {
-      "date": {"type": "String"}
+      "date": {
+        "type": "String"
+      }
     }
   },
   "shareSendToAnyone": "Send to anyone",
@@ -7128,42 +8439,78 @@
   "@shareMessagePredictionNamed": {
     "description": "The OS share text for a prediction link when the sender named the recipient.",
     "placeholders": {
-      "name": {"type": "String"},
-      "outcome": {"type": "String"},
-      "title": {"type": "String"},
-      "amount": {"type": "String"},
-      "url": {"type": "String"}
+      "name": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
     }
   },
   "shareMessagePredictionUnnamed": "I sent you a prediction on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
   "@shareMessagePredictionUnnamed": {
     "description": "The OS share text for a prediction link when the sender gave no name.",
     "placeholders": {
-      "outcome": {"type": "String"},
-      "title": {"type": "String"},
-      "amount": {"type": "String"},
-      "url": {"type": "String"}
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
     }
   },
   "shareMessageInvestmentNamed": "{name}, I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
   "@shareMessageInvestmentNamed": {
     "description": "The OS share text for an Investing link when the sender named the recipient.",
     "placeholders": {
-      "name": {"type": "String"},
-      "outcome": {"type": "String"},
-      "title": {"type": "String"},
-      "amount": {"type": "String"},
-      "url": {"type": "String"}
+      "name": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
     }
   },
   "shareMessageInvestmentUnnamed": "I sent you an investment on Kute: {outcome} on {title}, {amount}. Claim it: {url}",
   "@shareMessageInvestmentUnnamed": {
     "description": "The OS share text for an Investing link when the sender gave no name.",
     "placeholders": {
-      "outcome": {"type": "String"},
-      "title": {"type": "String"},
-      "amount": {"type": "String"},
-      "url": {"type": "String"}
+      "outcome": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
     }
   },
   "shareLinkSentWaiting": "Link sent · waiting for {name} to claim",
@@ -7245,42 +8592,58 @@
   "@claimSentPrediction": {
     "description": "Claim screen headline for a link that carries a prediction pick. sender is a first name or \"Someone\".",
     "placeholders": {
-      "sender": {"type": "String"}
+      "sender": {
+        "type": "String"
+      }
     }
   },
   "claimSentInvestment": "{sender} sent you an investment",
   "@claimSentInvestment": {
     "description": "Claim screen headline for a link that carries an Investing pick.",
     "placeholders": {
-      "sender": {"type": "String"}
+      "sender": {
+        "type": "String"
+      }
     }
   },
   "claimPickAmount": "{outcome} · {amount}",
   "@claimPickAmount": {
     "description": "Claim screen preview card, the line under the market's title: the outcome and the amount ('Yes · $12.00').",
     "placeholders": {
-      "outcome": {"type": "String"},
-      "amount": {"type": "String"}
+      "outcome": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "claimWaitingForSender": "Waiting for {sender} to send it",
   "@claimWaitingForSender": {
     "description": "Claim screen after the claim of a pick, until the money has arrived in Dollars.",
     "placeholders": {
-      "sender": {"type": "String"}
+      "sender": {
+        "type": "String"
+      }
     }
   },
   "claimArrivedInDollars": "{amount} is in your Dollars",
   "@claimArrivedInDollars": {
     "description": "Claim screen headline once the claimed money has arrived.",
     "placeholders": {
-      "amount": {"type": "String"}
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "claimPlacePrediction": "Place the prediction",
-  "@claimPlacePrediction": {"description": "Claim screen button once the money arrived: opens the bet slip prefilled with the pick. Nothing is placed without the tap in the slip."},
+  "@claimPlacePrediction": {
+    "description": "Claim screen button once the money arrived: opens the bet slip prefilled with the pick. Nothing is placed without the tap in the slip."
+  },
   "claimPlaceInvestment": "Place the investment",
-  "@claimPlaceInvestment": {"description": "Claim screen button for an Investing pick once the money arrived: opens the order slip on the pick's side."},
+  "@claimPlaceInvestment": {
+    "description": "Claim screen button for an Investing pick once the money arrived: opens the order slip on the pick's side."
+  },
   "claimOpenMarket": "Open the market",
   "claimAlreadyClaimed": "This link was already claimed.",
   "claimExpired": "This link has expired.",
@@ -7288,7 +8651,9 @@
   "claimFailed": "Could not claim. Try again.",
   "claimNeedsWallet": "Your wallet is still getting ready. Try again in a moment.",
   "shareMarketShareLink": "Send the link",
-  "@shareMarketShareLink": {"description": "Primary button of the market send sheet (Predictions and Investing): opens the OS share sheet with the link. Founder: never \"Share\" on these surfaces."},
+  "@shareMarketShareLink": {
+    "description": "Primary button of the market send sheet (Predictions and Investing): opens the OS share sheet with the link. Founder: never \"Share\" on these surfaces."
+  },
   "shareMarketLookAt": "Look at this on Kute: {title} {link}",
   "@shareMarketLookAt": {
     "placeholders": {
@@ -7323,34 +8688,68 @@
   "sendToAFriend": "Send to a friend",
   "sendToAFriendSub": "They claim it with Kute, no wallet needed",
   "sendDollarsToAFriend": "Send dollars to a friend",
-  "@sendDollarsToAFriend": {"description": "Dollars send and withdraw: the friend-link row and the Sal bar there. Founder (1 November 2026): name the dollars on the Dollars side."},
+  "@sendDollarsToAFriend": {
+    "description": "Dollars send and withdraw: the friend-link row and the Sal bar there. Founder (1 November 2026): name the dollars on the Dollars side."
+  },
   "sendSomeoneElse": "Someone else",
   "sendAllowContactsInSettings": "Allow contacts in Settings",
   "sendAllowContactsInSettingsSub": "Kute can only show contacts you allow",
   "sendNoContactsMatch": "No contacts match",
   "sendContactsSearchHint": "Search contacts",
   "sendContactsSeeYours": "See your contacts",
-  "@sendContactsSeeYours": {"description": "Send screens: the row at the top of the Contacts list until the contacts permission is granted; tapping asks for it."},
+  "@sendContactsSeeYours": {
+    "description": "Send screens: the row at the top of the Contacts list until the contacts permission is granted; tapping asks for it."
+  },
   "sendContactsSeeYoursSub": "Send to friends from your phone book",
-  "@sendContactsSeeYoursSub": {"description": "Under sendContactsSeeYours."},
+  "@sendContactsSeeYoursSub": {
+    "description": "Under sendContactsSeeYours."
+  },
   "sendLinkToPhone": "Send a link to {phone}",
-  "@sendLinkToPhone": {"description": "Send screens: a typed phone number no contact has; opens the claim link flow for that number.", "placeholders": {"phone": {"type": "String"}}},
+  "@sendLinkToPhone": {
+    "description": "Send screens: a typed phone number no contact has; opens the claim link flow for that number.",
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "sendBadgeKute": "On Kute",
-  "@sendBadgeKute": {"description": "Accessibility label of the small Kute badge on a contact's avatar (the recipient uses Kute)."},
+  "@sendBadgeKute": {
+    "description": "Accessibility label of the small Kute badge on a contact's avatar (the recipient uses Kute)."
+  },
   "sendBadgeLightning": "Lightning address",
-  "@sendBadgeLightning": {"description": "Accessibility label of the small lightning badge on a contact's avatar."},
+  "@sendBadgeLightning": {
+    "description": "Accessibility label of the small lightning badge on a contact's avatar."
+  },
   "usdSendSearchHint": "Name, address or phone",
-  "@usdSendSearchHint": {"description": "Dollars Send first step: the search field's placeholder."},
+  "@usdSendSearchHint": {
+    "description": "Dollars Send first step: the search field's placeholder."
+  },
   "usdSendToYourBitcoin": "To your Bitcoin",
-  "@usdSendToYourBitcoin": {"description": "Dollars Send, Send to card: move dollars to the user's own Bitcoin."},
+  "@usdSendToYourBitcoin": {
+    "description": "Dollars Send, Send to card: move dollars to the user's own Bitcoin."
+  },
   "usdBitcoinBalanceLine": "{amount} in Bitcoin",
-  "@usdBitcoinBalanceLine": {"description": "Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.", "placeholders": {"amount": {"type": "String"}}},
+  "@usdBitcoinBalanceLine": {
+    "description": "Under To your Bitcoin / From your Bitcoin: the user's Bitcoin balance in dollars.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "usdSendPickRow": "A stock or prediction",
-  "@usdSendPickRow": {"description": "Dollars Send, Send to card: send a friend a stock or a prediction on a link."},
+  "@usdSendPickRow": {
+    "description": "Dollars Send, Send to card: send a friend a stock or a prediction on a link."
+  },
   "usdSendPickRowSub": "They get your pick, ready to place",
-  "@usdSendPickRowSub": {"description": "Under usdSendPickRow."},
+  "@usdSendPickRowSub": {
+    "description": "Under usdSendPickRow."
+  },
   "usdReceiveFromYourBitcoin": "From your Bitcoin",
-  "@usdReceiveFromYourBitcoin": {"description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."},
+  "@usdReceiveFromYourBitcoin": {
+    "description": "Dollars Add first step: deposit into Dollars from the user's own Bitcoin."
+  },
   "sendRailBitcoinOnchain": "Bitcoin · on-chain",
   "sendRailLightning": "Lightning",
   "sendRailSpark": "Spark",
@@ -7405,77 +8804,154 @@
   "shareSendAgainSms": "Send again via SMS",
   "sendToLabel": "Send to",
   "predictionsChance": "chance",
-  "@predictionsChance": {"description": "Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word."},
+  "@predictionsChance": {
+    "description": "Top markets card: the small word beside the big Yes chance figure ('71%  chance'). Lowercase, one word."
+  },
   "actionSoon": "Soon",
-  "@actionSoon": {"description": "Under an action square that is not live yet."},
+  "@actionSoon": {
+    "description": "Under an action square that is not live yet."
+  },
   "sendDollarsCaption": "$ · stocks · ₿",
-  "@sendDollarsCaption": {"description": "Dollars action row: the quiet line under Send naming what Send does: dollars, a stock pick, or to Bitcoin. Keep it very short (fits under a 52 px square)."},
+  "@sendDollarsCaption": {
+    "description": "Dollars action row: the quiet line under Send naming what Send does: dollars, a stock pick, or to Bitcoin. Keep it very short (fits under a 52 px square)."
+  },
   "connectAiAction": "Manage with AI",
-  "@connectAiAction": {"description": "Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon)."},
+  "@connectAiAction": {
+    "description": "Dollars action row: an AI that manages the money for you. Not live yet (shown with Soon)."
+  },
   "passkeyPrfUnsupportedTitle": "This password manager can't hold your Kute wallet",
-  "@passkeyPrfUnsupportedTitle": {"description": "Sheet title when the password manager the user picked for their passkey (e.g. a third-party one) cannot produce the key Kute derives the wallet from."},
+  "@passkeyPrfUnsupportedTitle": {
+    "description": "Sheet title when the password manager the user picked for their passkey (e.g. a third-party one) cannot produce the key Kute derives the wallet from."
+  },
   "passkeyPrfUnsupportedBody": "It doesn't support the key Kute needs, so nothing was created.",
-  "@passkeyPrfUnsupportedBody": {"description": "Sheet body under passkeyPrfUnsupportedTitle. One calm sentence; nothing was saved."},
+  "@passkeyPrfUnsupportedBody": {
+    "description": "Sheet body under passkeyPrfUnsupportedTitle. One calm sentence; nothing was saved."
+  },
   "passkeyPrfUseApplePasswords": "Use Apple Passwords",
-  "@passkeyPrfUseApplePasswords": {"description": "iOS primary action: run the passkey step again and save it to Apple's Passwords app."},
+  "@passkeyPrfUseApplePasswords": {
+    "description": "iOS primary action: run the passkey step again and save it to Apple's Passwords app."
+  },
   "passkeyPrfUseGooglePasswordManager": "Use Google Password Manager",
-  "@passkeyPrfUseGooglePasswordManager": {"description": "Android primary action: run the passkey step again and save it to Google Password Manager."},
+  "@passkeyPrfUseGooglePasswordManager": {
+    "description": "Android primary action: run the passkey step again and save it to Google Password Manager."
+  },
   "passkeyPrfPickApplePasswords": "Pick Passwords when asked",
-  "@passkeyPrfPickApplePasswords": {"description": "iOS hint under the passkey sheet actions: choose the Passwords app in the system sheet that follows."},
+  "@passkeyPrfPickApplePasswords": {
+    "description": "iOS hint under the passkey sheet actions: choose the Passwords app in the system sheet that follows."
+  },
   "passkeyPrfPickGooglePasswordManager": "Pick Google Password Manager when asked",
-  "@passkeyPrfPickGooglePasswordManager": {"description": "Android hint under the passkey sheet actions: choose Google Password Manager in the system sheet that follows."},
+  "@passkeyPrfPickGooglePasswordManager": {
+    "description": "Android hint under the passkey sheet actions: choose Google Password Manager in the system sheet that follows."
+  },
   "passkeyPrfUsePhraseInstead": "Use a recovery phrase instead",
-  "@passkeyPrfUsePhraseInstead": {"description": "Secondary action: create the wallet with a 12-word recovery phrase instead of a passkey."},
+  "@passkeyPrfUsePhraseInstead": {
+    "description": "Secondary action: create the wallet with a 12-word recovery phrase instead of a passkey."
+  },
   "passkeyPrfTryAgain": "Try again",
-  "@passkeyPrfTryAgain": {"description": "Run the same passkey step again."},
+  "@passkeyPrfTryAgain": {
+    "description": "Run the same passkey step again."
+  },
   "passkeyPrfSignInTitle": "This password manager didn't return your Kute key",
-  "@passkeyPrfSignInTitle": {"description": "Sheet title when signing in with a passkey came back without the key that opens the wallet. Nothing is deleted."},
+  "@passkeyPrfSignInTitle": {
+    "description": "Sheet title when signing in with a passkey came back without the key that opens the wallet. Nothing is deleted."
+  },
   "passkeyPrfSignInBody": "Nothing was changed. Try again and pick the password manager that holds your Kute passkey.",
-  "@passkeyPrfSignInBody": {"description": "Sheet body under passkeyPrfSignInTitle when an existing wallet is being opened."},
+  "@passkeyPrfSignInBody": {
+    "description": "Sheet body under passkeyPrfSignInTitle when an existing wallet is being opened."
+  },
   "passkeyPrfRestoreBody": "It doesn't support the key Kute needs to open your wallet. Restore with your recovery phrase instead.",
-  "@passkeyPrfRestoreBody": {"description": "Sheet body under passkeyPrfSignInTitle in the restore flow."},
+  "@passkeyPrfRestoreBody": {
+    "description": "Sheet body under passkeyPrfSignInTitle in the restore flow."
+  },
   "passkeyPrfRestoreWithPhrase": "Restore with your recovery phrase",
-  "@passkeyPrfRestoreWithPhrase": {"description": "Action: restore the wallet by typing its recovery phrase."},
+  "@passkeyPrfRestoreWithPhrase": {
+    "description": "Action: restore the wallet by typing its recovery phrase."
+  },
   "passkeyChoiceWorksWithApple": "Works with Apple Passwords",
-  "@passkeyChoiceWorksWithApple": {"description": "iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
+  "@passkeyChoiceWorksWithApple": {
+    "description": "iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."
+  },
   "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager",
-  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
+  "@passkeyChoiceWorksWithGoogle": {
+    "description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."
+  },
   "sendRecipientSendingTo": "Sending to",
-  "@sendRecipientSendingTo": {"description": "Send (Bitcoin and Dollars): the label over the recipient card once a typed, pasted or picked destination resolves."},
+  "@sendRecipientSendingTo": {
+    "description": "Send (Bitcoin and Dollars): the label over the recipient card once a typed, pasted or picked destination resolves."
+  },
   "sendRecipientChange": "Change",
-  "@sendRecipientChange": {"description": "Send: the small text button on the recipient card that clears the chosen recipient so another can be typed or picked."},
+  "@sendRecipientChange": {
+    "description": "Send: the small text button on the recipient card that clears the chosen recipient so another can be typed or picked."
+  },
   "sendOtherContacts": "Other contacts",
-  "@sendOtherContacts": {"description": "Send: the Contacts list header while a recipient is chosen; the chosen one is not repeated in it."},
+  "@sendOtherContacts": {
+    "description": "Send: the Contacts list header while a recipient is chosen; the chosen one is not repeated in it."
+  },
   "chartSheetTitle": "Chart",
-  "@chartSheetTitle": {"description": "Title of the chart sheet (style and indicators) on a market chart."},
+  "@chartSheetTitle": {
+    "description": "Title of the chart sheet (style and indicators) on a market chart."
+  },
   "chartSheetStyle": "Style",
-  "@chartSheetStyle": {"description": "Section label above the three chart style cards."},
+  "@chartSheetStyle": {
+    "description": "Section label above the three chart style cards."
+  },
   "chartIndEma": "Moving averages",
-  "@chartIndEma": {"description": "Indicator name: the EMA 9/21 trend lines."},
+  "@chartIndEma": {
+    "description": "Indicator name: the EMA 9/21 trend lines."
+  },
   "chartIndEmaNote": "Short and long trend lines",
-  "@chartIndEmaNote": {"description": "One-line explanation of the moving averages indicator."},
+  "@chartIndEmaNote": {
+    "description": "One-line explanation of the moving averages indicator."
+  },
   "chartIndBb": "Bollinger bands",
-  "@chartIndBb": {"description": "Indicator name."},
+  "@chartIndBb": {
+    "description": "Indicator name."
+  },
   "chartIndBbNote": "How far the price usually swings",
-  "@chartIndBbNote": {"description": "One-line explanation of Bollinger bands."},
+  "@chartIndBbNote": {
+    "description": "One-line explanation of Bollinger bands."
+  },
   "chartIndRsi": "RSI",
-  "@chartIndRsi": {"description": "Indicator name (relative strength index)."},
+  "@chartIndRsi": {
+    "description": "Indicator name (relative strength index)."
+  },
   "chartIndRsiNote": "Whether buying or selling is overstretched",
-  "@chartIndRsiNote": {"description": "One-line explanation of RSI."},
+  "@chartIndRsiNote": {
+    "description": "One-line explanation of RSI."
+  },
   "chartIndMacd": "MACD",
-  "@chartIndMacd": {"description": "Indicator name."},
+  "@chartIndMacd": {
+    "description": "Indicator name."
+  },
   "chartIndMacdNote": "Momentum turning up or down",
-  "@chartIndMacdNote": {"description": "One-line explanation of MACD."},
+  "@chartIndMacdNote": {
+    "description": "One-line explanation of MACD."
+  },
   "chartIndVwap": "VWAP",
-  "@chartIndVwap": {"description": "Indicator name (volume-weighted average price)."},
+  "@chartIndVwap": {
+    "description": "Indicator name (volume-weighted average price)."
+  },
   "chartIndVwapNote": "Average price weighted by volume",
-  "@chartIndVwapNote": {"description": "One-line explanation of VWAP."},
+  "@chartIndVwapNote": {
+    "description": "One-line explanation of VWAP."
+  },
   "chartIndVolumeNote": "How much traded each bar",
-  "@chartIndVolumeNote": {"description": "One-line explanation of the volume indicator."},
+  "@chartIndVolumeNote": {
+    "description": "One-line explanation of the volume indicator."
+  },
   "chartReset": "Reset",
-  "@chartReset": {"description": "Button restoring the chart's default style and indicators."},
+  "@chartReset": {
+    "description": "Button restoring the chart's default style and indicators."
+  },
   "chartPaneLimit": "{name} is off: two fit below the chart",
-  "@chartPaneLimit": {"description": "Toast when a third pane below the chart replaces the oldest one.", "placeholders": {"name": {"type": "String"}}},
+  "@chartPaneLimit": {
+    "description": "Toast when a third pane below the chart replaces the oldest one.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "chartToolCursor": "Cursor",
   "chartToolHorizontalLine": "Horizontal line",
   "chartMoreTools": "More",
@@ -7488,64 +8964,602 @@
   "chartUnlock": "Unlock",
   "chartDuplicate": "Duplicate",
   "chartHintTapFirstPoint": "Tap the first point: {tool}",
-  "@chartHintTapFirstPoint": {"placeholders": {"tool": {"type": "String"}}},
+  "@chartHintTapFirstPoint": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
   "chartHintTapSecondPoint": "Now tap the second point.",
   "chartHintToolKept": "{tool} stays on. Tap it to stop.",
-  "@chartHintToolKept": {"placeholders": {"tool": {"type": "String"}}},
+  "@chartHintToolKept": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
   "chartHintLocked": "Locked. Unlock it to move it.",
   "chartHintPickToolKeep": "Pick a tool. Double-tap one to keep it on.",
   "hlAboutTradedOn": "Traded on {venue} · {kind}",
-  "@hlAboutTradedOn": {"description": "About a market sheet: the quiet line under the market description. {venue} is the exchange or builder name, {kind} is Perp or Spot.", "placeholders": {"venue": {"type": "String"}, "kind": {"type": "String"}}},
+  "@hlAboutTradedOn": {
+    "description": "About a market sheet: the quiet line under the market description. {venue} is the exchange or builder name, {kind} is Perp or Spot.",
+    "placeholders": {
+      "venue": {
+        "type": "String"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "hlAboutMarketLabel": "{name} ({ticker})",
-  "@hlAboutMarketLabel": {"description": "About a market sheet, fallback description: the market's name with its ticker, e.g. 'Bitcoin (BTC)'.", "placeholders": {"name": {"type": "String"}, "ticker": {"type": "String"}}},
+  "@hlAboutMarketLabel": {
+    "description": "About a market sheet, fallback description: the market's name with its ticker, e.g. 'Bitcoin (BTC)'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "ticker": {
+        "type": "String"
+      }
+    }
+  },
   "hlAboutFallbackBuilder": "{market} · {kind} traded on {venue} via Hyperliquid.",
-  "@hlAboutFallbackBuilder": {"description": "About a market sheet: the description when no curated text exists, for a market listed by a builder exchange on Hyperliquid. {kind} is a phrase like 'a stock-linked perpetual'.", "placeholders": {"market": {"type": "String"}, "kind": {"type": "String"}, "venue": {"type": "String"}}},
+  "@hlAboutFallbackBuilder": {
+    "description": "About a market sheet: the description when no curated text exists, for a market listed by a builder exchange on Hyperliquid. {kind} is a phrase like 'a stock-linked perpetual'.",
+    "placeholders": {
+      "market": {
+        "type": "String"
+      },
+      "kind": {
+        "type": "String"
+      },
+      "venue": {
+        "type": "String"
+      }
+    }
+  },
   "hlAboutFallbackMain": "{market} · {kind} traded on Hyperliquid.",
-  "@hlAboutFallbackMain": {"description": "About a market sheet: the description when no curated text exists, for a market on Hyperliquid's own exchange. {kind} is a phrase like 'a spot token'.", "placeholders": {"market": {"type": "String"}, "kind": {"type": "String"}}},
+  "@hlAboutFallbackMain": {
+    "description": "About a market sheet: the description when no curated text exists, for a market on Hyperliquid's own exchange. {kind} is a phrase like 'a spot token'.",
+    "placeholders": {
+      "market": {
+        "type": "String"
+      },
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
   "hlAboutKindCryptoPerp": "a perpetual on a crypto token",
-  "@hlAboutKindCryptoPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindCryptoPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindStockPerp": "a stock-linked perpetual",
-  "@hlAboutKindStockPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindStockPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindCommodityPerp": "a commodity-linked perpetual",
-  "@hlAboutKindCommodityPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindCommodityPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindIndexPerp": "an index-linked perpetual",
-  "@hlAboutKindIndexPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindIndexPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindFxPerp": "a currency-pair perpetual",
-  "@hlAboutKindFxPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindFxPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindPreIpoPerp": "a perpetual on a private company before its IPO",
-  "@hlAboutKindPreIpoPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindPreIpoPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindRatesPerp": "an interest-rate perpetual",
-  "@hlAboutKindRatesPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindRatesPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindPerp": "a perpetual",
-  "@hlAboutKindPerp": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindPerp": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindSpot": "a spot token",
-  "@hlAboutKindSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindSpot": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindStockSpot": "a spot token tracking a stock",
-  "@hlAboutKindStockSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindStockSpot": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindCommoditySpot": "a spot token tracking a commodity",
-  "@hlAboutKindCommoditySpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindCommoditySpot": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "hlAboutKindIndexSpot": "a spot token tracking an index",
-  "@hlAboutKindIndexSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "@hlAboutKindIndexSpot": {
+    "description": "Fallback market description: kind phrase, lower case, used inside a sentence."
+  },
   "receiptAskWhatHappened": "What happened here?",
-  "@receiptAskWhatHappened": {"description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."},
+  "@receiptAskWhatHappened": {
+    "description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."
+  },
   "receiptResult": "Result",
-  "@receiptResult": {"description": "Activity receipt tile label: the realised profit or loss of a sale or payout."},
+  "@receiptResult": {
+    "description": "Activity receipt tile label: the realised profit or loss of a sale or payout."
+  },
   "categoryFilterPrompt": "Filter",
-  "@categoryFilterPrompt": {"description": "Dollars tab: the picked half of the Investing | Predictions strip on the default browse (Trending, no subcategory), after the venue (\"Investing · Filter\"), prompting a pick; any other pick shows its name (founder, 1 November 2026)."},
+  "@categoryFilterPrompt": {
+    "description": "Dollars tab: the picked half of the Investing | Predictions strip on the default browse (Trending, no subcategory), after the venue (\"Investing · Filter\"), prompting a pick; any other pick shows its name (founder, 1 November 2026)."
+  },
   "activityPaidFrom": "Paid from {source}",
-  "@activityPaidFrom": {"description": "Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.", "placeholders": {"source": {"type": "String"}}},
+  "@activityPaidFrom": {
+    "description": "Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
   "activityPaidFromBoth": "Paid from {first} and {second}",
-  "@activityPaidFromBoth": {"description": "Same as activityPaidFrom when the money came from two of the person's accounts.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}}},
+  "@activityPaidFromBoth": {
+    "description": "Same as activityPaidFrom when the money came from two of the person's accounts.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
   "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
-  "@predictUpOrDownCompact": {"description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.", "placeholders": {"asset": {"type": "String"}, "minutes": {"type": "int"}}},
+  "@predictUpOrDownCompact": {
+    "description": "Title of the compact live crypto round card on the Predictions list, e.g. 'BTC up or down · 5m'. asset is a ticker, minutes the round length.",
+    "placeholders": {
+      "asset": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sendFrequent": "Frequent",
+  "@sendFrequent": {
+    "description": "Send (Bitcoin and Dollars): the header over the row of big avatar circles of the people paid most recently."
+  },
+  "sendAllContacts": "All contacts",
+  "@sendAllContacts": {
+    "description": "Send: the header over the A–Z contacts list."
+  },
+  "shareCardReadyTitle": "Your card is ready",
+  "@shareCardReadyTitle": {
+    "description": "Share card preview sheet: its title, over the image card about to be shared (a send-money link or a pick)."
+  },
+  "shareCardJoinMeOnKute": "Join me on Kute",
+  "@shareCardJoinMeOnKute": {
+    "description": "Share card footer under the kute. wordmark on a send-money card (a gift link): a warm invitation."
+  },
+  "shareCardClaimChip": "Claim on Kute",
+  "@shareCardClaimChip": {
+    "description": "Send-money share card: the white chip telling the recipient what to do with the link."
+  },
+  "shareCardPlaceChip": "Place it on Kute",
+  "@shareCardPlaceChip": {
+    "description": "Prediction pick share card: the white chip (place the bet on Kute)."
+  },
+  "shareCardTradeChip": "Trade it on Kute",
+  "@shareCardTradeChip": {
+    "description": "Stock / investment share card: the white chip."
+  },
+  "shareCardCallChip": "Make your call on Kute",
+  "@shareCardCallChip": {
+    "description": "Prediction market share card (no pick): the white chip inviting the reader to pick a side."
+  },
+  "shareCardSentYouNamed": "{name}, I sent you",
+  "@shareCardSentYouNamed": {
+    "description": "Send-money share card: the line over the big amount. {name} is the recipient's first name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardSentYou": "I sent you",
+  "@shareCardSentYou": {
+    "description": "Send-money share card without a name: the line over the big amount."
+  },
+  "shareCardSentPickNamed": "{name}, I sent you a pick",
+  "@shareCardSentPickNamed": {
+    "description": "Pick share card (a prediction or an investment sent as a gift): the small line at the top. {name} is the recipient's first name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardSentPick": "I sent you a pick",
+  "@shareCardSentPick": {
+    "description": "Pick share card without a name: the small line at the top."
+  },
+  "shareCardAmountOnIt": "{amount} on it",
+  "@shareCardAmountOnIt": {
+    "description": "Pick share card: the amount put on the pick, e.g. '$10 on it'. {amount} is a formatted money amount.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardToday": "{change} today",
+  "@shareCardToday": {
+    "description": "Stock share card: the pill with today's price change, e.g. '+3.4% today'. {change} is a signed formatted percent.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardOutcomeYes": "Yes",
+  "@shareCardOutcomeYes": {
+    "description": "Prediction share card: the Yes outcome of a yes/no market."
+  },
+  "shareCardOutcomeNo": "No",
+  "@shareCardOutcomeNo": {
+    "description": "Prediction share card: the No outcome of a yes/no market."
+  },
+  "shareCardLineClaimIt": "Claim it before I change my mind.",
+  "@shareCardLineClaimIt": {
+    "description": "Sal the dog's playful one-liner in a speech bubble on a send-money card (PG, the image leaves the phone)."
+  },
+  "shareCardLineDontSpend": "It's yours. Don't spend it all on memes.",
+  "@shareCardLineDontSpend": {
+    "description": "Sal's playful one-liner on a send-money card (PG)."
+  },
+  "shareCardLineFreeMoney": "Free money. Rare. Claim it.",
+  "@shareCardLineFreeMoney": {
+    "description": "Sal's playful one-liner on a send-money card (PG)."
+  },
+  "shareCardLineTrustMe": "Trust me on this one.",
+  "@shareCardLineTrustMe": {
+    "description": "Sal's cocky one-liner on a prediction pick card (PG)."
+  },
+  "shareCardLineKnowEnding": "I already know how this ends.",
+  "@shareCardLineKnowEnding": {
+    "description": "Sal's cocky one-liner on a prediction pick card (PG)."
+  },
+  "shareCardLineEasyMoney": "Easy money. Probably.",
+  "@shareCardLineEasyMoney": {
+    "description": "Sal's cocky, self-aware one-liner on a prediction pick card (PG)."
+  },
+  "shareCardLineGoingPlaces": "This one's going places.",
+  "@shareCardLineGoingPlaces": {
+    "description": "Sal's one-liner on a stock / investment card (PG)."
+  },
+  "shareCardLineBuyHigh": "Buy high, sell higher.",
+  "@shareCardLineBuyHigh": {
+    "description": "Sal's tongue-in-cheek one-liner on a stock card (PG)."
+  },
+  "shareCardLineBetterTaste": "Not financial advice. Just better taste.",
+  "@shareCardLineBetterTaste": {
+    "description": "Sal's tongue-in-cheek one-liner on a stock card (PG)."
+  },
+  "shareCardLineWhatDoYouThink": "What do you think?",
+  "@shareCardLineWhatDoYouThink": {
+    "description": "Sal's one-liner on a prediction market card with no pick: asks the reader's opinion."
+  },
+  "shareCardLineYourCall": "Your call.",
+  "@shareCardLineYourCall": {
+    "description": "Sal's one-liner on a prediction market card with no pick."
+  },
+  "shareCardLinePickASide": "Pick a side.",
+  "@shareCardLinePickASide": {
+    "description": "Sal's one-liner on a prediction market card with no pick."
+  },
+  "shareCardHeadlineUp": "{name} is {price}, up {change} today",
+  "@shareCardHeadlineUp": {
+    "description": "Stock card headline: a clear neutral fact. {name} e.g. 'Tesla', {price} e.g. '$242.10', {change} an unsigned percent e.g. '3.4%'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineDown": "{name} is {price}, down {change} today",
+  "@shareCardHeadlineDown": {
+    "description": "Stock card headline when the price fell today. {change} is an unsigned percent.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      },
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineIs": "{name} is {price}",
+  "@shareCardHeadlineIs": {
+    "description": "Stock card headline when today's change is unknown or flat.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlinePreIpo": "{name} trades at an implied {price}",
+  "@shareCardHeadlinePreIpo": {
+    "description": "Pre-IPO company card headline (e.g. OpenAI before it lists): the price its contract trades at.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineBarrel": "{name} at {price} a barrel",
+  "@shareCardHeadlineBarrel": {
+    "description": "Oil card headline, e.g. 'Crude oil at $102.50 a barrel'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineOunce": "{name} at {price} an ounce",
+  "@shareCardHeadlineOunce": {
+    "description": "Gold / silver card headline, e.g. 'Gold at $2,410 an ounce'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineAt": "{name} at {price}",
+  "@shareCardHeadlineAt": {
+    "description": "Other commodity card headline, e.g. 'Natural gas at $3.10'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlinePoliticsNamed": "Markets give {outcome} a {chance} chance",
+  "@shareCardHeadlinePoliticsNamed": {
+    "description": "Politics prediction card headline: the market's odds, neutral. {outcome} a candidate or party, {chance} a formatted percent e.g. '41%'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlinePoliticsBinary": "Markets give it a {chance} chance",
+  "@shareCardHeadlinePoliticsBinary": {
+    "description": "Politics yes/no prediction card headline ('it' is the question printed just above).",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineSportsVs": "{outcome} are {chance} favourites vs {opponent}",
+  "@shareCardHeadlineSportsVs": {
+    "description": "Sports prediction card headline: the leading team and its chance against the next team. {outcome}/{opponent} team names, {chance} e.g. '47%'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      },
+      "opponent": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineSportsFav": "{outcome} are {chance} favourites",
+  "@shareCardHeadlineSportsFav": {
+    "description": "Sports prediction card headline: the leading team, no opponent known.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineSportsToWin": "{outcome}: {chance} to win",
+  "@shareCardHeadlineSportsToWin": {
+    "description": "Sports prediction card headline: a team that is not the favourite.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineCryptoBinary": "{chance} odds it happens",
+  "@shareCardHeadlineCryptoBinary": {
+    "description": "Crypto yes/no prediction card headline ('it' is the question printed just above).",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineCryptoNamed": "{chance} odds on {outcome}",
+  "@shareCardHeadlineCryptoNamed": {
+    "description": "Crypto multi-outcome prediction card headline, e.g. '18% odds on $150k'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineEconomyBinary": "{chance} chance it happens",
+  "@shareCardHeadlineEconomyBinary": {
+    "description": "Economics yes/no prediction card headline ('it' is the question printed just above).",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineEconomyNamed": "{chance} chance of {outcome}",
+  "@shareCardHeadlineEconomyNamed": {
+    "description": "Economics multi-outcome prediction card headline, e.g. '71% chance of 25 bps cut'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      },
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineSayYes": "{chance} say yes",
+  "@shareCardHeadlineSayYes": {
+    "description": "Culture / other yes/no prediction card headline: the share of the market on Yes.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineSayNo": "{chance} say no",
+  "@shareCardHeadlineSayNo": {
+    "description": "Culture / other yes/no prediction card headline: the share of the market on No.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareCardHeadlineFallback": "{outcome}: {chance} chance",
+  "@shareCardHeadlineFallback": {
+    "description": "Prediction card headline when no category template fits.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "claimCardFromFriendNamed": "{name}, a friend sent you",
+  "@claimCardFromFriendNamed": {
+    "description": "Claim screen hero card (the recipient's side of a gift link): over the big amount. {name} is the recipient's first name the sender typed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "claimCardFromFriend": "A friend sent you",
+  "@claimCardFromFriend": {
+    "description": "Claim screen hero card without a name: over the big amount."
+  },
+  "claimCardPickNamed": "{name}, a friend sent you a pick",
+  "@claimCardPickNamed": {
+    "description": "Claim screen hero card for a link that carries a prediction or investment pick.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "claimCardPick": "A friend sent you a pick",
+  "@claimCardPick": {
+    "description": "Claim screen hero card for a pick, without a name."
+  },
+  "claimCardPickChance": "{outcome} at {chance}",
+  "@claimCardPickChance": {
+    "description": "Claim screen hero card: the pick and its chance now, e.g. 'Gen.G at 47%'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "claimCardTapClaim": "It's yours. Tap claim.",
+  "@claimCardTapClaim": {
+    "description": "Claim screen hero card: the short line under the amount, before the Claim button."
+  },
+  "claimCardLineNeedThis": "Your friend thinks you need this.",
+  "@claimCardLineNeedThis": {
+    "description": "Sal's playful one-liner in a speech bubble on the claim screen (PG)."
+  },
+  "claimCardLineLikesYou": "Someone likes you. Here's proof.",
+  "@claimCardLineLikesYou": {
+    "description": "Sal's playful one-liner on the claim screen (PG)."
+  },
+  "claimCardLineNoCatch": "No catch. Just a gift.",
+  "@claimCardLineNoCatch": {
+    "description": "Sal's playful one-liner on the claim screen (PG)."
+  },
   "activityLatest": "Latest",
-  "@activityLatest": {"description": "Bitcoin home Activity: heading over the four newest actions, shown as square tiles."},
+  "@activityLatest": {
+    "description": "Bitcoin home Activity: heading over the four newest actions, shown as square tiles."
+  },
   "activityEarlier": "Earlier",
-  "@activityEarlier": {"description": "Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles."},
+  "@activityEarlier": {
+    "description": "Bitcoin home Activity: heading over the next two actions, shown as plain rows under the Latest tiles."
+  },
   "polyRowLeads": "{leader} leads · {chance}",
-  "@polyRowLeads": {"description": "Predictions list row: the one quiet line under a question with many outcomes, the most likely outcome and its chance, e.g. 'Spain leads · 18%'. chance is already formatted with its percent sign.", "placeholders": {"leader": {"type": "String"}, "chance": {"type": "String"}}},
+  "@polyRowLeads": {
+    "description": "Predictions list row: the one quiet line under a question with many outcomes, the most likely outcome and its chance, e.g. 'Spain leads · 18%'. chance is already formatted with its percent sign.",
+    "placeholders": {
+      "leader": {
+        "type": "String"
+      },
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
   "predictAboveTarget": "above target",
-  "@predictAboveTarget": {"description": "Compact live crypto round card on the Predictions list: beside the live price when it is above the round's target price (the price to beat). Lower case, a state word."},
+  "@predictAboveTarget": {
+    "description": "Compact live crypto round card on the Predictions list: beside the live price when it is above the round's target price (the price to beat). Lower case, a state word."
+  },
   "predictBelowTarget": "below target",
-  "@predictBelowTarget": {"description": "Compact live crypto round card on the Predictions list: beside the live price when it is below the round's target price (the price to beat). Lower case, a state word."}
+  "@predictBelowTarget": {
+    "description": "Compact live crypto round card on the Predictions list: beside the live price when it is below the round's target price (the price to beat). Lower case, a state word."
+  }
 }

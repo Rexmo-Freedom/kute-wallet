@@ -135,6 +135,13 @@ final pnlChartRangeProvider =
 final pnlChartVenueProvider =
     StateProvider.autoDispose<PortfolioPerformanceVenue?>((ref) => null);
 
+/// The point under the finger on the Portfolio screen's P&L chart (the
+/// flat chart only): the chart's figure for it (since the range's start)
+/// and its moment as the line under the figure writes it; null at rest.
+/// The ring above follows it (balances_overview.dart).
+final pnlChartScrubProvider =
+    StateProvider.autoDispose<({double value, String label})?>((ref) => null);
+
 /// The P&L over [range] of a window's [values] (oldest first): the line's
 /// end (or [at], a point under the finger) less the range's start; for
 /// ALL the line's own value, the P&L since the account began. Null with
@@ -401,7 +408,18 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
           ),
       ],
       height: kPnlChartPlotHeight.h,
-      onScrub: (p) => setState(() => _scrub = p),
+      onScrub: (p) {
+        setState(() => _scrub = p);
+        // The Portfolio screen's ring follows the finger.
+        if (!flat) return;
+        final at = p == null || p.index >= values.length ? null : p;
+        ref.read(pnlChartScrubProvider.notifier).state = at == null
+            ? null
+            : (
+                value: pnlRangeChange(values, range, at: at.value) ?? at.value,
+                label: timeOf(at.time ?? times.last),
+              );
+      },
       // Once per scrub gesture.
       onScrubStart: () => TrackingService.track(
           'portfolio_performance_chart_scrubbed',

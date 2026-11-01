@@ -15,8 +15,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/send/send_contacts_list.dart';
-import 'package:kute/screens/shared/send/send_recipient_step.dart'
-    show SendRecentCircles;
 import 'package:kute/screens/shared/send/send_flow_widgets.dart'
     show sendShortAddress;
 import 'package:kute/services/contacts/send_contacts_service.dart';
@@ -148,15 +146,15 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Consumer(builder: (context, ref, _) {
-                return SingleChildScrollView(
-                  child: SendContactsSection(
+                return CustomScrollView(slivers: [
+                  SendContactsSection(
                     query: query,
                     excludeAddress: excludeAddress,
                     recents: recents ?? _recents(),
                     onPerson: tapped.add,
                     onPhoneLink: (_) {},
                   ),
-                );
+                ]);
               }),
             ),
           ),
@@ -170,25 +168,34 @@ void main() {
     }
 
     testWidgets(
-        'no book: the ask row and the recents as circles; a circle pays it',
-        (tester) async {
+        'no book: Frequent (the recents as big circles) over the ask row; '
+        'a circle pays it', (tester) async {
       final tapped = await pump(tester, gateway: FakeSendContactsGateway());
+      expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
       expect(
           find.byKey(const ValueKey('send-contacts-ask-row')), findsOneWidget);
-      expect(find.byType(SendRecentCircles), findsOneWidget);
       expect(find.byKey(const ValueKey('send-contacts-list')), findsNothing);
-      await tester.tap(find.text('alice'));
+      expect(
+          tester.getTopLeft(find.byKey(const ValueKey('send-frequent-row'))).dy,
+          lessThan(tester
+              .getTopLeft(find.byKey(const ValueKey('send-contacts-ask-row')))
+              .dy));
+      await tester.tap(
+          find.byKey(const ValueKey('send-frequent-recent:alice@getalby.com')));
       expect(tapped.single.address, 'alice@getalby.com');
     });
 
     testWidgets(
-        'with the book: ONE list, recents first with their badges, then the '
-        'contacts; no circles', (tester) async {
+        'with the book: Frequent on top, then All contacts A–Z under sticky '
+        'letters, badges on the avatars, no chevrons', (tester) async {
       final tapped = await pump(tester,
           gateway: FakeSendContactsGateway(
               permission: SendContactsPermission.granted,
               contacts: [...fakeContacts(), _kuteContact]));
-      expect(find.byType(SendRecentCircles), findsNothing);
+      final l10n = AppLocalizations.of(
+          tester.element(find.byType(CustomScrollView)));
+      expect(find.text(l10n.sendFrequent), findsOneWidget);
+      expect(find.text(l10n.sendAllContacts), findsOneWidget);
       expect(find.byKey(const ValueKey('send-contacts-ask-row')), findsNothing);
       expect(find.byKey(const ValueKey('send-contacts-list')), findsOneWidget);
       Finder badge(String id, String kind) => find.descendant(
@@ -199,18 +206,85 @@ void main() {
       expect(badge('contact:k1', 'kute'), findsOneWidget);
       expect(badge('contact:c1', 'kute'), findsNothing);
       expect(badge('contact:c1', 'lightning'), findsNothing);
-      final top = tester
-          .getTopLeft(
-              find.byKey(const ValueKey('send-person-recent:rita@paykute.com')))
-          .dy;
+      // Sal's face is the Kute badge.
       expect(
-          top,
-          lessThan(tester
-              .getTopLeft(find.byKey(const ValueKey('send-person-contact:c1')))
-              .dy));
+          find.descendant(
+              of: find.byKey(const ValueKey('send-person-contact:k1')),
+              matching: find.byKey(const ValueKey('send-sal-face'))),
+          findsOneWidget);
+      // A–Z: A (alice, Ana Costa), J, M, R (rita, Rui Santos), S.
+      double top(Key k) => tester.getTopLeft(find.byKey(k)).dy;
+      for (final l in ['A', 'J', 'M', 'R', 'S']) {
+        expect(find.byKey(ValueKey('send-letter-$l')), findsOneWidget);
+      }
+      expect(top(const ValueKey('send-letter-A')),
+          lessThan(top(const ValueKey('send-letter-J'))));
+      expect(top(const ValueKey('send-person-recent:alice@getalby.com')),
+          lessThan(top(const ValueKey('send-person-contact:c1'))));
+      expect(top(const ValueKey('send-letter-R')),
+          lessThan(top(const ValueKey('send-person-recent:rita@paykute.com'))));
+      expect(top(const ValueKey('send-person-recent:rita@paykute.com')),
+          lessThan(top(const ValueKey('send-person-contact:c3'))));
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('send-contacts-list')),
+              matching: find.byIcon(Icons.chevron_right_rounded)),
+          findsNothing);
       await tester.tap(find.byKey(const ValueKey('send-person-contact:c2')));
       expect(tapped.single.contact?.firstName, 'Maria');
       expect(tapped.single.direct, isFalse);
+    });
+
+    testWidgets(
+        'a long book scrolls end to end under its sticky letters without a '
+        'layout error, at fractional offsets', (tester) async {
+      await pump(tester,
+          gateway: FakeSendContactsGateway(
+              permission: SendContactsPermission.granted,
+              contacts: [
+                for (var l = 0; l < 26; l++)
+                  for (var i = 0; i < 3; i++)
+                    SendContact(
+                        id: 'z$l$i',
+                        displayName:
+                            '${String.fromCharCode(65 + l)}name $i',
+                        firstName: 'N',
+                        phone: '+351 9${l.toString().padLeft(2, '0')}$i'),
+              ]));
+      tester.view.physicalSize = const Size(375, 700);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pump();
+      for (var i = 0; i < 60; i++) {
+        await tester.drag(
+            find.byType(CustomScrollView), const Offset(0, -97.37));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
+      // The last letter's header sits pinned at the top while its rows
+      // pass under it.
+      expect(find.byKey(const ValueKey('send-letter-Z')), findsOneWidget);
+      for (var i = 0; i < 60; i++) {
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, 83.1));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('typing hides Frequent; the matches are the A–Z rows',
+        (tester) async {
+      await pump(tester,
+          gateway: FakeSendContactsGateway(
+              permission: SendContactsPermission.granted,
+              contacts: [...fakeContacts(), _kuteContact]),
+          query: 'ri');
+      expect(find.byKey(const ValueKey('send-frequent-row')), findsNothing);
+      expect(find.byKey(const ValueKey('send-person-recent:rita@paykute.com')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('send-person-contact:c2')),
+          findsOneWidget); // Maria
+      expect(find.byKey(const ValueKey('send-person-contact:c1')),
+          findsNothing);
     });
 
     testWidgets('a typed number a contact has is that contact, no link row',
@@ -257,16 +331,67 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('no book: the chosen recent leaves the circles',
-        (tester) async {
+    testWidgets(
+        'no book: beside a chosen recent, the other recents as "Other '
+        'contacts", no Frequent', (tester) async {
       await pump(tester,
           gateway: FakeSendContactsGateway(),
           query: 'alice@getalby.com',
           excludeAddress: 'alice@getalby.com');
-      expect(find.byType(SendRecentCircles), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-frequent-row')), findsNothing);
       expect(find.text('alice'), findsNothing);
-      expect(find.text('rita'), findsOneWidget);
+      expect(find.byKey(const ValueKey('send-person-recent:rita@paykute.com')),
+          findsOneWidget);
       expect(find.byKey(const ValueKey('send-contacts-ask-row')), findsNothing);
+    });
+  });
+
+  group('the look', () {
+    test('Frequent: the recents newest first, a contact standing for its '
+        'own address, at most 8', () {
+      final f = sendFrequent(recents: [
+        SendPerson.recent(address: 'joana@paykute.com', name: 'joana'),
+        ..._recents(),
+        for (var i = 0; i < 10; i++)
+          SendPerson.recent(address: 'p$i@getalby.com', name: 'p$i'),
+      ], contacts: [
+        ...fakeContacts(),
+        _kuteContact
+      ]);
+      expect(f, hasLength(kSendFrequentMax));
+      expect(f.first.name, 'Joana Kute');
+      expect(f.first.contact?.id, 'k1');
+      expect(f[1].name, 'rita');
+      expect(f[2].name, 'alice');
+    });
+    test('A–Z: filed by the first letter, accents folded, each letter by '
+        'name, "#" last', () {
+      final groups = sendAlphabetical([
+        const SendPerson(id: '1', name: 'Rui'),
+        const SendPerson(id: '2', name: 'Álvaro'),
+        const SendPerson(id: '3', name: 'ana'),
+        const SendPerson(id: '4', name: '+351 912'),
+        const SendPerson(id: '5', name: 'Bea'),
+      ]);
+      expect([for (final g in groups) g.$1], ['A', 'B', 'R', '#']);
+      expect([for (final p in groups.first.$2) p.name], ['ana', 'Álvaro']);
+    });
+    test('an initials avatar\'s tint is the same for a name every time, '
+        'one of six', () {
+      final a = sendAvatarTintIndex('Maria Alves');
+      expect(sendAvatarTintIndex('Maria Alves'), a);
+      expect(sendAvatarTintIndex('  maria alves '), a);
+      for (final n in ['Ana', 'Rui', 'Joana Kute', 'x', '']) {
+        expect(sendAvatarTintIndex(n), inInclusiveRange(0, 5));
+      }
+      final c = AppColorsExtension.light();
+      expect(sendAvatarTint(c, 'Rui Santos'),
+          c.chartCategorical[sendAvatarTintIndex('Rui Santos')]);
+      // Not all one colour.
+      expect(
+          {for (final n in ['Ana', 'Rui', 'Maria', 'Joana', 'Bea', 'Tó'])
+            sendAvatarTintIndex(n)}.length,
+          greaterThan(1));
     });
   });
 

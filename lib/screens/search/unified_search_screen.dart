@@ -1560,9 +1560,11 @@ class _SeeAllRow extends StatelessWidget {
 ///      trending feed, the chance gauge and the chance at the right.
 ///
 /// No Investing block here (it is a results group) and no prompt chips:
-/// the composer is the way to Sal. On a context screen (the bar on a
-/// market page) it is the screen's preview row and its action rows
-/// instead.
+/// the composer is the way to Sal. On a context screen it is the
+/// surface's own home instead ([KuteBarContext.sheetHome]: over the
+/// category sheet, every category of the venue as the grid's tiles), or
+/// a market page's preview row and its send cards. Never generic arrow
+/// cards: action cards are drawn only with a market's preview.
 class _SearchHome extends ConsumerWidget {
   const _SearchHome(
       {required this.category, required this.onRecentQuery, this.barContext});
@@ -1588,21 +1590,27 @@ class _SearchHome extends ConsumerWidget {
     final gap = SizedBox(height: kSearchBlockGap.h);
 
     final ctx = barContext;
-    if (ctx != null && ctx.hasRecommendations) {
-      // The context screen: the preview row, then the action rows.
-      final preview = ctx is KuteMarketBarContext ? ctx.preview : null;
-      var block = 0;
+    final sheetHome = ctx?.sheetHome;
+    if (sheetHome != null) {
+      // The surface's own home under the composer (the category tiles).
+      return ListView(
+        key: const ValueKey('context-sheet-home'),
+        padding: gutters,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [sheetHome(context)],
+      );
+    }
+    if (ctx is KuteMarketBarContext && ctx.hasRecommendations) {
+      // The context screen: the preview row, then the send cards.
+      final preview = ctx.preview;
       return ListView(
         padding: gutters,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
-          if (preview != null) ...[
-            KuteStaggerIn(
-                index: block++, child: _ContextPreviewRow(preview: preview)),
-            gap,
-          ],
+          KuteStaggerIn(index: 0, child: _ContextPreviewRow(preview: preview)),
+          gap,
           KuteStaggerIn(
-              index: block++,
+              index: 1,
               child:
                   _ContextActionCards(actions: ctx.actions, preview: preview)),
         ],
@@ -1979,10 +1987,10 @@ class _ContextPreviewRow extends StatelessWidget {
 /// three (an open position's brag row) three across where they fit, else
 /// two over one.
 class _ContextActionCards extends StatelessWidget {
-  const _ContextActionCards({required this.actions, this.preview});
+  const _ContextActionCards({required this.actions, required this.preview});
 
   final List<KuteBarAction> actions;
-  final KuteBarPreview? preview;
+  final KuteBarPreview preview;
 
   @override
   Widget build(BuildContext context) => KuteActionCardGrid(
@@ -2002,9 +2010,10 @@ const double kContextCardVisualSlot = 56;
 /// (13, textSecondary) and, at the foot, what is sent (13, w600,
 /// textPrimary): the market's name for the link, the pick ("Gen.G · 47%")
 /// for the pick. The press spring; a tap runs the action and the sheet
-/// closes.
+/// closes. Always the market's own artwork or Sal: never a generic arrow
+/// in a tinted circle.
 KuteActionCard _contextActionCard(
-    BuildContext context, KuteBarAction a, KuteBarPreview? p) {
+    BuildContext context, KuteBarAction a, KuteBarPreview p) {
   final c = context.colors;
   final isLight = Theme.of(context).brightness == Brightness.light;
   final clip = a is KuteMarketBarAction ? a.salClip : null;
@@ -2021,7 +2030,7 @@ KuteActionCard _contextActionCard(
           size: 56,
           fallback: KuteDogGlance(size: 48, color: c.accent)),
     );
-  } else if (p != null) {
+  } else {
     // The market's logo with a small share badge on its corner.
     visual = SizedBox(
       width: 52,
@@ -2051,20 +2060,9 @@ KuteActionCard _contextActionCard(
         ],
       ),
     );
-  } else {
-    visual = Container(
-      width: 44,
-      height: 44,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: c.accent.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, size: 22, color: c.accent),
-    );
   }
   // What is sent: the pick on a card that sends it, else the market.
-  final sent = clip != null ? p?.line : p?.title;
+  final sent = clip != null ? p.line : p.title;
   return KuteActionCard(
     key: ValueKey('context-action-card-${a.label}'),
     visual: visual,

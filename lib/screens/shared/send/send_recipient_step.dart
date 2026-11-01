@@ -303,6 +303,39 @@ class SendInlineError extends StatelessWidget {
       );
 }
 
+/// The quiet "Change" text button a section header carries on the right
+/// (the recipient card, a coin chosen on the Send to card): 13 w600
+/// textSecondary, a generous hit area.
+class SendChangeButton extends StatelessWidget {
+  const SendChangeButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.only(left: 12.w),
+          child: Text(
+            context.l10n.sendRecipientChange,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The 12 sp section header ("Recent", "Send to").
 class SendSectionLabel extends StatelessWidget {
   const SendSectionLabel(this.text, {super.key, this.trailing});

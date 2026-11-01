@@ -129,11 +129,14 @@ import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
-    show pnlChartRangeProvider, pnlVenueRangeChange;
+    show pnlChartRangeProvider, pnlChartScrubProvider, pnlVenueRangeChange;
+import 'package:kute/screens/shared/charts/kute_trend_window.dart'
+    show kuteTrendPeriodLabel;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
         PortfolioCardList,
         PortfolioRowInset,
+        PortfolioSlice,
         kPortfolioCardInset,
         kPortfolioRowGap,
         kPortfolioRowImage;
@@ -410,7 +413,20 @@ class BalancesOverview extends StatefulWidget {
     this.heroOnly = false,
     this.venuesOnly = false,
     this.focus,
+    this.heroMode = BalancesHeroMode.allocation,
+    this.positionSlices = const [],
+    this.positionFocus,
   });
+
+  /// What the [sharesHeader] hero shows (founder, 1 November 2026: "make
+  /// it intelligent"): the allocation, the open positions (the Portfolio
+  /// section) or the P&L by venue over the chart's range (P&L Charts).
+  final BalancesHeroMode heroMode;
+
+  /// The open positions' slices ([BalancesHeroMode.positions]), and the
+  /// one shown in the ring (a row long-pressed), by id.
+  final List<PortfolioSlice> positionSlices;
+  final String? positionFocus;
 
   /// The venue picked in "By venue" on P&L Charts (founder, 1 November
   /// 2026: the top ring adapts), in the [sharesHeader] hero: its slice
@@ -700,7 +716,33 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (!widget.venuesOnly) SizedBox(height: 8.h),
-        if (widget.sharesHeader && !widget.venuesOnly) ...[
+        if (widget.sharesHeader &&
+            !widget.venuesOnly &&
+            widget.heroMode != BalancesHeroMode.allocation) ...[
+          _SectionHero(
+            mode: widget.heroMode,
+            positions: widget.positionSlices,
+            positionFocus: widget.positionFocus,
+            venueFocus: widget.focus,
+            trading: investing != null,
+            predictions: predictions != null,
+            money: money,
+            available: availableFigure,
+            invested: investedFigure,
+            venueInvested: {
+              for (final k in [
+                BalancesCategory.investing,
+                BalancesCategory.predictions
+              ])
+                if (categories[k] != null) k: figure(categories[k]!),
+            },
+            label: label,
+          ),
+          if (widget.sectionSwitch case final strip?) ...[
+            SizedBox(height: 14.h),
+            strip,
+          ],
+        ] else if (widget.sharesHeader && !widget.venuesOnly) ...[
           // The hero (see the file header): the ring, centred, the
           // all-time P&L in its hole.
           Center(
@@ -1207,12 +1249,20 @@ class BalancesRing extends StatelessWidget {
     this.thickness = kBalancesRingThickness,
     this.center,
     this.focus,
+    this.slices,
+    this.focusId,
   });
 
   final List<BalancesCategory> categories;
   final Map<BalancesCategory, double> shares;
   final String semantics;
   final Key chartKey;
+
+  /// Slices of the ring's own in place of [categories] (the Portfolio
+  /// screen's positions, its P&L by venue), and the one kept at full
+  /// colour ([focusId]; [focus] for the categories).
+  final List<({Object id, double value, Color color})>? slices;
+  final Object? focusId;
 
   /// The slice kept at full colour, the others at [kBalancesRingDimmed];
   /// null: every slice at full colour. The change morphs on
@@ -1244,15 +1294,22 @@ class BalancesRing extends StatelessWidget {
           center: center,
           morphCurve: KuteMotion.settle,
           segments: [
-            for (final k in categories)
-              if ((shares[k] ?? 0) > 0)
+            for (final s in slices ??
+                [
+                  for (final k in categories)
+                    (
+                      id: k as Object,
+                      value: shares[k] ?? 0,
+                      color: balancesCategoryColor(c, k)
+                    )
+                ])
+              if (s.value > 0)
                 KuteDonutSegment(
-                  id: k,
-                  value: shares[k]!,
-                  color: focus == null || focus == k
-                      ? balancesCategoryColor(c, k)
-                      : balancesCategoryColor(c, k)
-                          .withValues(alpha: kBalancesRingDimmed),
+                  id: s.id,
+                  value: s.value,
+                  color: (focusId ?? focus) == null || (focusId ?? focus) == s.id
+                      ? s.color
+                      : s.color.withValues(alpha: kBalancesRingDimmed),
                   semanticsLabel: '',
                 ),
           ],
@@ -1412,6 +1469,408 @@ class _LegendFigure extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// What the Portfolio screen's hero ring shows ([BalancesOverview.heroMode]).
+enum BalancesHeroMode {
+  /// What the money is doing: Available, Investing, Predictions.
+  allocation,
+
+  /// The Portfolio section: one slice per open position by what it is
+  /// worth now, and Available's grey.
+  positions,
+
+  /// P&L Charts: each venue's P&L over the chart's range, by its size, in
+  /// the result colour.
+  pnl,
+}
+
+/// The Portfolio screen's hero ring as the section on screen reads it
+/// (founder, 1 November 2026: "the little chart on top isn't adapting to
+/// what I'm seeing; make it intelligent"):
+///
+///   * POSITIONS: one slice per open position, by what it is worth now,
+///     in its palette colour (the same dot leads its row), and a grey
+///     slice for Available; the hole is "Invested" over what the
+///     positions are worth now with their open P&L under it in its
+///     colour; the line under the ring "3 positions · ● Available $0.04".
+///     A row long-pressed ([positionFocus]) keeps its slice, dims the
+///     others to [kBalancesRingDimmed], and the hole is that position: its
+///     name, its value, its P&L % ("Anthropic", "$10.81", "▲ 0.2%");
+///   * P&L: each venue's P&L over the chart's range, by its size, green
+///     or red; the hole is the range over its P&L ("Past week",
+///     "▲ $13.30"), the point under the finger while the chart is
+///     scrubbed ([pnlChartScrubProvider]); a venue picked in "By venue"
+///     ([venueFocus]) keeps its slice, its name and P&L in the hole, and
+///     the line "● Invested in Predictions $4.24", the dot in its slice's
+///     colour (the quiet tertiary when it has none); unpicked, the line is
+///     "● Invested · ● Available".
+///
+/// The slices morph on KuteMotion.settle between sections and picks (at
+/// once under Reduce Motion): the same ring, never rebuilt.
+class _SectionHero extends ConsumerWidget {
+  const _SectionHero({
+    required this.mode,
+    required this.positions,
+    required this.positionFocus,
+    required this.venueFocus,
+    required this.trading,
+    required this.predictions,
+    required this.money,
+    required this.available,
+    required this.invested,
+    required this.venueInvested,
+    required this.label,
+  });
+
+  final BalancesHeroMode mode;
+  final List<PortfolioSlice> positions;
+  final String? positionFocus;
+  final BalancesCategory? venueFocus;
+  final bool trading;
+  final bool predictions;
+  final String Function(double usd) money;
+  final BalancesFigure available;
+  final BalancesFigure invested;
+  final Map<BalancesCategory, BalancesFigure> venueInvested;
+  final String Function(BalancesCategory) label;
+
+  /// Available's slice id.
+  static const String availableId = 'available';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    final visible = ref.watch(settingsProvider.select((s) => s.balanceVisible));
+    String arrowed(double v) {
+      if (!visible) return money(v.abs());
+      final up = v > kBalancesCentUsd;
+      final down = v < -kBalancesCentUsd;
+      return '${up ? '▲ ' : down ? '▼ ' : ''}${money(v.abs())}';
+    }
+
+    Color tone(double? v) => v == null || !visible
+        ? c.textPrimary
+        : v > kBalancesCentUsd
+            ? AppColors.marketUp
+            : v < -kBalancesCentUsd
+                ? AppColors.marketDown
+                : c.textPrimary;
+
+    final grey = c.chartCategorical.last;
+    final List<({Object id, double value, Color color})> slices;
+    final Object? focusId;
+    final _CentreText centre;
+    final Widget line;
+
+    if (mode == BalancesHeroMode.positions) {
+      final focused =
+          positions.where((p) => p.id == positionFocus).firstOrNull;
+      final availableUsd = available.usd ?? 0;
+      slices = [
+        for (final p in positions)
+          (id: p.id as Object, value: p.valueUsd, color: p.color),
+        if (availableUsd > kBalancesCentUsd)
+          (id: availableId as Object, value: availableUsd, color: grey),
+      ];
+      focusId = focused?.id;
+      if (focused != null) {
+        final pct = focused.pnlPercent;
+        centre = _CentreText(
+          caption: focused.name,
+          amount: money(focused.valueUsd),
+          amountColor: c.textPrimary,
+          sub: pct == null || !pct.isFinite
+              ? null
+              : '${pct >= 0.05 ? '▲ ' : pct <= -0.05 ? '▼ ' : ''}'
+                  '${pct.abs().toStringAsFixed(1)}%',
+          subColor: pct == null || !visible
+              ? c.textPrimary
+              : pct >= 0.05
+                  ? AppColors.marketUp
+                  : pct <= -0.05
+                      ? AppColors.marketDown
+                      : c.textSecondary,
+        );
+      } else {
+        final total = positions.fold<double>(0, (t, p) => t + p.valueUsd);
+        final pnls = positions.map((p) => p.pnlUsd).whereType<double>();
+        final open = pnls.isEmpty ? null : pnls.fold<double>(0, (t, v) => t + v);
+        centre = _CentreText(
+          caption: l10n.portfolioInvestedLabel,
+          amount: money(total),
+          amountColor: c.textPrimary,
+          sub: open == null ? null : arrowed(open),
+          subColor: tone(open),
+        );
+      }
+      line = Row(
+        key: const ValueKey('portfolio-shares-legend'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.portfolioPositionsCount(positions.length),
+              key: const ValueKey('portfolio-legend-positions'),
+              maxLines: 1,
+              style: _legendLabelStyle(context)),
+          Text(' · ', style: _legendLabelStyle(context)),
+          _LegendFigure(
+            key: const ValueKey('portfolio-legend-available'),
+            color: grey,
+            label: l10n.portfolioAvailableLabel,
+            figure: available,
+          ),
+        ],
+      );
+    } else {
+      final range = ref.watch(pnlChartRangeProvider);
+      final now = DateTime.now();
+      final prices = ref.watch(livePriceProvider.select((s) => s.prices));
+      final data = <BalancesCategory, PortfolioPerformance?>{};
+      for (final (on, venue, category) in [
+        (trading, PortfolioPerformanceVenue.trading, BalancesCategory.investing),
+        (
+          predictions,
+          PortfolioPerformanceVenue.predictions,
+          BalancesCategory.predictions
+        ),
+      ]) {
+        if (!on) continue;
+        final read = ref
+            .watch(portfolioPerformanceDisplayProvider(
+                PortfolioPerformanceRequest(venue: venue)))
+            .valueOrNull;
+        data[category] = read == null
+            ? null
+            : venue == PortfolioPerformanceVenue.predictions
+                ? read.withLivePredictions(prices)
+                : read;
+      }
+      double? changeOf(PortfolioPerformance? p) => p == null
+          ? null
+          : p.points.isEmpty
+              ? 0
+              : pnlVenueRangeChange(p, range, now);
+      final changes = {for (final e in data.entries) e.key: changeOf(e.value)};
+      slices = [
+        for (final MapEntry(key: k, value: v) in changes.entries)
+          if (v != null && v.abs() > kBalancesCentUsd)
+            (
+              id: k as Object,
+              value: v.abs(),
+              color: v > 0 ? AppColors.marketUp : AppColors.marketDown
+            ),
+      ];
+      final known = data.values.whereType<PortfolioPerformance>().toList();
+      final combined = known.length != data.length || known.isEmpty
+          ? null
+          : known.length == 1
+              ? changeOf(known.single)
+              : changeOf(PortfolioPerformance.combine(known));
+      final scrub = ref.watch(pnlChartScrubProvider);
+      final venue = venueFocus;
+      focusId = venue;
+      if (scrub != null) {
+        centre = _CentreText(
+          caption: scrub.label,
+          amount: arrowed(scrub.value),
+          amountColor: tone(scrub.value),
+        );
+      } else if (venue != null) {
+        final v = changes[venue];
+        centre = _CentreText(
+          caption: label(venue),
+          amount: v == null ? '—' : arrowed(v),
+          amountColor: tone(v),
+          stale: v == null,
+        );
+      } else {
+        centre = _CentreText(
+          caption: kuteTrendPeriodLabel(l10n, range),
+          amount: combined == null ? '—' : arrowed(combined),
+          amountColor: tone(combined),
+          stale: combined == null,
+        );
+      }
+      final slice =
+          venue == null ? null : slices.where((s) => s.id == venue).firstOrNull;
+      line = Row(
+        key: const ValueKey('portfolio-shares-legend'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (venue != null)
+            _LegendFigure(
+              key: const ValueKey('portfolio-legend-focus'),
+              // Its slice's colour; the quiet tertiary with no slice.
+              color: slice?.color ?? c.textTertiary,
+              label: l10n.portfolioInvestedInVenue(label(venue)),
+              figure: venueInvested[venue] ??
+                  const BalancesFigure('—', stale: true),
+            )
+          else ...[
+            _LegendFigure(
+              key: const ValueKey('portfolio-legend-invested'),
+              color: balancesCategoryColor(c, BalancesCategory.investing),
+              label: l10n.portfolioInvestedLabel,
+              figure: invested,
+            ),
+            SizedBox(width: 16.w),
+            _LegendFigure(
+              key: const ValueKey('portfolio-legend-available'),
+              color: balancesCategoryColor(c, BalancesCategory.buyingPower),
+              label: l10n.portfolioAvailableLabel,
+              figure: available,
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          key: const ValueKey('portfolio-shares-hero'),
+          child: BalancesRing(
+            categories: const [],
+            shares: const {},
+            slices: slices,
+            focusId: focusId,
+            diameter: kBalancesSharesRingDiameter,
+            thickness: kBalancesSharesRingThickness,
+            semantics: [
+              centre.caption,
+              centre.amount,
+              if (centre.sub case final sub?) sub,
+            ].join(' · '),
+            center: _HeroCentre(key: const ValueKey('portfolio-all-time'),
+                text: centre),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        // One line under the ring, scaled down past the width rather than
+        // cut; never animated in size, and the same height whatever it
+        // says, so a switch never moves the strip under it.
+        SizedBox(
+          height: MediaQuery.textScalerOf(context).scale(13.sp) * 1.2 + 2,
+          child: Center(child: FittedBox(fit: BoxFit.scaleDown, child: line)),
+        ),
+      ],
+    );
+  }
+}
+
+/// The legend line's quiet label style (as [_LegendFigure]'s).
+TextStyle _legendLabelStyle(BuildContext context) => TextStyle(
+      color: context.colors.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.2,
+    );
+
+/// What the hero ring's hole says: a caption, the amount, and a line
+/// under it in its own colour.
+@immutable
+class _CentreText {
+  const _CentreText({
+    required this.caption,
+    required this.amount,
+    required this.amountColor,
+    this.sub,
+    this.subColor,
+    this.stale = false,
+  });
+
+  final String caption;
+  final String amount;
+  final Color amountColor;
+  final String? sub;
+  final Color? subColor;
+
+  /// Not read yet: the amount is a sweeping dash.
+  final bool stale;
+}
+
+/// The hero ring's hole for [_SectionHero]: the caption (11, quiet), the
+/// amount (17 w600, rolling), the line under it (12). Scaled down past the
+/// hole rather than cut.
+class _HeroCentre extends StatelessWidget {
+  const _HeroCentre({super.key, required this.text});
+
+  final _CentreText text;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final amountStyle = TextStyle(
+      color: text.amountColor,
+      fontSize: 17.sp,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.3,
+      height: 1.2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final hole =
+        (kBalancesSharesRingDiameter - 2 * kBalancesSharesRingThickness).w -
+            12.w;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: hole),
+          child: Text(text.caption,
+              key: const ValueKey('portfolio-all-time-caption'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.1,
+                height: 1.2,
+              )),
+        ),
+        SizedBox(height: 2.h),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: hole),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: text.stale
+                ? StaleShimmer(
+                    stale: true,
+                    child: Text(text.amount,
+                        key: const ValueKey('portfolio-all-time-amount'),
+                        style: amountStyle.copyWith(color: c.textSecondary)))
+                : RollingFigure(
+                    key: const ValueKey('portfolio-all-time-amount'),
+                    text: text.amount,
+                    style: amountStyle),
+          ),
+        ),
+        if (text.sub case final sub?) ...[
+          SizedBox(height: 2.h),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: hole),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(sub,
+                  key: const ValueKey('portfolio-hero-sub'),
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: text.subColor ?? c.textSecondary,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  )),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

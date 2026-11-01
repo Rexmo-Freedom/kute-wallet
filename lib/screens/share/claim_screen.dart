@@ -26,6 +26,18 @@
 // opens Kute." says. Nothing is received here and now, and nothing here
 // can spend.
 //
+// THE HERO (founder, 1 November 2026: "the recipient side must match"):
+// while the link waits to be claimed the screen shows the sender's share
+// card in its recipient version (cards/share_cards.dart,
+// ShareCardAudience.recipient): "{Name}, a friend sent you" over the
+// amount big ("₿12,000" with its value, or "$50.00"), "It's yours. Tap
+// claim." and Sal with a warm line; a pick's card ("{Name}, a friend sent
+// you a pick": the market's picture and odds, the pick "Gen.G at 47%",
+// "$10 on it"; or the actual stock). The link's `senderLabel` is the first
+// name the SENDER typed for the recipient ("Who is it for?"), so the card
+// greets the recipient by it; the link carries no sender name, so the
+// sender is "a friend". Claim is the bar.
+//
 // A link opened before the wallet exists never reaches this screen: the
 // router parks the id (ShareLinksStore.parkClaim) and app_widget.dart
 // opens it once the session is unlocked.
@@ -39,6 +51,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show conversionProvider, conversionToFiatProvider;
+import 'package:kute/screens/share/cards/share_card_data.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
+import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/models/kute_state.dart';
 import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
@@ -117,6 +134,38 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   }
 
   bool get _investing => _link?.venue == 'hyperliquid';
+
+  /// The hero card's capture key (never captured here) and Sal's line.
+  final GlobalKey _heroBoundary = GlobalKey();
+  final int _heroSeed = ShareCardShare.seed();
+
+  /// The hero: the sender's card in its recipient version (see the file
+  /// header).
+  ShareCardData _hero(ShareLink link) {
+    String? btc;
+    String? fiat;
+    if (link.kind == ShareLinkKind.bitcoin) {
+      try {
+        btc = ref.watch(conversionProvider(link.amountMinor));
+        fiat = ref.watch(conversionToFiatProvider(link.amountMinor));
+      } catch (_) {}
+    }
+    return shareCardForLink(
+      <T>(p) => ref.watch(p),
+      locale: context.l10n.localeName,
+      kind: link.kind,
+      amountMinor: link.amountMinor,
+      recipient: link.senderLabel,
+      marketSlug: link.marketSlug,
+      marketTitle: link.hasPick ? _pickTitle(link) : null,
+      venue: link.venue,
+      outcome: link.outcome,
+      side: link.side,
+      bitcoinAmount: btc,
+      bitcoinFiat: fiat,
+      audience: ShareCardAudience.recipient,
+    );
+  }
 
   Future<void> _load() async {
     setState(() {
@@ -412,6 +461,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         : shareLinkAmountLabel(context, ref, link.kind, link.amountMinor);
     final market = link?.marketSlug;
     final pick = link != null && link.hasPick;
+    // Waiting to be claimed: the hero card (see the file header).
+    final hero = _phase == _Phase.ready || _phase == _Phase.claiming;
 
     final KuteState mascot = switch (_phase) {
       _Phase.loading || _Phase.claiming => KuteState.loading,
@@ -458,22 +509,18 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          KuteMascot(state: mascot, size: 120.sp),
-                          SizedBox(height: 24.h),
-                          Text(
-                            headline,
-                            key: const ValueKey('claim-headline'),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.4,
-                              height: 1.2,
+                          if (hero && link != null)
+                            ShareCardPreviewBox(
+                              key: const ValueKey('claim-hero-card'),
+                              data: _hero(link),
+                              boundaryKey: _heroBoundary,
+                              lineSeed: _heroSeed,
+                              heightFraction: 0.62,
                             ),
-                          ),
-                          if (sub != null) ...[
-                            SizedBox(height: 10.h),
+                          // A plain link that names a market: its line
+                          // under the card.
+                          if (hero && link != null && sub != null) ...[
+                            SizedBox(height: 14.h),
                             Text(
                               sub,
                               key: const ValueKey('claim-subline'),
@@ -486,9 +533,39 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                               ),
                             ),
                           ],
-                          if (pick && _phase != _Phase.error) ...[
-                            SizedBox(height: 20.h),
-                            _pickCard(c, l10n, link, amount),
+                          if (!hero || link == null) ...[
+                            KuteMascot(state: mascot, size: 120.sp),
+                            SizedBox(height: 24.h),
+                            Text(
+                              headline,
+                              key: const ValueKey('claim-headline'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.4,
+                                height: 1.2,
+                              ),
+                            ),
+                            if (sub != null) ...[
+                              SizedBox(height: 10.h),
+                              Text(
+                                sub,
+                                key: const ValueKey('claim-subline'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: c.textSecondary,
+                                  fontSize: 15.sp,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                            if (pick && _phase != _Phase.error) ...[
+                              SizedBox(height: 20.h),
+                              _pickCard(c, l10n, link, amount),
+                            ],
                           ],
                           if (_phase == _Phase.ready && _message != null) ...[
                             SizedBox(height: 12.h),

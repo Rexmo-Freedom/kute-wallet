@@ -49,6 +49,10 @@
 // opens the brag preview at once, for the page's share card ("Brag about
 // it" in profit, screens/share/brag/position_share_card.dart). A settled
 // position passes none and keeps the send rows only.
+//
+// SHARE CARDS (founder, 1 November 2026): the market row's sheet and the
+// pick row's link both end on a 4:5 share card (screens/share/cards/): the
+// market page hands over its picture and logo for it.
 
 import 'dart:async';
 
@@ -324,6 +328,13 @@ KuteBarContext marketBarContext(
             outcome: pickLabel,
             outcomeIndex: outcomeIndex,
             side: pickSide,
+            // The share card's picture until the providers have the
+            // market (screens/share/cards/share_card_sources.dart).
+            imageUrl: investing ? null : imageUrl,
+            ticker: investing ? ticker : null,
+            wireCoin: investing ? wireCoin : null,
+            coinCategory: investing ? coinCategory : null,
+            coinIconUrl: investing ? coinIconUrl : null,
           ));
         }),
       ),

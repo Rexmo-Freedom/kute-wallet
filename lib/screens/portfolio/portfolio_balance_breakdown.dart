@@ -40,6 +40,8 @@ import 'package:kute/providers/usd_account_provider.dart'
     show usdBalanceUnknownProvider;
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioSlice;
 import 'package:kute/screens/portfolio/open_investments_screen.dart'
     show InvestmentsProduct;
 import 'package:kute/screens/portfolio/portfolio_figure_tiles.dart';
@@ -409,7 +411,16 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.venuesOnly = false,
     this.refreshOnOpen = true,
     this.focus,
+    this.heroMode = BalancesHeroMode.allocation,
+    this.positionSlices = const [],
+    this.positionFocus,
   });
+
+  /// What the hero ring shows, the open positions' slices and the one
+  /// shown (BalancesOverview.heroMode, .positionSlices, .positionFocus).
+  final BalancesHeroMode heroMode;
+  final List<PortfolioSlice> positionSlices;
+  final String? positionFocus;
 
   /// The venue picked on P&L Charts, shown by the hero
   /// (BalancesOverview.focus); null: the allocation.
@@ -756,6 +767,9 @@ class _PortfolioBalanceBreakdownState
         heroOnly: widget.heroOnly,
         venuesOnly: widget.venuesOnly,
         focus: widget.focus,
+        heroMode: widget.heroMode,
+        positionSlices: widget.positionSlices,
+        positionFocus: widget.positionFocus,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),
