@@ -20442,6 +20442,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{asset} up or down · {minutes}m'**
   String predictUpOrDownCompact(String asset, int minutes);
+
+  /// Send (Bitcoin and Dollars): the header over the row of big avatar circles of the people paid most recently.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequent'**
+  String get sendFrequent;
+
+  /// Send: the header over the A–Z contacts list.
+  ///
+  /// In en, this message translates to:
+  /// **'All contacts'**
+  String get sendAllContacts;
 }
 
 class _AppLocalizationsDelegate

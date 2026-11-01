@@ -5298,6 +5298,9 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
       // No step bar (founder, 31 October 2026): the title says where the
       // person is, and each step is one screen.
       progress: const SizedBox.shrink(),
+      // Send to runs to the sheet's bottom edge, as the Dollars Send does
+      // (founder: "things get cut"): its one scroll flows under the bar.
+      bleedPages: const {_kSendToPage},
       // Steps advance only via the Continue/Next buttons
       // (`_confirmStep` → `animateToPage`); the frame turns
       // swiping off.
@@ -7985,10 +7988,20 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Scrollable so the matches, the card and the contacts never
     // overflow on a short screen or at a large text scale; the end clears
     // the floating bar.
-    // Order: the field, the resolved row, the Send to card, Contacts.
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: kuteBarScrollClearance.h),
-      child: Column(
+    // Order: the field, the recipient card, the Send to card, Contacts.
+    // ONE scroll view to the sheet's bottom edge (the frame reserves
+    // nothing under this page, SendStepperFrame.bleedPages), the Contacts
+    // as slivers in it.
+    // A coin chosen ("USDT · Base"): the send is address-only, as the
+    // Dollars address step is: no Contacts at all.
+    final coinChosen =
+        _selectedDestAsset != null && _selectedDestNetwork != null;
+    final showContacts = hot && !needsPick && !coinChosen;
+    return CustomScrollView(
+      key: const ValueKey('send-to-scroll'),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SendRecipientSearchField(
@@ -8071,7 +8084,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
           ],
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
-            SendSectionLabel(context.l10n.sendToLabel),
+            SendSectionLabel(
+              context.l10n.sendToLabel,
+              // A chosen coin can be dropped here, back to bitcoin.
+              trailing: _selectedDestAsset != null
+                  ? SendChangeButton(
+                      key: const ValueKey('send-to-coin-change'),
+                      onTap: _clearDestCoin,
+                    )
+                  : null,
+            ),
             _SendToListCard(
               colors: c,
               // Attention reads through the border weight and copy, never
@@ -8083,23 +8105,43 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
               ],
             ),
           ],
-          // Contacts (founder, 1 November 2026, Revolut's one list): the
-          // recents and the phone's contacts, filtered by what is typed.
-          // Under the Send to card (founder: a growing list must never
-          // push "Also sends to" out of sight), the list scrolling on to
-          // the bar's clearance. A link needs the spending wallet: hot
-          // sources only.
-          if (hot && !needsPick)
-            SendContactsSection(
-              query: query,
-              recents: recentPeople,
-              excludeAddress: resolved ? addr : null,
-              onPerson: _onPerson,
-              onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
-            ),
         ],
-      ),
+          ),
+        ),
+        // Contacts (founder, 1 November 2026): Frequent, then All contacts
+        // A–Z, filtered by what is typed, under the Send to card (a
+        // growing list never pushes it out of sight). A link needs the
+        // spending wallet: hot sources only; none once a coin is chosen.
+        if (showContacts)
+          SendContactsSection(
+            query: query,
+            recents: recentPeople,
+            excludeAddress: resolved ? addr : null,
+            onPerson: _onPerson,
+            onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
+            background: c.background,
+          ),
+        // The end clears the floating bar and the home indicator: the
+        // last row scrolls fully clear (the frame reserves nothing under
+        // this page, SendStepperFrame.bleedPages).
+        SliverToBoxAdapter(
+          child: SizedBox(
+              height: kuteBarScrollClearance.h +
+                  MediaQuery.viewPaddingOf(context).bottom),
+        ),
+      ],
     );
+  }
+
+  /// "Change" beside a chosen coin on the Send to card: back to a plain
+  /// bitcoin send, the Contacts with it.
+  void _clearDestCoin() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _selectedDestAsset = null;
+      _selectedDestNetwork = null;
+      _swapQuote = null;
+    });
   }
 
   // ─── Review page (slide-to-send) ────────────────────────────

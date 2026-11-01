@@ -21,10 +21,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/orchestra_routes_model.dart';
+import 'package:kute/providers/orchestra_supported_routes_provider.dart';
+import 'package:kute/services/runtime_capabilities_service.dart'
+    show RuntimeCapabilitiesService;
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
+import 'package:kute/screens/shared/coin_asset_grid.dart' show CoinAssetTile;
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
 import 'package:kute/screens/shared/sal_sprite.dart' show SalSpriteCache;
 import 'package:kute/screens/shared/send/send_sheet.dart';
@@ -37,6 +43,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/kute_bar_test_support.dart';
+import '../../helpers/runtime_policy_fixture.dart';
 import '../../mocks/fake_send_contacts_gateway.dart';
 import '../../mocks/fake_share_links_api.dart';
 
@@ -59,7 +66,42 @@ late FakeSendContactsGateway _gateway;
 late FakeShareLinksApi _api;
 late List<(String, Map<String, Object>?)> _events;
 
-Future<void> _pump(WidgetTester tester) async {
+Map<String, dynamic> _row(String chain, String asset, {int decimals = 6}) => {
+      'id': '$chain:$asset',
+      'chain': chain,
+      'asset': asset,
+      'decimals': decimals,
+      'route': {'to': 'all', 'fixedTo': [], 'exactOutTo': []},
+    };
+
+/// A live routes catalogue, for the coin picker.
+OrchestraRoutesCatalog _catalog() => OrchestraRoutesCatalog.fromJson(
+      {
+        'assets': [
+          _row('spark', 'BTC', decimals: 8),
+          _row('spark', 'USDB'),
+          _row('arbitrum', 'USDC'),
+          _row('base', 'USDC'),
+          _row('tron', 'USDT'),
+        ],
+      },
+      source: OrchestraCatalogSource.live,
+      fetchedAt: DateTime(2026, 10, 31),
+    );
+
+class _Routes extends OrchestraSupportedRoutesNotifier {
+  _Routes(OrchestraRoutesCatalog catalog) {
+    state = catalog;
+  }
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<bool> refresh() async => false;
+}
+
+Future<void> _pump(WidgetTester tester, {bool catalog = false}) async {
   tester.view.physicalSize = const Size(1125, 2436);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -91,6 +133,11 @@ Future<void> _pump(WidgetTester tester) async {
       settingsProvider.overrideWith((_) => SettingsModel(_settings())),
       sendContactsGatewayProvider.overrideWithValue(_gateway),
       shareLinksApiProvider.overrideWithValue(_api),
+      if (catalog) ...[
+        orchestraSupportedRoutesProvider
+            .overrideWith((_) => _Routes(_catalog())),
+        orchestraRoutesReadyProvider.overrideWith((_) async {}),
+      ],
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -170,7 +217,7 @@ void main() {
     expect(find.text(_l10n.sendRecipientSearchHint), findsOneWidget);
     expect(find.byKey(const ValueKey('send-field-paste')), findsOneWidget);
     expect(find.byKey(const ValueKey('send-field-scan')), findsOneWidget);
-    expect(_text(_l10n.sendContacts), findsOneWidget);
+    expect(_text(_l10n.sendAllContacts), findsOneWidget);
     expect(find.byKey(ask), findsOneWidget);
     expect(_text(_l10n.sendContactsSeeYours), findsOneWidget);
     expect(find.byKey(const ValueKey('send-to-friend-row')), findsNothing);
@@ -339,10 +386,44 @@ void main() {
         isEmpty);
     expect(card, findsNothing);
     expect(find.text(_l10n.sendToLabel), findsOneWidget);
-    expect(_text(_l10n.sendContacts), findsOneWidget);
+    expect(_text(_l10n.sendAllContacts), findsOneWidget);
     expect(find.byKey(const ValueKey('send-person-contact:k1'),
             skipOffstage: false),
         findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a coin chosen on Send to ("USDC · base") makes the send address-only: '
+      'no Contacts; the card shows the coin with Change, which brings them '
+      'back', (tester) async {
+    _gateway.permission = SendContactsPermission.granted;
+    AffiliateService.debugSessionToken = 'test-session';
+    final policy = runtimePolicyFixture();
+    RuntimeCapabilitiesService.debugInstance = policy;
+    addTearDown(() {
+      RuntimeCapabilitiesService.debugInstance = null;
+      AffiliateService.debugSessionToken = null;
+    });
+    await tester.runAsync(policy.refresh);
+    await _pump(tester, catalog: true);
+    expect(person('c1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('send-also-sends-to-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDC').first);
+    await tester.pumpAndSettle();
+    // Two networks: which one ("Which network?").
+    await tester.tap(find.text('base').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('send-contacts-section')), findsNothing);
+    expect(person('c1'), findsNothing);
+    expect(find.textContaining('USDC ·'), findsOneWidget);
+    final change = find.byKey(const ValueKey('send-to-coin-change'));
+    expect(change, findsOneWidget);
+    await tester.tap(change);
+    await tester.pumpAndSettle();
+    expect(person('c1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-to-coin-change')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -371,6 +452,44 @@ void main() {
     await type(tester, '912 345 678');
     expect(find.byKey(const ValueKey('send-phone-link-row')), findsNothing);
     expect(person('c2'), findsOneWidget);
+  });
+
+  testWidgets(
+      'at 375 pt the Send to step is ONE scroll to the sheet\'s bottom edge: '
+      'no band reserved above the bar, and the last contact scrolls fully '
+      'clear of it', (tester) async {
+    _gateway
+      ..permission = SendContactsPermission.granted
+      ..contacts = [
+        for (var i = 0; i < 30; i++)
+          SendContact(
+              id: 'm$i',
+              displayName: 'Person ${i.toString().padLeft(2, '0')}',
+              firstName: 'Person',
+              phone: '+351 91${i.toString().padLeft(7, '0')}'),
+      ];
+    await _pump(tester);
+    tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(tester.element(find.byType(ConfirmSend)));
+    if (route is SendSheetRoute) route.sheetController.expand();
+    await tester.pumpAndSettle();
+
+    final scroll = find.byKey(const ValueKey('send-to-scroll'));
+    expect(scroll, findsOneWidget);
+    // Nothing reserved under the page: the scroll runs to the bottom.
+    expect(tester.getRect(scroll).bottom, moreOrLessEquals(812, epsilon: 1));
+
+    // To the end: the last row sits wholly above the bar.
+    await tester.drag(scroll, const Offset(0, -6000));
+    await tester.pumpAndSettle();
+    final last = find.byKey(const ValueKey('send-person-contact:m29'));
+    expect(last, findsOneWidget);
+    final row = tester.getRect(last);
+    final bar = tester.getRect(kuteBarPrimary);
+    expect(row.bottom, lessThanOrEqualTo(bar.top));
+    expect(row.top, greaterThanOrEqualTo(tester.getRect(scroll).top));
+    expect(tester.takeException(), isNull);
   });
 
   // THE FIELD KEEPS EVERYTHING (founder): with the contacts granted, a

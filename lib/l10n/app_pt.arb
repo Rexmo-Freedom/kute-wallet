@@ -3703,5 +3703,7 @@
   "activityTodayIn": "In",
   "activityTodayOut": "Out",
   "activityTodayPnl": "P&L",
-  "predictUpOrDownCompact": "{asset} up or down · {minutes}m"
+  "predictUpOrDownCompact": "{asset} up or down · {minutes}m",
+  "sendFrequent": "Frequent",
+  "sendAllContacts": "All contacts"
 }

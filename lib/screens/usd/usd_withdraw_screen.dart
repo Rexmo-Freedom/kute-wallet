@@ -270,10 +270,15 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
             KuteCloseButton(onPressed: () => Navigator.of(context).maybePop()),
         title: SendStepTitle(l10n.sendDollarsTitle),
         semanticTitle: l10n.sendDollarsTitle,
-        child: SingleChildScrollView(
-          padding:
-              EdgeInsets.fromLTRB(20.w, 18.h, 20.w, kuteBarScrollClearance.h),
-          child: Column(
+        // ONE scroll: the field and the cards, then the Contacts as
+        // slivers (sticky letter headers), the bar's clearance at the end.
+        child: CustomScrollView(
+          key: const ValueKey('usd-withdraw-scroll'),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SendRecipientSearchField(
@@ -329,15 +334,25 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 SendSectionLabel(l10n.sendToLabel),
                 _sendToCard(c, offered),
               ],
-              SendContactsSection(
+            ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              sliver: SendContactsSection(
                 query: text,
                 excludeAddress: resolved,
                 recents: _recentPeople(offered),
                 onPerson: (p) => _onPerson(p, offered),
                 onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
+                // The sheet's own white (its dark surface in dark mode).
+                background: context.isDark ? c.surface : Colors.white,
               ),
-            ],
-          ),
+            ),
+            SliverToBoxAdapter(
+                child: SizedBox(height: kuteBarScrollClearance.h)),
+          ],
         ),
       ),
     );
