@@ -20,6 +20,8 @@ import 'package:kute/providers/portfolio_performance_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart';
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart';
+import 'package:kute/screens/portfolio/components/position_rows.dart'
+    show PortfolioCardList;
 import 'package:kute/screens/portfolio/portfolio_category_donut.dart';
 import 'package:kute/screens/portfolio/portfolio_category_drill.dart';
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
@@ -151,8 +153,9 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 /// October 2026: the Active | Historic pair and everything Active-only,
 /// the open P&L, the amounts at stake, the hidden chart, are gone).
 ///
-///   * ONE flat section, no card ([PortfolioPnlChart.flat]; founder, 1
-///     November 2026: "look like good fintech"), top down:
+///   * ONE section, the chart with no card around it
+///     ([PortfolioPnlChart.flat]; founder, 1 November 2026: "look like
+///     good fintech"), top down:
 ///       - "Profit and loss" and the P&L now (realised plus open) as the
 ///         big figure in the result colour, the change over the range
 ///         under it ("▲ $31.84 · Past month", a percent only of a real
@@ -160,13 +163,15 @@ class _PortfolioStatisticsState extends ConsumerState<PortfolioStatistics> {
 ///         are the point under it and when;
 ///       - the chart full-bleed to the gutters, 220 tall, the split fill
 ///         (up above zero, down below), then its range pills (1W to ALL);
-///       - the stats strip: Realised, Unrealised, Win rate, a column
+///       - the stats strip in ONE soft card (the home Activity list's,
+///         PortfolioCardList): Realised, Unrealised, Win rate, a column
 ///         left out where no provider gives its figure (Win rate only for
 ///         a Predictions series: closed positions are the only
 ///         closed-trade count, [predictionsWinRate]);
-///       - "By venue", one flat row per venue (logo, name, sparkline, its
-///         P&L now in its colour; "No … yet" with no history), 14 apart,
-///         no hairlines. The rows ARE the chart's filter: with both
+///       - "By venue", one row per venue (logo, name, sparkline, its
+///         P&L now in its colour; "No … yet" with no history) in ONE soft
+///         card, the inset hairline between them. The rows ARE the
+///         chart's filter: with both
 ///         venues' P&L moving, a row tapped draws that venue alone (the
 ///         figure, the chart and the stats), the other row dimmed; the
 ///         picked row tapped again is All (the venues added on the
@@ -533,8 +538,9 @@ BalancesCategory _categoryOf(PortfolioPerformanceVenue venue) =>
         : BalancesCategory.investing;
 
 /// The venue rows under "By venue" (see [PortfolioStatisticsOverview]):
-/// one [PnlVenueRow] per venue in the Portfolio's row language (14
-/// between rows), its P&L now (realised plus open, the venue's line's last
+/// one [PnlVenueRow] per venue in the Portfolio's row language, in ONE
+/// soft card ([PortfolioCardList], the home Activity list's, its inset
+/// hairline between rows), its P&L now (realised plus open, the venue's line's last
 /// point) right-aligned in its colour with its change and its sparkline,
 /// its "No … yet" with no history; a row tapped picks the
 /// series the chart draws ([onPick]), the other row dimmed.
@@ -593,13 +599,9 @@ class _PnlVenues extends StatelessWidget {
           : KeyedSubtree(key: ValueKey('pnl-venue-$name-pick'), child: row);
     }
 
-    return Column(
+    return PortfolioCardList(
       key: const ValueKey('statistics-figures'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final v in listed) venue(v),
-      ],
+      rows: [for (final v in listed) venue(v)],
     );
   }
 }

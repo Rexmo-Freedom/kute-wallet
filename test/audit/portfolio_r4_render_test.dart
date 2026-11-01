@@ -1,9 +1,9 @@
 // Render harness for the Portfolio screen's round of 1 November 2026: the
 // two sections' one empty state (Portfolio, P&L Charts, Sal at one place;
 // Activity moved to the Bitcoin home), the Portfolio section with a
-// position in the flat row language, and P&L Charts redone flat (a series
-// that crosses zero with its split fill, the stats strip and the venue
-// rows; and scrubbing), at
+// position in its soft card, and P&L Charts (a series that crosses zero
+// with its split fill, the stats strip and the venue rows in their soft
+// cards; and scrubbing), at
 // 390 x 844 in the app's real theme and Inter, light (and the P&L dark).
 // Writes PNGs.
 //

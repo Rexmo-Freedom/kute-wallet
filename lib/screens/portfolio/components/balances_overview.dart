@@ -24,9 +24,10 @@
 //   * then one block per venue, no hairlines between them (founder,
 //     27 October 2026): "● Predictions  N" (a step larger than the rows)
 //     with its value and its P&L (in the result colour) on the right, the
-//     venue's positions under it in ONE grouped card, the Investing and
-//     Predictions lists' own (PremiumGroupContainer's surface, radius and
-//     soft shadow, Home's inset hairline between rows), as the Option-B
+//     venue's positions under it in ONE soft card, the home Activity
+//     list's (PortfolioCardList: PremiumGroupContainer's surface, radius
+//     and soft shadow, Home's inset hairline between rows, the Activity
+//     rows' 16 / 13 padding), as the Option-B
 //     position rows
 //     (components/position_rows.dart: picture, short title, "event ·
 //     side", chance bar with its entry tick, value and %), a tap opening
@@ -86,10 +87,14 @@
 //     home strip: equal thirds, the picked one the white pill with the
 //     hairline and the shadow; [sectionSwitch], the Portfolio page hands
 //     it down);
-//   * then the open positions by venue under small-caps labels
-//     ("INVESTING · 2", 11, w600, the quiet colour, 0.6 of tracking),
-//     each venue ONE soft card of position rows (3 + See all), 12
-//     between groups, a venue with nothing open left out; nothing open
+//   * then the open positions by venue under their titles ("Investing ·
+//     2", 13 sp, textSecondary), each venue ONE soft card of position
+//     rows (3 + See all) in the home Activity list's style (founder, 1
+//     November 2026: flat rows on the page were dropped;
+//     PortfolioCardList, position_rows.dart: the Activity day card's
+//     surface, radius and inset hairline, its rows' 16 / 13 padding), 8
+//     under its title, 24 between groups, a venue with nothing open left
+//     out; nothing open
 //     anywhere: the sections' one empty state (PortfolioSectionEmpty,
 //     portfolio_empty_state.dart: the hero Sal at 160, "No open
 //     positions" and the tagline), where P&L Charts and Activity put
@@ -115,11 +120,11 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/charts/kute_donut_chart.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
+        PortfolioCardList,
         PortfolioRowInset,
+        kPortfolioCardInset,
         kPortfolioRowGap,
-        kPortfolioRowImage,
-        kPortfolioRowPadV;
-import 'package:kute/screens/shared/animations/premium_group_container.dart';
+        kPortfolioRowImage;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
 import 'package:kute/screens/shared/kute_motion.dart'
     show RollingFigure, kuteReduceMotion;
@@ -146,13 +151,14 @@ const double kBalancesCentUsd = 0.005;
 const double kBalancesRingDiameter = 40;
 const double kBalancesRingThickness = 5;
 
-/// The Portfolio screen's flat sections (founder, 1 November 2026: one
-/// language with P&L Charts): a title's gap to its rows (the rows add
-/// kPortfolioRowPadV above), and the gap between two groups.
-const double kBalancesFlatTitleGap = 4;
-const double kBalancesFlatGroupGap = 24;
+/// The Portfolio screen's sections (founder, 1 November 2026: one
+/// language with P&L Charts and the home Activity list): a title's gap to
+/// its soft card (the Activity day label's 8), and the gap between two
+/// groups.
+const double kBalancesTitleGap = 8;
+const double kBalancesGroupGap = 24;
 
-/// A flat section's title ("Investing · 2", "Profit and loss", "By
+/// A Portfolio section's title ("Investing · 2", "Profit and loss", "By
 /// venue"): 13 sp, textSecondary, sentence case.
 TextStyle balancesFlatSectionTitle(BuildContext context) => TextStyle(
       color: context.colors.textSecondary,
@@ -609,15 +615,13 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             title: label(category),
             count: count,
           ),
-          // Flat, on the page (the P&L section's language): the rows
-          // right under the title, no card, no hairlines.
+          // ONE soft card under the title, the home Activity list's.
           Padding(
             key: ValueKey('portfolio-balance-${category.name}-positions'),
-            padding: EdgeInsets.only(top: kBalancesFlatTitleGap.h),
+            padding: EdgeInsets.only(top: kBalancesTitleGap.h),
             child: _VenueCard(
                 rows: _shownRows(category, list),
                 loading: list.loading,
-                flat: true,
                 fold: _foldRow(category, list)),
           ),
         ],
@@ -817,11 +821,8 @@ class _BalancesOverviewState extends State<BalancesOverview> {
           Padding(
             key: const ValueKey('portfolio-balance-venues-loading'),
             padding: EdgeInsets.only(top: 14.h),
-            child: _VenueCard(
-                rows: const [],
-                loading: true,
-                skeletonRows: 3,
-                flat: widget.sharesHeader),
+            child: const _VenueCard(
+                rows: [], loading: true, skeletonRows: 3),
           )
         // Nothing open anywhere: Sal's empty state, not two empty venue
         // rows (founder, 27 October 2026). The Portfolio screen asks only
@@ -856,7 +857,7 @@ class _BalancesOverviewState extends State<BalancesOverview> {
             sharesVenue(BalancesCategory.investing, investing!),
           if (venueOpen(BalancesCategory.investing, investing) &&
               venueOpen(BalancesCategory.predictions, predictions))
-            SizedBox(height: kBalancesFlatGroupGap.h),
+            SizedBox(height: kBalancesGroupGap.h),
           if (venueOpen(BalancesCategory.predictions, predictions))
             sharesVenue(BalancesCategory.predictions, predictions!),
         ] else if (anyVenue) ...[
@@ -874,28 +875,20 @@ class _BalancesOverviewState extends State<BalancesOverview> {
       widget.wrap?.call(part, row) ?? row;
 }
 
-/// The row padding inside a venue's card, the grouped lists' own.
-const double _kCardInset = 16;
-
-/// A venue's positions in one grouped card, as the Investing and
-/// Predictions lists draw theirs (market_groups.dart): the group's
-/// surface, radius and soft shadow, Home's inset hairline between rows
-/// (starting where a row's text does), the rows' press ink clipped to the
-/// corners; shimmer rows while the venue is read with nothing listed.
+/// A venue's positions in ONE soft card, the home Activity list's
+/// ([PortfolioCardList]: the Activity day card's surface, radius and soft
+/// shadow, its inset hairline between rows starting where a row's text
+/// does, the rows' press ink clipped to the corners); shimmer rows while
+/// the venue is read with nothing listed.
 class _VenueCard extends StatelessWidget {
   const _VenueCard(
       {required this.rows,
       required this.loading,
       this.skeletonRows = 2,
-      this.flat = false,
       this.fold});
 
   final List<Widget> rows;
   final bool loading;
-
-  /// The Portfolio screen: the rows on the page itself, no card, no
-  /// hairlines, no inset.
-  final bool flat;
 
   /// "See all" / "Show less" after the rows, past the same hairline.
   final Widget? fold;
@@ -905,58 +898,31 @@ class _VenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (flat) {
-      return PortfolioRowInset(
-        horizontal: 0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...rows,
-            if (loading)
-              SkeletonRowList(
-                  count: skeletonRows,
-                  padding: EdgeInsets.zero,
-                  rowPadding:
-                      EdgeInsets.symmetric(vertical: kPortfolioRowPadV.h)),
-            if (fold case final f?) f,
-          ],
-        ),
-      );
-    }
-    final inset = _kCardInset.w;
-    return DecoratedBox(
-      decoration: PremiumGroupContainer.decorationOf(context),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(PremiumGroupContainer.radius),
-        child: PortfolioRowInset(
-          horizontal: inset,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0)
-                  marketGroupDivider(context,
-                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
-                rows[i],
+    final inset = kPortfolioCardInset.w;
+    final fold = this.fold;
+    return PortfolioCardList(
+      rows: rows,
+      afterHairline: false,
+      after: !loading && fold == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (loading)
+                  SkeletonRowList(
+                      count: skeletonRows,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: inset, vertical: 8.h),
+                      rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
+                if (fold != null) ...[
+                  if (rows.isNotEmpty)
+                    marketGroupDivider(
+                        context, PortfolioCardList.hairlineIndent()),
+                  fold,
+                ],
               ],
-              if (loading)
-                SkeletonRowList(
-                    count: skeletonRows,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: inset, vertical: 8.h),
-                    rowPadding: EdgeInsets.symmetric(vertical: 10.h)),
-              if (fold case final f?) ...[
-                if (rows.isNotEmpty)
-                  marketGroupDivider(context,
-                      inset + (kPortfolioRowImage + kPortfolioRowGap).w),
-                f,
-              ],
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

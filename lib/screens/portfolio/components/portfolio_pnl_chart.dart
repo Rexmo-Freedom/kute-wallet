@@ -7,9 +7,12 @@
 // and confident (founder, 1 November 2026: "to look like good fintech",
 // Robinhood and Revolut as they are now), top down:
 //
-//   * NO CARD on the Portfolio ([PortfolioPnlChart.flat]): everything on
-//     the page background inside the 16 px gutters. A Ledger's Statistics
-//     keeps the same content in its card, among its other cards;
+//   * NO CARD around the chart on the Portfolio
+//     ([PortfolioPnlChart.flat]): the header, the plot and the ranges on
+//     the page background inside the 16 px gutters (the stats strip and
+//     the venue rows under them are soft cards, below). A Ledger's
+//     Statistics keeps the same content in its card, among its other
+//     cards;
 //   * the caption "Profit and loss" (13 sp, textSecondary), then the P&L
 //     now (realised plus open, the line's last point) as the figure, 34 sp
 //     w700 tabular, rolling, in marketUp / marketDown (textPrimary at
@@ -31,20 +34,22 @@
 //     under the finger in the figure, and its change since the range's
 //     start and its moment in the change line ("▼ $6.38 · Oct 16 14:00");
 //     release puts the P&L now back;
-//   * the STATS STRIP ([PortfolioPnlChart.stats], [PnlStatsFigures]): one
-//     row, three equal columns, 12 sp labels in textSecondary over 15 w600
-//     figures: Realised, Unrealised, Win rate. A figure no provider gives
-//     is not a dash: its column is left out (Win rate needs closed-trade
-//     counts, which only Predictions has);
+//   * the STATS STRIP ([PortfolioPnlChart.stats], [PnlStatsFigures]) in
+//     ONE soft card (founder, 1 November 2026: the home Activity list's
+//     card, PortfolioCardList in position_rows.dart, its rows' 16 / 13
+//     padding): one row, three equal columns, 12 sp labels in
+//     textSecondary over 15 w600 figures: Realised, Unrealised, Win rate.
+//     A figure no provider gives is not a dash: its column is left out
+//     (Win rate needs closed-trade counts, which only Predictions has);
 //   * "By venue" (13 sp, textSecondary) and the venue rows
-//     ([PortfolioPnlChart.footer], [PnlVenueRow]) in the Portfolio's one
-//     row language (position_rows.dart; the Portfolio section's position
-//     rows are drawn the same): the venue's logo (32), its name (15 w500)
-//     over where the money is (13), a 48×20 sparkline of its P&L over the
-//     range, and its P&L now (realised plus open, 15 w600) in its colour
-//     with its change over the range (12) under it; 14 between rows, no
-//     hairlines. A row tapped charts that venue alone
-//     (portfolio_statistics.dart);
+//     ([PortfolioPnlChart.footer], [PnlVenueRow]) in ONE soft card the
+//     same way, the Portfolio's one row language (position_rows.dart; the
+//     Portfolio section's position rows are drawn the same): the venue's
+//     logo (32), its name (15 w500) over where the money is (13), a 48×20
+//     sparkline of its P&L over the range, and its P&L now (realised plus
+//     open, 15 w600) in its colour with its change over the range (12)
+//     under it; the card's inset hairline between rows. A row tapped
+//     charts that venue alone (portfolio_statistics.dart);
 //   * NO HISTORY (nothing traded or predicted yet, every point zero): no
 //     chart. On the Portfolio the sections' one empty state
 //     (PortfolioSectionEmpty: the hero Sal, "No P&L yet"); on a Ledger its
@@ -75,15 +80,16 @@ import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show
+        PortfolioCardList,
+        PortfolioRowInset,
         kPortfolioRowGap,
         kPortfolioRowImage,
-        kPortfolioRowPadV,
         portfolioRowChangeStyle,
         portfolioRowFigureStyle,
         portfolioRowSubStyle,
         portfolioRowTitleStyle;
 import 'package:kute/screens/portfolio/components/balances_overview.dart'
-    show balancesFlatSectionTitle, kBalancesFlatTitleGap;
+    show balancesFlatSectionTitle, kBalancesTitleGap;
 import 'package:kute/screens/portfolio/portfolio_empty_state.dart';
 import 'package:kute/screens/shared/charts/kute_chart_core.dart';
 import 'package:kute/screens/shared/charts/kute_chart_format.dart';
@@ -347,7 +353,7 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
             key: const ValueKey('statistics-pnl-caption'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            // The flat sections' one title style ("Investing · 2").
+            // The Portfolio sections' one title style ("Investing · 2").
             style: balancesFlatSectionTitle(context)),
         SizedBox(height: 4.h),
         figure,
@@ -406,14 +412,30 @@ class _PortfolioPnlChartState extends ConsumerState<PortfolioPnlChart> {
           ranges,
           if (stats != null && !stats.isEmpty) ...[
             SizedBox(height: 24.h),
-            PnlStatsStrip(stats: stats),
+            // On the Portfolio, ONE soft card (see the file header).
+            if (flat)
+              PortfolioCardList(
+                key: const ValueKey('statistics-pnl-stats-card'),
+                rows: [
+                  Builder(
+                    builder: (context) => Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: PortfolioRowInset.of(context),
+                          vertical: PortfolioRowInset.verticalOf(context)),
+                      child: PnlStatsStrip(stats: stats),
+                    ),
+                  ),
+                ],
+              )
+            else
+              PnlStatsStrip(stats: stats),
           ],
           if (footer != null) ...[
             SizedBox(height: 28.h),
             Text(l10n.pnlByVenue,
                 key: const ValueKey('statistics-pnl-by-venue'),
                 style: balancesFlatSectionTitle(context)),
-            SizedBox(height: kBalancesFlatTitleGap.h),
+            SizedBox(height: kBalancesTitleGap.h),
             footer,
           ],
           SizedBox(height: flat ? 8.h : 16.h),
@@ -510,8 +532,9 @@ class PnlStatsStrip extends ConsumerWidget {
 
 /// One venue's row under "By venue", in the Portfolio's one row language
 /// (position_rows.dart: the logo 32, the name 15 w500, [subtitle] 13 under
-/// it, the figure 15 w600 at the end with its change 12 under it,
-/// [kPortfolioRowPadV] above and below, no hairline): the venue's P&L now
+/// it, the figure 15 w600 at the end with its change 12 under it, the
+/// [PortfolioRowInset] padding, the soft card's inset where a
+/// [PortfolioCardList] draws it): the venue's P&L now
 /// (realised plus open) in its colour, its change over the range picked
 /// under it, and the sparkline of [data] over that range before them.
 /// [quiet] (the venue's "No … yet") stands as the line under the name and
@@ -619,7 +642,9 @@ class PnlVenueRow extends ConsumerWidget {
     }
 
     final row = Padding(
-      padding: EdgeInsets.symmetric(vertical: kPortfolioRowPadV.h),
+      padding: EdgeInsets.symmetric(
+          horizontal: PortfolioRowInset.of(context),
+          vertical: PortfolioRowInset.verticalOf(context)),
       child: Row(
         children: [
           SizedBox.square(

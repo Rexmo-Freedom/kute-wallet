@@ -1,8 +1,9 @@
 // The Portfolio screen's two sections under the pinned strip
 // (investments_portfolio.dart, sharesHeader; Activity moved to the
 // Bitcoin home): their empty states are ONE treatment at one place
-// (portfolio_empty_state.dart), both speak one flat language, and P&L
-// Charts never opens on a blank frame.
+// (portfolio_empty_state.dart), both speak one language (titles in 13 sp
+// textSecondary, lists in soft cards), and P&L Charts never opens on a
+// blank frame.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -400,6 +400,9 @@ void main() {
       expect(plotRect.height, closeTo(220 * 1200 / 932, 1));
       expect(ranges.center.dx, closeTo(195, 0.5));
       expect(ranges.width, lessThan(390));
+      // The stats strip in its soft card; no hairline in a one-row card.
+      expect(find.byKey(const ValueKey('statistics-pnl-stats-card')),
+          findsOneWidget);
       expect(find.byType(Divider), findsNothing);
 
       // A scrub: the P&L under the finger and when, in the change line.
@@ -466,9 +469,11 @@ void main() {
           AppColors.marketDown);
       expect(find.descendant(of: stat('win-rate'), matching: find.text('63%')),
           findsOneWidget);
+      // Equal thirds of the soft card's inside (16 inset each side).
+      const inside = 390 - 2 * 16 * 390 / 430;
       final w = tester.getSize(stat('realised')).width;
       expect(tester.getSize(stat('win-rate')).width, closeTo(w, 0.5));
-      expect(w, closeTo(390 / 3, 0.5));
+      expect(w, closeTo(inside / 3, 0.5));
       await settle(tester);
 
       // No closed-trade counts: no Win rate column, the others keep their
@@ -478,7 +483,7 @@ void main() {
       expect(stat('win-rate'), findsNothing);
       expect(find.text('Win rate'), findsNothing);
       expect(stat('unrealised'), findsOneWidget);
-      expect(tester.getSize(stat('realised')).width, closeTo(390 / 3, 0.5));
+      expect(tester.getSize(stat('realised')).width, closeTo(inside / 3, 0.5));
       await settle(tester);
 
       // The open P&L not read: its column out too.
