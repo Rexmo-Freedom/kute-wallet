@@ -848,7 +848,10 @@ class KuteBarPrimaryButton extends StatefulWidget {
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
-    final width = paddingStart + salSize + 8.w + painter.width + paddingEnd;
+    // The hairline's inset on both sides (a Container pads by its
+    // decoration's border), at its widest.
+    final width =
+        paddingStart + salSize + 8.w + painter.width + paddingEnd + 2;
     painter.dispose();
     return math.max(minWidth, width.ceilToDouble() + 1);
   }
@@ -908,7 +911,9 @@ class KuteBarSecondaryPill extends StatelessWidget {
         KuteBarPrimaryButton.salSize +
         8.w +
         painter.width +
-        KuteBarPrimaryButton.paddingEnd;
+        KuteBarPrimaryButton.paddingEnd +
+        // The hairline's inset on both sides, at its widest.
+        2;
     painter.dispose();
     return math.max(KuteBarPrimaryButton.minWidth, width.ceilToDouble() + 1);
   }
