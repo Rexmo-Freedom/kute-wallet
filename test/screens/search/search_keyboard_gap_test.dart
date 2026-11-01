@@ -18,8 +18,6 @@ import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/trade_notifications_provider.dart';
 import 'package:kute/providers/unified_search_provider.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
-import 'package:kute/screens/shared/ask_sal_sheet.dart'
-    show SalSuggestionButton;
 import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart'
     show kSearchSheetFraction, kSearchSheetHandleRow;
@@ -129,8 +127,6 @@ void main() {
           moreOrLessEquals(sheetTop + kSearchSheetHandleRow * screen.height / 932,
               epsilon: 0.5));
       expect(composer.height, KuteSearchComposer.height);
-      // (No Ask Sal chips any more; founder, 31 October 2026.)
-      expect(find.byType(SalSuggestionButton), findsNothing);
       expect(tester.takeException(), isNull);
       await _close(tester);
     });

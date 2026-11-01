@@ -7,8 +7,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/transaction_search_provider.dart';
 import 'package:kute/screens/shared/app_card.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
-import 'package:kute/screens/shared/custom_button.dart';
+import 'package:kute/screens/shared/receipt_bar.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
 import 'package:kute/screens/shared/message_display.dart';
@@ -99,13 +98,7 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
     }
     // The bar explains the receipt (founder, 31 October 2026).
     return KuteBarContextScope(
-      barContext: KuteBarContext(
-        label: context.l10n.barReceiptLabel,
-        sublabel: context.l10n.barAskSalSub,
-        clip: 'curious',
-        question: context.l10n.barReceiptQuestion,
-        source: 'receipt',
-      ),
+      barContext: receiptBarContext(context, advisorSurface: 'btc_tx_detail'),
       child: Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: context.colors.background,
@@ -131,17 +124,10 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
                 SizedBox(height: 24.h),
                 _buildDetailsCard(context, ref),
                 BitcoinTransactionLabel(txid: transaction.id),
-                SizedBox(height: 12.h),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: AskSalChip(
-                    advisorContext: const AdvisorContext(surface: 'btc_tx_detail'),
-                  ),
-                ),
-                SizedBox(height: 12.h),
+                SizedBox(height: 24.h),
                 _buildTechnicalCard(context, ref),
                 SizedBox(height: 32.h),
+                // The bar is the button (founder, 1 November 2026).
                 _buildActionButtons(context, ref),
                 SizedBox(height: 40.h),
               ],
@@ -344,10 +330,8 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
     return Text(title, style: TextStyle(color: context.colors.textPrimary, fontSize: 16.sp, fontWeight: FontWeight.bold));
   }
 
-  Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
-    final mempoolButton = _buildActionButton(
-        context: context,
-        icon: Icons.public,
+  Widget _buildActionButtons(BuildContext context, WidgetRef ref) =>
+      ReceiptBarButton(
         label: context.l10n.viewInMempool,
         onPressed: () {
           TrackingService.track('tx_detail_action', params: {'action': 'open_explorer'});
@@ -355,30 +339,7 @@ class BitcoinTransactionDetailsScreen extends ConsumerWidget {
           ref.read(transactionSearchProvider).txid = transaction.btcDetails!.txid.toString();
           context.push('/search_modal');
         },
-        isPrimary: false
-    );
-
-    return mempoolButton;
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    required bool isPrimary,
-  }) {
-    final bgColor = isPrimary ? context.colors.accent : context.colors.surfaceLight;
-    final txtColor = isPrimary ? Colors.black : context.colors.textPrimary;
-
-    return AppButton(
-      text: label,
-      onPressed: onPressed,
-      icon: icon,
-      color: bgColor,
-      textColor: txtColor,
-    );
-  }
+      );
 
   Color _getStatusColor(BuildContext context, String status) {
     if (status == context.l10n.confirmed) return context.colors.success;

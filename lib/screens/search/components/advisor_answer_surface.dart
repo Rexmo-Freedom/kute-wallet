@@ -439,7 +439,7 @@ class _SalProgress extends StatelessWidget {
 }
 
 /// Group public activity and available products without filling empty sections
-/// with unrelated markets. Reused by the compact Ask Sal sheet and full chat.
+/// with unrelated markets. Sal's answers in the search / Sal sheet.
 class AdvisorBlocks extends StatelessWidget {
   final List<AdvisorBlock> blocks;
   final AdvisorActionCallback? onAction;

@@ -12,8 +12,10 @@ import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
+import 'package:kute/screens/shared/receipt_bar.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> editBitcoinLabel(
   BuildContext context,
@@ -354,11 +356,20 @@ class _CoinDetailsSheet extends ConsumerWidget {
                                     value: '${blockTime.blockId.height}'),
                             ]),
                             SizedBox(height: 16.h),
-                            SheetLinkButton(
+                            // The bar is the button (founder, 1 November
+                            // 2026; receipt_bar.dart).
+                            ReceiptBarButton(
                                 label: context.l10n.activityViewOnBlockchain,
-                                uri: Uri.parse(
-                                    'https://mempool.space/tx/$txid'),
-                                onPressed: () => Navigator.of(context).pop()),
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  final uri = Uri.parse(
+                                      'https://mempool.space/tx/$txid');
+                                  if (!await launchUrl(uri,
+                                      mode: LaunchMode.inAppBrowserView)) {
+                                    await launchUrl(uri,
+                                        mode: LaunchMode.externalApplication);
+                                  }
+                                }),
                           ]))),
             ]));
   }

@@ -9,11 +9,10 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'; // NEW: Conversion Provider
 import 'package:kute/providers/historical_price_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
-import 'package:kute/screens/shared/custom_button.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/screens/shared/receipt_bar.dart';
 import 'package:kute/theme/app_theme.dart';
 import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart' as breez;
 import 'package:flutter/material.dart';
@@ -78,7 +77,12 @@ class _SparkTransactionDetailsState
       sparkPaymentId = sparkTx!.details?.id ?? sparkTx.id;
     }
 
-    return KeyboardDismissOnTap(
+    // The bar explains the receipt (founder, 1 November 2026: Sal is the
+    // bar, no circle on the page).
+    return KuteBarContextScope(
+      barContext:
+          receiptBarContext(context, advisorSurface: 'spark_tx_detail'),
+      child: KeyboardDismissOnTap(
       child: Scaffold(
         extendBodyBehindAppBar: true,
         backgroundColor: c.background,
@@ -104,20 +108,12 @@ class _SparkTransactionDetailsState
                   _buildHeader(context, ref, transaction, isRefunding),
                   SizedBox(height: 24.h),
                   _buildDetailsCard(context, ref, transaction, isRefunding),
-                  SizedBox(height: 12.h),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: AskSalChip(
-                      advisorContext:
-                          const AdvisorContext(surface: 'spark_tx_detail'),
-                    ),
-                  ),
-                  SizedBox(height: 20.h),
+                  SizedBox(height: 32.h),
 
                   // 2. View on Spark Scan — unified to plain
                   // `launchUrl` (platform-default mode) so it opens
                   // via the same in-app browser path as Polygonscan.
+                  // The bar is the button (founder, 1 November 2026).
                   if (sparkPaymentId != null) ...[
                     Builder(builder: (_) {
                       // `sparkPaymentId` is non-local so Dart's null
@@ -126,13 +122,11 @@ class _SparkTransactionDetailsState
                       final id = sparkPaymentId!;
                       final cleanId =
                           id.contains(':') ? id.split(':').first : id;
-                      return _buildActionButton(
-                          context.l10n.viewOnSparkScan,
-                          () => launchUrl(Uri.parse(
-                              'https://sparkscan.io/tx/$cleanId?network=mainnet')),
-                          false);
+                      return ReceiptBarButton(
+                          label: context.l10n.viewOnSparkScan,
+                          onPressed: () => launchUrl(Uri.parse(
+                              'https://sparkscan.io/tx/$cleanId?network=mainnet')));
                     }),
-                    SizedBox(height: 12.h),
                   ],
 
                   // Mempool button removed — only shown on hardware wallet transactions
@@ -144,7 +138,7 @@ class _SparkTransactionDetailsState
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildHeader(BuildContext context, WidgetRef ref,
@@ -506,20 +500,6 @@ class _SparkTransactionDetailsState
     Clipboard.setData(ClipboardData(text: text));
     showMessageSnackBarInfo(
         context: context, message: context.l10n.copiedToClipboard);
-  }
-
-  Widget _buildActionButton(
-      String text, VoidCallback onPressed, bool isPrimary) {
-    final c = context.colors;
-    final bgColor = isPrimary ? context.colors.accent : c.surfaceLight;
-    final txtColor = isPrimary ? Colors.black : c.textPrimary;
-
-    return AppButton(
-      text: text,
-      onPressed: onPressed,
-      color: bgColor,
-      textColor: txtColor,
-    );
   }
 
   Widget _buildSectionHeader(String title) {

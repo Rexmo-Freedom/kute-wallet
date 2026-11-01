@@ -7565,31 +7565,11 @@ class AppLocalizationsSk extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Názov peňaženky';
 
   @override
-  String get salOrderNoLongerAvailable => 'Tento príkaz sa už nedá zmeniť.';
-
-  @override
   String get salControlUnavailable =>
       'Tento ovládač nie je na tejto obrazovke dostupný.';
 
   @override
-  String get salSwitchToLimitTitle => 'Prepnúť na limitný príkaz?';
-
-  @override
-  String get salOpenLeverageTitle => 'Otvoriť nastavenia páky?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Zmení sa typ príkazu. Pred zadaním príkazu skontroluj cenu a sumu.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Páku si vyberáš ty. Toto len otvorí ovládače bez zmeny hodnoty.';
-
-  @override
   String get salChatWith => 'Chatovať so Salom';
-
-  @override
-  String get salAsk => 'Opýtaj sa Sala';
 
   @override
   String get salUnavailable => 'Sal teraz nie je dostupný.';
@@ -10454,148 +10434,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get hlRejectOracle => 'Táto cena je príliš ďaleko od trhovej ceny.';
 
   @override
-  String get salIntroGeneral =>
-      'Preskúmaj verejné trhy a zisti, ako všetko funguje.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Preskúmaj $market a zisti, ako funguje.';
-  }
-
-  @override
-  String get salIntroThisMarket => 'Preskúmaj tento trh a zisti, ako funguje.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Zisti, ako fungujú príkazy typu $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'trhový',
-        'limit': 'limitný',
-        'scale': 'rozložený',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'príkaz',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Prečo sa $market dnes hýbe?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Prečo je funding na $market záporný?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Ako funguje funding pre $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Ako môžem chrániť pozíciu na $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Ako funguje likvidácia na $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Čo hýbe cenou $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Ako si $market stojí v porovnaní s podobnými trhmi?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Prečo sa kurzy na tomto trhu hýbu?';
-
-  @override
-  String get salChipPmClosingSoon => 'Čo sa stane, keď sa tento trh uzavrie?';
-
-  @override
-  String get salChipPmLiveGame => 'Ako živý zápas hýbe týmito kurzami?';
-
-  @override
-  String get salChipPmWhatMovesIt =>
-      'Čo by mohlo pohnúť kurzami na tomto trhu?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Aké sú pravidlá vyhodnotenia tohto trhu?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Ktoré trhy súvisia s týmto?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Aké sú najnovšie správy o $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Ako funguje príkaz typu $orderType pre $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Aký je rozdiel medzi trhovými a limitnými príkazmi?';
-
-  @override
-  String get salChipEduLeverage => 'Ako mení páka riziko likvidácie?';
-
-  @override
-  String get salChipEduFunding => 'Čo je funding pri perpetuálnom kontrakte?';
-
-  @override
-  String get salChipEduPredictionBasics => 'Ako fungujú trhy predpovedí?';
-
-  @override
-  String get salChipWalletReceive => 'Ako prijmem bitcoin v Kute?';
-
-  @override
-  String get salChipWalletSend => 'Ako pošlem bitcoin v Kute?';
-
-  @override
-  String get salChipStocksVsPerps => 'Aký je rozdiel medzi akciami a perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Čo je fráza na obnovenie?';
-
-  @override
-  String get salChipBackupHow => 'Ako funguje záloha peňaženky?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Prečo musí fráza na obnovenie zostať súkromná?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Čo je potvrdenie v sieti?';
-
-  @override
-  String get salChipNetworkFees => 'Ako fungujú poplatky siete Bitcoin?';
-
-  @override
-  String get salChipTxPending => 'Prečo môže transakcia zostať čakajúca?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimum $amount';
   }
@@ -11175,9 +11013,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Tvojich $amount je v Investments. Ťuknutím pridáš maržu.';
   }
-
-  @override
-  String get salWhyMoving => 'Prečo sa to hýbe?';
 
   @override
   String get positionProtectIt => 'Ochrániť';

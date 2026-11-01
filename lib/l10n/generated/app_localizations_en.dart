@@ -7530,32 +7530,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Wallet name';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'That order is no longer available to change.';
-
-  @override
   String get salControlUnavailable =>
       'That control is not available on this screen.';
 
   @override
-  String get salSwitchToLimitTitle => 'Switch to a limit order?';
-
-  @override
-  String get salOpenLeverageTitle => 'Open leverage settings?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'This changes the order type. Review the price and amount before placing the order.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'You choose the leverage yourself. This opens the controls without changing the value.';
-
-  @override
   String get salChatWith => 'Chat with Sal';
-
-  @override
-  String get salAsk => 'Ask Sal';
 
   @override
   String get salUnavailable => 'Sal is unavailable right now.';
@@ -10408,150 +10387,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hlRejectOracle => 'That price is too far from the market price.';
 
   @override
-  String get salIntroGeneral =>
-      'Explore public markets and learn how things work.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Explore $market and learn how it works.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Explore this market and learn how it works.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Learn how $orderType orders work.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'market',
-        'limit': 'limit',
-        'scale': 'scale',
-        'stopMarket': 'stop market',
-        'stopLimit': 'stop limit',
-        'takeProfitMarket': 'take profit market',
-        'takeProfitLimit': 'take profit limit',
-        'twap': 'TWAP',
-        'other': 'order',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'Why is $market moving today?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'Why is funding negative on $market?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'How does funding work for $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'How can I protect a position on $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'How does liquidation work on $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'What drives the price of $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'How does $market compare with similar markets?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'Why are the odds moving on this market?';
-
-  @override
-  String get salChipPmClosingSoon => 'What happens when this market closes?';
-
-  @override
-  String get salChipPmLiveGame => 'How is the live game moving these odds?';
-
-  @override
-  String get salChipPmWhatMovesIt => 'What could move the odds on this market?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'What are the resolution rules for this market?';
-
-  @override
-  String get salChipPmRelatedMarkets =>
-      'Which markets are related to this one?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'What\'s the latest news on $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'How does a $orderType order work for $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'How do market and limit orders differ?';
-
-  @override
-  String get salChipEduLeverage => 'How does leverage change liquidation risk?';
-
-  @override
-  String get salChipEduFunding => 'What is funding on a perpetual contract?';
-
-  @override
-  String get salChipEduPredictionBasics => 'How do prediction markets work?';
-
-  @override
-  String get salChipWalletReceive => 'How do I receive Bitcoin in Kute?';
-
-  @override
-  String get salChipWalletSend => 'How do I send Bitcoin in Kute?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'What is the difference between stocks and perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'What is a recovery phrase?';
-
-  @override
-  String get salChipBackupHow => 'How does a wallet backup work?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'Why should a recovery phrase stay private?';
-
-  @override
-  String get salChipNetworkConfirmation => 'What is a network confirmation?';
-
-  @override
-  String get salChipNetworkFees => 'How do Bitcoin network fees work?';
-
-  @override
-  String get salChipTxPending => 'Why can a transaction stay pending?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minimum $amount';
   }
@@ -11125,9 +10960,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Your $amount is in Dollars. Tap to add margin.';
   }
-
-  @override
-  String get salWhyMoving => 'Why is it moving?';
 
   @override
   String get positionProtectIt => 'Protect it';

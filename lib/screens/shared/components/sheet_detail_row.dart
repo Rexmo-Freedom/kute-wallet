@@ -4,7 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/shared/message_display.dart';
 import 'package:kute/theme/app_theme.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Label left in `textSecondary`, value right in `textPrimary`: the detail
 /// row vocabulary of the transaction sheet, recreated here so coin surfaces
@@ -227,49 +226,6 @@ class _SheetNerdDataSectionState extends State<SheetNerdDataSection> {
               : const SizedBox.shrink(),
         ),
       ],
-    );
-  }
-}
-
-/// Full-width outlined explorer link, the transaction sheet's "View in
-/// Mempool" chrome. Opens in the in-app browser and falls back to the
-/// external browser where the platform cannot host one.
-class SheetLinkButton extends StatelessWidget {
-  const SheetLinkButton({
-    super.key,
-    required this.label,
-    required this.uri,
-    this.onPressed,
-  });
-
-  final String label;
-  final Uri uri;
-
-  /// Runs before the launch (the sheets close themselves first).
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return SizedBox(
-      width: double.infinity,
-      height: 48.h,
-      child: OutlinedButton.icon(
-        onPressed: () async {
-          onPressed?.call();
-          if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
-        icon: Icon(Icons.open_in_new_rounded, size: 18.sp),
-        label: Text(label,
-            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: c.textPrimary,
-          side: BorderSide(color: c.border),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorder),
-        ),
-      ),
     );
   }
 }

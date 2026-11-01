@@ -64,6 +64,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import 'package:kute/models/advisor_context.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/handlers/response_handlers.dart' show Result;
 import 'package:kute/helpers/auth_grant.dart';
 import 'package:kute/helpers/orchestra_router.dart'
@@ -95,7 +97,6 @@ import 'package:kute/screens/shared/kute_motion.dart' show StepsReveal;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, AmountPercentChips;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/asset_network_picker.dart';
 import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
@@ -899,10 +900,17 @@ class _UsdSendScreenState extends ConsumerState<UsdSendScreen>
               ),
               SendStepPage(
                 title: context.l10n.sendReview,
-                trailing: const AskSalChip(
-                  advisorContext: AdvisorContext(surface: 'send_review'),
+                // Sal is the bar (founder, 1 November 2026): a long press on
+                // Send asks with the review's public context, no circle here.
+                child: KuteBarContextScope(
+                  active: _step == _kReviewStep,
+                  barContext: KuteBarContext(
+                    label: context.l10n.searchOrAskSalShort,
+                    source: 'send_review',
+                    advisorContext: const AdvisorContext(surface: 'send_review'),
+                  ),
+                  child: _reviewPage(c),
                 ),
-                child: _reviewPage(c),
               ),
             ],
             cta: SharedStepCta(

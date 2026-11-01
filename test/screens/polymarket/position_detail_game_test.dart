@@ -34,7 +34,6 @@ import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/ask_sal_chip.dart';
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
@@ -327,8 +326,6 @@ void main() {
         const PositionDetailSheet(position: position),
         overrides: overrides(_game(), ai: true),
       );
-      expect(find.byType(AskSalChip), findsNothing);
-      expect(find.byType(SalWhyMovingRow), findsNothing);
       expect(find.byType(KuteDogGlance), findsNothing);
       // 120 shares bought at 42c: worth $60 now (+$9.60), $120 paid if
       // the 49ers win, $50.40 paid for it. No risk sentence.

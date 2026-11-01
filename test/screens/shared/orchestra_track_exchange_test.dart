@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/helpers/orchestra_track_exchange.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -215,10 +216,17 @@ void main() {
       return store;
     }
 
+    // The sheet's one action is the bar (receipt_bar.dart): the primary
+    // context the sheet declares, run as the bar's tap runs it.
+    Finder track() => find.byWidgetPredicate((w) =>
+        w is KuteBarContextScope &&
+        w.barContext.isPrimary &&
+        w.barContext.label == 'Track this exchange');
+
     Future<void> tapTrack(WidgetTester tester) async {
-      await tester.ensureVisible(find.text('Track this exchange'));
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(find.text('Track this exchange'));
+      final bar = tester.widget<KuteBarContextScope>(track()).barContext;
+      expect(bar.actionable, isTrue);
+      bar.onPrimary!();
       // The read, the store writes and the Activity cache's write debounce.
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -270,7 +278,7 @@ void main() {
 
     testWidgets('an expired quote has no button', (tester) async {
       await openSheet(tester, _row(_quoteId, status: 'expired'));
-      expect(find.text('Track this exchange'), findsNothing);
+      expect(track(), findsNothing);
     });
   });
 }

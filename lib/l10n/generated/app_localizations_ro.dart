@@ -7598,32 +7598,11 @@ class AppLocalizationsRo extends AppLocalizations {
   String get btcSetupWalletNameHint => 'Numele portofelului';
 
   @override
-  String get salOrderNoLongerAvailable =>
-      'Acest ordin nu mai poate fi modificat.';
-
-  @override
   String get salControlUnavailable =>
       'Această comandă nu este disponibilă pe acest ecran.';
 
   @override
-  String get salSwitchToLimitTitle => 'Treci la un ordin limită?';
-
-  @override
-  String get salOpenLeverageTitle => 'Deschizi setările de levier?';
-
-  @override
-  String get salSwitchToLimitBody =>
-      'Asta schimbă tipul ordinului. Verifică prețul și suma înainte să plasezi ordinul.';
-
-  @override
-  String get salOpenLeverageBody =>
-      'Tu alegi levierul. Se deschid comenzile fără să se schimbe valoarea.';
-
-  @override
   String get salChatWith => 'Vorbește cu Sal';
-
-  @override
-  String get salAsk => 'Întreabă-l pe Sal';
 
   @override
   String get salUnavailable => 'Sal nu este disponibil acum.';
@@ -10503,155 +10482,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlRejectOracle => 'Acest preț este prea departe de prețul pieței.';
 
   @override
-  String get salIntroGeneral =>
-      'Explorează piețele publice și află cum funcționează totul.';
-
-  @override
-  String salIntroMarket(String market) {
-    return 'Explorează $market și află cum funcționează.';
-  }
-
-  @override
-  String get salIntroThisMarket =>
-      'Explorează această piață și află cum funcționează.';
-
-  @override
-  String salIntroOrder(String orderType) {
-    return 'Află cum funcționează ordinele de tip $orderType.';
-  }
-
-  @override
-  String salOrderTypeName(String type) {
-    String _temp0 = intl.Intl.selectLogic(
-      type,
-      {
-        'market': 'la piață',
-        'limit': 'limită',
-        'scale': 'scale',
-        'stopMarket': 'stop la piață',
-        'stopLimit': 'stop limită',
-        'takeProfitMarket': 'take profit la piață',
-        'takeProfitLimit': 'take profit limită',
-        'twap': 'TWAP',
-        'other': 'ordin',
-      },
-    );
-    return '$_temp0';
-  }
-
-  @override
-  String salChipHlMovingToday(String market) {
-    return 'De ce se mișcă $market azi?';
-  }
-
-  @override
-  String salChipHlFundingFlip(String market) {
-    return 'De ce este finanțarea negativă pe $market?';
-  }
-
-  @override
-  String salChipHlFundingExplain(String market) {
-    return 'Cum funcționează finanțarea pentru $market?';
-  }
-
-  @override
-  String salChipHlProtectPosition(String market) {
-    return 'Cum pot proteja o poziție pe $market?';
-  }
-
-  @override
-  String salChipHlLiquidationExplain(String market) {
-    return 'Cum funcționează lichidarea pe $market?';
-  }
-
-  @override
-  String salChipHlWhatDrives(String market) {
-    return 'Ce influențează prețul $market?';
-  }
-
-  @override
-  String salChipHlCompareRelated(String market) {
-    return 'Cum se compară $market cu piețe similare?';
-  }
-
-  @override
-  String get salChipPmOddsMoving => 'De ce se mișcă cotele acestei piețe?';
-
-  @override
-  String get salChipPmClosingSoon =>
-      'Ce se întâmplă când această piață se închide?';
-
-  @override
-  String get salChipPmLiveGame =>
-      'Cum mișcă meciul în desfășurare aceste cote?';
-
-  @override
-  String get salChipPmWhatMovesIt => 'Ce ar putea mișca cotele acestei piețe?';
-
-  @override
-  String get salChipPmResolutionRules =>
-      'Care sunt regulile de rezolvare ale acestei piețe?';
-
-  @override
-  String get salChipPmRelatedMarkets => 'Ce piețe sunt legate de aceasta?';
-
-  @override
-  String salChipSearchWatchlistNews(String market) {
-    return 'Care sunt cele mai noi știri despre $market?';
-  }
-
-  @override
-  String salChipEduOrderType(String orderType, String market) {
-    return 'Cum funcționează un ordin de tip $orderType pe $market?';
-  }
-
-  @override
-  String get salChipEduMarketVsLimit =>
-      'Cum diferă ordinele la piață de cele cu limită?';
-
-  @override
-  String get salChipEduLeverage =>
-      'Cum schimbă efectul de levier riscul de lichidare?';
-
-  @override
-  String get salChipEduFunding => 'Ce este finanțarea la un contract perpetuu?';
-
-  @override
-  String get salChipEduPredictionBasics =>
-      'Cum funcționează piețele de predicții?';
-
-  @override
-  String get salChipWalletReceive => 'Cum primesc bitcoin în Kute?';
-
-  @override
-  String get salChipWalletSend => 'Cum trimit bitcoin în Kute?';
-
-  @override
-  String get salChipStocksVsPerps =>
-      'Care este diferența dintre acțiuni și perps?';
-
-  @override
-  String get salChipRecoveryPhrase => 'Ce este o frază de recuperare?';
-
-  @override
-  String get salChipBackupHow => 'Cum funcționează backupul unui portofel?';
-
-  @override
-  String get salChipRecoveryPrivate =>
-      'De ce trebuie să rămână privată o frază de recuperare?';
-
-  @override
-  String get salChipNetworkConfirmation => 'Ce este o confirmare în rețea?';
-
-  @override
-  String get salChipNetworkFees =>
-      'Cum funcționează comisioanele rețelei Bitcoin?';
-
-  @override
-  String get salChipTxPending =>
-      'De ce poate rămâne o tranzacție în așteptare?';
-
-  @override
   String amountMinimumInline(String amount) {
     return 'Minim $amount';
   }
@@ -11227,9 +11057,6 @@ class AppLocalizationsRo extends AppLocalizations {
   String hlMarginFundingReady(String amount) {
     return 'Cei $amount ai tăi sunt în Investments. Atinge pentru a adăuga marjă.';
   }
-
-  @override
-  String get salWhyMoving => 'De ce se mișcă?';
 
   @override
   String get positionProtectIt => 'Protejeaz-o';

@@ -70,6 +70,7 @@ import 'package:flutter/material.dart' show ModalBottomSheetRoute;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart' show NoTransitionPage;
+import 'package:kute/models/advisor_context.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 
@@ -148,6 +149,7 @@ class KuteBarContext {
     this.actionRowHeight = 0,
     this.route,
     this.question,
+    this.advisorContext,
     this.placement = KuteBarPlacement.bottom,
   })  : kind = KuteBarKind.search,
         enabled = true,
@@ -164,6 +166,12 @@ class KuteBarContext {
   /// An informational screen's question ("Explain this receive screen…"):
   /// tapping the bar opens the Sal sheet with it already sent.
   final String? question;
+
+  /// The public context Sal answers with when this bar opens it (a
+  /// receipt's surface, a market's): the Sal sheet's questions carry it,
+  /// as the small Ask Sal circle's once did. Only public, non-identifying
+  /// fields ever leave the device (see [AdvisorContext]).
+  final AdvisorContext? advisorContext;
 
   /// The bar as the surface's primary button: [label] ("Place prediction
   /// · $10", "Continue"), [onPrimary] the exact handler the page's button
@@ -194,6 +202,7 @@ class KuteBarContext {
     this.source = 'bar',
     this.route,
   })  : question = null,
+        advisorContext = null,
         kind = KuteBarKind.primaryAction,
         sublabel = null,
         actions = const [],
@@ -245,6 +254,7 @@ class KuteBarContext {
         actionRowHeight = 0,
         route = null,
         question = null,
+        advisorContext = null,
         kind = KuteBarKind.search,
         enabled = true,
         busy = false,
@@ -330,6 +340,7 @@ class KuteBarContext {
           actionRowHeight: actionRowHeight,
           route: route,
           question: question,
+          advisorContext: advisorContext,
           placement: placement,
         );
 }
