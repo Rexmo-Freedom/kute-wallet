@@ -900,22 +900,27 @@ void main() {
     await tester.tap(find.text(_l10n.send));
     await tester.pumpAndSettle();
 
-    // The Withdraw sheet: the Deposit's bottom sheet, "To your wallet"
-    // over the Bitcoin card, then the coins. No send yet.
+    // The Dollars Send sheet (the Bitcoin send's layout): "Send dollars",
+    // the search field, the Send to card with To your Bitcoin, A stock or
+    // prediction and Also sends to. No send yet.
     final withdraw = find.byType(UsdWithdrawScreen);
     expect(withdraw, findsOneWidget);
     final route = ModalRoute.of(tester.element(withdraw));
     expect(route, isA<ModalBottomSheetRoute<void>>());
     expect(route!.settings.name, kUsdWithdrawRouteName);
-    expect(find.text(_l10n.usdWithdrawToYourWallet), findsOneWidget);
+    expect(find.text(_l10n.sendDollarsTitle), findsOneWidget);
     expect(
         find.byKey(const ValueKey('usd-withdraw-to-bitcoin')), findsOneWidget);
-    expect(find.text(_l10n.usdWithdrawToAnotherWallet), findsOneWidget);
+    expect(find.byKey(const ValueKey('usd-withdraw-pick')), findsOneWidget);
+    final also = find.byKey(const ValueKey('send-also-sends-to-row'));
+    expect(also, findsOneWidget);
     expect(find.byType(UsdSendScreen), findsNothing);
 
-    // USDC is on several networks: its networks, then the send.
-    await _tapCoin(tester, find.byKey(const ValueKey('usd-withdraw-coin-grid')),
-        'arbitrum', 'USDC');
+    // Also sends to opens the coin sheet; USDC is on several networks:
+    // its networks, then the send.
+    await tester.tap(also);
+    await tester.pumpAndSettle();
+    await _tapCoin(tester, find.byType(CoinAssetPickerSheet), 'arbitrum', 'USDC');
 
     expect(find.byType(UsdSendScreen), findsOneWidget);
     expect(_step(_l10n.sendTo), findsOneWidget);
@@ -923,7 +928,10 @@ void main() {
     // The coin is picked: its chip over the field, no grid.
     expect(_chipLabel(tester), label('arbitrum', 'USDC'));
     expect(_grid, findsNothing);
-    expect(find.byType(TextField), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(UsdSendScreen), matching: find.byType(TextField)),
+        findsOneWidget);
     // The screen it came from stays behind the scrim.
     expect(find.byType(UsdAccountActionRow), findsOneWidget);
     final opened = events.where((e) => e.$1 == 'usd_send_opened').single.$2;

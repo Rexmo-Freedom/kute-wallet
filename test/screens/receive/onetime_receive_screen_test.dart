@@ -50,7 +50,6 @@ import 'package:kute/screens/receive/receive_sheet.dart';
 import 'package:kute/screens/scanner/scanner_sheet.dart' show ScannerSheet;
 import 'package:kute/screens/shared/amount_keypad_panel.dart'
     show AmountKeypad, BigAmountDisplay;
-import 'package:kute/screens/shared/coin_asset_grid.dart';
 import 'package:kute/screens/shared/custom_button.dart' show AppTextButton;
 import 'package:kute/screens/shared/receive_surface.dart';
 import 'package:kute/screens/shared/kute_back_button.dart' show KuteCloseButton;
@@ -76,6 +75,7 @@ import 'package:money2/money2.dart';
 
 import '../../helpers/runtime_policy_fixture.dart';
 import '../../helpers/kute_bar_test_support.dart';
+import '../../helpers/receive_coin_tap.dart';
 
 class _Sdk extends Mock implements BreezSdk {}
 
@@ -274,7 +274,7 @@ Future<void> _unmount(WidgetTester tester) async {
 
 /// USDT on Ethereum, typed [amount] in the request sheet.
 Future<void> _requestUsdt(WidgetTester tester, String amount) async {
-  await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+  await tapReceiveCoin(tester, 'USDT');
   await _settle(tester);
   expect(find.byType(RequestAmountSheet), findsOneWidget);
   tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged(amount);
@@ -578,7 +578,7 @@ void main() {
     };
     addTearDown(() => ReusableDepositAddressService.debugResolver = null);
     await _pump(tester, bitcoin: true);
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await _settle(tester);
     await _settle(tester);
     expect(asked, ['ethereum:USDT:USDB']);
@@ -678,7 +678,7 @@ void main() {
     expect(reads.map((r) => '${r.fromChain}:${r.fromAsset}>${r.toAsset}'),
         ['ethereum:USDT>USDB']);
 
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -708,7 +708,7 @@ void main() {
       reads++;
       return answer.future;
     });
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -724,7 +724,7 @@ void main() {
 
     // Opened again: a fresh read, and the line follows it.
     answer = Completer<OrchestraRouteLimits?>();
-    await tester.tap(find.widgetWithText(CoinAssetTile, 'USDT').first);
+    await tapReceiveCoin(tester, 'USDT');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(RequestAmountSheet), findsOneWidget);
@@ -885,10 +885,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(QuotedReceiveSheet), findsNothing);
       expect(addressLineOf(_deposit), findsNothing);
-      // Back on the coin sheet, its grid as it was.
+      // Back on the Dollars Add as it was.
       expect(find.byType(UsdReceiveScreen), findsOneWidget);
-      expect(find.widgetWithText(CoinAssetTile, 'USDT'), findsWidgets);
-      expect(find.text(_l10n.usdReceiveFromAnotherWallet), findsOneWidget);
+      expect(receiveFromAnotherRow, findsOneWidget);
       // Persisted before it was shown; nothing more written on close.
       expect(recorded, hasLength(1));
       expect(quoted, hasLength(1));
