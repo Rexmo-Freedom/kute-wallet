@@ -1120,11 +1120,13 @@ void main() {
     final predictions =
         find.byKey(const ValueKey('pnl-venue-predictions-orders'));
     final investing = find.byKey(const ValueKey('pnl-venue-investing-orders'));
-    final card = find.byKey(const ValueKey('statistics-pnl-card'));
+    // Nothing charted yet: the section is the sections' one empty state
+    // ("No P&L yet"), the orders under it.
+    final card = find.byKey(const ValueKey('statistics-pnl-section'));
     expect(
         find.descendant(
             of: card,
-            matching: find.byKey(const ValueKey('pnl-venue-predictions'))),
+            matching: find.byKey(const ValueKey('statistics-pnl-no-history'))),
         findsOneWidget);
     // The resting orders stay below the card.
     expect(tester.getTopLeft(predictions).dy,
@@ -1150,7 +1152,7 @@ void main() {
     }
     // Under the pinned top the viewport is shorter: the card may have
     // scrolled fully off by the time a venue's row is in view.
-    final cardAny = find.byKey(const ValueKey('statistics-pnl-card'),
+    final cardAny = find.byKey(const ValueKey('statistics-pnl-section'),
         skipOffstage: false);
     final scrollable = find
         .descendant(
@@ -1172,15 +1174,6 @@ void main() {
     await _pumpFrames(tester);
     expect(find.descendant(of: investing, matching: find.byType(HlOrderRow)),
         findsOneWidget);
-    expect(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-predictions'),
-                skipOffstage: false))
-            .dy,
-        lessThan(tester
-            .getTopLeft(find.byKey(const ValueKey('pnl-venue-investing'),
-                skipOffstage: false))
-            .dy));
     expect(tester.getTopLeft(find.byType(PolyOrderRow)).dy,
         lessThan(tester.getTopLeft(find.byType(HlOrderRow)).dy));
     // Orders at both venues: one quiet Cancel all text link after the last

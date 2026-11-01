@@ -593,7 +593,7 @@ void main() {
       // Founder, 28 October 2026: no Active | Historic pair.
       expect(find.byKey(const ValueKey('statistics-active')), findsNothing);
       expect(find.byKey(const ValueKey('statistics-historic')), findsNothing);
-      final card = find.byKey(const ValueKey('statistics-pnl-card'));
+      final card = find.byKey(const ValueKey('statistics-pnl-section'));
       final heading = find.byKey(const ValueKey('portfolio-activity-heading'));
       await tester.scrollUntilVisible(heading, 200,
           scrollable: find
@@ -629,8 +629,9 @@ void main() {
           .widget<RollingNumberText>(
               find.byKey(const ValueKey('statistics-pnl-headline')))
           .text;
-      // The realised P&L: nothing ever closed here.
-      expect(headline(), r'$0.00');
+      // The P&L now: Investing's 15 and Predictions' 4 (nothing closed
+      // yet, all of it open).
+      expect(headline(), r'+$19.00');
       // Each venue's line with its own "No … yet".
       expect(find.text('No predictions yet'), findsOneWidget);
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
@@ -691,7 +692,7 @@ void main() {
               .widget<RollingNumberText>(
                   find.byKey(const ValueKey('statistics-pnl-headline')))
               .text,
-          r'$0.00');
+          r'+$15.00');
       // One venue: no toggle (it would only say the headline again).
       expect(find.byKey(const ValueKey('statistics-venue-all')), findsNothing);
       expect(
