@@ -8819,6 +8819,70 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlChartYouSold => 'Tu šeit pārdevi';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Atvērts long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Atvērts short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Pievienots long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Pievienots short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Samazināts long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Samazināts short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Slēgts long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Slēgts short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Apgriezts uz long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Apgriezts uz short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidēts $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Tu šeit atvēri long';
+
+  @override
+  String get hlChartYouWentShort => 'Tu šeit atvēri short';
+
+  @override
+  String get hlChartYouClosedHere => 'Tu šeit slēdzi';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Izņemšana īslaicīgi nav pieejama. Mēģini vēlāk.';
 

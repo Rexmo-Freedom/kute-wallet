@@ -8873,6 +8873,70 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlChartYouSold => 'Itt adtál el';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Long nyitva: $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Short nyitva: $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Long bővítve: $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Short bővítve: $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Long csökkentve: $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Short csökkentve: $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Long zárva: $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Short zárva: $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Átfordítva longba: $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Átfordítva shortba: $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidálva: $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Itt nyitottál longot';
+
+  @override
+  String get hlChartYouWentShort => 'Itt nyitottál shortot';
+
+  @override
+  String get hlChartYouClosedHere => 'Itt zártál';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'A kivételek átmenetileg nem érhetők el. Próbáld újra később.';
 

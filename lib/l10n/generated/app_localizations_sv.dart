@@ -8845,6 +8845,70 @@ class AppLocalizationsSv extends AppLocalizations {
   String get hlChartYouSold => 'Du sålde här';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Öppnade long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Öppnade short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Ökade long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Ökade short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Minskade long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Minskade short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Stängde long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Stängde short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Vände till long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Vände till short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likviderad $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Du gick long här';
+
+  @override
+  String get hlChartYouWentShort => 'Du gick short här';
+
+  @override
+  String get hlChartYouClosedHere => 'Du stängde här';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Uttag är tillfälligt otillgängliga. Försök igen senare.';
 

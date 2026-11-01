@@ -8916,6 +8916,70 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlChartYouSold => 'Πούλησες εδώ';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Άνοιγμα long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Άνοιγμα short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Προσθήκη σε long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Προσθήκη σε short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Μείωση long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Μείωση short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Κλείσιμο long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Κλείσιμο short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Αλλαγή σε long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Αλλαγή σε short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Ρευστοποίηση $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Άνοιξες long εδώ';
+
+  @override
+  String get hlChartYouWentShort => 'Άνοιξες short εδώ';
+
+  @override
+  String get hlChartYouClosedHere => 'Έκλεισες εδώ';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Οι αναλήψεις δεν είναι προσωρινά διαθέσιμες. Δοκίμασε αργότερα.';
 

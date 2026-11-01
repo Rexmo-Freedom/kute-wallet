@@ -8851,6 +8851,70 @@ class AppLocalizationsSk extends AppLocalizations {
   String get hlChartYouSold => 'Tvoj predaj tu';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Otvorený long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Otvorený short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Pridané k long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Pridané k short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Znížený long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Znížený short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Uzavretý long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Uzavretý short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Otočené na long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Otočené na short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Zlikvidované $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Tu si otvoril long';
+
+  @override
+  String get hlChartYouWentShort => 'Tu si otvoril short';
+
+  @override
+  String get hlChartYouClosedHere => 'Tu si uzavrel';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Výbery sú dočasne nedostupné. Skús to neskôr.';
 

@@ -59,6 +59,8 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:kute/services/device_performance.dart';
 import 'package:kute/services/tracking_service.dart';
+import 'package:kute/helpers/hyperliquid_activity.dart'
+    show HlFillEffect, HlFillKind, hlFillEffect, hlFillHeadline, hlFillTone;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/hyperliquid/components/hl_chart_indicator_series.dart';
 import 'package:kute/models/chart_drawing.dart';
@@ -610,19 +612,29 @@ Color hlFillGlyphColor(Color fill, Color background) =>
 
 /// Paints the user's fill markers: a short stem from each badge to its
 /// fill's price, a small dot at every fill's exact price, then the badges
-/// on top, all over one shared background-coloured halo. A badge is a disc in the side colour with ▲
-/// (buy) or ▼ (sell) inside, ringed in [halo] (the chart background) so it
-/// lifts off the line or the candles; several fills on one badge make it
-/// a pill that also writes the count. The count comes from the painter's
-/// TextPainter cache, so nothing is laid out per frame.
+/// on top, all over one shared background-coloured halo. A badge is a disc
+/// in the position's colour with ▲ (went long) or ▼ (went short) inside,
+/// or a check in [neutral] for a fill that closed or reduced (a short
+/// that buys back is closing, and a ▲ would read as the opposite), ringed
+/// in [halo] (the chart background) so it lifts off the line or the
+/// candles; several fills on one badge make it a pill that also writes
+/// the count. The count comes from the painter's TextPainter cache, so
+/// nothing is laid out per frame.
 void hlPaintFillMarkers(
   Canvas canvas,
   List<HlFillMarker> markers, {
   required Color up,
   required Color down,
   required Color halo,
+  Color? neutral,
 }) {
   if (markers.isEmpty) return;
+  Color tone(HlFill f) =>
+      hlFillTone(f, up: up, down: down, neutral: neutral ?? down);
+  bool closing(HlFill f) {
+    final k = hlFillEffect(f).kind;
+    return k == HlFillKind.closed || k == HlFillKind.reduced;
+  }
   const r = hlFillMarkerRadius;
   final haloLine = Paint()
     ..style = PaintingStyle.stroke
@@ -655,18 +667,18 @@ void hlPaintFillMarkers(
   // 1 · Stems, badge → price dot.
   for (final m in markers) {
     if (!m.lead) continue;
-    canvas.drawLine(m.dot, m.center, stem..color = m.fill.isBuy ? up : down);
+    canvas.drawLine(m.dot, m.center, stem..color = tone(m.fill));
   }
   // 2 · A dot at every fill's exact price.
   for (final m in markers) {
-    canvas.drawCircle(
-        m.dot, hlFillMarkerDotRadius, fill..color = m.fill.isBuy ? up : down);
+    canvas.drawCircle(m.dot, hlFillMarkerDotRadius, fill..color = tone(m.fill));
   }
   // 3 · Badges.
   for (final m in markers) {
     if (!m.lead) continue;
-    final buy = m.fill.isBuy;
-    final col = buy ? up : down;
+    final effect = hlFillEffect(m.fill);
+    final buy = effect.long ?? m.fill.isBuy;
+    final col = tone(m.fill);
     final glyphCol = hlFillGlyphColor(col, halo);
     canvas.drawRRect(
         RRect.fromRectAndRadius(m.badge, const Radius.circular(r)),
@@ -682,6 +694,22 @@ void hlPaintFillMarkers(
     }
     const hw = _hlFillGlyphW / 2, hh = _hlFillGlyphH / 2;
     final cy = m.center.dy;
+    if (closing(m.fill)) {
+      // A check: the position (or part of it) is done.
+      canvas.drawPath(
+        Path()
+          ..moveTo(gx - hw, cy + 0.2)
+          ..lineTo(gx - hw * 0.3, cy + hh)
+          ..lineTo(gx + hw, cy - hh),
+        glyphEdge
+          ..color = glyphCol
+          ..strokeWidth = 1.6,
+      );
+      glyphEdge.strokeWidth = 1.2;
+      countTp?.paint(canvas,
+          Offset(gx + hw + _hlFillCountGap, cy - countTp.height / 2));
+      continue;
+    }
     final tri = Path();
     if (buy) {
       tri
@@ -1904,18 +1932,20 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
         HlFillTooltipEntry(
           identity: hlFillIdentity(f),
           isBuy: f.isBuy,
-          color: f.isBuy ? AppColors.marketUp : AppColors.marketDown,
-          // The display symbol ('SP500', never the wire 'xyz:SP500').
-          title: [
-            f.isBuy
-                ? context.l10n.hlChartBoughtSize(formatHlSize(f.sz))
-                : context.l10n.hlChartSoldSize(formatHlSize(f.sz)),
-            if (f.coin.isNotEmpty) HlMarket.baseCoin(f.coin),
-          ].join(' '),
-          detail: [
-            if (f.dir.trim().isNotEmpty) f.dir.trim(),
-            timeFmt.format(DateTime.fromMillisecondsSinceEpoch(f.time)),
-          ].join(' · '),
+          effect: hlFillEffect(f),
+          color: hlFillTone(f, up: AppColors.marketUp, down: AppColors.marketDown, neutral: c.textSecondary),
+          // In the position's own words ("Closed short 0.008 OAI"): a
+          // short that buys is closing, and "Bought" would read as the
+          // opposite of what it did. The display symbol ('SP500', never
+          // the wire 'xyz:SP500').
+          title: hlFillHeadline(
+              f,
+              [
+                formatHlSize(f.sz),
+                if (f.coin.isNotEmpty) HlMarket.baseCoin(f.coin),
+              ].join(' '),
+              context.l10n),
+          detail: timeFmt.format(DateTime.fromMillisecondsSinceEpoch(f.time)),
           value: formatHlPrice(f.px, decimalCap: widget.decimalCap),
           subValue: formatHlUsd(f.px * f.sz),
           textColor: c.textPrimary,
@@ -3894,22 +3924,29 @@ class _HlCandlestickChartState extends State<HlCandlestickChart>
       if (bucketMs <= 0) bucketMs = 1;
       endMs = openMs + bucketMs + 1;
     }
-    var bought = false;
-    var sold = false;
+    // In the position's words: went long, went short, closed. A bar
+    // mixing them, or a spot token, only says a trade happened here.
+    String? caption;
+    final l10n = context.l10n;
     for (final f in fills) {
       if (f.time < openMs || f.time >= endMs) continue;
-      if (f.isBuy) {
-        bought = true;
-      } else {
-        sold = true;
-      }
-      if (bought && sold) break;
+      final e = hlFillEffect(f);
+      final one = switch (e.kind) {
+        HlFillKind.bought => l10n.hlChartYouBought,
+        HlFillKind.sold => l10n.hlChartYouSold,
+        HlFillKind.closed ||
+        HlFillKind.reduced ||
+        HlFillKind.liquidated =>
+          l10n.hlChartYouClosedHere,
+        HlFillKind.opened || HlFillKind.added || HlFillKind.flipped =>
+          (e.long ?? f.isBuy)
+              ? l10n.hlChartYouWentLong
+              : l10n.hlChartYouWentShort,
+      };
+      if (caption != null && caption != one) return l10n.hlChartYouTraded;
+      caption = one;
     }
-    final l10n = context.l10n;
-    if (bought && sold) return l10n.hlChartYouTraded;
-    if (bought) return l10n.hlChartYouBought;
-    if (sold) return l10n.hlChartYouSold;
-    return null;
+    return caption;
   }
 
   /// The live price's tag as the data painter draws it (its line and its
@@ -4532,7 +4569,7 @@ class _HlCandlePainter extends CustomPainter {
         domain: domain,
       );
       hlPaintFillMarkers(canvas, markers,
-          up: upColor, down: downColor, halo: labelBg);
+          up: upColor, down: downColor, halo: labelBg, neutral: labelFg);
     }
 
     // ── The clean view's captions (laid out above) ───────────────────
@@ -4735,6 +4772,9 @@ class _HlCandlePainter extends CustomPainter {
 class HlFillTooltipEntry {
   final Object identity;
   final bool isBuy;
+
+  /// What the fill did to the position; drives the badge glyph.
+  final HlFillEffect effect;
   final String title;
   final String detail;
   final String value;
@@ -4748,6 +4788,7 @@ class HlFillTooltipEntry {
   const HlFillTooltipEntry({
     required this.identity,
     required this.isBuy,
+    required this.effect,
     required this.title,
     required this.detail,
     required this.value,
@@ -5012,13 +5053,34 @@ class HlFillTooltipPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// A round badge in the side colour with an arrow: up for a buy, down
-  /// for a sell.
+  /// A round badge in the position's colour: an arrow up for going
+  /// long, down for going short, a check for closing or reducing. The
+  /// side a buy or sell took is not the point; what it did is.
   void _paintBadge(Canvas canvas, Offset center, HlFillTooltipEntry e) {
     canvas.drawCircle(center, _badge / 2,
         Paint()..color = e.color.withValues(alpha: isDark ? 0.18 : 0.12));
     const half = 5.0;
-    final dir = e.isBuy ? -1.0 : 1.0;
+    final kind = e.effect.kind;
+    if (kind == HlFillKind.closed ||
+        kind == HlFillKind.reduced ||
+        kind == HlFillKind.liquidated) {
+      final check = Paint()
+        ..color = e.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(
+        Path()
+          ..moveTo(center.dx - 4.5, center.dy + 0.5)
+          ..lineTo(center.dx - 1, center.dy + 4)
+          ..lineTo(center.dx + 5, center.dy - 3.5),
+        check,
+      );
+      return;
+    }
+    final long = e.effect.long ?? e.isBuy;
+    final dir = long ? -1.0 : 1.0;
     final tip = center.translate(0, dir * half);
     final tail = center.translate(0, -dir * half);
     final arrow = Paint()

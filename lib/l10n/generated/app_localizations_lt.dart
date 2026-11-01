@@ -8885,6 +8885,70 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlChartYouSold => 'Čia pardavėte';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Atidaryta long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Atidaryta short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Pridėta prie long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Pridėta prie short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Sumažinta long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Sumažinta short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Uždaryta long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Uždaryta short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Apversta į long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Apversta į short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likviduota $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Čia atidarėte long';
+
+  @override
+  String get hlChartYouWentShort => 'Čia atidarėte short';
+
+  @override
+  String get hlChartYouClosedHere => 'Čia uždarėte';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Išėmimai laikinai negalimi. Bandykite vėliau.';
 

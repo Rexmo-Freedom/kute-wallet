@@ -8849,6 +8849,70 @@ class AppLocalizationsDa extends AppLocalizations {
   String get hlChartYouSold => 'Du solgte her';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Åbnede long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Åbnede short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Lagde til long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Lagde til short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Reducerede long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Reducerede short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Lukkede long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Lukkede short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Vendte til long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Vendte til short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvideret $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Du gik long her';
+
+  @override
+  String get hlChartYouWentShort => 'Du gik short her';
+
+  @override
+  String get hlChartYouClosedHere => 'Du lukkede her';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Udbetalinger er midlertidigt utilgængelige. Prøv igen senere.';
 

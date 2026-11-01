@@ -8882,6 +8882,70 @@ class AppLocalizationsNl extends AppLocalizations {
   String get hlChartYouSold => 'Hier verkocht je';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Long geopend $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Short geopend $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Long uitgebreid $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Short uitgebreid $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Long verkleind $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Short verkleind $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Long gesloten $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Short gesloten $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Gedraaid naar long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Gedraaid naar short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Geliquideerd $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Hier ging je long';
+
+  @override
+  String get hlChartYouWentShort => 'Hier ging je short';
+
+  @override
+  String get hlChartYouClosedHere => 'Hier sloot je';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Opnames zijn tijdelijk niet beschikbaar. Probeer het later opnieuw.';
 

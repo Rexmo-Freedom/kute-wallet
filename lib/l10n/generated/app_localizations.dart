@@ -15245,6 +15245,90 @@ abstract class AppLocalizations {
   /// **'You sold here'**
   String get hlChartYouSold;
 
+  /// Investing chart fill tooltip headline: a fill that opened a long position. {size} is the size with the symbol, e.g. '0.5 ETH'.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened long {size}'**
+  String hlChartOpenedLong(String size);
+
+  /// No description provided for @hlChartOpenedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Opened short {size}'**
+  String hlChartOpenedShort(String size);
+
+  /// No description provided for @hlChartAddedLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to long {size}'**
+  String hlChartAddedLong(String size);
+
+  /// No description provided for @hlChartAddedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to short {size}'**
+  String hlChartAddedShort(String size);
+
+  /// No description provided for @hlChartReducedLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced long {size}'**
+  String hlChartReducedLong(String size);
+
+  /// No description provided for @hlChartReducedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced short {size}'**
+  String hlChartReducedShort(String size);
+
+  /// No description provided for @hlChartClosedLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed long {size}'**
+  String hlChartClosedLong(String size);
+
+  /// No description provided for @hlChartClosedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed short {size}'**
+  String hlChartClosedShort(String size);
+
+  /// No description provided for @hlChartFlippedLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Flipped to long {size}'**
+  String hlChartFlippedLong(String size);
+
+  /// No description provided for @hlChartFlippedShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Flipped to short {size}'**
+  String hlChartFlippedShort(String size);
+
+  /// Investing chart fill tooltip headline: a liquidation fill. {size} is the size with the symbol.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquidated {size}'**
+  String hlChartLiquidatedSize(String size);
+
+  /// Investing chart: caption over a bar where the user opened or added to a long.
+  ///
+  /// In en, this message translates to:
+  /// **'You went long here'**
+  String get hlChartYouWentLong;
+
+  /// Investing chart: caption over a bar where the user opened or added to a short.
+  ///
+  /// In en, this message translates to:
+  /// **'You went short here'**
+  String get hlChartYouWentShort;
+
+  /// Investing chart: caption over a bar where the user closed or reduced a position.
+  ///
+  /// In en, this message translates to:
+  /// **'You closed here'**
+  String get hlChartYouClosedHere;
+
   /// No description provided for @hlWithdrawalsUnavailable.
   ///
   /// In en, this message translates to:

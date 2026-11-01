@@ -8896,6 +8896,70 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlChartYouSold => 'Ai vândut aici';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Long deschis $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Short deschis $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Adăugat la long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Adăugat la short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Long redus $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Short redus $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Long închis $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Short închis $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Întors pe long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Întors pe short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Lichidat $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Ai intrat long aici';
+
+  @override
+  String get hlChartYouWentShort => 'Ai intrat short aici';
+
+  @override
+  String get hlChartYouClosedHere => 'Ai închis aici';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Retragerile sunt temporar indisponibile. Încearcă mai târziu.';
 

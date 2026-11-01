@@ -8870,6 +8870,70 @@ class AppLocalizationsSl extends AppLocalizations {
   String get hlChartYouSold => 'Tukaj ste prodali';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Odprt long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Odprt short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Dodano k long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Dodano k short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Zmanjšan long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Zmanjšan short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Zaprt long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Zaprt short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Obrnjeno v long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Obrnjeno v short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidirano $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Tukaj ste šli long';
+
+  @override
+  String get hlChartYouWentShort => 'Tukaj ste šli short';
+
+  @override
+  String get hlChartYouClosedHere => 'Tukaj ste zaprli';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Dvigi začasno niso na voljo. Poskusite znova pozneje.';
 

@@ -8919,6 +8919,70 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hlChartYouSold => 'Hier verkauft';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Long eröffnet $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Short eröffnet $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Long aufgestockt $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Short aufgestockt $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Long reduziert $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Short reduziert $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Long geschlossen $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Short geschlossen $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Auf Long gedreht $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Auf Short gedreht $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Liquidiert $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Hier bist du long gegangen';
+
+  @override
+  String get hlChartYouWentShort => 'Hier bist du short gegangen';
+
+  @override
+  String get hlChartYouClosedHere => 'Hier geschlossen';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Auszahlungen sind vorübergehend nicht verfügbar. Versuche es später erneut.';
 

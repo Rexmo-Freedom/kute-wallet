@@ -8482,6 +8482,70 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlChartYouSold => 'ここで売却しました';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'ロング開始 $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'ショート開始 $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'ロング追加 $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'ショート追加 $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'ロング縮小 $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'ショート縮小 $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'ロング決済 $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'ショート決済 $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'ロングへ転換 $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'ショートへ転換 $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'ロスカット $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'ここでロングしました';
+
+  @override
+  String get hlChartYouWentShort => 'ここでショートしました';
+
+  @override
+  String get hlChartYouClosedHere => 'ここで決済しました';
+
+  @override
   String get hlWithdrawalsUnavailable => '出金は一時的に利用できません。後でもう一度お試しください。';
 
   @override

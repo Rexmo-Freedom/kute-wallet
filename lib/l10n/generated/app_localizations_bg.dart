@@ -8868,6 +8868,70 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlChartYouSold => 'Тук продаде';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Отворена long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Отворена short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Добавено към long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Добавено към short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Намалена long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Намалена short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Затворена long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Затворена short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Обърната към long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Обърната към short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Ликвидирана $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Тук отвори long';
+
+  @override
+  String get hlChartYouWentShort => 'Тук отвори short';
+
+  @override
+  String get hlChartYouClosedHere => 'Тук затвори';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Тегленията временно не са достъпни. Опитай отново по-късно.';
 

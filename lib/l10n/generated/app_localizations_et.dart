@@ -8835,6 +8835,70 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlChartYouSold => 'Sa müüsid siin';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Avatud long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Avatud short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Lisatud long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Lisatud short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Vähendatud long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Vähendatud short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Suletud long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Suletud short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Pööratud long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Pööratud short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvideeritud $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Sa läksid siin long';
+
+  @override
+  String get hlChartYouWentShort => 'Sa läksid siin short';
+
+  @override
+  String get hlChartYouClosedHere => 'Sa sulgesid siin';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Väljamaksed pole ajutiselt saadaval. Proovi hiljem uuesti.';
 

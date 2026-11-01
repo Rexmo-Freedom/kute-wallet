@@ -8855,6 +8855,70 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlChartYouSold => 'Myit tässä';
 
   @override
+  String hlChartOpenedLong(String size) {
+    return 'Avattu long $size';
+  }
+
+  @override
+  String hlChartOpenedShort(String size) {
+    return 'Avattu short $size';
+  }
+
+  @override
+  String hlChartAddedLong(String size) {
+    return 'Lisätty long $size';
+  }
+
+  @override
+  String hlChartAddedShort(String size) {
+    return 'Lisätty short $size';
+  }
+
+  @override
+  String hlChartReducedLong(String size) {
+    return 'Pienennetty long $size';
+  }
+
+  @override
+  String hlChartReducedShort(String size) {
+    return 'Pienennetty short $size';
+  }
+
+  @override
+  String hlChartClosedLong(String size) {
+    return 'Suljettu long $size';
+  }
+
+  @override
+  String hlChartClosedShort(String size) {
+    return 'Suljettu short $size';
+  }
+
+  @override
+  String hlChartFlippedLong(String size) {
+    return 'Käännetty long $size';
+  }
+
+  @override
+  String hlChartFlippedShort(String size) {
+    return 'Käännetty short $size';
+  }
+
+  @override
+  String hlChartLiquidatedSize(String size) {
+    return 'Likvidoitu $size';
+  }
+
+  @override
+  String get hlChartYouWentLong => 'Avasit longin tässä';
+
+  @override
+  String get hlChartYouWentShort => 'Avasit shortin tässä';
+
+  @override
+  String get hlChartYouClosedHere => 'Suljit tässä';
+
+  @override
   String get hlWithdrawalsUnavailable =>
       'Nostot eivät ole tilapäisesti käytettävissä. Yritä myöhemmin uudelleen.';
 
