@@ -51,6 +51,7 @@ import 'package:kute/services/accumulation_address_cache.dart';
 import 'package:kute/services/orchestra_routes.dart';
 import 'package:kute/services/orchestra/orchestra_history.dart';
 import 'package:kute/services/orchestra/pending_receive_quote_cache.dart';
+import 'package:kute/services/one_balance/move_settled_refresh.dart';
 import 'package:kute/services/orchestra/venue_arrivals.dart'
     show OrchestraOrderIds;
 import 'package:kute/services/security/address_guard.dart';
@@ -284,7 +285,12 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
   }
 
   @override
-  Future<WalletBalance> build() async => WalletBalance.empty();
+  Future<WalletBalance> build() async {
+    // This notifier lives for the session: the scope the move-settled
+    // refresh reads balances through.
+    MoveSettledRefresh.bind(ref);
+    return WalletBalance.empty();
+  }
 
   /// Run [tasks] with at most [concurrency] in flight, preserving
   /// result order (results[i] always belongs to tasks[i], exactly like
@@ -1453,6 +1459,8 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: actualBtc,
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
+        // The receive is the delivery: both ends of the move read again now.
+        MoveSettledRefresh.settledRow(settled, source: 'receive_settled');
         // The link names the row, so Activity folds this receive into it
         // (or into the move it is a leg of) on every read from now on.
         PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
@@ -1514,6 +1522,7 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
           withdrawalAmount: best.amount.toStringAsFixed(2),
         );
         await ref.read(swapOrdersProvider.notifier).updateExchange(settled);
+        MoveSettledRefresh.settledRow(settled, source: 'receive_settled');
         PolymarketSparkTxsService.tagOrchestraDelivery(best.id,
             orderId: ex.id, operationId: ex.operationId);
         ref
@@ -1774,6 +1783,16 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                       (exchange.status == 'success' ||
                           exchange.status == 'refunded' ||
                           exchange.status == 'expired');
+                  // The move ended (delivered, refunded or expired after
+                  // paying): the cash accounts at both ends read again now,
+                  // not on their next poll. A row the receive reconciler
+                  // already settled was refreshed then.
+                  if (!wasTerminal &&
+                      exchange.status != 'settled' &&
+                      orchestraExchangeStatusIsTerminal(mappedStatus)) {
+                    MoveSettledRefresh.settledRow(updated,
+                        source: 'orchestra_status');
+                  }
                   // A completed delivery to Spark refreshes the wallet from
                   // the swap order store itself (OwnSparkArrivals), for
                   // this poller and every other writer alike.
@@ -2112,6 +2131,13 @@ class BackgroundSyncNotifier extends SyncNotifier<WalletBalance> {
                         (ex.status == 'success' ||
                             ex.status == 'refunded' ||
                             ex.status == 'expired');
+                    // Both ends read again now, as in the primary block.
+                    if (!wasTerminal2 &&
+                        ex.status != 'settled' &&
+                        orchestraExchangeStatusIsTerminal(mappedStatus)) {
+                      MoveSettledRefresh.settledRow(updated,
+                          source: 'orchestra_status');
+                    }
                     // A completed delivery to Spark refreshes the wallet
                     // from the swap order store (OwnSparkArrivals).
                     if (updated.isCashAppPurchase) {
