@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/helpers/prediction_results.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/polymarket_model.dart'
@@ -30,6 +29,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/offline_venue_overrides.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _btc = 'Bitcoin Up or Down - October 5, 7:00AM-7:05AM ET';
 
@@ -140,16 +140,25 @@ Future<void> _openSpending(WidgetTester tester, Position position,
 Finder _inSheet(Finder f) =>
     find.descendant(of: find.byType(BottomSheet), matching: f);
 
-/// The value drawn on the detail row labelled [label].
+/// The value drawn on the receipt tile labelled [label] (its label, then
+/// its value).
 String _valueOf(WidgetTester tester, String label) {
-  final row = find
-      .ancestor(of: _inSheet(find.text(label)), matching: find.byType(Row))
-      .first;
+  final tile = _inSheet(find.byKey(ValueKey('receipt-tile-$label')));
+  final texts = tester
+      .widgetList<Text>(find.descendant(of: tile, matching: find.byType(Text)))
+      .map((t) => t.data)
+      .toList();
+  return texts[1]!;
+}
+
+/// The value on the full-width receipt row labelled [label].
+String _longValueOf(WidgetTester tester, String label) {
+  final row = _inSheet(find.byKey(ValueKey('receipt-long-$label')));
   final texts = tester
       .widgetList<Text>(find.descendant(of: row, matching: find.byType(Text)))
       .map((t) => t.data)
       .toList();
-  return texts.last!;
+  return texts[1]!;
 }
 
 void main() {
@@ -167,13 +176,13 @@ void main() {
         tester, _resolved(curPrice: 0, size: 6.3, cost: 3.21));
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(_inSheet(find.text('Lost · Up')), findsOneWidget);
-    expect(_valueOf(tester, 'Market'), _btc);
-    expect(_valueOf(tester, 'Predicted'), 'Up');
+    // The market question on its own row; the title names the pick.
+    expect(_longValueOf(tester, 'Market'), _btc);
     expect(_valueOf(tester, 'Shares'), '6.30');
     expect(_valueOf(tester, 'Cost'), '\$3.21');
     expect(_valueOf(tester, 'Payout'), '\$0.00');
     expect(_valueOf(tester, 'Realized P&L'), '−\$3.21');
-    expect(_inSheet(find.text('Resolved')), findsOneWidget);
+    expect(_inSheet(find.textContaining('Resolved · ')), findsOneWidget);
     // No transaction: no explorer link, no hash, no claim.
     expect(find.text('View on the blockchain'), findsNothing);
     expect(find.textContaining('polygonscan'), findsNothing);
@@ -222,14 +231,9 @@ void main() {
           polymarketEventTeamsProvider
               .overrideWith((ref, slug) async => const []),
         ]);
-    // The sheet's one action is the bar (receipt_bar.dart): its primary
-    // button, declared by the sheet.
-    expect(
-        _inSheet(find.byWidgetPredicate((w) =>
-            w is KuteBarContextScope &&
-            w.barContext.isPrimary &&
-            w.barContext.label == 'View market')),
-        findsOneWidget);
+    // The market is the receipt's action: the bar's primary button.
+    expect(kuteBarPrimaryContext(tester).label, 'View market');
+    expect(_inSheet(find.text('View market')), findsNothing);
   });
 
   testWidgets('a Ledger account\'s won row opens the same sheet, no claim',

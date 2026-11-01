@@ -1,4 +1,3 @@
-import 'package:kute/models/transactions_model.dart';
 import 'package:kute/screens/bank/bank_screen.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/screens/creation/add_wallet.dart';
@@ -9,7 +8,6 @@ import 'package:kute/screens/pay/components/watch_only_screen.dart';
 import 'package:kute/screens/creation/passkey_choice.dart';
 import 'package:kute/screens/creation/confirm_pin.dart';
 import 'package:kute/screens/pay/components/confirm_send.dart';
-import 'package:kute/screens/shared/bitcoin_transactions_details_screen.dart';
 import 'package:kute/screens/shared/send/send_sheet.dart';
 import 'package:kute/screens/spash/splash.dart';
 import 'package:kute/screens/share/claim_screen.dart';
@@ -48,7 +46,6 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 
 import 'screens/creation/xpub_import_screen.dart';
 import 'screens/creation/external_address_import_screen.dart';
-import 'screens/shared/spark_transaction_details.dart';
 import 'screens/shared/coming_soon_screen.dart';
 import 'screens/scanner/scanner_sheet.dart';
 import 'screens/settings/affiliate_screen.dart';
@@ -303,28 +300,6 @@ class AppRouter {
             child: const Start(),
             state: state,
           ),
-        ),
-        GoRoute(
-          path: '/transaction-details',
-          name: 'transactionDetails',
-          pageBuilder: (context, state) {
-            final transaction = state.extra as BitcoinTransaction;
-            return _buildFadeScalePage(
-              child: BitcoinTransactionDetailsScreen(transaction: transaction),
-              state: state,
-            );
-          },
-        ),
-
-        GoRoute(
-          path: '/spark-transaction-details',
-          name: 'sparkTransactionDetails',
-          pageBuilder: (context, state) {
-            return _buildFadeScalePage(
-              child: SparkTransactionDetails(),
-              state: state,
-            );
-          },
         ),
         GoRoute(
           path: '/seed_words',

@@ -12161,4 +12161,10 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get hlAboutKindIndexSpot => 'a spot token tracking an index';
+
+  @override
+  String get receiptAskWhatHappened => 'What happened here?';
+
+  @override
+  String get receiptResult => 'Result';
 }

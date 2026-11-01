@@ -7525,5 +7525,9 @@
   "hlAboutKindCommoditySpot": "a spot token tracking a commodity",
   "@hlAboutKindCommoditySpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
   "hlAboutKindIndexSpot": "a spot token tracking an index",
-  "@hlAboutKindIndexSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."}
+  "@hlAboutKindIndexSpot": {"description": "Fallback market description: kind phrase, lower case, used inside a sentence."},
+  "receiptAskWhatHappened": "What happened here?",
+  "@receiptAskWhatHappened": {"description": "The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet)."},
+  "receiptResult": "Result",
+  "@receiptResult": {"description": "Activity receipt tile label: the realised profit or loss of a sale or payout."}
 }

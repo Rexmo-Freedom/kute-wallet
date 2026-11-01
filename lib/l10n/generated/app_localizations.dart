@@ -20388,6 +20388,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'a spot token tracking an index'**
   String get hlAboutKindIndexSpot;
+
+  /// The question Sal is asked when the person long-presses the bar on an Activity receipt (a transaction detail sheet).
+  ///
+  /// In en, this message translates to:
+  /// **'What happened here?'**
+  String get receiptAskWhatHappened;
+
+  /// Activity receipt tile label: the realised profit or loss of a sale or payout.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get receiptResult;
 }
 
 class _AppLocalizationsDelegate

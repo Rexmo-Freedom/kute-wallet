@@ -10,6 +10,7 @@ import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/btc_amount_text.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/receipt_bar.dart';
@@ -196,6 +197,9 @@ class _LabelRow extends StatelessWidget {
       onTap: onTap);
 }
 
+/// A receipt's transaction label: its own full-width row (the title
+/// above, the label or its "add" placeholder under it, the edit glyph),
+/// never squeezed into a value column. Tapping edits it.
 class BitcoinTransactionLabel extends ConsumerWidget {
   const BitcoinTransactionLabel({super.key, required this.txid, this.walletId});
   final String txid;
@@ -206,10 +210,12 @@ class BitcoinTransactionLabel extends ConsumerWidget {
     if (owner == null) return const SizedBox.shrink();
     final label = ref
         .watch(bitcoinLabelsProvider(owner))[bitcoinTransactionLabelKey(txid)];
-    return _LabelRow(
-      title: context.l10n.coinTransactionLabel,
-      label: label,
-      placeholder: context.l10n.coinAddTransactionLabel,
+    return ReceiptLongRow(
+      key: const ValueKey('receipt-transaction-label'),
+      label: context.l10n.coinTransactionLabel,
+      value: label ?? context.l10n.coinAddTransactionLabel,
+      valueColor: label == null ? context.colors.textTertiary : null,
+      trailingIcon: Icons.edit_outlined,
       onTap: () => editBitcoinLabel(context, ref,
           walletId: owner,
           labelKey: bitcoinTransactionLabelKey(txid),

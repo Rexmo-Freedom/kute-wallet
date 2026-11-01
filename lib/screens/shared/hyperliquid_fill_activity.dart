@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:intl/intl.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
+import 'package:kute/screens/shared/components/receipt_parts.dart';
 import 'package:kute/screens/shared/components/sheet_detail_row.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
 import 'package:kute/screens/shared/activity_row_copy.dart';
@@ -17,8 +18,6 @@ import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/historical_price_provider.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
-import 'package:kute/screens/shared/money_fee_summary.dart';
-import 'package:kute/screens/shared/bitcoin_performance_comparison.dart';
 import 'package:kute/theme/app_theme.dart';
 
 final _bitcoinComparison =
@@ -149,44 +148,52 @@ class _FillDetails extends ConsumerWidget {
       child: SafeArea(
           top: false,
           child: SheetScrollView(
-            padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 32.h),
+            padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 0),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // The realised P&L is the figure under the header's amount;
+              // the date the quiet line under it.
               TransactionDetailHeader(
                 row: _fillRow(context, ref, fill),
-                advisorSurface: 'hl_activity_detail',
+                date: activitySheetDate(
+                    context, DateTime.fromMillisecondsSinceEpoch(fill.time)),
               ),
-              SheetDetailRow(
-                  label: context.l10n.date,
-                  value: activitySheetDate(
-                      context, DateTime.fromMillisecondsSinceEpoch(fill.time))),
-              SheetDetailRow(
-                  label: context.l10n.ledgerSummaryMarket, value: hlFriendlyName(coin) ?? coin),
-              SheetDetailRow(
-                  label: context.l10n.amount, value: '${formatHlSize(fill.sz)} $coin'),
-              SheetDetailRow(
-                  label: context.l10n.fillExecutionPrice,
-                  value: formatHlPrice(fill.px, decimalCap: market?.pxDecimalCap)),
-              if (!spot && fill.dir.isNotEmpty)
-                SheetDetailRow(
-                    label: context.l10n.fillDirection,
-                    value: _directionLabel(context.l10n, fill.dir)),
-              // The realised P&L is the figure under the header's amount.
-              MoneyFeeSummary(
+              ReceiptFactTiles(facts: [
+                ReceiptFact(
+                    label: context.l10n.amount,
+                    value: '${formatHlSize(fill.sz)} ${hlBaseCoin(coin)}'),
+                ReceiptFact(
+                    label: context.l10n.fillExecutionPrice,
+                    value: formatHlPrice(fill.px,
+                        decimalCap: market?.pxDecimalCap)),
+                if (!spot && fill.dir.isNotEmpty)
+                  ReceiptFact(
+                      label: context.l10n.fillDirection,
+                      value: _directionLabel(context.l10n, fill.dir)),
+                ReceiptFact(
                   label: fill.fee < 0
                       ? context.l10n.feeUiFeeRebate
                       : context.l10n.feeUiPaidFee,
-                  bitcoinFirst: false,
-                  usd: fill.feeToken == 'USDC' ? fill.fee.abs() : null,
-                  state: fill.feeToken == 'USDC'
-                      ? null
+                  value: fill.feeToken == 'USDC'
+                      ? formatPolyAmount(ref, fill.fee.abs())
                       : '${fill.fee} ${fill.feeToken}',
-                  note: context.l10n.feeUiIncludesAnyKuteBuilderFee),
-              if (benchmark != null)
-                BitcoinPerformanceComparison(
-                    percent: benchmark.valueOrNull,
-                    loading: benchmark.isLoading,
+                  sub: context.l10n.feeUiIncludesAnyKuteBuilderFee,
+                ),
+                // How a spot holding did against Bitcoin, once known.
+                if (benchmark?.valueOrNull case final p? when p.isFinite)
+                  ReceiptFact(
                     label: context.l10n.feeUiVsHoldingBitcoin,
-                    unavailable: context.l10n.feeUiEntryHistoryUnavailable),
+                    value: '${p >= 0 ? '+' : '−'}${p.abs().toStringAsFixed(1)}%',
+                    valueColor:
+                        p >= 0 ? AppColors.marketUp : AppColors.marketDown,
+                    sub: p >= 0
+                        ? context.l10n.feeUiAheadOfHoldingBitcoin
+                        : context.l10n.feeUiBehindHoldingBitcoin,
+                  ),
+              ]),
+              // The market by its full name, on its own row.
+              ReceiptLongRow(
+                  label: context.l10n.ledgerSummaryMarket,
+                  value: hlFriendlyName(coin) ?? coin),
               SheetNerdDataSection(children: [
                 SheetDetailRow(
                     label: context.l10n.orderId, value: '${fill.oid}', copiable: true),
@@ -196,6 +203,8 @@ class _FillDetails extends ConsumerWidget {
                 // The transaction hash is deliberately not shown on a
                 // closed trade (owner decision).
               ]),
+              // No action of its own: the default bar, and room under it.
+              const ReceiptBarAction.none(),
             ]),
           )),
     );

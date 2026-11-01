@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
-import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/handlers/response_handlers.dart';
 import 'package:kute/helpers/orchestra_track_exchange.dart';
 import 'package:kute/l10n/generated/app_localizations.dart';
@@ -20,10 +19,12 @@ import 'package:kute/models/transactions_model.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
 import 'package:kute/providers/swap_orders_provider.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/transactions_builder.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/fake_swap_orders.dart';
+import '../../helpers/kute_bar_test_support.dart';
 
 const _quoteId = 'q_01a159a6-71d1-4c2b-9d1e-000000000001';
 const _orderId = 'ord_01a159a6-71d1-4c2b-9d1e-000000000002';
@@ -216,16 +217,11 @@ void main() {
       return store;
     }
 
-    // The sheet's one action is the bar (receipt_bar.dart): the primary
-    // context the sheet declares, run as the bar's tap runs it.
-    Finder track() => find.byWidgetPredicate((w) =>
-        w is KuteBarContextScope &&
-        w.barContext.isPrimary &&
-        w.barContext.label == 'Track this exchange');
-
+    // Track this exchange is the receipt's action: the bar's primary
+    // button (receipt_parts.dart), tapped through the context it declares.
     Future<void> tapTrack(WidgetTester tester) async {
-      final bar = tester.widget<KuteBarContextScope>(track()).barContext;
-      expect(bar.actionable, isTrue);
+      final bar = kuteBarPrimaryContext(tester);
+      expect(bar.label, 'Track this exchange');
       bar.onPrimary!();
       // The read, the store writes and the Activity cache's write debounce.
       for (var i = 0; i < 10; i++) {
@@ -278,7 +274,11 @@ void main() {
 
     testWidgets('an expired quote has no button', (tester) async {
       await openSheet(tester, _row(_quoteId, status: 'expired'));
-      expect(track(), findsNothing);
+      expect(find.text('Track this exchange'), findsNothing);
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is KuteBarContextScope && w.barContext.isPrimary),
+          findsNothing);
     });
   });
 }

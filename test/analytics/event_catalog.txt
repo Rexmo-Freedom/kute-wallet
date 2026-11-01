@@ -687,7 +687,6 @@ transaction_export_run
 transaction_id_copied
 transaction_received
 transaction_sent
-tx_detail_action
 tx_flow_detail_opened
 unhandled_exception_caught
 unlock_failed
