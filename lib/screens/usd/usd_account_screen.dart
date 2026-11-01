@@ -769,8 +769,10 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                       // category ("Investing · Trending ⌄", a plain
                       // chevron); its tap opens the pick, the other's
                       // switches.
+                      // More air around it (founder, 1 November 2026):
+                      // 18 under the action row, 14 over the big cards.
                       Padding(
-                        padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+                        padding: EdgeInsets.fromLTRB(12.w, 18.h, 12.w, 14.h),
                         child: KutePillTabs(
                           items: items,
                           selectedIndex: selectedIndex,
@@ -1115,15 +1117,14 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// (founder, 31 October 2026). Portfolio pushes the Portfolio screen
   /// (portfolio_screen.dart) on the section it was last left on.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
-        // Manage with AI: an AI that runs the money for you. First and solid
-        // (the primary look, black in light mode). Not live yet: it is
-        // tappable and opens the shared "Unavailable" sheet, no Soon mark
-        // (founder, 1 November 2026).
+        // Manage with AI: an AI that runs the money for you. First, in the
+        // same light square as the others with its sparkle (founder, 1
+        // November 2026: solid was too strong). Not live yet: it is
+        // tappable and opens the shared "Unavailable" sheet, no Soon mark.
         KuteDockAction(
           icon: Icons.auto_awesome_rounded,
           label: context.l10n.connectAiAction,
           trackingId: 'manage_with_ai',
-          solid: true,
           onTap: () => unawaited(showCapabilityUnavailableSheet(
             context,
             message: context.l10n.capabilityUnavailable,
