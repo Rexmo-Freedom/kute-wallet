@@ -10513,76 +10513,75 @@ class AppLocalizationsRo extends AppLocalizations {
   String get shareHeaderLabel => 'Trimite unui prieten';
 
   @override
-  String get bragPositionAction => 'Show off this position';
+  String get bragPositionAction => 'Laudă-te cu poziția asta';
 
   @override
-  String get bragPositionActionSub => 'A card with your result';
+  String get bragPositionActionSub => 'Un card cu rezultatul tău';
 
   @override
-  String get bragPortfolioAction => 'Show off your portfolio';
+  String get bragPortfolioAction => 'Laudă-te cu portofoliul';
 
   @override
-  String get bragBarLabel => 'Share and brag';
+  String get bragBarLabel => 'Distribuie și laudă-te';
 
   @override
   String bragShareText(String title, String link) {
-    return '$title on Kute $link';
+    return '$title în Kute $link';
   }
 
   @override
-  String get bragMyPortfolio => 'My portfolio';
+  String get bragMyPortfolio => 'Portofoliul meu';
 
   @override
-  String get bragCodeLabel => 'Code';
+  String get bragCodeLabel => 'Cod';
 
   @override
-  String get bragBeatMeOnKute => 'Beat me on Kute';
+  String get bragBeatMeOnKute => 'Întrece-mă în Kute';
 
   @override
-  String get bragSinceYouBought => 'Since you bought';
+  String get bragSinceYouBought => 'De la cumpărare';
 
   @override
-  String get bragLineBeatThat => 'Beat that.';
+  String get bragLineBeatThat => 'Bate asta, dacă poți.';
 
   @override
-  String get bragLineNotLuck => 'Not luck. Talent.';
+  String get bragLineNotLuck => 'Nu e noroc. E talent.';
 
   @override
-  String get bragLineYourMove => 'Your move.';
+  String get bragLineYourMove => 'Rândul tău.';
 
   @override
-  String get bragLineToldYouSo => 'Told you so.';
+  String get bragLineToldYouSo => 'Ți-am zis eu.';
 
   @override
-  String get bragLineLookEasy => 'I make this look easy.';
+  String get bragLineLookEasy => 'Fac totul să pară ușor.';
 
   @override
-  String get bragLineUpOnly => 'Up only.';
+  String get bragLineUpOnly => 'Doar în sus.';
 
   @override
-  String get bragLineSmallWins =>
-      'Small wins still count. Still better than you.';
+  String get bragLineSmallWins => 'Câștig mic, dar tot mai bun ca tine.';
 
   @override
-  String get bragLineDownBad => 'Down bad. Back soon.';
+  String get bragLineDownBad => 'Pe minus. Revin curând.';
 
   @override
-  String get bragLineCharacter => 'Character building.';
+  String get bragLineCharacter => 'Asta clădește caracterul.';
 
   @override
-  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+  String get bragLineBuyTheDip => 'Cumpără la scădere, ziceau.';
 
   @override
-  String get bragLinePatience => 'Patience is a position.';
+  String get bragLinePatience => 'Răbdarea e tot o poziție.';
 
   @override
-  String get bragEntry => 'Entry';
+  String get bragEntry => 'Intrare';
 
   @override
-  String get bragNow => 'Now';
+  String get bragNow => 'Acum';
 
   @override
-  String get bragAboutIt => 'Brag about it';
+  String get bragAboutIt => 'Laudă-te';
 
   @override
   String get positionShareCardSub => 'Send the market or show off your result';
@@ -12213,4 +12212,220 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Cardul tău e gata';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Hai cu mine în Kute';
+
+  @override
+  String get shareCardClaimChip => 'Revendică în Kute';
+
+  @override
+  String get shareCardPlaceChip => 'Plasează în Kute';
+
+  @override
+  String get shareCardTradeChip => 'Investește în Kute';
+
+  @override
+  String get shareCardCallChip => 'Alege în Kute';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$name, ți-am trimis';
+  }
+
+  @override
+  String get shareCardSentYou => 'Ți-am trimis';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$name, ți-am trimis un pont';
+  }
+
+  @override
+  String get shareCardSentPick => 'Ți-am trimis un pont';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return '$amount pe asta';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '$change azi';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Da';
+
+  @override
+  String get shareCardOutcomeNo => 'Nu';
+
+  @override
+  String get shareCardLineClaimIt => 'Ia-i până nu mă răzgândesc.';
+
+  @override
+  String get shareCardLineDontSpend => 'Sunt ai tăi. Nu-i cheltui pe meme.';
+
+  @override
+  String get shareCardLineFreeMoney => 'Bani gratis. Rar. Ia-i.';
+
+  @override
+  String get shareCardLineTrustMe => 'Pe asta, ai încredere în mine.';
+
+  @override
+  String get shareCardLineKnowEnding => 'Știu deja cum se termină.';
+
+  @override
+  String get shareCardLineEasyMoney => 'Bani ușori. Probabil.';
+
+  @override
+  String get shareCardLineGoingPlaces => 'Asta ajunge departe.';
+
+  @override
+  String get shareCardLineBuyHigh => 'Cumperi sus, vinzi și mai sus.';
+
+  @override
+  String get shareCardLineBetterTaste => 'Nu e sfat financiar. Doar gust bun.';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'Tu ce zici?';
+
+  @override
+  String get shareCardLineYourCall => 'Tu decizi.';
+
+  @override
+  String get shareCardLinePickASide => 'Alege o tabără.';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, în creștere cu $change azi';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, în scădere cu $change azi';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: preț implicit de $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price pe baril';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price pe uncie';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Piețele: șansă de $chance pentru $outcome';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Piețele îi dau o șansă de $chance';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorit: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorit: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance să câștige';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return 'Șansă de $chance să se întâmple';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return 'Șansă de $chance pentru $outcome';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return 'Probabilitate de $chance să se întâmple';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return 'Probabilitate de $chance: $outcome';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance spun da';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance spun nu';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: șansă de $chance';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, un prieten ți-a trimis';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Un prieten ți-a trimis';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, un prieten ți-a trimis un pont';
+  }
+
+  @override
+  String get claimCardPick => 'Un prieten ți-a trimis un pont';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome la $chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'Sunt ai tăi. Atinge Revendică.';
+
+  @override
+  String get claimCardLineNeedThis =>
+      'Prietenul tău crede că ai nevoie de asta.';
+
+  @override
+  String get claimCardLineLikesYou => 'Cineva te place. Uite dovada.';
+
+  @override
+  String get claimCardLineNoCatch => 'Fără capcane. Doar un cadou.';
 }

@@ -1,5 +1,5 @@
-// The Claim screen's states against the fake backend: ready (headline,
-// market line), claimed ("On its way", Open the market), already claimed,
+// The Claim screen's states against the fake backend: ready (the hero
+// card in its recipient version, the market line), claimed ("On its way", Open the market), already claimed,
 // not found, and a wallet that is not ready yet. Its one button is the
 // floating Sal bar (kute_bar_test_support.dart).
 
@@ -59,22 +59,32 @@ void main() {
     env.fake.seed(_link(market: 'will-it-rain-in-lisbon'));
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
 
-    expect(find.text('Ana sent you \$12.50'), findsOneWidget);
+    // The hero: the sender's card for the recipient, greeted by the name
+    // the sender typed.
+    expect(find.byKey(const ValueKey('claim-hero-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-send_dollars')),
+        findsOneWidget);
+    expect(find.text('Ana, a friend sent you'), findsOneWidget);
+    expect(find.text('\$12.50'), findsOneWidget);
+    expect(find.text("It's yours. Tap claim."), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-chip')), findsNothing);
     expect(find.text('to bet on will it rain in lisbon'), findsOneWidget);
     expect(kuteBarPrimaryWithText('Claim'), findsOneWidget);
     expect(env.fake.callNames, ['read']);
   });
 
-  testWidgets('no sender name reads as Someone; bitcoin says in Bitcoin',
+  testWidgets('no name reads as A friend; bitcoin is the orange card',
       (tester) async {
     env.fake.seed(
         _link(kind: ShareLinkKind.bitcoin, amountMinor: 5000, sender: null));
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'));
 
-    final headline =
-        tester.widget<Text>(find.byKey(const ValueKey('claim-headline')));
-    expect(headline.data, startsWith('Someone sent you '));
-    expect(headline.data, endsWith(' in Bitcoin'));
+    expect(find.byKey(const ValueKey('share-card-send_bitcoin')),
+        findsOneWidget);
+    expect(find.text('A friend sent you'), findsOneWidget);
+    final amount =
+        tester.widget<Text>(find.byKey(const ValueKey('share-card-amount')));
+    expect(amount.data, startsWith('₿'));
   });
 
   testWidgets('claim posts the wallet destination and says it is on its way',
@@ -114,16 +124,22 @@ void main() {
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
         overrides: [usdBalanceProvider.overrideWithValue(0)]);
 
-    expect(find.text('Ana sent you a prediction'), findsOneWidget);
-    expect(find.byKey(const ValueKey('claim-pick-card')), findsOneWidget);
-    // The slug's words until the event is read; the outcome and amount.
+    // The hero: the pick's card. The slug's words until the event is
+    // read; the outcome and the amount on it.
+    expect(find.byKey(const ValueKey('share-card-send_prediction')),
+        findsOneWidget);
+    expect(find.text('Ana, a friend sent you a pick'), findsOneWidget);
     expect(find.text('gemini carbon'), findsOneWidget);
-    expect(find.text('Yes · \$12.50'), findsOneWidget);
+    expect(find.text('Yes'), findsOneWidget);
+    expect(find.text('\$12.50 on it'), findsOneWidget);
     expect(find.text('to bet on gemini carbon'), findsNothing);
 
     await tester.tap(kuteBarPrimaryWithText('Claim'));
     await settle(tester);
     expect(find.text('On its way'), findsOneWidget);
+    // After the claim, the pick's preview card.
+    expect(find.byKey(const ValueKey('claim-pick-card')), findsOneWidget);
+    expect(find.text('Yes · \$12.50'), findsOneWidget);
     expect(find.text('Waiting for Ana to send it'), findsWidgets);
     // The bar is the pick's button, Waiting until the money lands.
     final place = kuteBarPrimary;
@@ -154,9 +170,13 @@ void main() {
         market: 'BTC', venue: 'hyperliquid', outcome: 'Long', side: 'long'));
     await pumpShareWidget(tester, env, const ClaimScreen(id: 'lnk_1'),
         overrides: [usdBalanceProvider.overrideWithValue(0)]);
-    expect(find.text('Ana sent you an investment'), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-send_investment')),
+        findsOneWidget);
+    expect(find.text('Ana, a friend sent you a pick'), findsOneWidget);
+    expect(find.text('Bitcoin'), findsOneWidget);
     expect(find.text('BTC'), findsOneWidget);
-    expect(find.text('Long · \$12.50'), findsOneWidget);
+    expect(find.text('Long'), findsOneWidget);
+    expect(find.text('\$12.50 on it'), findsOneWidget);
   });
 
   testWidgets('without a market the claimed state offers Done', (tester) async {

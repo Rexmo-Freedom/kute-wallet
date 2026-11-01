@@ -1,12 +1,17 @@
 // Send to anyone, dollars: the amount on the keypad, the optional first
-// name, Create link posting to the backend, the OS share text, the local
-// pending row and the events. Plus the market share sheet's referral link.
+// name under the live share card, Create link posting to the backend, the
+// card in full with Share as the bar (the PNG and the OS share text), the
+// local pending row and the events. Plus the market share sheet's referral link.
 // The sheet's Continue / Create link / Done is the floating Sal bar
 // (kute_bar_test_support.dart).
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:share_plus/share_plus.dart' show XFile;
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/send_to_anyone_sheet.dart';
 import 'package:kute/screens/share/share_market_sheet.dart';
 import 'package:kute/services/share_links_store.dart';
@@ -17,20 +22,20 @@ import 'share_test_harness.dart';
 void main() {
   late ShareTestEnv env;
   late List<String> shared;
+  late List<XFile> images;
 
   setUp(() {
     env = setUpShareTest();
     shared = [];
-    SendToAnyoneSheet.debugSharer = (text) async {
+    images = [];
+    ShareCardShare.debugSharer = (image, text) async {
+      images.add(image);
       shared.add(text);
       return 'success';
     };
   });
 
-  tearDown(() {
-    tearDownShareTest();
-    SendToAnyoneSheet.debugSharer = null;
-  });
+  tearDown(tearDownShareTest);
 
   testWidgets(
       'amount, name, Create link: the backend row, the share text, '
@@ -54,12 +59,24 @@ void main() {
     await settle(tester);
 
     expect(find.text('Who is it for?'), findsOneWidget);
+    // The money card, live above the field.
+    expect(find.byKey(const ValueKey('share-live-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-send_dollars')),
+        findsOneWidget);
     expect(find.text('\$12.00'), findsOneWidget);
+    expect(find.text('I sent you'), findsOneWidget);
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
+    expect(find.text('Ana, I sent you'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
+    // The card first: nothing shared until Share.
+    expect(shared, isEmpty);
+    expect(find.text('Your card is ready'), findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
+    expect(find.byKey(const ValueKey('share-done')), findsOneWidget);
+    await shareCardAndWait(tester, shared);
 
     // The backend got the pending send; nothing moved.
     expect(env.fake.calls.single.$1, 'create');
@@ -70,13 +87,15 @@ void main() {
       'marketSlug': null,
       'senderLabel': 'Ana',
     });
-    // The OS share sheet got the message with the link.
+    // The OS share sheet got the card as a PNG with the message and link.
     expect(shared.single,
         'Ana, I sent you \$12.00 with Kute. Claim it here: https://web.test/c/lnk_1');
+    expect(images.single.mimeType, 'image/png');
+    final bytes = await tester.runAsync(images.single.readAsBytes) as Uint8List;
+    expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
     // The receipt row.
     expect(find.text('\$12.00 · Ana'), findsOneWidget);
     expect(find.text('Link sent · waiting for Ana to claim'), findsOneWidget);
-    expect(kuteBarPrimaryWithText('Done'), findsOneWidget);
     final row = ShareLinksStore.byId('lnk_1')!;
     expect(row.status, ShareLinkStatus.open);
     expect(row.label, 'Ana');
@@ -108,6 +127,7 @@ void main() {
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
+    await shareCardAndWait(tester, shared);
 
     expect(env.fake.calls.single.$2['marketSlug'], 'will-it-rain');
     expect(env.fake.calls.single.$2['senderLabel'], isNull);
@@ -145,11 +165,17 @@ void main() {
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
+    // The pick's card, live: the prediction with the pick and amount.
+    expect(find.byKey(const ValueKey('share-card-send_prediction')),
+        findsOneWidget);
+    expect(find.text(r'$20 on it'), findsOneWidget);
     await tester.enterText(
         find.byKey(const ValueKey('share-name-field')), 'Ana');
     await tester.pump();
+    expect(find.text('Ana, I sent you a pick'), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
+    await shareCardAndWait(tester, shared);
 
     expect(env.fake.calls.single.$2, {
       'kind': 'dollars',
@@ -198,8 +224,12 @@ void main() {
     await settle(tester);
     await tester.tap(kuteBarPrimaryWithText('Continue'));
     await settle(tester);
+    expect(find.byKey(const ValueKey('share-card-send_investment')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('share-card-side')), findsOneWidget);
     await tester.tap(kuteBarPrimaryWithText('Create link'));
     await settle(tester);
+    await shareCardAndWait(tester, shared);
     expect(env.fake.calls.single.$2['side'], 'long');
     expect(env.fake.calls.single.$2.containsKey('outcomeIndex'), isFalse);
     expect(

@@ -8,21 +8,26 @@
 // you sent" header, hidden when there is nothing pending (the Activity
 // screen mounts it above the transactions).
 //
-// Tapping a row opens its detail: Share again (the same OS share sheet,
-// while the link is open and this device has its URL) and Cancel link
-// (`POST /cancel`; the row turns Cancelled). Nothing here moves money.
+// Tapping a row opens its detail: Share again (while the link is open and
+// this device has its URL: the link's share card first, the same card
+// Send to anyone made, cards/share_card_preview.dart, then the OS share
+// sheet with the PNG and the text) and Cancel link (`POST /cancel`; the
+// row turns Cancelled). Nothing here moves money.
 
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:kute/l10n/l10n.dart';
+import 'package:kute/models/affiliate_model.dart' show AffiliateService;
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/currency_conversions_provider.dart'
+    show conversionProvider, conversionToFiatProvider;
+import 'package:kute/screens/share/cards/share_card_preview.dart';
+import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/share_link_copy.dart';
 import 'package:kute/screens/share/share_link_resend.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -117,27 +122,48 @@ class _PendingShareLinkDetailState
   bool _cancelling = false;
   String? _error;
 
-  Future<void> _shareAgain(PendingShareLink row) async {
-    final amount =
-        shareLinkAmountLabel(context, ref, row.kind, row.amountMinor);
-    final text = shareLinkMessage(context,
-        name: row.label,
-        amount: amount,
-        url: row.url,
-        outcome: row.outcome,
-        title: row.marketTitle,
-        venue: row.venue);
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = box != null
-        ? (box.localToGlobal(ui.Offset.zero) & box.size)
-        : (ui.Offset.zero & const ui.Size(1, 1));
-    try {
-      final r = await SharePlus.instance
-          .share(ShareParams(text: text, sharePositionOrigin: origin));
-      ShareLinkEvents.shared(row.kind, result: r.status.name);
-    } catch (_) {
-      ShareLinkEvents.shared(row.kind, result: 'error');
-    }
+  /// Share again: the link's card first (see the file header).
+  Future<void> _shareAgain(PendingShareLink row) {
+    final l10n = context.l10n;
+    return showShareCardPreviewSheet(
+      context,
+      title: l10n.shareCardReadyTitle,
+      shareLabel: l10n.share,
+      routeName: 'share_link_card',
+      source: 'share_link_again',
+      build: (watch) {
+        String? btc;
+        String? fiat;
+        if (row.kind == ShareLinkKind.bitcoin) {
+          try {
+            btc = watch(conversionProvider(row.amountMinor));
+            fiat = watch(conversionToFiatProvider(row.amountMinor));
+          } catch (_) {}
+        }
+        return shareCardForLink(
+          watch,
+          locale: l10n.localeName,
+          kind: row.kind,
+          amountMinor: row.amountMinor,
+          recipient: row.label,
+          marketSlug: row.marketSlug,
+          marketTitle: row.marketTitle,
+          venue: row.venue,
+          outcome: row.outcome,
+          bitcoinAmount: btc,
+          bitcoinFiat: fiat,
+          referralCode: AffiliateService.affiliateCode,
+        );
+      },
+      text: (context) => shareLinkMessage(context,
+          name: row.label,
+          amount: shareLinkAmountLabel(context, ref, row.kind, row.amountMinor),
+          url: row.url,
+          outcome: row.outcome,
+          title: row.marketTitle,
+          venue: row.venue),
+      onShared: (result) => ShareLinkEvents.shared(row.kind, result: result),
+    );
   }
 
   Future<void> _cancel(PendingShareLink row) async {

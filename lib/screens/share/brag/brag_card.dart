@@ -40,17 +40,16 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'package:kute/l10n/l10n.dart';
-import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
 import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/brag/brag_sal.dart';
-import 'package:kute/theme/app_theme.dart';
+import 'package:kute/screens/share/cards/share_card_frame.dart';
 
 /// The card's logical size: 4:5.
-const Size kBragCardSize = Size(360, 450);
+const Size kBragCardSize = kShareCardSize;
 
 /// The capture's pixel ratio: [kBragCardSize] × 3 = 1080 × 1350.
-const double kBragCardPixelRatio = 3;
+const double kBragCardPixelRatio = kShareCardPixelRatio;
 
 /// Sal's height on the card: about 40% of it.
 const double kBragSalHeight = 184;
@@ -66,22 +65,13 @@ List<Color> bragBackground(BragTone tone) => switch (tone) {
       BragTone.flat => const [Color(0xFF2A2A2E), Color(0xFF0B0B0D)],
     };
 
-const String _font = 'Inter';
-const Color _ink = Colors.white;
-const Color _dark = Color(0xFF111214);
+const Color _ink = kShareCardInk;
+const Color _dark = kShareCardDark;
 
 TextStyle _t(double size, FontWeight weight, Color color,
         {double spacing = 0, double height = 1.2, bool tabular = false}) =>
-    TextStyle(
-      fontFamily: _font,
-      fontSize: size,
-      fontWeight: weight,
-      color: color,
-      letterSpacing: spacing,
-      height: height,
-      decoration: TextDecoration.none,
-      fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
-    );
+    shareCardText(size, weight, color,
+        spacing: spacing, height: height, tabular: tabular);
 
 class BragCard extends StatelessWidget {
   const BragCard({
@@ -103,79 +93,20 @@ class BragCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = data.tone;
     final line = bragLine(context.l10n, tone, lineSeed);
-    final theme = Theme.of(context);
-    return Theme(
-      // The light colours for the icons inside, whatever the app's mode.
-      data: theme.copyWith(
-          brightness: Brightness.light,
-          extensions: [AppColorsExtension.light()]),
-      child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-        child: SizedBox.fromSize(
-          size: kBragCardSize,
-          child: DecoratedBox(
-            key: const ValueKey('brag-card-bg'),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: bragBackground(tone),
-              ),
-            ),
-            child: Stack(
-              children: [
-                // The glow behind Sal.
-                Positioned(
-                  right: -80,
-                  bottom: -10,
-                  width: 340,
-                  height: 340,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(colors: [
-                        Colors.white.withValues(alpha: 0.22),
-                        Colors.white.withValues(alpha: 0),
-                      ]),
-                    ),
-                  ),
-                ),
-                if (sal != null)
-                  Positioned(
-                    right: 4,
-                    bottom: 60,
-                    height: kBragSalHeight,
-                    width: kBragSalHeight * kBragSalAspect,
-                    child: RawImage(
-                      key: ValueKey(bragSalWearsShades(tone)
-                          ? 'brag-card-sal-shades'
-                          : 'brag-card-sal'),
-                      image: sal,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: switch (data) {
-                          final BragPosition p =>
-                            _PositionBody(data: p, line: line),
-                          final BragPortfolio p =>
-                            _PortfolioBody(data: p, line: line),
-                        },
-                      ),
-                      _Footer(code: data.referralCode),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return ShareCardFrame(
+      colors: bragBackground(tone),
+      keyPrefix: 'brag-card',
+      cta: context.l10n.bragBeatMeOnKute,
+      code: data.referralCode,
+      sal: sal,
+      salKey: ValueKey(bragSalWearsShades(tone)
+          ? 'brag-card-sal-shades'
+          : 'brag-card-sal'),
+      salHeight: kBragSalHeight,
+      body: switch (data) {
+        final BragPosition p => _PositionBody(data: p, line: line),
+        final BragPortfolio p => _PortfolioBody(data: p, line: line),
+      },
     );
   }
 }
@@ -246,55 +177,14 @@ Widget _period(String text, {Key? key}) => Text(
 
 // ─── Sal's line ──────────────────────────────────────────────────────
 
-/// Sal's one-liner in a white speech bubble, its tail at the right
-/// pointing down at him.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.text});
 
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    final long = text.length > 24;
-    return CustomPaint(
-      painter: _BubblePainter(),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
-        child: Text(
-          text,
-          key: const ValueKey('brag-card-line'),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: _t(long ? 15 : 20, FontWeight.w800, _dark,
-              spacing: long ? -0.3 : -0.6, height: 1.15),
-        ),
-      ),
-    );
-  }
-}
-
-class _BubblePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = _ink;
-    final body =
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(16));
-    // The tail: from the right edge near the bottom, out toward Sal.
-    final tail = Path()
-      ..moveTo(size.width - 2, size.height - 26)
-      ..lineTo(size.width + 18, size.height + 8)
-      ..lineTo(size.width - 26, size.height - 1)
-      ..close();
-    final shape = Path()
-      ..addRRect(body)
-      ..addPath(tail, Offset.zero);
-    canvas.drawShadow(shape, Colors.black.withValues(alpha: 0.6), 5, false);
-    canvas.drawRRect(body, paint);
-    canvas.drawPath(tail, paint);
-  }
-
-  @override
-  bool shouldRepaint(_BubblePainter old) => false;
+  Widget build(BuildContext context) =>
+      ShareCardBubble(text: text, textKey: const ValueKey('brag-card-line'));
 }
 
 // ─── Position ────────────────────────────────────────────────────────
@@ -718,145 +608,5 @@ class _RingPainter extends CustomPainter {
 
 // ─── Shared ──────────────────────────────────────────────────────────
 
-/// A market's logo: the coin icon on an Investing position, the market's
-/// picture on a prediction, else its first letter.
-class _Logo extends StatelessWidget {
-  const _Logo({
-    super.key,
-    required this.size,
-    required this.title,
-    required this.investing,
-    this.round = false,
-    this.coin,
-    this.wireCoin,
-    this.iconUrl,
-    this.category,
-    this.imageUrl,
-  });
-
-  final double size;
-  final String title;
-  final bool investing;
-  final bool round;
-  final String? coin;
-  final String? wireCoin;
-  final String? iconUrl;
-  final String? category;
-  final String? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(round ? size / 2 : size * 0.26);
-    final Widget fallback = Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: round ? const Color(0xFFEDEDED) : _ink,
-        borderRadius: radius,
-      ),
-      child: Text(
-        title.isEmpty ? '?' : title.characters.first.toUpperCase(),
-        style: _t(size * 0.45, FontWeight.w800, _dark),
-      ),
-    );
-    final Widget child;
-    if (investing && coin != null) {
-      child = FittedBox(
-        child: HlCoinIcon(
-          coin: coin!,
-          wireCoin: wireCoin,
-          iconUrl: iconUrl,
-          category: category,
-          size: size,
-        ),
-      );
-    } else if (imageUrl case final url? when url.isNotEmpty) {
-      child = ClipRRect(
-        borderRadius: radius,
-        child: Image.network(
-          url,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => fallback,
-        ),
-      );
-    } else {
-      child = fallback;
-    }
-    return SizedBox.square(dimension: size, child: child);
-  }
-}
-
-class _Footer extends StatelessWidget {
-  const _Footer({required this.code});
-
-  final String? code;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final mark = _t(26, FontWeight.w800, _ink, spacing: -0.8, height: 1.0);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(height: 0.8, color: _ink.withValues(alpha: 0.22)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text.rich(
-                    key: const ValueKey('brag-card-wordmark'),
-                    TextSpan(children: [
-                      TextSpan(text: 'kute', style: mark),
-                      TextSpan(
-                          text: '.',
-                          style: mark.copyWith(color: AppColors.accent)),
-                    ]),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(l10n.bragBeatMeOnKute,
-                      key: const ValueKey('brag-card-cta'),
-                      style: _t(
-                          12.5, FontWeight.w700, _ink.withValues(alpha: 0.85))),
-                ],
-              ),
-            ),
-            if (code != null)
-              Container(
-                key: const ValueKey('brag-card-code'),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _ink,
-                  borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Text.rich(TextSpan(children: [
-                  TextSpan(
-                      text: '${l10n.bragCodeLabel.toUpperCase()}  ',
-                      style: _t(10, FontWeight.w700, const Color(0xFF6B6B70),
-                          spacing: 1)),
-                  TextSpan(
-                      text: code,
-                      style: _t(17, FontWeight.w900, _dark, spacing: 0.6)),
-                ])),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+/// A market's logo (ShareCardLogo).
+typedef _Logo = ShareCardLogo;

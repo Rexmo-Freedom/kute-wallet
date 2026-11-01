@@ -10429,76 +10429,75 @@ class AppLocalizationsLv extends AppLocalizations {
   String get shareHeaderLabel => 'Sūtīt draugam';
 
   @override
-  String get bragPositionAction => 'Show off this position';
+  String get bragPositionAction => 'Palielies ar šo pozīciju';
 
   @override
-  String get bragPositionActionSub => 'A card with your result';
+  String get bragPositionActionSub => 'Kartīte ar tavu rezultātu';
 
   @override
-  String get bragPortfolioAction => 'Show off your portfolio';
+  String get bragPortfolioAction => 'Palielies ar savu portfeli';
 
   @override
-  String get bragBarLabel => 'Share and brag';
+  String get bragBarLabel => 'Kopīgo un palielies';
 
   @override
   String bragShareText(String title, String link) {
-    return '$title on Kute $link';
+    return '$title – Kute $link';
   }
 
   @override
-  String get bragMyPortfolio => 'My portfolio';
+  String get bragMyPortfolio => 'Mans portfelis';
 
   @override
-  String get bragCodeLabel => 'Code';
+  String get bragCodeLabel => 'Kods';
 
   @override
-  String get bragBeatMeOnKute => 'Beat me on Kute';
+  String get bragBeatMeOnKute => 'Pārspēj mani ar Kute';
 
   @override
-  String get bragSinceYouBought => 'Since you bought';
+  String get bragSinceYouBought => 'Kopš pirkuma';
 
   @override
-  String get bragLineBeatThat => 'Beat that.';
+  String get bragLineBeatThat => 'Pārspēj to.';
 
   @override
-  String get bragLineNotLuck => 'Not luck. Talent.';
+  String get bragLineNotLuck => 'Nav veiksme. Talants.';
 
   @override
-  String get bragLineYourMove => 'Your move.';
+  String get bragLineYourMove => 'Tavs gājiens.';
 
   @override
-  String get bragLineToldYouSo => 'Told you so.';
+  String get bragLineToldYouSo => 'Es taču teicu.';
 
   @override
-  String get bragLineLookEasy => 'I make this look easy.';
+  String get bragLineLookEasy => 'Man tas sanāk viegli.';
 
   @override
-  String get bragLineUpOnly => 'Up only.';
+  String get bragLineUpOnly => 'Tikai uz augšu.';
 
   @override
-  String get bragLineSmallWins =>
-      'Small wins still count. Still better than you.';
+  String get bragLineSmallWins => 'Maz, bet tik un tā labāk par tevi.';
 
   @override
-  String get bragLineDownBad => 'Down bad. Back soon.';
+  String get bragLineDownBad => 'Pamatīgā mīnusā. Drīz atgriezīšos.';
 
   @override
-  String get bragLineCharacter => 'Character building.';
+  String get bragLineCharacter => 'Rakstura rūdīšana.';
 
   @override
-  String get bragLineBuyTheDip => 'Buy the dip, they said.';
+  String get bragLineBuyTheDip => 'Pērc kritumā, viņi teica.';
 
   @override
-  String get bragLinePatience => 'Patience is a position.';
+  String get bragLinePatience => 'Pacietība arī ir pozīcija.';
 
   @override
-  String get bragEntry => 'Entry';
+  String get bragEntry => 'Pirkts';
 
   @override
-  String get bragNow => 'Now';
+  String get bragNow => 'Tagad';
 
   @override
-  String get bragAboutIt => 'Brag about it';
+  String get bragAboutIt => 'Palielies';
 
   @override
   String get positionShareCardSub => 'Send the market or show off your result';
@@ -12120,4 +12119,220 @@ class AppLocalizationsLv extends AppLocalizations {
 
   @override
   String get sendAllContacts => 'All contacts';
+
+  @override
+  String get shareCardReadyTitle => 'Tava kartīte ir gatava';
+
+  @override
+  String get shareCardJoinMeOnKute => 'Pievienojies man Kute';
+
+  @override
+  String get shareCardClaimChip => 'Saņem ar Kute';
+
+  @override
+  String get shareCardPlaceChip => 'Prognozē ar Kute';
+
+  @override
+  String get shareCardTradeChip => 'Tirgo ar Kute';
+
+  @override
+  String get shareCardCallChip => 'Izvēlies pusi ar Kute';
+
+  @override
+  String shareCardSentYouNamed(String name) {
+    return '$name, es tev aizsūtīju';
+  }
+
+  @override
+  String get shareCardSentYou => 'Es tev aizsūtīju';
+
+  @override
+  String shareCardSentPickNamed(String name) {
+    return '$name, aizsūtīju tev ieteikumu';
+  }
+
+  @override
+  String get shareCardSentPick => 'Aizsūtīju tev ieteikumu';
+
+  @override
+  String shareCardAmountOnIt(String amount) {
+    return 'Ieguldīts $amount';
+  }
+
+  @override
+  String shareCardToday(String change) {
+    return '$change šodien';
+  }
+
+  @override
+  String get shareCardOutcomeYes => 'Jā';
+
+  @override
+  String get shareCardOutcomeNo => 'Nē';
+
+  @override
+  String get shareCardLineClaimIt => 'Saņem, kamēr neesmu pārdomājis.';
+
+  @override
+  String get shareCardLineDontSpend => 'Tas ir tavs. Neiztērē visu mēmiem.';
+
+  @override
+  String get shareCardLineFreeMoney => 'Bezmaksas nauda. Retums. Saņem.';
+
+  @override
+  String get shareCardLineTrustMe => 'Šoreiz uzticies man.';
+
+  @override
+  String get shareCardLineKnowEnding => 'Es jau zinu, kā tas beigsies.';
+
+  @override
+  String get shareCardLineEasyMoney => 'Viegla nauda. Laikam.';
+
+  @override
+  String get shareCardLineGoingPlaces => 'Šis tiks tālu.';
+
+  @override
+  String get shareCardLineBuyHigh => 'Pērc dārgi, pārdod vēl dārgāk.';
+
+  @override
+  String get shareCardLineBetterTaste =>
+      'Nav finanšu padoms. Tikai labāka gaume.';
+
+  @override
+  String get shareCardLineWhatDoYouThink => 'Ko tu domā?';
+
+  @override
+  String get shareCardLineYourCall => 'Tev izlemt.';
+
+  @override
+  String get shareCardLinePickASide => 'Izvēlies pusi.';
+
+  @override
+  String shareCardHeadlineUp(String name, String price, String change) {
+    return '$name: $price, šodien kāpums $change';
+  }
+
+  @override
+  String shareCardHeadlineDown(String name, String price, String change) {
+    return '$name: $price, šodien kritums $change';
+  }
+
+  @override
+  String shareCardHeadlineIs(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePreIpo(String name, String price) {
+    return '$name: netiešā cena $price';
+  }
+
+  @override
+  String shareCardHeadlineBarrel(String name, String price) {
+    return '$name: $price par barelu';
+  }
+
+  @override
+  String shareCardHeadlineOunce(String name, String price) {
+    return '$name: $price par unci';
+  }
+
+  @override
+  String shareCardHeadlineAt(String name, String price) {
+    return '$name: $price';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsNamed(String outcome, String chance) {
+    return 'Tirgus vērtējums: $outcome – $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlinePoliticsBinary(String chance) {
+    return 'Tirgus vērtējums: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineSportsVs(
+      String outcome, String chance, String opponent) {
+    return 'Favorīts: $outcome ($chance) vs $opponent';
+  }
+
+  @override
+  String shareCardHeadlineSportsFav(String outcome, String chance) {
+    return 'Favorīts: $outcome ($chance)';
+  }
+
+  @override
+  String shareCardHeadlineSportsToWin(String outcome, String chance) {
+    return '$outcome: $chance iespēja uzvarēt';
+  }
+
+  @override
+  String shareCardHeadlineCryptoBinary(String chance) {
+    return '$chance iespēja, ka tas notiks';
+  }
+
+  @override
+  String shareCardHeadlineCryptoNamed(String chance, String outcome) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineEconomyBinary(String chance) {
+    return '$chance iespēja, ka tas notiks';
+  }
+
+  @override
+  String shareCardHeadlineEconomyNamed(String chance, String outcome) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String shareCardHeadlineSayYes(String chance) {
+    return '$chance par „Jā”';
+  }
+
+  @override
+  String shareCardHeadlineSayNo(String chance) {
+    return '$chance par „Nē”';
+  }
+
+  @override
+  String shareCardHeadlineFallback(String outcome, String chance) {
+    return '$outcome: $chance iespēja';
+  }
+
+  @override
+  String claimCardFromFriendNamed(String name) {
+    return '$name, draugs tev atsūtīja';
+  }
+
+  @override
+  String get claimCardFromFriend => 'Draugs tev atsūtīja';
+
+  @override
+  String claimCardPickNamed(String name) {
+    return '$name, draugs tev atsūtīja ieteikumu';
+  }
+
+  @override
+  String get claimCardPick => 'Draugs tev atsūtīja ieteikumu';
+
+  @override
+  String claimCardPickChance(String outcome, String chance) {
+    return '$outcome: $chance';
+  }
+
+  @override
+  String get claimCardTapClaim => 'Tas ir tavs. Pieskaries „Saņemt”.';
+
+  @override
+  String get claimCardLineNeedThis => 'Tavs draugs domā, ka tev to vajag.';
+
+  @override
+  String get claimCardLineLikesYou => 'Tu kādam patīc. Lūk, pierādījums.';
+
+  @override
+  String get claimCardLineNoCatch => 'Nekādu āķu. Vienkārši dāvana.';
 }
