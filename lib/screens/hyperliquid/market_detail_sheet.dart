@@ -3570,6 +3570,7 @@ class _ChartNoteSheetState extends State<_ChartNoteSheet> {
                     enabled: _text.text.trim().isNotEmpty,
                     category: SearchCategory.perpetuals,
                     source: 'chart_note',
+                    disabledLabel: context.l10n.barNeedNote,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

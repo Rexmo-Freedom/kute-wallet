@@ -276,6 +276,7 @@ class ShareMarketSheet extends ConsumerWidget {
                         ? SearchCategory.perpetuals
                         : SearchCategory.predictions,
                     source: 'share_market',
+                    disabledLabel: null,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

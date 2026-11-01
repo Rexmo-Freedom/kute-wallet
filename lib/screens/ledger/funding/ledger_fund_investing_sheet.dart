@@ -447,6 +447,7 @@ class _LedgerFundInvestingSheetState
           label: label,
           onPrimary: onPrimary,
           source: 'ledger_fund_investing',
+          disabledLabel: null,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );

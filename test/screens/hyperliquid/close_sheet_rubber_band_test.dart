@@ -180,7 +180,7 @@ void _expectAtRest(WidgetTester tester, String label) {
   expect(barPrimaryRing(), findsNothing);
 }
 
-/// The bar reads the busy label beside its ring, not tappable.
+/// The bar reads the busy label under its shimmer, not tappable.
 void _expectClosing(WidgetTester tester) {
   expect(barIsPrimary(tester), isTrue);
   expect(barPrimaryBusy(tester), isTrue);
@@ -188,7 +188,9 @@ void _expectClosing(WidgetTester tester) {
   expect(barPrimaryLabel(tester), 'Loading...');
   expect(barPrimaryText('Loading...'), findsOneWidget);
   expect(barPrimaryText('Close 100% now'), findsNothing);
-  expect(barPrimaryRing(), findsOneWidget);
+  // The shimmer, none under Reduce Motion.
+  expect(barPrimaryRing(),
+      barReduceMotion(tester) ? findsNothing : findsOneWidget);
 }
 
 Future<void> _frames(WidgetTester tester, int n,
@@ -397,7 +399,9 @@ void main() {
     expect(find.byType(RubberBandProgress), findsNothing);
     trading.answer.complete(const HlOrderResult(
         kind: HlOrderResultKind.filled, filledSz: 0.5, avgPx: 66000));
-    // Nothing waits for a snap that is not drawn.
+    // Nothing waits for a snap that is not drawn (a frame more: under
+    // Reduce Motion nothing on the bar ticks to schedule one).
+    await tester.pump();
     await tester.pump();
     await tester.pump();
     expect(find.byType(KuteConfirmation), findsOneWidget);

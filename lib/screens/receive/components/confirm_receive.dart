@@ -1982,6 +1982,7 @@ class _EditUsernameModalSheetState
                       enabled: !_isLoading,
                       busy: _isLoading,
                       source: 'edit_lightning_address',
+                      disabledLabel: null,
                     ),
                     child: SizedBox(height: kuteBarScrollClearance.h),
                   ),

@@ -76,6 +76,7 @@ class StepUpReviewAgainSheet extends StatelessWidget {
               label: context.l10n.stepUpReviewAgain,
               onPrimary: onReviewAgain,
               source: 'step_up_review_again',
+              disabledLabel: null,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

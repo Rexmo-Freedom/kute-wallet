@@ -469,6 +469,7 @@ class _SeedWordsState extends ConsumerState<SeedWords> {
                     context.push('/backup_wallet', extra: wallet.id);
                   },
                   source: 'seed_words',
+                  disabledLabel: null,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               );

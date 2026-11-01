@@ -1154,6 +1154,7 @@ class _RecoverChoiceScreenState extends ConsumerState<RecoverChoiceScreen> {
                                 onPrimary: _handleSeedChoice,
                                 enabled: !busy,
                                 source: 'recover_choice',
+                                disabledLabel: null,
                               ),
                               child: SizedBox(height: kuteBarScrollClearance.h),
                             ),

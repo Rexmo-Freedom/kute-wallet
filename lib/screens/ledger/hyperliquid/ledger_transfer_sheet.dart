@@ -29,7 +29,8 @@ import 'package:kute/services/tracking_service.dart';
 /// .dart): the sheet's primary is the floating Sal bar's primary action;
 /// Cancel / Close is a text button above it, over the bar's clearance.
 Widget _bar(String label, VoidCallback? onPrimary,
-        {bool busy = false, String source = 'ledger_transfer'}) =>
+        {bool busy = false,
+        String? disabledLabel, String source = 'ledger_transfer'}) =>
     KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,
@@ -37,6 +38,7 @@ Widget _bar(String label, VoidCallback? onPrimary,
         enabled: onPrimary != null && !busy,
         busy: busy,
         source: source,
+        disabledLabel: disabledLabel,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );
@@ -208,6 +210,7 @@ class _LedgerTransferSheetState extends ConsumerState<LedgerTransferSheet> {
             l10n.ledgerMoveCta,
             valid && !_busy ? () => _move(paired, amount) : null,
             busy: _busy,
+            disabledLabel: l10n.barNeedAmount,
           ),
         ] else
           _bar(l10n.ledgerApprovalClose, () => Navigator.of(context).pop()),

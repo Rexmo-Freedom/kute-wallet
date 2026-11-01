@@ -5253,6 +5253,7 @@ class _HlOrderSlipSheetState extends ConsumerState<HlOrderSlipSheet>
                                 : null),
                     category: SearchCategory.perpetuals,
                     source: 'order_slip',
+                    disabledLabel: primaryKind == 'trade' && _marginUsd <= 0 && !placesMinimum ? context.l10n.barNeedAmount : null,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

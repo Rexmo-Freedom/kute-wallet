@@ -735,8 +735,9 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
       letterSpacing: -0.2,
       height: 1.2,
     );
-    final ValueKey<String> labelKey = ValueKey(
-        'primary-label|${busy ? 'busy' : enabled ? 'on' : 'off'}|$label');
+    // Keyed by the words alone: the same words in another state (busy
+    // under the same label) stay put, only their ink changes.
+    final ValueKey<String> labelKey = ValueKey('primary-label|$label');
 
     // Sal: curious while the step is the person's, idle on the action,
     // thinking while it runs (search at 1.4x until `think` is there).
@@ -765,6 +766,9 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     // the button; the leaving ones overflow it, centred, as they go.
     final Widget words = AnimatedSwitcher(
       duration: duration,
+      // The old words leave quicker than the new ones arrive: a tap is
+      // felt at once (the busy label alone within 300 ms).
+      reverseDuration: reduce ? Duration.zero : _kWordsOut,
       switchInCurve: reduce ? Curves.linear : KuteMotion.chip,
       switchOutCurve: reduce ? Curves.linear : KuteMotion.settle,
       layoutBuilder: (current, previous) => Stack(
@@ -886,6 +890,9 @@ class _KuteBarPrimaryButtonState extends State<KuteBarPrimaryButton>
     );
   }
 }
+
+/// How long the primary button's old words take to slide out.
+const Duration _kWordsOut = Duration(milliseconds: 200);
 
 /// The busy shimmer: a band [KuteBarPrimaryButton.shimmerBand] of the
 /// width, [color] at its middle and clear at its edges, crossing the fill

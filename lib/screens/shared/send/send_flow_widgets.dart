@@ -1178,10 +1178,15 @@ class SendReviewAction extends StatelessWidget {
     required this.footnote,
     this.loading = false,
     this.source = 'send_review',
+    this.disabledLabel,
   });
 
   final String label;
   final VoidCallback? onPressed;
+
+  /// What the bar says while [onPressed] is null (KuteBarContext
+  /// .disabledLabel).
+  final String? disabledLabel;
   final String footnote;
   final bool loading;
 
@@ -1202,6 +1207,7 @@ class SendReviewAction extends StatelessWidget {
             enabled: onPressed != null && !loading,
             busy: loading,
             source: source,
+            disabledLabel: disabledLabel,
           ),
           child: const SizedBox.shrink(),
         ),

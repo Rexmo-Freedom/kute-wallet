@@ -34,7 +34,8 @@ import 'package:kute/theme/app_theme.dart';
 /// .dart): the sheet's primary is the floating Sal bar's primary action;
 /// Cancel / Close is a text button above it, over the bar's clearance.
 Widget _bar(String label, VoidCallback? onPrimary,
-        {bool busy = false, String source = 'ledger_pm_explainer'}) =>
+        {bool busy = false,
+        String? disabledLabel, String source = 'ledger_pm_explainer'}) =>
     KuteBarContextScope(
       barContext: KuteBarContext.primary(
         label: label,
@@ -42,6 +43,7 @@ Widget _bar(String label, VoidCallback? onPrimary,
         enabled: onPrimary != null && !busy,
         busy: busy,
         source: source,
+        disabledLabel: disabledLabel,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );
@@ -243,7 +245,8 @@ class _LedgerPolymarketFundingExplainerSheetState
                     children: [
                       AppTextButton(text: l10n.cancel, onPressed: _cancel),
                       _bar(l10n.ledgerPmExplainerContinue,
-                          _canContinue ? _continue : null),
+                          _canContinue ? _continue : null,
+                          disabledLabel: l10n.barNeedTick),
                     ],
                   ),
           ),

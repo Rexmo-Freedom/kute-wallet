@@ -389,6 +389,7 @@ class _LedgerFundPredictionsSheetState
           label: label,
           onPrimary: onPrimary,
           source: 'ledger_fund_predictions',
+          disabledLabel: null,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );

@@ -204,6 +204,7 @@ class _CoinSelectionSheetState extends ConsumerState<_CoinSelectionSheet> {
                   Navigator.of(context).pop(List<OutPoint>.from(_draft)),
               enabled: owner == _owner,
               source: 'coin_selection',
+              disabledLabel: l10n.barNeedWait,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

@@ -378,6 +378,7 @@ class _LedgerInvestingSetupScreenState
                       enabled: !_busy,
                       busy: _busy,
                       source: 'ledger_investing_setup',
+                      disabledLabel: null,
                     ),
                     child: SizedBox(height: kuteBarScrollClearance.h),
                   ),

@@ -162,6 +162,7 @@ class _LedgerCancelOrderSheetState
               busy: _busy,
               category: SearchCategory.perpetuals,
               source: 'ledger_hl_cancel',
+              disabledLabel: null,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           )

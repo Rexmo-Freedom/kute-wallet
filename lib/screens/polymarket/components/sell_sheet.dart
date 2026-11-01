@@ -1872,6 +1872,7 @@ class _SellSheetState extends ConsumerState<SellSheet> {
                               : (canSell
                                   ? '${context.l10n.sell} · ${formatPolyAmount(ref, _amountUsdc)}'
                                   : context.l10n.sell),
+                      disabledLabel: canSell ? null : context.l10n.barNeedAmount,
                     ),
                   ),
                 ],
@@ -2530,6 +2531,7 @@ class _SellAdvancedScreenState extends ConsumerState<_SellAdvancedScreen> {
                           : (_canSell
                               ? '${l10n.sellNow} · $amountStr'
                               : l10n.sell),
+                      disabledLabel: _canSell ? null : l10n.barNeedAmount,
                     ),
                   ]),
                 ),

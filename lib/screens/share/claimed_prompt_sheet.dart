@@ -208,6 +208,7 @@ class _ClaimedPromptSheetState extends ConsumerState<ClaimedPromptSheet> {
                   enabled: !_sending,
                   busy: _sending,
                   source: 'share_claimed_prompt',
+                  disabledLabel: null,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

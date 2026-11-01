@@ -741,7 +741,8 @@ class _ClaimFeePickerSheetState extends ConsumerState<ClaimFeePickerSheet> {
                         context.pop(amount);
                       },
                       enabled: valid,
-                      source: 'claim_fee_picker'),
+                      source: 'claim_fee_picker',
+                      disabledLabel: context.l10n.barNeedFee,),
                   child: SizedBox(height: kuteBarScrollClearance.h)),
             ]),
           ),

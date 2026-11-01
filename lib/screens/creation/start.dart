@@ -370,6 +370,7 @@ class _StartState extends ConsumerState<Start> with TickerProviderStateMixin {
                   context.push('/set_pin');
                 },
                 source: 'start',
+                disabledLabel: null,
               ),
               child: SizedBox(height: kuteBarScrollClearance.h),
             ),

@@ -2468,6 +2468,11 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                 context.l10n.betRetryAtPrice(polymarketCentsLabel(retry)),
               null => context.l10n.ledgerBetReviewTitle,
             },
+      disabledLabel: buyingPower.isLoading
+          ? null
+          : (!_amount.isFinite || _amount <= 0)
+              ? context.l10n.barNeedAmount
+              : context.l10n.barNeedRaiseAmount,
     );
   }
 
@@ -6584,6 +6589,7 @@ class _BetSlipSheetState extends ConsumerState<BetSlipSheet>
                   },
                   category: SearchCategory.predictions,
                   source: 'slip_wallet_wall',
+                  disabledLabel: null,
                 ),
                 child: SizedBox(height: kuteBarScrollClearance.h),
               ),

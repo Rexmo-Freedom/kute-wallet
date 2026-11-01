@@ -280,6 +280,7 @@ class _RequestAmountSheetState extends ConsumerState<RequestAmountSheet> {
               enabled: positive && error == null && !_waiting,
               busy: _waiting,
               source: 'receive_request',
+              disabledLabel: positive ? context.l10n.barNeedCheckAmount : context.l10n.barNeedAmount,
             ),
             child: SizedBox(height: kuteBarScrollClearance.h),
           ),

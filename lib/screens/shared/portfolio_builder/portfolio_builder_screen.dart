@@ -696,6 +696,7 @@ class _PortfolioBuilderScreenState
                 _bar(
                   label: context.l10n.builderSetAmount,
                   enabled: v > 0,
+                  disabledLabel: context.l10n.barNeedAmount,
                   onPrimary: () {
                     HapticFeedback.selectionClick();
                     commit(v, spendAll);
@@ -1683,6 +1684,7 @@ class _PortfolioBuilderScreenState
     required VoidCallback? onPrimary,
     bool enabled = true,
     bool busy = false,
+    String? disabledLabel,
   }) =>
       KuteBarContextScope(
         barContext: KuteBarContext.primary(
@@ -1694,6 +1696,7 @@ class _PortfolioBuilderScreenState
               ? SearchCategory.predictions
               : SearchCategory.perpetuals,
           source: 'portfolio_builder',
+          disabledLabel: disabledLabel,
         ),
         child: SizedBox(height: kuteBarScrollClearance.h),
       );
@@ -1707,6 +1710,7 @@ class _PortfolioBuilderScreenState
             ? context.l10n.builderSelectMarkets
             : context.l10n.builderContinueSelected(count),
         enabled: count != 0,
+        disabledLabel: context.l10n.builderSelectMarkets,
         onPrimary: () {
           FocusScope.of(context).unfocus();
           setState(() => _stage = 1);
@@ -1783,6 +1787,9 @@ class _PortfolioBuilderScreenState
               _bar(
                 label: context.l10n.builderReviewPortfolio,
                 enabled: count > 0 && legsReady,
+                disabledLabel: count == 0
+                    ? context.l10n.builderSelectMarkets
+                    : context.l10n.barNeedAmount,
                 onPrimary: () => setState(() => _stage = 2),
               ),
             ],

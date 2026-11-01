@@ -373,6 +373,8 @@ void main() {
     await still();
     route.broadcast.complete();
     await tester.pump();
+    // The page rebuilds with the send done on the next frame.
+    await tester.pump();
     expect(_send(tester).outcome, RubberBandOutcome.success);
     // Nothing waits for a snap that is not drawn.
     await tester.pump();

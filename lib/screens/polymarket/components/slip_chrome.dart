@@ -327,10 +327,16 @@ class PolySlipCta extends StatelessWidget {
     this.bandOutcome,
     this.bandProgress,
     this.bandExpected = const Duration(seconds: 4),
+    this.disabledLabel,
   });
 
   final Color color;
   final bool isBusy;
+
+  /// What the slip's button says while [enabled] is false: the step to
+  /// take ("Enter an amount"; KuteBarContext.disabledLabel). Null where
+  /// the disabled [label] already says it (loading, a deposit on its way).
+  final String? disabledLabel;
 
   /// The placement's rubber band ([RubberBandBusy]): while [isBusy] the
   /// button is drawn up with growing tension, and lets go when it ends.
@@ -401,6 +407,7 @@ class PolySlipCta extends StatelessWidget {
         ),
         category: SearchCategory.predictions,
         source: 'slip',
+        disabledLabel: disabledLabel,
       ),
       child: SizedBox(
           key: const ValueKey('poly-slip-cta-room'),

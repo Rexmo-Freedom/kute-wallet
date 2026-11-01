@@ -576,6 +576,7 @@ class _RestoreSecretsScreenState extends ConsumerState<RestoreSecretsScreen> {
                 label: context.l10n.done,
                 onPrimary: _done,
                 source: 'restore_secrets',
+                disabledLabel: null,
               ),
               child: SizedBox(height: kuteBarScrollClearance.h),
             ),

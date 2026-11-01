@@ -137,7 +137,7 @@ void _expectAtRest(WidgetTester tester) {
   expect(barPrimaryRing(), findsNothing);
 }
 
-/// The bar reads the busy label beside its ring, not tappable.
+/// The bar reads the busy label under its shimmer, not tappable.
 void _expectPlacing(WidgetTester tester) {
   expect(barIsPrimary(tester), isTrue);
   expect(barPrimaryBusy(tester), isTrue);
@@ -145,7 +145,9 @@ void _expectPlacing(WidgetTester tester) {
   expect(barPrimaryLabel(tester), 'Loading...');
   expect(barPrimaryText('Loading...'), findsOneWidget);
   expect(barPrimaryText('Place trailing stop'), findsNothing);
-  expect(barPrimaryRing(), findsOneWidget);
+  // The shimmer, none under Reduce Motion.
+  expect(barPrimaryRing(),
+      barReduceMotion(tester) ? findsNothing : findsOneWidget);
 }
 
 Future<void> _frames(WidgetTester tester, int n,

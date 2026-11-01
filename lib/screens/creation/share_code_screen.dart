@@ -344,6 +344,7 @@ class _ShareCodeScreenState extends ConsumerState<ShareCodeScreen> {
                     onPrimary: _finish,
                     enabled: _phase != _Phase.waiting,
                     source: 'share_code',
+                    disabledLabel: context.l10n.barNeedWait,
                   ),
                   child: SizedBox(height: kuteBarScrollClearance.h),
                 ),

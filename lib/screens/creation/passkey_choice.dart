@@ -677,6 +677,7 @@ class _PasskeyChoiceState extends ConsumerState<PasskeyChoice> {
                               _biometricsAvailable != null,
                           busy: _isProcessing,
                           source: 'passkey_choice',
+                          disabledLabel: _walletLabel.isEmpty ? l10n.barNeedName : l10n.barNeedWait,
                         ),
                         child: SizedBox(height: kuteBarScrollClearance.h),
                       ),

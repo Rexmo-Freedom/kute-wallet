@@ -5927,6 +5927,26 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
   /// is blocked in that state — the old behavior silently clamped to
   /// Max and converted the whole balance (user report: typed \$5,555
   /// with \$6 available and it drained the wallet).
+  /// What Move money's disabled button says: the amount step to take,
+  /// or the wait for the rate; null where the button's own label already
+  /// says it (coming soon, a changed wallet, Activity).
+  String? _moveNeedLabel(BuildContext context) {
+    final l10n = context.l10n;
+    if (_sourceCashApp) {
+      return _cashAppAmountValid ? null : l10n.barNeedAmount;
+    }
+    if (_isFiatMode || !_isSupportedSwap) return null;
+    if (_insufficientTyped) return l10n.barNeedLowerAmount;
+    if (_loadingRate) return l10n.barNeedWait;
+    final picked = _fromBtc ? _selectedSats > 0 : _selectedSourceUsd > 0;
+    final enough = _fromBtc
+        ? _selectedSats >= _kMinSats
+        : _selectedSourceUsd >= _kMinUsdc;
+    if (!picked) return l10n.barNeedAmount;
+    if (!enough) return l10n.barNeedRaiseAmount;
+    return null;
+  }
+
   bool get _insufficientTyped =>
       !_isFiatMode &&
       _isSupportedSwap &&
@@ -6800,6 +6820,7 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                             foreground: Colors.white,
                           ),
                           source: 'cash_app_waiting',
+                          disabledLabel: null,
                         ),
                         child: SizedBox(height: kuteBarScrollClearance.h),
                       ),
@@ -8229,6 +8250,9 @@ class _DepositSheetState extends ConsumerState<DepositSheet> {
                                             _kMinUsdc;
                                       }())),
                   processing: _processing,
+                  // The step to take while the button is off (founder, 1
+                  // November 2026): an amount, less of it, or more.
+                  disabledLabel: _moveNeedLabel(context),
                   // Fiat mode keeps the familiar 'Continue' label in its
                   // permanently disabled state; the quiet line above the
                   // keypad explains why.
@@ -8325,12 +8349,16 @@ class _ConvertButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// What the disabled button says: the step to take ("Enter an amount").
+  final String? disabledLabel;
+
   const _ConvertButton({
     super.key,
     required this.enabled,
     required this.processing,
     required this.label,
     required this.onTap,
+    this.disabledLabel,
   });
 
   @override
@@ -8342,6 +8370,7 @@ class _ConvertButton extends StatelessWidget {
         enabled: enabled && !processing,
         busy: processing,
         source: 'move_amount',
+        disabledLabel: disabledLabel,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );

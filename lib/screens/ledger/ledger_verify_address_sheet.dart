@@ -365,6 +365,7 @@ class _LedgerVerifyAddressSheetState
                           enabled: !_busy,
                           busy: _busy,
                           source: 'ledger_verify_address',
+                          disabledLabel: null,
                         ),
                         child: SizedBox(height: kuteBarScrollClearance.h),
                       )

@@ -335,6 +335,10 @@ Future<void> _type(WidgetTester tester, String digits) async {
     await tester.tap(find.text(d).last);
     await tester.pump();
   }
+  // The bar redraws a frame after the page, its words sliding from the
+  // step to take to Continue (kute_shell_bar.dart).
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 Future<void> _paste(WidgetTester tester, String value) async {
@@ -448,7 +452,11 @@ void main() {
 
     expect(_step(_l10n.sendTo), findsOneWidget);
     expect(_grid, findsOneWidget);
-    expect(find.text(_l10n.usdFlowStepCoin), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(UsdSendScreen),
+            matching: find.text(_l10n.usdFlowStepCoin)),
+        findsOneWidget);
     expect(find.byType(TextField), findsNothing);
     expect(find.byTooltip(_l10n.paste), findsNothing);
     expect(find.byTooltip(_l10n.scan), findsNothing);

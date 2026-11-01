@@ -929,6 +929,7 @@ class _RecoverWalletState extends ConsumerState<RecoverWallet>
         enabled: !_isProcessing && _canSubmit,
         busy: _isProcessing,
         source: 'recover_wallet',
+        disabledLabel: context.l10n.barNeedPhrase,
       ),
       child: SizedBox(height: kuteBarScrollClearance.h),
     );

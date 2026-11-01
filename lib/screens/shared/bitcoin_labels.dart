@@ -163,7 +163,8 @@ class _LabelEditorState extends ConsumerState<_LabelEditor> {
                             onPrimary: _save,
                             enabled: !_saving,
                             busy: _saving,
-                            source: 'bitcoin_label'),
+                            source: 'bitcoin_label',
+                            disabledLabel: null,),
                         child: SizedBox(height: kuteBarScrollClearance.h)),
                   ])),
         ]));

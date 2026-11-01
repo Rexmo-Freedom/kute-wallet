@@ -229,6 +229,7 @@ class _LedgerApprovalSheetState extends ConsumerState<LedgerApprovalSheet> {
             enabled: onPressed != null,
             busy: busy,
             source: 'ledger_approval',
+            disabledLabel: null,
           ),
           child: SizedBox(height: kuteBarScrollClearance.h),
         );

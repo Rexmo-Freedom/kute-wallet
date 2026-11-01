@@ -89,6 +89,10 @@ Future<List<RequestedAmount?>> _pump(WidgetTester tester,
 Future<void> _type(WidgetTester tester, String amount) async {
   tester.widget<AmountKeypad>(find.byType(AmountKeypad)).onChanged(amount);
   await tester.pump();
+  // The bar redraws a frame after the sheet, its words sliding to the
+  // new state (kute_shell_bar.dart).
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
 }
 
 /// The sheet's own primary scope (the sheet frame around it declares a
@@ -102,8 +106,12 @@ final Finder _createScope = find.descendant(
 /// current on the frame it is built; the bar redraws a frame later), and
 /// the bar lettering it.
 KuteBarContext _create(WidgetTester tester) {
-  expect(barPrimaryText(_l10n.receiveCreateRequest), findsOneWidget);
-  return tester.widget<KuteBarContextScope>(_createScope).barContext;
+  final ctx = tester.widget<KuteBarContextScope>(_createScope).barContext;
+  expect(ctx.label, _l10n.receiveCreateRequest);
+  // The bar letters what the button says now: "Create request", or the
+  // step to take while it is off ("Enter an amount").
+  expect(barPrimaryText(ctx.primaryLabel), findsOneWidget);
+  return ctx;
 }
 
 /// The handler while the button takes a tap, else null (what the drawn
@@ -116,7 +124,7 @@ VoidCallback? _onCreate(WidgetTester tester) {
 /// Taps Create request on the bar: [settle] pumps until quiet, else one
 /// frame (a tap that starts the spinner never settles).
 Future<void> _tapCreate(WidgetTester tester, {bool settle = true}) async {
-  expect(barPrimaryText(_l10n.receiveCreateRequest), findsOneWidget);
+  _create(tester);
   await tapBarPrimary(tester, settle: settle);
 }
 
@@ -145,6 +153,8 @@ void main() {
     expect(find.text(_l10n.receiveRequestAmount), findsOneWidget);
     expect(find.byIcon(Icons.unfold_more_rounded), findsOneWidget);
     expect(_onCreate(tester), isNull);
+    // Off, the bar says the step to take (founder, 1 November 2026).
+    expect(barPrimaryText(_l10n.barNeedAmount), findsOneWidget);
     // The close X on the left, as on every receive sheet.
     final close = find.byType(KuteCloseButton);
     expect(close, findsOneWidget);
@@ -218,6 +228,8 @@ void main() {
 
     limits.value = minimumOf(5);
     await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     display = tester.widget<BigAmountDisplay>(find.byType(BigAmountDisplay));
     expect(display.minimumLabel, _l10n.routeAmountTooSmall('\$5.00'));
     expect(display.minimumIsError, isTrue);
