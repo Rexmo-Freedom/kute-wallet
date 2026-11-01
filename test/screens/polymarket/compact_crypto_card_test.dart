@@ -43,9 +43,6 @@ class _Round extends CryptoPredictNotifier {
           downTokenId: 'down',
         ),
       );
-
-  @override
-  void dispose() {}
 }
 
 List<Override> compactCardOverrides() => [

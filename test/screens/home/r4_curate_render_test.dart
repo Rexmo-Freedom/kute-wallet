@@ -377,9 +377,6 @@ class _Round extends CryptoPredictNotifier {
           downTokenId: 'down',
         ),
       );
-
-  @override
-  void dispose() {}
 }
 
 class _Feed extends PolyFeedNotifier {
