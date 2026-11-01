@@ -3303,5 +3303,10 @@
   "sendToLabel": "Enviar a",
   "actionSoon": "Soon",
   "sendDollarsCaption": "$ · stocks · ₿",
-  "connectAiAction": "Manage with AI"
+  "connectAiAction": "Manage with AI",
+  "pnlByVenue": "By venue",
+  "pnlStatRealised": "Realised",
+  "pnlStatUnrealised": "Unrealised",
+  "pnlStatWinRate": "Win rate",
+  "sendDollarsToAFriend": "Send dollars to a friend"
 }

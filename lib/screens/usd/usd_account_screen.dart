@@ -152,6 +152,8 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/investments_category_sheet.dart'
     show investmentsCategoryLabel, showInvestmentsCategorySheet;
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityUnavailableSheet;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
     show showUsdWithdrawSheet;
 import 'package:kute/services/tracking_service.dart';
@@ -1114,15 +1116,19 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// (portfolio_screen.dart) on the section it was last left on.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
         // Manage with AI: an AI that runs the money for you. First and solid
-        // (the primary look, black in light mode); not live yet, so it
-        // wears the unavailable look with "Soon" (founder, 1 November 2026).
+        // (the primary look, black in light mode). Not live yet: it is
+        // tappable and opens the shared "Unavailable" sheet, no Soon mark
+        // (founder, 1 November 2026).
         KuteDockAction(
           icon: Icons.auto_awesome_rounded,
           label: context.l10n.connectAiAction,
           trackingId: 'manage_with_ai',
           solid: true,
-          soon: true,
-          onTap: null,
+          onTap: () => unawaited(showCapabilityUnavailableSheet(
+            context,
+            message: context.l10n.capabilityUnavailable,
+            surface: 'manage_with_ai',
+          )),
         ),
         KuteDockAction(
           icon: Icons.south_west_rounded,
