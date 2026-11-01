@@ -163,6 +163,9 @@ Future<RecordingRewardsApi> pumpInvestments(
   bool browseInvesting = false,
   bool browsePredictions = false,
 
+  /// The dark theme (the on-demand renders).
+  bool dark = false,
+
   /// The spending account's history (the Portfolio's Activity rows).
   Transaction? history,
 }) async {
@@ -213,10 +216,14 @@ Future<RecordingRewardsApi> pumpInvestments(
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
       builder: (_, __) => MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           fontFamily: 'Inter',
+          brightness: dark ? Brightness.dark : Brightness.light,
           splashFactory: NoSplash.splashFactory,
-          extensions: [AppColorsExtension.light()],
+          extensions: [
+            dark ? AppColorsExtension.dark() : AppColorsExtension.light()
+          ],
         ),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,

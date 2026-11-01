@@ -1,11 +1,13 @@
-// On demand: renders the curated surfaces (founder, 1 November 2026) into
-// PNGs for a look by eye: the Bitcoin home's Activity with its Today card
-// (light and dark), the Investing browse (Trending: the strip, six rows,
-// nothing after) and the Predictions browse (the compact BTC card, the
-// strip, six markets).
+// On demand: renders the decluttered surfaces (founder, 1 November 2026:
+// less clutter, each row or card one or two things) into PNGs for a look
+// by eye, light and dark: the Bitcoin home's Activity (four Latest squares,
+// two Earlier rows, no Today card), the Investing browse (Trending: the
+// calm strip, six one-line rows) and the Predictions browse (the quiet 5m
+// card, the strip, one-line rows); and, light, each venue on a picked
+// category (no strip, the full plain list).
 //
-//   flutter test test/screens/home/r4_curate_render_test.dart \
-//     --dart-define=R4_CURATE_RENDER_OUT=<dir>
+//   flutter test test/screens/home/r5_declutter_render_test.dart \
+//     --dart-define=R5_DECLUTTER_RENDER_OUT=<dir>
 //
 // Without the define the file does nothing.
 
@@ -25,7 +27,6 @@ import 'package:kute/helpers/swap_activity.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/models/polymarket_model.dart';
-import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/models/settings_model.dart';
 import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/models/transactions_model.dart';
@@ -38,8 +39,6 @@ import 'package:kute/providers/hyperliquid_sats_pnl_provider.dart'
 import 'package:kute/providers/hyperliquid_sparkline_provider.dart';
 import 'package:kute/providers/polymarket_browse_provider.dart';
 import 'package:kute/providers/polymarket_provider.dart';
-import 'package:kute/providers/portfolio_performance_provider.dart'
-    show portfolioPerformanceDisplayProvider;
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/polymarket/polymarket_screen.dart';
@@ -58,7 +57,7 @@ import '../../helpers/portfolio_overrides.dart';
 import '../hyperliquid/hl_trending_strip_fixture.dart';
 import '../usd/investments_harness.dart';
 
-const _out = String.fromEnvironment('R4_CURATE_RENDER_OUT');
+const _out = String.fromEnvironment('R5_DECLUTTER_RENDER_OUT');
 final _shotKey = GlobalKey();
 
 Future<void> _shot(WidgetTester tester, String name) async {
@@ -255,16 +254,10 @@ Future<void> _renderHome(WidgetTester tester, {required bool dark}) async {
     _fill(ago(8), oid: 1, dir: 'Open Long'),
     _fill(ago(3), oid: 2, dir: 'Close Long', closedPnl: 1.18),
   ];
-  final midnight = DateTime(now.year, now.month, now.day);
-  final perf = PortfolioPerformance(points: [
-    PortfolioPnlPoint(
-        timestamp: midnight.subtract(const Duration(hours: 1)), pnlUsd: 10),
-    PortfolioPnlPoint(timestamp: now, pnlUsd: 13.42),
-  ], sourceLabel: '', basisLabel: 'P&L', coverageLabel: '');
 
   debugAllActivityClassify = (o) => _kinds[o.id] ?? classifySwapActivity(o);
   addTearDown(() => debugAllActivityClassify = null);
-  const size = Size(430, 900);
+  const size = Size(430, 932);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -275,9 +268,6 @@ Future<void> _renderHome(WidgetTester tester, {required bool dark}) async {
       ...offlineVenueOverrides,
       hyperliquidActivityFillsProvider.overrideWith((_) => fills),
       currentBtcUsdProvider.overrideWithValue(100000),
-      portfolioPerformanceDisplayProvider(const PortfolioPerformanceRequest(
-              venue: PortfolioPerformanceVenue.trading))
-          .overrideWithValue(AsyncData(perf)),
       settingsProvider.overrideWith((_) => SettingsModel(Settings(
           currency: 'USD',
           language: 'en',
@@ -418,7 +408,33 @@ class _Feed extends PolyFeedNotifier {
           'Super Bowl LX winner',
           'Time Person of the Year 2026',
         ][i], 0.4 + i * 0.07, volume: 9e7 - i),
-      for (var i = 0; i < titles.length; i++)
+      for (var i = 0; i < 3; i++)
+        yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1e6 - i),
+      PolymarketEvent(
+        id: 'wc',
+        slug: 'wc',
+        title: 'World Cup 2026 winner',
+        volume: 9e5,
+        liquidity: 1e5,
+        category: 'sports',
+        conditionId: 'wc',
+        negRisk: true,
+        outcomes: [
+          for (final (n, p) in [
+            ('Spain', 0.18),
+            ('France', 0.15),
+            ('England', 0.13),
+            ('Brazil', 0.11),
+          ])
+            PolymarketOutcome(
+                name: n,
+                price: p,
+                conditionId: n,
+                tokenId: '$n-yes',
+                noTokenId: '$n-no'),
+        ],
+      ),
+      for (var i = 3; i < titles.length; i++)
         yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1e6 - i),
     ]);
   }
@@ -427,13 +443,23 @@ class _Feed extends PolyFeedNotifier {
 Future<void> _renderBrowse(WidgetTester tester,
     {required Widget screen,
     required String name,
-    required List<Override> overrides}) async {
+    required List<Override> overrides,
+    bool dark = false,
+    void Function(ProviderContainer container)? pick}) async {
   await pumpInvestments(tester,
       browseInvesting: true,
       browsePredictions: true,
-      size: const Size(430, 2300),
-      child: RepaintBoundary(key: _shotKey, child: Scaffold(body: screen)),
+      dark: dark,
+      size: const Size(430, 1500),
+      child: RepaintBoundary(
+          key: _shotKey,
+          child: Builder(
+              builder: (context) => Scaffold(
+                  backgroundColor: context.colors.background, body: screen))),
       overrides: overrides);
+  if (pick != null) {
+    pick(ProviderScope.containerOf(tester.element(find.byKey(_shotKey))));
+  }
   for (var i = 0; i < 10; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -442,10 +468,31 @@ Future<void> _renderBrowse(WidgetTester tester,
   await tester.pump(const Duration(seconds: 31));
 }
 
+List<Override> _investingOverrides() => [
+      hyperliquidBrowseUniverseProvider
+          .overrideWithValue(AsyncValue.data(hlTrendingFixture)),
+      hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+      hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+      hyperliquidSparklineStoreProvider.overrideWithValue(_sparks),
+    ];
+
+List<Override> _predictionsOverrides() => [
+      ...offlineVenueOverrides,
+      polyBrowseFeedProvider.overrideWith(_Feed.new),
+      cryptoPredictProvider.overrideWith(_Round.new),
+      cryptoRecentResultsProvider.overrideWith((ref, key) async => const [
+            CryptoWindowResult(1, true),
+            CryptoWindowResult(2, false),
+            CryptoWindowResult(3, true),
+            CryptoWindowResult(4, true),
+            CryptoWindowResult(5, null),
+          ]),
+    ];
+
 void main() {
   if (_out.isEmpty) {
-    test('r4 curate render', () {},
-        skip: 'on demand: --dart-define=R4_CURATE_RENDER_OUT=<dir>');
+    test('r5 declutter render', () {},
+        skip: 'on demand: --dart-define=R5_DECLUTTER_RENDER_OUT=<dir>');
     return;
   }
 
@@ -453,7 +500,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     Directory(_out).createSync(recursive: true);
-    hiveDir = await Directory.systemTemp.createTemp('r4_curate_render');
+    hiveDir = await Directory.systemTemp.createTemp('r5_declutter_render');
     Hive.init(hiveDir.path);
     GoogleFonts.config.allowRuntimeFetching = false;
     for (final family in [GoogleFonts.inter().fontFamily!, 'Inter']) {
@@ -485,34 +532,46 @@ void main() {
     });
   }
 
-  testWidgets('investing browse', (tester) async {
+  for (final dark in [false, true]) {
+    final theme = dark ? 'dark' : 'light';
+    testWidgets('investing browse $theme', (tester) async {
+      await _renderBrowse(tester,
+          name: 'investing_browse_$theme',
+          dark: dark,
+          screen: const HyperliquidScreen(embedded: true),
+          overrides: _investingOverrides());
+    });
+
+    testWidgets('predictions browse $theme', (tester) async {
+      await _renderBrowse(tester,
+          name: 'predictions_browse_$theme',
+          dark: dark,
+          screen: const PolymarketScreen(embedded: true),
+          overrides: _predictionsOverrides());
+    });
+  }
+
+  testWidgets('investing on a picked category', (tester) async {
     await _renderBrowse(tester,
-        name: 'investing_browse_light',
+        name: 'investing_picked_category_light',
         screen: const HyperliquidScreen(embedded: true),
-        overrides: [
-          hyperliquidBrowseUniverseProvider
-              .overrideWithValue(AsyncValue.data(hlTrendingFixture)),
-          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
-          hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
-          hyperliquidSparklineStoreProvider.overrideWithValue(_sparks),
-        ]);
+        overrides: _investingOverrides(),
+        pick: (container) => container
+            .read(hlBrowseSelectionProvider.notifier)
+            .state = container
+            .read(hlBrowseSelectionProvider)
+            .copyWith(tab: HlBrowseTab.tradfi, sub: HlBrowseSub.stocks));
   });
 
-  testWidgets('predictions browse', (tester) async {
+  testWidgets('predictions on a picked category', (tester) async {
     await _renderBrowse(tester,
-        name: 'predictions_browse_light',
+        name: 'predictions_picked_category_light',
         screen: const PolymarketScreen(embedded: true),
-        overrides: [
-          ...offlineVenueOverrides,
-          polyBrowseFeedProvider.overrideWith(_Feed.new),
-          cryptoPredictProvider.overrideWith(_Round.new),
-          cryptoRecentResultsProvider.overrideWith((ref, key) async => const [
-                CryptoWindowResult(1, true),
-                CryptoWindowResult(2, false),
-                CryptoWindowResult(3, true),
-                CryptoWindowResult(4, true),
-                CryptoWindowResult(5, null),
-              ]),
-        ]);
+        overrides: _predictionsOverrides(),
+        pick: (container) => container
+            .read(polyBrowseSelectionProvider.notifier)
+            .state = container
+            .read(polyBrowseSelectionProvider)
+            .copyWith(pill: PolyPill.newest));
   });
 }

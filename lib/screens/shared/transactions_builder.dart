@@ -892,8 +892,11 @@ class _TransactionRow extends ConsumerWidget {
       String shownAmount, bool valuesVisible) {
     final c = context.colors;
     final square = shape == ActivityRowShape.square;
+    // A close or a sale in profit says so in its second figure's colour.
     final up = valuesVisible &&
-        (flow == ActivityFlow.moneyIn || amountColor == AppColors.marketUp);
+        (flow == ActivityFlow.moneyIn ||
+            amountColor == AppColors.marketUp ||
+            secondaryColor == AppColors.marketUp);
     final amountText = _AmountText(
       amount: shownAmount,
       brightColor: up ? AppColors.marketUp : c.textPrimary,
