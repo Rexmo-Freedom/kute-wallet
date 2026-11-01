@@ -651,7 +651,13 @@ class KuteBarPrimaryButton extends StatelessWidget {
     final clip = busy ? 'search' : (enabled ? 'idle' : 'curious');
     final label = busy ? (ctx.busyLabel ?? ctx.label) : ctx.label;
     final reduce = kuteReduceMotion(context);
-    return Semantics(
+    // The bar sits over the Navigator, outside every page's Material, so
+    // its text would inherit MaterialApp's error style (monospace, a yellow
+    // double underline). The transparent Material gives it the theme's
+    // text style, as the Sal pill's own Material does.
+    return Material(
+      type: MaterialType.transparency,
+      child: Semantics(
       button: true,
       enabled: enabled,
       label: label,
@@ -702,15 +708,26 @@ class KuteBarPrimaryButton extends StatelessWidget {
                 ),
                 SizedBox(width: 10.w),
                 Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: ink,
-                      fontSize: 16.sp,
-                      fontWeight: style?.fontWeight ?? FontWeight.w600,
-                      letterSpacing: -0.2,
+                  // The ink follows the fill on the same spring: switched
+                  // at once, a white label sat on the still-light fill.
+                  child: AnimatedDefaultTextStyle(
+                    duration:
+                        reduce ? Duration.zero : KuteMotion.chipDuration,
+                    curve: reduce ? Curves.linear : KuteMotion.chip,
+                    // The theme's own text style: this build's context is above
+                    // the Material that gives the bar one.
+                    style: (Theme.of(context).textTheme.bodyLarge ??
+                            const TextStyle())
+                        .copyWith(
+                          color: ink,
+                          fontSize: 16.sp,
+                          fontWeight: style?.fontWeight ?? FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
@@ -728,6 +745,7 @@ class KuteBarPrimaryButton extends StatelessWidget {
           ),
           ),
         ),
+      ),
       ),
     );
   }
