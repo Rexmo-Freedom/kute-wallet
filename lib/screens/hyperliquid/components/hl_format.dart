@@ -11,7 +11,9 @@
 // [formatHlPrice] follows Hyperliquid's own tick rule: up to 5 significant
 // figures (whole-number prices are always shown in full), never more
 // decimals than the market allows (HlMarket.pxDecimalCap: 6 − szDecimals
-// for perps, 8 − szDecimals for spot).
+// for perps, 8 − szDecimals for spot). The browse LIST writes a shorter
+// price ([formatHlListPrice]: four figures, two decimals at least), since
+// a row is read at a glance, not traded on.
 //
 // Letter badges: Hyperliquid lists hundreds of coins and we deliberately
 // ship NO network icon fetching (same call the home stocks rail made —
@@ -86,6 +88,40 @@ String formatHlPriceLike(double px, double reference, {int? decimalCap}) {
           symbol: r'$', decimalDigits: _shownDecimals(reference, decimalCap))
       .format(px);
 }
+
+/// The Investing LIST's price (the browse rows and the "Moving now"
+/// cards): a short price, the way Revolut / Coinbase / Robinhood write
+/// theirs, not the venue's tick ("$47.91", "$4,128.40", "$2.631",
+/// "$0.2051"): four significant figures, never fewer than two decimals,
+/// never more than the market allows ([decimalCap]), trailing zeros
+/// dropped down to two decimals. The charts, the order ladder and the
+/// slip keep [formatHlPrice], whose five figures tell two ticks apart.
+String formatHlListPrice(double px, {int? decimalCap}) {
+  if (px <= 0 || !px.isFinite) return '—';
+  return NumberFormat.currency(
+          symbol: r'$', decimalDigits: hlListPriceDecimals(px, decimalCap))
+      .format(px);
+}
+
+/// The decimals [formatHlListPrice] writes [px] with.
+int hlListPriceDecimals(double px, int? decimalCap) {
+  if (px <= 0 || !px.isFinite) return 2;
+  var magnitude = (math.log(px) / math.ln10).floor();
+  if (math.pow(10, magnitude + 1) <= px) magnitude += 1;
+  if (math.pow(10, magnitude) > px) magnitude -= 1;
+  var decimals = kHlListPriceSigFigs - 1 - magnitude;
+  if (decimalCap != null) decimals = math.min(decimals, decimalCap);
+  decimals = math.max(2, decimals);
+  final exact = _roundTo(px, decimals);
+  var shown = decimals;
+  while (shown > 2 && _roundTo(px, shown - 1) == exact) {
+    shown -= 1;
+  }
+  return shown;
+}
+
+/// The list price's precision: at most this many significant figures.
+const int kHlListPriceSigFigs = 4;
 
 double _roundTo(double v, int decimals) {
   final f = math.pow(10, decimals).toDouble();

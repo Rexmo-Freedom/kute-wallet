@@ -22,9 +22,16 @@ import 'package:kute/l10n/l10n.dart';
 //     down colour of the 24h change (neutral when flat or unknown), from
 //     the device cache (one request per coin per UTC day; see
 //     hyperliquid_sparkline_provider.dart), empty until the first lands;
-//   * the LIVE price, always in the primary text colour, over the 24h %
-//     change as "▲ 0.4%" / "▼ 3.8%" in the up / down colour (no plus or
-//     minus sign; "0.0%" when flat, a dash when unknown).
+//   * the LIVE price, always in the primary text colour, written short
+//     (formatHlListPrice: "$47.91", "$4,128.40", "$2.631", "$0.2051" —
+//     four figures, two decimals at least; never the venue's five-figure
+//     tick, which is the charts' and the slip's), over the 24h % change
+//     as "▲ 0.4%" / "▼ 3.8%" in the up / down colour (no plus or minus
+//     sign; "0.0%" when flat, a dash when unknown).
+//
+// Above the list, the "Moving now" strip (hl_moving_now_strip.dart) shows
+// the category's largest 24h moves as large cards; the rows keep their
+// own order under it.
 //
 // A thinly traded market (HlMarket.isLowLiquidity) ends its caption with
 // " · Low liquidity" (on a second caption line when one cannot hold it:
@@ -276,7 +283,8 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                       // Always the primary text colour: the digits roll on
                       // a tick, the colour belongs to the change below.
                       RollingNumberText(
-                        text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+                        text: formatHlListPrice(price,
+                            decimalCap: m.pxDecimalCap),
                         style: titleStyle.copyWith(
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),

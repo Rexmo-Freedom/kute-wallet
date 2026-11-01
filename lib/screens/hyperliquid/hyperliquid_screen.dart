@@ -33,6 +33,7 @@ import 'package:kute/screens/home/components/deposit_sheet.dart';
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart'
     show HlIconPrefetch;
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/shared/market_groups.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -144,6 +145,19 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   List<HlBrowseSub> _subsFor(HlBrowseTab tab, List<HlMarket> universe) {
     _syncCaches(universe);
     return _subsCache.putIfAbsent(tab, () => hlSubsForTab(tab, universe));
+  }
+
+  /// The "Moving now" strip's markets, memoized per list instance (the
+  /// lists are themselves memoized per universe, so this is once per
+  /// category per 30 s universe, not once per scroll-driven rebuild).
+  List<HlMarket>? _moversListed;
+  List<HlMarket> _movers = const [];
+  List<HlMarket> _moversFor(List<HlMarket> markets) {
+    if (!identical(markets, _moversListed)) {
+      _moversListed = markets;
+      _movers = hlMovingNow(markets);
+    }
+    return _movers;
   }
 
   /// The category whose subcategories the one browse row shows, in place
@@ -546,6 +560,20 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
                           if (awaitingBuilderMarkets)
                             const SliverToBoxAdapter(child: _HlGroupSkeleton())
                           else ...[
+                            // "Moving now": the category's largest 24h
+                            // moves as large cards on a side-scrolling
+                            // strip, above the list (which keeps its own
+                            // order). Only with enough movers to make a
+                            // strip; search is its own screen, so the
+                            // list here is never a search result.
+                            if (_moversFor(markets).isNotEmpty)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.only(top: 8.h),
+                                  child: HlMovingNowStrip(
+                                      markets: _moversFor(markets)),
+                                ),
+                              ),
                             SliverToBoxAdapter(child: SizedBox(height: 8.h)),
                             // The whole list is in memory, in ONE grouped
                             // card like Home's Activity (founder, October

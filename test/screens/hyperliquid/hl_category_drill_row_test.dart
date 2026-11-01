@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/hyperliquid/hyperliquid_screen.dart';
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
 import 'package:kute/screens/polymarket/components/poly_browse_bar.dart'
@@ -184,9 +185,14 @@ void main() {
       final rows = _inBrowser(find.byType(HlMarketCard));
       final n = rows.evaluate().length;
       expect(n, greaterThan(1));
-      // The list comes straight under the pills.
+      // The "Moving now" strip comes straight under the pills, and the
+      // list straight under the strip (no title between them).
       final pills = _inBrowser(find.byType(PolyDrillRow));
-      expect(tester.getRect(rows.first).top - tester.getRect(pills).bottom,
+      final strip = _inBrowser(find.byType(HlMovingNowStrip));
+      expect(strip, findsOneWidget);
+      expect(tester.getRect(strip).top - tester.getRect(pills).bottom,
+          lessThan(20));
+      expect(tester.getRect(rows.first).top - tester.getRect(strip).bottom,
           lessThan(20));
 
       // ONE grouped card, Home Activity's, holds every row: no card per

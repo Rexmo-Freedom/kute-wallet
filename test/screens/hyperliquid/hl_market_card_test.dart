@@ -136,7 +136,8 @@ void main() {
     expect(find.textContaining('40x'), findsNothing);
     final numbers = _numbers(tester);
     expect(numbers, hasLength(2));
-    expect(numbers[0].text, formatHlPrice(85806, decimalCap: m.pxDecimalCap));
+    expect(numbers[0].text, formatHlListPrice(85806, decimalCap: m.pxDecimalCap));
+    expect(numbers[0].text, r'$85,806.00');
     // The change reads direction as a glyph, never a sign.
     expect(numbers[1].text, '▲ 2.2%');
     final colors = tester.element(find.byType(HlMarketCard)).colors;
@@ -178,7 +179,7 @@ void main() {
 
     final numbers = _numbers(tester);
     final m = _market();
-    expect(numbers[0].text, formatHlPrice(85000, decimalCap: m.pxDecimalCap));
+    expect(numbers[0].text, formatHlListPrice(85000, decimalCap: m.pxDecimalCap));
     final colors = tester.element(find.byType(HlMarketCard)).colors;
     expect(numbers[0].style.color, colors.textPrimary);
     await tester.pumpAndSettle();
