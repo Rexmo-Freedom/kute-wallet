@@ -69,10 +69,13 @@ Future<Map<String, dynamic>?> _getJson(String url) async {
 Future<_Live> _loadLive() async {
   final live = _Live();
   Future<String?> pick(String tag, bool Function(Map e) ok) async {
-    final j = await _getJson('https://gamma-api.polymarket.com/events'
-        '?active=true&closed=false&order=volume24hr&ascending=false'
+    // The keyset list (the offset `/events` list is sunset), as the app
+    // reads it (PolymarketModel.fetchGammaKeyset).
+    final j = await _getJson('https://gamma-api.polymarket.com/events/keyset'
+        '?closed=false&order=volume24hr&ascending=false'
         '&limit=25&tag_slug=$tag');
-    for (final e in (j?['list'] as List? ?? const [])) {
+    for (final e in (j?['events'] as List? ?? const [])) {
+      if (e is Map && e['active'] == false) continue;
       if (e is Map && ok(e)) return e['slug'] as String?;
     }
     return null;
