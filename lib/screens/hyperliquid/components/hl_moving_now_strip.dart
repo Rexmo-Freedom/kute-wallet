@@ -174,13 +174,15 @@ bool hlHypeCandidate(HlMarket m) =>
 /// [kHlHypeCommoditiesMin] commodities when that many qualify: the
 /// best-ranked stocks give way to the best-ranked commodities. Best
 /// first. With fewer than [min] qualifying underlyings (the builder
-/// dexes not read yet), the movers of [trending] (the Trending list)
-/// instead, as every other category ([hlMovingNow]).
+/// dexes not read), the movers of [trending] (the Trending list)
+/// instead, as every other category ([hlMovingNow]); or, with
+/// [fallback] false (the builder dexes still on their way), no strip.
 List<HlMarket> hlTrendingStrip(
   List<HlMarket> universe,
   List<HlMarket> trending, {
   int min = kHlMoverCardMin,
   int max = kHlHypeCardMax,
+  bool fallback = true,
 }) {
   final scored = <({HlMarket m, double hype, int index})>[];
   for (var i = 0; i < universe.length; i++) {
@@ -195,7 +197,9 @@ List<HlMarket> hlTrendingStrip(
     return v != 0 ? v : a.index.compareTo(b.index);
   });
   final unique = _onePerUnderlying([for (final s in scored) s.m]);
-  if (unique.length < min) return hlMovingNow(trending, min: min);
+  if (unique.length < min) {
+    return fallback ? hlMovingNow(trending, min: min) : const [];
+  }
 
   bool isCommodity(HlMarket m) => m.category == 'commodities';
   final commodities = unique.where(isCommodity).toList();

@@ -42,6 +42,7 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/hyperliquid/components/order_slip_sheet.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
+import 'package:kute/services/hyperliquid/hl_markets_disk_cache.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
@@ -153,14 +154,21 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
   /// shows the hyped stocks and commodities of the whole [universe]
   /// ([hlTrendingStrip]); every other category its own movers.
   List<HlMarket>? _moversListed;
+  bool _moversPerpsLanded = false;
   List<HlMarket> _movers = const [];
   List<HlMarket> _rest = const [];
   List<HlMarket> _moversFor(
       HlBrowseTab tab, List<HlMarket> markets, List<HlMarket> universe) {
-    if (!identical(markets, _moversListed)) {
+    // The full perp list landing recomputes the strip too: Trending's
+    // waits for it ([_trendingStrip]).
+    final perpsLanded =
+        ref.read(hyperliquidPerpMarketsProvider).valueOrNull != null;
+    if (!identical(markets, _moversListed) ||
+        perpsLanded != _moversPerpsLanded) {
       _moversListed = markets;
+      _moversPerpsLanded = perpsLanded;
       final strip = tab == HlBrowseTab.trending
-          ? hlTrendingStrip(universe, markets)
+          ? _trendingStrip(markets, universe)
           : hlMovingNow(markets);
       // A market on the strip is not repeated in the list under it
       // (founder, 1 November 2026); and the strip never empties the
@@ -170,6 +178,26 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
       _rest = rest ?? markets;
     }
     return _movers;
+  }
+
+  /// Trending's strip ([hlTrendingStrip]). Until the full perp list has
+  /// landed the universe is the main dex alone (plus spot), with no
+  /// builder-dex stock or commodity in it, and the strip would open on the
+  /// crypto movers and swap to the hyped names seconds later. Meanwhile
+  /// the builder markets this device last saw stand in (as the universe
+  /// itself paints the last lists before the live ones), under the same
+  /// policy; with none, no strip until they arrive, never the movers. The
+  /// movers are for a full list that still has too few.
+  List<HlMarket> _trendingStrip(
+      List<HlMarket> markets, List<HlMarket> universe) {
+    final pending =
+        !_moversPerpsLanded && !universe.any((m) => m.isHip3);
+    if (!pending) return hlTrendingStrip(universe, markets);
+    final lastSeen = HlMarketsDiskCache.instance.perps ?? const <HlMarket>[];
+    final lent = hlMarketsOfferedUnderPolicy(
+        [for (final m in lastSeen) if (m.isHip3) m],
+        ref.read(runtimeCapabilitiesProvider));
+    return hlTrendingStrip([...universe, ...lent], markets, fallback: false);
   }
 
   /// The list under the strip: [markets] less the strip's.
@@ -442,6 +470,9 @@ class _HyperliquidScreenState extends ConsumerState<HyperliquidScreen> {
     ref.watch(hlWatchlistProvider);
 
     final universeAsync = ref.watch(hyperliquidBrowseUniverseProvider);
+    // Trending's strip waits for the full perp list ([_trendingStrip]).
+    ref.watch(hyperliquidPerpMarketsProvider
+        .select((perps) => perps.valueOrNull != null));
     final universe = universeAsync.valueOrNull ?? const <HlMarket>[];
 
     // The builder-dex markets could not be read and were never seen: a

@@ -5,6 +5,8 @@
 // underlying (the most traded), none of them repeated in the list under
 // the strip; the old movers when fewer than three qualify.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +175,8 @@ void main() {
         ['XPL', 'LIT', 'NEAR', 'xyz:TSLA', 'ETH', 'xyz:GOLD', 'BTC']);
     // Nothing qualifies at all: no strip.
     expect(hlTrendingStrip(const [], const []), isEmpty);
+    // The builder dexes still on their way: no movers, no strip.
+    expect(hlTrendingStrip(crypto, trending, fallback: false), isEmpty);
   });
 
   test('the list under the strip repeats none of its names, and a strip '
@@ -189,6 +193,35 @@ void main() {
     expect(hlListUnderStrip(trending.take(8).toList(), trending.take(6).toList()),
         isNull);
     expect(hlListUnderStrip(trending, const []), same(trending));
+  });
+
+  testWidgets('while the full perp list is loading (main dex only), '
+      'Trending opens on no strip rather than the crypto movers',
+      (tester) async {
+    final mainDexOnly = [
+      for (final m in hlTrendingFixture)
+        if (!m.isHip3) m,
+    ];
+    final never = Completer<List<HlMarket>>();
+    await pumpInvestments(tester,
+        browseInvesting: true,
+        child: const Scaffold(body: HyperliquidScreen()),
+        overrides: [
+          hyperliquidPerpMarketsProvider.overrideWith((_) => never.future),
+          hyperliquidBrowseUniverseProvider
+              .overrideWithValue(AsyncValue.data(mainDexOnly)),
+          hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+          hyperliquidLivePricesProvider.overrideWith(_LivePrices.new),
+          hyperliquidSparklineStoreProvider.overrideWithValue(HlSparklineStore(
+              fetch: (_) async => const [100, 104, 102, 108, 112])),
+        ]);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(HlMovingNowStrip), findsNothing);
+    expect(find.byType(HlMarketCard), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await unmountInvestments(tester);
   });
 
   testWidgets('Trending shows the hyped strip over a list that repeats none '
