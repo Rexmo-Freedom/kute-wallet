@@ -20070,6 +20070,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Works with Google Password Manager'**
   String get passkeyChoiceWorksWithGoogle;
+
+  /// Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid from {source}'**
+  String activityPaidFrom(String source);
+
+  /// Same as activityPaidFrom when the money came from two of the person's accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid from {first} and {second}'**
+  String activityPaidFromBoth(String first, String second);
+
+  /// Home Activity Today card: tile label for the money received today.
+  ///
+  /// In en, this message translates to:
+  /// **'In'**
+  String get activityTodayIn;
+
+  /// Home Activity Today card: tile label for the money sent today.
+  ///
+  /// In en, this message translates to:
+  /// **'Out'**
+  String get activityTodayOut;
+
+  /// Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change).
+  ///
+  /// In en, this message translates to:
+  /// **'P&L'**
+  String get activityTodayPnl;
 }
 
 class _AppLocalizationsDelegate

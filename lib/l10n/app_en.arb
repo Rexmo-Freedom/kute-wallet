@@ -7433,5 +7433,15 @@
   "passkeyChoiceWorksWithApple": "Works with Apple Passwords",
   "@passkeyChoiceWorksWithApple": {"description": "iOS: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
   "passkeyChoiceWorksWithGoogle": "Works with Google Password Manager",
-  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."}
+  "@passkeyChoiceWorksWithGoogle": {"description": "Android: one quiet line under the passkey option on the wallet creation screen, naming the password manager that supports Kute passkeys."},
+  "activityPaidFrom": "Paid from {source}",
+  "@activityPaidFrom": {"description": "Quiet note leading a home Activity row's context line when the money moves that paid for the action (a prediction placed, an Investing open) are folded into it. source is an account name: Bitcoin, Dollars, Investing or Predictions.", "placeholders": {"source": {"type": "String"}}},
+  "activityPaidFromBoth": "Paid from {first} and {second}",
+  "@activityPaidFromBoth": {"description": "Same as activityPaidFrom when the money came from two of the person's accounts.", "placeholders": {"first": {"type": "String"}, "second": {"type": "String"}}},
+  "activityTodayIn": "In",
+  "@activityTodayIn": {"description": "Home Activity Today card: tile label for the money received today."},
+  "activityTodayOut": "Out",
+  "@activityTodayOut": {"description": "Home Activity Today card: tile label for the money sent today."},
+  "activityTodayPnl": "P&L",
+  "@activityTodayPnl": {"description": "Home Activity Today card: tile label for today's profit and loss on Investing and Predictions (realised plus the open positions' change)."}
 }

@@ -11891,4 +11891,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get passkeyChoiceWorksWithGoogle =>
       'Works with Google Password Manager';
+
+  @override
+  String activityPaidFrom(String source) {
+    return 'Paid from $source';
+  }
+
+  @override
+  String activityPaidFromBoth(String first, String second) {
+    return 'Paid from $first and $second';
+  }
+
+  @override
+  String get activityTodayIn => 'In';
+
+  @override
+  String get activityTodayOut => 'Out';
+
+  @override
+  String get activityTodayPnl => 'P&L';
 }
