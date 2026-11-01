@@ -101,7 +101,7 @@ sealed class BragData {
   /// The result reads up rather than down.
   bool get up;
 
-  /// The result's tone: Sal's line in the share message.
+  /// The result's tone: the card's edgy line (brag_lines.dart).
   BragTone get tone;
 }
 
@@ -250,6 +250,7 @@ class BragPortfolio extends BragData {
     this.allTime,
     this.returnPercent,
     this.top = const [],
+    this.series,
   });
 
   /// The allocation, in ring order; empty while any part is unknown.
@@ -264,6 +265,12 @@ class BragPortfolio extends BragData {
 
   /// Up to three open positions, best result first.
   final List<BragTopPosition> top;
+
+  /// The all-time P&L line (both venues as one account, the Statistics
+  /// tab's PortfolioPerformance.combine), thinned; null while any venue
+  /// is unknown or when it never moved. The card draws it in place of
+  /// the rows.
+  final List<double>? series;
 
   @override
   BragKind get kind => BragKind.portfolio;
@@ -422,6 +429,37 @@ double? bragPortfolioPnl(BragWatch watch) {
   return total;
 }
 
+/// The most points the portfolio's line draws.
+const int kBragSeriesPoints = 60;
+
+/// The all-time P&L line of both venues as one account (see
+/// [BragPortfolio.series]); null while any venue is unknown or when it
+/// never moved.
+List<double>? bragPortfolioSeries(BragWatch watch) {
+  final parts = <PortfolioPerformance>[];
+  for (final v in PortfolioPerformanceVenue.values) {
+    final data = watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v)))
+        .valueOrNull;
+    if (data == null) return null;
+    parts.add(v == PortfolioPerformanceVenue.predictions
+        ? data.withLivePredictions(watch(livePriceProvider).prices)
+        : data);
+  }
+  final all = PortfolioPerformance.combine(parts);
+  if (all.points.length < 2 || !all.hasMovement) return null;
+  final values = [
+    for (final p in all.points)
+      if (p.pnlUsd.isFinite) p.pnlUsd
+  ];
+  if (values.length < 2) return null;
+  if (values.length <= kBragSeriesPoints) return values;
+  final step = (values.length - 1) / (kBragSeriesPoints - 1);
+  return [
+    for (var i = 0; i < kBragSeriesPoints; i++) values[(i * step).round()]
+  ];
+}
+
 /// The allocation as shares (cash anywhere, Investing at work,
 /// Predictions at work); empty while any part is unknown or when there is
 /// nothing at all.
@@ -499,6 +537,7 @@ BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
     allTime: pnl == null ? null : bragResult(watch, pnl),
     returnPercent: openBase > 0 ? openPnl / openBase * 100 : null,
     top: top.take(3).toList(growable: false),
+    series: bragPortfolioSeries(watch),
   );
 }
 

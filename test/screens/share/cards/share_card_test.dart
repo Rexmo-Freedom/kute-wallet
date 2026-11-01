@@ -1,12 +1,14 @@
 // The share card family (cards/), restrained premium: each card is one
-// solid background, the caps line, the identity row, ONE big number with
-// its fact line, at most one thin graphic, one plain line, and the footer
-// (Sal's small mark, the wordmark, the code); no chip, no bubble, no
-// headline on the image. The headline follows the market's topic and the
-// locale's numbers and leads the share message with Sal's line after it;
-// the right card is chosen per entry point, every card lays out in German
-// and Japanese, and a pending link's Share again shows the card first
-// and hands the OS the PNG.
+// solid background, the caps line, the identity row, ONE huge number
+// (sized to its width, never overflowing) with its fact line, at most one
+// graphic, one plain line, the edgy line built from the card's figures,
+// and the footer (Sal's small mark, the wordmark, the code); no chip, no
+// bubble, no headline on the image. The three bands leave no large empty
+// gap. The headline follows the market's topic and the locale's numbers
+// and leads the share message (the edgy line is on the card only); the
+// right card is chosen per entry point, every card lays out in German and
+// Japanese, and a pending link's Share again shows the card first and
+// hands the OS the PNG.
 
 import 'dart:typed_data';
 
@@ -61,7 +63,9 @@ void main() {
           investmentHeadline(
                   _en,
                   const InvestmentCardData(
-                      title: 'Gold', coin: 'GOLD', category: 'commodities',
+                      title: 'Gold',
+                      coin: 'GOLD',
+                      category: 'commodities',
                       price: 2410))!
               .text,
           r'Gold at $2,410.00 an ounce');
@@ -69,7 +73,9 @@ void main() {
           investmentHeadline(
                   _en,
                   const InvestmentCardData(
-                      title: 'OpenAI', coin: 'OAI', category: 'preipo',
+                      title: 'OpenAI',
+                      coin: 'OAI',
+                      category: 'preipo',
                       price: 612.4))!
               .text,
           r'OpenAI trades at an implied $612.40');
@@ -90,19 +96,25 @@ void main() {
       PredictionCardData p(ShareCardTopic t,
               {String outcome = 'Yes', bool binary = true, double c = 18}) =>
           PredictionCardData(
-              question: 'Q', outcome: outcome, chance: c, binary: binary,
+              question: 'Q',
+              outcome: outcome,
+              chance: c,
+              binary: binary,
               topic: t);
       expect(predictionHeadline(_en, p(ShareCardTopic.crypto))!.text,
           '18% odds it happens');
       expect(
-          predictionHeadline(_en,
-                  p(ShareCardTopic.economy, outcome: '25 bps cut', binary: false, c: 71))!
+          predictionHeadline(
+                  _en,
+                  p(ShareCardTopic.economy,
+                      outcome: '25 bps cut', binary: false, c: 71))!
               .text,
           '71% chance of 25 bps cut');
       expect(predictionHeadline(_en, p(ShareCardTopic.other, c: 47))!.text,
           '47% say yes');
       expect(
-          predictionHeadline(_en, p(ShareCardTopic.other, outcome: 'No', c: 60))!
+          predictionHeadline(
+                  _en, p(ShareCardTopic.other, outcome: 'No', c: 60))!
               .text,
           '60% say no');
       // The politics yes/no reads the Yes side even on a No pick.
@@ -118,8 +130,7 @@ void main() {
           'Ana: 18% chance');
       expect(
           predictionHeadline(
-              _en,
-              const PredictionCardData(question: 'Q', outcome: 'Yes')),
+              _en, const PredictionCardData(question: 'Q', outcome: 'Yes')),
           isNull);
     });
   });
@@ -127,19 +138,25 @@ void main() {
   group('the card per entry point', () {
     test('a link: money without a pick, the pick\'s card with one', () {
       final money = shareCardForLink(_noWatch,
-          locale: 'en', kind: ShareLinkKind.dollars, amountMinor: 1000,
+          locale: 'en',
+          kind: ShareLinkKind.dollars,
+          amountMinor: 1000,
           recipient: 'Ana');
       expect(money, isA<MoneyCardData>());
       expect((money as MoneyCardData).amount, r'$10.00');
       final btc = shareCardForLink(_noWatch,
-          locale: 'en', kind: ShareLinkKind.bitcoin, amountMinor: 12000,
-          bitcoinAmount: '₿12,000', bitcoinFiat: r'$9.40');
+          locale: 'en',
+          kind: ShareLinkKind.bitcoin,
+          amountMinor: 12000,
+          bitcoinAmount: '₿12,000',
+          bitcoinFiat: r'$9.40');
       expect(btc, isA<MoneyCardData>());
       expect((btc as MoneyCardData).bitcoin, isTrue);
       expect(btc.amountSub, r'$9.40');
     });
 
-    testWidgets('the market sheet: the actual stock on Investing, the odds '
+    testWidgets(
+        'the market sheet: the actual stock on Investing, the odds '
         'on Predictions', (tester) async {
       await pumpShareWidget(
           tester,
@@ -163,20 +180,25 @@ void main() {
         (tester) async {
       late ShareCardData pick;
       late ShareCardData invest;
-      await pumpShareWidget(
-          tester,
-          env,
-          Consumer(builder: (context, ref, _) {
-            pick = shareCardForLink(<T>(p) => ref.watch(p),
-                locale: 'en', kind: ShareLinkKind.dollars, amountMinor: 1000,
-                marketSlug: 'lol-worlds', marketTitle: 'LoL Worlds',
-                venue: 'polymarket', outcome: 'Gen.G');
-            invest = shareCardForLink(<T>(p) => ref.watch(p),
-                locale: 'en', kind: ShareLinkKind.dollars, amountMinor: 2550,
-                marketSlug: 'TSLA', marketTitle: 'Tesla',
-                venue: 'hyperliquid', outcome: 'Short');
-            return const SizedBox();
-          }));
+      await pumpShareWidget(tester, env, Consumer(builder: (context, ref, _) {
+        pick = shareCardForLink(<T>(p) => ref.watch(p),
+            locale: 'en',
+            kind: ShareLinkKind.dollars,
+            amountMinor: 1000,
+            marketSlug: 'lol-worlds',
+            marketTitle: 'LoL Worlds',
+            venue: 'polymarket',
+            outcome: 'Gen.G');
+        invest = shareCardForLink(<T>(p) => ref.watch(p),
+            locale: 'en',
+            kind: ShareLinkKind.dollars,
+            amountMinor: 2550,
+            marketSlug: 'TSLA',
+            marketTitle: 'Tesla',
+            venue: 'hyperliquid',
+            outcome: 'Short');
+        return const SizedBox();
+      }));
       expect(pick, isA<PredictionCardData>());
       final p = pick as PredictionCardData;
       expect(p.picked, isTrue);
@@ -190,8 +212,8 @@ void main() {
   });
 
   group('cards', () {
-    Future<void> pumpIn(WidgetTester tester, ShareCardData data,
-        Locale locale) async {
+    Future<void> pumpIn(
+        WidgetTester tester, ShareCardData data, Locale locale) async {
       await tester.runAsync(loadShareCardFonts);
       await pumpShareWidget(
           tester,
@@ -253,21 +275,35 @@ void main() {
       }
     }
 
-    testWidgets('money: FOR DANIEL, the value big, in bitcoin under it',
-        (tester) async {
+    testWidgets(
+        'money: FOR DANIEL, the value huge and centred, in bitcoin under '
+        'it, the ₿ watermark, the edgy line, Claim it on Kute', (tester) async {
       await pumpIn(tester, fakeBitcoinCard(), const Locale('en'));
       expectRestrained(tester, code: true);
       expect(textOf(tester, 'share-card-caps'), 'FOR DANIEL');
-      expect(find.text('Bitcoin'), findsOneWidget);
       expect(textOf(tester, 'share-card-number'), r'$9.40');
       expect(textOf(tester, 'share-card-fact'), 'in bitcoin · ₿12,000');
       expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
       expect(background(tester), ShareCardPalette.dark.background);
       // Each figure once.
       expect(find.textContaining('₿12,000'), findsOneWidget);
+      // Centred across the card.
+      final number =
+          tester.getCenter(find.byKey(const ValueKey('share-card-number')));
+      expect(number.dx, closeTo(kShareCardSize.width / 2, 1));
+      // The asset's mark, huge and faint, at the bottom right.
+      final mark = tester
+          .widget<Text>(find.byKey(const ValueKey('share-card-watermark')));
+      expect(mark.data, '₿');
+      expect(mark.style!.color!.a, closeTo(0.04, 0.005));
+      expect(mark.style!.fontSize! / kShareCardSize.height,
+          greaterThanOrEqualTo(0.7));
+      expect(textOf(tester, 'share-card-edge'),
+          isIn(shareCardEdges(_en, fakeBitcoinCard())));
+      expect(textOf(tester, 'share-card-quiet'), 'Claim it on Kute');
     });
 
-    testWidgets('dollars: the amount big, no fact, no graphic',
+    testWidgets('dollars: the amount huge, no fact, the \$ watermark',
         (tester) async {
       await pumpIn(tester, fakeDollarsCard(), const Locale('en'));
       expectRestrained(tester, code: true);
@@ -275,6 +311,7 @@ void main() {
       expect(textOf(tester, 'share-card-number'), r'$10.00');
       expect(find.byKey(const ValueKey('share-card-fact')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-graphic')), findsNothing);
+      expect(textOf(tester, 'share-card-watermark'), r'$');
     });
 
     testWidgets(
@@ -288,13 +325,30 @@ void main() {
       expect(textOf(tester, 'share-card-number'), '47%');
       expect(textOf(tester, 'share-card-fact'), 'Chance of Gen.G');
       expect(find.byKey(const ValueKey('share-card-odds')), findsOneWidget);
+      // Both sides named, each with its own percent.
+      expect(find.text('Gen.G'), findsWidgets);
+      expect(find.text(' 47%'), findsOneWidget);
       expect(find.text('T1'), findsOneWidget);
+      expect(find.text(' 53%'), findsOneWidget);
+      expect(
+          tester
+              .getSize(find.byKey(const ValueKey('share-card-odds-bar')))
+              .height,
+          ShareCardOddsBar.barHeight);
       expect(textOf(tester, 'share-card-plain'), r'$10 on Gen.G');
+      // The chance at its largest.
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('share-card-number')))
+              .style!
+              .fontSize,
+          kShareCardHeroMax);
       // The line is the stock card's graphic, never a second one here.
       expect(find.byKey(const ValueKey('share-card-chart')), findsNothing);
     });
 
-    testWidgets('a stock pick: logo, name, ticker, the price big, today in '
+    testWidgets(
+        'a stock pick: logo, name, ticker, the price big, today in '
         'colour, the line, Long · amount', (tester) async {
       await pumpIn(tester, fakeTeslaPick(), const Locale('en'));
       expectRestrained(tester, code: true);
@@ -313,6 +367,13 @@ void main() {
       expect(find.byKey(const ValueKey('share-card-chart')), findsOneWidget);
       expect(textOf(tester, 'share-card-plain'), r'Long · $25');
       expect(find.text('Long'), findsNothing, reason: 'the side once');
+      expect(textOf(tester, 'share-card-edge'),
+          'Some of us buy before the headlines.');
+      // The logo is the real coin icon, 36.
+      expect(tester.getSize(find.byKey(const ValueKey('share-card-logo'))),
+          const Size.square(kShareLogoSize));
+      expect(
+          find.byKey(const ValueKey('share-card-logo-coin')), findsOneWidget);
     });
 
     testWidgets('a prediction market: the venue on top, no pick line',
@@ -329,7 +390,7 @@ void main() {
       await pumpIn(tester, fakeBitcoinCard().asRecipient(), const Locale('en'));
       expectRestrained(tester, code: false);
       expect(textOf(tester, 'share-card-caps'), 'DANIEL, A FRIEND SENT YOU');
-      expect(textOf(tester, 'share-card-plain'), "It's yours. Tap claim.");
+      expect(textOf(tester, 'share-card-quiet'), "It's yours. Tap claim.");
     });
 
     testWidgets('missing data is left out', (tester) async {
@@ -366,38 +427,229 @@ void main() {
     }
   });
 
-  group('share message', () {
-    test('the headline first, Sal\'s line after it, then the text and link',
-        () {
-      expect(
-          shareCardMessage(_en, fakeTeslaPick(), 0, 'Look https://x.test'),
-          'Tesla is \$242.10, up 3.4% today\n'
-          'This one\'s going places.\n'
-          'Look https://x.test');
-      expect(
-          shareCardMessage(_en, fakePredictionPick(), 1, 'Pick https://x.test')
-              .split('\n'),
-          [
-            'Gen.G are 47% favourites vs T1',
-            'I already know how this ends.',
-            'Pick https://x.test',
-          ]);
+  group('layout', () {
+    Future<void> pump(WidgetTester tester, ShareCardData data) async {
+      await tester.runAsync(loadShareCardFonts);
+      await pumpShareWidget(tester, env,
+          Align(alignment: Alignment.topLeft, child: ShareCard(data: data)));
+    }
+
+    testWidgets(
+        'the hero number: 80 short, 72, 64 long, shrunk to fit, '
+        'never under 48', (tester) async {
+      await tester.runAsync(loadShareCardFonts);
+      const w = 312.0;
+      expect(shareCardHeroSize('47%', w), kShareCardHeroMax);
+      expect(shareCardHeroSize(r'$242.10', w), 72);
+      expect(shareCardHeroSize(r'+$412.35', w), 64);
+      final long = shareCardHeroSize(r'$1,234,567.89', w);
+      expect(long, lessThan(64));
+      expect(long, greaterThanOrEqualTo(kShareCardHeroMin));
+      expect(shareCardHeroSize(r'$1,234,567,890,123.45', w), kShareCardHeroMin);
     });
 
-    test('money: no headline, the text first and Sal after it', () {
-      expect(shareCardMessage(_en, fakeDollarsCard(), 0, 'I sent you'),
-          'I sent you\nClaim it before I change my mind.');
+    testWidgets('a long amount never overflows the card', (tester) async {
+      for (final amount in [
+        r'$1,234,567.89',
+        r'$1,234,567,890,123.45',
+        '₿2,100,000,000,000,000',
+      ]) {
+        await pump(
+            tester,
+            MoneyCardData(
+                bitcoin: false,
+                amount: amount,
+                recipient: 'Daniel',
+                referralCode: kShareTestCode));
+        expect(tester.takeException(), isNull, reason: amount);
+        final r =
+            tester.getRect(find.byKey(const ValueKey('share-card-number')));
+        expect(r.left, greaterThanOrEqualTo(kShareCardPadding - 0.5),
+            reason: amount);
+        expect(r.right,
+            lessThanOrEqualTo(kShareCardSize.width - kShareCardPadding + 0.5),
+            reason: amount);
+      }
+    });
+
+    // The card's bands top to bottom: no gap between two of them over 15%
+    // of the card, and a centred hero sits mid-way in its band.
+    List<Rect> bands(WidgetTester tester, String prefix) {
+      final all = [
+        for (final k in const [
+          'caps',
+          'identity',
+          'hero',
+          'graphic',
+          'plain',
+          'edge',
+          'quiet',
+          'footer',
+        ])
+          if (find.byKey(ValueKey('$prefix-$k')).evaluate().isNotEmpty)
+            tester.getRect(find.byKey(ValueKey('$prefix-$k'))),
+      ];
+      // A part inside another (the plain fact in the hero) is no band.
+      return [
+        for (final r in all)
+          if (!all.any(
+              (o) => o != r && o.contains(r.center) && o.height > r.height))
+            r
+      ];
+    }
+
+    void expectBalanced(WidgetTester tester, String name,
+        {String prefix = 'share-card'}) {
+      final rects = bands(tester, prefix);
+      for (var i = 1; i < rects.length; i++) {
+        final gap = rects[i].top - rects[i - 1].bottom;
+        expect(gap, lessThanOrEqualTo(kShareCardSize.height * 0.15),
+            reason: '$name: gap $i is ${gap.toStringAsFixed(1)}');
+        expect(gap, greaterThanOrEqualTo(0), reason: '$name: overlap at $i');
+      }
+      expect(rects.last.bottom,
+          closeTo(kShareCardSize.height - kShareCardPadding, 1),
+          reason: '$name: the footer on the bottom edge');
+    }
+
+    testWidgets('stock: the chart fills the bottom band, nothing empty',
+        (tester) async {
+      await pump(tester, fakeTeslaPick());
+      expectBalanced(tester, 'stock');
+      final chart =
+          tester.getRect(find.byKey(const ValueKey('share-card-chart')));
+      expect(chart.height, greaterThan(60));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'prediction: the hero centred between the identity and the '
+        'odds, nothing empty', (tester) async {
+      for (final data in [fakePredictionPick(), fakePredictionMarket()]) {
+        await pump(tester, data);
+        expectBalanced(tester, data.kind);
+        final above =
+            tester.getRect(find.byKey(const ValueKey('share-card-identity')));
+        final hero =
+            tester.getRect(find.byKey(const ValueKey('share-card-hero')));
+        final below =
+            tester.getRect(find.byKey(const ValueKey('share-card-graphic')));
+        expect(hero.top - above.bottom, closeTo(below.top - hero.bottom, 1),
+            reason: data.kind);
+      }
+    });
+
+    testWidgets('money: the watermark fills the space the hero leaves',
+        (tester) async {
+      for (final data in [fakeBitcoinCard(), fakeDollarsCard()]) {
+        await pump(tester, data);
+        final mark =
+            tester.getRect(find.byKey(const ValueKey('share-card-watermark')));
+        // Clipped at the card's bottom right, about 70% of its height.
+        final visible = mark.intersect(Offset.zero & kShareCardSize);
+        expect(
+            visible.height, greaterThanOrEqualTo(kShareCardSize.height * 0.6),
+            reason: data.kind);
+        expect(visible.right, closeTo(kShareCardSize.width, 0.5));
+        expect(visible.bottom, closeTo(kShareCardSize.height, 0.5));
+        expect(tester.takeException(), isNull);
+      }
+    });
+  });
+
+  group('edgy line', () {
+    test('built from the card\'s own figures, a pool per sign and topic', () {
+      // A stock up: today's change interpolated, the name.
+      expect(shareCardEdges(_en, fakeTeslaPick()), [
+        'Some of us buy before the headlines.',
+        "Up 3.4%. You're welcome.",
+        'Told you Tesla.',
+      ]);
+      // Down.
+      expect(shareCardEdges(_en, fakeNasdaqMarket()),
+          ['Discount, not disaster.', 'Buying while you panic.']);
+      // No change known.
+      expect(
+          shareCardEdges(
+              _en, const InvestmentCardData(title: 'Crude oil', price: 102.5)),
+          ['Some of us buy before the headlines.', 'Patience is a position.']);
+      // A sports pick under 50%: early, the crowd, the dare, the team.
+      expect(shareCardEdges(_en, fakePredictionPick()), [
+        "47% says I'm early, not wrong.",
+        'The crowd is 53% wrong.',
+        'Bet against me. I dare you.',
+        'Gen.G or bust.',
+      ]);
+      // Politics.
+      expect(shareCardEdges(_en, fakePredictionMarket()),
+          contains('Polls are opinions. This is money.'));
+      // Money: bitcoin has its own.
+      expect(shareCardEdges(_en, fakeBitcoinCard()), [
+        "Spend it wisely. Or don't.",
+        'Consider this a flex.',
+        'Free bitcoin. Rare sight.',
+      ]);
+      expect(shareCardEdges(_en, fakeDollarsCard()),
+          ["Spend it wisely. Or don't.", 'Consider this a flex.']);
+      // German numbers.
+      expect(shareCardEdges(_de, fakeTeslaPick())[1], contains('3,4'));
+    });
+
+    test('the seed picks one, any int', () {
+      final pool = shareCardEdges(_en, fakeTeslaPick());
+      expect(
+          {for (var i = 0; i < 9; i++) shareCardEdge(_en, fakeTeslaPick(), i)},
+          pool.toSet());
+      expect(shareCardEdge(_en, fakeTeslaPick(), -7), isIn(pool));
+    });
+
+    testWidgets('the card draws the seed\'s line, 20 w600, two lines at most',
+        (tester) async {
+      await tester.runAsync(loadShareCardFonts);
+      await pumpShareWidget(
+          tester,
+          env,
+          Align(
+              alignment: Alignment.topLeft,
+              child: ShareCard(data: fakeTeslaPick(), lineSeed: 1)));
+      final t =
+          tester.widget<Text>(find.byKey(const ValueKey('share-card-edge')));
+      expect(t.data, "Up 3.4%. You're welcome.");
+      expect(t.style!.fontSize, kShareCardLineSize);
+      expect(t.style!.fontWeight, FontWeight.w600);
+      expect(t.maxLines, 2);
+    });
+  });
+
+  group('share message', () {
+    test(
+        'the headline first, then the text and link; the edgy line is on '
+        'the card, never repeated', () {
+      expect(
+          shareCardMessage(_en, fakeTeslaPick(), 'Look https://x.test'),
+          'Tesla is \$242.10, up 3.4% today\n'
+          'Look https://x.test');
+      expect(
+          shareCardMessage(_en, fakePredictionPick(), 'Pick https://x.test')
+              .split('\n'),
+          ['Gen.G are 47% favourites vs T1', 'Pick https://x.test']);
+    });
+
+    test('money: no headline, the text alone', () {
+      expect(
+          shareCardMessage(_en, fakeDollarsCard(), 'I sent you'), 'I sent you');
     });
 
     test('no figure: no headline, never estimated', () {
       expect(
-          shareCardMessage(_en,
-              const InvestmentCardData(title: 'Tesla', coin: 'TSLA'), 0, 'T'),
-          'T\nThis one\'s going places.');
+          shareCardMessage(
+              _en, const InvestmentCardData(title: 'Tesla', coin: 'TSLA'), 'T'),
+          'T');
     });
   });
 
-  testWidgets('pending link: Share again shows the card, Share hands the OS '
+  testWidgets(
+      'pending link: Share again shows the card, Share hands the OS '
       'the PNG with the text', (tester) async {
     final sent = <(XFile, String)>[];
     ShareCardShare.debugSharer = (image, text) async {
@@ -428,8 +680,8 @@ void main() {
     await tester.tap(kuteBarPrimaryWithText('Share again'));
     await settle(tester);
     expect(find.text('Your card is ready'), findsOneWidget);
-    expect(find.byKey(const ValueKey('share-card-send_dollars')),
-        findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('share-card-send_dollars')), findsOneWidget);
     expect(sent, isEmpty);
     await shareCardAndWait(tester, sent,
         button: kuteBarPrimaryWithText('Share'));
@@ -440,8 +692,7 @@ void main() {
     expect(
         text,
         'Ana, I sent you \$10.00 with Kute. Claim it here: '
-        'https://web.test/c/lnk_3\n'
-        'Claim it before I change my mind.');
+        'https://web.test/c/lnk_3');
     expect(env.paramsOf('share_link_shared').single,
         {'kind': 'dollars', 'result': 'success'});
   });

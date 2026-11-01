@@ -6,9 +6,9 @@
 // and the bar as the primary button, "Share": the card captured
 // from its RepaintBoundary at 1080 × 1350 (toImage → PNG), handed to the
 // OS share sheet with "{title} on Kute {link}", the sharer's referral code
-// on the link as `?ref=CODE` (share_market_sheet.dart), and Sal's line for
-// the result's tone after it (brag_lines.dart; the card itself carries no
-// line).
+// on the link as `?ref=CODE` (share_market_sheet.dart). The edgy line is
+// on the card (brag_lines.dart, picked once when the sheet opens), so the
+// message does not repeat it.
 //
 // Two doors:
 //   * [showBragPreviewSheet] with the data a position page built
@@ -37,7 +37,6 @@ import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
 import 'package:kute/screens/share/brag/brag_card.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
-import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart'
     show ShareCardSal, kShareCardRadius, kShareCardSize;
 import 'package:kute/screens/share/share_market_sheet.dart'
@@ -71,12 +70,6 @@ String bragShareText(BuildContext context, BragData data) =>
     context.l10n.bragShareText(
         data.title, shareLinkWithReferral(data.link, code: data.referralCode));
 
-/// The share message: [bragShareText], then Sal's line for the tone at
-/// [seed].
-String bragShareMessage(BuildContext context, BragData data, int seed) =>
-    '${bragShareText(context, data)}\n'
-    '${bragLine(context.l10n, data.tone, seed)}';
-
 class BragPreviewSheet extends ConsumerStatefulWidget {
   /// [data] null: the portfolio card, from the live providers.
   const BragPreviewSheet({super.key, this.data});
@@ -88,7 +81,7 @@ class BragPreviewSheet extends ConsumerStatefulWidget {
   @visibleForTesting
   static Future<void> Function(XFile image, String text)? debugSharer;
 
-  /// Test seam: Sal's line seed for the message (null: random on open).
+  /// Test seam: the card's edgy line seed (null: random on open).
   @visibleForTesting
   static int? debugLineSeed;
 
@@ -99,7 +92,7 @@ class BragPreviewSheet extends ConsumerStatefulWidget {
 class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
   final GlobalKey _boundary = GlobalKey();
 
-  /// Sal's line in the message, picked once on open.
+  /// The card's edgy line, picked once on open.
   final int _lineSeed =
       BragPreviewSheet.debugLineSeed ?? math.Random().nextInt(1 << 16);
   bool _busy = false;
@@ -123,7 +116,7 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
     final boundary =
         _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return;
-    final text = bragShareMessage(context, data, _lineSeed);
+    final text = bragShareText(context, data);
     final box = context.findRenderObject() as RenderBox?;
     final origin = box != null && box.hasSize
         ? (box.localToGlobal(Offset.zero) & box.size)
@@ -198,7 +191,10 @@ class _BragPreviewSheetState extends ConsumerState<BragPreviewSheet> {
                 child: FittedBox(
                   child: RepaintBoundary(
                     key: _boundary,
-                    child: BragCard(data: data, mark: ShareCardSal.peek()),
+                    child: BragCard(
+                        data: data,
+                        mark: ShareCardSal.peek(),
+                        lineSeed: _lineSeed),
                   ),
                 ),
               ),

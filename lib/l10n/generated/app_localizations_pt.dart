@@ -10529,40 +10529,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get bragSinceYouBought => 'Desde a compra';
 
   @override
-  String get bragLineBeatThat => 'Supera isto.';
-
-  @override
-  String get bragLineNotLuck => 'Não é sorte. É talento.';
-
-  @override
-  String get bragLineYourMove => 'A tua vez.';
-
-  @override
-  String get bragLineToldYouSo => 'Eu bem te disse.';
-
-  @override
-  String get bragLineLookEasy => 'Faço isto parecer fácil.';
-
-  @override
-  String get bragLineUpOnly => 'Só a subir.';
-
-  @override
-  String get bragLineSmallWins =>
-      'Pequenos ganhos contam. Ainda melhor que tu.';
-
-  @override
-  String get bragLineDownBad => 'Bem em baixo. Volto já.';
-
-  @override
-  String get bragLineCharacter => 'Isto forma o carácter.';
-
-  @override
-  String get bragLineBuyTheDip => 'Compra na queda, diziam eles.';
-
-  @override
-  String get bragLinePatience => 'Paciência também é uma posição.';
-
-  @override
   String get bragAboutIt => 'Gabe-se disso';
 
   @override
@@ -12213,6 +12179,79 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Resgata no Kute';
+
+  @override
+  String get shareEdgeStockEarly =>
+      'Alguns de nós compram antes das manchetes.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'A subir $change. De nada.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Eu bem avisei.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Desconto, não desastre.';
+
+  @override
+  String get shareEdgeStockPanic => 'A comprar enquanto entras em pânico.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance diz: cedo, não errado.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance da malta está enganada.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Aposta contra mim. Desafio-te.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'As sondagens são opiniões. Isto é dinheiro.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome ou nada.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Gasta com cabeça. Ou não.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Considera isto um flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Bitcoin grátis. Coisa rara.';
+
+  @override
+  String get shareEdgeBragPattern => 'Não é sorte. É ler padrões.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount enquanto fazias scroll.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => 'Bem em baixo, ainda a negociar.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'A construir carácter, $amount de cada vez.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Paciência também é uma posição.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return 'Probabilidade de $outcome';
   }
@@ -12230,43 +12269,6 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Não';
-
-  @override
-  String get shareCardLineClaimIt => 'Resgata antes que eu mude de ideias.';
-
-  @override
-  String get shareCardLineDontSpend => 'É teu. Não gastes tudo em memes.';
-
-  @override
-  String get shareCardLineFreeMoney => 'Dinheiro grátis. É raro. Resgata.';
-
-  @override
-  String get shareCardLineTrustMe => 'Nesta, confia em mim.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Eu já sei como isto acaba.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Dinheiro fácil. Acho eu.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Esta vai longe.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Compra alto, vende mais alto.';
-
-  @override
-  String get shareCardLineBetterTaste =>
-      'Não é conselho financeiro. É bom gosto.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'O que achas?';
-
-  @override
-  String get shareCardLineYourCall => 'Tu decides.';
-
-  @override
-  String get shareCardLinePickASide => 'Escolhe um lado.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

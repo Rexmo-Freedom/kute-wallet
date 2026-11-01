@@ -10509,39 +10509,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get bragSinceYouBought => 'Vétel óta';
 
   @override
-  String get bragLineBeatThat => 'Ezt übereld.';
-
-  @override
-  String get bragLineNotLuck => 'Nem szerencse. Tehetség.';
-
-  @override
-  String get bragLineYourMove => 'Te jössz.';
-
-  @override
-  String get bragLineToldYouSo => 'Megmondtam.';
-
-  @override
-  String get bragLineLookEasy => 'Nekem ez gyerekjáték.';
-
-  @override
-  String get bragLineUpOnly => 'Csak felfelé.';
-
-  @override
-  String get bragLineSmallWins => 'Kicsi, de számít. Még mindig jobb, mint te.';
-
-  @override
-  String get bragLineDownBad => 'Most mínuszban. Hamarosan visszajövök.';
-
-  @override
-  String get bragLineCharacter => 'Jellemfejlesztés.';
-
-  @override
-  String get bragLineBuyTheDip => '„Vegyél a mélyponton”, mondták.';
-
-  @override
-  String get bragLinePatience => 'A türelem is pozíció.';
-
-  @override
   String get bragAboutIt => 'Dicsekedj vele';
 
   @override
@@ -12194,6 +12161,79 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Vedd át a Kute-ban';
+
+  @override
+  String get shareEdgeStockEarly => 'Néhányan még a szalagcímek előtt vesznek.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return '$change plusz. Szívesen.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Megmondtam.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Leárazás, nem katasztrófa.';
+
+  @override
+  String get shareEdgeStockPanic => 'Veszek, amíg te pánikolsz.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance szerint korán vagyok, nem tévedek.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return 'A tömeg $chance-a téved.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Fogadj ellenem. Ha mersz.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'A közvélemény-kutatás vélemény. Ez itt pénz.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome vagy semmi.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Költsd okosan. Vagy ne.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Tekintsd ezt flexnek.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Ingyen bitcoin. Ritka látvány.';
+
+  @override
+  String get shareEdgeBragPattern => 'Nem szerencse. Mintafelismerés.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, amíg te görgettél.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Mélyen mínuszban, de még kereskedem.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Jellemformálás, $amount egyszerre.';
+  }
+
+  @override
+  String get shareEdgePatience => 'A türelem is pozíció.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return '$outcome: esély';
   }
@@ -12211,43 +12251,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Nem';
-
-  @override
-  String get shareCardLineClaimIt => 'Vedd át, mielőtt meggondolom magam.';
-
-  @override
-  String get shareCardLineDontSpend => 'A tiéd. Ne költsd el mind mémekre.';
-
-  @override
-  String get shareCardLineFreeMoney => 'Ingyen pénz. Ritka. Vedd át.';
-
-  @override
-  String get shareCardLineTrustMe => 'Ebben bízz bennem.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Én már tudom, mi lesz a vége.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Könnyű pénz. Valószínűleg.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Ez még messzire jut.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Vegyél drágán, adj el még drágábban.';
-
-  @override
-  String get shareCardLineBetterTaste =>
-      'Nem befektetési tanács. Csak jobb ízlés.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'Te mit gondolsz?';
-
-  @override
-  String get shareCardLineYourCall => 'Te döntesz.';
-
-  @override
-  String get shareCardLinePickASide => 'Válassz oldalt.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

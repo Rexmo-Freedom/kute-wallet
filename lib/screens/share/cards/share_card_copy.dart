@@ -14,9 +14,15 @@
 //     else "47% say yes", and "{Outcome}: {chance} chance" when nothing
 //     fits. Built only from the market's own data: the market's odds,
 //     never our opinion.
-//   * SAL'S LINE: the playful one-liner, a pool per card, the message's
-//     line after the headline ([shareCardMessage]); the preview picks a
-//     seed once on open. PG: the message leaves the phone.
+//   * THE EDGY LINE ON THE CARD (founder, 1 November 2026: "make it
+//     interesting to share"): one short deadpan line per card, built from
+//     its figures, a pool per sign and topic ([shareCardEdges]: a stock up
+//     "Up 3.4%. You're welcome.", down "Discount, not disaster.", a
+//     prediction "47% says I'm early, not wrong.", politics "Polls are
+//     opinions. This is money.", a send "Spend it wisely. Or don't.");
+//     the preview picks a seed once on open. PG: it leaves the phone; no
+//     profanity, no slurs, nothing about real people beyond the market's
+//     own subject. The share message does not repeat it.
 //   * THE CAPS LINE at the top of the card ([shareCardTopLine]): "For
 //     Daniel", "Ana, a pick for you", the recipient's "Daniel, a friend
 //     sent you", or the venue on a market shared without a link.
@@ -43,7 +49,8 @@ String shareCardChance(String locale, double chance) {
 
 /// [fraction] (0.034) unsigned with one decimal: "3.4%", "3,4 %".
 String shareCardChangeAbs(String locale, double fraction) =>
-    NumberFormat.decimalPercentPattern(locale: _locale(locale), decimalDigits: 1)
+    NumberFormat.decimalPercentPattern(
+            locale: _locale(locale), decimalDigits: 1)
         .format(fraction.abs());
 
 /// [fraction] signed: "+3.4%", "−1.2%".
@@ -60,16 +67,15 @@ String shareCardPrice(String locale, double price, {int? decimalCap}) =>
         .format(price);
 
 /// Dollars from cents: "$10" when whole, else "$10.50".
-String shareCardUsdCents(String locale, int cents) =>
-    NumberFormat.currency(
+String shareCardUsdCents(String locale, int cents) => NumberFormat.currency(
             locale: _locale(locale),
             symbol: r'$',
             decimalDigits: cents % 100 == 0 ? 0 : 2)
         .format(cents / 100);
 
 /// Dollars from cents with the cents always: "$10.00".
-String shareCardUsdCentsFull(String locale, int cents) =>
-    NumberFormat.currency(locale: _locale(locale), symbol: r'$', decimalDigits: 2)
+String shareCardUsdCentsFull(String locale, int cents) => NumberFormat.currency(
+        locale: _locale(locale), symbol: r'$', decimalDigits: 2)
         .format(cents / 100);
 
 String _locale(String locale) {
@@ -112,7 +118,8 @@ ShareCardHeadlineText? predictionHeadline(
     case ShareCardTopic.sports:
       if (named) {
         final opp = d.opponent?.trim();
-        if (!d.leading) return h(l10n.shareCardHeadlineSportsToWin(outcome, c), c);
+        if (!d.leading)
+          return h(l10n.shareCardHeadlineSportsToWin(outcome, c), c);
         return opp != null && opp.isNotEmpty
             ? h(l10n.shareCardHeadlineSportsVs(outcome, c, opp), c)
             : h(l10n.shareCardHeadlineSportsFav(outcome, c), c);
@@ -167,8 +174,14 @@ ShareCardHeadlineText? investmentHeadline(
   final unit = _unitOf(d);
   if (category == 'commodities' || unit != _Unit.none) {
     return switch (unit) {
-      _Unit.barrel => (text: l10n.shareCardHeadlineBarrel(name, p), emphasis: [p]),
-      _Unit.ounce => (text: l10n.shareCardHeadlineOunce(name, p), emphasis: [p]),
+      _Unit.barrel => (
+          text: l10n.shareCardHeadlineBarrel(name, p),
+          emphasis: [p]
+        ),
+      _Unit.ounce => (
+          text: l10n.shareCardHeadlineOunce(name, p),
+          emphasis: [p]
+        ),
       _Unit.none => (text: l10n.shareCardHeadlineAt(name, p), emphasis: [p]),
     };
   }
@@ -182,35 +195,56 @@ ShareCardHeadlineText? investmentHeadline(
       : (text: l10n.shareCardHeadlineDown(name, p, ch), emphasis: [p, ch]);
 }
 
-/// Sal's lines for [data] (see the file header).
-List<String> shareCardLines(AppLocalizations l10n, ShareCardData data) {
-  return switch (data) {
-    MoneyCardData() => [
-        l10n.shareCardLineClaimIt,
-        l10n.shareCardLineDontSpend,
-        l10n.shareCardLineFreeMoney,
-      ],
-    PredictionCardData(picked: true) => [
-        l10n.shareCardLineTrustMe,
-        l10n.shareCardLineKnowEnding,
-        l10n.shareCardLineEasyMoney,
-      ],
-    PredictionCardData() => [
-        l10n.shareCardLineWhatDoYouThink,
-        l10n.shareCardLineYourCall,
-        l10n.shareCardLinePickASide,
-      ],
-    InvestmentCardData() => [
-        l10n.shareCardLineGoingPlaces,
-        l10n.shareCardLineBuyHigh,
-        l10n.shareCardLineBetterTaste,
-      ],
-  };
+/// The edgy lines that may go on [data]'s card (see the file header),
+/// built from its own figures: a stock's sign and change, a prediction's
+/// chance and topic, a send's asset.
+List<String> shareCardEdges(AppLocalizations l10n, ShareCardData data) {
+  final loc = l10n.localeName;
+  switch (data) {
+    case final MoneyCardData d:
+      return [
+        l10n.shareEdgeMoneyWisely,
+        l10n.shareEdgeMoneyFlex,
+        if (d.bitcoin) l10n.shareEdgeMoneyBitcoin,
+      ];
+    case final PredictionCardData d:
+      final chance = d.chance?.clamp(0.0, 100.0);
+      final outcome = shareCardOutcome(l10n, d.outcome);
+      return [
+        // "47% says I'm early": only for the underdog.
+        if (chance != null && chance < 50)
+          l10n.shareEdgePredictionEarly(shareCardChance(loc, chance)),
+        // "The crowd is 53% wrong": everyone not on this side, from the
+        // whole percent the card shows, so the two add up to 100.
+        if (chance != null && chance.round() <= 99)
+          l10n.shareEdgePredictionCrowd(
+              shareCardChance(loc, 100.0 - chance.round())),
+        l10n.shareEdgePredictionDare,
+        if (d.topic == ShareCardTopic.politics)
+          l10n.shareEdgePredictionPolitics,
+        if (d.topic == ShareCardTopic.sports && !d.binary)
+          l10n.shareEdgePredictionSports(outcome),
+      ];
+    case final InvestmentCardData d:
+      final change = d.change;
+      if (change == null || change.abs() < 0.0005) {
+        return [l10n.shareEdgeStockEarly, l10n.shareEdgePatience];
+      }
+      if (change > 0) {
+        return [
+          l10n.shareEdgeStockEarly,
+          l10n.shareEdgeStockWelcome(shareCardChangeAbs(loc, change)),
+          l10n.shareEdgeStockToldYou(d.title),
+        ];
+      }
+      return [l10n.shareEdgeStockDiscount, l10n.shareEdgeStockPanic];
+  }
 }
 
-/// The line for [data] at [seed] (any int).
-String shareCardLine(AppLocalizations l10n, ShareCardData data, int seed) {
-  final pool = shareCardLines(l10n, data);
+/// The edgy line for [data] at [seed] (any int: the preview's random pick
+/// on open, so each share may read differently).
+String shareCardEdge(AppLocalizations l10n, ShareCardData data, int seed) {
+  final pool = shareCardEdges(l10n, data);
   return pool[seed.abs() % pool.length];
 }
 
@@ -228,7 +262,9 @@ String shareCardTopLine(AppLocalizations l10n, ShareCardData data) {
   }
   if (data is MoneyCardData) {
     if (recipient) {
-      return n.isEmpty ? l10n.claimCardFromFriend : l10n.claimCardFromFriendNamed(n);
+      return n.isEmpty
+          ? l10n.claimCardFromFriend
+          : l10n.claimCardFromFriendNamed(n);
     }
     return n.isEmpty ? l10n.shareCardForYou : l10n.shareCardForNamed(n);
   }
@@ -248,16 +284,15 @@ ShareCardHeadlineText? shareCardHeadline(
       final InvestmentCardData d => investmentHeadline(l10n, d),
     };
 
-/// The share message: the headline first, Sal's line (at [seed]) after
-/// it, then [message] (the entry point's own text, with the link). A card
-/// without a headline (money) leads with [message] and Sal follows.
+/// The share message: the headline first, then [message] (the entry
+/// point's own text, with the link). A card without a headline (money)
+/// is [message] alone. The edgy line is on the card, so the message never
+/// says it again.
 String shareCardMessage(
-    AppLocalizations l10n, ShareCardData data, int seed, String message) {
+    AppLocalizations l10n, ShareCardData data, String message) {
   final headline = shareCardHeadline(l10n, data)?.text;
-  final line = shareCardLine(l10n, data, seed);
   return [
-    headline ?? message,
-    line,
-    if (headline != null) message,
+    if (headline != null) headline,
+    message,
   ].join('\n');
 }

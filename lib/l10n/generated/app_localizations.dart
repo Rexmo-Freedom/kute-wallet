@@ -17939,72 +17939,6 @@ abstract class AppLocalizations {
   /// **'Since you bought'**
   String get bragSinceYouBought;
 
-  /// Brag card one-liner (Sal, cocky; PG, it leaves the phone): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Beat that.'**
-  String get bragLineBeatThat;
-
-  /// Brag card one-liner (Sal, cocky; PG): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Not luck. Talent.'**
-  String get bragLineNotLuck;
-
-  /// Brag card one-liner (Sal, cocky; PG): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Your move.'**
-  String get bragLineYourMove;
-
-  /// Brag card one-liner (Sal, cocky; PG): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Told you so.'**
-  String get bragLineToldYouSo;
-
-  /// Brag card one-liner (Sal, cocky; PG): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'I make this look easy.'**
-  String get bragLineLookEasy;
-
-  /// Brag card one-liner (Sal, cocky; PG): a gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Up only.'**
-  String get bragLineUpOnly;
-
-  /// Brag card one-liner (Sal, cocky; PG): a small gain.
-  ///
-  /// In en, this message translates to:
-  /// **'Small wins still count. Still better than you.'**
-  String get bragLineSmallWins;
-
-  /// Brag card one-liner (Sal, unbothered; PG): a loss.
-  ///
-  /// In en, this message translates to:
-  /// **'Down bad. Back soon.'**
-  String get bragLineDownBad;
-
-  /// Brag card one-liner (Sal, unbothered; PG): a loss.
-  ///
-  /// In en, this message translates to:
-  /// **'Character building.'**
-  String get bragLineCharacter;
-
-  /// Brag card one-liner (Sal, unbothered; PG): a loss.
-  ///
-  /// In en, this message translates to:
-  /// **'Buy the dip, they said.'**
-  String get bragLineBuyTheDip;
-
-  /// Brag card one-liner (Sal, deadpan; PG): a flat result.
-  ///
-  /// In en, this message translates to:
-  /// **'Patience is a position.'**
-  String get bragLinePatience;
-
   /// Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview.
   ///
   /// In en, this message translates to:
@@ -20461,6 +20395,120 @@ abstract class AppLocalizations {
   /// **'in bitcoin · {amount}'**
   String shareCardInBitcoin(String amount);
 
+  /// Send-money share card: the quiet muted line over the footer inviting the recipient to claim the money in the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim it on Kute'**
+  String get shareCardClaimOnKute;
+
+  /// Edgy line written on an Investing share card (deadpan, PG): any stock or index.
+  ///
+  /// In en, this message translates to:
+  /// **'Some of us buy before the headlines.'**
+  String get shareEdgeStockEarly;
+
+  /// Edgy line on an Investing share card when it is up today. {change} is today's change, unsigned, e.g. '3.4%'.
+  ///
+  /// In en, this message translates to:
+  /// **'Up {change}. You\'re welcome.'**
+  String shareEdgeStockWelcome(String change);
+
+  /// Edgy line on an Investing share card when it is up today. {name} is the market's name, e.g. 'Tesla'.
+  ///
+  /// In en, this message translates to:
+  /// **'Told you {name}.'**
+  String shareEdgeStockToldYou(String name);
+
+  /// Edgy line on an Investing share card when it is down today (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Discount, not disaster.'**
+  String get shareEdgeStockDiscount;
+
+  /// Edgy line on an Investing share card when it is down today (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Buying while you panic.'**
+  String get shareEdgeStockPanic;
+
+  /// Edgy line on a prediction share card for an outcome under 50%. {chance} is its chance, e.g. '47%'.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance} says I\'m early, not wrong.'**
+  String shareEdgePredictionEarly(String chance);
+
+  /// Edgy line on a prediction share card. {chance} is the share of the crowd on the other side (100% minus the outcome's chance), e.g. '53%'.
+  ///
+  /// In en, this message translates to:
+  /// **'The crowd is {chance} wrong.'**
+  String shareEdgePredictionCrowd(String chance);
+
+  /// Edgy line on a prediction share card (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Bet against me. I dare you.'**
+  String get shareEdgePredictionDare;
+
+  /// Edgy line on a politics prediction share card (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Polls are opinions. This is money.'**
+  String get shareEdgePredictionPolitics;
+
+  /// Edgy line on a sports prediction share card. {outcome} is the team picked, e.g. 'Gen.G'.
+  ///
+  /// In en, this message translates to:
+  /// **'{outcome} or bust.'**
+  String shareEdgePredictionSports(String outcome);
+
+  /// Edgy line on a send-money share card (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Spend it wisely. Or don\'t.'**
+  String get shareEdgeMoneyWisely;
+
+  /// Edgy line on a send-money share card (deadpan, PG): the sender showing off.
+  ///
+  /// In en, this message translates to:
+  /// **'Consider this a flex.'**
+  String get shareEdgeMoneyFlex;
+
+  /// Edgy line on a send-bitcoin share card (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Free bitcoin. Rare sight.'**
+  String get shareEdgeMoneyBitcoin;
+
+  /// Edgy line on a brag card in profit (cocky, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Not luck. Pattern recognition.'**
+  String get shareEdgeBragPattern;
+
+  /// Edgy line on a brag card in profit. {amount} is the signed profit, e.g. '+$412.35'.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} while you were scrolling.'**
+  String shareEdgeBragScrolling(String amount);
+
+  /// Edgy line on a brag card at a loss (unbothered, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Down bad, still trading.'**
+  String get shareEdgeBragStillTrading;
+
+  /// Edgy line on a brag card at a loss. {amount} is the loss without its sign, e.g. '$23.00'.
+  ///
+  /// In en, this message translates to:
+  /// **'Character building, {amount} at a time.'**
+  String shareEdgeBragCharacter(String amount);
+
+  /// Edgy line on a share or brag card with a flat result (deadpan, PG).
+  ///
+  /// In en, this message translates to:
+  /// **'Patience is a position.'**
+  String get shareEdgePatience;
+
   /// Prediction share card: the muted line under the big chance ('47%'). {outcome} is the outcome ('Gen.G', 'Yes').
   ///
   /// In en, this message translates to:
@@ -20490,78 +20538,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No'**
   String get shareCardOutcomeNo;
-
-  /// Sal the dog's playful one-liner in the share message of a send-money card (PG, the message leaves the phone).
-  ///
-  /// In en, this message translates to:
-  /// **'Claim it before I change my mind.'**
-  String get shareCardLineClaimIt;
-
-  /// Sal's playful one-liner on a send-money card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'It\'s yours. Don\'t spend it all on memes.'**
-  String get shareCardLineDontSpend;
-
-  /// Sal's playful one-liner on a send-money card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Free money. Rare. Claim it.'**
-  String get shareCardLineFreeMoney;
-
-  /// Sal's cocky one-liner on a prediction pick card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Trust me on this one.'**
-  String get shareCardLineTrustMe;
-
-  /// Sal's cocky one-liner on a prediction pick card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'I already know how this ends.'**
-  String get shareCardLineKnowEnding;
-
-  /// Sal's cocky, self-aware one-liner on a prediction pick card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Easy money. Probably.'**
-  String get shareCardLineEasyMoney;
-
-  /// Sal's one-liner on a stock / investment card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'This one\'s going places.'**
-  String get shareCardLineGoingPlaces;
-
-  /// Sal's tongue-in-cheek one-liner on a stock card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Buy high, sell higher.'**
-  String get shareCardLineBuyHigh;
-
-  /// Sal's tongue-in-cheek one-liner on a stock card (PG).
-  ///
-  /// In en, this message translates to:
-  /// **'Not financial advice. Just better taste.'**
-  String get shareCardLineBetterTaste;
-
-  /// Sal's one-liner on a prediction market card with no pick: asks the reader's opinion.
-  ///
-  /// In en, this message translates to:
-  /// **'What do you think?'**
-  String get shareCardLineWhatDoYouThink;
-
-  /// Sal's one-liner on a prediction market card with no pick.
-  ///
-  /// In en, this message translates to:
-  /// **'Your call.'**
-  String get shareCardLineYourCall;
-
-  /// Sal's one-liner on a prediction market card with no pick.
-  ///
-  /// In en, this message translates to:
-  /// **'Pick a side.'**
-  String get shareCardLinePickASide;
 
   /// Stock card headline: a clear neutral fact. {name} e.g. 'Tesla', {price} e.g. '$242.10', {change} an unsigned percent e.g. '3.4%'.
   ///

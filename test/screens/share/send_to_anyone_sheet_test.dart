@@ -91,8 +91,7 @@ void main() {
     expect(
         shared.single,
         'Ana, I sent you \$12.00 with Kute. Claim it here: '
-        'https://web.test/c/lnk_1\n'
-        'Claim it before I change my mind.');
+        'https://web.test/c/lnk_1');
     expect(images.single.mimeType, 'image/png');
     final bytes = await tester.runAsync(images.single.readAsBytes) as Uint8List;
     expect(bytes.sublist(0, 4), [0x89, 0x50, 0x4E, 0x47]);
@@ -137,8 +136,7 @@ void main() {
     expect(
         shared.single,
         'I sent you \$5.00 with Kute. Claim it here: '
-        'https://web.test/c/lnk_1\n'
-        'Claim it before I change my mind.');
+        'https://web.test/c/lnk_1');
     expect(find.text('Link sent · waiting to be claimed'), findsOneWidget);
     expect(env.paramsOf('share_link_created').single,
         containsPair('market', 'will-it-rain'));
@@ -197,8 +195,7 @@ void main() {
     expect(
         shared.single,
         'Ana, I sent you a prediction on Kute: Yes on Gemini Carbon, '
-        '\$20.00. Claim it: https://web.test/c/lnk_1\n'
-        'Trust me on this one.');
+        '\$20.00. Claim it: https://web.test/c/lnk_1');
     final row = ShareLinksStore.byId('lnk_1')!;
     expect(row.outcome, 'Yes');
     expect(row.marketTitle, 'Gemini Carbon');
@@ -242,8 +239,7 @@ void main() {
     expect(
         shared.single,
         'I sent you an investment on Kute: Long on BTC, \$5.00. '
-        'Claim it: https://web.test/c/lnk_1\n'
-        "This one's going places.");
+        'Claim it: https://web.test/c/lnk_1');
   });
 
   testWidgets('a backend failure keeps the name step with a note',

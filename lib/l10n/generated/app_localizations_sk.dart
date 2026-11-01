@@ -10491,40 +10491,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get bragSinceYouBought => 'Od nákupu';
 
   @override
-  String get bragLineBeatThat => 'Prekonaj to.';
-
-  @override
-  String get bragLineNotLuck => 'Žiadne šťastie. Talent.';
-
-  @override
-  String get bragLineYourMove => 'Si na ťahu.';
-
-  @override
-  String get bragLineToldYouSo => 'Hovoril som to.';
-
-  @override
-  String get bragLineLookEasy => 'U mňa to vyzerá ľahko.';
-
-  @override
-  String get bragLineUpOnly => 'Len hore.';
-
-  @override
-  String get bragLineSmallWins =>
-      'Aj malé výhry sa rátajú. Stále lepšie ako ty.';
-
-  @override
-  String get bragLineDownBad => 'Teraz v mínuse. Čoskoro späť.';
-
-  @override
-  String get bragLineCharacter => 'Buduje to charakter.';
-
-  @override
-  String get bragLineBuyTheDip => 'Kupuj prepady, vraveli.';
-
-  @override
-  String get bragLinePatience => 'Trpezlivosť je tiež pozícia.';
-
-  @override
   String get bragAboutIt => 'Pochváľ sa tým';
 
   @override
@@ -12181,6 +12147,78 @@ class AppLocalizationsSk extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Vyzdvihni si to v Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Niektorí z nás nakupujú pred titulkami.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Hore o $change. Niet začo.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Kto počúval, zarobil.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Zľava, nie katastrofa.';
+
+  @override
+  String get shareEdgeStockPanic => 'Nakupujem, kým ty panikáriš.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance hovorí, že som popredu, nie vedľa.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance davu sa mýli.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Stav proti mne. Trúfneš si?';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Prieskumy sú názory. Toto sú peniaze.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome, alebo nič.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Míňaj s rozumom. Alebo nie.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Ber to ako flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Bitcoin zadarmo. Vzácny pohľad.';
+
+  @override
+  String get shareEdgeBragPattern => 'Žiadne šťastie. Rozpoznávanie vzorcov.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, a ty stále scrolluješ.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => 'Hlboko v mínuse, stále obchodujem.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Budovanie charakteru, po $amount.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Trpezlivosť je tiež pozícia.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return 'Šanca na $outcome';
   }
@@ -12198,44 +12236,6 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Nie';
-
-  @override
-  String get shareCardLineClaimIt => 'Vyzdvihni si to, kým si to rozmyslím.';
-
-  @override
-  String get shareCardLineDontSpend => 'Je to tvoje. Nemíňaj všetko na memy.';
-
-  @override
-  String get shareCardLineFreeMoney =>
-      'Peniaze zadarmo. Vzácnosť. Vyzdvihni si ich.';
-
-  @override
-  String get shareCardLineTrustMe => 'Tu mi ver.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Ja už viem, ako to dopadne.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Ľahké peniaze. Asi.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Toto to dotiahne ďaleko.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Kúp draho, predaj drahšie.';
-
-  @override
-  String get shareCardLineBetterTaste =>
-      'Nie je to finančná rada. Len lepší vkus.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'Čo myslíš?';
-
-  @override
-  String get shareCardLineYourCall => 'Je to na tebe.';
-
-  @override
-  String get shareCardLinePickASide => 'Vyber si stranu.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

@@ -6761,50 +6761,6 @@
   "@bragSinceYouBought": {
     "description": "Position brag card: the line under the big P&L ('Since you bought · +42%'); the result is since the buy."
   },
-  "bragLineBeatThat": "Beat that.",
-  "@bragLineBeatThat": {
-    "description": "Brag card one-liner (Sal, cocky; PG, it leaves the phone): a gain."
-  },
-  "bragLineNotLuck": "Not luck. Talent.",
-  "@bragLineNotLuck": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
-  },
-  "bragLineYourMove": "Your move.",
-  "@bragLineYourMove": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
-  },
-  "bragLineToldYouSo": "Told you so.",
-  "@bragLineToldYouSo": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
-  },
-  "bragLineLookEasy": "I make this look easy.",
-  "@bragLineLookEasy": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
-  },
-  "bragLineUpOnly": "Up only.",
-  "@bragLineUpOnly": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a gain."
-  },
-  "bragLineSmallWins": "Small wins still count. Still better than you.",
-  "@bragLineSmallWins": {
-    "description": "Brag card one-liner (Sal, cocky; PG): a small gain."
-  },
-  "bragLineDownBad": "Down bad. Back soon.",
-  "@bragLineDownBad": {
-    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
-  },
-  "bragLineCharacter": "Character building.",
-  "@bragLineCharacter": {
-    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
-  },
-  "bragLineBuyTheDip": "Buy the dip, they said.",
-  "@bragLineBuyTheDip": {
-    "description": "Brag card one-liner (Sal, unbothered; PG): a loss."
-  },
-  "bragLinePatience": "Patience is a position.",
-  "@bragLinePatience": {
-    "description": "Brag card one-liner (Sal, deadpan; PG): a flat result."
-  },
   "bragAboutIt": "Brag about it",
   "@bragAboutIt": {
     "description": "Open position page in profit: the title of the share card under the value tiles, opening the position's brag card preview."
@@ -9170,6 +9126,117 @@
       }
     }
   },
+  "shareCardClaimOnKute": "Claim it on Kute",
+  "@shareCardClaimOnKute": {
+    "description": "Send-money share card: the quiet muted line over the footer inviting the recipient to claim the money in the app."
+  },
+  "shareEdgeStockEarly": "Some of us buy before the headlines.",
+  "@shareEdgeStockEarly": {
+    "description": "Edgy line written on an Investing share card (deadpan, PG): any stock or index."
+  },
+  "shareEdgeStockWelcome": "Up {change}. You're welcome.",
+  "@shareEdgeStockWelcome": {
+    "description": "Edgy line on an Investing share card when it is up today. {change} is today's change, unsigned, e.g. '3.4%'.",
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockToldYou": "Told you {name}.",
+  "@shareEdgeStockToldYou": {
+    "description": "Edgy line on an Investing share card when it is up today. {name} is the market's name, e.g. 'Tesla'.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeStockDiscount": "Discount, not disaster.",
+  "@shareEdgeStockDiscount": {
+    "description": "Edgy line on an Investing share card when it is down today (deadpan, PG)."
+  },
+  "shareEdgeStockPanic": "Buying while you panic.",
+  "@shareEdgeStockPanic": {
+    "description": "Edgy line on an Investing share card when it is down today (deadpan, PG)."
+  },
+  "shareEdgePredictionEarly": "{chance} says I'm early, not wrong.",
+  "@shareEdgePredictionEarly": {
+    "description": "Edgy line on a prediction share card for an outcome under 50%. {chance} is its chance, e.g. '47%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePredictionCrowd": "The crowd is {chance} wrong.",
+  "@shareEdgePredictionCrowd": {
+    "description": "Edgy line on a prediction share card. {chance} is the share of the crowd on the other side (100% minus the outcome's chance), e.g. '53%'.",
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePredictionDare": "Bet against me. I dare you.",
+  "@shareEdgePredictionDare": {
+    "description": "Edgy line on a prediction share card (deadpan, PG)."
+  },
+  "shareEdgePredictionPolitics": "Polls are opinions. This is money.",
+  "@shareEdgePredictionPolitics": {
+    "description": "Edgy line on a politics prediction share card (deadpan, PG)."
+  },
+  "shareEdgePredictionSports": "{outcome} or bust.",
+  "@shareEdgePredictionSports": {
+    "description": "Edgy line on a sports prediction share card. {outcome} is the team picked, e.g. 'Gen.G'.",
+    "placeholders": {
+      "outcome": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeMoneyWisely": "Spend it wisely. Or don't.",
+  "@shareEdgeMoneyWisely": {
+    "description": "Edgy line on a send-money share card (deadpan, PG)."
+  },
+  "shareEdgeMoneyFlex": "Consider this a flex.",
+  "@shareEdgeMoneyFlex": {
+    "description": "Edgy line on a send-money share card (deadpan, PG): the sender showing off."
+  },
+  "shareEdgeMoneyBitcoin": "Free bitcoin. Rare sight.",
+  "@shareEdgeMoneyBitcoin": {
+    "description": "Edgy line on a send-bitcoin share card (deadpan, PG)."
+  },
+  "shareEdgeBragPattern": "Not luck. Pattern recognition.",
+  "@shareEdgeBragPattern": {
+    "description": "Edgy line on a brag card in profit (cocky, PG)."
+  },
+  "shareEdgeBragScrolling": "{amount} while you were scrolling.",
+  "@shareEdgeBragScrolling": {
+    "description": "Edgy line on a brag card in profit. {amount} is the signed profit, e.g. '+$412.35'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgeBragStillTrading": "Down bad, still trading.",
+  "@shareEdgeBragStillTrading": {
+    "description": "Edgy line on a brag card at a loss (unbothered, PG)."
+  },
+  "shareEdgeBragCharacter": "Character building, {amount} at a time.",
+  "@shareEdgeBragCharacter": {
+    "description": "Edgy line on a brag card at a loss. {amount} is the loss without its sign, e.g. '$23.00'.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "shareEdgePatience": "Patience is a position.",
+  "@shareEdgePatience": {
+    "description": "Edgy line on a share or brag card with a flat result (deadpan, PG)."
+  },
   "shareCardChanceOf": "Chance of {outcome}",
   "@shareCardChanceOf": {
     "description": "Prediction share card: the muted line under the big chance ('47%'). {outcome} is the outcome ('Gen.G', 'Yes').",
@@ -9202,54 +9269,6 @@
   "shareCardOutcomeNo": "No",
   "@shareCardOutcomeNo": {
     "description": "Prediction share card: the No outcome of a yes/no market."
-  },
-  "shareCardLineClaimIt": "Claim it before I change my mind.",
-  "@shareCardLineClaimIt": {
-    "description": "Sal the dog's playful one-liner in the share message of a send-money card (PG, the message leaves the phone)."
-  },
-  "shareCardLineDontSpend": "It's yours. Don't spend it all on memes.",
-  "@shareCardLineDontSpend": {
-    "description": "Sal's playful one-liner on a send-money card (PG)."
-  },
-  "shareCardLineFreeMoney": "Free money. Rare. Claim it.",
-  "@shareCardLineFreeMoney": {
-    "description": "Sal's playful one-liner on a send-money card (PG)."
-  },
-  "shareCardLineTrustMe": "Trust me on this one.",
-  "@shareCardLineTrustMe": {
-    "description": "Sal's cocky one-liner on a prediction pick card (PG)."
-  },
-  "shareCardLineKnowEnding": "I already know how this ends.",
-  "@shareCardLineKnowEnding": {
-    "description": "Sal's cocky one-liner on a prediction pick card (PG)."
-  },
-  "shareCardLineEasyMoney": "Easy money. Probably.",
-  "@shareCardLineEasyMoney": {
-    "description": "Sal's cocky, self-aware one-liner on a prediction pick card (PG)."
-  },
-  "shareCardLineGoingPlaces": "This one's going places.",
-  "@shareCardLineGoingPlaces": {
-    "description": "Sal's one-liner on a stock / investment card (PG)."
-  },
-  "shareCardLineBuyHigh": "Buy high, sell higher.",
-  "@shareCardLineBuyHigh": {
-    "description": "Sal's tongue-in-cheek one-liner on a stock card (PG)."
-  },
-  "shareCardLineBetterTaste": "Not financial advice. Just better taste.",
-  "@shareCardLineBetterTaste": {
-    "description": "Sal's tongue-in-cheek one-liner on a stock card (PG)."
-  },
-  "shareCardLineWhatDoYouThink": "What do you think?",
-  "@shareCardLineWhatDoYouThink": {
-    "description": "Sal's one-liner on a prediction market card with no pick: asks the reader's opinion."
-  },
-  "shareCardLineYourCall": "Your call.",
-  "@shareCardLineYourCall": {
-    "description": "Sal's one-liner on a prediction market card with no pick."
-  },
-  "shareCardLinePickASide": "Pick a side.",
-  "@shareCardLinePickASide": {
-    "description": "Sal's one-liner on a prediction market card with no pick."
   },
   "shareCardHeadlineUp": "{name} is {price}, up {change} today",
   "@shareCardHeadlineUp": {

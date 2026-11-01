@@ -23,7 +23,8 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
-import 'package:kute/models/polymarket_model.dart' show PolymarketEvent;
+import 'package:kute/models/polymarket_model.dart'
+    show PolymarketEvent, PolymarketOutcome;
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
     show hyperliquidLiveMidProvider;
@@ -115,8 +116,8 @@ PredictionCardData predictionCardFor(
   }
   if (event == null || event.outcomes.isEmpty) {
     final label = outcome?.trim() ?? '';
-    final binary = label.isEmpty ||
-        const {'yes', 'no'}.contains(label.toLowerCase());
+    final binary =
+        label.isEmpty || const {'yes', 'no'}.contains(label.toLowerCase());
     return PredictionCardData(
       question: title,
       outcome: label.isEmpty ? 'Yes' : label,
@@ -139,6 +140,9 @@ PredictionCardData predictionCardFor(
   String? tokenId;
   var leading = true;
   String? opponent;
+  double? opponentChance;
+  String? outcomeImage;
+  String? opponentImage;
   if (binary) {
     final yes = e.yesPrice.clamp(0.0, 1.0);
     final want = outcome?.trim().toLowerCase();
@@ -170,14 +174,28 @@ PredictionCardData predictionCardFor(
         other = i;
       }
     }
-    if (other != null) opponent = outcomes[other].name.trim();
+    if (other != null) {
+      final rival = outcomes[other];
+      opponent = rival.name.trim();
+      opponentChance = rival.price.clamp(0.0, 1.0) * 100;
+    }
+    // Each side's own picture: its team crest, else its outcome image.
+    String? pictureOf(PolymarketOutcome x) {
+      final crest = PolymarketEvent.logoFromTeams(e.teams, x.name);
+      if (crest != null && crest.isNotEmpty) return crest;
+      final img = x.imageUrl;
+      return img != null && img.isNotEmpty ? img : null;
+    }
+
+    outcomeImage = pictureOf(o);
+    if (other != null) opponentImage = pictureOf(outcomes[other]);
   }
   List<double>? series;
   final t = tokenId;
   if (t != null && t.isNotEmpty) {
     try {
-      final points = watch(polymarketMarketHistoryProvider(
-              (tokenId: t, interval: '1w')))
+      final points =
+          watch(polymarketMarketHistoryProvider((tokenId: t, interval: '1w')))
           .valueOrNull;
       if (points != null && points.length >= 2) {
         series = shareCardThin([for (final p in points) p.price]);
@@ -195,6 +213,9 @@ PredictionCardData predictionCardFor(
     topic: shareCardTopicOf(e),
     leading: leading,
     opponent: binary ? null : opponent,
+    opponentChance: binary ? null : opponentChance,
+    outcomeImageUrl: outcomeImage,
+    opponentImageUrl: opponentImage,
     imageUrl: (image?.isNotEmpty ?? false) ? image : imageUrl,
     picked: picked,
     amount: amount,
@@ -260,7 +281,8 @@ InvestmentCardData investmentCardFor(
     mid = null;
   }
   final snapshot = m.midPx > 0 ? m.midPx : m.markPx;
-  final price = (mid != null && mid > 0) ? mid : (snapshot > 0 ? snapshot : null);
+  final price =
+      (mid != null && mid > 0) ? mid : (snapshot > 0 ? snapshot : null);
   final change = price != null && m.prevDayPx > 0
       ? (price - m.prevDayPx) / m.prevDayPx
       : null;
@@ -272,7 +294,8 @@ InvestmentCardData investmentCardFor(
           ? hlSparklineWithLivePrice(closes, price)
           : closes.where((v) => v > 0).toList();
       if (live.length >= 2) {
-        series = live.sublist(math.max(0, live.length - kShareCardSeriesPoints));
+        series =
+            live.sublist(math.max(0, live.length - kShareCardSeriesPoints));
       }
     }
   } catch (_) {
@@ -322,11 +345,11 @@ ShareCardData shareCardForLink(
   final slug = marketSlug?.trim() ?? '';
   final name = recipient?.trim().isEmpty ?? true ? null : recipient!.trim();
   final dollars = kind == ShareLinkKind.dollars;
-  final amount = dollars ? shareCardUsdCents(locale, amountMinor) : bitcoinAmount;
+  final amount =
+      dollars ? shareCardUsdCents(locale, amountMinor) : bitcoinAmount;
   if (pickLabel.isNotEmpty && slug.isNotEmpty) {
     if (venue == 'hyperliquid') {
-      final s = side ??
-          (pickLabel.toLowerCase() == 'short' ? 'short' : 'long');
+      final s = side ?? (pickLabel.toLowerCase() == 'short' ? 'short' : 'long');
       return investmentCardFor(
         watch,
         coin: slug,

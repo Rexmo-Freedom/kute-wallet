@@ -78,6 +78,9 @@ class PredictionCardData extends ShareCardData {
     this.topic = ShareCardTopic.other,
     this.leading = true,
     this.opponent,
+    this.opponentChance,
+    this.outcomeImageUrl,
+    this.opponentImageUrl,
     this.imageUrl,
     this.picked = false,
     this.amount,
@@ -109,6 +112,15 @@ class PredictionCardData extends ShareCardData {
   /// "vs T1".
   final String? opponent;
 
+  /// [opponent]'s own chance now, 0–100; null when unknown (a binary
+  /// market's other side is 100 − [chance], see [otherChance]).
+  final double? opponentChance;
+
+  /// [outcome]'s and [opponent]'s own pictures (a team's crest, a
+  /// candidate's portrait), for the odds bar's ends; null: none.
+  final String? outcomeImageUrl;
+  final String? opponentImageUrl;
+
   final String? imageUrl;
 
   /// Sent as a pick on a link (the pick pill, the amount, "Place it on
@@ -120,6 +132,14 @@ class PredictionCardData extends ShareCardData {
 
   /// [outcome]'s chance over the last week, 0–1; null when not loaded.
   final List<double>? series;
+
+  /// The other side's chance, 0–100: 100 − [chance] on a binary market,
+  /// [opponentChance] on a named one; null when unknown.
+  double? get otherChance {
+    final c = chance;
+    if (c == null) return null;
+    return binary ? 100 - c.clamp(0, 100) : opponentChance;
+  }
 
   /// The Yes side's chance of a binary market, 0–100.
   double? get yesChance {

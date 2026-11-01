@@ -9,8 +9,9 @@
 //     sheet, exactly the pixels that will be sent, in a RepaintBoundary;
 //   * [shareCardImage]: captures that boundary at 1080 × 1350 (toImage →
 //     PNG) and hands the OS share sheet the PNG with the message: the
-//     card's headline, Sal's line, then the entry point's own text and
-//     link (shareCardMessage, share_card_copy.dart);
+//     card's headline, then the entry point's own text and link
+//     (shareCardMessage, share_card_copy.dart; the edgy line is on the
+//     card, picked by the sheet's seed once on open);
 //   * [showShareCardPreviewSheet]: a sheet with the box and the bar as
 //     the primary button, "Share" (a pending link's Share again).
 //
@@ -47,7 +48,7 @@ abstract final class ShareCardShare {
   @visibleForTesting
   static Future<String> Function(XFile image, String text)? debugSharer;
 
-  /// Sal's line seed for the message (null: random on open).
+  /// The card's edgy line seed (null: random on open).
   @visibleForTesting
   static int? debugLineSeed;
 
@@ -97,10 +98,14 @@ class ShareCardPreviewBox extends StatefulWidget {
     required this.boundaryKey,
     this.heightFraction = 0.52,
     this.widthFraction = 1,
+    this.lineSeed = 0,
   });
 
   final ShareCardData data;
   final GlobalKey boundaryKey;
+
+  /// The edgy line's pick (ShareCard.lineSeed).
+  final int lineSeed;
   final double heightFraction;
 
   /// The share of the sheet's width it may take (the naming step's live
@@ -129,8 +134,11 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
     final usable = size.height - MediaQuery.viewInsetsOf(context).bottom;
     final width = math.max(
         120.0,
-        math.min((size.width - 40) * widget.widthFraction,
-            usable * widget.heightFraction * kShareCardSize.width /
+        math.min(
+            (size.width - 40) * widget.widthFraction,
+            usable *
+                widget.heightFraction *
+                kShareCardSize.width /
                 kShareCardSize.height));
     return Center(
       child: Container(
@@ -138,8 +146,8 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
         width: width,
         height: width * kShareCardSize.height / kShareCardSize.width,
         decoration: BoxDecoration(
-          borderRadius:
-              BorderRadius.circular(kShareCardRadius * width / kShareCardSize.width),
+          borderRadius: BorderRadius.circular(
+              kShareCardRadius * width / kShareCardSize.width),
           border: Border.all(color: c.borderSubtle, width: 0.5),
           boxShadow: [
             BoxShadow(
@@ -150,12 +158,15 @@ class _ShareCardPreviewBoxState extends State<ShareCardPreviewBox> {
           ],
         ),
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(kShareCardRadius * width / kShareCardSize.width),
+          borderRadius: BorderRadius.circular(
+              kShareCardRadius * width / kShareCardSize.width),
           child: FittedBox(
             child: RepaintBoundary(
               key: widget.boundaryKey,
-              child: ShareCard(data: widget.data, mark: ShareCardSal.peek()),
+              child: ShareCard(
+                  data: widget.data,
+                  mark: ShareCardSal.peek(),
+                  lineSeed: widget.lineSeed),
             ),
           ),
         ),
@@ -221,8 +232,7 @@ class _ShareCardPreviewSheetState extends ConsumerState<ShareCardPreviewSheet> {
   Future<void> _share(ShareCardData data) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final text = shareCardMessage(
-        context.l10n, data, _seed, widget.text(context));
+    final text = shareCardMessage(context.l10n, data, widget.text(context));
     final result =
         await shareCardImage(context, _boundary, text: text, name: data.kind);
     widget.onShared?.call(result);
@@ -239,7 +249,8 @@ class _ShareCardPreviewSheetState extends ConsumerState<ShareCardPreviewSheet> {
         children: [
           AppBottomSheetHeader(
               title: widget.title, icon: Icons.ios_share_rounded),
-          ShareCardPreviewBox(data: data, boundaryKey: _boundary),
+          ShareCardPreviewBox(
+              data: data, boundaryKey: _boundary, lineSeed: _seed),
           // THE BAR IS THE BUTTON (kute_bar_context.dart): Share.
           KuteBarContextScope(
             barContext: KuteBarContext.primary(

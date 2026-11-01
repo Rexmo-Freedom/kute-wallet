@@ -45,7 +45,11 @@ BragPosition fakeBragLosingPosition() => const BragPosition(
     );
 
 /// A big win: the open positions' combined return is over 10%.
-BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
+BragPortfolio fakeBragPortfolio(
+        {String? code = kBragTestCode,
+        String? gengImage,
+        String? fedImage,
+        List<double>? series}) =>
     BragPortfolio(
       title: 'My portfolio',
       link: 'https://backend.kutewallet.com/m/investing',
@@ -57,8 +61,8 @@ BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
       ],
       allTime: const BragResult(usd: 412.35, text: r'+$412.35'),
       returnPercent: 24.6,
-      top: const [
-        BragTopPosition(
+      top: [
+        const BragTopPosition(
             title: 'BTC',
             investing: true,
             coin: 'BTC',
@@ -66,13 +70,52 @@ BragPortfolio fakeBragPortfolio({String? code = kBragTestCode}) =>
         BragTopPosition(
             title: 'LoL Worlds 2026: Gen.G vs T1',
             side: 'Gen.G',
-            result: BragResult(usd: 36.9, text: r'+$36.90', percent: 42.1)),
+            imageUrl: gengImage,
+            result:
+                const BragResult(usd: 36.9, text: r'+$36.90', percent: 42.1)),
         BragTopPosition(
             title: 'Fed cuts rates in December?',
             side: 'Yes',
-            result: BragResult(usd: 8.2, text: r'+$8.20', percent: 12.5)),
+            imageUrl: fedImage,
+            result: const BragResult(usd: 8.2, text: r'+$8.20', percent: 12.5)),
       ],
+      series: series,
     );
+
+/// The all-time P&L line of [fakeBragPortfolio] (made up, realistic):
+/// a dip, then the climb to +$412.35.
+const List<double> kFakeBragPortfolioSeries = [
+  0,
+  12.4,
+  8.1,
+  25.6,
+  31.0,
+  18.7,
+  9.3,
+  -14.2,
+  -6.8,
+  22.5,
+  48.9,
+  61.2,
+  55.0,
+  83.4,
+  120.7,
+  104.3,
+  142.8,
+  171.5,
+  160.2,
+  198.6,
+  236.1,
+  219.4,
+  254.0,
+  290.8,
+  276.3,
+  318.5,
+  352.9,
+  340.1,
+  381.6,
+  412.35,
+];
 
 /// A small win: +$7.57 on a 1.2% combined return.
 BragPortfolio fakeBragSmallWinPortfolio() => const BragPortfolio(

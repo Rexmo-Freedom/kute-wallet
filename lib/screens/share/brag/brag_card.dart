@@ -1,21 +1,25 @@
 // lib/screens/share/brag/brag_card.dart
 //
 // THE BRAG CARD, restrained premium (founder, 1 November 2026: the
-// Robinhood / Revolut / Apple Card share cards). A 4:5 share image at
+// Robinhood / Revolut / Apple Card share cards, then "bigger numbers and
+// such" and an edgy line on the card). A 4:5 share image at
 // [kBragCardSize], captured at [kBragCardPixelRatio] (1080 × 1350), in the
 // share cards' one layout (cards/share_card_frame.dart) on near-black:
 //
-//   * PORTFOLIO: "MY PORTFOLIO", the all-time P&L big, "All time" muted,
-//     the top three open positions as three plain rows (the logo 18, the
-//     name, the percent at the right in its colour). No ring.
-//   * POSITION: "MY POSITION", the market's logo, title and the side held
-//     ("Long", "Gen.G"), the P&L big, "Since you bought · +42.1%" in the
-//     result's colour, the held side's line since the buy (1.6 px) when
-//     the page has read it.
-//   * FOOTER: Sal's small mark, the wordmark and the sharer's code.
-//
-// Sal's one-liner is not on the image: it is the share message's line
-// (brag_lines.dart, brag_preview_sheet.dart).
+//   * PORTFOLIO: "MY PORTFOLIO", the all-time P&L huge, "All time", then
+//     the all-time P&L line filling the space when there is one
+//     (BragPortfolio.series, the stock card's chart), else the top three
+//     open positions as rows spread over it (the REAL logo 28 through the
+//     app's widgets, HlCoinIcon or PolyCrestImage; the name 17; the
+//     percent 17 w600 at the right in its colour). No ring.
+//   * POSITION: the stock card with the P&L as the hero: "MY POSITION",
+//     the market's logo, title and the side held ("Long", "Gen.G"), the
+//     P&L huge, "Since you bought · +42.1%" in the result's colour, the
+//     held side's line since the buy filling the space when the page has
+//     read it, and the entry and the price now as the plain fact line
+//     ("3,812.40 → 3,576.10").
+//   * The EDGY LINE (brag_lines.dart) over the footer: Sal's small mark,
+//     the wordmark and the sharer's code.
 //
 // AMOUNTS (founder, 1 November 2026: "don't even give the option"): the
 // card always shows the real amounts, with the percents where they exist.
@@ -27,6 +31,7 @@ import 'package:flutter/material.dart';
 
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/brag_lines.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
 
@@ -45,38 +50,54 @@ Color _signed(BragResult r) => r.up
         ? _p.down
         : _p.muted;
 
+/// A row's logo in the portfolio card.
+const double kBragRowLogo = 28;
+
 class BragCard extends StatelessWidget {
-  const BragCard({super.key, required this.data, this.mark});
+  const BragCard({super.key, required this.data, this.mark, this.lineSeed = 0});
 
   final BragData data;
 
   /// Sal's decoded face (ShareCardSal); null: the tile alone.
   final SalClip? mark;
 
+  /// Picks the edgy line (bragEdge): the preview's random seed.
+  final int lineSeed;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final line = bragEdge(l10n, data, lineSeed);
     switch (data) {
       case final BragPortfolio d:
         final r = d.allTime;
+        final series = d.series;
+        final hasChart = series != null && series.length >= 2;
         return ShareCardFrame(
           palette: _p,
           keyPrefix: 'brag-card',
           caps: d.title,
           number: r?.text ?? '—',
           fact: l10n.portfolioAllTime,
-          graphic: d.top.isEmpty
-              ? null
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < d.top.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 14),
-                      _TopRow(key: ValueKey('brag-card-top-$i'), row: d.top[i]),
-                    ],
-                  ],
-                ),
-          graphicAtBottom: true,
+          graphic: hasChart
+              ? ShareCardSparkline(
+                  key: const ValueKey('brag-card-chart'),
+                  points: series,
+                  color: r != null && (r.up || r.down) ? _signed(r) : _p.ink,
+                )
+              : d.top.isEmpty
+                  ? null
+                  : Column(
+                      key: const ValueKey('brag-card-rows'),
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        for (var i = 0; i < d.top.length; i++)
+                          _TopRow(
+                              key: ValueKey('brag-card-top-$i'), row: d.top[i]),
+                      ],
+                    ),
+          graphicFills: hasChart || d.top.isNotEmpty,
+          line: line,
           code: d.referralCode,
           mark: mark,
         );
@@ -84,6 +105,9 @@ class BragCard extends StatelessWidget {
         final r = d.result;
         final pct = r.percent;
         final series = d.series;
+        final hasChart = series != null && series.length >= 2;
+        final entry = d.entryText?.trim();
+        final now = d.nowText?.trim();
         return ShareCardFrame(
           palette: _p,
           keyPrefix: 'brag-card',
@@ -93,7 +117,7 @@ class BragCard extends StatelessWidget {
             keyPrefix: 'brag-card',
             logo: ShareCardLogo(
               key: const ValueKey('brag-card-logo'),
-              size: 26,
+              size: 36,
               title: d.title,
               investing: d.investing,
               palette: _p,
@@ -110,15 +134,18 @@ class BragCard extends StatelessWidget {
           fact: pct == null
               ? l10n.bragSinceYouBought
               : '${l10n.bragSinceYouBought} · ${bragPercent(pct)}',
-          factColor: _signed(r),
-          graphic: series != null && series.length >= 2
+          factColor: r.up || r.down ? _signed(r) : null,
+          graphic: hasChart
               ? ShareCardSparkline(
                   key: const ValueKey('brag-card-chart'),
                   points: series,
                   color: r.up || r.down ? _signed(r) : _p.ink,
                 )
               : null,
-          graphicFills: true,
+          graphicFills: hasChart,
+          // What it cost and what it is now: "3,812.40 → 3,576.10".
+          plain: entry != null && now != null ? '$entry → $now' : null,
+          line: line,
           code: d.referralCode,
           mark: mark,
         );
@@ -126,9 +153,9 @@ class BragCard extends StatelessWidget {
   }
 }
 
-/// One of the top positions as a plain row: its logo (18), its name (a
-/// prediction's named outcome, else the market) and its result (the
-/// percent, else the amount) at the right in the result's colour.
+/// One of the top positions as a row: its real logo (28), its name (a
+/// prediction's named outcome, else the market, 17) and its result (the
+/// percent, else the amount, 17 w600) at the right in the result's colour.
 class _TopRow extends StatelessWidget {
   const _TopRow({super.key, required this.row});
 
@@ -149,8 +176,8 @@ class _TopRow extends StatelessWidget {
     return Row(
       children: [
         ShareCardLogo(
-          size: 18,
-          title: row.title,
+          size: kBragRowLogo,
+          title: named ? side : row.title,
           investing: row.investing,
           palette: _p,
           coin: row.coin,
@@ -159,21 +186,21 @@ class _TopRow extends StatelessWidget {
           category: row.category,
           imageUrl: row.imageUrl,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: shareCardText(14, FontWeight.w500, _p.ink, spacing: -0.1),
+            style: shareCardText(17, FontWeight.w500, _p.ink, spacing: -0.2),
           ),
         ),
         const SizedBox(width: 12),
         Text(
           pct != null ? bragPercent(pct) : r.text,
           maxLines: 1,
-          style: shareCardText(14, FontWeight.w600, _signed(r),
-              spacing: -0.1, tabular: true),
+          style: shareCardText(17, FontWeight.w600, _signed(r),
+              spacing: -0.2, tabular: true),
         ),
       ],
     );

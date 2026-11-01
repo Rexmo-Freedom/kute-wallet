@@ -40,6 +40,7 @@ import '../../../helpers/kute_bar_test_support.dart';
 import '../share_test_harness.dart';
 import 'share_card_fixtures.dart';
 import 'share_card_test_fonts.dart';
+import '../share_artwork.dart';
 
 /// Live Polymarket events for the renders (see the file header).
 class _Live {
@@ -58,7 +59,9 @@ Future<Map<String, dynamic>?> _getJson(String url) async {
     final res = await req.close().timeout(const Duration(seconds: 10));
     final body = await res.transform(utf8.decoder).join();
     final decoded = jsonDecode(body);
-    return decoded is List ? {'list': decoded} : decoded as Map<String, dynamic>;
+    return decoded is List
+        ? {'list': decoded}
+        : decoded as Map<String, dynamic>;
   } catch (_) {
     return null;
   } finally {
@@ -124,8 +127,9 @@ Future<_Live> _loadLive() async {
 void main() {
   final dir = Platform.environment['SHARE_CARD_FRAMES'];
 
-  Future<void> writePng(WidgetTester tester, RenderRepaintBoundary boundary,
-      String name, {double ratio = kShareCardPixelRatio}) async {
+  Future<void> writePng(
+      WidgetTester tester, RenderRepaintBoundary boundary, String name,
+      {double ratio = kShareCardPixelRatio}) async {
     await tester.runAsync(() async {
       final image = await boundary.toImage(pixelRatio: ratio);
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -150,6 +154,7 @@ void main() {
     PredictionCardData marketCard = fakePredictionMarket();
     if (dir != null) {
       HttpOverrides.global = null;
+      useShareTestArtwork(online: true);
       final live = await tester.runAsync(_loadLive);
       if (live != null && live.events.isNotEmpty) {
         final container = ProviderContainer(overrides: [
@@ -205,6 +210,8 @@ void main() {
       '3_market_crude_oil': (fakeOilMarket(), const Locale('en')),
       '4_market_prediction': (marketCard, const Locale('en')),
       'de_send_stock_tesla': (fakeTeslaPick(), const Locale('de')),
+      'de_send_bitcoin': (fakeBitcoinCard(), const Locale('de')),
+      'de_send_prediction': (pickCard, const Locale('de')),
       'ja_send_prediction': (pickCard, const Locale('ja')),
       'claim_hero_bitcoin': (
         const MoneyCardData(
@@ -248,6 +255,11 @@ void main() {
         await tester.runAsync(() async {
           await tester.pumpWidget(app);
           await Future<void>.delayed(const Duration(seconds: 4));
+          // The artwork resolved: its image decodes on real time too.
+          await tester.pump();
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await tester.pump();
+          await Future<void>.delayed(const Duration(milliseconds: 500));
         });
       }
       await tester.pump();
@@ -326,7 +338,8 @@ void main() {
         rawStatus: 'open',
         expiresAt: DateTime.now().add(const Duration(days: 7)),
       ));
-      await pumpShareWidget(tester, env, framed(const ClaimScreen(id: 'lnk_1')));
+      await pumpShareWidget(
+          tester, env, framed(const ClaimScreen(id: 'lnk_1')));
       expect(find.text('DANIEL, A FRIEND SENT YOU'), findsOneWidget);
       await capture(tester, 'screen_claim');
     });

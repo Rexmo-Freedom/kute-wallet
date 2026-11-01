@@ -10557,39 +10557,6 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragSinceYouBought => 'Από την αγορά';
 
   @override
-  String get bragLineBeatThat => 'Κάνε καλύτερα.';
-
-  @override
-  String get bragLineNotLuck => 'Όχι τύχη. Ταλέντο.';
-
-  @override
-  String get bragLineYourMove => 'Σειρά σου.';
-
-  @override
-  String get bragLineToldYouSo => 'Σ\' το \'λεγα.';
-
-  @override
-  String get bragLineLookEasy => 'Το κάνω να φαίνεται εύκολο.';
-
-  @override
-  String get bragLineUpOnly => 'Μόνο πάνω.';
-
-  @override
-  String get bragLineSmallWins => 'Μικρά κέρδη, αλλά πάλι καλύτερα από σένα.';
-
-  @override
-  String get bragLineDownBad => 'Στο κόκκινο. Θα επιστρέψω.';
-
-  @override
-  String get bragLineCharacter => 'Χτίζει χαρακτήρα.';
-
-  @override
-  String get bragLineBuyTheDip => 'Αγόρασε στη βουτιά, έλεγαν.';
-
-  @override
-  String get bragLinePatience => 'Η υπομονή είναι κι αυτή θέση.';
-
-  @override
   String get bragAboutIt => 'Κάνε φιγούρα';
 
   @override
@@ -12245,6 +12212,79 @@ class AppLocalizationsEl extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Πάρ\' το στο Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Κάποιοι αγοράζουμε πριν από τους τίτλους.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Πάνω $change. Παρακαλώ.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Σου τα \'λεγα.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Έκπτωση, όχι καταστροφή.';
+
+  @override
+  String get shareEdgeStockPanic => 'Αγοράζω όσο εσύ πανικοβάλλεσαι.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance λένε ότι είμαι νωρίς, όχι λάθος.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return 'Το $chance του πλήθους κάνει λάθος.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Πόνταρε εναντίον μου. Τόλμησε.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Οι δημοσκοπήσεις είναι απόψεις. Αυτό είναι χρήμα.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome ή τίποτα.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Ξόδεψέ τα σοφά. Ή και όχι.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Θεώρησέ το flex.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Δωρεάν bitcoin. Σπάνιο θέαμα.';
+
+  @override
+  String get shareEdgeBragPattern => 'Όχι τύχη. Αναγνώριση μοτίβων.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount όσο εσύ έκανες scroll.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Βαθιά στο μείον, ακόμα κάνω trading.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Χτίζω χαρακτήρα, $amount τη φορά.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Η υπομονή είναι κι αυτή θέση.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return 'Πιθανότητα για $outcome';
   }
@@ -12262,43 +12302,6 @@ class AppLocalizationsEl extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Όχι';
-
-  @override
-  String get shareCardLineClaimIt => 'Πάρ\' τα πριν το μετανιώσω.';
-
-  @override
-  String get shareCardLineDontSpend => 'Δικά σου. Μην τα φας όλα σε memes.';
-
-  @override
-  String get shareCardLineFreeMoney => 'Δωρεάν λεφτά. Σπάνιο. Πάρ\' τα.';
-
-  @override
-  String get shareCardLineTrustMe => 'Εμπιστέψου με σε αυτό.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Ξέρω ήδη πώς τελειώνει.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Εύκολα λεφτά. Μάλλον.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Αυτό θα πάει μακριά.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Αγόρασε ψηλά, πούλα ψηλότερα.';
-
-  @override
-  String get shareCardLineBetterTaste =>
-      'Δεν είναι συμβουλή. Απλώς καλύτερο γούστο.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'Εσύ τι λες;';
-
-  @override
-  String get shareCardLineYourCall => 'Εσύ αποφασίζεις.';
-
-  @override
-  String get shareCardLinePickASide => 'Διάλεξε πλευρά.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

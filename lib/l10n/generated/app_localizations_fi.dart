@@ -10494,40 +10494,6 @@ class AppLocalizationsFi extends AppLocalizations {
   String get bragSinceYouBought => 'Ostosta lähtien';
 
   @override
-  String get bragLineBeatThat => 'Tee perässä.';
-
-  @override
-  String get bragLineNotLuck => 'Ei tuuria. Taitoa.';
-
-  @override
-  String get bragLineYourMove => 'Sinun siirtosi.';
-
-  @override
-  String get bragLineToldYouSo => 'Mitäs minä sanoin.';
-
-  @override
-  String get bragLineLookEasy => 'Saan tämän näyttämään helpolta.';
-
-  @override
-  String get bragLineUpOnly => 'Vain ylöspäin.';
-
-  @override
-  String get bragLineSmallWins =>
-      'Pienikin voitto lasketaan. Silti sinua parempi.';
-
-  @override
-  String get bragLineDownBad => 'Pohjilla. Pian takaisin.';
-
-  @override
-  String get bragLineCharacter => 'Luonnetta kasvattavaa.';
-
-  @override
-  String get bragLineBuyTheDip => '”Osta notkahduksesta”, ne sanoivat.';
-
-  @override
-  String get bragLinePatience => 'Kärsivällisyys on positio.';
-
-  @override
   String get bragAboutIt => 'Leveile sillä';
 
   @override
@@ -12177,6 +12143,79 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Lunasta Kutessa';
+
+  @override
+  String get shareEdgeStockEarly => 'Jotkut ostavat ennen otsikoita.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Nousua $change. Ole hyvä.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Mitäs minä sanoin.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Alennus, ei katastrofi.';
+
+  @override
+  String get shareEdgeStockPanic => 'Ostan, kun sinä panikoit.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance sanoo, että olen etuajassa, en väärässä.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance joukosta on väärässä.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Lyö vetoa minua vastaan. Uskallatko.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Mielipidemittaukset ovat mielipiteitä. Tämä on rahaa.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome tai ei mitään.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Käytä viisaasti. Tai älä.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Pidä tätä flexinä.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Ilmaista bitcoinia. Harvinainen näky.';
+
+  @override
+  String get shareEdgeBragPattern => 'Ei tuuria. Kuvioiden tunnistusta.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount sillä aikaa kun skrollasit.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Pahasti miinuksella, silti kaupoilla.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Luonteenkasvatusta, $amount kerrallaan.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Kärsivällisyys on positio.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return '$outcome: todennäköisyys';
   }
@@ -12194,43 +12233,6 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Ei';
-
-  @override
-  String get shareCardLineClaimIt => 'Lunasta ennen kuin muutan mieleni.';
-
-  @override
-  String get shareCardLineDontSpend =>
-      'Se on sinun. Älä tuhlaa kaikkea meemeihin.';
-
-  @override
-  String get shareCardLineFreeMoney => 'Ilmaista rahaa. Harvinaista. Lunasta.';
-
-  @override
-  String get shareCardLineTrustMe => 'Luota minuun tässä.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Tiedän jo, miten tässä käy.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Helppoa rahaa. Luultavasti.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Tämä menee vielä pitkälle.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Osta kalliilla, myy kalliimmalla.';
-
-  @override
-  String get shareCardLineBetterTaste => 'Ei sijoitusneuvo. Vain parempi maku.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'Mitä mieltä olet?';
-
-  @override
-  String get shareCardLineYourCall => 'Sinä päätät.';
-
-  @override
-  String get shareCardLinePickASide => 'Valitse puolesi.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

@@ -10532,39 +10532,6 @@ class AppLocalizationsLt extends AppLocalizations {
   String get bragSinceYouBought => 'Nuo pirkimo';
 
   @override
-  String get bragLineBeatThat => 'Pabandyk pranokti.';
-
-  @override
-  String get bragLineNotLuck => 'Ne sėkmė. Talentas.';
-
-  @override
-  String get bragLineYourMove => 'Tavo ėjimas.';
-
-  @override
-  String get bragLineToldYouSo => 'Juk sakiau.';
-
-  @override
-  String get bragLineLookEasy => 'Su manim viskas atrodo lengva.';
-
-  @override
-  String get bragLineUpOnly => 'Tik aukštyn.';
-
-  @override
-  String get bragLineSmallWins => 'Mažai, bet vis tiek geriau nei tu.';
-
-  @override
-  String get bragLineDownBad => 'Prastai. Greit grįšiu.';
-
-  @override
-  String get bragLineCharacter => 'Charakterio grūdinimas.';
-
-  @override
-  String get bragLineBuyTheDip => 'Pirk kritimą, sakė jie.';
-
-  @override
-  String get bragLinePatience => 'Kantrybė – irgi pozicija.';
-
-  @override
   String get bragAboutIt => 'Pasigirkite';
 
   @override
@@ -12220,6 +12187,79 @@ class AppLocalizationsLt extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Atsiimk Kute';
+
+  @override
+  String get shareEdgeStockEarly => 'Kai kurie perkame prieš antraštes.';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return 'Pakilo $change. Prašom.';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name. Juk sakiau.';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => 'Nuolaida, ne katastrofa.';
+
+  @override
+  String get shareEdgeStockPanic => 'Perku, kol tu panikuoji.';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance sako, kad aš per anksti, o ne klystu.';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '$chance minios klysta.';
+  }
+
+  @override
+  String get shareEdgePredictionDare => 'Statyk prieš mane. Išdrįsk.';
+
+  @override
+  String get shareEdgePredictionPolitics =>
+      'Apklausos yra nuomonės. Čia pinigai.';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome arba nieko.';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => 'Leisk protingai. Arba ne.';
+
+  @override
+  String get shareEdgeMoneyFlex => 'Laikyk tai flexu.';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'Nemokamas bitcoinas. Retas vaizdas.';
+
+  @override
+  String get shareEdgeBragPattern => 'Ne sėkmė. Dėsningumų atpažinimas.';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return '$amount, kol tu slinkai ekraną.';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading =>
+      'Giliai minuse, bet vis dar prekiauju.';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return 'Charakterio grūdinimas, po $amount.';
+  }
+
+  @override
+  String get shareEdgePatience => 'Kantrybė – irgi pozicija.';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return '$outcome: tikimybė';
   }
@@ -12237,43 +12277,6 @@ class AppLocalizationsLt extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'Ne';
-
-  @override
-  String get shareCardLineClaimIt => 'Atsiimk, kol nepersigalvojau.';
-
-  @override
-  String get shareCardLineDontSpend => 'Tai tavo. Neišleisk visko memams.';
-
-  @override
-  String get shareCardLineFreeMoney => 'Nemokami pinigai. Retenybė. Atsiimk.';
-
-  @override
-  String get shareCardLineTrustMe => 'Šį kartą patikėk manim.';
-
-  @override
-  String get shareCardLineKnowEnding => 'Jau žinau, kuo tai baigsis.';
-
-  @override
-  String get shareCardLineEasyMoney => 'Lengvi pinigai. Turbūt.';
-
-  @override
-  String get shareCardLineGoingPlaces => 'Šitas toli nueis.';
-
-  @override
-  String get shareCardLineBuyHigh => 'Pirk brangiai, parduok dar brangiau.';
-
-  @override
-  String get shareCardLineBetterTaste =>
-      'Ne finansinis patarimas. Tik geras skonis.';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'O tu ką manai?';
-
-  @override
-  String get shareCardLineYourCall => 'Tau spręsti.';
-
-  @override
-  String get shareCardLinePickASide => 'Rinkis pusę.';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

@@ -282,7 +282,6 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
     final text = shareCardMessage(
         context.l10n,
         card,
-        _seed,
         shareLinkMessage(context,
             name: row.label,
             amount: amount,
@@ -449,6 +448,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           boundaryKey: _liveBoundary,
           widthFraction: 0.6,
           heightFraction: 0.34,
+          lineSeed: _seed,
         ),
         SizedBox(height: 14.h),
         AppTextField(
@@ -510,6 +510,7 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           data: card,
           boundaryKey: _boundary,
           heightFraction: row.recipientPhone != null ? 0.34 : 0.42,
+          lineSeed: _seed,
         ),
         SizedBox(height: 12.h),
         SendToListCard(
@@ -523,8 +524,8 @@ class _SendToAnyoneSheetState extends ConsumerState<SendToAnyoneSheet> {
           AppTextButton(
             key: const ValueKey('share-again-whatsapp'),
             text: l10n.shareSendAgainWhatsApp,
-            onPressed: () => unawaited(resendShareLinkVia(context, ref, row,
-                ShareLinkResendChannel.whatsapp)),
+            onPressed: () => unawaited(resendShareLinkVia(
+                context, ref, row, ShareLinkResendChannel.whatsapp)),
           ),
           AppTextButton(
             key: const ValueKey('share-again-sms'),

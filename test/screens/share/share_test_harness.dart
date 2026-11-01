@@ -24,6 +24,7 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../mocks/fake_share_links_api.dart';
+import 'share_artwork.dart';
 
 import '../../helpers/kute_bar_test_support.dart';
 
@@ -52,6 +53,7 @@ ShareTestEnv setUpShareTest() {
   final events = <(String, Map<String, Object>?)>[];
   TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
   ShareCardShare.debugLineSeed = 0;
+  useShareTestArtwork();
   return ShareTestEnv(FakeShareLinksApi(), events);
 }
 

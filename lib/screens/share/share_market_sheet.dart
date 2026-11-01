@@ -195,9 +195,9 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
     setState(() => _busy = true);
     final l10n = context.l10n;
     final text = shareCardMessage(
-        l10n, data, _seed, l10n.shareMarketLookAt(widget.title, _link));
-    final result = await shareCardImage(context, _boundary,
-        text: text, name: data.kind);
+        l10n, data, l10n.shareMarketLookAt(widget.title, _link));
+    final result =
+        await shareCardImage(context, _boundary, text: text, name: data.kind);
     TrackingService.track('share_market_link_shared', params: {
       'market': widget.marketSlug ?? 'none',
       'result': result,
@@ -240,6 +240,7 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
             data: data,
             boundaryKey: _boundary,
             heightFraction: 0.48,
+            lineSeed: _seed,
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),

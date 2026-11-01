@@ -10082,39 +10082,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bragSinceYouBought => '購入時から';
 
   @override
-  String get bragLineBeatThat => '超えてみな。';
-
-  @override
-  String get bragLineNotLuck => '運じゃない。実力。';
-
-  @override
-  String get bragLineYourMove => '次は君の番。';
-
-  @override
-  String get bragLineToldYouSo => '言ったでしょ。';
-
-  @override
-  String get bragLineLookEasy => '楽勝に見えるでしょ。';
-
-  @override
-  String get bragLineUpOnly => '上がるのみ。';
-
-  @override
-  String get bragLineSmallWins => '小さな勝ちも勝ち。君よりマシ。';
-
-  @override
-  String get bragLineDownBad => 'ボロボロ。すぐ戻る。';
-
-  @override
-  String get bragLineCharacter => 'これも修行。';
-
-  @override
-  String get bragLineBuyTheDip => '押し目買いって言われたのに。';
-
-  @override
-  String get bragLinePatience => '忍耐もポジションのうち。';
-
-  @override
   String get bragAboutIt => '自慢しよう';
 
   @override
@@ -11741,6 +11708,77 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get shareCardClaimOnKute => 'Kuteで受け取る';
+
+  @override
+  String get shareEdgeStockEarly => 'ニュースになる前に買う人もいる。';
+
+  @override
+  String shareEdgeStockWelcome(String change) {
+    return '$change上昇。どういたしまして。';
+  }
+
+  @override
+  String shareEdgeStockToldYou(String name) {
+    return '$name、言ったでしょ。';
+  }
+
+  @override
+  String get shareEdgeStockDiscount => '暴落じゃない、バーゲンだ。';
+
+  @override
+  String get shareEdgeStockPanic => 'みんながパニックの間に買う。';
+
+  @override
+  String shareEdgePredictionEarly(String chance) {
+    return '$chance。早すぎただけ、間違いじゃない。';
+  }
+
+  @override
+  String shareEdgePredictionCrowd(String chance) {
+    return '群衆の$chanceは間違っている。';
+  }
+
+  @override
+  String get shareEdgePredictionDare => '逆に賭けてみなよ。どうぞ。';
+
+  @override
+  String get shareEdgePredictionPolitics => '世論調査は意見。これはお金。';
+
+  @override
+  String shareEdgePredictionSports(String outcome) {
+    return '$outcome一択。';
+  }
+
+  @override
+  String get shareEdgeMoneyWisely => '賢く使って。まあ、好きにして。';
+
+  @override
+  String get shareEdgeMoneyFlex => 'ちょっとした自慢です。';
+
+  @override
+  String get shareEdgeMoneyBitcoin => 'タダのビットコイン。珍しい光景。';
+
+  @override
+  String get shareEdgeBragPattern => '運じゃない。パターン認識。';
+
+  @override
+  String shareEdgeBragScrolling(String amount) {
+    return 'あなたがスクロールしている間に$amount。';
+  }
+
+  @override
+  String get shareEdgeBragStillTrading => '大きくマイナス、それでもトレード中。';
+
+  @override
+  String shareEdgeBragCharacter(String amount) {
+    return '$amountずつ、人格形成中。';
+  }
+
+  @override
+  String get shareEdgePatience => '忍耐もポジションのうち。';
+
+  @override
   String shareCardChanceOf(String outcome) {
     return '$outcomeの確率';
   }
@@ -11758,42 +11796,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get shareCardOutcomeNo => 'No';
-
-  @override
-  String get shareCardLineClaimIt => '気が変わる前に受け取って。';
-
-  @override
-  String get shareCardLineDontSpend => '君のものだよ。ミームに全部使わないでね。';
-
-  @override
-  String get shareCardLineFreeMoney => 'タダのお金。激レア。早く受け取って。';
-
-  @override
-  String get shareCardLineTrustMe => '今回は信じてくれ。';
-
-  @override
-  String get shareCardLineKnowEnding => '結末はもう分かってる。';
-
-  @override
-  String get shareCardLineEasyMoney => '楽勝。たぶん。';
-
-  @override
-  String get shareCardLineGoingPlaces => 'これは伸びるよ。';
-
-  @override
-  String get shareCardLineBuyHigh => '高く買って、もっと高く売る。';
-
-  @override
-  String get shareCardLineBetterTaste => '投資助言じゃないよ。センスの話。';
-
-  @override
-  String get shareCardLineWhatDoYouThink => 'どう思う？';
-
-  @override
-  String get shareCardLineYourCall => '君が決めて。';
-
-  @override
-  String get shareCardLinePickASide => 'どっちにする？';
 
   @override
   String shareCardHeadlineUp(String name, String price, String change) {

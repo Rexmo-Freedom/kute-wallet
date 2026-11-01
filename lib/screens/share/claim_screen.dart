@@ -343,9 +343,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   Future<void> _placePick() async {
     final link = _link;
     if (link == null || !link.hasPick) return;
-    final amountUsd = link.kind == ShareLinkKind.dollars
-        ? link.amountMinor / 100
-        : null;
+    final amountUsd =
+        link.kind == ShareLinkKind.dollars ? link.amountMinor / 100 : null;
     if (_investing) {
       final market = await _resolveHlMarket(link.marketSlug);
       if (!mounted) return;
@@ -473,7 +472,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
     final String headline = switch (_phase) {
       _Phase.loading => '',
-      _Phase.claimed when pick && _arrived => l10n.claimArrivedInDollars(amount),
+      _Phase.claimed when pick && _arrived =>
+        l10n.claimArrivedInDollars(amount),
       _Phase.claimed => l10n.claimOnItsWay,
       _Phase.error => _message ?? l10n.claimUnavailable,
       _Phase.ready || _Phase.claiming when pick => _investing
@@ -515,6 +515,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                               data: _hero(link),
                               boundaryKey: _heroBoundary,
                               heightFraction: 0.62,
+                              // The same line for this link on every open.
+                              lineSeed: link.id.hashCode,
                             ),
                           // A plain link that names a market: its line
                           // under the card.
@@ -620,7 +622,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                       ],
                     ),
                   _Phase.claimed => market != null
-                      ? _bar(label: l10n.claimOpenMarket, onPrimary: _openMarket)
+                      ? _bar(
+                          label: l10n.claimOpenMarket, onPrimary: _openMarket)
                       : _bar(
                           label: l10n.done,
                           onPrimary: () => context.go('/home'),
@@ -665,8 +668,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   /// The pick's preview card: the market's picture when known, its title
   /// (two lines) and "{outcome} · {amount}". The share market sheet's
   /// card surface.
-  Widget _pickCard(
-      AppColorsExtension c, AppLocalizations l10n, ShareLink link, String amount) {
+  Widget _pickCard(AppColorsExtension c, AppLocalizations l10n, ShareLink link,
+      String amount) {
     final image = _event?.displayIconUrl;
     return Container(
       key: const ValueKey('claim-pick-card'),
