@@ -3,7 +3,7 @@ import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow, KuteSalHeaderButton;
+    show kuteSendToFriendBar;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart' show PositionLinkRow;
@@ -45,9 +45,9 @@ import 'package:kute/services/hyperliquid/insights/hl_flow_signals.dart';
 //
 // Content: the title row (back, logo, ticker, watchlist star), the live
 // price large under it (WS mid via HlTickPrice: primary colour, a brief
-// green/red flash on a tick) with Sal's Share pill at the end of its row
-// (founder, 31 October 2026: next to the big number, not in the title
-// row) and the change today under the price,
+// green/red flash on a tick; the whole row is the price's: "Send to a
+// friend" is the dark bar at the foot, founder, 2 November 2026) and the
+// change today under the price,
 // HlCandleChart (TradingView model for every style: an interval row
 // 1m…1W, the user's pan and zoom, older bars loaded on demand, one global
 // style and interval for all markets — fed by WIRE coin, the one mapping
@@ -322,9 +322,11 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
       }
     }
 
-    // The page's Sal context, placed in its header (no bottom bar): held
-    // by the scope around the watchlist star while the header is up; its
-    // control, the Share pill (KuteSalHeaderButton), sits beside the price.
+    // The page's market context for the Sal sheet (Send the market / Send
+    // this prediction). The bar is the dark "Send to a friend" button at
+    // the foot, above the Invest row (kuteSendToFriendBar; founder, 2
+    // November 2026: "always make it on the bottom"), held by the scope
+    // around the watchlist star while the header is up.
     final bar = marketBarContext(
       context,
       // As the header names it, the logo drawn as the header draws it
@@ -394,11 +396,10 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                           ),
                         ),
                       ),
-                      // The watchlist star; the page's bar context is held
-                      // here with its `header` placement. The Share pill
-                      // is beside the price, under this row.
+                      // The watchlist star; the page's bar, "Send to a
+                      // friend" at the foot, is held here.
                       KuteBarContextScope(
-                        barContext: bar,
+                        barContext: kuteSendToFriendBar(context, bar),
                         child:
                             HlWatchStar(market: m, size: 22, source: 'detail'),
                       ),
@@ -421,32 +422,25 @@ class _HlMarketDetailSheetState extends ConsumerState<HlMarketDetailSheet> {
                       // Smaller rather than cut on a long price. The
                       // primary text colour at rest; a tick flashes green
                       // or red and fades back, so the price never sits in
-                      // a colour that argues with the change. Sal's Share
-                      // pill at the end of the row, centred on the price
-                      // (founder, 31 October 2026: next to the big number).
-                      KuteFigureShareRow(
-                        gap: 8.w,
-                        figure: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: HlTickPrice(
-                            key: const ValueKey('hl-detail-price'),
-                            price: price,
-                            text: formatHlPrice(price,
-                                decimalCap: m.pxDecimalCap),
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 38.sp,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.0,
-                              height: 1.1,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
+                      // a colour that argues with the change. The whole
+                      // row is the price's: "Send to a friend" is the bar
+                      // at the foot.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: HlTickPrice(
+                          key: const ValueKey('hl-detail-price'),
+                          price: price,
+                          text: formatHlPrice(price, decimalCap: m.pxDecimalCap),
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 38.sp,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.0,
+                            height: 1.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                        share: KuteSalHeaderButton(barContext: bar),
                       ),
                       SizedBox(height: 4.h),
                       // Wrap (not Row) so the change and the optional

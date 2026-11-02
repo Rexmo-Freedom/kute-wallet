@@ -1,16 +1,15 @@
-// A game sheet's "Send to a friend" pill (founder, 2 November 2026: "when
-// there is no space, the share with a friend button should be floating in
-// the bottom, and we allow the user to scroll of course"). The pill sits in
-// the title row only while the whole title (up to two lines at its own
-// size) and the whole pill fit there; otherwise it leaves the header and
-// the bar at the foot is the dark primary button every pinned action is
-// (founder, 2 November 2026: "make the button dark like the others"),
-// "Send to a friend" on one line, the same Sal sheet on a tap, with the
-// page's last rows scrolling clear of it.
+// "Send to a friend" on every Polymarket market, event and game sheet is
+// the bar at the foot (founder, 2 November 2026: "share with a friend,
+// always make it on the bottom like we did for predictions"): the dark
+// primary button every pinned action is, "Send to a friend" on one line,
+// the same Sal sheet on a tap, never a pill in the title row or beside the
+// big number, whatever the title's length or the screen's width. The page's
+// last rows scroll clear of it; on a Yes/No market it rides above the Yes /
+// No pair.
 //
-// On demand, light renders of both variants:
-//   flutter test test/screens/polymarket/game_header_share_fit_test.dart \
-//     --dart-define=GAME_HEADER_OUT=<dir>
+// On demand, light renders:
+//   flutter test test/screens/polymarket/send_to_friend_bar_test.dart \
+//     --dart-define=SEND_BAR_OUT=<dir>
 
 import 'dart:async';
 import 'dart:io';
@@ -38,6 +37,7 @@ import 'package:kute/providers/polymarket_watchlist_provider.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart';
 import 'package:kute/screens/polymarket/components/poly_market_stats.dart'
     show PolyRulesRow;
+import 'package:kute/screens/polymarket/components/poly_watch_star.dart';
 import 'package:kute/screens/polymarket/market_detail_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart'
     show KuteCloseButton;
@@ -45,7 +45,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/theme/app_theme.dart';
 
-const _out = String.fromEnvironment('GAME_HEADER_OUT');
+const _out = String.fromEnvironment('SEND_BAR_OUT');
 
 class _NoStars extends PolyWatchlistNotifier {
   @override
@@ -114,6 +114,18 @@ PolymarketEvent _game(String title, String a, String b) =>
       }
     ]).single;
 
+/// A Yes/No market titled [title].
+PolymarketEvent _yesNo(String title) => PolymarketModel().parseEventsRaw([
+      {
+        'id': '2',
+        'slug': 'yes-no-1',
+        'title': title,
+        'markets': [
+          _market('yn', 'binary', null, title, ['Yes', 'No'], ['0.64', '0.36']),
+        ],
+      }
+    ]).single;
+
 const _short = ('PSG vs OM', 'PSG', 'OM');
 const _medium = ('Colts vs. Commanders', 'Colts', 'Commanders');
 const _long = (
@@ -135,7 +147,7 @@ Future<void> _loadInter(WidgetTester tester) => tester.runAsync(() async {
 
 /// The app's shape: the shell bar over the root navigator, the game sheet
 /// pushed over a blank tab.
-Future<void> _pump(WidgetTester tester, (String, String, String) game,
+Future<void> _pump(WidgetTester tester, PolymarketEvent event,
     {double width = 390}) async {
   // A tablet keeps a phone's proportions (the sheet's .h and .sp scale
   // with the width there).
@@ -175,7 +187,7 @@ Future<void> _pump(WidgetTester tester, (String, String, String) game,
   await tester.pump();
   AppRouter.rootNavigatorKey.currentState!.push(MaterialPageRoute<void>(
       settings: const RouteSettings(name: 'market'),
-      builder: (_) => MarketDetailSheet(event: _game(game.$1, game.$2, game.$3))));
+      builder: (_) => MarketDetailSheet(event: event)));
   for (var i = 0; i < 12; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -201,6 +213,55 @@ Future<void> _shoot(WidgetTester tester, String name) async {
   });
 }
 
+/// The bar is the dark "Send to a friend" button, opening the market's Sal
+/// sheet; no pill anywhere on the page; the title has the whole row.
+Future<Finder> _expectSendBar(WidgetTester tester) async {
+  final l10n = AppLocalizations.of(tester.element(_header));
+  expect(_shareButton, findsNothing);
+  final top = _top(tester)!;
+  expect(top.inHeader, isFalse);
+  // The primary button, as every pinned action: one line, the same words
+  // if it were ever off.
+  expect(top.isPrimary, isTrue);
+  expect(top.actionable, isTrue);
+  expect(top.primaryLabel, l10n.shareHeaderLabel);
+  expect(top.disabledLabel, l10n.shareHeaderLabel);
+  expect(top.sublabel, isNull);
+  expect(top.source, 'predictions');
+  final slide = find.byKey(const ValueKey('kute-shell-bar-slide'));
+  expect(tester.widget<AnimatedSlide>(slide).offset, Offset.zero);
+  // Dark: the app's primary fill with white words, not the white two-line
+  // Sal pill.
+  final button = find.byKey(const ValueKey('kute-bar-primary-button'));
+  expect(button, findsOneWidget);
+  expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
+  final fill =
+      tester.widget<AnimatedContainer>(button).decoration! as BoxDecoration;
+  expect(fill.color, AppColorsExtension.light().textPrimary);
+  final words =
+      find.descendant(of: button, matching: find.text(l10n.shareHeaderLabel));
+  expect(words, findsOneWidget);
+  expect(tester.widget<Text>(words).style?.color, Colors.white);
+  expect(find.text(l10n.barShareMarketSub), findsNothing);
+  // The title runs to the star: nothing between them.
+  final title = find.byKey(const ValueKey('poly-detail-title'));
+  final star = find.descendant(of: _header, matching: find.byType(PolyWatchStar));
+  expect(tester.getRect(star).left - tester.getRect(title).right,
+      lessThan(9 * tester.view.physicalSize.width / 430 + 1));
+  return button;
+}
+
+/// A tap on [button] opens the Sal sheet with the market's send cards, as
+/// the header pill did.
+Future<void> _expectOpensSalSheet(WidgetTester tester, Finder button) async {
+  final l10n = AppLocalizations.of(tester.element(_header));
+  await tester.tap(button);
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  expect(find.text(l10n.shareTheMarket), findsWidgets);
+}
+
 void main() {
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -208,76 +269,36 @@ void main() {
     OpenOnce.reset();
   });
 
-  for (final (game, width) in [(_short, 430.0), (_medium, 744.0)]) {
+  for (final (game, width) in [
+    (_short, 430.0),
+    (_medium, 744.0),
+    (_long, 390.0),
+    (_long, 430.0),
+    (_medium, 390.0),
+  ]) {
     testWidgets(
-        'at ${width.toInt()} wide "${game.$1}" fits: the whole "Send to a '
-        'friend" pill in the title row, the title whole at its own size, no '
-        'floating bar', (tester) async {
+        'a game at ${width.toInt()} wide, "${game.$1}": no pill in the '
+        'header, the title whole, the bar is the dark "Send to a friend" '
+        'button opening the market\'s Sal sheet, and the last rows scroll '
+        'clear of it', (tester) async {
       await _loadInter(tester);
       await http.runWithClient(() async {
-        await _pump(tester, game, width: width);
-        final l10n = AppLocalizations.of(tester.element(_header));
-        expect(find.descendant(of: _header, matching: _shareButton),
-            findsOneWidget);
-        expect(
-            find.descendant(
-                of: _shareButton, matching: find.text(l10n.shareHeaderLabel)),
-            findsOneWidget);
-        final titleText = find.descendant(
-            of: find.byKey(const ValueKey('poly-detail-title')),
-            matching: find.byType(Text));
-        expect(tester.widget<Text>(titleText).style!.fontSize,
-            closeTo(18 * width / 430, 0.01));
-        expect(tester.renderObject<RenderParagraph>(titleText)
-            .didExceedMaxLines, isFalse);
-        expect(_top(tester)!.inHeader, isTrue);
-        final slide = tester.widget<AnimatedSlide>(
-            find.byKey(const ValueKey('kute-shell-bar-slide')));
-        expect(slide.offset, isNot(Offset.zero), reason: 'the bar is away');
-        await _shoot(tester, 'game_header_fits_${width.toInt()}');
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
-      }, () => MockClient((_) async => http.Response('{}', 404)));
-    });
-  }
-
-  for (final (game, width) in [(_long, 390.0), (_long, 430.0), (_medium, 390.0)]) {
-    testWidgets(
-        'at ${width.toInt()} wide "${game.$1}" keeps its row: no pill in the '
-        'header, the bar is the dark "Send to a friend" button opening the '
-        'market\'s Sal sheet, and the last rows scroll clear of it',
-        (tester) async {
-      await _loadInter(tester);
-      await http.runWithClient(() async {
-        await _pump(tester, game, width: width);
-        final l10n = AppLocalizations.of(tester.element(_header));
-        expect(_shareButton, findsNothing);
-        final top = _top(tester)!;
-        expect(top.inHeader, isFalse);
-        // The primary button, as every pinned action: one line, the
-        // header pill's words, the same words if it were ever off.
-        expect(top.isPrimary, isTrue);
-        expect(top.actionable, isTrue);
-        expect(top.primaryLabel, l10n.shareHeaderLabel);
-        expect(top.disabledLabel, l10n.shareHeaderLabel);
-        expect(top.sublabel, isNull);
-        final slide = find.byKey(const ValueKey('kute-shell-bar-slide'));
-        expect(tester.widget<AnimatedSlide>(slide).offset, Offset.zero);
-        // Dark: the app's primary fill with white words, not the white
-        // two-line Sal pill.
-        final button = find.byKey(const ValueKey('kute-bar-primary-button'));
-        expect(button, findsOneWidget);
-        expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
-        final fill = tester.widget<AnimatedContainer>(button).decoration!
-            as BoxDecoration;
-        expect(fill.color, AppColorsExtension.light().textPrimary);
-        final words = find.descendant(
-            of: button, matching: find.text(l10n.shareHeaderLabel));
-        expect(words, findsOneWidget);
-        expect(tester.widget<Text>(words).style?.color, Colors.white);
-        expect(find.text(l10n.barShareMarketSub), findsNothing);
+        await _pump(tester, _game(game.$1, game.$2, game.$3), width: width);
+        final button = await _expectSendBar(tester);
+        // A game sheet has nothing pinned at its foot.
+        expect(_top(tester)!.actionRowHeight, 0);
+        if (game == _short) {
+          // A short title keeps its own size: nothing took its room.
+          final titleText = find.descendant(
+              of: find.byKey(const ValueKey('poly-detail-title')),
+              matching: find.byType(Text));
+          expect(tester.widget<Text>(titleText).style!.fontSize,
+              closeTo(18 * width / 430, 0.01));
+          expect(tester.renderObject<RenderParagraph>(titleText)
+              .didExceedMaxLines, isFalse);
+        }
         await _shoot(tester,
-            'game_header_bar_${width.toInt()}_${game.$2.split(' ').first}');
+            'game_bar_${width.toInt()}_${game.$2.split(' ').first}');
         // Scrolled to the very end, Rules sits above the floating bar.
         await tester.drag(
             find.byType(CustomScrollView).first, const Offset(0, -6000));
@@ -285,18 +306,38 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
         }
         final rules = find.byType(PolyRulesRow);
-        final barTop = tester.getRect(button).top;
-        expect(tester.getRect(rules).bottom, lessThan(barTop));
-        // A tap opens the Sal sheet with the market's send cards, as the
-        // header pill does.
-        await tester.tap(button);
-        for (var i = 0; i < 12; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-        expect(find.text(l10n.shareTheMarket), findsWidgets);
+        expect(tester.getRect(rules).bottom,
+            lessThan(tester.getRect(button).top));
+        await _expectOpensSalSheet(tester, button);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => MockClient((_) async => http.Response('{}', 404)));
     });
   }
+
+  testWidgets(
+      'a Yes/No market: no pill beside the chance, the bar is the dark "Send '
+      'to a friend" button riding above the Yes / No pair', (tester) async {
+    await _loadInter(tester);
+    await http.runWithClient(() async {
+      await _pump(tester, _yesNo('Will Bitcoin close above \$120k on Friday?'),
+          width: 390);
+      final button = await _expectSendBar(tester);
+      expect(_top(tester)!.actionRowHeight, greaterThan(0));
+      // Lifted clear of the pinned pair (the blurred band with its
+      // hairline at the top).
+      final yes = find.textContaining(RegExp('^Yes'));
+      expect(yes, findsWidgets);
+      expect(tester.getRect(button).bottom,
+          lessThan(tester.getRect(yes.last).top));
+      // The band under the lifted bar lets taps through to the pair.
+      final hit = tester.hitTestOnBinding(tester.getCenter(yes.last));
+      final yesBox = tester.renderObject(yes.last);
+      expect(hit.path.any((e) => e.target == yesBox), isTrue);
+      await _shoot(tester, 'yes_no_bar_390');
+      await _expectOpensSalSheet(tester, button);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, () => MockClient((_) async => http.Response('{}', 404)));
+  });
 }

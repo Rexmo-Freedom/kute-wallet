@@ -2,12 +2,17 @@
 // market sheet's header (ticker, the kind, the live price) and shows the
 // position itself as plain rows, with nothing written twice.
 
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:kute/app_router.dart' show AppRouter;
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
 import 'package:kute/providers/advisor_provider.dart'
@@ -46,9 +51,15 @@ import 'package:kute/services/tracking_service.dart';
 import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart'
     show ChartTradeLineKind;
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/shell_bar_harness.dart'
+    show installShellBar, kuteBarPrimaryButtonKey, shellBarBuilder,
+        shellBarObservers;
 
 // No socket in a test.
 class _LivePrices extends HlLivePricesNotifier {
@@ -228,14 +239,22 @@ void main() {
     // The price is the big figure under the header row, not in it.
     expect(find.descendant(of: header, matching: find.byType(HlTickPrice)),
         findsNothing);
-    // The share is the market pages' header pill at the top right beside
-    // the big figure (founder, 1 November 2026): "Brag about it" in
-    // profit, else the header button; no card under the tiles.
+    // "Send to a friend" is the bar at the foot, the dark primary button
+    // over the Close row (founder, 2 November 2026: "always make it on the
+    // bottom"), never a pill beside the price; in profit (66,000 against
+    // 64,000) the "Brag about it" pill keeps the price's row; no card
+    // under the tiles.
     expect(find.byKey(const ValueKey('position-share-card')), findsNothing);
-    final brag = find.byKey(const ValueKey('position-share-pill'));
-    final send = find.byKey(const ValueKey('kute-sal-header-button'));
-    expect(brag.evaluate().length + send.evaluate().length, 1);
-    final pill = brag.evaluate().isNotEmpty ? brag : send;
+    expect(find.byKey(const ValueKey('kute-sal-header-button')), findsNothing);
+    final bar = kuteBarTop(ProviderScope.containerOf(
+            tester.element(find.byType(HlPositionDetailSheet)))
+        .read(kuteBarContextProvider))!;
+    expect(bar.isPrimary, isTrue);
+    expect(bar.primaryLabel, 'Send to a friend');
+    expect(bar.disabledLabel, 'Send to a friend');
+    expect(bar.actionRowHeight, greaterThan(0));
+    final pill = find.byKey(const ValueKey('position-share-pill'));
+    expect(pill, findsOneWidget);
     final pillRect = tester.getRect(pill);
     final priceRect =
         tester.getRect(find.byKey(const ValueKey('hl-position-price')));
@@ -481,7 +500,9 @@ void main() {
         double width = 390,
         String? font,
         double textScale = 1,
+        bool shell = false,
         List<Override> extra = const []}) async {
+      if (shell) installShellBar();
       tester.view.physicalSize = Size(width, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -518,6 +539,17 @@ void main() {
             ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
+            // The app's layering (the bar over the navigator) for a test
+            // that reads or shoots the bar.
+            navigatorKey: shell ? AppRouter.rootNavigatorKey : null,
+            navigatorObservers: shell ? shellBarObservers() : const [],
+            builder: shell
+                ? (context, child) => RepaintBoundary(
+                    key: const ValueKey('shot'),
+                    child: ColoredBox(
+                        color: AppColorsExtension.light().background,
+                        child: shellBarBuilder(context, child)))
+                : null,
             home: Builder(
               builder: (context) => MediaQuery(
                 data: MediaQuery.of(context)
@@ -595,21 +627,27 @@ void main() {
           .descendant(of: header.first, matching: find.byType(HlCoinIcon))
           .first);
       expect(icon.size, 32);
-      // The star stays in the header; Sal's Share pill ends the price's
-      // row under it, centred on the price and right against the 20 pt
-      // gutter (founder, 31 October 2026).
+      // The star stays in the header. "Send to a friend" is neither there
+      // nor beside the price: it is the bar at the foot, the dark primary
+      // button over the Invest row, opening the market's Sal sheet
+      // (founder, 2 November 2026: "always make it on the bottom").
       expect(
           find.descendant(of: header.first, matching: find.byType(HlWatchStar)),
           findsOneWidget);
-      final share = find.byKey(const ValueKey('kute-sal-header-button'));
-      expect(share, findsOneWidget);
-      expect(find.descendant(of: header.first, matching: share), findsNothing);
-      final shareRect = tester.getRect(share);
-      final priceRect =
-          tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
-      expect(shareRect.center.dy, closeTo(priceRect.center.dy, 2));
-      expect(shareRect.right, closeTo(390 - 20 * 390 / 430, 1));
-      expect(shareRect.left, greaterThanOrEqualTo(priceRect.right));
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+      final bar = kuteBarTop(ProviderScope.containerOf(
+              tester.element(find.byType(HlMarketDetailSheet)))
+          .read(kuteBarContextProvider))!;
+      expect(bar.isPrimary, isTrue);
+      expect(bar.inHeader, isFalse);
+      expect(bar.actionable, isTrue);
+      expect(bar.primaryLabel, 'Send to a friend');
+      expect(bar.disabledLabel, 'Send to a friend');
+      expect(bar.source, 'trading');
+      // Above the pinned Invest row: its padding, the 56 buttons, the
+      // hairline.
+      expect(bar.actionRowHeight, greaterThan(56 * 390 / 430));
       expect(tester.takeException(), isNull);
     });
 
@@ -620,6 +658,52 @@ void main() {
           }
           await inter.load();
         });
+
+    testWidgets('the market sheet: "Send to a friend" is the dark bar at the '
+        'foot, above the Invest row, and a tap on it opens the market\'s Sal '
+        'sheet', (tester) async {
+      await loadInter(tester);
+      await pumpScreen(tester, const HlMarketDetailSheet(market: btc),
+          shell: true, font: 'Inter');
+      await tester.pump(const Duration(seconds: 1));
+      final button = find.byKey(kuteBarPrimaryButtonKey);
+      expect(button, findsOneWidget);
+      final words = find.descendant(
+          of: button, matching: find.text('Send to a friend'));
+      expect(words, findsOneWidget);
+      expect(tester.widget<Text>(words).style?.color, Colors.white);
+      expect(find.byKey(const ValueKey('kute-sal-header-button')),
+          findsNothing);
+      // Over the Invest row, never on it.
+      final invest = find.text('Invest');
+      expect(invest, findsOneWidget);
+      expect(tester.getRect(button).bottom,
+          lessThan(tester.getRect(invest).top));
+      // The price has the whole row: nothing at its end.
+      final price = tester.getRect(find.byKey(const ValueKey('hl-detail-price')));
+      expect(tester.getRect(button).top, greaterThan(price.bottom));
+      const out = String.fromEnvironment('HL_SEND_BAR_OUT');
+      if (out.isNotEmpty) {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const ValueKey('shot')));
+        final image =
+            (await tester.runAsync(() => boundary.toImage(pixelRatio: 3)))!;
+        await tester.runAsync(() async {
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          Directory(out).createSync(recursive: true);
+          File('$out/hl_market_bar_390.png')
+              .writeAsBytesSync(data!.buffer.asUint8List());
+        });
+      }
+      await tester.tap(button);
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('Send the market'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+    });
 
     const moving = HlMarket(
       coin: 'BTC',

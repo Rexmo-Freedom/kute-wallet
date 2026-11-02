@@ -31,6 +31,8 @@ import 'package:kute/screens/hyperliquid/components/hl_charts.dart'
 import 'package:kute/screens/shared/kute_dog_scenes.dart'
     show KuteDogGlance, SalAiRing;
 import 'package:kute/screens/shared/kute_back_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show kuteBarContextProvider, kuteBarTop;
 import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
 import 'package:kute/theme/app_theme.dart';
 
@@ -324,17 +326,19 @@ void main() {
         expect(tester.getRect(star).left,
             greaterThanOrEqualTo(tester.getRect(title).right));
         expect(find.byKey(const ValueKey('ask-sal-pill')), findsNothing);
-        // Sal's Share pill is not in the header (founder, 31 October 2026):
-        // it ends the headline row, centred on the leader's chance and
-        // right against the page's 20 pt gutter.
-        final share = find.byKey(const ValueKey('kute-sal-header-button'));
-        expect(share, findsOneWidget);
-        expect(find.descendant(of: header, matching: share), findsNothing);
-        final shareRect = tester.getRect(share);
-        final figureRect = tester.getRect(find.text('18%').first);
-        expect(shareRect.center.dy, closeTo(figureRect.center.dy, 2));
-        expect(shareRect.right, closeTo(width - 20 * width / 430, 1));
-        expect(shareRect.left, greaterThanOrEqualTo(figureRect.right));
+        // "Send to a friend" is neither in the header nor beside the
+        // leader's chance: it is the bar at the foot, the dark primary
+        // button opening the market's Sal sheet (founder, 2 November 2026:
+        // "always make it on the bottom").
+        expect(find.byKey(const ValueKey('kute-sal-header-button')),
+            findsNothing);
+        final bar = kuteBarTop(ProviderScope.containerOf(
+                tester.element(find.byType(MarketDetailSheet)))
+            .read(kuteBarContextProvider))!;
+        expect(bar.isPrimary, isTrue);
+        expect(bar.primaryLabel, 'Send to a friend');
+        expect(bar.disabledLabel, 'Send to a friend');
+        expect(bar.source, 'predictions');
         // Gone: the market count line, the change / LIVE row, the end date.
         expect(find.textContaining('Tap a market'), findsNothing);
         expect(find.textContaining('markets ·'), findsNothing);
