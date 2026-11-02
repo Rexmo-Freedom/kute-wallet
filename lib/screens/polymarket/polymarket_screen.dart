@@ -1896,7 +1896,9 @@ class CryptoPredictBanner extends ConsumerWidget {
 }
 
 /// The compact crypto round card ([CryptoPredictBanner.compact]): about
-/// 180 px for the same data and actions as the full card.
+/// 160 px for the same data and actions as the full card, the live
+/// sparkline against the target included (founder, 2 November 2026: the
+/// card before the quiet one, a bit smaller).
 class _CompactCryptoCard extends StatelessWidget {
   const _CompactCryptoCard({
     required this.config,
@@ -1934,32 +1936,38 @@ class _CompactCryptoCard extends StatelessWidget {
 
   /// The sparkline's plot height; the chart's own bottom margin (18 px,
   /// time labels off) is clipped away beneath it.
-  static const double _sparkHeight = 40;
+  static const double _sparkHeight = 32;
+
+  /// The header's logo.
+  static const double _logo = 28;
+
+  /// The Up / Down pills' height.
+  static const double pillHeight = 34;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final logo = config.isSvg
         ? SvgPicture.asset(config.logoPath,
-            width: 32.sp, height: 32.sp, fit: BoxFit.contain)
+            width: _logo.sp, height: _logo.sp, fit: BoxFit.contain)
         : Container(
-            width: 32.sp,
-            height: 32.sp,
+            width: _logo.sp,
+            height: _logo.sp,
             decoration: BoxDecoration(
               color: config.brandColor,
-              borderRadius: BorderRadius.circular(9.r),
+              borderRadius: BorderRadius.circular(8.r),
             ),
             alignment: Alignment.center,
-            child: Image.asset(config.logoPath, width: 22.sp, height: 22.sp),
+            child: Image.asset(config.logoPath, width: 19.sp, height: 19.sp),
           );
     final pair = formatPolyChancePair(upFrac);
     final seeded = (history?.length ?? 0) >= 2;
     return Container(
       key: const ValueKey('crypto-round-compact'),
-      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
+      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: c.borderSubtle, width: 0.5),
         boxShadow: context.isDark
             ? null
@@ -1978,8 +1986,8 @@ class _CompactCryptoCard extends StatelessWidget {
           // Logo, title, past rounds as dots, the countdown pill.
           Row(
             children: [
-              SizedBox(width: 32.sp, height: 32.sp, child: logo),
-              SizedBox(width: 10.w),
+              SizedBox(width: _logo.sp, height: _logo.sp, child: logo),
+              SizedBox(width: 8.w),
               Expanded(
                 child: Text(
                   title,
@@ -1987,7 +1995,7 @@ class _CompactCryptoCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: c.textPrimary,
-                    fontSize: 15.sp,
+                    fontSize: 14.sp,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
@@ -1999,7 +2007,7 @@ class _CompactCryptoCard extends StatelessWidget {
               ],
               Container(
                 key: const ValueKey('crypto-round-countdown'),
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
                 decoration: BoxDecoration(
                   color: c.surfaceLight,
                   borderRadius: BorderRadius.circular(999),
@@ -2020,7 +2028,7 @@ class _CompactCryptoCard extends StatelessWidget {
                       countdown,
                       style: TextStyle(
                         color: c.textPrimary,
-                        fontSize: 13.sp,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.w600,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
@@ -2030,13 +2038,13 @@ class _CompactCryptoCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 6.h),
           // The live price, its move against the target, the target.
           if (loading)
             KuteSkeleton(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: SkeletonBar(140.w, 22.h, radius: 6.r),
+                child: SkeletonBar(130.w, 20.h, radius: 6.r),
               ),
             )
           else
@@ -2052,7 +2060,7 @@ class _CompactCryptoCard extends StatelessWidget {
                       text: priceText,
                       style: TextStyle(
                         color: c.textPrimary,
-                        fontSize: 22.sp,
+                        fontSize: 20.sp,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.6,
                         height: 1.0,
@@ -2089,7 +2097,7 @@ class _CompactCryptoCard extends StatelessWidget {
                 ),
               ],
             ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 4.h),
           // A slim sparkline with the dashed target line.
           SizedBox(
             height: _sparkHeight,
@@ -2112,7 +2120,7 @@ class _CompactCryptoCard extends StatelessWidget {
                     ),
                   ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 6.h),
           // Up and Down with their odds, one row of two pills.
           Row(
             children: [
@@ -2143,8 +2151,9 @@ class _CompactCryptoCard extends StatelessWidget {
   }
 }
 
-/// One side of the compact card: a 40 px pill in the market colour, the
-/// arrow, the side and its odds.
+/// One side of the compact card: a 34 px pill
+/// ([_CompactCryptoCard.pillHeight]) in the market colour, the arrow, the
+/// side and its odds.
 class _CompactSidePill extends StatelessWidget {
   const _CompactSidePill({
     super.key,
@@ -2165,7 +2174,7 @@ class _CompactSidePill extends StatelessWidget {
     final fg = contrastingOnColor(color);
     final style = TextStyle(
       color: fg,
-      fontSize: 14.sp,
+      fontSize: 13.sp,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.1,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -2180,7 +2189,7 @@ class _CompactSidePill extends StatelessWidget {
           onTap();
         },
         child: Container(
-          height: 40,
+          height: _CompactCryptoCard.pillHeight,
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(999),
@@ -2193,7 +2202,7 @@ class _CompactSidePill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  size: 16.sp, color: fg),
+                  size: 14.sp, color: fg),
               SizedBox(width: 4.w),
               Text(label, style: style),
               SizedBox(width: 6.w),

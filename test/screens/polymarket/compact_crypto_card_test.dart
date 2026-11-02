@@ -2,8 +2,9 @@
 // November 2026: the full card stood ~600 px over the list): one header
 // row (logo, "BTC up or down · 5m", past rounds as dots, the countdown
 // pill), the price row (price, its move against the target, the target),
-// a 40 px sparkline and the Up / Down pills with their odds, about 180 px
-// in all. The market page keeps the full card.
+// a 32 px sparkline and the Up / Down pills (34) with their odds, about
+// 160 px in all (founder, 2 November 2026: the sparkline card, a bit
+// smaller). The market page keeps the full card.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,7 +87,7 @@ Widget compactCardApp({bool dark = false}) => ProviderScope(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('compact: about 180 px, every piece of the round on it',
+  testWidgets('compact: about 160 px, every piece of the round on it',
       (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
@@ -99,7 +100,7 @@ void main() {
     final card = find.byKey(const ValueKey('crypto-round-compact'));
     expect(card, findsOneWidget);
     final h = tester.getSize(card).height;
-    expect(h, inInclusiveRange(150, 200));
+    expect(h, inInclusiveRange(135, 175));
     expect(find.text('BTC up or down · 5m'), findsOneWidget);
     expect(find.byKey(const ValueKey('crypto-round-countdown')), findsOneWidget);
     expect(find.text('02:34'), findsOneWidget);
@@ -108,8 +109,8 @@ void main() {
     expect(find.textContaining('▲'), findsOneWidget);
     final up = find.byKey(const ValueKey('crypto-round-up'));
     final down = find.byKey(const ValueKey('crypto-round-down'));
-    expect(tester.getSize(up).height, 40);
-    expect(tester.getSize(down).height, 40);
+    expect(tester.getSize(up).height, 34);
+    expect(tester.getSize(down).height, 34);
     expect(find.descendant(of: up, matching: find.text('Up')), findsOneWidget);
     expect(
         find.descendant(of: down, matching: find.text('Down')), findsOneWidget);
