@@ -505,6 +505,7 @@ class ShareCardFrame extends StatelessWidget {
     this.watermark,
     this.graphic,
     this.graphicFills = false,
+    this.graphicBelowSal = false,
     this.plain,
     this.line,
     this.quiet,
@@ -553,6 +554,10 @@ class ShareCardFrame extends StatelessWidget {
   /// block follows the top band; else the hero block is centred in the
   /// space left and the graphic sits under it at its own height.
   final bool graphicFills;
+
+  /// A filling graphic with no number over it starts under Sal's feet at
+  /// the top right (a market's chart, whose labels sit at its right).
+  final bool graphicBelowSal;
 
   /// One plain fact line under the graphic.
   final String? plain;
@@ -659,36 +664,57 @@ class ShareCardFrame extends StatelessWidget {
     final keyedGraphic = graphic == null
         ? null
         : KeyedSubtree(key: ValueKey('$keyPrefix-graphic'), child: graphic!);
-    // TOP: the caps line and the identity, clear of Sal at the top right;
-    // a big number right under them starts below him.
+    // TOP: the caps line and the identity, clear of Sal at the top right
+    // (the title set around him, the lines under his band the full
+    // width; he sits smaller when the title needs his room, see
+    // shareCardSalTopSize); a big number right under them starts below
+    // him.
+    final salTop = sal != null && !salOnFloor;
+    final salSize = salTop
+        ? shareCardSalTopSize(identity?.name,
+            direction: Directionality.of(context))
+        : kShareCardSalSize;
+    final capsText = Text(
+      caps.toUpperCase(),
+      key: ValueKey('$keyPrefix-caps'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: shareCardText(kShareCardCapsSize, FontWeight.w700, p.muted,
+          spacing: kShareCardCapsSize * 0.1, height: 1.2),
+    );
     Widget top = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          caps.toUpperCase(),
-          key: ValueKey('$keyPrefix-caps'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: shareCardText(kShareCardCapsSize, FontWeight.w700, p.muted,
-              spacing: kShareCardCapsSize * 0.1, height: 1.2),
-        ),
+        if (salTop)
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+                end: shareCardSalFloat(salSize).width),
+            child: capsText,
+          )
+        else
+          capsText,
         if (identity != null) ...[
-          const SizedBox(height: 12),
-          identity!,
+          const SizedBox(height: kShareCardIdentityGap),
+          if (salTop)
+            ShareCardTitleFloat(
+              height: shareCardSalFloat(salSize).height,
+              width: shareCardSalFloat(salSize).width,
+              child: identity!,
+            )
+          else
+            identity!,
         ],
       ],
     );
-    final salTop = sal != null && !salOnFloor;
-    final salBand = salTop && number != null && !center && graphicFills;
+    final salBand = salTop &&
+        (number != null || graphicBelowSal) &&
+        !center &&
+        graphicFills;
     if (salTop) {
-      top = Padding(
-        padding: const EdgeInsetsDirectional.only(end: kShareCardSalInset),
-        child: top,
-      );
       if (salBand) {
         top = ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: kShareCardSalBand),
+          constraints: BoxConstraints(minHeight: shareCardSalBand(salSize)),
           child: Align(alignment: Alignment.topLeft, child: top),
         );
       }
@@ -880,8 +906,8 @@ class ShareCardFrame extends StatelessWidget {
                         PositionedDirectional(
                           top: kShareCardSalTop,
                           end: kShareCardSalEnd,
-                          width: kShareCardSalSize,
-                          height: kShareCardSalSize,
+                          width: salSize,
+                          height: salSize,
                           child: ShareCardSalStill(
                               key: ValueKey('$keyPrefix-sal'),
                               pose: sal,
@@ -905,12 +931,75 @@ const double kShareCardSalTop = -6;
 const double kShareCardSalEnd = 0;
 
 /// The room the caps line and the identity leave at their end for Sal at
-/// the top right.
+/// the top right (his full size; see [shareCardSalFloat]).
 const double kShareCardSalInset = 84;
 
+/// Sal at the top right when the title needs his room: a long title
+/// sets its first two lines beside him and the rest under his feet at
+/// the full width ([shareCardSalTopSize]).
+const double kShareCardSalCompactSize = 104;
+
+/// The space between the caps line and the identity row.
+const double kShareCardIdentityGap = 12;
+
+/// How far down Sal's silhouette reaches in his cell (his paws and his
+/// shadow), and where it starts across it, as fractions of the cell.
+const double kShareCardSalDogBottom = 0.89;
+const double kShareCardSalDogLeft = 0.22;
+
+/// The space the title keeps from Sal.
+const double kShareCardSalTitleGap = 8;
+
+/// Sal's band over the identity row when his cell is [size] at the top
+/// right: how far down from the row's top he reaches and how much of its
+/// end he takes ([ShareCardTitleFloat]).
+({double height, double width}) shareCardSalFloat(double size) {
+  final rowTop =
+      kShareCardPadding + kShareCardCapsSize * 1.2 + kShareCardIdentityGap;
+  final bottom = kShareCardSalTop + size * kShareCardSalDogBottom;
+  final left = kShareCardSize.width -
+      kShareCardSalEnd -
+      size * (1 - kShareCardSalDogLeft);
+  return (
+    height: math.max(0, bottom - rowTop),
+    width: kShareCardSize.width -
+        kShareCardPadding -
+        left +
+        kShareCardSalTitleGap,
+  );
+}
+
+/// Sal's cell at the top right for a card titled [title]: his full size
+/// while the title reads whole on two lines at 18 beside him, else the
+/// compact one, so the lines under him take the full width.
+double shareCardSalTopSize(String? title,
+    {TextDirection direction = TextDirection.ltr}) {
+  final t = title?.trim() ?? '';
+  if (t.isEmpty) return kShareCardSalSize;
+  final wide = kShareCardSize.width -
+      kShareCardPadding * 2 -
+      ShareCardIdentity.logoSide -
+      ShareCardIdentity.logoGap;
+  final full = shareCardSalFloat(kShareCardSalSize);
+  final fit = shareCardTitleFit(t,
+      narrow: wide - full.width,
+      wide: wide,
+      floatHeight: full.height,
+      direction: direction);
+  return fit.fits && fit.size == kShareCardTitleSteps.first.$1
+      ? kShareCardSalSize
+      : kShareCardSalCompactSize;
+}
+
 /// The top band's height when a big number follows it at the left, so
-/// the number starts under Sal's feet.
+/// the number starts under Sal's feet (his full size; see
+/// [shareCardSalBand]).
 const double kShareCardSalBand = 80;
+
+/// The top band's height under Sal's cell of [size] at the top right:
+/// [kShareCardSalBand] at his full size, less when he sits compact.
+double shareCardSalBand(double size) =>
+    kShareCardSalBand - (kShareCardSalSize - size) * 0.86;
 
 /// Sal standing on the bottom band's rule (a card with nothing filling
 /// its middle): his cell's side (the 384 px still at 3× pixels, barely
@@ -1060,8 +1149,142 @@ class _StillPainter extends CustomPainter {
       !identical(old.still, still) || old.shadow != shadow;
 }
 
-/// The identity row: [logo] (36, a rounded square), [name] (18, w600) and
-/// a muted [meta] under it.
+/// A card's title as it is set: its [size], the [head] set beside Sal
+/// (the lines whose top is in his band, at the narrow width) and the
+/// [tail] under him at the full width, [lines] in all; [fits] when it is
+/// whole within its step's lines (else the last step, cut at the end).
+typedef ShareCardTitleFit = ({
+  double size,
+  String head,
+  String tail,
+  int headLines,
+  int lines,
+  bool fits,
+});
+
+/// The sizes a card's title steps down through, each with the lines it
+/// may take (founder, 2 November 2026: "try to not cut titles"): 18 on
+/// two lines, 16, 15, then 14 (still w600 and readable at phone width) on
+/// three; cut with an ellipsis only after three lines at 14.
+const List<(double, int)> kShareCardTitleSteps = [
+  (18, 2),
+  (16, 3),
+  (15, 3),
+  (14, 3),
+];
+
+/// The title's line height, a fraction of its size.
+const double kShareCardTitleHeight = 1.2;
+
+/// The room over a title line's glyphs in its box.
+const double kShareCardTitleLeading = 2;
+
+/// The title's style at [size].
+TextStyle shareCardTitleStyle(double size, Color color) =>
+    shareCardText(size, FontWeight.w600, color,
+        spacing: size >= 18 ? -0.3 : -0.2, height: kShareCardTitleHeight);
+
+/// [text] set as a card's title (see [ShareCardTitleFit]): [narrow] wide
+/// for the lines whose top is within [floatHeight] (beside Sal at the top
+/// right), [wide] for the lines under him; the first of
+/// [kShareCardTitleSteps] it fits whole, else the last one.
+ShareCardTitleFit shareCardTitleFit(
+  String text, {
+  required double narrow,
+  required double wide,
+  double floatHeight = 0,
+  TextDirection direction = TextDirection.ltr,
+}) {
+  ShareCardTitleFit? last;
+  for (final (size, maxLines) in kShareCardTitleSteps) {
+    final style = shareCardTitleStyle(size, const Color(0xFFFFFFFF));
+    final lh = size * kShareCardTitleHeight;
+    final beside = floatHeight <= 0 || narrow >= wide
+        ? 0
+        // A line's box starts with its leading over the glyphs: one whose
+        // top is within that of Sal's band is under him.
+        : math.max(0, ((floatHeight - kShareCardTitleLeading) / lh).ceil());
+    int count(String t, double w) {
+      if (t.isEmpty) return 0;
+      final tp = TextPainter(
+          text: TextSpan(text: t, style: style), textDirection: direction)
+        ..layout(maxWidth: math.max(1, w));
+      final n = tp.computeLineMetrics().length;
+      tp.dispose();
+      return n;
+    }
+
+    String head = text;
+    String tail = '';
+    int headLines;
+    int lines;
+    if (beside == 0) {
+      headLines = 0;
+      head = '';
+      tail = text;
+      lines = count(text, wide);
+    } else {
+      final tp = TextPainter(
+          text: TextSpan(text: text, style: style), textDirection: direction)
+        ..layout(maxWidth: math.max(1, narrow));
+      final metrics = tp.computeLineMetrics();
+      if (metrics.length <= beside) {
+        headLines = metrics.length;
+        lines = metrics.length;
+      } else {
+        // The end of the last line beside Sal: from its start, whose
+        // position is never ambiguous.
+        final m = metrics[beside - 1];
+        final start = tp.getPositionForOffset(Offset(0, m.baseline));
+        final end = tp.getLineBoundary(start).end;
+        head = text.substring(0, end).trimRight();
+        tail = text.substring(end).trimLeft();
+        headLines = beside;
+        lines = beside + count(tail, wide);
+      }
+      tp.dispose();
+    }
+    last = (
+      size: size,
+      head: head,
+      tail: tail,
+      headLines: headLines,
+      lines: lines,
+      fits: lines <= maxLines,
+    );
+    if (last.fits) return last;
+  }
+  return last!;
+}
+
+/// Where Sal sits over the identity row at the top right, for its title
+/// to set around him ([shareCardTitleFit]): the [height] from the row's
+/// top his band reaches down to and the [width] he takes at its end.
+/// Provided by [ShareCardFrame]; none: the row's full width.
+class ShareCardTitleFloat extends InheritedWidget {
+  const ShareCardTitleFloat({
+    super.key,
+    required this.height,
+    required this.width,
+    required super.child,
+  });
+
+  final double height;
+  final double width;
+
+  static ShareCardTitleFloat? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShareCardTitleFloat>();
+
+  @override
+  bool updateShouldNotify(ShareCardTitleFloat old) =>
+      old.height != height || old.width != width;
+}
+
+/// The identity row: [logo] (36, a rounded square), [name] and a muted
+/// [meta] under it. The name is never cut while it can be read whole
+/// ([shareCardTitleFit]): 18 on two lines, 16 to 14 on three, the lines
+/// beside Sal ([ShareCardTitleFloat]) clear of him, the lines under him
+/// the full width; an ellipsis only after three lines at 14.
 class ShareCardIdentity extends StatelessWidget {
   const ShareCardIdentity({
     super.key,
@@ -1069,7 +1292,6 @@ class ShareCardIdentity extends StatelessWidget {
     required this.logo,
     required this.name,
     this.meta,
-    this.nameMaxLines = 1,
     this.keyPrefix = 'share-card',
   });
 
@@ -1077,47 +1299,92 @@ class ShareCardIdentity extends StatelessWidget {
   final Widget logo;
   final String name;
   final String? meta;
-  final int nameMaxLines;
   final String keyPrefix;
+
+  /// The logo's side and the gap after it.
+  static const double logoSide = 36;
+  static const double logoGap = 12;
 
   @override
   Widget build(BuildContext context) {
     final m = meta?.trim() ?? '';
-    return Row(
-      key: ValueKey('$keyPrefix-identity'),
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        logo,
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                name,
-                key: ValueKey('$keyPrefix-title'),
-                maxLines: nameMaxLines,
-                overflow: TextOverflow.ellipsis,
-                style: shareCardText(18, FontWeight.w600, palette.ink,
-                    spacing: -0.3, height: 1.2),
+    final float = ShareCardTitleFloat.of(context);
+    return LayoutBuilder(builder: (context, box) {
+      final wide = box.maxWidth - logoSide - logoGap;
+      final narrow = wide - (float?.width ?? 0);
+      final fit = shareCardTitleFit(name,
+          narrow: narrow,
+          wide: wide,
+          floatHeight: float?.height ?? 0,
+          direction: Directionality.of(context));
+      final maxLines = kShareCardTitleSteps.last.$2;
+      final style = shareCardTitleStyle(fit.size, palette.ink);
+      // The meta under the title: beside Sal while his band reaches it.
+      final metaTop = fit.lines * fit.size * kShareCardTitleHeight + 1;
+      final metaBeside = float != null && metaTop < float.height;
+      final title = Column(
+        key: ValueKey('$keyPrefix-title'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (fit.head.isNotEmpty)
+            SizedBox(
+              width: narrow,
+              child: Text(
+                fit.head,
+                key: ValueKey('$keyPrefix-title-head'),
+                maxLines: fit.headLines,
+                overflow: fit.tail.isEmpty && !fit.fits
+                    ? TextOverflow.ellipsis
+                    : TextOverflow.clip,
+                style: style,
               ),
-              if (m.isNotEmpty) ...[
-                const SizedBox(height: 1),
-                Text(
-                  m,
-                  key: ValueKey('$keyPrefix-meta'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: shareCardText(14, FontWeight.w500, palette.muted,
-                      height: 1.25),
-                ),
+            ),
+          if (fit.tail.isNotEmpty)
+            Text(
+              fit.tail,
+              key: ValueKey('$keyPrefix-title-tail'),
+              maxLines: math.max(1, maxLines - fit.headLines),
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+        ],
+      );
+      return Row(
+        key: ValueKey('$keyPrefix-identity'),
+        // A title over two lines hangs from the logo's top.
+        crossAxisAlignment: fit.lines > 2
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
+        children: [
+          logo,
+          const SizedBox(width: logoGap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                title,
+                if (m.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  SizedBox(
+                    width: metaBeside ? narrow : wide,
+                    child: Text(
+                      m,
+                      key: ValueKey('$keyPrefix-meta'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: shareCardText(14, FontWeight.w500, palette.muted,
+                          height: 1.25),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 }
 

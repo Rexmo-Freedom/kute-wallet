@@ -5,8 +5,11 @@ import 'package:kute/screens/share/brag/brag_data.dart';
 
 const String kBragTestCode = 'JOAO42';
 
-BragPosition fakeBragPosition({String? code = kBragTestCode}) => BragPosition(
-      title: 'LoL Worlds 2026: Gen.G vs T1',
+BragPosition fakeBragPosition(
+        {String? code = kBragTestCode,
+        String title = 'LoL Worlds 2026: Gen.G vs T1'}) =>
+    BragPosition(
+      title: title,
       link: 'https://backend.kutewallet.com/m/predictions/lol-worlds-geng-t1',
       referralCode: code,
       investing: false,

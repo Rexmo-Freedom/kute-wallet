@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/brag/brag_card.dart';
@@ -445,6 +446,53 @@ void main() {
           r'+$36.90 while you were scrolling.');
       expect(env.paramsOf('brag_shared').single,
           {'kind': 'position', 'card': 'position'});
+    });
+
+    testWidgets(
+        'a long market title reads whole (founder: "try to not cut '
+        'titles"), the outcome under it, Sal clear of it', (tester) async {
+      await tester.runAsync(loadBragFonts);
+      for (final title in const [
+        'LoL Worlds 2026 Final: Gen.G vs T1',
+        'Will the Federal Reserve cut interest rates by 50 basis points at '
+            'its December 2026 meeting?',
+      ]) {
+        await pumpShareWidget(
+            tester, env, card(fakeBragPosition(title: title)));
+        expect(tester.takeException(), isNull, reason: title);
+        final parts = [
+          for (final k in const [
+            'brag-card-title-head',
+            'brag-card-title-tail'
+          ])
+            if (find.byKey(ValueKey(k)).evaluate().isNotEmpty)
+              tester.renderObject<RenderParagraph>(find.byKey(ValueKey(k)))
+        ];
+        expect(parts, isNotEmpty, reason: title);
+        for (final p in parts) {
+          expect(p.didExceedMaxLines, isFalse, reason: title);
+        }
+        expect(
+            parts.map((p) => p.text.toPlainText()).join(' '), title);
+        expect(textAt(tester, 'brag-card-meta').data, 'Gen.G');
+      }
+    });
+
+    testWidgets(
+        "a portfolio row's long name wraps to two lines rather than cut",
+        (tester) async {
+      await tester.runAsync(loadBragFonts);
+      await pumpShareWidget(tester, env, card(fakeBragPortfolio()));
+      expect(tester.takeException(), isNull);
+      final fed = find.descendant(
+          of: find.byKey(const ValueKey('brag-card-top-2')),
+          matching: find.text('Fed cuts rates in December?'));
+      expect(fed, findsOneWidget);
+      final para = tester.renderObject<RenderParagraph>(fed);
+      expect(para.didExceedMaxLines, isFalse);
+      expect(bragRowNameFit('BTC', 200).lines, 1);
+      expect(bragRowNameFit('Fed cuts rates in December?', 150),
+          (size: kBragRowNameSmall, lines: 2));
     });
 
     testWidgets('the portfolio card says portfolio', (tester) async {

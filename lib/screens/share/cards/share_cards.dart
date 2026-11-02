@@ -143,7 +143,6 @@ class ShareCard extends StatelessWidget {
               imageUrl: d.imageUrl,
             ),
             name: d.question,
-            nameMaxLines: 2,
           ),
           // The chance on the open-position screen's speedometer, huge
           // under its hub; without a chance, the outcome alone.

@@ -81,8 +81,36 @@ Color _signed(ShareCardPalette p, BragResult r) => r.up
 /// A row's logo in the portfolio card.
 const double kBragRowLogo = 28;
 
-/// The least height a row of the portfolio card takes.
+/// The least height a row of the portfolio card takes, and a row whose
+/// name takes two lines.
 const double kBragRowHeight = 32;
+const double kBragRowHeightTwoLines = 44;
+
+/// A row's name and result sizes, and the smaller size a long name steps
+/// down to on two lines.
+const double kBragRowNameSize = 17;
+const double kBragRowNameSmall = 15;
+
+/// A row's name set in [width]: one line at [kBragRowNameSize] when it
+/// fits, else two at [kBragRowNameSmall] (cut only after those two).
+({double size, int lines}) bragRowNameFit(String name, double width) {
+  if (!width.isFinite || width <= 0) {
+    return (size: kBragRowNameSize, lines: 1);
+  }
+  TextPainter measure(double size) => TextPainter(
+        text: TextSpan(
+            text: name,
+            style: shareCardText(size, FontWeight.w500, Colors.white,
+                spacing: -0.2)),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: width);
+  final one = measure(kBragRowNameSize);
+  final fits = one.computeLineMetrics().length <= 1;
+  one.dispose();
+  return fits
+      ? (size: kBragRowNameSize, lines: 1)
+      : (size: kBragRowNameSmall, lines: 2);
+}
 
 class BragCard extends StatelessWidget {
   const BragCard({super.key, required this.data, this.mark, this.lineSeed = 0});
@@ -124,11 +152,28 @@ class BragCard extends StatelessWidget {
                   // two-line edgy line leaves room for two).
                   : LayoutBuilder(
                       builder: (context, box) {
-                        final n = box.maxHeight.isFinite
-                            ? (box.maxHeight / kBragRowHeight)
-                                .floor()
-                                .clamp(1, d.top.length)
-                            : d.top.length;
+                        // Each row as tall as its name needs (a long
+                        // market title on two lines, never cut while it
+                        // can be read), as many as fit.
+                        var n = 0;
+                        var used = 0.0;
+                        for (final row in d.top) {
+                          final h = bragRowNameFit(
+                                          _TopRow.nameOf(row),
+                                          _TopRow.nameWidth(
+                                              row, box.maxWidth))
+                                      .lines >
+                                  1
+                              ? kBragRowHeightTwoLines
+                              : kBragRowHeight;
+                          if (n > 0 &&
+                              box.maxHeight.isFinite &&
+                              used + h > box.maxHeight) {
+                            break;
+                          }
+                          used += h;
+                          n++;
+                        }
                         return Column(
                           key: const ValueKey('brag-card-rows'),
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -226,49 +271,82 @@ class _TopRow extends StatelessWidget {
   final BragTopPosition row;
   final ShareCardPalette palette;
 
+  /// A named outcome ("Gen.G") says more than the long question; a Yes
+  /// or No does not.
+  static bool _named(BragTopPosition row) {
+    final side = row.side;
+    return side != null &&
+        side.isNotEmpty &&
+        !row.investing &&
+        !const {'yes', 'no'}.contains(side.trim().toLowerCase());
+  }
+
+  /// The name the row writes.
+  static String nameOf(BragTopPosition row) =>
+      _named(row) ? row.side! : row.title;
+
+  /// The result the row writes at the right.
+  static String resultOf(BragTopPosition row) {
+    final pct = row.result.percent;
+    return pct != null ? bragPercent(pct) : row.result.text;
+  }
+
+  /// The name's width in a row [width] wide: less the logo, the gaps and
+  /// the result.
+  static double nameWidth(BragTopPosition row, double width) {
+    final tp = TextPainter(
+      text: TextSpan(
+          text: resultOf(row),
+          style: shareCardText(kBragRowNameSize, FontWeight.w600, Colors.white,
+              spacing: -0.2, tabular: true)),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final w = width - kBragRowLogo - 24 - tp.width;
+    tp.dispose();
+    return w;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = palette;
     final r = row.result;
-    final pct = r.percent;
-    final side = row.side;
-    // A named outcome ("Gen.G") says more than the long question; a Yes
-    // or No does not.
-    final named = side != null &&
-        side.isNotEmpty &&
-        !row.investing &&
-        !const {'yes', 'no'}.contains(side.trim().toLowerCase());
-    final name = named ? side : row.title;
-    return Row(
-      children: [
-        ShareCardLogo(
-          size: kBragRowLogo,
-          title: named ? side : row.title,
-          investing: row.investing,
-          palette: p,
-          coin: row.coin,
-          wireCoin: row.wireCoin,
-          iconUrl: row.iconUrl,
-          category: row.category,
-          imageUrl: row.imageUrl,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: shareCardText(17, FontWeight.w500, p.ink, spacing: -0.2),
+    final name = nameOf(row);
+    return LayoutBuilder(builder: (context, box) {
+      final fit = bragRowNameFit(name, nameWidth(row, box.maxWidth));
+      return Row(
+        children: [
+          ShareCardLogo(
+            size: kBragRowLogo,
+            title: name,
+            investing: row.investing,
+            palette: p,
+            coin: row.coin,
+            wireCoin: row.wireCoin,
+            iconUrl: row.iconUrl,
+            category: row.category,
+            imageUrl: row.imageUrl,
           ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          pct != null ? bragPercent(pct) : r.text,
-          maxLines: 1,
-          style: shareCardText(17, FontWeight.w600, _signed(p, r),
-              spacing: -0.2, tabular: true),
-        ),
-      ],
-    );
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: fit.lines,
+              overflow: TextOverflow.ellipsis,
+              style: shareCardText(fit.size, FontWeight.w500, p.ink,
+                  spacing: -0.2, height: fit.lines > 1 ? 1.15 : 1.2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            resultOf(row),
+            maxLines: 1,
+            style: shareCardText(kBragRowNameSize, FontWeight.w600,
+                _signed(p, r),
+                spacing: -0.2, tabular: true),
+          ),
+        ],
+      );
+    });
   }
 }
