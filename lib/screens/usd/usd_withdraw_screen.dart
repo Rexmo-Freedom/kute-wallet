@@ -11,11 +11,14 @@
 //     dollar send recognises shows its resolved row first (the coin on its
 //     network) and the bar's Continue opens the dollar send on it; one
 //     that could land on several networks asks which in the coin sheet;
+//   * "Frequent" directly under the field (founder, 2 November 2026:
+//     "Frequent stays on top"), the recent recipients as circles, hidden
+//     while typing and once a recipient is chosen;
 //   * the "Send to" card: "To your Bitcoin" (the Move money sheet,
 //     Dollars to Bitcoin), "A stock or prediction" (the market picker,
 //     send_pick_market_sheet.dart) and "Also sends to" (the coins, in the
 //     coin sheet, exactly as the Bitcoin send's row opens its own);
-//   * the Contacts list under it (send_contacts_list.dart; founder: a
+//   * All contacts A–Z under it (send_contacts_list.dart; founder: a
 //     growing list never hides the card): the recent dollar recipients
 //     (paid directly: the send opens on that coin and address) and the
 //     phone's contacts (a claim link for dollars to their number),
@@ -249,6 +252,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
           : l10n.sendAddressNotIdentified;
     }
     final resolved = auto != null ? match!.address : null;
+    final recents = _recentPeople(offered);
 
     final bar = auto != null
         ? KuteBarContext.primary(
@@ -297,7 +301,7 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                   address: resolved!,
                   rail: l10n.usdSendResolvedRail(
                       auto.chainDisplayName, auto.displaySymbol),
-                  recents: _recentPeople(offered),
+                  recents: recents,
                   onChange: _clearRecipient,
                   onTap: () => unawaited(_openSend(auto, recipient: resolved)),
                 ),
@@ -324,6 +328,15 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
                 SizedBox(height: 10.h),
                 SendInlineError(message: error),
               ],
+              // Frequent stays on top (founder, 2 November 2026):
+              // directly under the field, above the Send to card. Hidden
+              // while typing and once a recipient is chosen.
+              SendFrequentSection(
+                query: text,
+                excludeAddress: resolved,
+                recents: recents,
+                onPerson: (p) => _onPerson(p, offered),
+              ),
               // The Send to card before Contacts (founder): a growing
               // list never pushes it out of sight; Contacts scroll on to
               // the bar's clearance.
@@ -343,7 +356,9 @@ class _UsdWithdrawScreenState extends ConsumerState<UsdWithdrawScreen> {
               sliver: SendContactsSection(
                 query: text,
                 excludeAddress: resolved,
-                recents: _recentPeople(offered),
+                recents: recents,
+                // Frequent sits above the Send to card.
+                showFrequent: false,
                 onPerson: (p) => _onPerson(p, offered),
                 onPhoneLink: (phone) => unawaited(_openLink(phone: phone)),
                 // The sheet's own white (its dark surface in dark mode).

@@ -18,6 +18,10 @@
 //     name under in 12 sp, at most 8): the recent recipients, newest
 //     first, a contact standing in for its own address (its name and
 //     photo). Hidden while typing and while a recipient is chosen.
+//     FREQUENT STAYS ON TOP (founder, 2 November 2026): on both Sends it
+//     sits directly under the search field, ABOVE the "Send to" card;
+//     the flows place [SendFrequentSection] there and mount
+//     [SendContactsSection] with `showFrequent: false` under the card.
 //   * "All contacts": an A–Z list with sticky letter headers (12 sp,
 //     textSecondary), each letter's rows in the soft card, 60 tall: the
 //     avatar at 44 (the photo, else the initials in one of six muted
@@ -267,6 +271,20 @@ List<SendPerson> sendFrequent({
   return out;
 }
 
+/// The Frequent row as a step shows it: nothing while typing ([query])
+/// or once a recipient is chosen ([excludeAddress]), else [sendFrequent].
+List<SendPerson> sendFrequentShown({
+  required String query,
+  String? excludeAddress,
+  required List<SendPerson> recents,
+  required List<SendContact> contacts,
+}) {
+  if (sendAddressKey(excludeAddress).isNotEmpty || query.trim().isNotEmpty) {
+    return const <SendPerson>[];
+  }
+  return sendFrequent(recents: recents, contacts: contacts);
+}
+
 /// The letter an entry files under in the A–Z list: its name's first
 /// letter, upper case (accents folded for the Latin letters), else "#".
 String sendIndexLetter(String name) {
@@ -337,12 +355,17 @@ class SendContactsSection extends ConsumerWidget {
     required this.onPhoneLink,
     this.excludeAddress,
     this.background,
+    this.showFrequent = true,
   });
 
   /// What the field holds (filters the list).
   final String query;
   final List<SendPerson> recents;
   final ValueChanged<SendPerson> onPerson;
+
+  /// Whether Frequent leads this section. The Sends pass false: their
+  /// Frequent sits above the Send to card ([SendFrequentSection]).
+  final bool showFrequent;
 
   /// A typed number no contact has: the claim link to it.
   final ValueChanged<String> onPhoneLink;
@@ -412,9 +435,13 @@ class SendContactsSection extends ConsumerWidget {
             },
           );
 
-    final frequent = typing || chosen
-        ? const <SendPerson>[]
-        : sendFrequent(recents: recents, contacts: contacts);
+    final frequent = showFrequent
+        ? sendFrequentShown(
+            query: query,
+            excludeAddress: excludeAddress,
+            recents: recents,
+            contacts: contacts)
+        : const <SendPerson>[];
     // The A–Z list: everyone (recents and contacts, once each) with a
     // book; without one, only while typing (the recents already sit in
     // Frequent) or as the others beside a chosen recipient.
@@ -438,16 +465,7 @@ class SendContactsSection extends ConsumerWidget {
       slivers: [
         if (frequent.isNotEmpty)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(top: 20.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SendSectionLabel(l10n.sendFrequent),
-                  SendFrequentRow(people: frequent, onPerson: onPerson),
-                ],
-              ),
-            ),
+            child: _SendFrequentBlock(people: frequent, onPerson: onPerson),
           ),
         if (phoneRow != null || askRow != null || groups.isNotEmpty)
           SliverToBoxAdapter(
@@ -490,6 +508,67 @@ class SendContactsSection extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Frequent on its own (FREQUENT STAYS ON TOP, see the file header): a
+/// box for the Sends' column, directly under the search field and above
+/// the Send to card, with the same hide rules as [SendContactsSection]
+/// (nothing while typing or once a recipient is chosen). Its own 20 h
+/// gap on top; nothing at all when there are no recents.
+class SendFrequentSection extends ConsumerWidget {
+  const SendFrequentSection({
+    super.key,
+    required this.query,
+    required this.recents,
+    required this.onPerson,
+    this.excludeAddress,
+  });
+
+  /// What the field holds (any text hides the row).
+  final String query;
+  final List<SendPerson> recents;
+  final ValueChanged<SendPerson> onPerson;
+
+  /// The chosen recipient's address: the row hides.
+  final String? excludeAddress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(sendContactsProvider);
+    final frequent = sendFrequentShown(
+      query: query,
+      excludeAddress: excludeAddress,
+      recents: recents,
+      contacts: state.granted ? state.contacts : const <SendContact>[],
+    );
+    if (frequent.isEmpty) return const SizedBox.shrink();
+    return _SendFrequentBlock(
+      key: const ValueKey('send-frequent-section'),
+      people: frequent,
+      onPerson: onPerson,
+    );
+  }
+}
+
+/// The "Frequent" label over the row of circles, 20 h above it.
+class _SendFrequentBlock extends StatelessWidget {
+  const _SendFrequentBlock(
+      {super.key, required this.people, required this.onPerson});
+
+  final List<SendPerson> people;
+  final ValueChanged<SendPerson> onPerson;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: 20.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SendSectionLabel(context.l10n.sendFrequent),
+            SendFrequentRow(people: people, onPerson: onPerson),
+          ],
+        ),
+      );
 }
 
 /// The height of a sticky letter header (design units).
