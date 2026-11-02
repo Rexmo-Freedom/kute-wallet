@@ -1945,8 +1945,23 @@ class _CompactCryptoCard extends StatelessWidget {
   /// The Up / Down pills' height.
   static const double pillHeight = 44;
 
-  /// The price row's height: the live price's line (24, line height 1).
-  static const double _priceLine = 24;
+  /// The price row's height: the live price as [RollingNumberText] draws
+  /// it (every digit a cell of the font's full ascent and descent, its
+  /// line height ignored), measured in the face and at the text size it
+  /// paints in, so the figures fill the line exactly and are never scaled
+  /// to fit it.
+  static double _priceLine(BuildContext context, TextStyle style) =>
+      (TextPainter(
+        text: TextSpan(
+            text: '0', style: DefaultTextStyle.of(context).style.merge(style)),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+        textHeightBehavior: const TextHeightBehavior(
+          applyHeightToFirstAscent: false,
+          applyHeightToLastDescent: false,
+        ),
+      )..layout())
+          .height;
 
   @override
   Widget build(BuildContext context) {
@@ -1966,6 +1981,14 @@ class _CompactCryptoCard extends StatelessWidget {
           );
     final pair = formatPolyChancePair(upFrac);
     final seeded = (history?.length ?? 0) >= 2;
+    final priceStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 24.sp,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.7,
+      height: 1.0,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return Container(
       key: const ValueKey('crypto-round-compact'),
       padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
@@ -2049,7 +2072,7 @@ class _CompactCryptoCard extends StatelessWidget {
           // digits, never changes the card's height (the list under it
           // would move with every tick).
           SizedBox(
-            height: _priceLine.sp,
+            height: _priceLine(context, priceStyle),
             child: loading
                 ? KuteSkeleton(
                     child: Align(
@@ -2066,18 +2089,7 @@ class _CompactCryptoCard extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
                           child: RollingNumberText(
-                            text: priceText,
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.7,
-                              height: 1.0,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
-                          ),
+                              text: priceText, style: priceStyle),
                         ),
                       ),
                       if (diffText != null) ...[
