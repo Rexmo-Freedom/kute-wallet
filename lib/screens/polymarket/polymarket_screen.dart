@@ -2154,10 +2154,11 @@ class _CompactCryptoCard extends StatelessWidget {
   }
 }
 
-/// One side of the compact card: a 44 px pill
+/// One side of the compact card: a 44 px button
 /// ([_CompactCryptoCard.pillHeight]) softly tinted in the market colour
-/// ([fillOpacity]), the side and its odds in that colour (the quiet
-/// card's pills, founder 2 November 2026).
+/// ([fillOpacity]), the side and its odds in that colour, with squared
+/// 14 px corners ([radius]) like the market page's outcome tiles
+/// (founder, 2 November 2026).
 class _CompactSidePill extends StatelessWidget {
   const _CompactSidePill({
     super.key,
@@ -2174,6 +2175,11 @@ class _CompactSidePill extends StatelessWidget {
 
   /// The pill's fill: the side's colour at this opacity.
   static const double fillOpacity = 0.12;
+
+  /// The corner radius: a rounded rectangle, the market page's outcome
+  /// tiles' squared shape, not a full pill (founder, 2 November 2026:
+  /// "the more squared ones").
+  static const double radius = 14;
 
   @override
   Widget build(BuildContext context) {
@@ -2198,7 +2204,7 @@ class _CompactSidePill extends StatelessWidget {
           height: _CompactCryptoCard.pillHeight,
           decoration: BoxDecoration(
             color: color.withValues(alpha: fillOpacity),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(radius.r),
           ),
           alignment: Alignment.center,
           padding: EdgeInsets.symmetric(horizontal: 10.w),

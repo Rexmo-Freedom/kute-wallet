@@ -756,8 +756,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// The page's Sal context, placed in its header (no bottom bar), held by
   /// the scope around the close button while the page is up. Its control,
   /// the Share pill (KuteSalHeaderButton), sits beside the headline figure
-  /// ([_figureWithShare]), not in the title row.
-  KuteBarContext _barContext() {
+  /// ([_figureWithShare]), not in the title row; a game sheet's sits in
+  /// the title row, or, with [placement] bottom where it does not fit
+  /// there, is the floating bar ([_buildHeader]).
+  KuteBarContext _barContext(
+      {KuteBarPlacement placement = KuteBarPlacement.header}) {
     return marketBarContext(
       context,
       title: event.title,
@@ -775,24 +778,65 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      placement: KuteBarPlacement.header,
+      placement: placement,
+    );
+  }
+
+  /// Whether a game sheet's title row holds both the whole title (up to
+  /// two lines at its own size, never shrunk or cut) and the whole "Send
+  /// to a friend" pill, at [rowWidth] (founder, 2 November 2026). Where it
+  /// does not, the pill leaves the header and the floating bar at the foot
+  /// says "Send to a friend" instead ([_buildHeader]).
+  bool _gameHeaderFitsShare(
+      BuildContext context, double rowWidth, TextStyle titleStyle) {
+    // The row's other pieces: close (44), gap, icon (32), gap, gap before
+    // the star, the star (22 with 4 a side), and the gap before the pill.
+    final chrome = 44.w + 8.w + 32.w + 8.w + 8.w + 22.sp + 8.w + 8.w;
+    final pill = KuteSalHeaderButton.widthFor(
+        context, context.l10n.shareHeaderLabel);
+    return fittedTitleFitsWhole(
+      text: event.title,
+      style: DefaultTextStyle.of(context).style.merge(titleStyle),
+      maxWidth: rowWidth - chrome - pill,
+      maxLines: 2,
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+      textHeightBehavior: DefaultTextHeightBehavior.maybeOf(context),
     );
   }
 
   /// Close, the event's image and title (up to two lines) and the
   /// watchlist star. Sal's pill is beside the big number in the hero
-  /// (founder, 31 October 2026), so the title keeps its two lines' width;
-  /// a game sheet, which has no headline figure, keeps the pill here, at
-  /// most half the row wide (its words, "Send to a friend", shorten with
-  /// an ellipsis before the title loses its room).
+  /// (founder, 31 October 2026), so the title keeps its two lines' width.
+  /// A game sheet, which has no headline figure, keeps the whole "Send to
+  /// a friend" pill here WHILE IT FITS beside the whole title
+  /// ([_gameHeaderFitsShare]); where it does not (a long game title, a
+  /// narrow phone, a large text size) the pill leaves the header and the
+  /// floating bar at the foot of the screen is "Send to a friend" instead,
+  /// the same Sal sheet on a tap (founder, 2 November 2026: "when there is
+  /// no space, the share with a friend button should be floating in the
+  /// bottom"). The page's last rows already scroll clear of the bar
+  /// ([kuteBarScrollClearance] at the end of the list).
   Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
+    final titleStyle = TextStyle(
+      color: c.textPrimary,
+      fontSize: 18.sp,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.3,
+      height: 1.2,
+    );
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: LayoutBuilder(builder: (context, box) {
+        final shareInHeader = !_isGameSheet ||
+            _gameHeaderFitsShare(context, box.maxWidth, titleStyle);
         return Row(
           children: [
             KuteBarContextScope(
-              barContext: bar,
+              barContext: shareInHeader
+                  ? bar
+                  : _barContext(placement: KuteBarPlacement.bottom),
               child: const KuteCloseButton(),
             ),
             SizedBox(width: 8.w),
@@ -819,21 +863,12 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
               child: FittedTitle(
                 event.title,
                 key: const ValueKey('poly-detail-title'),
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                  height: 1.2,
-                ),
+                style: titleStyle,
               ),
             ),
-            if (_isGameSheet) ...[
+            if (_isGameSheet && shareInHeader) ...[
               SizedBox(width: 8.w),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: box.maxWidth / 2),
-                child: KuteSalHeaderButton(barContext: bar),
-              ),
+              KuteSalHeaderButton(barContext: bar),
             ],
             SizedBox(width: 8.w),
             PolyWatchStar(event: event, size: 22, source: 'detail'),
