@@ -151,7 +151,10 @@ import 'package:kute/screens/shared/kute_pill_tabs.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/stale_shimmer.dart';
 import 'package:kute/screens/usd/investments_category_sheet.dart'
-    show investmentsCategoryLabel, showInvestmentsCategorySheet;
+    show
+        investmentsCategoryLabel,
+        investmentsCategoryShortLabel,
+        showInvestmentsCategorySheet;
 import 'package:kute/screens/home/components/deposit_sheet.dart'
     show MoveLockedSide, showDepositSheet;
 import 'package:kute/screens/usd/usd_withdraw_screen.dart'
@@ -555,6 +558,9 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
       return KutePillItem(
         label: base,
         detail: investmentsCategoryLabel(ref, l10n, tab),
+        // Too long for the row even with the other pill hugging its name:
+        // the subcategory alone (kute_pill_tabs.dart, nothing cut).
+        shortDetail: investmentsCategoryShortLabel(ref, l10n, tab),
         menu: true,
       );
     }
@@ -778,7 +784,7 @@ class _InvestmentsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           items: items,
                           selectedIndex: selectedIndex,
                           onTap: onTap,
-                          size: KutePillSize.large,
+                          size: kutePillSwitchSize,
                         ),
                       ),
                     ],

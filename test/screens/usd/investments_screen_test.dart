@@ -1331,7 +1331,13 @@ void main() {
     ]);
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
         [true, false]);
-    expect(find.byType(KutePillTabs), findsNothing);
+    // The section pills are the app's switch row; the page's venue strip
+    // is offstage under the screen.
+    expect(find.byType(KutePillTabs), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(KutePillTabs), matching: _sectionPills),
+        findsNWidgets(2));
     await pickSection(tester, 'charts');
     expect(_sectionOn(tester), 'charts');
     expect(tester.widgetList<KutePill>(_sectionPills).map((p) => p.selected),
@@ -1443,24 +1449,37 @@ void main() {
     // pill's category makes it long), every label at its full width: the
     // name, then " · " and the category in the quieter weight on the
     // picked pill, in one line of text.
-    // The home strip's two equal halves on one line (founder, 31 October
-    // 2026): the same top, the same width, each label on its one line.
+    // The home strip across the width on one line (founder, 31 October
+    // 2026): the same top, the two pills filling the row 6 apart, equal
+    // halves while the picked pill's words fit its half, the other hugging
+    // its name when they do not (founder, 2 November 2026: nothing cut);
+    // every label whole inside its pill.
     final top = tester.getTopLeft(pills.at(0)).dy;
-    final width = tester.getSize(pills.at(0)).width;
+    final row = tester.getRect(strip);
+    final first = tester.getRect(pills.at(0));
+    final second = tester.getRect(pills.at(1));
+    expect(first.left, moreOrLessEquals(row.left + 4.w, epsilon: 0.5));
+    expect(second.right, moreOrLessEquals(row.right - 4.w, epsilon: 0.5));
+    expect(second.left - first.right, moreOrLessEquals(6.w, epsilon: 0.5));
     for (var i = 0; i < 2; i++) {
       expect(tester.getTopLeft(pills.at(i)).dy, top);
-      expect(tester.getSize(pills.at(i)).width,
-          moreOrLessEquals(width, epsilon: 1));
       final pill = tester.widget<KutePill>(pills.at(i));
       final plain = pill.detail == null
           ? pill.label
           : '${pill.label} · ${pill.detail}';
-      final text = tester.renderObject<RenderParagraph>(find.descendant(
-          of: pills.at(i),
-          matching: find.text(plain, skipOffstage: false)));
+      final label = find.descendant(
+          of: pills.at(i), matching: find.text(plain, skipOffstage: false));
+      final text = tester.renderObject<RenderParagraph>(label);
       expect(text.size.height,
           lessThan(text.getMaxIntrinsicHeight(double.infinity) * 1.6),
           reason: plain);
+      expect(text.getMaxIntrinsicWidth(double.infinity),
+          lessThanOrEqualTo(text.size.width + 0.5),
+          reason: '"$plain" is cut');
+      final shown = tester.getRect(label);
+      final box = tester.getRect(pills.at(i));
+      expect(shown.left, greaterThanOrEqualTo(box.left - 0.5), reason: plain);
+      expect(shown.right, lessThanOrEqualTo(box.right + 0.5), reason: plain);
     }
     expect(tester.widget<KutePill>(pills.at(0)).detail,
         l10n.categoryFilterPrompt);
