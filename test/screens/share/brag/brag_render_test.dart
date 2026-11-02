@@ -31,6 +31,7 @@ import 'package:kute/screens/share/cards/share_card_frame.dart'
 import 'package:kute/theme/app_theme.dart';
 
 import 'brag_fixtures.dart';
+import '../cards/share_card_fixtures.dart' show kShareLongQuestion;
 import '../cards/share_card_test_fonts.dart'
     show loadShareCardFonts, loadShareCardSal;
 import '../share_artwork.dart';
@@ -106,6 +107,20 @@ void main() {
       'flat': (fakeBragFlatPortfolio(), en),
       'position_win': (fakeBragPosition(), en),
       'position_loss': (fakeBragLosingPosition(), en),
+      // Long titles (founder, 2 November 2026: "try to not cut titles").
+      'position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        en
+      ),
+      'de_position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        const Locale('de')
+      ),
+      'ja_position_long_title': (
+        fakeBragPosition(title: 'LoL Worlds 2026 Final: Gen.G vs T1'),
+        const Locale('ja')
+      ),
+      'position_92_chars': (fakeBragPosition(title: kShareLongQuestion), en),
       'position_win_short': (fakeBragWinningShort(), en),
       'pnl_win': (pnl(), en),
       'pnl_loss': (pnl(usd: -42.1, text: '−\$42.10'), en),

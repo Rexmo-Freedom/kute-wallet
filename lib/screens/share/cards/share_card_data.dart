@@ -10,13 +10,17 @@
 //     dollars): "{Name}, I sent you" over the amount.
 //   * [PredictionCardData]: a prediction market, with the pick sent on a
 //     link ([PredictionCardData.picked]) or without (sharing the market:
-//     the leading outcome).
+//     the leading outcome, and on a market of named outcomes its chart,
+//     [PredictionCardData.lines]: the market page's own lines, real
+//     history).
 //   * [InvestmentCardData]: an Investing market (a stock, an index, a
 //     commodity, a coin), with the side and amount sent on a link or
 //     without (sharing the market).
 //
 // [ShareCardAudience.recipient] is the same card as the claim screen's
 // hero (claim_screen.dart): "{Name}, a friend sent you".
+
+import 'dart:ui' show Color;
 
 /// Who reads the card: the sharer's image, or the recipient's claim hero.
 enum ShareCardAudience { sender, recipient }
@@ -68,6 +72,41 @@ class MoneyCardData extends ShareCardData {
   String get kind => bitcoin ? 'send_bitcoin' : 'send_dollars';
 }
 
+/// One point of a market's line: its time (ms since the epoch) and the
+/// outcome's chance then, 0–1.
+typedef ShareCardChancePoint = ({int t, double p});
+
+/// One outcome's line on a market card's chart (founder, 2 November 2026:
+/// "on the entire market both graphs also … make the graphs clear", and
+/// "the graph should actually be the graph from the market"): the line the
+/// market page's chart draws for it, its real price history over the
+/// range the page opens on, in the page's colour for it.
+class ShareCardOutcomeLine {
+  const ShareCardOutcomeLine({
+    required this.name,
+    required this.chance,
+    required this.color,
+    required this.points,
+    this.draw = false,
+  });
+
+  /// The outcome's name as the market writes it (the card shortens it as
+  /// the chart's tags do); '' for a match's draw ([draw]).
+  final String name;
+
+  /// Its chance now, 0–100: the line's end and its label.
+  final double chance;
+
+  /// The market page's colour for its line.
+  final Color color;
+
+  /// Its history, oldest first, the last point at [chance].
+  final List<ShareCardChancePoint> points;
+
+  /// A three-way match's draw (labelled in the card's language).
+  final bool draw;
+}
+
 /// A prediction market (see the file header).
 class PredictionCardData extends ShareCardData {
   const PredictionCardData({
@@ -85,6 +124,7 @@ class PredictionCardData extends ShareCardData {
     this.picked = false,
     this.amount,
     this.series,
+    this.lines,
     super.referralCode,
     super.recipient,
     super.audience,
@@ -132,6 +172,15 @@ class PredictionCardData extends ShareCardData {
 
   /// [outcome]'s chance over the last week, 0–1; null when not loaded.
   final List<double>? series;
+
+  /// The market's chart, most likely first, on a market of named outcomes
+  /// shared without a pick: its top outcomes' real histories; null when
+  /// not loaded (the card then shows the speedometer).
+  final List<ShareCardOutcomeLine>? lines;
+
+  /// The card draws the market's chart ([lines]) rather than the
+  /// speedometer: the market shared, at least two lines read.
+  bool get charted => !picked && (lines?.length ?? 0) >= 2;
 
   /// The other side's chance, 0–100: 100 − [chance] on a binary market,
   /// [opponentChance] on a named one; null when unknown.

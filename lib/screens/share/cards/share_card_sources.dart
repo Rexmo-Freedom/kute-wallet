@@ -11,7 +11,13 @@
 //     favourite and the strongest other outcome (not a draw), and the
 //     outcome's chance over the last week (polymarketMarketHistoryProvider,
 //     `1w`). Before the event lands, what the page handed over (the title,
-//     the picture, the chance).
+//     the picture, the chance). A market of named outcomes shared without
+//     a pick also reads the market page's chart ([shareCardMarketLines]):
+//     the lines the page draws (its top outcomes, a game's teams), their
+//     colours, and their real histories over the range the page opens on
+//     (polyChartAutoRange, the same history provider and cache); left out
+//     (the speedometer) until two of them have landed, never a made-up
+//     line.
 //   * An Investing market ([investmentCardFor]): the market by its coin
 //     (hyperliquidAccountMarketProvider), the live mid, today's change
 //     against the previous day's price, and the last 30 daily closes
@@ -19,12 +25,13 @@
 //     live price.
 
 import 'dart:math' as math;
+import 'dart:ui' show Color;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kute/models/hyperliquid_market.dart' show HlMarket;
 import 'package:kute/models/polymarket_model.dart'
-    show PolymarketEvent, PolymarketOutcome;
+    show PolymarketEvent, PolymarketOutcome, PolymarketPricePoint;
 import 'package:kute/models/share_link_model.dart' show ShareLinkKind;
 import 'package:kute/providers/hyperliquid_live_prices_provider.dart'
     show hyperliquidLiveMidProvider;
@@ -34,19 +41,38 @@ import 'package:kute/providers/hyperliquid_sparkline_provider.dart'
     show hyperliquidSparklineProvider;
 import 'package:kute/providers/polymarket_browse_provider.dart'
     show polymarketEventDetailsProvider, polymarketMarketHistoryProvider;
+import 'package:kute/providers/polymarket_game_lines_provider.dart'
+    show PolyGameLines;
 import 'package:kute/screens/hyperliquid/components/hl_format.dart'
     show hlFriendlyName;
+import 'package:kute/screens/polymarket/components/game_header.dart'
+    show polySportsTeams;
+import 'package:kute/screens/polymarket/components/game_winner_lines.dart'
+    show polyGameWinnerLines;
+import 'package:kute/screens/polymarket/components/outcome_leading.dart'
+    show kPolyOutcomeColors, polyChartedOutcomes;
+import 'package:kute/screens/polymarket/components/poly_chart_history.dart'
+    show polyChartAutoRange, polyChartOpenedAt;
+import 'package:kute/screens/share/cards/share_card_market_chart.dart'
+    show kShareCardChartMaxLines, kShareCardChartThirdLine;
 import 'package:kute/screens/share/cards/share_card_copy.dart'
     show shareCardUsdCents, shareCardUsdCentsFull;
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart'
     show hlSparklineWithLivePrice;
+import 'package:kute/services/polymarket/event_trading_over.dart'
+    show polyTradingOver;
+import 'package:kute/services/polymarket/thin_history.dart'
+    show polyTokenIsThin, smoothThinHistory;
 
 /// A provider read: `ref.watch` of a WidgetRef in a build.
 typedef ShareCardWatch = T Function<T>(ProviderListenable<T> provider);
 
 /// The most points a card's line draws.
 const int kShareCardSeriesPoints = 30;
+
+/// The most points each of a market chart's lines keeps.
+const int kShareCardMarketPoints = 120;
 
 /// Tags that make a prediction an economics one.
 const Set<String> _kEconomyTags = {
@@ -88,6 +114,106 @@ List<double> shareCardThin(List<double> points,
 
 bool _isDraw(String name) =>
     const {'draw', 'tie', 'empate'}.contains(name.trim().toLowerCase());
+
+/// The market page's chart of [e] as a card's lines (see the file
+/// header): the lines its chart draws, most likely first (two, a third at
+/// [kShareCardChartThirdLine] or more), each its real history over the
+/// range the page opens on, the newest point pinned to the price now as
+/// the page pins it. Null until two lines have their history, or for a
+/// market the page draws no such chart for (a yes/no market).
+List<ShareCardOutcomeLine>? shareCardMarketLines(
+    ShareCardWatch watch, PolymarketEvent e,
+    {DateTime? now}) {
+  if (e.isBinary || e.outcomes.length < 2) return null;
+  final game = !e.isSyntheticBinary &&
+      (e.gameId != null || e.metadataGameId != null) &&
+      polySportsTeams(e, const []) != null;
+  // The page's lines: a game's teams (and a three-way match's draw, its
+  // label '' here) from its winner market, else the most likely outcomes.
+  final List<({String token, String name, Color color, double price})>
+      specs;
+  if (game) {
+    specs = [
+      for (final l in polyGameWinnerLines(
+        event: e,
+        sportsTeams: polySportsTeams(e, const []),
+        lines: PolyGameLines.fromEvent(e),
+        drawLabel: '',
+      ))
+        (token: l.tokenId, name: l.label, color: l.color, price: l.price),
+    ];
+  } else {
+    specs = [
+      for (final c in polyChartedOutcomes(e.outcomes, kPolyOutcomeColors,
+          max: kShareCardChartMaxLines))
+        (
+          token: c.outcome.tokenId!,
+          name: c.outcome.name.trim(),
+          color: c.color,
+          price: c.outcome.price,
+        ),
+    ];
+  }
+  // The range the page's chart opens on (MarketDetailSheet's prefetch).
+  final interval = polyChartAutoRange(
+    now: now ?? DateTime.now(),
+    gameStart: game && e.isInPlay ? (e.gameStart ?? e.kickoff) : null,
+    inPlay: e.isInPlay,
+    openedAt: polyChartOpenedAt(e),
+    shortMarket: RegExp(r'-(5|15)m-').hasMatch(e.slug),
+    resolved: polyTradingOver(e, inPlay: e.isInPlay),
+  );
+  final ranked = [...specs]..sort((a, b) => b.price.compareTo(a.price));
+  final out = <ShareCardOutcomeLine>[];
+  for (final spec in ranked) {
+    if (out.length >= kShareCardChartMaxLines) break;
+    final chance = spec.price.clamp(0.0, 1.0) * 100;
+    if (out.length >= 2 && chance < kShareCardChartThirdLine) break;
+    List<PolymarketPricePoint>? points;
+    try {
+      points = watch(polymarketMarketHistoryProvider(
+              (tokenId: spec.token, interval: interval)))
+          .valueOrNull;
+    } catch (_) {
+      points = null;
+    }
+    // The two leading lines or none (the card's figure is the leader's);
+    // a third without its history is left out.
+    if (points == null || points.length < 2) {
+      if (out.length < 2) return null;
+      break;
+    }
+    // A thin market's needles and combs out, as the page draws it (never
+    // a game's, where a jump is a goal).
+    final drawn = !game && polyTokenIsThin(e, spec.token)
+        ? smoothThinHistory(points)
+        : points;
+    final thinned = drawn.length <= kShareCardMarketPoints
+        ? drawn
+        : [
+            for (var i = 0; i < kShareCardMarketPoints; i++)
+              drawn[(i * (drawn.length - 1) / (kShareCardMarketPoints - 1))
+                  .round()]
+          ];
+    out.add(ShareCardOutcomeLine(
+      name: spec.name,
+      draw: game && spec.name.isEmpty,
+      chance: chance,
+      color: spec.color,
+      points: [
+        for (var i = 0; i < thinned.length; i++)
+          (
+            t: thinned[i].timestamp.millisecondsSinceEpoch,
+            // The newest point at the price now, as the page pins it.
+            p: i == thinned.length - 1
+                ? spec.price.clamp(0.0, 1.0)
+                : thinned[i].price.clamp(0.0, 1.0),
+          ),
+      ],
+    ));
+  }
+  return out.length >= 2 ? out : null;
+}
 
 /// A prediction market's card (see the file header). [outcome] is the pick
 /// sent (null: the market shared, its leading outcome); [chance] (0–100)
@@ -205,6 +331,7 @@ PredictionCardData predictionCardFor(
     }
   }
   final image = e.displayIconUrl;
+  final lines = picked ? null : shareCardMarketLines(watch, e);
   return PredictionCardData(
     question: e.title.isEmpty ? title : e.title,
     outcome: label,
@@ -220,6 +347,7 @@ PredictionCardData predictionCardFor(
     picked: picked,
     amount: amount,
     series: series,
+    lines: lines,
     recipient: recipient,
     referralCode: referralCode,
     audience: audience,

@@ -14,10 +14,14 @@
 //     standing on the rule beside it, the edgy line, "Claim it on Kute"
 //     quiet over the footer.
 //   * PREDICTION (blue): "ANA, A PICK FOR YOU", the market's picture (36)
-//     and question (18), then the open-position screen's speedometer with
-//     the outcome's chance huge under its hub and "Chance of Gen.G", "$10
-//     on Gen.G" when sent as a pick, the edgy line; Sal looking up, weighing
-//     it.
+//     and question (18, wrapping, never cut while it can be read), then
+//     the open-position screen's speedometer with the outcome's chance huge
+//     under its hub and "Chance of Gen.G", "$10 on Gen.G" when sent as a
+//     pick, the edgy line; Sal looking up, weighing it. A MARKET of named
+//     outcomes shared without a pick (Lula vs Bolsonaro) draws the market
+//     page's own chart instead (share_card_market_chart.dart): its top
+//     outcomes' real lines filling the card, each labelled "Lula da Silva
+//     41%"; the speedometer until the history is read.
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
@@ -42,6 +46,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
+import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_speedometer.dart';
 import 'package:kute/screens/shared/sal_sprite.dart' show SalClip;
 
@@ -144,20 +149,31 @@ class ShareCard extends StatelessWidget {
             ),
             name: d.question,
           ),
-          // The chance on the open-position screen's speedometer, huge
+          // The market shared with its chart read: the market page's own
+          // lines fill the card, each labelled with its name and chance.
+          // Else the chance on the open-position screen's speedometer, huge
           // under its hub; without a chance, the outcome alone.
           number: chance == null ? outcome : null,
           numberMax: kShareCardHeroMax,
-          graphic: chance == null
-              ? null
-              : ShareCardSpeedometer(
+          graphic: d.charted
+              ? ShareCardMarketChart(
                   key: const ValueKey('share-card-odds'),
+                  lines: d.lines!,
                   palette: p,
-                  fraction: chance / 100,
-                  figure: shareCardChance(loc, chance),
-                  caption: l10n.shareCardChanceOf(outcome),
-                ),
-          graphicFills: chance != null,
+                  chanceText: (c) => shareCardChance(loc, c),
+                  drawLabel: l10n.betDraw,
+                )
+              : chance == null
+                  ? null
+                  : ShareCardSpeedometer(
+                      key: const ValueKey('share-card-odds'),
+                      palette: p,
+                      fraction: chance / 100,
+                      figure: shareCardChance(loc, chance),
+                      caption: l10n.shareCardChanceOf(outcome),
+                    ),
+          graphicFills: d.charted || chance != null,
+          graphicBelowSal: d.charted,
           plain: d.picked && d.amount != null
               ? l10n.shareCardAmountOn(d.amount!, outcome)
               : null,

@@ -1,6 +1,8 @@
 // Fake share cards for the tests and the on-demand renders: every figure
 // here is made up for the test (realistic, not live), none is computed.
 
+import 'dart:ui' show Color;
+
 import 'package:kute/screens/share/cards/share_card_data.dart';
 
 const String kShareTestCode = 'JOAO42';
@@ -35,9 +37,11 @@ const List<double> _gengSeries = [
   0.47,
 ];
 
-PredictionCardData fakePredictionPick({String? name = 'Ana'}) =>
+PredictionCardData fakePredictionPick(
+        {String? name = 'Ana',
+        String question = 'LoL Worlds 2026 Final: Gen.G vs T1'}) =>
     PredictionCardData(
-      question: 'LoL Worlds 2026 Final: Gen.G vs T1',
+      question: question,
       outcome: 'Gen.G',
       chance: 47,
       binary: false,
@@ -52,14 +56,34 @@ PredictionCardData fakePredictionPick({String? name = 'Ana'}) =>
       referralCode: kShareTestCode,
     );
 
-PredictionCardData fakePredictionMarket() => const PredictionCardData(
+/// The market page's first two line colours (kPolyOutcomeColors).
+const Color kShareTestSkyBlue = Color(0xFF4FC3F7);
+const Color kShareTestPurple = Color(0xFFCE93D8);
+
+/// A fixture's line: [values] spread evenly over the month to 2 November
+/// 2026 (made up for the tests, as every figure here).
+List<ShareCardChancePoint> fakeChanceLine(List<double> values) {
+  const end = 1793577600000; // 2026-11-02 00:00 UTC
+  const month = 30 * 24 * 3600 * 1000;
+  return [
+    for (var i = 0; i < values.length; i++)
+      (t: end - month + (month * i / (values.length - 1)).round(), p: values[i]),
+  ];
+}
+
+/// "Brazil presidential election 2026", shared as a market: Lula da Silva
+/// ahead of Flávio Bolsonaro, the two lines the market page draws.
+PredictionCardData fakePredictionMarket({bool chart = true}) =>
+    PredictionCardData(
       question: 'Brazil presidential election 2026',
       outcome: 'Lula',
       chance: 41,
       binary: false,
       topic: ShareCardTopic.politics,
       leading: true,
-      series: [
+      opponent: 'Flávio Bolsonaro',
+      opponentChance: 35,
+      series: const [
         0.36,
         0.37,
         0.36,
@@ -72,6 +96,87 @@ PredictionCardData fakePredictionMarket() => const PredictionCardData(
         0.40,
         0.41,
       ],
+      lines: !chart
+          ? null
+          : [
+              ShareCardOutcomeLine(
+                name: 'Luiz Inácio Lula da Silva',
+                chance: 41,
+                color: kShareTestSkyBlue,
+                points: fakeChanceLine(const [
+                  0.330, 0.332, 0.335, 0.333, 0.340, 0.346, 0.344, 0.350,
+                  0.356, 0.361, 0.358, 0.366, 0.372, 0.380, 0.377, 0.385,
+                  0.392, 0.398, 0.402, 0.399, 0.405, 0.412, 0.408, 0.410,
+                ]),
+              ),
+              ShareCardOutcomeLine(
+                name: 'Flávio Bolsonaro',
+                chance: 35,
+                color: kShareTestPurple,
+                points: fakeChanceLine(const [
+                  0.392, 0.395, 0.401, 0.404, 0.398, 0.390, 0.384, 0.380,
+                  0.376, 0.371, 0.368, 0.364, 0.360, 0.355, 0.357, 0.352,
+                  0.349, 0.351, 0.347, 0.344, 0.348, 0.352, 0.350, 0.350,
+                ]),
+              ),
+            ],
+      referralCode: kShareTestCode,
+    );
+
+/// A 92-character market question, the longest the cards are checked at.
+const String kShareLongQuestion = 'Will the Federal Reserve cut interest '
+    'rates by 50 basis points at its December 2026 meeting?';
+
+/// A binary pick on a long question ("Yes", 23%).
+PredictionCardData fakeBinaryPick(
+        {String question = 'Will Bitcoin hit \$150k by March 2026?'}) =>
+    PredictionCardData(
+      question: question,
+      outcome: 'Yes',
+      chance: 23,
+      topic: ShareCardTopic.crypto,
+      leading: false,
+      picked: true,
+      amount: r'$10',
+      recipient: 'Ana',
+      referralCode: kShareTestCode,
+    );
+
+/// "Michigan Senate Election Winner": the party market, Democratic ahead.
+PredictionCardData fakeMichiganMarket({bool chart = true}) =>
+    PredictionCardData(
+      question: 'Michigan Senate Election Winner',
+      outcome: 'Democratic',
+      chance: 58,
+      binary: false,
+      topic: ShareCardTopic.politics,
+      leading: true,
+      opponent: 'Republican',
+      opponentChance: 42,
+      lines: !chart
+          ? null
+          : [
+              ShareCardOutcomeLine(
+                name: 'Democratic',
+                chance: 58,
+                color: kShareTestSkyBlue,
+                points: fakeChanceLine(const [
+                  0.612, 0.615, 0.608, 0.604, 0.598, 0.601, 0.594, 0.588,
+                  0.583, 0.579, 0.572, 0.568, 0.574, 0.578, 0.583, 0.579,
+                  0.576, 0.580,
+                ]),
+              ),
+              ShareCardOutcomeLine(
+                name: 'Republican',
+                chance: 42,
+                color: kShareTestPurple,
+                points: fakeChanceLine(const [
+                  0.388, 0.385, 0.392, 0.396, 0.402, 0.399, 0.406, 0.412,
+                  0.417, 0.421, 0.428, 0.432, 0.426, 0.422, 0.417, 0.421,
+                  0.424, 0.420,
+                ]),
+              ),
+            ],
       referralCode: kShareTestCode,
     );
 

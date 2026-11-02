@@ -11,7 +11,10 @@
 // Asked, the renders go to the network for what a real phone would load:
 // the stocks' logos (HlCoinIcon) and two live Polymarket events (the
 // esports "Worlds" winner market and a politics market, with their
-// pictures and last week's chances). Offline, the fixtures stand in.
+// pictures and last week's chances), and, when they are on the board,
+// the Brazil presidential and Michigan Senate markets with their real
+// chart lines (the ranges a market chart opens on). Offline, the
+// fixtures stand in.
 // The Investing figures (Tesla, Nasdaq 100, oil) are made-up samples.
 // SHARE_CARD_OFFLINE=1 writes them without the network (the fixtures).
 
@@ -49,7 +52,13 @@ class _Live {
   final Map<String, List<PolymarketPricePoint>> history = {};
   String? esports;
   String? politics;
+  String? brazil;
+  String? michigan;
 }
+
+/// The history ranges the live renders read: the pick card's week, and
+/// the ranges a market chart may open on (polyChartAutoRange).
+const Map<String, int> _kLiveRanges = {'1w': 60, '1m': 180, 'max': 720};
 
 Future<Map<String, dynamic>?> _getJson(String url) async {
   final client = HttpClient();
@@ -106,19 +115,36 @@ Future<_Live> _loadLive() async {
     final l = lead(e);
     return n >= 2 && n <= 12 && l >= 0.3 && l <= 0.85;
   });
+  // The founder's own examples, when they are on the board.
+  live.brazil = await pick('politics', (e) {
+        final t = '${e['title']}'.toLowerCase();
+        return t.contains('brazil') && t.contains('presiden');
+      }) ??
+      // Off the open board once decided: the event by its slug.
+      'brazil-presidential-election';
+  live.michigan = await pick('politics', (e) {
+    final t = '${e['title']}'.toLowerCase();
+    return t.contains('michigan') && t.contains('senate');
+  });
   final model = PolymarketModel();
-  for (final slug in [live.esports, live.politics].whereType<String>()) {
+  for (final slug in {live.esports, live.politics, live.brazil, live.michigan}
+      .whereType<String>()) {
     final event = await model.getEventDetailsBySlug(slug);
     if (event == null) continue;
     live.events[slug] = event;
-    for (final o in event.outcomes) {
+    // The most likely outcomes first: the lines a chart draws.
+    final ranked = [...event.outcomes]
+      ..sort((a, b) => b.price.compareTo(a.price));
+    for (final o in ranked.take(4)) {
       final t = o.tokenId;
       if (t == null) continue;
-      final points = await model
-          .getPriceHistory(t, interval: '1w', fidelity: 60)
-          .timeout(const Duration(seconds: 15), onTimeout: () => const []);
-      if (points.isNotEmpty) live.history[t] = points;
-      if (live.history.length > 6) break;
+      for (final MapEntry(key: range, value: fidelity)
+          in _kLiveRanges.entries) {
+        final points = await model
+            .getPriceHistory(t, interval: range, fidelity: fidelity)
+            .timeout(const Duration(seconds: 15), onTimeout: () => const []);
+        if (points.isNotEmpty) live.history['$t|$range'] = points;
+      }
     }
   }
   model.dispose();
@@ -153,6 +179,8 @@ void main() {
     // Live predictions when asked and reachable (see the file header).
     PredictionCardData pickCard = fakePredictionPick();
     PredictionCardData marketCard = fakePredictionMarket();
+    PredictionCardData brazilCard = fakePredictionMarket();
+    PredictionCardData michiganCard = fakeMichiganMarket();
     if (dir != null && Platform.environment['SHARE_CARD_OFFLINE'] == null) {
       HttpOverrides.global = null;
       useShareTestArtwork(online: true);
@@ -161,21 +189,23 @@ void main() {
         final container = ProviderContainer(overrides: [
           polymarketEventDetailsProvider
               .overrideWith((ref, slug) async => live.events[slug]),
-          polymarketMarketHistoryProvider.overrideWith(
-              (ref, key) async => live.history[key.tokenId] ?? const []),
+          polymarketMarketHistoryProvider.overrideWith((ref, key) async =>
+              live.history['${key.tokenId}|${key.interval}'] ?? const []),
         ]);
         addTearDown(container.dispose);
         Future<void> warm(String slug) async {
           await container.read(polymarketEventDetailsProvider(slug).future);
-          for (final o in live.events[slug]?.outcomes ?? const []) {
+          for (final PolymarketOutcome o
+              in live.events[slug]?.outcomes ?? const []) {
             final t = o.tokenId;
             if (t == null) continue;
-            container.listen(
-                polymarketMarketHistoryProvider((tokenId: t, interval: '1w')),
-                (_, __) {});
-            await container.read(
-                polymarketMarketHistoryProvider((tokenId: t, interval: '1w'))
-                    .future);
+            for (final range in _kLiveRanges.keys) {
+              final key = (tokenId: t, interval: range);
+              container.listen(
+                  polymarketMarketHistoryProvider(key), (_, __) {});
+              await container
+                  .read(polymarketMarketHistoryProvider(key).future);
+            }
           }
         }
 
@@ -199,6 +229,16 @@ void main() {
           marketCard = predictionCardFor(watch,
               slug: p, title: '', referralCode: kShareTestCode);
         }
+        for (final (slug, set) in [
+          (live.brazil, (PredictionCardData c) => brazilCard = c),
+          (live.michigan, (PredictionCardData c) => michiganCard = c),
+        ]) {
+          if (slug == null || !live.events.containsKey(slug)) continue;
+          container.listen(polymarketEventDetailsProvider(slug), (_, __) {});
+          await tester.runAsync(() => warm(slug));
+          set(predictionCardFor(watch,
+              slug: slug, title: '', referralCode: kShareTestCode));
+        }
       }
     }
 
@@ -214,6 +254,23 @@ void main() {
       'de_send_bitcoin': (fakeBitcoinCard(), const Locale('de')),
       'de_send_prediction': (pickCard, const Locale('de')),
       'ja_send_prediction': (pickCard, const Locale('ja')),
+      // Long titles (founder, 2 November 2026: "try to not cut titles").
+      '5_pick_long_question':
+          (fakePredictionPick(question: kShareLongQuestion), const Locale('en')),
+      'de_pick_long_question':
+          (fakePredictionPick(question: kShareLongQuestion), const Locale('de')),
+      'ja_pick_long_question':
+          (fakePredictionPick(question: kShareLongQuestion), const Locale('ja')),
+      '5_pick_btc_150k': (fakeBinaryPick(), const Locale('en')),
+      'de_pick_btc_150k': (fakeBinaryPick(), const Locale('de')),
+      '6_market_brazil': (brazilCard, const Locale('en')),
+      'de_market_brazil': (brazilCard, const Locale('de')),
+      'ja_market_brazil': (brazilCard, const Locale('ja')),
+      '6_market_michigan': (michiganCard, const Locale('en')),
+      'de_market_michigan': (michiganCard, const Locale('de')),
+      // No history read yet: the speedometer, never a made-up line.
+      '6_market_brazil_no_history':
+          (fakePredictionMarket(chart: false), const Locale('en')),
       'claim_hero_bitcoin': (
         const MoneyCardData(
             bitcoin: true,

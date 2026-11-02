@@ -15,16 +15,23 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/generated/app_localizations_de.dart';
 import 'package:kute/l10n/generated/app_localizations_en.dart';
+import 'package:kute/models/polymarket_model.dart';
 import 'package:kute/models/share_link_model.dart';
+import 'package:kute/providers/polymarket_browse_provider.dart'
+    show polymarketEventDetailsProvider, polymarketMarketHistoryProvider;
+import 'package:kute/screens/polymarket/components/outcome_leading.dart'
+    show kPolyOutcomeColors;
 import 'package:kute/screens/polymarket/components/position_speedometer.dart'
     show PolySpeedometerNeedlePainter;
 import 'package:kute/screens/share/cards/share_card_copy.dart';
 import 'package:kute/screens/share/cards/share_card_data.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart';
+import 'package:kute/screens/share/cards/share_card_market_chart.dart';
 import 'package:kute/screens/share/cards/share_card_preview.dart';
 import 'package:kute/screens/share/cards/share_card_sources.dart';
 import 'package:kute/screens/share/cards/share_cards.dart';
@@ -139,6 +146,114 @@ void main() {
     });
   });
 
+  group("a market's chart from its real history", () {
+    final event = PolymarketEvent(
+      id: 'br',
+      slug: 'brazil-presidential-election',
+      title: 'Brazil Presidential Election',
+      description: '',
+      volume: 1000000,
+      liquidity: 50000,
+      category: 'politics',
+      conditionId: '0xbr',
+      endDate: DateTime.now().add(const Duration(days: 30)),
+      outcomes: const [
+        PolymarketOutcome(
+            gammaMarketId: 'm1',
+            name: 'Luiz Inácio Lula da Silva',
+            price: 0.41,
+            tokenId: 'lula'),
+        PolymarketOutcome(
+            gammaMarketId: 'm2',
+            name: 'Flávio Bolsonaro',
+            price: 0.35,
+            tokenId: 'flavio'),
+        PolymarketOutcome(
+            gammaMarketId: 'm3',
+            name: 'Ciro Gomes',
+            price: 0.04,
+            tokenId: 'ciro'),
+      ],
+    );
+    final t0 = DateTime.utc(2026, 10, 3);
+    List<PolymarketPricePoint> history(List<double> ps) => [
+          for (var i = 0; i < ps.length; i++)
+            PolymarketPricePoint(
+                timestamp: t0.add(Duration(days: i)), price: ps[i]),
+        ];
+
+    /// The providers with [histories] by token, read once loaded.
+    Future<ShareCardWatch> watcher(
+        Map<String, List<PolymarketPricePoint>> histories) async {
+      final container = ProviderContainer(overrides: [
+        polymarketEventDetailsProvider
+            .overrideWith((ref, slug) async => event),
+        polymarketMarketHistoryProvider.overrideWith(
+            (ref, key) async => histories[key.tokenId] ?? const []),
+      ]);
+      addTearDown(container.dispose);
+      container.listen(polymarketEventDetailsProvider(event.slug), (_, __) {});
+      await container.read(polymarketEventDetailsProvider(event.slug).future);
+      for (final o in event.outcomes) {
+        for (final range in const ['1w', '1m', 'max']) {
+          final key = (tokenId: o.tokenId!, interval: range);
+          container.listen(polymarketMarketHistoryProvider(key), (_, __) {});
+          await container.read(polymarketMarketHistoryProvider(key).future);
+        }
+      }
+      return <T>(ProviderListenable<T> p) => container.read(p);
+    }
+
+    test(
+        'the page\'s top lines in its colours, the newest point at the '
+        'price now; a third under 10% left out', () async {
+      final watch = await watcher({
+        'lula': history([0.33, 0.36, 0.40, 0.40]),
+        'flavio': history([0.39, 0.37, 0.36, 0.36]),
+        'ciro': history([0.05, 0.04, 0.04, 0.04]),
+      });
+      final card = predictionCardFor(watch,
+          slug: event.slug, title: '', referralCode: kShareTestCode);
+      expect(card.charted, isTrue);
+      final lines = card.lines!;
+      expect([for (final l in lines) l.name],
+          ['Luiz Inácio Lula da Silva', 'Flávio Bolsonaro']);
+      expect([for (final l in lines) l.color],
+          [kPolyOutcomeColors[0], kPolyOutcomeColors[1]]);
+      expect(lines[0].chance, closeTo(41, 1e-9));
+      expect(lines[0].points.length, 4);
+      expect(lines[0].points.first.p, 0.33);
+      // Pinned to the price now, as the page pins its newest point.
+      expect(lines[0].points.last.p, 0.41);
+      expect(lines[0].points.first.t, t0.millisecondsSinceEpoch);
+    });
+
+    test('no history for a leading line: no chart (the speedometer)',
+        () async {
+      final watch = await watcher({
+        'lula': history([0.33, 0.36, 0.40, 0.40]),
+      });
+      final card = predictionCardFor(watch,
+          slug: event.slug, title: '', referralCode: kShareTestCode);
+      expect(card.lines, isNull);
+      expect(card.charted, isFalse);
+    });
+
+    test('a pick never reads the chart', () async {
+      final watch = await watcher({
+        'lula': history([0.33, 0.36, 0.40, 0.40]),
+        'flavio': history([0.39, 0.37, 0.36, 0.36]),
+      });
+      final card = predictionCardFor(watch,
+          slug: event.slug,
+          title: '',
+          outcome: 'Flávio Bolsonaro',
+          picked: true,
+          amount: r'$10');
+      expect(card.lines, isNull);
+    });
+  });
+
   group('the card per entry point', () {
     test('a link: money without a pick, the pick\'s card with one', () {
       final money = shareCardForLink(_noWatch,
@@ -244,12 +359,14 @@ void main() {
     /// big number, Sal at the top right in his pose (the footer then has
     /// no small mark), the wordmark, and none of the old chrome (chips,
     /// bubbles, pills, headline).
-    void expectRestrained(WidgetTester tester, {required bool code}) {
+    void expectRestrained(WidgetTester tester,
+        {required bool code, bool number = true}) {
       final box = tester
           .widget<DecoratedBox>(find.byKey(const ValueKey('share-card-bg')))
           .decoration as BoxDecoration;
       expect(box.gradient, isNull);
-      expect(find.byKey(const ValueKey('share-card-number')), findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-number')),
+          number ? findsOneWidget : findsNothing);
       expect(find.byKey(const ValueKey('share-card-sal')), findsOneWidget);
       expect(find.byKey(const ValueKey('share-card-mark')), findsNothing);
       expect(find.byKey(const ValueKey('share-card-watermark')), findsNothing);
@@ -397,13 +514,62 @@ void main() {
           find.byKey(const ValueKey('share-card-logo-coin')), findsOneWidget);
     });
 
-    testWidgets('a prediction market: the venue on top, no pick line',
+    testWidgets(
+        'a prediction market: the venue on top, the market page\'s two '
+        'lines, each labelled with its name and chance, no pick line',
         (tester) async {
       await pumpIn(tester, fakePredictionMarket(), const Locale('en'));
-      expectRestrained(tester, code: true);
+      expectRestrained(tester, code: true, number: false);
       expect(textOf(tester, 'share-card-caps'), 'PREDICTIONS');
-      expect(textOf(tester, 'share-card-number'), '41%');
+      expect(find.byKey(const ValueKey('share-card-speedometer')),
+          findsNothing);
+      final paint = tester.widget<CustomPaint>(
+          find.byKey(const ValueKey('share-card-market-chart')));
+      final chart = paint.painter! as ShareCardMarketChartPainter;
+      expect(chart.lines.length, 2);
+      // Named as the page's tags name them: the surname-first short
+      // names, the chances as the card writes them.
+      expect(chart.names, ['Lula da Silva', 'Bolsonaro']);
+      expect(chart.pcts, ['41%', '35%']);
+      // The page's colours, lifted only as far as the blue needs.
+      for (final c in chart.colors) {
+        expect(shareCardContrast(c, ShareCardPalette.prediction.background),
+            greaterThanOrEqualTo(kShareCardLineContrast));
+      }
+      expect(chart.colors[0], isNot(chart.colors[1]));
       expect(find.byKey(const ValueKey('share-card-plain')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'a prediction market before its history is read: the speedometer, '
+        'never a made-up line', (tester) async {
+      await pumpIn(
+          tester, fakePredictionMarket(chart: false), const Locale('en'));
+      expectRestrained(tester, code: true);
+      expect(textOf(tester, 'share-card-number'), '41%');
+      expect(find.byKey(const ValueKey('share-card-speedometer')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-market-chart')),
+          findsNothing);
+    });
+
+    testWidgets('a pick keeps the speedometer, lines or not', (tester) async {
+      final m = fakePredictionMarket();
+      final pick = PredictionCardData(
+          question: m.question,
+          outcome: m.outcome,
+          chance: m.chance,
+          binary: false,
+          picked: true,
+          amount: r'$10',
+          lines: m.lines);
+      expect(pick.charted, isFalse);
+      await pumpIn(tester, pick, const Locale('en'));
+      expect(find.byKey(const ValueKey('share-card-speedometer')),
+          findsOneWidget);
+      expect(find.byKey(const ValueKey('share-card-market-chart')),
+          findsNothing);
     });
 
     testWidgets('the claim hero: a friend sent you, tap claim, no code',
@@ -633,7 +799,10 @@ void main() {
     testWidgets(
         'prediction: the speedometer fills the band between the identity '
         'and the bottom, nothing empty', (tester) async {
-      for (final data in [fakePredictionPick(), fakePredictionMarket()]) {
+      for (final data in [
+        fakePredictionPick(),
+        fakePredictionMarket(chart: false)
+      ]) {
         await pump(tester, data);
         expectBalanced(tester, data.kind);
         final dial = tester
@@ -674,6 +843,118 @@ void main() {
       }
     });
 
+    testWidgets(
+        'a market\'s chart fills the card under Sal, the bottom band intact',
+        (tester) async {
+      await tester.runAsync(loadShareCardSal);
+      addTearDown(ShareCardSal.debugReset);
+      for (final data in [fakePredictionMarket(), fakeMichiganMarket()]) {
+        await pump(tester, data);
+        final chart = tester
+            .getRect(find.byKey(const ValueKey('share-card-market-chart')));
+        final sal =
+            tester.getRect(find.byKey(const ValueKey('share-card-sal')));
+        final rule =
+            tester.getRect(find.byKey(const ValueKey('share-card-rule')));
+        expect(chart.top,
+            greaterThanOrEqualTo(sal.top + sal.height * 0.86 - 1),
+            reason: data.question);
+        expect(chart.height, greaterThan(150), reason: data.question);
+        expect(chart.bottom, lessThanOrEqualTo(rule.top),
+            reason: data.question);
+        expect(find.byKey(const ValueKey('share-card-edge')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets(
+        'long titles read whole on every card kind, in en, de and ja: 18 on '
+        'two lines, smaller on three, never cut, no overflow', (tester) async {
+      await tester.runAsync(loadShareCardSal);
+      addTearDown(ShareCardSal.debugReset);
+      const titles = [
+        'LoL Worlds 2026 Final: Gen.G vs T1',
+        r'Will Bitcoin hit $150k by March 2026?',
+        'Brazil presidential election 2026',
+        'Michigan Senate Election Winner',
+        kShareLongQuestion,
+      ];
+      for (final locale in const [Locale('en'), Locale('de'), Locale('ja')]) {
+        for (final t in titles) {
+          for (final data in <ShareCardData>[
+            fakePredictionPick(question: t),
+            fakeBinaryPick(question: t),
+            PredictionCardData(
+                question: t,
+                outcome: 'Lula',
+                chance: 41,
+                binary: false,
+                lines: fakePredictionMarket().lines),
+            InvestmentCardData(title: t, price: 10, change: 0.01,
+                series: const [1, 2, 3]),
+          ]) {
+            await tester.runAsync(loadShareCardFonts);
+            await pumpShareWidget(
+                tester,
+                env,
+                Builder(
+                    builder: (context) => Localizations.override(
+                          context: context,
+                          locale: locale,
+                          child: Align(
+                              alignment: Alignment.topLeft,
+                              child: ShareCard(data: data)),
+                        )));
+            expect(tester.takeException(), isNull,
+                reason: '$locale ${data.kind}: $t');
+            for (final k in const [
+              'share-card-title-head',
+              'share-card-title-tail'
+            ]) {
+              final f = find.byKey(ValueKey(k));
+              if (f.evaluate().isEmpty) continue;
+              final para = tester.renderObject<RenderParagraph>(f);
+              expect(para.didExceedMaxLines, isFalse,
+                  reason: '$locale ${data.kind} $k: $t');
+            }
+            expect(find.byKey(const ValueKey('share-card-edge')),
+                findsOneWidget);
+            expect(find.byKey(const ValueKey('share-card-footer')),
+                findsOneWidget);
+          }
+        }
+      }
+    });
+
+    testWidgets('the title steps: short at 18 beside Sal, long smaller, the '
+        'lines under him the full width', (tester) async {
+      await tester.runAsync(loadShareCardFonts);
+      const wide = 312.0 - 48;
+      final full = shareCardSalFloat(kShareCardSalSize);
+      final short = shareCardTitleFit('Michigan Senate Election Winner',
+          narrow: wide - full.width, wide: wide, floatHeight: full.height);
+      expect(short.size, 18);
+      expect(short.fits, isTrue);
+      expect(short.lines, lessThanOrEqualTo(2));
+      expect(shareCardSalTopSize('Michigan Senate Election Winner'),
+          kShareCardSalSize);
+      // The 92-character question: Sal sits compact, two lines beside
+      // him, the rest under him at the full width, whole on three.
+      expect(shareCardSalTopSize(kShareLongQuestion), kShareCardSalCompactSize);
+      final compact = shareCardSalFloat(kShareCardSalCompactSize);
+      final long = shareCardTitleFit(kShareLongQuestion,
+          narrow: wide - compact.width,
+          wide: wide,
+          floatHeight: compact.height);
+      expect(long.fits, isTrue);
+      expect(long.lines, 3);
+      expect(long.headLines, 2);
+      expect(long.tail, isNotEmpty);
+      expect('${long.head} ${long.tail}', kShareLongQuestion);
+      expect(long.size, lessThan(18));
+      expect(long.size, greaterThanOrEqualTo(kShareCardTitleSteps.last.$1));
+    });
+
     testWidgets('Sal never sits on the text', (tester) async {
       await tester.runAsync(loadShareCardSal);
       addTearDown(ShareCardSal.debugReset);
@@ -685,6 +966,9 @@ void main() {
         fakeTeslaPick(),
         fakeNasdaqMarket(),
         fakeOilMarket(),
+        fakePredictionPick(question: kShareLongQuestion),
+        fakeBinaryPick(),
+        fakeMichiganMarket(),
       ]) {
         await pump(tester, data);
         // The dog inside his cell (the render's transparent margin off).
@@ -697,7 +981,8 @@ void main() {
             cell.top + cell.height * 0.86);
         for (final k in const [
           'share-card-caps',
-          'share-card-title',
+          'share-card-title-head',
+          'share-card-title-tail',
           'share-card-meta',
           'share-card-number',
           'share-card-fact',
