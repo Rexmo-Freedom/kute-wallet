@@ -2375,8 +2375,9 @@ List<int> _dots(MoneyJourneyPlan plan) {
 
 double _unit(double v) => v.isNaN ? 0 : v.clamp(0.0, 1.0);
 
-/// The Dollars mark's own green ([kUsdMarkAsset]'s disc).
-const Color _kDollarsGreen = Color(0xFF00875A);
+/// The Dollars mark's own green ([kUsdMarkAsset]'s disc): the app's one
+/// green, so the coin, a received amount and "Completed" all match.
+const Color _kDollarsGreen = AppColors.marketUp;
 
 /// The Investing and Predictions stations' marks.
 const String _kInvestingMarkAsset = 'lib/assets/hyperliquid-logo.svg';
