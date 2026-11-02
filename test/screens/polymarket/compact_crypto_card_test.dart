@@ -4,9 +4,9 @@
 // pill), the price row (price, its move against the target, the target),
 // a 54 px sparkline (no in-chart "Target" badge: the target is printed
 // above it) and the Up / Down pills (44) with their odds, about 200 px in
-// all (founder, 2 November 2026: bigger still). The pills are the quiet
-// card's: soft tinted fills in the market colour, coloured text, the side
-// then its chance, no arrow; a tap opens the slip on that side. The market
+// all (founder, 2 November 2026: bigger still). The buttons are soft
+// tinted fills in the market colour with squared ~14 px corners (not full
+// pills), coloured text, the side then its chance, no arrow; a tap opens the slip on that side. The market
 // page keeps the full card.
 
 import 'package:flutter/material.dart';
@@ -126,8 +126,13 @@ void main() {
       final box = tester.widget<Container>(find
           .descendant(of: pill, matching: find.byType(Container))
           .first);
-      expect((box.decoration! as BoxDecoration).color,
-          color.withValues(alpha: 0.12));
+      final deco = box.decoration! as BoxDecoration;
+      expect(deco.color, color.withValues(alpha: 0.12));
+      // The more squared buttons: a rounded rectangle (~14 px corners),
+      // not a full pill.
+      final radius = (deco.borderRadius! as BorderRadius).topLeft.x;
+      expect(radius, inInclusiveRange(12, 16));
+      expect(radius, lessThan(tester.getSize(pill).height / 2));
       final label = tester.widget<Text>(find
           .descendant(of: pill, matching: find.text(pill == up ? 'Up' : 'Down')));
       expect(label.style!.color, color);
