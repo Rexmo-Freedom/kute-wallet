@@ -36,6 +36,19 @@
 // figure column at the end takes what it needs, at most 45% of the row
 // (the Activity rows' rule), and scales down past that: never cut at the
 // card's edge, at 375 pt and at large text alike.
+//
+// THE PORTFOLIO SCREEN'S POSITIONS (founder, 2 November 2026: "maybe the
+// biggest investments get the squares and the others just get a normal
+// line"; [PortfolioRowLayoutScope]): the same row widgets drawn two other
+// ways. The biggest open positions are SQUARES ([PortfolioRowLayout
+// .square], the Bitcoin home's Latest squares and the Investing grid's:
+// the logo 40 with its ring slice's dot, the P&L % top-right in colour,
+// the name and the line under it quiet, the value 22 sp); the rest are
+// the INVESTING LIST'S OWN ROW ([PortfolioRowLayout.market], HlListRow in
+// hl_market_card.dart: the logo, the name alone, the value over the P&L
+// as "▲ 3.4%"; no line under the name, no dot and no chance bar, the
+// position screen has them). A tap opens the position in every shape; a
+// long press shows it in the ring.
 // Every row is its own widget watching only what it needs, so a price
 // tick repaints one row. Taps open the same screens the cards opened,
 // with the same `open_investments_position_tapped` event.
@@ -62,7 +75,11 @@ import 'package:kute/providers/polymarket_trading_provider.dart'
     show polymarketTradingProvider;
 import 'package:kute/screens/hyperliquid/components/hl_coin_icon.dart';
 import 'package:kute/screens/hyperliquid/components/hl_format.dart';
+import 'package:kute/screens/home/components/action_pill.dart'
+    show greenColor, redColor;
 import 'package:kute/screens/hyperliquid/components/hl_isolated_margin.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
+    show HlListRow;
 import 'package:kute/screens/hyperliquid/components/hl_position_detail_sheet.dart';
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart';
 import 'package:kute/screens/polymarket/components/combo_detail_sheet.dart';
@@ -79,8 +96,11 @@ import 'package:kute/screens/polymarket/components/position_detail_sheet.dart'
 import 'package:kute/screens/portfolio/poly_position_events.dart'
     show polyPositionEventProvider;
 import 'package:kute/screens/shared/animations/premium_group_container.dart';
-import 'package:kute/screens/shared/kute_motion.dart' show RollingFigure;
+import 'package:kute/screens/shared/kute_motion.dart'
+    show KutePressable, RollingFigure;
 import 'package:kute/screens/shared/market_groups.dart' show marketGroupDivider;
+import 'package:kute/screens/shared/transactions_builder.dart'
+    show kActivitySquareHeight;
 import 'package:kute/services/polymarket/combos/combo_models.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
@@ -245,11 +265,16 @@ class PortfolioCardList extends StatelessWidget {
       {super.key,
       required this.rows,
       this.after,
-      this.afterHairline = true});
+      this.afterHairline = true,
+      this.hairlines = true});
 
   final List<Widget> rows;
   final Widget? after;
   final bool afterHairline;
+
+  /// The inset hairline between rows; false for the Investing list's
+  /// rows ([PortfolioRowLayout.market]), which draw none.
+  final bool hairlines;
 
   /// Where the hairline starts, from the card's edge: the rows' text.
   static double hairlineIndent() =>
@@ -270,11 +295,11 @@ class PortfolioCardList extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0) marketGroupDivider(context, indent),
+                if (i > 0 && hairlines) marketGroupDivider(context, indent),
                 rows[i],
               ],
               if (after case final a?) ...[
-                if (rows.isNotEmpty && afterHairline)
+                if (rows.isNotEmpty && afterHairline && hairlines)
                   marketGroupDivider(context, indent),
                 a,
               ],
@@ -284,6 +309,79 @@ class PortfolioCardList extends StatelessWidget {
       ),
     );
   }
+}
+
+/// How a [PortfolioPositionRow] is drawn (see the file header): the
+/// Portfolio's own row ([list]), the Investing list's row ([market]) or a
+/// big square ([square]).
+enum PortfolioRowLayout { list, market, square }
+
+/// The [PortfolioRowLayout] of the position rows under it; none above:
+/// [PortfolioRowLayout.list].
+class PortfolioRowLayoutScope extends InheritedWidget {
+  const PortfolioRowLayoutScope(
+      {super.key, required this.layout, required super.child});
+
+  final PortfolioRowLayout layout;
+
+  static PortfolioRowLayout of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<PortfolioRowLayoutScope>()
+          ?.layout ??
+      PortfolioRowLayout.list;
+
+  @override
+  bool updateShouldNotify(PortfolioRowLayoutScope old) => old.layout != layout;
+}
+
+/// How many of [positions] open positions the Portfolio screen draws as
+/// squares: full rows of two only, two for two or three, four from four;
+/// a single position is one full-width square. Pure for the tests.
+int portfolioSquareCount(int positions) => positions >= 4
+    ? 4
+    : positions >= 2
+        ? 2
+        : positions == 1
+            ? 1
+            : 0;
+
+/// The square's logo (the Latest square's icon size) and inner padding.
+const double kPortfolioSquareIcon = 40;
+const double _kSquarePad = 14;
+
+/// A P&L as the Investing rows write a change: "▲ 4.0%" / "▼ 4.0%" in the
+/// up / down colour, "0.0%" quietly when flat ([portfolioPnlPill]'s
+/// figure, its sign turned into the arrow).
+({String text, Color color}) portfolioArrowPnl(
+    BuildContext context, ({String text, PortfolioPnlTone tone}) pnl) {
+  final shown = pnl.text.replaceFirst(RegExp(r'^[+\u2212-]'), '');
+  return switch (pnl.tone) {
+    PortfolioPnlTone.up => (text: '▲ $shown', color: greenColor),
+    PortfolioPnlTone.down => (text: '▼ $shown', color: redColor),
+    PortfolioPnlTone.flat => (
+        text: shown,
+        color: context.colors.textSecondary
+      ),
+  };
+}
+
+/// A position square's height: [kActivitySquareHeight], or its content at
+/// the viewer's text size when that is taller (no overflow at an
+/// accessibility size).
+double portfolioSquareHeight(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  final content = _kSquarePad.w * 2 +
+      kPortfolioSquareIcon.w +
+      10.w +
+      scaler.scale(13.sp) * 1.25 +
+      2.h +
+      scaler.scale(12.sp) * 1.3 +
+      4.h +
+      scaler.scale(22.sp) * 1.2 +
+      // A pixel of slack for rounding.
+      2;
+  final least = kActivitySquareHeight.w;
+  return content > least ? content : least;
 }
 
 /// How a P&L reads: a gain, a loss, or nothing worth a colour.
@@ -477,6 +575,31 @@ String polyPositionRowLine(PolyRowNames names, String side, {String? status}) {
     if (status != null) status else if (!names.titleIsSide) side,
   ];
   return parts.isEmpty ? (status ?? side) : parts.join(' · ');
+}
+
+/// A Predictions position's name where nothing goes under it (the
+/// Investing list's row): the title with the side held after
+/// it ("Lakers · No", "Bitcoin Up or Down · Up"), the title alone when it
+/// is the side ("Verstappen") or the side is a plain Yes. [question] is
+/// the market's question for a position whose event is not read: a name
+/// cut from it ("Bitcoin" of "Will Bitcoin reach \$150,000 in 2026?", its
+/// rest on the line the Investing row does not have) reads as the whole
+/// short question instead ("Bitcoin reach \$150,000 in 2026").
+String polyPositionListName(PolyRowNames names, String side,
+    {String? question, String Function(DateTime)? date}) {
+  final held = side.trim();
+  final title = question != null &&
+          names.context.isNotEmpty &&
+          !names.titleIsSide
+      ? polyRowShortText(question, date: date)
+      : names.title;
+  if (names.titleIsSide ||
+      held.isEmpty ||
+      held.toLowerCase() == 'yes' ||
+      held.toLowerCase() == title.trim().toLowerCase()) {
+    return title;
+  }
+  return '$title · $held';
 }
 
 /// [rows] with a hairline between each, starting where the text does.
@@ -686,10 +809,16 @@ class PortfolioPositionRow extends StatelessWidget {
     this.detail,
     this.onTap,
     this.sliceId,
+    this.listName,
   });
 
   final Widget leading;
   final String title;
+
+  /// The name the Investing list's row ([PortfolioRowLayout.market])
+  /// writes, which has no line under it to say the side held (a
+  /// Predictions row's "Lakers · No"); null: [title].
+  final String? listName;
   final String subtitle;
   final String value;
   final double? chance;
@@ -715,18 +844,53 @@ class PortfolioPositionRow extends StatelessWidget {
     final slices = PortfolioSliceScope.maybeOf(context);
     final id = sliceId;
     final dot = id == null ? null : slices?.colors[id];
+    // The ring shows this position (founder, 1 November 2026); the tap
+    // keeps opening it.
+    final VoidCallback? longPress = dot == null
+        ? null
+        : () {
+            HapticFeedback.selectionClick();
+            slices!.onToggle(id!);
+          };
+    switch (PortfolioRowLayoutScope.of(context)) {
+      case PortfolioRowLayout.market:
+        final change = under == null ? null : portfolioArrowPnl(context, under);
+        return HlListRow(
+          inGroup: true,
+          leading: SizedBox.square(
+              dimension: kPortfolioRowImage.w, child: leading),
+          name: listName ?? title,
+          nameKey: const ValueKey('portfolio-row-title'),
+          figure: value,
+          figureKey: const ValueKey('portfolio-row-value'),
+          change: change?.text ?? detail,
+          changeColor: change?.color,
+          changeKey: ValueKey(
+              change != null ? 'portfolio-row-pnl' : 'portfolio-row-detail'),
+          onTap: onTap,
+          onLongPress: longPress,
+        );
+      case PortfolioRowLayout.square:
+        // The line under the name says the side held: the title alone.
+        return _PositionSquare(
+          leading: leading,
+          name: title,
+          subtitle: subtitle,
+          value: value,
+          change: under == null ? null : portfolioArrowPnl(context, under),
+          detail: detail,
+          dot: dot,
+          onTap: onTap,
+          onLongPress: longPress,
+        );
+      case PortfolioRowLayout.list:
+        break;
+    }
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        // The ring shows this position (founder, 1 November 2026); the tap
-        // keeps opening it.
-        onLongPress: dot == null
-            ? null
-            : () {
-                HapticFeedback.selectionClick();
-                slices!.onToggle(id!);
-              },
+        onLongPress: longPress,
         child: Padding(
           padding: EdgeInsets.symmetric(
               horizontal: PortfolioRowInset.of(context),
@@ -840,6 +1004,174 @@ Widget _figureFit(Widget figure) => FittedBox(
       alignment: AlignmentDirectional.centerEnd,
       child: figure,
     );
+
+/// One position as a big square (see the file header; drawn as the
+/// Investing grid's HlMovingNowCard and the home's Latest squares): the
+/// grouped card's ground, 14 padding, [portfolioSquareHeight] tall; the
+/// logo ([kPortfolioSquareIcon]) top-left with its ring slice's [dot] at
+/// its lower right, the P&L ([change], or the quiet [detail]) top-right,
+/// then the name and the line under it quiet over the value at 22 sp. The
+/// whole square taps through to the position on the press spring; a long
+/// press shows it in the ring.
+class _PositionSquare extends StatelessWidget {
+  const _PositionSquare({
+    required this.leading,
+    required this.name,
+    required this.subtitle,
+    required this.value,
+    required this.change,
+    required this.detail,
+    required this.dot,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final Widget leading;
+  final String name;
+  final String subtitle;
+  final String value;
+  final ({String text, Color color})? change;
+  final String? detail;
+  final Color? dot;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final decoration = PremiumGroupContainer.decorationOf(context);
+    final radius = decoration.borderRadius as BorderRadius?;
+    final quiet = TextStyle(
+      color: c.textSecondary,
+      fontSize: 13.sp,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.1,
+      height: 1.25,
+    );
+    final change = this.change;
+    final corner = change?.text ?? detail;
+    final icon = kPortfolioSquareIcon.w;
+    final dotSize = 12.w;
+    return KutePressable(
+      enabled: onTap != null,
+      child: Container(
+        key: const ValueKey('portfolio-square'),
+        height: portfolioSquareHeight(context),
+        decoration: decoration,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: radius,
+            child: Padding(
+              padding: EdgeInsets.all(_kSquarePad.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox.square(
+                        dimension: icon,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // The row's picture, drawn at the square's size.
+                            Positioned.fill(
+                                child: FittedBox(child: leading)),
+                            // Its slice's colour in the ring above.
+                            if (dot != null)
+                              Positioned(
+                                right: -2.w,
+                                bottom: -2.w,
+                                child: Container(
+                                  key: const ValueKey('portfolio-row-dot'),
+                                  width: dotSize,
+                                  height: dotSize,
+                                  decoration: BoxDecoration(
+                                    color: dot,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: decoration.color ?? c.surface,
+                                        width: 2),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      if (corner != null)
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topRight,
+                              child: RollingFigure(
+                                key: ValueKey(change != null
+                                    ? 'portfolio-row-pnl'
+                                    : 'portfolio-row-detail'),
+                                text: corner,
+                                style: quiet.copyWith(
+                                  color: change?.color ?? c.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(name,
+                      key: const ValueKey('portfolio-row-title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: quiet),
+                  SizedBox(height: 2.h),
+                  Text(subtitle,
+                      key: const ValueKey('portfolio-row-subtitle'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: quiet.copyWith(
+                          color: c.textTertiary,
+                          fontSize: 12.sp,
+                          height: 1.3)),
+                  SizedBox(height: 4.h),
+                  // A value too wide for the square shrinks rather than
+                  // overflow it.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: RollingFigure(
+                      key: const ValueKey('portfolio-row-value'),
+                      text: value,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.6,
+                        height: 1.2,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A Predictions picture: the market's image in the row's circle.
 Widget _polyImage(String title, String? imageUrl, {String category = ''}) =>
@@ -970,6 +1302,9 @@ class PolyPositionRow extends ConsumerWidget {
         leading: _polyImage(p.marketQuestion, image,
             category: event?.category ?? ''),
         title: names.title,
+        listName: polyPositionListName(names, p.outcome,
+            question: event == null ? p.marketQuestion : null,
+            date: _rowDate(context)),
         subtitle: polyPositionRowLine(names, p.outcome, status: status),
         value: money(value),
         chance: p.isResolved ? null : price,
@@ -1052,6 +1387,8 @@ class PlacingBetRow extends ConsumerWidget {
     return PortfolioPositionRow(
       leading: _polyImage(p.marketQuestion, p.marketImage),
       title: names.title,
+      listName: polyPositionListName(names, p.outcomeName,
+          question: p.marketQuestion, date: _rowDate(context)),
       subtitle: polyPositionRowLine(names, p.outcomeName, status: step),
       value: formatPolyAmount(ref, p.amount),
     );

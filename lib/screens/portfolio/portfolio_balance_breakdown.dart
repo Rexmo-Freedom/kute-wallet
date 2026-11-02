@@ -414,7 +414,12 @@ class PortfolioBalanceBreakdown extends ConsumerStatefulWidget {
     this.heroMode = BalancesHeroMode.allocation,
     this.positionSlices = const [],
     this.positionFocus,
+    this.squareIds = const [],
   });
+
+  /// The venues' positions drawn as squares over their groups, biggest
+  /// first (BalancesOverview.squareIds).
+  final List<String> squareIds;
 
   /// What the hero ring shows, the open positions' slices and the one
   /// shown (BalancesOverview.heroMode, .positionSlices, .positionFocus).
@@ -770,6 +775,7 @@ class _PortfolioBalanceBreakdownState
         heroMode: widget.heroMode,
         positionSlices: widget.positionSlices,
         positionFocus: widget.positionFocus,
+        squareIds: widget.squareIds,
         wrap: (part, row) => switch (part) {
           BalancesPart.dollars => _ArrivalCatch(
               key: const ValueKey('portfolio-band-dollars'),

@@ -31,6 +31,8 @@ import 'package:kute/screens/portfolio/components/balances_overview.dart'
     show BalancesCategory, kBalancesRingDimmed;
 import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
     show pnlVenueRangeChange;
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
+    show HlListRow;
 import 'package:kute/screens/portfolio/components/position_rows.dart'
     show PortfolioCardList, PortfolioPositionRow;
 import 'package:kute/screens/shared/rolling_number_text.dart';
@@ -427,10 +429,12 @@ const _btcHeld = HyperliquidTradingState(isInitialized: true, positions: [
       maxLeverage: 40),
 ]);
 
-/// Opens the Predictions card past its first rows ("See all").
+/// Opens the Predictions card past its first rows ("See all"), when the
+/// squares leave it more than it shows folded.
 Future<void> _seeAll(WidgetTester tester) async {
   final fold =
       find.byKey(const ValueKey('portfolio-balance-predictions-see-all'));
+  if (fold.evaluate().isEmpty) return;
   await tester.ensureVisible(fold);
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(fold);
@@ -597,9 +601,10 @@ void _ringAndCardsMain() {
           extra: [
             ..._history(),
             ..._predictionsHistory(),
-            // Enough rows that the Portfolio section scrolls.
+            // Enough rows that the Portfolio section scrolls: four
+            // squares, then two rows.
             polymarketActivePositionsProvider.overrideWith((_) => [
-                  for (final t in ['a', 'b', 'c'])
+                  for (final t in ['a', 'b', 'c', 'd', 'e'])
                     PolymarketPosition(
                         marketId: 'm-$t',
                         marketQuestion: 'Will $t happen this year?',
@@ -634,7 +639,8 @@ void _ringAndCardsMain() {
       final inset = 16 * size.width / 430;
       final card = section == PortfolioSection.charts
           ? find.byKey(const ValueKey('statistics-figures'))
-          : find.byKey(const ValueKey('portfolio-balance-investing-positions'));
+          : find.byKey(
+              const ValueKey('portfolio-balance-predictions-positions'));
       final right = tester.getRect(card).right - inset + 0.5;
       final texts = find.descendant(of: card, matching: find.byType(Text));
       expect(texts, findsWidgets);
@@ -643,7 +649,7 @@ void _ringAndCardsMain() {
             lessThanOrEqualTo(right),
             reason: (e.widget as Text).data);
       }
-      for (final key in ['portfolio-row-value', 'portfolio-row-pnl-pill']) {
+      for (final key in ['portfolio-row-value', 'portfolio-row-pnl']) {
         for (final e in find
             .descendant(of: card, matching: find.byKey(ValueKey(key)))
             .evaluate()) {
@@ -723,14 +729,30 @@ void _ringAndCardsMain() {
     // The largest first (BTC, $10,811.97 + 0.4), the palette in order.
     expect(ids.first, 'hl-BTC');
     expect(arcs.first.color, palette.first);
-    // Each row's dot is its slice's colour.
+    // The four biggest are squares, each with its slice's colour on its
+    // logo; the other three the Investing list's rows, no dot.
     final rows = find.byType(PortfolioPositionRow);
     expect(rows, findsNWidgets(7));
+    final squares = find.descendant(
+        of: find.byKey(const ValueKey('portfolio-balance-squares')),
+        matching: find.byType(PortfolioPositionRow));
+    expect(squares, findsNWidgets(4));
+    expect(
+        squares
+            .evaluate()
+            .map((e) => (e.widget as PortfolioPositionRow).sliceId)
+            .toList(),
+        ids.take(4).toList());
     for (final e in rows.evaluate()) {
       final row = e.widget as PortfolioPositionRow;
-      final dot = tester.widget<Container>(find.descendant(
+      final dots = find.descendant(
           of: find.byWidget(row),
-          matching: find.byKey(const ValueKey('portfolio-row-dot'))));
+          matching: find.byKey(const ValueKey('portfolio-row-dot')));
+      if (!squares.evaluate().contains(e)) {
+        expect(dots, findsNothing, reason: row.sliceId);
+        continue;
+      }
+      final dot = tester.widget<Container>(dots);
       expect((dot.decoration! as BoxDecoration).color,
           arcs.firstWhere((a) => a.id == row.sliceId).color,
           reason: row.sliceId);
@@ -771,6 +793,58 @@ void _ringAndCardsMain() {
       expect(a.color.a, 1, reason: '${a.id}');
     }
     expect(_centreCaption(tester), 'Invested');
+    await _unmount(tester);
+  });
+
+  testWidgets(
+      'Portfolio with three positions: the two biggest are squares side by '
+      'side (each the position\'s own row drawn as a square), the third '
+      'the Investing list\'s row under its venue, counted as what it lists',
+      (tester) async {
+    await _mount(tester,
+        state: _bothAtWork,
+        size: const Size(390, 1400),
+        trading: _btcHeld,
+        extra: [
+          polymarketActivePositionsProvider.overrideWith((_) => [
+                for (final (t, size) in [('a', 4.0), ('b', 2.0)])
+                  PolymarketPosition(
+                      marketId: 'm-$t',
+                      marketQuestion: 'Will $t happen this year?',
+                      outcome: 'Yes',
+                      size: size,
+                      avgPrice: 0.5,
+                      currentPrice: 0.6,
+                      pnl: 0,
+                      pnlPercent: 0,
+                      isResolved: false,
+                      tokenId: t),
+              ]),
+        ]);
+    final block = find.byKey(const ValueKey('portfolio-balance-squares'));
+    final squares = find.descendant(
+        of: block, matching: find.byKey(const ValueKey('portfolio-square')));
+    expect(squares, findsNWidgets(2));
+    final left = tester.getRect(squares.at(0));
+    final right = tester.getRect(squares.at(1));
+    expect(left.top, right.top);
+    expect(left.width, moreOrLessEquals(right.width));
+    expect(
+        find
+            .descendant(of: block, matching: find.byType(PortfolioPositionRow))
+            .evaluate()
+            .map((e) => (e.widget as PortfolioPositionRow).sliceId),
+        ['hl-BTC', 'poly-a']);
+    // The rest: Predictions · 1, the Investing list's row; no Investing
+    // group (its one position is a square).
+    expect(find.text('Predictions · 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+        findsNothing);
+    final rest = find.descendant(
+        of: find.byKey(const ValueKey('portfolio-balance-predictions-positions')),
+        matching: find.byType(HlListRow));
+    expect(rest, findsOneWidget);
+    expect(tester.getRect(rest).top, greaterThan(left.bottom));
     await _unmount(tester);
   });
 
@@ -847,21 +921,36 @@ void _ringAndCardsMain() {
           extra: [..._history(), ..._predictionsHistory(), ..._manyRows()]);
       expect(tester.takeException(), isNull);
       final gutter = 16 * width / 430;
-      for (final venue in ['investing', 'predictions']) {
-        final card = find.descendant(
-            of: find.byKey(ValueKey('portfolio-balance-$venue-positions')),
-            matching: find.byType(PortfolioCardList));
-        final r = tester.getRect(card);
-        expect(r.left, moreOrLessEquals(gutter, epsilon: 0.5), reason: venue);
+      // The squares (BTC and three predictions), then the Predictions
+      // card with the rest; nothing left for an Investing group.
+      expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+          findsNothing);
+      for (final (name, block, pad) in [
+        (
+          'squares',
+          find.byKey(const ValueKey('portfolio-balance-squares')),
+          14 * width / 430
+        ),
+        (
+          'predictions',
+          find.descendant(
+              of: find.byKey(
+                  const ValueKey('portfolio-balance-predictions-positions')),
+              matching: find.byType(PortfolioCardList)),
+          gutter
+        ),
+      ]) {
+        final r = tester.getRect(block);
+        expect(r.left, moreOrLessEquals(gutter, epsilon: 0.5), reason: name);
         expect(r.right, moreOrLessEquals(width - gutter, epsilon: 0.5),
-            reason: venue);
-        for (final key in ['portfolio-row-value', 'portfolio-row-pnl-pill']) {
+            reason: name);
+        for (final key in ['portfolio-row-value', 'portfolio-row-pnl']) {
           for (final e in find
-              .descendant(of: card, matching: find.byKey(ValueKey(key)))
+              .descendant(of: block, matching: find.byKey(ValueKey(key)))
               .evaluate()) {
             expect(tester.getRect(find.byWidget(e.widget)).right,
-                lessThanOrEqualTo(r.right - gutter + 0.5),
-                reason: '$venue $key');
+                lessThanOrEqualTo(r.right - pad + 0.5),
+                reason: '$name $key');
           }
         }
       }

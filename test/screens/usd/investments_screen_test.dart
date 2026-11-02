@@ -1041,8 +1041,9 @@ void main() {
   });
 
   testWidgets(
-      'Balances lists what is held under its venue, the Positions list\'s '
-      'rows, under the shares', (tester) async {
+      'Balances lists what is held, the Positions list\'s rows, under the '
+      'shares: one position alone is one full-width square, no venue group '
+      'left under it', (tester) async {
     await pumpRouted(tester, overrides: [
       hyperliquidTradingProvider.overrideWith(() => PortfolioTestTrading(
           const HyperliquidTradingState(
@@ -1055,10 +1056,11 @@ void main() {
         findsOneWidget);
     expect(
         find.descendant(
-            of: find
-                .byKey(const ValueKey('portfolio-balance-investing-positions')),
+            of: find.byKey(const ValueKey('portfolio-balance-squares')),
             matching: find.byType(HlPositionRow)),
         findsOneWidget);
+    expect(find.byKey(const ValueKey('portfolio-balance-investing-positions')),
+        findsNothing);
     expect(find.byKey(const ValueKey('portfolio-positions-heading')),
         findsNothing);
     expect(

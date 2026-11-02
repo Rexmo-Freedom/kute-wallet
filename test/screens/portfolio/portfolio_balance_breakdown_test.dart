@@ -41,6 +41,8 @@ import 'package:kute/providers/swap_orders_provider.dart';
 import 'package:kute/providers/unified_balances_provider.dart';
 import 'package:kute/providers/venue_sweeper_provider.dart';
 import 'package:kute/screens/portfolio/components/balances_overview.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart'
+    show HlListRow;
 import 'package:kute/screens/portfolio/components/position_rows.dart';
 import 'package:kute/screens/portfolio/open_investments_screen.dart';
 import 'package:kute/screens/portfolio/portfolio_filters.dart'
@@ -1632,8 +1634,9 @@ void main() {
       testWidgets(
           'the Portfolio screen at 375 pt and ${(scale * 100).round()} % '
           'text: each venue ONE soft card under its title (the home '
-          'Activity list\'s), its rows split by the inset hairline, every '
-          'figure whole inside the card, the chance bar under the title',
+          'Activity list\'s), its rows the Investing list\'s own (the name '
+          'alone, the value over its change, no hairline, no line under '
+          'the name and no chance bar), every figure whole inside the card',
           (tester) async {
         final c = await _pump(tester,
             home: sharesBreakdown,
@@ -1722,19 +1725,21 @@ void main() {
               AppColorsExtension.light().textSecondary);
           expect(cardRect.top - tester.getRect(find.text(title)).bottom,
               closeTo(8 * 1000 / 932, 0.5));
-          // The hairlines between rows, none after the last.
+          // The Investing list's rows: no hairline between them.
           expect(find.descendant(of: card, matching: find.byType(Divider)),
-              findsNWidgets(rows - 1));
+              findsNothing);
           final rowFinder = find.descendant(
               of: card, matching: find.byType(PortfolioPositionRow));
           expect(rowFinder, findsNWidgets(rows));
+          expect(find.descendant(of: card, matching: find.byType(HlListRow)),
+              findsNWidgets(rows));
           for (var i = 0; i < rows; i++) {
             final row = rowFinder.at(i);
             Rect inRow(String key) => tester.getRect(find
                 .descendant(of: row, matching: find.byKey(ValueKey(key)))
                 .first);
             final value = inRow('portfolio-row-value');
-            final pnl = inRow('portfolio-row-pnl-pill');
+            final pnl = inRow('portfolio-row-pnl');
             final title = inRow('portfolio-row-title');
             // Whole, inside the card's 16 inset, right-aligned.
             for (final figure in [value, pnl]) {
@@ -1751,22 +1756,17 @@ void main() {
             expect(title.right, lessThanOrEqualTo(value.left));
           }
         }
-        // The prediction's chance bar: inside its row, starting where the
-        // title does, ending before the figures.
-        final dem = find
-            .descendant(
-                of: find.byKey(
-                    const ValueKey('portfolio-balance-predictions-positions')),
-                matching: find.byType(PortfolioPositionRow))
-            .first;
-        Rect inDem(String key) => tester.getRect(find
-            .descendant(of: dem, matching: find.byKey(ValueKey(key)))
-            .first);
-        final bar = inDem('portfolio-row-chance');
-        expect(bar.left,
-            moreOrLessEquals(inDem('portfolio-row-title').left, epsilon: 0.5));
-        expect(bar.right, lessThanOrEqualTo(inDem('portfolio-row-figures').left));
-        expect(bar.bottom, lessThanOrEqualTo(tester.getRect(dem).bottom));
+        // No line under the name, no chance bar, no dot: the position
+        // screen has them.
+        for (final key in [
+          'portfolio-row-subtitle',
+          'portfolio-row-chance',
+          'portfolio-row-dot',
+        ]) {
+          expect(find.byKey(ValueKey(key)), findsNothing, reason: key);
+        }
+        // A side other than Yes is in the name.
+        expect(find.textContaining('· No'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
