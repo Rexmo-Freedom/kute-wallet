@@ -145,10 +145,82 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
     // never read the same.
     final shared = HlMarketDirectory.sharesSymbol(m);
     final thin = m.isLowLiquidity;
-    final titleStyle = AppTextStyles.settingsTitle(context);
 
+    return HlListRow(
+      inGroup: widget.inGroup,
+      onTap: _openDetail,
+      // The REAL coin/token logo (category glyph or letter badge on a
+      // miss), cut round for this row.
+      leading: HlVenueBadged(
+        monogram: shared ? HlDexNames.monogramOf(m) : null,
+        ring: c.surface,
+        child: ClipOval(
+          child: HlCoinIcon(
+            coin: m.coin,
+            wireCoin: m.wireCoin,
+            category: m.category,
+            iconUrl: m.iconUrl,
+            size: kHlMarketRowIcon,
+          ),
+        ),
+      ),
+      name: name,
+      figure: formatHlListPrice(price, decimalCap: m.pxDecimalCap),
+      // No change to show on a thin market: the price stands alone,
+      // centred, not over a lone dash.
+      change: change != null || !thin
+          ? (change == null ? '—' : hlArrowPct(change))
+          : null,
+      changeColor: changeColor,
+    );
+  }
+}
+
+/// THE INVESTING LIST ROW, drawn on its own (see the file header): the
+/// [leading] logo ([kHlMarketRowIcon], already sized and cut round), the
+/// [name] alone on one line in the settings-title style, and at the end
+/// the [figure] in the same style over the [change] ("▲ 3.4%", 13, in
+/// [changeColor]; null: the figure alone). [kHlMarketRowHeight] tall at
+/// least, 16 at the sides; with [inGroup] a row of a grouped list card
+/// (the list draws the card), else on the app's card surface. Shared by
+/// [HlMarketCard] and the Portfolio screen's position rows
+/// (position_rows.dart), so the two lists read the same.
+class HlListRow extends StatelessWidget {
+  const HlListRow({
+    super.key,
+    required this.leading,
+    required this.name,
+    required this.figure,
+    this.change,
+    this.changeColor,
+    this.onTap,
+    this.onLongPress,
+    this.inGroup = false,
+    this.nameKey,
+    this.figureKey,
+    this.changeKey,
+  });
+
+  final Widget leading;
+  final String name;
+  final String figure;
+  final String? change;
+  final Color? changeColor;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool inGroup;
+
+  /// Keys on the name, the figure and the change (the tests read them).
+  final Key? nameKey;
+  final Key? figureKey;
+  final Key? changeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = AppTextStyles.settingsTitle(context);
+    final change = this.change;
     // In a group the list draws the card; the row keeps its ink.
-    final grouped = widget.inGroup;
+    final grouped = inGroup;
     final radius = grouped ? null : BorderRadius.circular(AppRadius.lg);
     return Container(
       decoration: grouped ? null : AppDecorations.card(context),
@@ -156,7 +228,8 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
         color: Colors.transparent,
         borderRadius: radius,
         child: InkWell(
-          onTap: _openDetail,
+          onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: radius,
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: kHlMarketRowHeight.w),
@@ -165,25 +238,12 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // The REAL coin/token logo (category glyph or letter
-                  // badge on a miss), cut round for this row.
-                  HlVenueBadged(
-                    monogram: shared ? HlDexNames.monogramOf(m) : null,
-                    ring: c.surface,
-                    child: ClipOval(
-                      child: HlCoinIcon(
-                        coin: m.coin,
-                        wireCoin: m.wireCoin,
-                        category: m.category,
-                        iconUrl: m.iconUrl,
-                        size: kHlMarketRowIcon,
-                      ),
-                    ),
-                  ),
+                  leading,
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
                       name,
+                      key: nameKey,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: titleStyle,
@@ -202,21 +262,21 @@ class _HlMarketCardState extends ConsumerState<HlMarketCard> {
                         // Always the primary text colour: the digits roll
                         // on a tick, the colour belongs to the change.
                         RollingNumberText(
-                          text: formatHlListPrice(price,
-                              decimalCap: m.pxDecimalCap),
+                          key: figureKey,
+                          text: figure,
                           style: titleStyle.copyWith(
                             fontFeatures: const [
                               FontFeature.tabularFigures()
                             ],
                           ),
                         ),
-                        // No change to show on a thin market: the price
-                        // stands alone, centred, not over a lone dash.
-                        if (change != null || !thin) ...[
+                        if (change != null) ...[
                           SizedBox(height: 2.h),
                           _ChangeText(
-                            text: change == null ? '—' : hlArrowPct(change),
-                            color: changeColor,
+                            key: changeKey,
+                            text: change,
+                            color: changeColor ??
+                                context.colors.textSecondary,
                           ),
                         ],
                       ],
@@ -250,7 +310,7 @@ String hlArrowPct(double change) {
 class _ChangeText extends StatelessWidget {
   final String text;
   final Color color;
-  const _ChangeText({required this.text, required this.color});
+  const _ChangeText({super.key, required this.text, required this.color});
 
   @override
   Widget build(BuildContext context) {
