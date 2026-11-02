@@ -8,12 +8,22 @@
 // drawn between rows; "Moving now" a two-column grid of six flat rows;
 // "Trending predictions" one-line rows with the chance gauge and the chance
 // in 16 w600; "Recent" rows; no Investing block until there are results,
-// whose Investing rows carry the 48 by 20 sparkline.
+// whose Investing rows carry the 48 by 20 sparkline. Over the blocks, the
+// Connect your own AI card (founder, 2 November 2026), gone with a query;
+// the home with it is written as a PNG, in Inter, when asked:
+//
+//   SEARCH_FRAMES=<dir> flutter test test/screens/search/search_home_layout_test.dart
+
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/hyperliquid_market.dart';
@@ -32,10 +42,14 @@ import 'package:kute/screens/search/components/search_composer.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/search/unified_search_screen.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show CapabilityUnavailableSheet;
+import 'package:kute/screens/shared/kute_action_cards.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/advisor/advisor_input_guard.dart';
 import 'package:kute/services/hyperliquid/hl_sparkline_cache.dart';
 import 'package:kute/services/search_recent_store.dart';
+import 'package:kute/services/tracking_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 class _Sports extends SportsLiveNotifier {
@@ -280,7 +294,10 @@ void main() {
     final recent = find.byKey(const ValueKey('search-home-recent'));
     final before = tester.getRect(recent);
     expect(before.top, greaterThan(composer.bottom));
-    await tester.drag(recent, const Offset(0, -300));
+    // Dragged on a row (the block's centre may fall between two rows).
+    await tester.drag(
+        find.descendant(of: recent, matching: find.byType(SearchListRow)).first,
+        const Offset(0, -300));
     await tester.pumpAndSettle();
     expect(tester.getRect(find.byType(KuteSearchComposer)), composer);
     expect(tester.getRect(recent).top, lessThan(before.top - 100));
@@ -432,6 +449,85 @@ void main() {
         moreOrLessEquals(28, epsilon: 0.5));
     expect(tester.getRect(headers.at(2)).top - tester.getRect(grid).bottom,
         moreOrLessEquals(28, epsilon: 0.5));
+    await _close(tester);
+  });
+
+  testWidgets(
+      'Connect your own AI: one big card first under the composer, the '
+      'three marks, gone once there is a query; a tap opens Unavailable',
+      (tester) async {
+    final events = <(String, Map<String, Object>?)>[];
+    TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+    addTearDown(() => TrackingService.debugTrackObserver = null);
+    final frames = Platform.environment['SEARCH_FRAMES'];
+    if (frames != null) {
+      await tester.runAsync(() async {
+        final inter = FontLoader('Inter');
+        for (final f in ['Regular', 'SemiBold', 'Bold']) {
+          inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+        }
+        await inter.load();
+      });
+    }
+    await _open(tester);
+    final card = find.byKey(const ValueKey('search-home-connect-ai'));
+    expect(card, findsOneWidget);
+    if (frames != null) {
+      // The marks decode on real time.
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.pump();
+      final view = tester.binding.renderViews.first;
+      final layer = view.debugLayer! as OffsetLayer;
+      await tester.runAsync(() async {
+        final image = await layer.toImage(Offset.zero & view.size, pixelRatio: 2);
+        final png = await image.toByteData(format: ui.ImageByteFormat.png);
+        Directory(frames).createSync(recursive: true);
+        File('$frames/search_home_connect_ai.png')
+            .writeAsBytesSync(png!.buffer.asUint8List());
+      });
+    }
+    expect(find.descendant(of: card, matching: find.byType(KuteActionCard)),
+        findsOneWidget);
+    expect(find.text('Connect your own AI'), findsOneWidget);
+    expect(find.text('Let Claude, ChatGPT or Grok manage your wallet'),
+        findsOneWidget);
+    // Claude, ChatGPT and Grok, in that order.
+    final logos = tester.widgetList<SvgPicture>(find.descendant(
+        of: find.byKey(const ValueKey('search-home-connect-ai-logos')),
+        matching: find.byType(SvgPicture)));
+    expect(logos.length, 3);
+    expect(kConnectOwnAiLogos, [
+      'lib/assets/ai/claude.svg',
+      'lib/assets/ai/chatgpt.svg',
+      'lib/assets/ai/grok.svg',
+    ]);
+    // Full width, under the composer, over the first block, on screen.
+    final rect = tester.getRect(card);
+    final composer = tester.getRect(find.byType(KuteSearchComposer));
+    expect(rect.top, greaterThan(composer.bottom));
+    expect(rect.left, moreOrLessEquals(kSearchSheetGutter, epsilon: 0.5));
+    expect(rect.right,
+        moreOrLessEquals(_screen.width - kSearchSheetGutter, epsilon: 0.5));
+    expect(rect.bottom, lessThan(_screen.height));
+    expect(rect.bottom,
+        lessThan(tester.getRect(find.byType(SearchBlockHeader).first).top));
+    // A query: the results, no card.
+    await _type(tester, 'tesla');
+    expect(card, findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(card, findsOneWidget);
+    // The tap: the shared Unavailable sheet, counted as a search tap.
+    await tester.tap(find.text('Connect your own AI'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CapabilityUnavailableSheet), findsOneWidget);
+    expect(
+        events.where((e) => e.$1 == 'search_result_tapped').single.$2?[
+            'result_type'],
+        'connect_own_ai');
+    _navigator.currentState!.pop();
+    await tester.pumpAndSettle();
     await _close(tester);
   });
 

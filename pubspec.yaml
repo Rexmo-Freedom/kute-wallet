@@ -262,6 +262,7 @@ flutter:
     - lib/assets/sounds/send.wav
     - lib/assets/sounds/success.wav
     - lib/assets/sal/
+    - lib/assets/ai/
   fonts:
     # Inter static instances (the same files google_fonts serves the app
     # UI at runtime). Embedded into the exported Activity Report PDF via

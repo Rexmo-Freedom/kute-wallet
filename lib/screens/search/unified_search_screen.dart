@@ -14,8 +14,12 @@
 // are a 13 sp w600 title 12 over 56 px rows 14 apart, 28 between blocks;
 // titles 16 w500, figures 16 w600 (search_rows.dart). Two variants:
 //
-//   * HOME (the bar on the Bitcoin or Dollars home): at most three blocks
-//     while nothing is typed: "Recent" (the last things opened from
+//   * HOME (the bar on the Bitcoin or Dollars home): while nothing is
+//     typed, first the CONNECT YOUR OWN AI card (founder, 2 November 2026:
+//     the wallet run by the person's own Claude, ChatGPT or Grok; the
+//     big action card with the three marks, not live yet: it opens the
+//     Unavailable sheet; gone once anything is typed), then at most three
+//     blocks: "Recent" (the last things opened from
 //     search, with Clear; only when there are any), "Moving now" (six of
 //     the day's biggest liquid moves in a two-column grid of flat rows;
 //     "See all ›" to Investing's Trending), "Trending predictions" (three
@@ -55,6 +59,8 @@ import 'package:kute/screens/search/components/search_morph.dart';
 import 'package:kute/screens/search/components/search_rows.dart';
 import 'package:kute/screens/shared/sal_sprite.dart';
 import 'package:kute/screens/shared/kute_action_cards.dart';
+import 'package:kute/screens/shared/capability_unavailable_sheet.dart'
+    show showCapabilityUnavailableSheet;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart'
     show KuteBarPreview, KuteMarketBarAction, KuteMarketBarContext;
@@ -68,6 +74,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kute/l10n/l10n.dart';
@@ -1546,9 +1553,11 @@ class _SeeAllRow extends StatelessWidget {
   }
 }
 
-/// The search home (founder, 31 October 2026; flat): at most three blocks
-/// on the sheet's surface, 28 apart, each a 13 sp w600 title 12 over its
-/// rows (search_rows.dart), rising in 20 ms apart (KuteStaggerIn):
+/// The search home (founder, 31 October 2026; flat): the Connect your own
+/// AI card ([_ConnectOwnAiCard]; founder, 2 November 2026), then at most
+/// three blocks on the sheet's surface, 28 apart, each a 13 sp w600 title
+/// 12 over its rows (search_rows.dart), rising in 20 ms apart
+/// (KuteStaggerIn):
 ///
 ///   1. "Recent" (the last things opened from search, SearchRecentStore;
 ///      only when there are any): 56 px rows with the logo or a magnifier,
@@ -1667,6 +1676,10 @@ class _SearchHome extends ConsumerWidget {
       padding: gutters,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        // Under the composer, before anything else; the home (and so the
+        // card) gives way to the results as soon as there is a query.
+        const KuteStaggerIn(index: 0, child: _ConnectOwnAiCard()),
+        gap,
         ValueListenableBuilder<List<SearchRecentEntry>>(
           valueListenable: SearchRecentStore.entries,
           builder: (context, recent, _) => recent.isEmpty
@@ -1763,6 +1776,73 @@ class _SearchHome extends ConsumerWidget {
     final router = GoRouter.maybeOf(context);
     Navigator.of(context).maybePop();
     router?.go('/hyperliquid');
+  }
+}
+
+/// The marks on the Connect your own AI card, in order: Claude, ChatGPT,
+/// Grok (simple drawn marks, lib/assets/ai).
+const List<String> kConnectOwnAiLogos = [
+  'lib/assets/ai/claude.svg',
+  'lib/assets/ai/chatgpt.svg',
+  'lib/assets/ai/grok.svg',
+];
+
+/// CONNECT YOUR OWN AI (founder, 2 November 2026: "the option to connect
+/// the wallet with your own local AI ... shown as a bigger card ... on the
+/// search sheet"): one full-width action card in the big-squares style
+/// (kute_action_cards.dart), the Claude, ChatGPT and Grok marks in a row
+/// of white discs as its visual, "Connect your own AI" and "Let Claude,
+/// ChatGPT or Grok manage your wallet". Not live yet: a tap opens the
+/// shared Unavailable sheet (the Dollars row's old Manage with AI did the
+/// same) and counts as a search tap (`connect_own_ai`).
+class _ConnectOwnAiCard extends ConsumerWidget {
+  const _ConnectOwnAiCard();
+
+  static const double _disc = 40;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final l10n = context.l10n;
+    return KuteActionCardGrid(
+      key: const ValueKey('search-home-connect-ai'),
+      cards: [
+        KuteActionCard(
+          visual: Row(
+            key: const ValueKey('search-home-connect-ai-logos'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < kConnectOwnAiLogos.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Container(
+                  width: _disc,
+                  height: _disc,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    // White in both modes: the marks keep their own ink.
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.border, width: 1),
+                  ),
+                  child: SvgPicture.asset(kConnectOwnAiLogos[i],
+                      width: 22, height: 22),
+                ),
+              ],
+            ],
+          ),
+          title: l10n.connectOwnAiTitle,
+          subtitle: l10n.connectOwnAiSubtitle,
+          onTap: () {
+            _trackSearchResultTap(ref, 'connect_own_ai');
+            unawaited(showCapabilityUnavailableSheet(
+              context,
+              message: l10n.capabilityUnavailable,
+              surface: 'connect_own_ai',
+            ));
+          },
+        ),
+      ],
+    );
   }
 }
 
