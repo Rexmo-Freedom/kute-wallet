@@ -43,7 +43,7 @@
 // page's context lifted over a row that is now covered.
 //
 // NEVER OVER A SCREEN'S OWN ACTION ROW: a page with a pinned row at its
-// foot (a market's Yes / No pair, Invest, Close position) declares the
+// foot (a market's Yes / No pair, Invest) declares the
 // row's height in [actionRowHeight] (the row plus its own bottom padding,
 // read from its code); the bar sits above that, and the lift animates on
 // the sheet spring when the row appears or goes.
@@ -76,6 +76,7 @@ import 'package:go_router/go_router.dart' show NoTransitionPage;
 import 'package:kute/models/advisor_context.dart';
 import 'package:kute/providers/unified_search_provider.dart'
     show SearchCategory;
+import 'package:kute/theme/app_theme.dart' show AppColors;
 
 /// One recommended action row in the Sal sheet. [onTap] runs after the
 /// sheet has closed; [sheetContext] is the Sal sheet's own context (for a
@@ -110,6 +111,17 @@ class KuteBarPrimaryStyle {
     this.radius,
     this.fontWeight,
   });
+
+  /// A position's way out (Close position on an Investing position,
+  /// Sell on a prediction; founder, 2 November 2026: "Close position
+  /// should be a floating pill like the others"): the red the pinned
+  /// button had ([AppColors.marketDown]), lettered white, the slip's w800,
+  /// in the bar's own pill shape.
+  static const KuteBarPrimaryStyle destructive = KuteBarPrimaryStyle(
+    fill: AppColors.marketDown,
+    foreground: Color(0xFFFFFFFF),
+    fontWeight: FontWeight.w800,
+  );
 
   final Color fill;
   final Color foreground;

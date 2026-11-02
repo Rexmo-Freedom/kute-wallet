@@ -2,6 +2,7 @@
 // market sheet's header (ticker, the kind, the live price) and shows the
 // position itself as plain rows, with nothing written twice.
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -52,7 +53,13 @@ import 'package:kute/screens/shared/charts/kute_chart_trade_lines.dart'
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/screens/shared/position_rows_card.dart';
+import 'package:kute/screens/shared/sal_sprite.dart';
+import 'package:kute/screens/shared/market_pair_button.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarPrimaryStyle, kuteBarScrollClearance;
 import 'package:kute/theme/app_theme.dart';
+
+import '../../helpers/shell_bar_harness.dart';
 
 // No socket in a test.
 class _LivePrices extends HlLivePricesNotifier {
@@ -497,7 +504,12 @@ void main() {
         HlPerpPosition position = _position,
         HlLivePricesNotifier Function() prices = _LivePrices.new,
         bool dark = false,
+        bool bar = false,
+        StateProvider<List<HlPerpPosition>>? held,
         List<Override> extra = const []}) async {
+      // [bar]: the shell's floating bar over the page, as in the app
+      // (Close position is the bar's button).
+      if (bar) installShellBar();
       tester.view.physicalSize = Size(width, height);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -512,7 +524,8 @@ void main() {
               .overrideWith((ref, wire) => const Stream.empty()),
           hyperliquidOrderbookProvider
               .overrideWith((ref, wire) => const Stream.empty()),
-          hyperliquidPerpPositionsProvider.overrideWith((_) => [position]),
+          hyperliquidPerpPositionsProvider.overrideWith((ref) =>
+              held == null ? [position] : ref.watch(held)),
           hyperliquidSpotBalancesProvider.overrideWith((_) => const []),
           hyperliquidActivityFillsProvider.overrideWith((_) => const []),
           hyperliquidTradingProvider.overrideWith(_Trading.new),
@@ -536,9 +549,12 @@ void main() {
             ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            // A boundary to shoot the page from (the PNG renders).
-            builder: (context, child) =>
-                RepaintBoundary(key: const ValueKey('shot'), child: child),
+            navigatorObservers: bar ? shellBarObservers() : const [],
+            // A boundary to shoot the page from (the PNG renders), the
+            // bar over it when mounted.
+            builder: (context, child) => RepaintBoundary(
+                key: const ValueKey('shot'),
+                child: bar ? shellBarBuilder(context, child) : child),
             home: Builder(
               builder: (context) => MediaQuery(
                 data: MediaQuery.of(context)
@@ -562,12 +578,20 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
+    /// Close position is the bar's button, up and taking taps.
+    bool closeOnBar(WidgetTester tester) =>
+        barIsPrimary(tester) &&
+        barIsUp(tester) &&
+        barPrimaryContext(tester).label == 'Close position';
+
     testWidgets('the position screen edits on the whole screen, like the '
         'market sheet', (tester) async {
       await pumpScreen(
-          tester, const HlPositionDetailSheet(position: _position, market: btc));
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          bar: true);
+      await pumpBar(tester);
       expect(find.byType(KuteCloseButton), findsOneWidget);
-      expect(find.text('Close position'), findsOneWidget);
+      expect(closeOnBar(tester), isTrue);
       expect(find.byType(HlChartEditBody), findsNothing);
       final reading = tester.state(find.byType(HlCandleChart));
 
@@ -577,7 +601,8 @@ void main() {
       // and keeps the position's own lines, whose tags never reopen it.
       expect(find.byType(HlChartEditBody), findsOneWidget);
       expect(find.byType(KuteCloseButton), findsNothing);
-      expect(find.text('Close position'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(closeOnBar(tester), isFalse);
       expect(find.byType(PositionRowsCard), findsNothing);
       expect(tester.state(find.byType(HlCandleChart)), same(reading));
       final chart = tester.widget<HlCandleChart>(find.byType(HlCandleChart));
@@ -598,7 +623,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(HlChartEditBody), findsNothing);
       expect(find.byType(KuteCloseButton), findsOneWidget);
-      expect(find.text('Close position'), findsOneWidget);
+      await pumpBar(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(closeOnBar(tester), isTrue);
       expect(tester.state(find.byType(HlCandleChart)), same(reading));
       expect(tester.takeException(), isNull);
     });
@@ -812,6 +839,20 @@ void main() {
             '${short ? 'short_loss' : 'long_profit'}_${dark ? 'dark' : 'light'}';
         testWidgets('render: $name', (tester) async {
           await loadInter(tester);
+          // Sal on the bar's Close position, as in the app.
+          await tester.runAsync(() async {
+            SalSpriteCache.debugSetManifest(jsonDecode(await rootBundle
+                    .loadString('$kSalSpriteDir/manifest.json'))
+                as Map<String, dynamic>);
+            for (final clip in ['idle', 'curious', 'think', 'share']) {
+              for (final density in [1, 2, 3]) {
+                await SalSpriteCache.clip(clip, density);
+              }
+            }
+            final icons = FontLoader('MaterialIcons')
+              ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+            await icons.load();
+          });
           await pumpScreen(
               tester,
               HlPositionDetailSheet(
@@ -819,7 +860,9 @@ void main() {
               font: 'Inter',
               dark: dark,
               height: 1000,
+              bar: true,
               position: short ? _shortIsolated : _position);
+          await pumpBar(tester);
           await tester.pump(const Duration(seconds: 1));
           expect(tester.takeException(), isNull);
           if (shotOut.isEmpty) return;
@@ -979,6 +1022,100 @@ void main() {
       expect(tapped['target'], 'stop_loss');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('Close position is the floating bar\'s red pill, not a pinned '
+        'panel: a tap opens the same close ticket and its event',
+        (tester) async {
+      OpenOnce.reset();
+      addTearDown(OpenOnce.reset);
+      final events = <(String, Map<String, Object>?)>[];
+      TrackingService.debugTrackObserver = (e, p) => events.add((e, p));
+      addTearDown(() => TrackingService.debugTrackObserver = null);
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          bar: true,
+          extra: [
+            runtimeCapabilitiesProvider.overrideWithValue(_Allowed()),
+            hyperliquidAddressProvider.overrideWith((_) async => null),
+          ]);
+      await pumpBar(tester);
+      // No button of the page's own: the bar is Close position.
+      expect(find.byType(MarketPairButton), findsNothing);
+      expect(closeOnBar(tester), isTrue);
+      final ctx = barPrimaryContext(tester);
+      expect(ctx.enabled, isTrue);
+      expect(ctx.busy, isFalse);
+      expect(ctx.disabledLabel, 'Position closed');
+      // The red the pinned button had, lettered white.
+      expect(ctx.style, same(KuteBarPrimaryStyle.destructive));
+      expect(ctx.style!.fill, AppColors.marketDown);
+      expect(barPrimaryInk(tester), const Color(0xFFFFFFFF));
+      // The body scrolls clear of the floating bar.
+      final scroll = tester.widget<SingleChildScrollView>(find
+          .ancestor(
+              of: find.byKey(const ValueKey('hl-advanced-chart')),
+              matching: find.byType(SingleChildScrollView))
+          .first);
+      expect((scroll.padding! as EdgeInsets).bottom,
+          closeTo(kuteBarScrollClearance.h, 0.01));
+
+      await tapBarPrimary(tester, settle: false);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(HlClosePositionSheet), findsOneWidget);
+      final started =
+          events.where((e) => e.$1 == 'hyperliquid_close_started').toList();
+      expect(started, hasLength(1));
+      expect(started.single.$2!['entry_source'], 'position_detail');
+      expect(started.single.$2!['coin'], 'BTC');
+      expect(started.single.$2!['side'], 'long');
+      expect(started.single.$2!['wallet_kind'], 'hot');
+      // The ticket's own button is the bar while it is up.
+      await pumpBar(tester);
+      expect(barPrimaryContext(tester).label, isNot('Close position'));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('closed under the screen: the bar says "Position closed" and '
+        'takes no tap', (tester) async {
+      OpenOnce.reset();
+      addTearDown(OpenOnce.reset);
+      final held = StateProvider<List<HlPerpPosition>>((_) => [_position]);
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          bar: true, held: held);
+      await pumpBar(tester);
+      expect(closeOnBar(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isTrue);
+
+      // The account drops the position (it closed).
+      ProviderScope.containerOf(
+              tester.element(find.byType(HlPositionDetailSheet)))
+          .read(held.notifier)
+          .state = const [];
+      await pumpBar(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(barPrimaryEnabled(tester), isFalse);
+      expect(barPrimaryText('Position closed'), findsOneWidget);
+      await tapBarPrimary(tester, settle: false);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(HlClosePositionSheet), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an account still loading says nothing: Close position stays '
+        'live on the screen\'s own position', (tester) async {
+      OpenOnce.reset();
+      addTearDown(OpenOnce.reset);
+      final held = StateProvider<List<HlPerpPosition>>((_) => const []);
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc),
+          bar: true, held: held);
+      await pumpBar(tester);
+      expect(closeOnBar(tester), isTrue);
+      expect(barPrimaryEnabled(tester), isTrue);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('neither the market sheet nor the position screen has a '

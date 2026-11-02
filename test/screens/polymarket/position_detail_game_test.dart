@@ -34,6 +34,8 @@ import 'package:kute/screens/polymarket/components/position_journey.dart';
 import 'package:kute/screens/polymarket/components/position_speedometer.dart';
 import 'package:kute/screens/polymarket/components/position_detail_sheet.dart';
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
+import 'package:kute/screens/shared/kute_bar_context.dart'
+    show KuteBarContextScope;
 import 'package:kute/screens/shared/kute_dog_scenes.dart' show KuteDogGlance;
 import 'package:kute/screens/shared/kute_motion.dart' show ScorePulseText;
 import 'package:kute/screens/shared/position_rows_card.dart';
@@ -428,7 +430,13 @@ void main() {
       expect(
           find.byKey(const ValueKey('poly-position-title')), findsOneWidget);
       expect(find.text('49ERS'), findsNothing);
-      expect(find.text('Sell'), findsOneWidget);
+      // Sell is the floating bar's button (kute_bar_context.dart).
+      expect(
+          find.byWidgetPredicate((w) =>
+              w is KuteBarContextScope &&
+              w.barContext.isPrimary &&
+              w.barContext.label == 'Sell'),
+          findsOneWidget);
       // On the screen two tiles and plain rows, no card of rows; what the
       // position is made of waits behind one Details row.
       expect(find.byType(PositionRowsCard), findsNothing);

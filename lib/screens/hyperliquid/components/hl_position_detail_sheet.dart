@@ -7,7 +7,6 @@ import 'package:kute/screens/share/brag/position_share_card.dart';
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
-import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/screens/shared/kute_motion.dart' show KuteStillWhenCovered;
 import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
@@ -31,6 +30,15 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // "Details". The position size (the notional, size x price, with the coin
 // size), entry, leverage, margin mode and funding wait in Details, with
 // one line on what the position size is; closing stays wallet-scoped.
+//
+// Close position is the floating bar's primary button (founder, 2
+// November 2026: "a floating pill like the others"; kute_bar_context.dart),
+// in the red the pinned button had (KuteBarPrimaryStyle.destructive): it
+// opens the close ticket, whose own button is the bar while it is up (and
+// thinks while the close runs). Once the position this screen saw is gone
+// from the account, the bar reads "Position closed" and takes no tap. The
+// body scrolls clear of the bar; chart-edit mode takes the button away
+// with the header.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,7 +68,6 @@ import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
 import 'package:kute/screens/shared/kute_back_button.dart';
 import 'package:kute/screens/shared/kute_skeleton.dart';
-import 'package:kute/screens/shared/market_pair_button.dart';
 import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
@@ -146,9 +153,15 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
   /// freeze the headline PnL.
   HlLivePricesNotifier? _livePrices;
   /// The chart's edit mode is on: as on the market sheet, the header,
-  /// the position and the Close bar give way and the chart takes the
-  /// whole screen (HlChartEditBody); Done or back brings them back.
+  /// the position and the bar's Close position give way and the chart
+  /// takes the whole screen (HlChartEditBody); Done or back brings them
+  /// back.
   bool _advancedChart = false;
+
+  /// The account has shown this position live while the screen is open:
+  /// its absence after that means it closed (an empty list before it, a
+  /// loading account, says nothing).
+  bool _seenLive = false;
 
   /// The chart keeps the editing state, and the body changes shape around
   /// it (scrolling column when reading, the whole screen when editing);
@@ -218,6 +231,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     }
     final current =
         positions.where((p) => p.coin == widget.position.coin).firstOrNull;
+    if (current != null) _seenLive = true;
+    // Gone from the account it was seen in: nothing left to close.
+    final closed = _seenLive && current == null;
     final pos = current ?? widget.position;
     final m = _market;
 
@@ -246,10 +262,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    // The page's Sal context, placed in its header (no bottom bar; its
-    // control is the share pill beside the big figure, PositionSharePill): the
-    // scope is around the whole page, so in chart-edit mode, with the
-    // header away, the bar stays away too.
+    // The page's Sal context, placed in its header (its control is the
+    // share pill beside the big figure, PositionSharePill; the bar at the
+    // foot is Close position, below): the scope is around the whole page.
+    // A long press on Close position asks Sal with this context.
     final bar = marketBarContext(
       context,
       // As the header names it, the logo drawn as the header draws it.
@@ -263,7 +279,6 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
       // The pick: this position's side.
       outcome: pos.isLong ? context.l10n.longLabel : context.l10n.shortLabel,
       side: pos.isLong ? 'long' : 'short',
-      actionRowHeight: editing ? 0 : 12.h + 60.h + 8.h + 0.5,
       position: true,
       category: SearchCategory.perpetuals,
       searchHint: context.l10n.searchInvestmentsHint,
@@ -342,8 +357,15 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                     ? HlChartEditBody(chart: _chart(m, fillHeight: true))
                     : SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
+                        // The foot scrolls clear of the floating Close
+                        // position (and of the home indicator: the page
+                        // runs to the screen's foot on iOS).
                         padding: EdgeInsets.fromLTRB(
-                            20.w, 0, 20.w, kuteBarScrollClearance.h),
+                            20.w,
+                            0,
+                            20.w,
+                            kuteBarScrollClearance.h +
+                                MediaQuery.paddingOf(context).bottom),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -598,47 +620,30 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       ),
               ),
 
-              // ── Sticky "Close position" bar ───────────────────────
+              // ── Close position: the floating bar's button ─────────
+              // THE BAR IS THE BUTTON (kute_bar_context.dart): the same
+              // close ticket the pinned red button opened, in its red.
               // Edit mode drops it so the chart takes the whole screen,
-              // as the market sheet drops Invest; Done brings it back.
-              if (!editing)
-                ClipRect(
-                  child: KuteBlur(
-                    sigmaX: 18,
-                    sigmaY: 18,
-                    child: Container(
-                      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-                      decoration: BoxDecoration(
-                        color: (context.isDark ? c.surface : c.background)
-                            .withValues(alpha: 0.55),
-                        border: Border(
-                          top: BorderSide(color: c.borderSubtle, width: 0.5),
-                        ),
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: MarketPairButton(
-                            label: context.l10n.hlClosePosition,
-                            color: AppColors.marketDown,
-                            icon: Icons.close_rounded,
-                            iconDisc: true,
-                            glow: true,
-                            onTap: () {
-                              HlClosePositionSheet.show(
-                                context,
-                                position: pos,
-                                market: m,
-                                ledgerWalletId: widget.ledgerWalletId,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
+              // as the header goes; Done brings it back.
+              KuteBarContextScope(
+                active: !editing,
+                barContext: KuteBarContext.primary(
+                  label: context.l10n.hlClosePosition,
+                  onPrimary: () => HlClosePositionSheet.show(
+                    context,
+                    position: pos,
+                    market: m,
+                    ledgerWalletId: widget.ledgerWalletId,
                   ),
+                  enabled: !closed,
+                  disabledLabel: context.l10n.investingPositionClosed,
+                  style: KuteBarPrimaryStyle.destructive,
+                  category: SearchCategory.perpetuals,
+                  searchHint: context.l10n.searchInvestmentsHint,
+                  source: 'trading',
                 ),
+                child: const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -784,9 +789,3 @@ class _HlPositionDetailsSheet extends ConsumerWidget {
     );
   }
 }
-
-/// Full-width "Close position" CTA — the only action on this sheet. Styled
-/// like the market detail's CLOSE POSITION button (red, icon disc, bold
-/// label).
-// The Close badge now renders via the shared MarketPairButton
-// (disc icon + light-mode glow configuration).
