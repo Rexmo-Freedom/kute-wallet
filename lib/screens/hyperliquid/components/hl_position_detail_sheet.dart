@@ -13,24 +13,23 @@ import 'package:kute/providers/ledger/ledger_hyperliquid_account_provider.dart';
 import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // lib/screens/hyperliquid/components/hl_position_detail_sheet.dart
 //
-// The open-position screen of an Investing position, in plain words. It
-// reads like the market sheet of the same market: its header row (logo,
-// ticker), the live price as the big figure (founder, 1 November 2026:
-// no Share pill beside it on a position; the share is a card under the
-// tiles, position_share_card.dart), its change today under it ("Low
-// liquidity" on a thin market) and the sheet's chart, clean, with its
-// pressure bar. Under the price, what is the user's: the side and the
-// leverage ("Long · 5x") and the profit or loss with the return on what
-// was put in ("Profit +$1,000.00 (+15.6%)"). Then two tiles: what was put
-// in (the margin; the collateral on cross) with what it is worth now (the
-// margin plus the profit or loss, the Portfolio card's own figure,
-// [hlCloseValue]), and the liquidation price with how far it is ("12%
-// away", coloured as it closes in: HlLiquidationTile); then plain rows:
-// "Add margin" on an isolated position (the margin sheet, where Remove is
-// a mode), "Protect it" and "Details". The position size (the notional,
-// size x price, with the coin size), entry, leverage, margin mode and
-// funding wait in Details, with one line on what the position size is;
-// closing stays wallet-scoped.
+// The open-position screen of an Investing position, in plain words. Its
+// header row is the market sheet's (logo, ticker). The big figure is what
+// the position is worth now (the margin plus the live profit or loss,
+// [hlCloseValue]), with the unrealised profit or loss under it in the up /
+// down colour ("+$0.42 (+3.9%)", the return on what was put in), then one
+// quiet line: the side, the size and the market price with its change
+// today ("Short · 0.006 ANTH · $2,104 (+0.8% today)"; founder, 2 November
+// 2026). Sal's share pill sits at the top right of the figure's row
+// (position_share_card.dart): "Brag about it" in profit, else "Send to a
+// friend". Then the sheet's chart, clean, with its pressure bar; two tiles:
+// what was put in (the margin; the collateral on cross) and the
+// liquidation price with how far it is ("12% away", coloured as it closes
+// in: HlLiquidationTile); then plain rows: "Add margin" on an isolated
+// position (the margin sheet, where Remove is a mode), "Protect it" and
+// "Details". The position size (the notional, size x price, with the coin
+// size), entry, leverage, margin mode and funding wait in Details, with
+// one line on what the position size is; closing stays wallet-scoped.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -224,6 +223,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final roe = margin > 0 ? pnl / margin : pos.returnOnEquity;
     final positive = pnl >= 0;
     final accent = positive ? greenColor : redColor;
+    final pnlText = '${positive ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}';
+    // What the position is worth now: the margin plus the live profit or
+    // loss, what closing gives back (the hero figure).
+    final worth = hlCloseValue(pos, liveMid: liveMid);
     final liquidation = current != null ? hlLiquidationPrice(pos) : null;
     // Isolated margin can be topped up or taken out (spending wallet
     // only: the Ledger signer has no reviewed path for
@@ -233,7 +236,7 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
     final editing = _advancedChart && m != null;
 
     // The page's Sal context, placed in its header (no bottom bar; its
-    // control is the share pill beside the price, PositionSharePill): the
+    // control is the share pill beside the big figure, PositionSharePill): the
     // scope is around the whole page, so in chart-edit mode, with the
     // header away, the bar stays away too.
     final bar = marketBarContext(
@@ -334,12 +337,18 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SizedBox(height: 10.h),
-                            // The price now, large, as on the market screen
-                            // (a tick flashes and fades); its
-                            // change today under it; then the position in
-                            // plain words: its side and leverage, and the
-                            // profit or loss with the return on what was
-                            // put in.
+                            // The hero is what the position is worth now
+                            // (the margin plus the live profit or loss,
+                            // [hlCloseValue], the Portfolio card's figure;
+                            // a tick flashes it and fades), with the
+                            // unrealised profit or loss under it in the up
+                            // / down colour: "+$0.42 (+3.9%)", the return
+                            // on what was put in. Under that, one quiet
+                            // line: the side, the size, and the market
+                            // price with its change today. Entry, margin,
+                            // leverage and funding wait in Details
+                            // (founder, 2 November 2026: one big number,
+                            // one quiet line).
                             // Sal's share pill at the row's end, the
                             // market pages' header button (founder, 1
                             // November 2026): "Brag about it" in profit,
@@ -351,10 +360,11 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
                                 child: HlTickPrice(
+                                  // The hero figure (the key names the row's
+                                  // figure the share pill centres on).
                                   key: const ValueKey('hl-position-price'),
-                                  price: markPx,
-                                  text: formatHlPrice(markPx,
-                                      decimalCap: m?.pxDecimalCap),
+                                  price: worth,
+                                  text: formatPolyAmount(ref, worth),
                                   style: TextStyle(
                                     color: c.textPrimary,
                                     fontSize: 38.sp,
@@ -371,75 +381,90 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   bar: bar,
                                   brag: current != null && pnl >= 0.005),
                             ),
-                            SizedBox(height: 4.h),
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8.w,
-                              runSpacing: 4.h,
-                              children: [
+                            SizedBox(height: 2.h),
+                            // The P&L, amount and return; read aloud with
+                            // its word ("Profit … (…)") since the colour
+                            // carries it on screen. One fixed-height line,
+                            // tabular figures: a tick never moves what is
+                            // under it.
+                            Semantics(
+                              label: (positive
+                                  ? context.l10n.hlPositionProfit
+                                  : context.l10n.hlPositionLoss)(
+                                pnlText,
+                                formatHlPct(roe),
+                              ),
+                              excludeSemantics: true,
+                              child: Text(
+                                '$pnlText (${formatHlPct(roe)})',
+                                key: const ValueKey('hl-position-result'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                strutStyle: StrutStyle(
+                                    fontSize: 17.sp,
+                                    height: 1.25,
+                                    forceStrutHeight: true),
+                                style: TextStyle(
+                                  color: accent,
+                                  fontSize: 17.sp,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                  height: 1.25,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures()
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            // "Short · 0.006 ANTH · $2,104 (+0.8% today)":
+                            // small, secondary, one line that ends in an
+                            // ellipsis rather than wrapping; the change
+                            // today keeps its colour.
+                            Text.rich(
+                              TextSpan(children: [
+                                TextSpan(text: [
+                                  pos.isLong
+                                      ? context.l10n.longLabel
+                                      : context.l10n.shortLabel,
+                                  '${formatHlSize(pos.szi.abs())} '
+                                      '${m?.coin ?? pos.coin}',
+                                  formatHlPrice(markPx,
+                                      decimalCap: m?.pxDecimalCap),
+                                ].join(' · ')),
                                 if (m != null)
-                                  Text(
-                                    context.l10n.polyCardMoveToday(
-                                        formatHlPct(m.dayChangeAt(markPx))),
-                                    key: const ValueKey('hl-position-change'),
+                                  TextSpan(
+                                    text: ' (${context.l10n.polyCardMoveToday(
+                                        formatHlPct(m.dayChangeAt(markPx)))})',
                                     style: TextStyle(
                                       color: m.dayChangeAt(markPx) >= 0
                                           ? greenColor
                                           : redColor,
-                                      fontSize: 15.sp,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
                                     ),
                                   ),
-                                if (m != null && m.isLowLiquidity)
-                                  const HlLowLiquidityBadge(),
-                              ],
+                              ]),
+                              key: const ValueKey('hl-position-meta'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              strutStyle: StrutStyle(
+                                  fontSize: 14.sp,
+                                  height: 1.3,
+                                  forceStrutHeight: true),
+                              style: TextStyle(
+                                color: c.textSecondary,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w500,
+                                height: 1.3,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ],
+                              ),
                             ),
-                            SizedBox(height: 14.h),
-                            // "Long · 5x" in the side's colour (a spot
-                            // holding has no leverage: the side alone),
-                            // then "Profit +$1,000.00 (+15.6%)" or
-                            // "Loss −$500.00 (−7.8%)" in the up / down
-                            // colour.
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 10.w,
-                              runSpacing: 6.h,
-                              children: [
-                                HlSideChip(
-                                  key: const ValueKey('hl-position-side'),
-                                  text: [
-                                    pos.isLong
-                                        ? context.l10n.longLabel
-                                        : context.l10n.shortLabel,
-                                    if (!(m?.isSpot ?? false) &&
-                                        pos.leverageValue > 0)
-                                      '${pos.leverageValue}x',
-                                  ].join(' · '),
-                                  color: pos.isLong ? greenColor : redColor,
-                                ),
-                                Text(
-                                  (positive
-                                      ? context.l10n.hlPositionProfit
-                                      : context.l10n.hlPositionLoss)(
-                                    '${positive ? '+' : '−'}${formatPolyAmount(ref, pnl.abs())}',
-                                    formatHlPct(roe),
-                                  ),
-                                  key: const ValueKey('hl-position-result'),
-                                  style: TextStyle(
-                                    color: accent,
-                                    fontSize: 15.sp,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.2,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                            // A thinly traded market still says so.
+                            if (m != null && m.isLowLiquidity) ...[
+                              SizedBox(height: 8.h),
+                              const HlLowLiquidityBadge(),
+                            ],
                             SizedBox(height: 20.h),
                             // The market sheet's chart, so both screens read the
                             // same: candle sizes, styles, zoom, history, the
@@ -466,25 +491,14 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   key: const ValueKey('hl-position-margin'),
                                   // The margin (an isolated position's, with
                                   // any added since; a cross position's, the
-                                  // collateral it ties up), and under it
-                                  // what closing now gives back: the margin
-                                  // plus the profit or loss, the Portfolio
-                                  // card's figure. Isolated or cross is in
+                                  // collateral it ties up). What it is worth
+                                  // now is the hero above, so the tile does
+                                  // not say it again. Isolated or cross is in
                                   // Details.
                                   label: context.l10n.hlPositionYouPutIn,
                                   value: Text(formatPolyAmount(ref, margin),
                                       maxLines: 1,
                                       style: positionTileValueStyle(c)),
-                                  caption: Text(
-                                      context.l10n.hlPositionWorthNow(
-                                          formatPolyAmount(
-                                              ref,
-                                              hlCloseValue(pos,
-                                                  liveMid: liveMid))),
-                                      key: const ValueKey(
-                                          'hl-position-worth'),
-                                      maxLines: 1,
-                                      style: positionTileCaptionStyle(c)),
                                 ),
                                 right: HlLiquidationTile(
                                   liquidation: liquidation,
