@@ -56,7 +56,6 @@ class KuteActionCard extends StatelessWidget {
     this.badge,
     this.semanticsLabel,
     this.visualSlot = kKuteActionCardVisualSlot,
-    this.minHeight = kKuteActionCardMinHeight,
     required this.onTap,
   });
 
@@ -79,10 +78,6 @@ class KuteActionCard extends StatelessWidget {
 
   /// The height of the visual's box.
   final double visualSlot;
-
-  /// The card's least height; 0 lets a lone full-width card hug its
-  /// visual, title and line (the search home's Connect your own AI).
-  final double minHeight;
 
   /// Null: disabled.
   final VoidCallback? onTap;
@@ -113,7 +108,7 @@ class KuteActionCard extends StatelessWidget {
     final badgeText = badge;
     final foot = footer;
     final card = Container(
-      constraints: BoxConstraints(minHeight: minHeight),
+      constraints: const BoxConstraints(minHeight: kKuteActionCardMinHeight),
       padding: const EdgeInsets.all(kKuteActionCardPadding),
       decoration: BoxDecoration(
         color: isLight ? c.surfaceLight : c.surface,

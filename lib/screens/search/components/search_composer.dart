@@ -1,15 +1,19 @@
 // lib/screens/search/components/search_composer.dart
 //
 // THE SAL SHEET'S COMPOSER (founder, 31 October 2026: "it must be and look much
-// better", then flat: no boxed input): one plain LINE pinned at the TOP of the
-// search sheet, under the drag handle. Sal's `search` clip at 28 on the left,
-// the text at 20 sp (the hint "Search or manage with AI" in textTertiary), a
-// thin hairline under the whole line, and the circular send arrow at the right
-// that scales in only once there is text. The sheet's content scrolls under it.
-// [scope] (the "All ⌄" chip while there is a query) sits before the arrow. The
-// floating pill MORPHS into this line (search_morph.dart): its fill and
-// hairline fade to the bare line as it travels, so the two read as one object.
-// With Sal off (the AI kill switch) it is a plain search field with a clear ✕.
+// better"; 2 November 2026: "should be more evident to click, right now the
+// text is too light"): one FIELD pinned at the TOP of the search sheet, under
+// the drag handle, filled and rounded like the app's other inputs
+// (app_text_field.dart: surfaceLight, the 1 px border, [AppRadius.lg]). Sal's
+// `search` clip at 28 inside its left edge, the text at 17 sp (the hint
+// "Search or manage with AI" in textSecondary), and the circular send arrow
+// inside its right edge that scales in only once there is text; a tap anywhere
+// on it focuses the field. The sheet's content scrolls under it. [scope] (the
+// "All ⌄" chip while there is a query) sits before the arrow. The floating
+// pill MORPHS into this field (search_morph.dart): its fill, corner and
+// hairline settle into the field's as it travels, so the two read as one
+// object. With Sal off (the AI kill switch) it is a plain search field with a
+// clear ✕.
 //
 // [KuteSearchComposer.decoration] and the sizes here are what the morph
 // draws its end state with; change them in one place.
@@ -49,52 +53,53 @@ class KuteSearchComposer extends StatelessWidget {
   /// The scope chip at the right of the line ("All ⌄"), only with a query.
   final Widget? scope;
 
-  /// The line's height (the hairline included).
+  /// The field's height (its border included).
   static const double height = 56;
 
   /// Sal's size at the left.
   static const double spriteSize = 28;
 
-  /// The line's inset from the sheet's edges.
+  /// The field's inset from the sheet's edges.
   static double gutter(BuildContext context) => 16.w;
 
-  /// The space before Sal: none, he starts the line.
-  static double leading(BuildContext context) => 0;
+  /// The space inside the field before Sal.
+  static double leading(BuildContext context) => 14.w;
 
-  /// The hairline under the line.
-  static double hairline(BuildContext context) => 0.5;
+  /// The space inside the field after the send arrow.
+  static double trailing(BuildContext context) => 10.w;
 
-  /// The line's surface: nothing but the hairline under it; the morph
-  /// lands on exactly this.
+  /// The field's surface, the app's input (app_text_field.dart): the
+  /// morph lands on exactly this.
   static BoxDecoration decoration(BuildContext context) => BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-              color: context.colors.borderSubtle, width: hairline(context)),
-        ),
+        color: context.colors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: context.colors.border, width: 1),
       );
 
-  /// The text's style, 20 sp.
+  /// The text's style, 17 sp.
   static TextStyle textStyle(BuildContext context) => TextStyle(
         color: context.colors.textPrimary,
-        fontSize: 20.sp,
+        fontSize: 17.sp,
         fontWeight: FontWeight.w500,
-        letterSpacing: -0.4,
+        letterSpacing: -0.3,
       );
 
   /// The hint's style (the pill's label settles into it): the text's
-  /// size in textTertiary.
+  /// size in textSecondary, strong enough to read as a field to tap.
   static TextStyle hintStyle(BuildContext context) =>
-      textStyle(context).copyWith(color: context.colors.textTertiary);
+      textStyle(context).copyWith(color: context.colors.textSecondary);
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // The line itself is the root (no gutters here): the sheet insets it,
-    // and the morph measures this box.
-    return Container(
+    // The field itself is the root (no gutters here): the sheet insets it,
+    // and the morph measures this box. A tap on Sal or the padding focuses
+    // the field too.
+    final field = Container(
       height: height,
       decoration: decoration(context),
-      padding: EdgeInsets.only(left: leading(context)),
+      padding: EdgeInsets.only(
+          left: leading(context), right: trailing(context)),
       child: Row(
         children: [
           if (aiEnabled)
@@ -105,7 +110,7 @@ class KuteSearchComposer extends StatelessWidget {
                   width: spriteSize, height: spriteSize),
             )
           else
-            Icon(Icons.search_rounded, size: 24, color: c.textTertiary),
+            Icon(Icons.search_rounded, size: 24, color: c.textSecondary),
           SizedBox(width: 12.w),
           Expanded(
             child: TextField(
@@ -146,6 +151,13 @@ class KuteSearchComposer extends StatelessWidget {
           ),
         ],
       ),
+    );
+    final node = focusNode;
+    if (node == null) return field;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: node.requestFocus,
+      child: field,
     );
   }
 
