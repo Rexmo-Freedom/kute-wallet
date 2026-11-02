@@ -537,12 +537,13 @@ double? _pnlDifference(double? current, double? previous) {
 /// P&L that never left zero is the last week, flat at zero (the chart's
 /// empty state). Times are local wall-clock, as the Balance charts'.
 BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
+  debugPnlSeriesGrids++;
   final end = now.toLocal();
-  final changes = <(DateTime, double)>[
-    for (final p in data.points)
-      if (!p.timestamp.toLocal().isAfter(end))
-        (p.timestamp.toLocal(), p.pnlUsd)
-  ];
+  final changes = <(DateTime, double)>[];
+  for (final p in data.points) {
+    final at = p.timestamp.toLocal();
+    if (!at.isAfter(end)) changes.add((at, p.pnlUsd));
+  }
   final current =
       data.totalPnlUsd ?? (data.points.isEmpty ? 0.0 : data.points.last.pnlUsd);
   DateTime? start;
@@ -573,6 +574,10 @@ BalanceSeries pnlSeries(PortfolioPerformance data, DateTime now) {
     current: current,
   );
 }
+
+/// How many grids [pnlSeries] has laid (tests count the work a frame
+/// does).
+int debugPnlSeriesGrids = 0;
 
 /// Distinct from an empty, successfully read history and a transport failure.
 class PortfolioPerformanceUnavailable implements Exception {
