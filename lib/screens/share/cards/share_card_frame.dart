@@ -15,8 +15,8 @@
 //     at [kShareCardPixelRatio] (1080 × 1350), [kShareCardPadding] all
 //     round, the preview's clip at [kShareCardRadius].
 //   * SAL, whole, at the top right ([ShareCardFrame.pose], a still of the
-//     3D Sal, [kShareCardSalSize]): pleased on a win, unbothered on a
-//     loss, with his briefcase on a send, weighing a prediction. The caps
+//     3D Sal, [kShareCardSalSize]): lounging on a win, a flop on a loss,
+//     the briefcase on a send, squinting at a prediction (deadpan). The caps
 //     line and the identity leave him room ([kShareCardSalInset]); a big
 //     number right under them starts below his feet ([kShareCardSalBand]).
 //     On the bitcoin orange, his own colour, he stands on a flat disc of
@@ -202,35 +202,36 @@ class ShareCardPalette {
 }
 
 /// Sal's pose on a card (founder, 2 November 2026: "Sal should have more
-/// expression there", then "these Sal here are not good ... why is she so
-/// sad there"): one purpose-made still of the 3D Sal, whole, at the
-/// card's top right, its pose and face the card's meaning. Rendered for
-/// the cards from the v5 rig (Kute Assets, Sal 3D/v5 app,
-/// scripts/render_card_stills.py), `card_<pose>@2x/@3x.webp` in
-/// lib/assets/sal (the manifest's `card` group). He has no mouth: a
-/// pleased face is the lower lids raised (smiling eyes), never a sad
-/// slant of the upper lids.
+/// expression there", then "why is she so sad there", then on a paw-out
+/// win: "Sal must be funny, not jolly, based Gen Z funny"): one
+/// purpose-made still of the 3D Sal, whole, at the card's top right.
+/// Sal is the only adult in the room: low-effort, unbothered poses and
+/// deadpan, side-eye or suspicious lids; never a hop, a wave, a cheer or a
+/// smile, never a sad slant. Rendered from the v5 rig (Kute Assets, Sal
+/// 3D/v5 app, scripts/render_card_stills_v2.py), `card_<pose>@2x/@3x.webp`
+/// in lib/assets/sal (the manifest's `card` group).
 enum ShareCardPose {
-  /// "Told you so": sitting up proud, chin up, head cocked, a paw out,
-  /// smiling eyes. A win.
+  /// "Too easy": lounging on the floor, paws crossed, chin up, a
+  /// heavy-lidded side-eye at the number. A win.
   win,
 
-  /// Mid-hop, both paws up, eyes wide and smiling. A big win.
+  /// Retired: lounging, eyes shut, chin up, the calmest dog alive. A big
+  /// win.
   bigWin,
 
-  /// Unbothered: flat half lids straight at the viewer, one ear down. A
-  /// loss, owned with a straight face (never sad).
+  /// "I'm going to bed": a flop, chin on the floor, ears flat, one eye open
+  /// at the viewer. A loss, dry, never sad.
   loss,
 
-  /// A curious head tilt and a side-eye at the number. Flat.
+  /// Sitting, a slow side-eye with one lid lower: "and?". Flat.
   flat,
 
-  /// The accountant: glasses on, the briefcase with the coin, mid-stride,
-  /// pleased. A send, a gift, a claim.
+  /// "Here, take it": standing with the briefcase and the coin, glasses
+  /// on, a flat look. A send, a gift, a claim.
   send,
 
-  /// Weighing the odds: sitting, a paw at the chest, eyes up toward the
-  /// card. A prediction.
+  /// Sitting, a suspicious squint down at the odds, one lid lower. A
+  /// prediction.
   predict;
 
   String get clip => 'card_${name.toLowerCase()}';

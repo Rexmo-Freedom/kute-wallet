@@ -97,8 +97,8 @@ void main() {
     });
 
     test(
-        "Sal's pose by the tone: every win pleased (a small one too), a "
-        'big one hopping, a loss unbothered, flat curious', () {
+        "Sal's pose by the tone: every win lounging (a small one too), a "
+        'big one retired, a loss a flop, flat a side-eye', () {
       BragPosition at(double usd, {double? percent}) => BragPosition(
             title: 'ANTH',
             link: 'https://backend.kutewallet.com/m/investing/ANTH',
@@ -109,7 +109,7 @@ void main() {
       expect(bragPose(at(36.9, percent: 42.1)), ShareCardPose.bigWin);
       expect(bragPose(at(5, percent: 9.9)), ShareCardPose.win);
       // The portfolio at +$7.77 with no percent (a small win) and a
-      // short in profit by under 2%: pleased, never the loss face.
+      // short in profit by under 2%: the win, never the loss flop.
       expect(bragPose(at(7.77)), ShareCardPose.win);
       expect(bragPose(at(3.1, percent: 1.2)), ShareCardPose.win);
       expect(bragPose(at(-12.4, percent: -6.2)), ShareCardPose.loss);

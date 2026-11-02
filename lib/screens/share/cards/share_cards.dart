@@ -20,8 +20,8 @@
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
-//     "Long · $25" when sent as a pick, the edgy line; Sal pleased on a
-//     day up (hopping at +10%), unbothered on a day down.
+//     "Long · $25" when sent as a pick, the edgy line; Sal lounging on a
+//     day up (eyes shut at +10%), flopped on a day down.
 //
 // Sal stands at the top right ([shareCardPose]); the footer is the
 // wordmark and the sharer's code. The headline sentence leads the share
@@ -62,9 +62,9 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
 /// A stock up this much today (a fraction) gets Sal's big win.
 const double kShareCardBigChange = 0.10;
 
-/// Sal's pose on the card: the briefcase on a send, weighing the odds on
-/// a prediction; on a stock, today's change: pleased up, hopping at
-/// [kShareCardBigChange] or more, unbothered down, curious flat.
+/// Sal's pose on the card: the briefcase on a send, squinting at the odds
+/// on a prediction; on a stock, today's change: lounging up, eyes shut at
+/// [kShareCardBigChange] or more, a flop down, a side-eye flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
       MoneyCardData() => ShareCardPose.send,
       PredictionCardData() => ShareCardPose.predict,
