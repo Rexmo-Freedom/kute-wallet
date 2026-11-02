@@ -14,7 +14,16 @@
 //     all-time P&L (each venue's PortfolioPerformance.totalPnlUsd, the
 //     predictions at the live prices, as the Portfolio ring's hole reads
 //     it), and the three open positions with the best result, each with
-//     its logo.
+//     its logo;
+//   * the P&L ([BragPnl], founder, 2 November 2026: the P&L Charts
+//     section shares its own card, "Share P&L"): what the P&L chart shows
+//     for the range picked, the P&L over the range (its figure,
+//     pnlRangeChange), the range ("1M", "Past month") and the line over
+//     it, of the series the chart draws (both venues, or the one picked
+//     in "By venue"). No percent: no provider gives a base for a P&L (the
+//     chart writes none either), so none is invented. It is a
+//     BragPortfolio, so the card's switch stays whole; its own card is
+//     pnl_share_card.dart.
 //
 // THE TONE ([BragTone]): Sal's one-liner in the share message follows
 // the result (brag_lines.dart): a BIG WIN (a percent of at least
@@ -34,6 +43,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:kute/models/affiliate_model.dart' show AffiliateService;
+import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/models/hyperliquid_market.dart' show HlPerpPosition;
 import 'package:kute/models/portfolio_performance.dart';
 import 'package:kute/providers/currency_conversions_provider.dart'
@@ -66,6 +76,12 @@ import 'package:kute/screens/polymarket/components/position_journey.dart'
     show polyPositionJourneyProvider;
 import 'package:kute/screens/polymarket/components/price_format.dart'
     show formatPolyCents;
+import 'package:kute/screens/portfolio/components/portfolio_pnl_chart.dart'
+    show pnlRangeChange;
+import 'package:kute/screens/portfolio/portfolio_filters.dart'
+    show portfolioVenuesProvider;
+import 'package:kute/screens/shared/charts/kute_trend_window.dart'
+    show kuteTrendWindow;
 import 'package:kute/screens/shared/kute_share_actions.dart'
     show kMarketLinkInvesting, kMarketLinkPredictions, marketShareLink;
 import 'package:kute/services/one_balance/one_balance_state.dart'
@@ -293,6 +309,33 @@ class BragPortfolio extends BragData {
   /// Something to brag about: a position open or a P&L that is not zero.
   bool get hasSomething =>
       top.isNotEmpty || (allTime != null && (allTime!.up || allTime!.down));
+}
+
+/// The P&L Charts card (see the file header): [allTime] is the P&L over
+/// [range] (named so for the card's switch and its tone), [series] the
+/// line over the range, [venue] the venue charted alone (null: both).
+class BragPnl extends BragPortfolio {
+  const BragPnl({
+    required super.title,
+    required super.link,
+    super.referralCode,
+    required this.range,
+    this.venue,
+    super.allTime,
+    super.series,
+  });
+
+  /// The range picked on the chart.
+  final BalanceRange range;
+
+  /// The venue picked in "By venue"; null: both, added.
+  final PortfolioPerformanceVenue? venue;
+
+  /// The P&L over [range].
+  BragResult? get result => allTime;
+
+  @override
+  bool get hasSomething => allTime != null && (allTime!.up || allTime!.down);
 }
 
 /// [usd] in the person's currency, as the Predictions amounts read it
@@ -546,6 +589,108 @@ BragPortfolio bragPortfolio(WidgetRef ref, {required String title}) {
     series: bragPortfolioSeries(watch),
   );
 }
+
+/// The P&L Charts card for the spending account over [range], of the
+/// series the chart draws: [venue] alone when picked, else the venues on
+/// the account added (PortfolioPerformance.combine), each with the
+/// predictions at the live prices, as the chart reads them. From a build
+/// ([ref] watches, so the preview follows the live figures). Unknown (a
+/// venue not read yet): no figure and no line.
+BragPnl bragPnl(WidgetRef ref,
+    {required String title,
+    required BalanceRange range,
+    PortfolioPerformanceVenue? venue,
+    DateTime? now}) {
+  final shown = ref.watch(portfolioVenuesProvider);
+  final venues = [
+    if (shown.trading) PortfolioPerformanceVenue.trading,
+    if (shown.predictions) PortfolioPerformanceVenue.predictions,
+  ];
+  final parts = <PortfolioPerformanceVenue, PortfolioPerformance>{};
+  var known = venues.isNotEmpty;
+  for (final v in venues) {
+    final data = ref
+        .watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v)))
+        .valueOrNull;
+    if (data == null) {
+      known = false;
+      continue;
+    }
+    parts[v] = v == PortfolioPerformanceVenue.predictions
+        ? data.withLivePredictions(ref
+            .watch(livePriceProvider.select(
+                (s) => HeldPredictionPrices.of(data.predictions, s.prices)))
+            .prices)
+        : data;
+  }
+  final picked = venue != null && parts.containsKey(venue) ? venue : null;
+  final charted = picked != null
+      ? parts[picked]!
+      : known
+          ? PortfolioPerformance.combine(parts.values.toList())
+          : null;
+  BragResult? result;
+  List<double>? series;
+  if (charted != null && charted.hasMovement) {
+    final grid = pnlSeries(charted, now ?? DateTime.now());
+    final values = kuteTrendWindow(grid, grid.spanFor(range)).values;
+    final change = pnlRangeChange(values, range) ?? grid.values.last;
+    result = bragResult(ref.watch, change);
+    final line = [
+      for (final v in values)
+        if (v.isFinite) v
+    ];
+    if (line.length >= 2) {
+      if (line.length <= kBragSeriesPoints) {
+        series = line;
+      } else {
+        final step = (line.length - 1) / (kBragSeriesPoints - 1);
+        series = [
+          for (var i = 0; i < kBragSeriesPoints; i++) line[(i * step).round()]
+        ];
+      }
+    }
+  } else if (charted != null) {
+    result = bragResult(ref.watch, 0);
+  }
+  return BragPnl(
+    title: title,
+    link: marketShareLink(venue: kMarketLinkInvesting, slug: null),
+    referralCode: _referralCode(),
+    range: range,
+    venue: picked,
+    allTime: result,
+    series: series,
+  );
+}
+
+/// Whether the P&L Charts section offers its card: a P&L off zero at a
+/// venue on the account, the predictions at the live prices (the chart
+/// is drawn).
+final bragPnlAvailableProvider = Provider.autoDispose<bool>((ref) {
+  final shown = ref.watch(portfolioVenuesProvider);
+  for (final (on, v) in [
+    (shown.trading, PortfolioPerformanceVenue.trading),
+    (shown.predictions, PortfolioPerformanceVenue.predictions),
+  ]) {
+    if (!on) continue;
+    final data = ref
+        .watch(portfolioPerformanceDisplayProvider(
+            PortfolioPerformanceRequest(venue: v)))
+        .valueOrNull;
+    if (data == null) continue;
+    final p = v == PortfolioPerformanceVenue.predictions
+        ? data.withLivePredictions(ref
+            .watch(livePriceProvider.select(
+                (s) => HeldPredictionPrices.of(data.predictions, s.prices)))
+            .prices)
+        : data;
+    final now = p.totalPnlUsd ?? (p.points.isEmpty ? 0.0 : p.points.last.pnlUsd);
+    if (p.hasMovement || now.abs() >= kBragCentUsd) return true;
+  }
+  return false;
+});
 
 /// Whether the Portfolio screen offers its card: a position open at
 /// either venue, or an all-time P&L that is not zero.
