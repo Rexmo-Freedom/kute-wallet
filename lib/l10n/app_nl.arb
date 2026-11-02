@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Jouw instap {price}",
   "hlChartLiquidationCaption": "Liquidatie {price}",
   "hlPositionYouPutIn": "Jouw inleg",
+  "hlPositionLeverage": "{leverage}x hefboom",
+  "hlPositionNoLeverage": "Geen hefboom",
   "hlPositionWorthNow": "Nu {amount} waard",
   "hlPositionProfit": "Winst {amount} ({percent})",
   "hlPositionLoss": "Verlies {amount} ({percent})",

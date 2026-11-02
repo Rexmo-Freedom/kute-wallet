@@ -8811,6 +8811,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get hlPositionYouPutIn => 'Dein Einsatz';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x Hebel';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Kein Hebel';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Jetzt $amount wert';
   }

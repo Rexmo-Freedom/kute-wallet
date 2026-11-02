@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Vaš vstop {price}",
   "hlChartLiquidationCaption": "Likvidacija {price}",
   "hlPositionYouPutIn": "Vaš vložek",
+  "hlPositionLeverage": "Vzvod {leverage}x",
+  "hlPositionNoLeverage": "Brez vzvoda",
   "hlPositionWorthNow": "Zdaj vredno {amount}",
   "hlPositionProfit": "Dobiček {amount} ({percent})",
   "hlPositionLoss": "Izguba {amount} ({percent})",

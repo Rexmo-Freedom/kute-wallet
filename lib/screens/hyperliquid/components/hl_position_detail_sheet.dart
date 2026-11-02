@@ -23,9 +23,10 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // 2026). Sal's share pill sits at the top right of the figure's row
 // (position_share_card.dart): "Brag about it" in profit, else "Send to a
 // friend". Then the sheet's chart, clean, with its pressure bar; two tiles:
-// what was put in (the margin; the collateral on cross) and the
-// liquidation price with how far it is ("12% away", coloured as it closes
-// in: HlLiquidationTile); then plain rows: "Add margin" on an isolated
+// what was put in (the margin; the collateral on cross) with its leverage
+// ("2x leverage", "No leverage"), and the liquidation price with how far
+// it is ("12% away", coloured as it closes in: HlLiquidationTile); then
+// plain rows: "Add margin" on an isolated
 // position (the margin sheet, where Remove is a mode), "Protect it" and
 // "Details". The position size (the notional, size x price, with the coin
 // size), entry, leverage, margin mode and funding wait in Details, with
@@ -64,6 +65,16 @@ import 'package:kute/screens/shared/open_once.dart';
 import 'package:kute/services/tracking_service.dart';
 import 'package:kute/services/venue_analytics.dart';
 import 'package:kute/theme/app_theme.dart';
+
+/// The "You put in" tile's sub-line: "2x leverage" ("3.5x leverage" when
+/// the leverage is not whole: an integer when whole, else one decimal), or
+/// "No leverage" at 1x. Display only: the app opens no leveraged position.
+String hlLeverageCaption(AppLocalizations l10n, num leverage) {
+  if (leverage <= 1) return l10n.hlPositionNoLeverage;
+  final whole = leverage == leverage.roundToDouble();
+  return l10n.hlPositionLeverage(
+      whole ? leverage.round().toString() : leverage.toStringAsFixed(1));
+}
 
 // ───────────────────────────── sheet ─────────────────────────────
 
@@ -479,8 +490,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   height: 380, padding: EdgeInsets.zero),
                             SizedBox(height: 16.h),
                             // Only what matters on the screen, in plain
-                            // words: what was put in (with what it is worth
-                            // now) and how far the liquidation is, each on
+                            // words: what was put in (with its leverage) and
+                            // how far the liquidation is, each on
                             // its own tile; then plain rows to
                             // add margin (an isolated position the app can
                             // move margin on), to protect it, and Details
@@ -494,11 +505,27 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   // collateral it ties up). What it is worth
                                   // now is the hero above, so the tile does
                                   // not say it again. Isolated or cross is in
-                                  // Details.
+                                  // Details. Under it the position's
+                                  // leverage, said only ("2x leverage", "No
+                                  // leverage"; founder, 2 November 2026): the
+                                  // Liquidation tile's sub-line style, so both
+                                  // tiles keep one height.
                                   label: context.l10n.hlPositionYouPutIn,
                                   value: Text(formatPolyAmount(ref, margin),
                                       maxLines: 1,
                                       style: positionTileValueStyle(c)),
+                                  caption: Text(
+                                    hlLeverageCaption(
+                                        context.l10n,
+                                        (m?.isSpot ?? false)
+                                            ? 1
+                                            : pos.leverageValue),
+                                    key: const ValueKey(
+                                        'hl-position-leverage'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: positionTileCaptionStyle(c),
+                                  ),
                                 ),
                                 right: HlLiquidationTile(
                                   liquidation: liquidation,

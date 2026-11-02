@@ -15059,6 +15059,18 @@ abstract class AppLocalizations {
   /// **'You put in'**
   String get hlPositionYouPutIn;
 
+  /// Investing open-position screen: subline under the 'You put in' amount with the position's leverage, e.g. '2x leverage' or '3.5x leverage'. Display only.
+  ///
+  /// In en, this message translates to:
+  /// **'{leverage}x leverage'**
+  String hlPositionLeverage(String leverage);
+
+  /// Investing open-position screen: subline under the 'You put in' amount when the position has no leverage (1x).
+  ///
+  /// In en, this message translates to:
+  /// **'No leverage'**
+  String get hlPositionNoLeverage;
+
   /// Investing open-position screen: subline under 'You put in': what that money is worth now (margin plus the open profit or loss), e.g. 'Worth $7,400.00 now'.
   ///
   /// In en, this message translates to:

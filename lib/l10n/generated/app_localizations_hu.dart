@@ -8766,6 +8766,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get hlPositionYouPutIn => 'Befektetésed';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x tőkeáttétel';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Nincs tőkeáttétel';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Most $amount értékű';
   }

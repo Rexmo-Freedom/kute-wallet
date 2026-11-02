@@ -8737,6 +8737,14 @@ class AppLocalizationsSv extends AppLocalizations {
   String get hlPositionYouPutIn => 'Din insats';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x hävstång';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Ingen hävstång';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Värt $amount nu';
   }

@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Твоят вход {price}",
   "hlChartLiquidationCaption": "Ликвидация {price}",
   "hlPositionYouPutIn": "Вложено",
+  "hlPositionLeverage": "Ливъридж {leverage}x",
+  "hlPositionNoLeverage": "Без ливъридж",
   "hlPositionWorthNow": "Струва {amount} сега",
   "hlPositionProfit": "Печалба {amount} ({percent})",
   "hlPositionLoss": "Загуба {amount} ({percent})",

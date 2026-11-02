@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Tvoj vstup {price}",
   "hlChartLiquidationCaption": "Likvidácia {price}",
   "hlPositionYouPutIn": "Tvoj vklad",
+  "hlPositionLeverage": "Páka {leverage}x",
+  "hlPositionNoLeverage": "Bez páky",
   "hlPositionWorthNow": "Teraz má hodnotu {amount}",
   "hlPositionProfit": "Zisk {amount} ({percent})",
   "hlPositionLoss": "Strata {amount} ({percent})",

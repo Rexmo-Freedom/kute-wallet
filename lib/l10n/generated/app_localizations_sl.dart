@@ -8762,6 +8762,14 @@ class AppLocalizationsSl extends AppLocalizations {
   String get hlPositionYouPutIn => 'Vaš vložek';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Vzvod ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Brez vzvoda';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Zdaj vredno $amount';
   }

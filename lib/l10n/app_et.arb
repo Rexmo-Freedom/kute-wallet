@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Sinu sisenemine {price}",
   "hlChartLiquidationCaption": "Likvideerimine {price}",
   "hlPositionYouPutIn": "Sinu panus",
+  "hlPositionLeverage": "{leverage}x võimendus",
+  "hlPositionNoLeverage": "Võimenduseta",
   "hlPositionWorthNow": "Praegu väärt {amount}",
   "hlPositionProfit": "Kasum {amount} ({percent})",
   "hlPositionLoss": "Kahjum {amount} ({percent})",

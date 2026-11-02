@@ -5185,6 +5185,20 @@
   "@hlPositionYouPutIn": {
     "description": "Investing open-position screen: label of the tile with the money the user put into the position (its margin), e.g. 'You put in $6,400.00'. Plain words, no trading jargon."
   },
+  "hlPositionLeverage": "{leverage}x leverage",
+  "@hlPositionLeverage": {
+    "description": "Investing open-position screen: subline under the 'You put in' amount with the position's leverage, e.g. '2x leverage' or '3.5x leverage'. Display only.",
+    "placeholders": {
+      "leverage": {
+        "type": "String",
+        "example": "2"
+      }
+    }
+  },
+  "hlPositionNoLeverage": "No leverage",
+  "@hlPositionNoLeverage": {
+    "description": "Investing open-position screen: subline under the 'You put in' amount when the position has no leverage (1x)."
+  },
   "hlPositionWorthNow": "Worth {amount} now",
   "@hlPositionWorthNow": {
     "description": "Investing open-position screen: subline under 'You put in': what that money is worth now (margin plus the open profit or loss), e.g. 'Worth $7,400.00 now'.",

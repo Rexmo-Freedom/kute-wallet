@@ -8742,6 +8742,14 @@ class AppLocalizationsDa extends AppLocalizations {
   String get hlPositionYouPutIn => 'Dit indskud';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x gearing';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Ingen gearing';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Værd $amount nu';
   }

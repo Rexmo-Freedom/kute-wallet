@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Dein Einstieg {price}",
   "hlChartLiquidationCaption": "Liquidation {price}",
   "hlPositionYouPutIn": "Dein Einsatz",
+  "hlPositionLeverage": "{leverage}x Hebel",
+  "hlPositionNoLeverage": "Kein Hebel",
   "hlPositionWorthNow": "Jetzt {amount} wert",
   "hlPositionProfit": "Gewinn {amount} ({percent})",
   "hlPositionLoss": "Verlust {amount} ({percent})",

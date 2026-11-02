@@ -8733,6 +8733,14 @@ class AppLocalizationsCs extends AppLocalizations {
   String get hlPositionYouPutIn => 'Tvůj vklad';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Páka ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Bez páky';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Teď má hodnotu $amount';
   }

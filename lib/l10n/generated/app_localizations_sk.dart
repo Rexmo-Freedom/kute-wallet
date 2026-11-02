@@ -8744,6 +8744,14 @@ class AppLocalizationsSk extends AppLocalizations {
   String get hlPositionYouPutIn => 'Tvoj vklad';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Páka ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Bez páky';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Teraz má hodnotu $amount';
   }

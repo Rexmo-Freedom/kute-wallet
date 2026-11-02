@@ -8747,6 +8747,14 @@ class AppLocalizationsFi extends AppLocalizations {
   String get hlPositionYouPutIn => 'Sijoitit';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x vipu';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Ei vipua';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Arvo nyt $amount';
   }

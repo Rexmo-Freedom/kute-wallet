@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "エントリー {price}",
   "hlChartLiquidationCaption": "清算 {price}",
   "hlPositionYouPutIn": "投資額",
+  "hlPositionLeverage": "レバレッジ{leverage}倍",
+  "hlPositionNoLeverage": "レバレッジなし",
   "hlPositionWorthNow": "現在の価値 {amount}",
   "hlPositionProfit": "利益 {amount} ({percent})",
   "hlPositionLoss": "損失 {amount} ({percent})",

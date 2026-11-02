@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Intrarea ta {price}",
   "hlChartLiquidationCaption": "Lichidare {price}",
   "hlPositionYouPutIn": "Ai investit",
+  "hlPositionLeverage": "Levier {leverage}x",
+  "hlPositionNoLeverage": "Fără levier",
   "hlPositionWorthNow": "Valorează acum {amount}",
   "hlPositionProfit": "Profit {amount} ({percent})",
   "hlPositionLoss": "Pierdere {amount} ({percent})",

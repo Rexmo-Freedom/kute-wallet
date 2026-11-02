@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Din indgang {price}",
   "hlChartLiquidationCaption": "Likvidation {price}",
   "hlPositionYouPutIn": "Dit indskud",
+  "hlPositionLeverage": "{leverage}x gearing",
+  "hlPositionNoLeverage": "Ingen gearing",
   "hlPositionWorthNow": "Værd {amount} nu",
   "hlPositionProfit": "Gevinst {amount} ({percent})",
   "hlPositionLoss": "Tab {amount} ({percent})",

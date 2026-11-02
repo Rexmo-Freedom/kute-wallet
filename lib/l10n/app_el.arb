@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Είσοδός σου {price}",
   "hlChartLiquidationCaption": "Ρευστοποίηση {price}",
   "hlPositionYouPutIn": "Επένδυσες",
+  "hlPositionLeverage": "Μόχλευση {leverage}x",
+  "hlPositionNoLeverage": "Χωρίς μόχλευση",
   "hlPositionWorthNow": "Αξία τώρα {amount}",
   "hlPositionProfit": "Κέρδος {amount} ({percent})",
   "hlPositionLoss": "Ζημιά {amount} ({percent})",

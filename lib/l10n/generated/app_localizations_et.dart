@@ -8728,6 +8728,14 @@ class AppLocalizationsEt extends AppLocalizations {
   String get hlPositionYouPutIn => 'Sinu panus';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x võimendus';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Võimenduseta';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Praegu väärt $amount';
   }

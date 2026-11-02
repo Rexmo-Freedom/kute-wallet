@@ -8377,6 +8377,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get hlPositionYouPutIn => '投資額';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'レバレッジ$leverage倍';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'レバレッジなし';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return '現在の価値 $amount';
   }

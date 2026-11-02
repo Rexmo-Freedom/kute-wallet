@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Belépésed {price}",
   "hlChartLiquidationCaption": "Likvidáció {price}",
   "hlPositionYouPutIn": "Befektetésed",
+  "hlPositionLeverage": "{leverage}x tőkeáttétel",
+  "hlPositionNoLeverage": "Nincs tőkeáttétel",
   "hlPositionWorthNow": "Most {amount} értékű",
   "hlPositionProfit": "Nyereség {amount} ({percent})",
   "hlPositionLoss": "Veszteség {amount} ({percent})",

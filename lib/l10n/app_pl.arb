@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Twoje wejście {price}",
   "hlChartLiquidationCaption": "Likwidacja {price}",
   "hlPositionYouPutIn": "Twój wkład",
+  "hlPositionLeverage": "Dźwignia {leverage}x",
+  "hlPositionNoLeverage": "Bez dźwigni",
   "hlPositionWorthNow": "Teraz warte {amount}",
   "hlPositionProfit": "Zysk {amount} ({percent})",
   "hlPositionLoss": "Strata {amount} ({percent})",

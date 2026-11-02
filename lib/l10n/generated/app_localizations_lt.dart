@@ -8778,6 +8778,14 @@ class AppLocalizationsLt extends AppLocalizations {
   String get hlPositionYouPutIn => 'Jūsų įnašas';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x svertas';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Be sverto';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Dabar vertė $amount';
   }

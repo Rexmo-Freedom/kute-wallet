@@ -8788,6 +8788,14 @@ class AppLocalizationsRo extends AppLocalizations {
   String get hlPositionYouPutIn => 'Ai investit';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Levier ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Fără levier';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Valorează acum $amount';
   }

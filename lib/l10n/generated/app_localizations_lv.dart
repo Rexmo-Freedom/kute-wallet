@@ -8712,6 +8712,14 @@ class AppLocalizationsLv extends AppLocalizations {
   String get hlPositionYouPutIn => 'Tavs ieguldījums';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x svira';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Bez sviras';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Tagad vērts $amount';
   }

@@ -8808,6 +8808,14 @@ class AppLocalizationsEl extends AppLocalizations {
   String get hlPositionYouPutIn => 'Επένδυσες';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Μόχλευση ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Χωρίς μόχλευση';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Αξία τώρα $amount';
   }

@@ -171,6 +171,9 @@ void main() {
         findsOneWidget);
     expect(find.descendant(of: marginTile, matching: find.text(r'$6,400.00')),
         findsOneWidget);
+    // Under the amount, the position's leverage, said only.
+    expect(find.descendant(of: marginTile, matching: find.text('5x leverage')),
+        findsOneWidget);
     expect(find.textContaining('Worth'), findsNothing);
     expect(find.text('Collateral'), findsNothing);
     final liqTile = find.byKey(HlLiquidationTile.tileKey);
@@ -681,14 +684,81 @@ void main() {
       expect(tester.getRect(meta).bottom,
           lessThan(tester.getRect(find.byType(HlCandleChart)).top));
       // Nothing of the old header: no side chip, no leverage, no "Profit"
-      // word, no separate change today; leverage and entry wait in
-      // Details.
+      // word, no separate change today; the leverage is said once, under
+      // "You put in", and entry waits in Details.
       expect(find.byType(HlSideChip), findsNothing);
       expect(find.byKey(const ValueKey('hl-position-change')), findsNothing);
-      expect(find.textContaining('5x'), findsNothing);
+      expect(find.textContaining('5x'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('hl-position-margin')),
+              matching: find.text('5x leverage')),
+          findsOneWidget);
       expect(find.textContaining('Profit'), findsNothing);
       expect(find.textContaining('Worth'), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+
+    // The leverage under "You put in" (founder, 2 November 2026): said in
+    // the Liquidation tile's sub-line style, both tiles one height;
+    // display only, nothing to change it with.
+    for (final (lev, text) in [(2, '2x leverage'), (1, 'No leverage')]) {
+      testWidgets('"You put in" says "$text" under the amount',
+          (tester) async {
+        final pos = HlPerpPosition(
+          coin: 'BTC',
+          szi: 0.5,
+          entryPx: 64000,
+          positionValue: 32000,
+          unrealizedPnl: 0,
+          returnOnEquity: 0,
+          liquidationPx: 58000,
+          marginUsed: 6400,
+          leverageType: 'isolated',
+          leverageValue: lev,
+          maxLeverage: 40,
+        );
+        await pumpScreen(tester, HlPositionDetailSheet(position: pos, market: btc),
+            position: pos);
+        final c = AppColorsExtension.light();
+        final tile = find.byKey(const ValueKey('hl-position-margin'));
+        final caption = find.byKey(const ValueKey('hl-position-leverage'));
+        expect(find.descendant(of: tile, matching: caption), findsOneWidget);
+        final captionText = tester.widget<Text>(caption);
+        expect(captionText.data, text);
+        expect(captionText.maxLines, 1);
+        // The Liquidation tile's "12% away" sub-line style, in the quiet
+        // colour.
+        final away = tester.widget<Text>(find.text('12% away'));
+        expect(captionText.style?.fontSize, away.style?.fontSize);
+        expect(captionText.style?.fontWeight, away.style?.fontWeight);
+        expect(captionText.style?.color, c.textSecondary);
+        // Under the amount, and the two tiles stay one height.
+        expect(tester.getRect(caption).top,
+            greaterThanOrEqualTo(
+                tester.getRect(find.text(r'$6,400.00')).bottom));
+        final liq = find.byKey(HlLiquidationTile.tileKey);
+        expect(tester.getRect(tile).height, tester.getRect(liq).height);
+        expect(tester.getRect(tile).top, tester.getRect(liq).top);
+        // Display only: no leverage control or hint anywhere.
+        expect(find.byType(Slider), findsNothing);
+        expect(find.textContaining('Max '), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('the leverage reads whole numbers plainly, else one decimal',
+        (tester) async {
+      await pumpScreen(
+          tester, const HlPositionDetailSheet(position: _position, market: btc));
+      final l10n = AppLocalizations.of(
+          tester.element(find.byType(HlPositionDetailSheet)));
+      expect(hlLeverageCaption(l10n, 3.5), '3.5x leverage');
+      expect(hlLeverageCaption(l10n, 2), '2x leverage');
+      expect(hlLeverageCaption(l10n, 2.0), '2x leverage');
+      expect(hlLeverageCaption(l10n, 10), '10x leverage');
+      expect(hlLeverageCaption(l10n, 1), 'No leverage');
+      expect(hlLeverageCaption(l10n, 1.0), 'No leverage');
     });
 
     testWidgets('a price tick changes the figures, never the layout',

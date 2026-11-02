@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Tava ieeja {price}",
   "hlChartLiquidationCaption": "Likvidācija {price}",
   "hlPositionYouPutIn": "Tavs ieguldījums",
+  "hlPositionLeverage": "{leverage}x svira",
+  "hlPositionNoLeverage": "Bez sviras",
   "hlPositionWorthNow": "Tagad vērts {amount}",
   "hlPositionProfit": "Peļņa {amount} ({percent})",
   "hlPositionLoss": "Zaudējums {amount} ({percent})",

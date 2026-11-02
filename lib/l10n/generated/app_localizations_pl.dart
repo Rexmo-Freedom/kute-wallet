@@ -8768,6 +8768,14 @@ class AppLocalizationsPl extends AppLocalizations {
   String get hlPositionYouPutIn => 'Twój wkład';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Dźwignia ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Bez dźwigni';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Teraz warte $amount';
   }

@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Jūsų įėjimas {price}",
   "hlChartLiquidationCaption": "Likvidavimas {price}",
   "hlPositionYouPutIn": "Jūsų įnašas",
+  "hlPositionLeverage": "{leverage}x svertas",
+  "hlPositionNoLeverage": "Be sverto",
   "hlPositionWorthNow": "Dabar vertė {amount}",
   "hlPositionProfit": "Pelnas {amount} ({percent})",
   "hlPositionLoss": "Nuostolis {amount} ({percent})",

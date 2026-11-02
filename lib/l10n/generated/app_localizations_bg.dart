@@ -8760,6 +8760,14 @@ class AppLocalizationsBg extends AppLocalizations {
   String get hlPositionYouPutIn => 'Вложено';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return 'Ливъридж ${leverage}x';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Без ливъридж';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Струва $amount сега';
   }

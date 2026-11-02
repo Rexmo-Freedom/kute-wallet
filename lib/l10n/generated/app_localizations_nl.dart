@@ -8774,6 +8774,14 @@ class AppLocalizationsNl extends AppLocalizations {
   String get hlPositionYouPutIn => 'Jouw inleg';
 
   @override
+  String hlPositionLeverage(String leverage) {
+    return '${leverage}x hefboom';
+  }
+
+  @override
+  String get hlPositionNoLeverage => 'Geen hefboom';
+
+  @override
   String hlPositionWorthNow(String amount) {
     return 'Nu $amount waard';
   }

@@ -2765,6 +2765,8 @@
   "hlChartYourEntry": "A sua entrada {price}",
   "hlChartLiquidationCaption": "Liquidação {price}",
   "hlPositionYouPutIn": "O seu investimento",
+  "hlPositionLeverage": "Alavancagem {leverage}x",
+  "hlPositionNoLeverage": "Sem alavancagem",
   "hlPositionWorthNow": "Vale {amount} agora",
   "hlPositionProfit": "Lucro {amount} ({percent})",
   "hlPositionLoss": "Perda {amount} ({percent})",

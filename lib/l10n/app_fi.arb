@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Avaushintasi {price}",
   "hlChartLiquidationCaption": "Likvidaatio {price}",
   "hlPositionYouPutIn": "Sijoitit",
+  "hlPositionLeverage": "{leverage}x vipu",
+  "hlPositionNoLeverage": "Ei vipua",
   "hlPositionWorthNow": "Arvo nyt {amount}",
   "hlPositionProfit": "Voitto {amount} ({percent})",
   "hlPositionLoss": "Tappio {amount} ({percent})",

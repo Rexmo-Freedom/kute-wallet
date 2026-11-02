@@ -2492,6 +2492,8 @@
   "hlChartYourEntry": "Votre entrée {price}",
   "hlChartLiquidationCaption": "Liquidation {price}",
   "hlPositionYouPutIn": "Votre mise",
+  "hlPositionLeverage": "Levier {leverage}x",
+  "hlPositionNoLeverage": "Sans levier",
   "hlPositionWorthNow": "Vaut {amount} maintenant",
   "hlPositionProfit": "Gain {amount} ({percent})",
   "hlPositionLoss": "Perte {amount} ({percent})",
