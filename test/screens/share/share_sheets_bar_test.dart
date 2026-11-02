@@ -66,6 +66,27 @@ void main() {
         containsPair('result', 'success'));
   });
 
+  testWidgets('market share sheet from an event\'s page (sendPick false): '
+      'the card and Share only, no Send this prediction', (tester) async {
+    await pumpShareWidget(
+        tester,
+        env,
+        const ShareMarketSheet(
+          title: 'Michigan Senate Election Winner',
+          subtitle: null,
+          deepLink: 'https://web.test/m/michigan-senate-election-winner',
+          marketSlug: 'michigan-senate-election-winner',
+          venue: 'polymarket',
+          sendPick: false,
+        ));
+
+    expect(find.byKey(const ValueKey('share-card-prediction_market')),
+        findsOneWidget);
+    expect(kuteBarPrimaryWithText('Share'), findsOneWidget);
+    expect(find.text('Send this prediction'), findsNothing);
+    expect(find.byKey(const ValueKey('share-market-send-pick')), findsNothing);
+  });
+
   testWidgets('claimed prompt: Send now is the bar, busy while the payment '
       'runs; Later stays a text button', (tester) async {
     final pay = Completer<String?>();
