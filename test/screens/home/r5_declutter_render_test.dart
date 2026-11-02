@@ -1,4 +1,6 @@
-// On demand: renders the decluttered surfaces (founder, 1 November 2026:
+// On demand (r6, 2 November 2026: the 5m sparkline card a bit smaller,
+// the per-market cards with their chances, a game in play, and Investing's
+// four Latest-style squares): renders the decluttered surfaces (founder, 1 November 2026:
 // less clutter, each row or card one or two things) into PNGs for a look
 // by eye, light and dark: the Bitcoin home's Activity (four Latest squares,
 // two Earlier rows, no Today card), the Investing browse (Trending: the
@@ -408,8 +410,26 @@ class _Feed extends PolyFeedNotifier {
           'Super Bowl LX winner',
           'Time Person of the Year 2026',
         ][i], 0.4 + i * 0.07, volume: 9e7 - i),
-      for (var i = 0; i < 3; i++)
-        yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1e6 - i),
+      for (var i = 0; i < 2; i++)
+        yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1.4e6 - i * 9e4),
+      // A game in play, as the FURIA / FaZe card.
+      PolymarketEvent(
+        id: 'cs2',
+        slug: 'cs2-furia-faze',
+        title: 'Counter-Strike: FURIA vs FaZe (BO3)',
+        volume: 9.5e5,
+        liquidity: 1e5,
+        category: 'sports',
+        conditionId: 'cs2',
+        gameId: 77,
+        score: '7-5|1-0|Bo3',
+        period: 'Map 2',
+        outcomes: const [
+          PolymarketOutcome(name: 'FURIA', price: 0.68, tokenId: 'furia'),
+          PolymarketOutcome(name: 'FaZe', price: 0.32, tokenId: 'faze'),
+        ],
+      ),
+      yesNo('m2', titles[2].$1, titles[2].$2, volume: 1.4e6 - 2 * 9e4),
       PolymarketEvent(
         id: 'wc',
         slug: 'wc',
@@ -435,7 +455,7 @@ class _Feed extends PolyFeedNotifier {
         ],
       ),
       for (var i = 3; i < titles.length; i++)
-        yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1e6 - i),
+        yesNo('m$i', titles[i].$1, titles[i].$2, volume: 1.4e6 - i * 9e4),
     ]);
   }
 }
