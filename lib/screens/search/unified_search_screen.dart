@@ -1780,7 +1780,7 @@ class _SearchHome extends ConsumerWidget {
 }
 
 /// The marks on the Connect your own AI card, in order: Claude, ChatGPT,
-/// Grok (simple drawn marks, lib/assets/ai).
+/// Grok (the official marks, from Simple Icons and Lobe Icons; lib/assets/ai).
 const List<String> kConnectOwnAiLogos = [
   'lib/assets/ai/claude.svg',
   'lib/assets/ai/chatgpt.svg',

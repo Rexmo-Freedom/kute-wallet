@@ -1139,12 +1139,13 @@ class UsdAccountActionBar extends ConsumerWidget {
   /// wallet), Send is Dollars out, to Bitcoin or sent on as a coin to
   /// another wallet.
   static List<KuteDockAction> moneyActions(BuildContext context) => [
-        // First, in the same light square as the others (founder, 1
-        // November 2026: solid was too strong).
+        // First, the solid square (founder, 2 November 2026: Buy dollars
+        // black).
         KuteDockAction(
           icon: Icons.attach_money_rounded,
           label: context.l10n.buyDollarsAction,
           trackingId: 'buy_dollars',
+          solid: true,
           onTap: () => buyDollars(context),
         ),
         KuteDockAction(
