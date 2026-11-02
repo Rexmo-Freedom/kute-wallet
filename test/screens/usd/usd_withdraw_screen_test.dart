@@ -19,6 +19,7 @@ import 'package:kute/models/balance_model.dart';
 import 'package:kute/models/currency_conversions.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/balance_provider.dart';
 import 'package:kute/providers/currency_conversions_provider.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
@@ -97,7 +98,10 @@ const _underneath = 'open withdraw';
 
 /// Opens the Withdraw the way the dock does: a sheet over a screen.
 Future<void> _pump(WidgetTester tester,
-    {bool coins = true, int? spendingSats, bool dark = false}) async {
+    {bool coins = true,
+    int? spendingSats,
+    bool dark = false,
+    List<SwapOrder> orders = const []}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -116,7 +120,7 @@ Future<void> _pump(WidgetTester tester,
             wallets: [WalletConfig(id: 'spending', name: 'Spending')],
           ))),
       sendContactsGatewayProvider.overrideWithValue(_gateway),
-      swapOrdersProvider.overrideWith((_) => FakeSwapOrders(const [])),
+      swapOrdersProvider.overrideWith((_) => FakeSwapOrders(orders)),
       orchestraSupportedRoutesProvider
           .overrideWith((_) => _Routes(_catalog(coins: coins))),
       orchestraRoutesReadyProvider.overrideWith((_) async {}),
@@ -292,6 +296,57 @@ void main() {
       await _unmount(tester);
     });
   }
+
+  testWidgets(
+      'Frequent stays on top: the recent recipients under the field, above '
+      'the Send to card; All contacts below it; typing hides Frequent',
+      (tester) async {
+    const evm = '0x742d35cc6634c0532925a3b844bc454e4438f44e';
+    await _pump(tester, spendingSats: 100000, orders: [
+      SwapOrder(
+        id: 'sent-1',
+        coinFrom: 'USDB',
+        networkFrom: 'SPARK',
+        coinTo: 'USDC',
+        networkTo: 'ARBITRUM',
+        depositAddress: 'deposit',
+        depositAmount: '12.00',
+        withdrawalAmount: '12.00',
+        status: 'finished',
+        timestamp: DateTime(2026, 11, 1).millisecondsSinceEpoch,
+        withdrawalAddress: evm,
+        depositMin: '0',
+        depositMax: '0',
+        rate: '0',
+        refundAddress: 'refund',
+        provider: 'Orchestra',
+        activityDirection: 'send',
+      ),
+    ]);
+    const frequent = ValueKey('send-frequent-section');
+    expect(find.byKey(frequent), findsOneWidget);
+    expect(find.text(_l10n.sendFrequent), findsOneWidget);
+    expect(find.byKey(const ValueKey('send-frequent-recent:$evm')),
+        findsOneWidget);
+    double top(Finder f) => tester.getTopLeft(f).dy;
+    expect(top(find.byKey(const ValueKey('send-recipient-search'))),
+        lessThan(top(find.byKey(frequent))));
+    expect(top(find.byKey(frequent)), lessThan(top(find.text(_l10n.sendToLabel))));
+    expect(top(find.byKey(_alsoRow)),
+        lessThan(top(find.byKey(const ValueKey('send-contacts-ask-row')))));
+    // Once only: the Contacts below never repeat it.
+    expect(find.byKey(const ValueKey('send-frequent-row')), findsOneWidget);
+
+    await tester.enterText(
+        find.descendant(
+            of: find.byType(UsdWithdrawScreen),
+            matching: find.byType(TextField)),
+        'ana');
+    await _settle(tester);
+    expect(find.byKey(frequent), findsNothing);
+    expect(tester.takeException(), isNull);
+    await _unmount(tester);
+  });
 
   testWidgets('To your Bitcoin opens Move money from Dollars to Bitcoin',
       (tester) async {

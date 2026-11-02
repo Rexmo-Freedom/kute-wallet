@@ -10,12 +10,15 @@
 //   * a pasted or typed destination the flow recognises as one resolved
 //     row under it: the rail's mark, the shortened address, the rail in
 //     words ([SendResolvedRow]); the bar's Continue acts on it;
-//   * the Contacts list under it (founder, 1 November 2026, Revolut's one
-//     list: send_contacts_list.dart): the recents and the phone's
-//     contacts, filtered by what is typed, badged Kute or ⚡, the
-//     resolved destination always first above it;
+//   * "Frequent" under it (founder, 2 November 2026: "Frequent stays on
+//     top"): the recents as circles, hidden while typing and once a
+//     recipient is chosen (send_contacts_list.dart, SendFrequentSection);
 //   * one soft "Send to" card: the coins an address can land as (and, on
-//     the Dollars Send, To your Bitcoin and A stock or prediction).
+//     the Dollars Send, To your Bitcoin and A stock or prediction);
+//   * All contacts A–Z under the card (founder, 1 November 2026,
+//     Revolut's one list: send_contacts_list.dart): the recents and the
+//     phone's contacts, filtered by what is typed, badged Kute or ⚡, the
+//     resolved destination always first above it.
 //
 // There is no "Send to a friend" row on the Bitcoin or Dollars Send any
 // more: a plain contact in the list IS the friend link. [SendToFriendRow],

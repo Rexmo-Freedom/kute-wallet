@@ -7916,9 +7916,11 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
   /// search field (everything it took before: Lightning addresses of any
   /// domain, LNURL, invoices, bitcoin and Spark addresses, @user, Paste
   /// and Scan), the destination it holds resolved as one row FIRST, then
-  /// the Contacts list filtered by the text (send_contacts_list.dart:
-  /// recents and the phone's contacts, one list), and the Send to card
-  /// ("Also sends to").
+  /// Frequent (the recents as circles, directly under the field: founder,
+  /// 2 November 2026, "Frequent stays on top"), the Send to card ("Also
+  /// sends to"), and All contacts A–Z filtered by the text
+  /// (send_contacts_list.dart: recents and the phone's contacts, one
+  /// list).
   Widget _sendToPage(AppColorsExtension c) {
     final addr = addressController.text;
     // Hardware/watch-only wallets accept on-chain Bitcoin addresses.
@@ -7988,7 +7990,8 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
     // Scrollable so the matches, the card and the contacts never
     // overflow on a short screen or at a large text scale; the end clears
     // the floating bar.
-    // Order: the field, the recipient card, the Send to card, Contacts.
+    // Order: the field, the recipient card, Frequent, the Send to card,
+    // All contacts.
     // ONE scroll view to the sheet's bottom edge (the frame reserves
     // nothing under this page, SendStepperFrame.bleedPages), the Contacts
     // as slivers in it.
@@ -8082,6 +8085,16 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
             SizedBox(height: 12.h),
             _clipboardNudgeChip(c, _clipboardCandidate!),
           ],
+          // Frequent stays on top (founder, 2 November 2026): under the
+          // field, above the Send to card; hidden while typing and once
+          // a recipient is chosen.
+          if (showContacts)
+            SendFrequentSection(
+              query: query,
+              recents: recentPeople,
+              excludeAddress: resolved ? addr : null,
+              onPerson: _onPerson,
+            ),
           if (showSendToCard) ...[
             SizedBox(height: 20.h),
             SendSectionLabel(
@@ -8108,15 +8121,17 @@ class _ConfirmSendState extends ConsumerState<ConfirmSend>
         ],
           ),
         ),
-        // Contacts (founder, 1 November 2026): Frequent, then All contacts
-        // A–Z, filtered by what is typed, under the Send to card (a
-        // growing list never pushes it out of sight). A link needs the
-        // spending wallet: hot sources only; none once a coin is chosen.
+        // Contacts (founder, 1 November 2026): All contacts A–Z, filtered
+        // by what is typed, under the Send to card (a growing list never
+        // pushes it out of sight); Frequent sits above the card. A link
+        // needs the spending wallet: hot sources only; none once a coin
+        // is chosen.
         if (showContacts)
           SendContactsSection(
             query: query,
             recents: recentPeople,
             excludeAddress: resolved ? addr : null,
+            showFrequent: false,
             onPerson: _onPerson,
             onPhoneLink: (phone) => unawaited(_sendLinkToPhone(phone)),
             background: c.background,

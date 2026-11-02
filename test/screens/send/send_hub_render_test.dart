@@ -25,6 +25,7 @@ import 'package:kute/l10n/l10n.dart';
 import 'package:kute/models/affiliate_model.dart';
 import 'package:kute/models/orchestra_routes_model.dart';
 import 'package:kute/models/settings_model.dart';
+import 'package:kute/models/swap_order_model.dart';
 import 'package:kute/providers/orchestra_supported_routes_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/spark_address_provider.dart';
@@ -159,7 +160,28 @@ List<Override> _overrides() => [
       sendContactsGatewayProvider.overrideWithValue(FakeSendContactsGateway(
           permission: SendContactsPermission.granted, contacts: _book())),
       shareLinksApiProvider.overrideWithValue(FakeShareLinksApi()),
-      swapOrdersProvider.overrideWith((_) => FakeSwapOrders(const [])),
+      // One dollar send went out: the Dollars Send's Frequent row.
+      swapOrdersProvider.overrideWith((_) => FakeSwapOrders([
+            SwapOrder(
+              id: 'sent-1',
+              coinFrom: 'USDB',
+              networkFrom: 'SPARK',
+              coinTo: 'USDC',
+              networkTo: 'ARBITRUM',
+              depositAddress: 'deposit',
+              depositAmount: '12.00',
+              withdrawalAmount: '12.00',
+              status: 'finished',
+              timestamp: DateTime(2026, 11, 1).millisecondsSinceEpoch,
+              withdrawalAddress: '0x742d35cc6634c0532925a3b844bc454e4438f44e',
+              depositMin: '0',
+              depositMax: '0',
+              rate: '0',
+              refundAddress: 'refund',
+              provider: 'Orchestra',
+              activityDirection: 'send',
+            ),
+          ])),
       standingDestinationsProvider.overrideWith((_) async => {'bitcoin:BTC'}),
       receiveMinimumsProvider
           .overrideWithValue(ReceiveMinimums(fetch: (_) async => null)),
