@@ -96,6 +96,43 @@ void main() {
       expect(fakeBragLosingPosition().tone, BragTone.loss);
     });
 
+    test(
+        "Sal's pose by the tone: every win pleased (a small one too), a "
+        'big one hopping, a loss unbothered, flat curious', () {
+      BragPosition at(double usd, {double? percent}) => BragPosition(
+            title: 'ANTH',
+            link: 'https://backend.kutewallet.com/m/investing/ANTH',
+            investing: true,
+            side: 'Short',
+            result: BragResult(usd: usd, text: '', percent: percent),
+          );
+      expect(bragPose(at(36.9, percent: 42.1)), ShareCardPose.bigWin);
+      expect(bragPose(at(5, percent: 9.9)), ShareCardPose.win);
+      // The portfolio at +$7.77 with no percent (a small win) and a
+      // short in profit by under 2%: pleased, never the loss face.
+      expect(bragPose(at(7.77)), ShareCardPose.win);
+      expect(bragPose(at(3.1, percent: 1.2)), ShareCardPose.win);
+      expect(bragPose(at(-12.4, percent: -6.2)), ShareCardPose.loss);
+      expect(bragPose(at(0.001)), ShareCardPose.flat);
+      for (final tone in BragTone.values) {
+        final d = switch (tone) {
+          BragTone.bigWin => at(50, percent: 20),
+          BragTone.win => at(50, percent: 5),
+          BragTone.smallWin => at(5, percent: 1),
+          BragTone.loss => at(-5, percent: -1),
+          BragTone.flat => at(0),
+        };
+        expect(d.tone, tone);
+        final pose = bragPose(d);
+        final up = tone == BragTone.bigWin ||
+            tone == BragTone.win ||
+            tone == BragTone.smallWin;
+        expect(
+            up, pose == ShareCardPose.win || pose == ShareCardPose.bigWin,
+            reason: '$tone -> $pose');
+      }
+    });
+
     testWidgets('the edgy line: a pool by sign, built from the result, PG',
         (tester) async {
       await pumpShareWidget(tester, env, const SizedBox());
@@ -155,10 +192,10 @@ void main() {
       expect(bragPalette(fakeBragPortfolio()), ShareCardPalette.win);
       expect(bragPalette(fakeBragLosingPortfolio()), ShareCardPalette.loss);
       expect(bragPalette(fakeBragFlatPortfolio()), ShareCardPalette.flat);
-      expect(bragPose(fakeBragPortfolio()), ShareCardPose.smug);
-      expect(bragPose(fakeBragSmallWinPortfolio()), ShareCardPose.point);
-      expect(bragPose(fakeBragLosingPortfolio()), ShareCardPose.deadpan);
-      expect(bragPose(fakeBragFlatPortfolio()), ShareCardPose.think);
+      expect(bragPose(fakeBragPortfolio()), ShareCardPose.bigWin);
+      expect(bragPose(fakeBragSmallWinPortfolio()), ShareCardPose.win);
+      expect(bragPose(fakeBragLosingPortfolio()), ShareCardPose.loss);
+      expect(bragPose(fakeBragFlatPortfolio()), ShareCardPose.flat);
     });
   });
 

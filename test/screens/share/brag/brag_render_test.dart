@@ -10,6 +10,7 @@
 // Asked, the renders go to the network for the real logos a phone would
 // load: the coins' (HlCoinIcon) and two live Polymarket pictures for the
 // prediction rows (an esports crest, an economy market's picture).
+// BRAG_OFFLINE=1 writes them without the network (the fixtures' tiles).
 
 import 'dart:convert';
 import 'dart:io';
@@ -61,6 +62,7 @@ Future<String?> _livePicture(String tag) async {
 
 void main() {
   final dir = Platform.environment['BRAG_FRAMES'];
+  final online = dir != null && Platform.environment['BRAG_OFFLINE'] == null;
 
   testWidgets('brag cards render to PNG', (tester) async {
     await tester.runAsync(loadBragFonts);
@@ -75,7 +77,7 @@ void main() {
 
     String? geng;
     String? fed;
-    if (dir != null) {
+    if (online) {
       HttpOverrides.global = null;
       useShareTestArtwork(online: true);
       geng = await tester.runAsync<String?>(() => _livePicture('esports'));
@@ -89,6 +91,7 @@ void main() {
       'flat': fakeBragFlatPortfolio(),
       'position_win': fakeBragPosition(),
       'position_loss': fakeBragLosingPosition(),
+      'position_win_short': fakeBragWinningShort(),
     };
     for (final MapEntry(key: name, value: data) in frames.entries) {
       final key = GlobalKey();
@@ -109,7 +112,7 @@ void main() {
                   ),
                 ),
               ));
-      if (dir == null) {
+      if (!online) {
         await tester.pumpWidget(app);
       } else {
         // Built on real time so the logos load over the network.

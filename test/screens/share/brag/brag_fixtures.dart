@@ -45,6 +45,19 @@ BragPosition fakeBragLosingPosition() => const BragPosition(
       nowText: '3,576.10',
     );
 
+/// A short in profit (an Investing position, +3.4%): a win.
+BragPosition fakeBragWinningShort() => const BragPosition(
+      title: 'ANTH',
+      link: 'https://backend.kutewallet.com/m/investing/ANTH',
+      referralCode: kBragTestCode,
+      investing: true,
+      side: 'Short',
+      result: BragResult(usd: 7.77, text: r'+$7.77', percent: 3.4),
+      coin: 'ANTH',
+      entryText: '231.40',
+      nowText: '223.53',
+    );
+
 /// A big win: the open positions' combined return is over 10%.
 BragPortfolio fakeBragPortfolio(
         {String? code = kBragTestCode,

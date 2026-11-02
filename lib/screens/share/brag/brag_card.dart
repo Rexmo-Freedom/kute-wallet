@@ -25,9 +25,10 @@
 //     held side's chance now, the dot at the price paid, the P&L huge under
 //     its hub and "Since you bought · +42.1%"; the price paid and now as
 //     the plain fact line ("41¢ → 62¢").
-//   * Sal at the top right in the tone's mood ([bragPose]: smug on a win,
-//     deadpan on a loss), the EDGY LINE (brag_lines.dart) over the footer:
-//     the wordmark and the sharer's code.
+//   * Sal at the top right in the tone's pose ([bragPose]: pleased on a
+//     win, hopping on a big one, unbothered on a loss), the EDGY LINE
+//     (brag_lines.dart) over the footer: the wordmark and the sharer's
+//     code.
 //
 // AMOUNTS (founder, 1 November 2026: "don't even give the option"): the
 // card always shows the real amounts, with the percents where they exist.
@@ -61,13 +62,13 @@ ShareCardPalette bragPalette(BragData data) => switch (data.tone) {
       BragTone.flat => ShareCardPalette.flat,
     };
 
-/// Sal's mood by the tone: smug on a win, a side-glance on a small one,
-/// deadpan on a loss, weighing it when flat.
+/// Sal's pose by the tone: hopping on a big win, pleased on any other
+/// win (a small one too), unbothered on a loss, curious when flat.
 ShareCardPose bragPose(BragData data) => switch (data.tone) {
-      BragTone.bigWin || BragTone.win => ShareCardPose.smug,
-      BragTone.smallWin => ShareCardPose.point,
-      BragTone.loss => ShareCardPose.deadpan,
-      BragTone.flat => ShareCardPose.think,
+      BragTone.bigWin => ShareCardPose.bigWin,
+      BragTone.win || BragTone.smallWin => ShareCardPose.win,
+      BragTone.loss => ShareCardPose.loss,
+      BragTone.flat => ShareCardPose.flat,
     };
 
 /// A result's colour on [p]: up, down, or muted when flat.

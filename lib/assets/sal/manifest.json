@@ -1082,7 +1082,7 @@
     "group": "coin",
     "coin": "coin_anchors.json"
   },
-  "card_smug": {
+  "card_bigwin": {
     "framing": "body",
     "fps": 24,
     "frames": 1,
@@ -1092,13 +1092,13 @@
     "loop": false,
     "files": {
       "2x": {
-        "file": "card_smug@2x.webp",
+        "file": "card_bigwin@2x.webp",
         "cell": 256,
         "width": 256,
         "height": 256
       },
       "3x": {
-        "file": "card_smug@3x.webp",
+        "file": "card_bigwin@3x.webp",
         "cell": 384,
         "width": 384,
         "height": 384
@@ -1106,7 +1106,7 @@
     },
     "group": "card"
   },
-  "card_deadpan": {
+  "card_flat": {
     "framing": "body",
     "fps": 24,
     "frames": 1,
@@ -1116,13 +1116,13 @@
     "loop": false,
     "files": {
       "2x": {
-        "file": "card_deadpan@2x.webp",
+        "file": "card_flat@2x.webp",
         "cell": 256,
         "width": 256,
         "height": 256
       },
       "3x": {
-        "file": "card_deadpan@3x.webp",
+        "file": "card_flat@3x.webp",
         "cell": 384,
         "width": 384,
         "height": 384
@@ -1130,7 +1130,7 @@
     },
     "group": "card"
   },
-  "card_think": {
+  "card_loss": {
     "framing": "body",
     "fps": 24,
     "frames": 1,
@@ -1140,13 +1140,13 @@
     "loop": false,
     "files": {
       "2x": {
-        "file": "card_think@2x.webp",
+        "file": "card_loss@2x.webp",
         "cell": 256,
         "width": 256,
         "height": 256
       },
       "3x": {
-        "file": "card_think@3x.webp",
+        "file": "card_loss@3x.webp",
         "cell": 384,
         "width": 384,
         "height": 384
@@ -1154,7 +1154,7 @@
     },
     "group": "card"
   },
-  "card_carry": {
+  "card_predict": {
     "framing": "body",
     "fps": 24,
     "frames": 1,
@@ -1164,13 +1164,13 @@
     "loop": false,
     "files": {
       "2x": {
-        "file": "card_carry@2x.webp",
+        "file": "card_predict@2x.webp",
         "cell": 256,
         "width": 256,
         "height": 256
       },
       "3x": {
-        "file": "card_carry@3x.webp",
+        "file": "card_predict@3x.webp",
         "cell": 384,
         "width": 384,
         "height": 384
@@ -1178,7 +1178,7 @@
     },
     "group": "card"
   },
-  "card_point": {
+  "card_send": {
     "framing": "body",
     "fps": 24,
     "frames": 1,
@@ -1188,13 +1188,37 @@
     "loop": false,
     "files": {
       "2x": {
-        "file": "card_point@2x.webp",
+        "file": "card_send@2x.webp",
         "cell": 256,
         "width": 256,
         "height": 256
       },
       "3x": {
-        "file": "card_point@3x.webp",
+        "file": "card_send@3x.webp",
+        "cell": 384,
+        "width": 384,
+        "height": 384
+      }
+    },
+    "group": "card"
+  },
+  "card_win": {
+    "framing": "body",
+    "fps": 24,
+    "frames": 1,
+    "columns": 1,
+    "rows": 1,
+    "cell": 128,
+    "loop": false,
+    "files": {
+      "2x": {
+        "file": "card_win@2x.webp",
+        "cell": 256,
+        "width": 256,
+        "height": 256
+      },
+      "3x": {
+        "file": "card_win@3x.webp",
         "cell": 384,
         "width": 384,
         "height": 384

@@ -20,8 +20,8 @@
 //   * INVESTMENT (navy): THE ACTUAL STOCK: its real logo (HlCoinIcon, 36),
 //     name and ticker, the price huge, "+3.4% today" in the change's
 //     colour, the last 30 days' closes as the line filling the space,
-//     "Long · $25" when sent as a pick, the edgy line; Sal smug on a day
-//     up, side-eyeing a day down.
+//     "Long · $25" when sent as a pick, the edgy line; Sal pleased on a
+//     day up (hopping at +10%), unbothered on a day down.
 //
 // Sal stands at the top right ([shareCardPose]); the footer is the
 // wordmark and the sharer's code. The headline sentence leads the share
@@ -59,15 +59,21 @@ ShareCardPalette shareCardPalette(ShareCardData data) => switch (data) {
       InvestmentCardData() => ShareCardPalette.investment,
     };
 
-/// Sal's mood on the card: the briefcase on a send, weighing the odds on
-/// a prediction, smug on a stock up, a side-glance on a stock down or
-/// flat.
+/// A stock up this much today (a fraction) gets Sal's big win.
+const double kShareCardBigChange = 0.10;
+
+/// Sal's pose on the card: the briefcase on a send, weighing the odds on
+/// a prediction; on a stock, today's change: pleased up, hopping at
+/// [kShareCardBigChange] or more, unbothered down, curious flat.
 ShareCardPose shareCardPose(ShareCardData data) => switch (data) {
-      MoneyCardData() => ShareCardPose.carry,
-      PredictionCardData() => ShareCardPose.think,
-      final InvestmentCardData d => (d.change ?? 0) > _kFlatChange
-          ? ShareCardPose.smug
-          : ShareCardPose.point,
+      MoneyCardData() => ShareCardPose.send,
+      PredictionCardData() => ShareCardPose.predict,
+      final InvestmentCardData d => switch (d.change ?? 0) {
+          final c when c >= kShareCardBigChange => ShareCardPose.bigWin,
+          final c when c > _kFlatChange => ShareCardPose.win,
+          final c when c < -_kFlatChange => ShareCardPose.loss,
+          _ => ShareCardPose.flat,
+        },
     };
 
 class ShareCard extends StatelessWidget {
