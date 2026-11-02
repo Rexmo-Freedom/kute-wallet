@@ -1945,6 +1945,9 @@ class _CompactCryptoCard extends StatelessWidget {
   /// The Up / Down pills' height.
   static const double pillHeight = 44;
 
+  /// The price row's height: the live price's line (24, line height 1).
+  static const double _priceLine = 24;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -2041,63 +2044,73 @@ class _CompactCryptoCard extends StatelessWidget {
           ),
           SizedBox(height: 10.h),
           // The live price, its move against the target, the target.
-          if (loading)
-            KuteSkeleton(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SkeletonBar(150.w, 24.h, radius: 6.r),
-              ),
-            )
-          else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: RollingNumberText(
-                      text: priceText,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.7,
-                        height: 1.0,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+          // One fixed line, skeleton or figures: a price scaled down to
+          // fit beside a wider move, or the skeleton giving way to the
+          // digits, never changes the card's height (the list under it
+          // would move with every tick).
+          SizedBox(
+            height: _priceLine.sp,
+            child: loading
+                ? KuteSkeleton(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SkeletonBar(150.w, 24.h, radius: 6.r),
+                    ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: RollingNumberText(
+                            text: priceText,
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.7,
+                              height: 1.0,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (diffText != null) ...[
+                        SizedBox(width: 6.w),
+                        Text(
+                          diffText!,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: diffUp
+                                ? AppColors.marketUp
+                                : AppColors.marketDown,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                      SizedBox(width: 8.w),
+                      const Spacer(),
+                      Text(
+                        targetText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                if (diffText != null) ...[
-                  SizedBox(width: 6.w),
-                  Text(
-                    diffText!,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: diffUp ? AppColors.marketUp : AppColors.marketDown,
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-                SizedBox(width: 8.w),
-                const Spacer(),
-                Text(
-                  targetText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.textSecondary,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
+          ),
           SizedBox(height: 8.h),
           // The sparkline with the dashed target line, no in-chart
           // "Target" badge: the target is printed just above.
