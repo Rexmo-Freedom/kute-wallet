@@ -17,7 +17,9 @@
 //   * Send this prediction (Send this investment on Investing): Send to
 //     anyone (send_to_anyone_sheet.dart) for dollars with the pick on the
 //     link: the market slug and title, the venue, the outcome and side the
-//     page showed (kute_share_actions.dart).
+//     page showed (kute_share_actions.dart). Only where the page is one
+//     prediction: an event's page (several outcomes, a game) sends the
+//     market alone, `sendPick: false` (founder, 2 November 2026).
 //
 // `share_market_opened {market}` once per open. Never the link.
 
@@ -53,7 +55,8 @@ const String kShareMarketRouteName = 'share_market';
 /// button carries (see the file header). [imageUrl] is a prediction
 /// market's picture; [ticker], [wireCoin], [coinCategory] and
 /// [coinIconUrl] an Investing market's logo and ticker, for the card
-/// until the providers have the market.
+/// until the providers have the market. [sendPick] false: no Send this
+/// prediction button (an event's page, see the file header).
 Future<void> openShareForMarket(
   BuildContext context, {
   required String title,
@@ -71,6 +74,7 @@ Future<void> openShareForMarket(
   String? wireCoin,
   String? coinCategory,
   String? coinIconUrl,
+  bool sendPick = true,
 }) {
   ShareLinkEvents.marketOpened(marketSlug: marketSlug);
   return showAppBottomSheet<void>(
@@ -92,6 +96,7 @@ Future<void> openShareForMarket(
       wireCoin: wireCoin,
       coinCategory: coinCategory,
       coinIconUrl: coinIconUrl,
+      sendPick: sendPick,
     ),
   );
 }
@@ -125,6 +130,7 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
     this.wireCoin,
     this.coinCategory,
     this.coinIconUrl,
+    this.sendPick = true,
   });
 
   final String title;
@@ -146,6 +152,10 @@ class ShareMarketSheet extends ConsumerStatefulWidget {
   final String? wireCoin;
   final String? coinCategory;
   final String? coinIconUrl;
+
+  /// Whether the sheet offers Send this prediction (false on an event's
+  /// page: the market alone).
+  final bool sendPick;
 
   bool get investing => venue == 'hyperliquid';
 
@@ -248,14 +258,15 @@ class _ShareMarketSheetState extends ConsumerState<ShareMarketSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // The second button stays on the sheet, as a text button
-                // above the bar.
-                AppTextButton(
-                  key: const ValueKey('share-market-send-pick'),
-                  text: widget.investing
-                      ? l10n.sendThisInvestment
-                      : l10n.sendThisPrediction,
-                  onPressed: () => unawaited(_sendPick(context)),
-                ),
+                // above the bar, where the page is one prediction.
+                if (widget.sendPick)
+                  AppTextButton(
+                    key: const ValueKey('share-market-send-pick'),
+                    text: widget.investing
+                        ? l10n.sendThisInvestment
+                        : l10n.sendThisPrediction,
+                    onPressed: () => unawaited(_sendPick(context)),
+                  ),
                 // THE BAR IS THE BUTTON (kute_bar_context.dart): Share
                 // sends the card with the link; the sheet keeps clear of
                 // it.

@@ -4,6 +4,8 @@
 // "Recommended" label, and the keyboard down until the field is tapped.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -397,6 +399,168 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+      'an event page (Michigan Senate Election Winner, several outcomes): '
+      'the sheet holds one full-width "Send the market" card, no "Send '
+      'this prediction", and the bar\'s line says what that card does',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _loadInter(tester);
+    final bar = await _marketBar(tester, sendPick: false);
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    expect(bar.actions.map((a) => a.label), [l10n.shareTheMarket]);
+    expect(bar.sublabel, l10n.shareTheMarketSub);
+    await _pumpSheet(tester, bar);
+    expect(find.text(l10n.shareTheMarket), findsOneWidget);
+    expect(find.text(l10n.sendThisPrediction), findsNothing);
+    final grid =
+        tester.getRect(find.byKey(const ValueKey('context-actions-card')));
+    final card =
+        find.byKey(ValueKey('context-action-card-${l10n.shareTheMarket}'));
+    expect(tester.getRect(card).width, moreOrLessEquals(grid.width));
+    // The market's whole name at the foot.
+    final sent =
+        find.byKey(ValueKey('context-action-sent-${l10n.shareTheMarket}'));
+    expect(tester.widget<Text>(sent).data, 'Michigan Senate Election Winner');
+    expect(_lines(tester, sent).$2, isFalse);
+    await _closeSheet(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a single prediction page (a Yes/No market, or an outcome drilled '
+      'into): both cards, "Send the market" and "Send this prediction"',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _loadInter(tester);
+    final bar = await _marketBar(tester, sendPick: true);
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    expect(bar.actions.map((a) => a.label),
+        [l10n.shareTheMarket, l10n.sendThisPrediction]);
+    expect(bar.sublabel, l10n.barShareMarketSub);
+    await _pumpSheet(tester, bar);
+    expect(find.text(l10n.shareTheMarket), findsOneWidget);
+    expect(find.text(l10n.sendThisPrediction), findsOneWidget);
+    expect(
+        tester
+            .widget<Text>(find.byKey(
+                ValueKey('context-action-sent-${l10n.sendThisPrediction}')))
+            .data,
+        'Yes 64%');
+    await _closeSheet(tester);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final locale in const [Locale('en'), Locale('de')]) {
+    testWidgets(
+        'two cards side by side (${locale.languageCode}): a long market '
+        'name at the foot wraps to two lines, never one line and an '
+        'ellipsis; the titles and lines under them fit whole',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _loadInter(tester);
+      final l10n = lookupAppLocalizations(locale);
+      final bar = KuteMarketBarContext(
+        label: l10n.barShareWithFriends,
+        preview: const KuteBarPreview(
+            title: 'Michigan Senate Election Winner',
+            line: 'Abdul El-Sayed (D) 64%'),
+        actions: [
+          KuteMarketBarAction(
+              label: l10n.shareTheMarket,
+              sublabel: l10n.shareTheMarketSub,
+              icon: Icons.ios_share_rounded,
+              onTap: (_) {}),
+          KuteMarketBarAction(
+              label: l10n.sendThisPrediction,
+              sublabel: l10n.sendThisPickSub,
+              salClip: 'share',
+              onTap: (_) {}),
+        ],
+      );
+      await _pumpSheet(tester, bar, locale: locale);
+      final sent =
+          find.byKey(ValueKey('context-action-sent-${l10n.shareTheMarket}'));
+      expect(tester.widget<Text>(sent).maxLines, 2);
+      final (lines, cut) = _lines(tester, sent);
+      expect(lines, 2, reason: 'the name takes its second line');
+      expect(cut, isFalse, reason: 'and is whole');
+      for (final a in bar.actions) {
+        final card = find.byKey(ValueKey('context-action-card-${a.label}'));
+        for (final text in [a.label, a.sublabel!]) {
+          final t = find.descendant(of: card, matching: find.text(text));
+          expect(_lines(tester, t).$2, isFalse, reason: '"$text" is whole');
+        }
+      }
+      await _closeSheet(tester);
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+/// The app's Inter, so a test measures lines as the phone does.
+Future<void> _loadInter(WidgetTester tester) => tester.runAsync(() async {
+      final inter = FontLoader('Inter');
+      for (final f in ['Regular', 'SemiBold', 'Bold']) {
+        inter.addFont(rootBundle.load('lib/assets/fonts/Inter-$f.ttf'));
+      }
+      await inter.load();
+    });
+
+/// The Michigan Senate event page's bar ([sendPick] false: an event) or a
+/// single Yes/No market's, as market_detail_sheet builds it.
+Future<KuteMarketBarContext> _marketBar(WidgetTester tester,
+    {required bool sendPick}) async {
+  late KuteMarketBarContext bar;
+  await tester.pumpWidget(MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Builder(builder: (context) {
+      bar = marketBarContext(
+        context,
+        title: sendPick
+            ? 'Will Abdul El-Sayed win the Michigan Senate election?'
+            : 'Michigan Senate Election Winner',
+        venue: kMarketLinkPredictions,
+        slug: 'michigan-senate-election-winner',
+        chance: sendPick ? 64 : null,
+        outcome: sendPick ? 'Yes' : 'Abdul El-Sayed (D)',
+        outcomeIndex: 0,
+        outcomeChance: 64,
+        side: 'buy',
+        position: false,
+        category: SearchCategory.predictions,
+        searchHint: null,
+        source: 'predictions',
+        sendPick: sendPick,
+      ) as KuteMarketBarContext;
+      return const SizedBox();
+    }),
+  ));
+  return bar;
+}
+
+/// The number of lines [finder]'s Text laid out in, and whether it was cut.
+(int, bool) _lines(WidgetTester tester, Finder finder) {
+  final p = tester.renderObject<RenderParagraph>(
+      find.descendant(of: finder, matching: find.byType(RichText)).first);
+  final length = p.text.toPlainText().length;
+  final tops = {
+    for (final b in p.getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: length)))
+      b.top.round(),
+  };
+  return (tops.length, p.didExceedMaxLines);
 }
 
 /// Closes the open sheet, as a person would, so the next test can open
@@ -424,8 +588,8 @@ void _expectPickBelow(WidgetTester tester, String pick) {
 }
 
 /// Opens the Sal sheet with [barContext] (Sal off).
-Future<void> _pumpSheet(
-    WidgetTester tester, KuteMarketBarContext barContext) async {
+Future<void> _pumpSheet(WidgetTester tester, KuteMarketBarContext barContext,
+    {Locale? locale}) async {
   await tester.pumpWidget(ProviderScope(
     overrides: [
       aiEnabledProvider.overrideWith((_) async => false),
@@ -446,6 +610,7 @@ Future<void> _pumpSheet(
           fontFamily: 'Inter',
           extensions: [AppColorsExtension.light()],
         ),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(

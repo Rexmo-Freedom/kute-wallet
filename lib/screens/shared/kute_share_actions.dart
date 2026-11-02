@@ -50,6 +50,18 @@
 // it" in profit, screens/share/brag/position_share_card.dart). A settled
 // position passes none and keeps the send rows only.
 //
+// AN EVENT SENDS THE MARKET ALONE (founder, 2 November 2026: "on markets,
+// not the individual predictions, send a market should just be send the
+// market. Only on individual predictions we can send the prediction"). A
+// page that is not one prediction (a multi-outcome event, a game's board
+// of markets) passes `sendPick: false`: the Sal sheet holds the one
+// full-width "Send the market" card, the bar's line under it says what
+// that card does, and the market send sheet drops its Send this
+// prediction button. A Yes/No market, an outcome drilled into from an
+// event (its own Yes/No page), a position and an Investing market keep
+// both cards. The sheet stays (the pill is the page's only door to Sal:
+// the field to ask about the market sits over the card).
+//
 // SHARE CARDS (founder, 1 November 2026): the market row's sheet and the
 // pick row's link both end on a 4:5 share card (screens/share/cards/): the
 // market page hands over its picture and logo for it.
@@ -231,7 +243,9 @@ class KuteMarketBarAction extends KuteBarAction {
 /// has only the label), [outcomeChance] its chance 0–100 for the preview
 /// line, [side] `buy` for a prediction outcome, `long` or `short` on
 /// Investing. [imageUrl] is the market's picture for the preview card
-/// (Investing draws the coin icon from [slug]).
+/// (Investing draws the coin icon from [slug]). [sendPick] false: the
+/// page is an event, not one prediction, and sends the market alone (see
+/// the file header).
 KuteBarContext marketBarContext(
   BuildContext context, {
   required String title,
@@ -263,6 +277,7 @@ KuteBarContext marketBarContext(
   KuteBarPlacement placement = KuteBarPlacement.bottom,
   // An open position's brag card, built when asked (see the file header).
   BragData Function()? brag,
+  bool sendPick = true,
 }) {
   final l10n = context.l10n;
   final cleanSlug = (slug?.trim().isEmpty ?? true) ? null : slug!.trim();
@@ -292,7 +307,9 @@ KuteBarContext marketBarContext(
   return KuteMarketBarContext(
     primaryAction: brag == null ? null : openBrag,
     label: l10n.barShareWithFriends,
-    sublabel: position ? l10n.barSharePositionSub : l10n.barShareMarketSub,
+    sublabel: position
+        ? l10n.barSharePositionSub
+        : (sendPick ? l10n.barShareMarketSub : l10n.shareTheMarketSub),
     clip: 'share',
     category: category,
     searchHint: searchHint,
@@ -335,27 +352,29 @@ KuteBarContext marketBarContext(
             wireCoin: investing ? wireCoin : null,
             coinCategory: investing ? coinCategory : null,
             coinIconUrl: investing ? coinIconUrl : null,
+            sendPick: sendPick,
           ));
         }),
       ),
-      KuteMarketBarAction(
-        label: investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
-        sublabel: l10n.sendThisPickSub,
-        salClip: 'share',
-        onTap: (_) => _afterSalSheet(context, () {
-          unawaited(showSendToAnyoneSheet(
-            context,
-            kind: ShareLinkKind.dollars,
-            marketSlug: cleanSlug,
-            marketTitle: title,
-            venue: shareVenue,
-            outcome: pickLabel,
-            outcomeIndex: outcomeIndex,
-            side: pickSide,
-            entrySource: 'market_bar',
-          ));
-        }),
-      ),
+      if (sendPick)
+        KuteMarketBarAction(
+          label: investing ? l10n.sendThisInvestment : l10n.sendThisPrediction,
+          sublabel: l10n.sendThisPickSub,
+          salClip: 'share',
+          onTap: (_) => _afterSalSheet(context, () {
+            unawaited(showSendToAnyoneSheet(
+              context,
+              kind: ShareLinkKind.dollars,
+              marketSlug: cleanSlug,
+              marketTitle: title,
+              venue: shareVenue,
+              outcome: pickLabel,
+              outcomeIndex: outcomeIndex,
+              side: pickSide,
+              entrySource: 'market_bar',
+            ));
+          }),
+        ),
       if (brag != null)
         KuteMarketBarAction(
           label: l10n.bragPositionAction,

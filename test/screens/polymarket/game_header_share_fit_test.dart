@@ -287,13 +287,15 @@ void main() {
         final rules = find.byType(PolyRulesRow);
         final barTop = tester.getRect(button).top;
         expect(tester.getRect(rules).bottom, lessThan(barTop));
-        // A tap opens the Sal sheet with the market's send cards, as the
-        // header pill does.
+        // A tap opens the Sal sheet with the market's send card, as the
+        // header pill does: a game is an event, so the market alone
+        // (founder, 2 November 2026).
         await tester.tap(button);
         for (var i = 0; i < 12; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
         expect(find.text(l10n.shareTheMarket), findsWidgets);
+        expect(find.text(l10n.sendThisPrediction), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => MockClient((_) async => http.Response('{}', 404)));

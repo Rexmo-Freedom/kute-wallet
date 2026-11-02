@@ -780,15 +780,31 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
       placement: KuteBarPlacement.header,
+      // An event (outcome rows, a game's board) sends the market alone;
+      // one prediction sends the market or the prediction (founder, 2
+      // November 2026; kute_share_actions.dart).
+      sendPick: _isSinglePrediction,
     );
   }
+
+  /// Whether this page is one prediction: a Yes/No market (an outcome
+  /// drilled into from an event is one too), or one two-sided market
+  /// (Up / Down) that is not a game's board. An event whose outcomes are
+  /// each their own Yes/No market (a NO token on the outcome), a
+  /// multi-outcome event or a game is the market, not a prediction.
+  bool get _isSinglePrediction =>
+      event.isBinary ||
+      (event.outcomes.length <= 2 &&
+          !_showsGameLines &&
+          event.outcomes.every((o) => o.noTokenId == null));
 
   /// A game sheet whose title row has no room for the pill: the bar at the
   /// foot is the dark primary button every pinned action is, saying "Send
   /// to a friend" on one line (founder, 2 November 2026: "make the button
   /// dark like the others"), and a tap opens the same Sal sheet the pill
-  /// opens, with the page's market context ([bar]: Send the market / Send
-  /// this prediction). It never waits on input, so off it says the same.
+  /// opens, with the page's market context ([bar]: Send the market; a
+  /// game is an event, so no Send this prediction). It never waits on
+  /// input, so off it says the same.
   KuteBarContext _sendToFriendBar(KuteBarContext bar) {
     final label = context.l10n.shareHeaderLabel;
     return KuteBarContext.primary(
