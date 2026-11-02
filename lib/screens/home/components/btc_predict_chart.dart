@@ -37,6 +37,12 @@ class BtcPredictChart extends ConsumerStatefulWidget {
   /// double-printed price the old banner shipped with.
   final bool showHeader;
 
+  /// The in-chart "Target" badge beside the dashed line, and the right
+  /// margin kept free for it. The compact 5m card prints "Target $…"
+  /// above its sparkline, so it passes false: no badge (which the slim
+  /// plot clipped at its edges) and the curve runs to the card's edge.
+  final bool showTargetBadge;
+
   const BtcPredictChart({
     super.key,
     this.height = 140,
@@ -45,6 +51,7 @@ class BtcPredictChart extends ConsumerStatefulWidget {
     this.roundStart,
     this.showLiveIndicator = false,
     this.showHeader = true,
+    this.showTargetBadge = true,
   });
 
   @override
@@ -95,6 +102,9 @@ class _BtcPredictChartState extends ConsumerState<BtcPredictChart>
 
     final history = widget.externalHistory ?? const <BtcPriceSnapshot>[];
     final priceToBeat = widget.externalPriceToBeat;
+    final rightMargin = widget.showTargetBadge
+        ? _ChartGeometry.rightMargin
+        : _ChartGeometry.rightMarginNoBadge;
 
     final isAbove = priceToBeat != null &&
         history.isNotEmpty &&
@@ -238,6 +248,7 @@ class _BtcPredictChartState extends ConsumerState<BtcPredictChart>
                               isDark: context.isDark,
                               tweenedLeadingPrice: tweenedPrice,
                               roundStart: widget.roundStart,
+                              rightMargin: rightMargin,
                             ),
                           ),
                         ),
@@ -260,6 +271,8 @@ class _BtcPredictChartState extends ConsumerState<BtcPredictChart>
                               tweenedLeadingPrice: tweenedPrice,
                               tick: _tickCtrl,
                               roundStart: widget.roundStart,
+                              rightMargin: rightMargin,
+                              showTargetBadge: widget.showTargetBadge,
                             ),
                           ),
                         ),
@@ -299,7 +312,11 @@ class _ChartGeometry {
   final double chartW;
   final double chartH;
 
+  /// The right margin kept for the "Target" badge.
   static const double rightMargin = 65;
+
+  /// The right margin without the badge: room for the live dot's glow.
+  static const double rightMarginNoBadge = 8;
   static const double bottomMargin = 18;
 
   // Cap on the plotted span, not a fixed width: the window covers the
@@ -327,10 +344,11 @@ class _ChartGeometry {
     required double? priceToBeat,
     required Size size,
     DateTime? roundStart,
+    double rightInset = _ChartGeometry.rightMargin,
   }) {
     if (snapshots.length < 2) return null;
 
-    final chartW = size.width - rightMargin;
+    final chartW = size.width - rightInset;
     final chartH = size.height - bottomMargin;
     if (chartW <= 0 || chartH <= 0) return null;
 
@@ -446,6 +464,9 @@ class _BtcLiveChartPainter extends CustomPainter {
   final bool isDark;
   final DateTime? roundStart;
 
+  /// The right margin beside the plot ([_ChartGeometry.rightMargin]).
+  final double rightMargin;
+
   /// Smoothly-tweened price the leading edge is currently drawing
   /// toward — interpolates from the previous price to the latest
   /// `snapshots.last.price` over ~500ms via TweenAnimationBuilder.
@@ -469,6 +490,7 @@ class _BtcLiveChartPainter extends CustomPainter {
     required this.isDark,
     required this.tweenedLeadingPrice,
     this.roundStart,
+    this.rightMargin = _ChartGeometry.rightMargin,
   });
 
   @override
@@ -479,6 +501,7 @@ class _BtcLiveChartPainter extends CustomPainter {
       priceToBeat: priceToBeat,
       size: size,
       roundStart: roundStart,
+      rightInset: rightMargin,
     );
     if (geom == null) return;
     final chartW = geom.chartW;
@@ -611,7 +634,8 @@ class _BtcLiveChartPainter extends CustomPainter {
         old.priceToBeat != priceToBeat ||
         old.labelColor != labelColor ||
         old.isDark != isDark ||
-        old.roundStart != roundStart;
+        old.roundStart != roundStart ||
+        old.rightMargin != rightMargin;
   }
 }
 
@@ -655,6 +679,12 @@ class _BtcChartDecorPainter extends CustomPainter {
   /// The badge word, in the app language.
   final String targetLabel;
 
+  /// The right margin beside the plot ([_ChartGeometry.rightMargin]).
+  final double rightMargin;
+
+  /// Whether to draw the "Target" badge beside the dashed line.
+  final bool showTargetBadge;
+
   _BtcChartDecorPainter({
     required this.targetLabel,
     required this.snapshots,
@@ -664,6 +694,8 @@ class _BtcChartDecorPainter extends CustomPainter {
     required this.tweenedLeadingPrice,
     required this.tick,
     this.roundStart,
+    this.rightMargin = _ChartGeometry.rightMargin,
+    this.showTargetBadge = true,
   }) : super(repaint: tick);
 
   @override
@@ -676,6 +708,7 @@ class _BtcChartDecorPainter extends CustomPainter {
         priceToBeat: priceToBeat,
         size: size,
         roundStart: roundStart,
+        rightInset: rightMargin,
       );
     }
     final geom = _geom;
@@ -738,6 +771,8 @@ class _BtcChartDecorPainter extends CustomPainter {
       );
     }
 
+    if (!showTargetBadge) return;
+
     // "Target" badge
     final badgePaint = Paint()..color = labelColor.withValues(alpha: 0.1);
     final badgeRect = RRect.fromRectAndRadius(
@@ -776,6 +811,8 @@ class _BtcChartDecorPainter extends CustomPainter {
         old.labelColor != labelColor ||
         old.isDark != isDark ||
         old.tweenedLeadingPrice != tweenedLeadingPrice ||
-        old.roundStart != roundStart;
+        old.roundStart != roundStart ||
+        old.rightMargin != rightMargin ||
+        old.showTargetBadge != showTargetBadge;
   }
 }
