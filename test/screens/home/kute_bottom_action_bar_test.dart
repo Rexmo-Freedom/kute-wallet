@@ -1,7 +1,7 @@
 // The dock's square button is search on every surface (owner decision: each job
 // has one home; accounts open from the wallet's name at the top). While Sal is
 // available the glyph is a magnifying glass whose lens is Sal's face, his ears
-// over the rim ("Search or manage with AI"); with AI off it is the plain
+// over the rim ("Search or Manage with AI"); with AI off it is the plain
 // magnifier at the same visual size. Never a plus, and a tap opens the unified
 // search sheet scoped to the host.
 
@@ -156,8 +156,8 @@ void main() {
     expect(find.byType(KuteDogMagnifier), findsOneWidget);
     expect(find.byIcon(Icons.search_rounded), findsNothing);
     expect(find.byIcon(Icons.add_rounded), findsNothing);
-    expect(find.byTooltip('Search or manage with AI'), findsOneWidget);
-    expect(find.bySemanticsLabel('Search or manage with AI'), findsOneWidget);
+    expect(find.byTooltip('Search or Manage with AI'), findsOneWidget);
+    expect(find.bySemanticsLabel('Search or Manage with AI'), findsOneWidget);
     // The glyph's square fills most of the 54 button, inside it with a
     // small margin, the glass in the theme's foreground like the other
     // dock icons.
@@ -209,7 +209,7 @@ void main() {
     // The same visual size as Sal's glass (its lens about 18 across).
     expect(tester.widget<Icon>(find.byIcon(Icons.search_rounded)).size, 34);
     expect(find.byTooltip('Search'), findsOneWidget);
-    expect(find.byTooltip('Search or manage with AI'), findsNothing);
+    expect(find.byTooltip('Search or Manage with AI'), findsNothing);
     expect(find.bySemanticsLabel('Search'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.search_rounded));
     expect(opened, 1);
@@ -577,7 +577,7 @@ void main() {
     expect(investing.initialCategory, SearchCategory.perpetuals);
     expect(
         tester.widget<TextField>(find.byType(TextField)).decoration!.hintText,
-        'Search investments or manage with AI');
+        'Search investments or Manage with AI');
     expect(tester.takeException(), isNull);
   });
 }

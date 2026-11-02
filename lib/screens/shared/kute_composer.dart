@@ -29,7 +29,7 @@ class KuteComposer extends StatelessWidget {
   final bool enabled;
   final int? maxLength;
 
-  /// Null shows "Search or manage with AI" with [aiEnabled], and the
+  /// Null shows "Search or Manage with AI" with [aiEnabled], and the
   /// wallet search hint without it, in the app language.
   final String? hint;
   final String? sendLabel;

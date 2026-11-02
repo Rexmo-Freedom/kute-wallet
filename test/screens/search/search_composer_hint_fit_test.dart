@@ -1,6 +1,6 @@
 // The search sheet's composer hint is never cut (founder, 2 November 2026:
-// "Search investments or manage wit…" was): "Search or manage with AI",
-// "Search investments or manage with AI" and "Search predictions or manage
+// "Search investments or manage wit…" was): "Search or Manage with AI",
+// "Search investments or Manage with AI" and "Search predictions or manage
 // with AI", and the search-only hints, sit whole on the composer line on a
 // 375 pt phone in every shipped language, in Inter, at the composer's real
 // width (the sheet's gutters around it). A hint longer than the line

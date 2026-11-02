@@ -69,7 +69,7 @@ class KuteDockAction {
 /// square. While Sal is available the square's glyph is Sal holding a big
 /// magnifying glass up to his eye ([KuteDogMagnifier]): the glass reads as
 /// search at a glance, and Sal says he answers too.
-/// The one door to search and to Sal, labelled "Search or manage with AI".
+/// The one door to search and to Sal, labelled "Search or Manage with AI".
 /// With AI off it is the plain magnifier.
 ///
 /// THE 3D SAL (founder, 31 October 2026): the pill's glyph is the Blender
@@ -525,7 +525,7 @@ const double _kDockPillTallHeight = 56;
 /// THE FLOATING SAL PILL, the one chrome of the bar everywhere (the docks on
 /// Home and Dollars, the shell bar over everything else): Sal's clip, a label
 /// and an optional second line, in the pill's own frost. When the context
-/// changes ("Search investments or manage with AI" ↔ "Search predictions or
+/// changes ("Search investments or Manage with AI" ↔ "Search predictions or
 /// manage with AI" on the Dollars tab) it morphs EXACTLY as the bar's primary
 /// button does (kute_morph_label.dart): the width springs on the chip spring
 /// ([KuteMorphSize]), the old words slide up and out while the new ones rise

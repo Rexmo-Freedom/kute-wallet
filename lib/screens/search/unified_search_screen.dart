@@ -435,8 +435,8 @@ void endKuteSearchSession(ProviderContainer container) {
 }
 
 /// The composer's hint with Sal available: the bar's own words, "Search
-/// or manage with AI", narrowed to the venue the sheet opens on
-/// ("Search predictions or manage with AI", "Search investments or
+/// or Manage with AI", narrowed to the venue the sheet opens on
+/// ("Search predictions or Manage with AI", "Search investments or
 /// manage with AI"). The pill's travel lands on the same words.
 String searchManageAiHint(BuildContext context, SearchCategory category) {
   final l10n = context.l10n;

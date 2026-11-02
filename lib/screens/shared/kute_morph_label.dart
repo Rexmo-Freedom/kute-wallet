@@ -3,7 +3,7 @@
 // THE BAR'S MORPH, ONE PIECE (founder, 1 November 2026): the primary
 // button (kute_shell_bar.dart, KuteBarPrimaryButton) and the floating Sal
 // pill (kute_bottom_action_bar.dart, KuteSalPill; "Search investments or
-// manage with AI" ↔ "Search predictions or manage with AI" on the Dollars
+// manage with AI" ↔ "Search predictions or Manage with AI" on the Dollars
 // tab) change what they say with the SAME motion, from these three
 // widgets:
 //

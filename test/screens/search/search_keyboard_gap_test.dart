@@ -1,6 +1,6 @@
 // The search sheet with the keyboard up: the content keeps the sheets' 16dp
 // bottom baseline above the keyboard instead of resting on the keys, the
-// composer line ("Search or manage with AI", Sal's dog leading it) stays pinned
+// composer line ("Search or Manage with AI", Sal's dog leading it) stays pinned
 // at the top of the sheet under the handle, and nothing overflows on a small
 // phone. The keyboard stays down on open (founder, 31 October 2026); it rises
 // when the field is tapped.

@@ -25,7 +25,7 @@
 //     filtered by the text, "Send a link to +351…" for a typed number.
 //
 // No big Bitcoin card and no inline coin grid any more. The bar is the default
-// "Search or manage with AI" (the rows are the actions), Continue while the
+// "Search or Manage with AI" (the rows are the actions), Continue while the
 // field holds a destination. A send that went out, or a link created, closes
 // this sheet. Nothing here moves money: every door is an existing flow,
 // unchanged.

@@ -6852,15 +6852,15 @@
   "@barNeedWait": {
     "description": "Disabled primary button while something it needs is still loading."
   },
-  "searchPredictionsOrManageAi": "Search predictions or manage with AI",
+  "searchPredictionsOrManageAi": "Search predictions or Manage with AI",
   "@searchPredictionsOrManageAi": {
     "description": "The floating bar on the Dollars tab while Predictions is the picked half. One line on a 375 pt phone."
   },
-  "searchInvestmentsOrManageAi": "Search investments or manage with AI",
+  "searchInvestmentsOrManageAi": "Search investments or Manage with AI",
   "@searchInvestmentsOrManageAi": {
     "description": "The floating bar on the Dollars tab while Investing is the picked half. One line on a 375 pt phone."
   },
-  "searchOrManageAi": "Search or manage with AI",
+  "searchOrManageAi": "Search or Manage with AI",
   "@searchOrManageAi": {
     "description": "The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review), the tooltip and screen-reader label of the dock's square search button, and the placeholder of the search sheet's field. One line on a 375 pt phone."
   },

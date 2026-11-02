@@ -5,7 +5,7 @@
 // MaterialApp builder's Stack, app_widget.dart), so it sits over pushed
 // pages, modal barriers and sheets. It shows the topmost [KuteBarContext]
 // on the stack while that context's route is current, else the default
-// ("Search or manage with AI") over any page or sheet pushed over the tabs
+// ("Search or Manage with AI") over any page or sheet pushed over the tabs
 // ([KuteBarRouteObserver.over]); with nothing over them (Home, Dollars
 // draw their own pill in their dock) it is away. A hidden context or the
 // keyboard slides it down ([KuteMotion.sheetOut]); it springs back when

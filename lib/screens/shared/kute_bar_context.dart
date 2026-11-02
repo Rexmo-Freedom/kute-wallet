@@ -8,14 +8,14 @@
 // [KuteBarContextScope] around its content: pushed on mount, taken off on
 // dispose, so the bar always reads the topmost thing on screen and goes
 // back to the one under it when that closes. Home and Dollars draw their
-// own pill in their dock (the default, "Search or manage with AI"); every
+// own pill in their dock (the default, "Search or Manage with AI"); every
 // other surface is drawn by the shell-level [KuteShellBar]
 // (kute_shell_bar.dart) over the root navigator, so it sits above modal
 // barriers and sheets.
 //
 // EVERY SHEET AND PAGE SHOWS THE BAR (founder, 31 October 2026): a surface with
 // no context of its own, a Receive sheet, the scanner, a slip, a receipt,
-// Settings, gets the default ("Search or manage with AI"). The bar knows
+// Settings, gets the default ("Search or Manage with AI"). The bar knows
 // something is over the tabs through [KuteBarRouteObserver], one on the root
 // navigator and one on each tab's navigator (app_router.dart): every page route
 // and bottom-sheet route pushed over a tab counts

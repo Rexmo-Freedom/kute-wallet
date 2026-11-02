@@ -595,8 +595,8 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
     final c = context.colors;
     // THE BAR'S LABEL FOLLOWS THE PICKED HALF (founder, 31 October 2026):
-    // "Search predictions or manage with AI" with Predictions, "Search
-    // investments or manage with AI" with Investing (founder, 2 November
+    // "Search predictions or Manage with AI" with Predictions, "Search
+    // investments or Manage with AI" with Investing (founder, 2 November
     // 2026), scoped to that venue as the
     // sheet already is (searchTarget); the pill morphs on the chip spring
     // as the pill switches. Held only while this branch is on screen (the

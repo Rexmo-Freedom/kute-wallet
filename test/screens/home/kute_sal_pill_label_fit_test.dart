@@ -1,7 +1,7 @@
 // The bar's idle labels fit ONE line on a 375 pt phone in every shipped
 // language (founder, 2 November 2026: "search predictions and manage with
-// AI"): "Search predictions or manage with AI" with Predictions picked,
-// "Search investments or manage with AI" with Investing, "Search or
+// AI"): "Search predictions or Manage with AI" with Predictions picked,
+// "Search investments or Manage with AI" with Investing, "Search or
 // manage with AI" everywhere else. Each is drawn in the floating pill at
 // the shell bar's own gutters, in Inter, and its line must not be cut.
 // The English pills are written as a PNG when asked:

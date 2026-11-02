@@ -18080,19 +18080,19 @@ abstract class AppLocalizations {
   /// The floating bar on the Dollars tab while Predictions is the picked half. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
-  /// **'Search predictions or manage with AI'**
+  /// **'Search predictions or Manage with AI'**
   String get searchPredictionsOrManageAi;
 
   /// The floating bar on the Dollars tab while Investing is the picked half. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
-  /// **'Search investments or manage with AI'**
+  /// **'Search investments or Manage with AI'**
   String get searchInvestmentsOrManageAi;
 
   /// The floating bar's default label (over the tabs, pushed pages, the Portfolio, a send review), the tooltip and screen-reader label of the dock's square search button, and the placeholder of the search sheet's field. One line on a 375 pt phone.
   ///
   /// In en, this message translates to:
-  /// **'Search or manage with AI'**
+  /// **'Search or Manage with AI'**
   String get searchOrManageAi;
 
   /// Title of the big card on the search sheet's home: connect the wallet to the person's own AI assistant (not live yet; opens the Unavailable sheet).

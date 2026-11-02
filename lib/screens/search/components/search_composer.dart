@@ -5,7 +5,7 @@
 // tried: "I liked the previous one better ... same design, just make it look
 // better"): one plain LINE pinned at the TOP of the search sheet, under the
 // drag handle. Sal's `search` clip at 32 on the left, centred on the text, the
-// text at 18 sp, the hint ("Search or manage with AI", narrowed to the venue)
+// text at 18 sp, the hint ("Search or Manage with AI", narrowed to the venue)
 // in textSecondary so it reads as something to tap, a hairline in the border
 // colour under the whole line, and the circular send arrow at the right that
 // scales in only once there is text. The hint is never cut: the arrow's slot
@@ -50,7 +50,7 @@ class KuteSearchComposer extends StatelessWidget {
   final VoidCallback onSubmit;
   final bool aiEnabled;
 
-  /// Null: "Search or manage with AI" with Sal, the wallet search hint
+  /// Null: "Search or Manage with AI" with Sal, the wallet search hint
   /// without.
   final String? hint;
   final String? sendLabel;

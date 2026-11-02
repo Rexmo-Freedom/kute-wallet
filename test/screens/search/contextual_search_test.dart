@@ -149,8 +149,8 @@ void main() {
         final hint = !aiEnabled
             ? 'Search markets'
             : product == InvestmentsProduct.trading
-                ? 'Search investments or manage with AI'
-                : 'Search predictions or manage with AI';
+                ? 'Search investments or Manage with AI'
+                : 'Search predictions or Manage with AI';
         expect(
             tester
                 .widget<TextField>(find.byType(TextField))

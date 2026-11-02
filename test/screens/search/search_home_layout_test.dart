@@ -326,7 +326,7 @@ void main() {
     expect(field.style?.fontSize, 18);
     expect(field.decoration?.hintStyle?.fontSize, 18);
     expect(field.decoration?.hintStyle?.color, light.textSecondary);
-    expect(field.decoration?.hintText, 'Search or manage with AI');
+    expect(field.decoration?.hintText, 'Search or Manage with AI');
     // The send arrow is away without text.
     expect(tester.widget<AnimatedScale>(_sendScale).scale, 0);
     // The content starts under the line and scrolls under it: the line
@@ -496,12 +496,12 @@ void main() {
     (
       SearchCategory.perpetuals,
       'investing',
-      'Search investments or manage with AI'
+      'Search investments or Manage with AI'
     ),
     (
       SearchCategory.predictions,
       'predictions',
-      'Search predictions or manage with AI'
+      'Search predictions or Manage with AI'
     ),
   ]) {
     testWidgets(

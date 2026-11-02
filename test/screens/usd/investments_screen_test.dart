@@ -17,7 +17,7 @@
 // section (`?tab=positions|portfolio|open|orders|statistics|charts|
 // activity|balances`) opens that screen on the section, and the page's
 // pill stays where it was. The section is kept for the session.
-// The dock is the one quiet "Search or manage with AI" pill, scoped to
+// The dock is the one quiet "Search or Manage with AI" pill, scoped to
 // the pill on screen; the Portfolio screen declares its own bar context
 // instead.
 // Add opens the Dollars receive screen on its coin step, whose "From your

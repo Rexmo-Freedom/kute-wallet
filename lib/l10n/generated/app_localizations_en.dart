@@ -10512,14 +10512,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchPredictionsOrManageAi =>
-      'Search predictions or manage with AI';
+      'Search predictions or Manage with AI';
 
   @override
   String get searchInvestmentsOrManageAi =>
-      'Search investments or manage with AI';
+      'Search investments or Manage with AI';
 
   @override
-  String get searchOrManageAi => 'Search or manage with AI';
+  String get searchOrManageAi => 'Search or Manage with AI';
 
   @override
   String get connectOwnAiTitle => 'Connect your own AI';
