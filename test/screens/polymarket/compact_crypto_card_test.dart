@@ -2,9 +2,12 @@
 // November 2026: the full card stood ~600 px over the list): one header
 // row (logo, "BTC up or down · 5m", past rounds as dots, the countdown
 // pill), the price row (price, its move against the target, the target),
-// a 32 px sparkline and the Up / Down pills (34) with their odds, about
-// 160 px in all (founder, 2 November 2026: the sparkline card, a bit
-// smaller). The market page keeps the full card.
+// a 54 px sparkline (no in-chart "Target" badge: the target is printed
+// above it) and the Up / Down pills (44) with their odds, about 200 px in
+// all (founder, 2 November 2026: bigger still). The pills are the quiet
+// card's: soft tinted fills in the market colour, coloured text, the side
+// then its chance, no arrow; a tap opens the slip on that side. The market
+// page keeps the full card.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,7 +90,7 @@ Widget compactCardApp({bool dark = false}) => ProviderScope(
 void main() {
   setUp(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('compact: about 160 px, every piece of the round on it',
+  testWidgets('compact: about 200 px, every piece of the round on it',
       (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
@@ -100,7 +103,7 @@ void main() {
     final card = find.byKey(const ValueKey('crypto-round-compact'));
     expect(card, findsOneWidget);
     final h = tester.getSize(card).height;
-    expect(h, inInclusiveRange(135, 175));
+    expect(h, inInclusiveRange(185, 215));
     expect(find.text('BTC up or down · 5m'), findsOneWidget);
     expect(find.byKey(const ValueKey('crypto-round-countdown')), findsOneWidget);
     expect(find.text('02:34'), findsOneWidget);
@@ -109,11 +112,28 @@ void main() {
     expect(find.textContaining('▲'), findsOneWidget);
     final up = find.byKey(const ValueKey('crypto-round-up'));
     final down = find.byKey(const ValueKey('crypto-round-down'));
-    expect(tester.getSize(up).height, 34);
-    expect(tester.getSize(down).height, 34);
+    expect(tester.getSize(up).height, 44);
+    expect(tester.getSize(down).height, 44);
     expect(find.descendant(of: up, matching: find.text('Up')), findsOneWidget);
     expect(
         find.descendant(of: down, matching: find.text('Down')), findsOneWidget);
+    // Soft tinted pills: the market colour at 12% behind coloured text,
+    // no arrows.
+    for (final (pill, color) in [
+      (up, AppColors.marketUp),
+      (down, AppColors.marketDown),
+    ]) {
+      final box = tester.widget<Container>(find
+          .descendant(of: pill, matching: find.byType(Container))
+          .first);
+      expect((box.decoration! as BoxDecoration).color,
+          color.withValues(alpha: 0.12));
+      final label = tester.widget<Text>(find
+          .descendant(of: pill, matching: find.text(pill == up ? 'Up' : 'Down')));
+      expect(label.style!.color, color);
+    }
+    expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
+    expect(find.byIcon(Icons.arrow_downward_rounded), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 31));

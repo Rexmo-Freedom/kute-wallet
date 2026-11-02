@@ -1,11 +1,12 @@
-// On demand (r6, 2 November 2026: the 5m sparkline card a bit smaller,
+// On demand (r6, 2 November 2026: the 5m sparkline card bigger again
+// with the soft Up / Down pills,
 // the per-market cards with their chances, a game in play, and Investing's
 // four Latest-style squares): renders the decluttered surfaces (founder, 1 November 2026:
 // less clutter, each row or card one or two things) into PNGs for a look
 // by eye, light and dark: the Bitcoin home's Activity (four Latest squares,
 // two Earlier rows, no Today card), the Investing browse (Trending: the
-// calm strip, six one-line rows) and the Predictions browse (the quiet 5m
-// card, the strip, one-line rows); and, light, each venue on a picked
+// calm strip, six one-line rows) and the Predictions browse (the 5m
+// sparkline card, the strip, one-line rows); and, light, each venue on a picked
 // category (no strip, the full plain list).
 //
 //   flutter test test/screens/home/r5_declutter_render_test.dart \
