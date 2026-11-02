@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/providers/unified_search_provider.dart' show SearchCategory;
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow, KuteSalHeaderButton;
+    show KuteFigureShareRow, KuteSalHeaderButton, openKuteBarSheet;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
 import 'package:kute/helpers/formatters/polymarket_amount_formatter.dart';
@@ -757,10 +759,9 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// the scope around the close button while the page is up. Its control,
   /// the Share pill (KuteSalHeaderButton), sits beside the headline figure
   /// ([_figureWithShare]), not in the title row; a game sheet's sits in
-  /// the title row, or, with [placement] bottom where it does not fit
-  /// there, is the floating bar ([_buildHeader]).
-  KuteBarContext _barContext(
-      {KuteBarPlacement placement = KuteBarPlacement.header}) {
+  /// the title row where it fits there, else the bar at the foot is the
+  /// "Send to a friend" button ([_sendToFriendBar], [_buildHeader]).
+  KuteBarContext _barContext() {
     return marketBarContext(
       context,
       title: event.title,
@@ -778,15 +779,33 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
       category: SearchCategory.predictions,
       searchHint: context.l10n.searchPredictionsHint,
       source: 'predictions',
-      placement: placement,
+      placement: KuteBarPlacement.header,
+    );
+  }
+
+  /// A game sheet whose title row has no room for the pill: the bar at the
+  /// foot is the dark primary button every pinned action is, saying "Send
+  /// to a friend" on one line (founder, 2 November 2026: "make the button
+  /// dark like the others"), and a tap opens the same Sal sheet the pill
+  /// opens, with the page's market context ([bar]: Send the market / Send
+  /// this prediction). It never waits on input, so off it says the same.
+  KuteBarContext _sendToFriendBar(KuteBarContext bar) {
+    final label = context.l10n.shareHeaderLabel;
+    return KuteBarContext.primary(
+      label: label,
+      disabledLabel: label,
+      onPrimary: () => unawaited(openKuteBarSheet(bar)),
+      category: SearchCategory.predictions,
+      searchHint: context.l10n.searchPredictionsHint,
+      source: 'predictions',
     );
   }
 
   /// Whether a game sheet's title row holds both the whole title (up to
   /// two lines at its own size, never shrunk or cut) and the whole "Send
   /// to a friend" pill, at [rowWidth] (founder, 2 November 2026). Where it
-  /// does not, the pill leaves the header and the floating bar at the foot
-  /// says "Send to a friend" instead ([_buildHeader]).
+  /// does not, the pill leaves the header and the bar at the foot is the
+  /// dark "Send to a friend" button instead ([_buildHeader]).
   bool _gameHeaderFitsShare(
       BuildContext context, double rowWidth, TextStyle titleStyle) {
     // The row's other pieces: close (44), gap, icon (32), gap, gap before
@@ -813,10 +832,11 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
   /// a friend" pill here WHILE IT FITS beside the whole title
   /// ([_gameHeaderFitsShare]); where it does not (a long game title, a
   /// narrow phone, a large text size) the pill leaves the header and the
-  /// floating bar at the foot of the screen is "Send to a friend" instead,
-  /// the same Sal sheet on a tap (founder, 2 November 2026: "when there is
-  /// no space, the share with a friend button should be floating in the
-  /// bottom"). The page's last rows already scroll clear of the bar
+  /// bar at the foot of the screen is the dark primary "Send to a friend"
+  /// button ([_sendToFriendBar]), the same Sal sheet on a tap (founder, 2
+  /// November 2026: "when there is no space, the share with a friend
+  /// button should be floating in the bottom", and "make the button dark
+  /// like the others"). The page's last rows already scroll clear of the bar
   /// ([kuteBarScrollClearance] at the end of the list).
   Widget _buildHeader(AppColorsExtension c, KuteBarContext bar) {
     final titleStyle = TextStyle(
@@ -836,7 +856,7 @@ class _MarketDetailSheetState extends ConsumerState<MarketDetailSheet>
             KuteBarContextScope(
               barContext: shareInHeader
                   ? bar
-                  : _barContext(placement: KuteBarPlacement.bottom),
+                  : _sendToFriendBar(bar),
               child: const KuteCloseButton(),
             ),
             SizedBox(width: 8.w),

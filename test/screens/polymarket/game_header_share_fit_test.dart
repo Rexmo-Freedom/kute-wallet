@@ -3,8 +3,10 @@
 // the bottom, and we allow the user to scroll of course"). The pill sits in
 // the title row only while the whole title (up to two lines at its own
 // size) and the whole pill fit there; otherwise it leaves the header and
-// the floating bar at the foot is "Send to a friend", the same Sal sheet on
-// a tap, with the page's last rows scrolling clear of it.
+// the bar at the foot is the dark primary button every pinned action is
+// (founder, 2 November 2026: "make the button dark like the others"),
+// "Send to a friend" on one line, the same Sal sheet on a tap, with the
+// page's last rows scrolling clear of it.
 //
 // On demand, light renders of both variants:
 //   flutter test test/screens/polymarket/game_header_share_fit_test.dart \
@@ -242,8 +244,9 @@ void main() {
   for (final (game, width) in [(_long, 390.0), (_long, 430.0), (_medium, 390.0)]) {
     testWidgets(
         'at ${width.toInt()} wide "${game.$1}" keeps its row: no pill in the '
-        'header, the floating bar says "Send to a friend", and the last rows '
-        'scroll clear of it', (tester) async {
+        'header, the bar is the dark "Send to a friend" button opening the '
+        'market\'s Sal sheet, and the last rows scroll clear of it',
+        (tester) async {
       await _loadInter(tester);
       await http.runWithClient(() async {
         await _pump(tester, game, width: width);
@@ -251,14 +254,28 @@ void main() {
         expect(_shareButton, findsNothing);
         final top = _top(tester)!;
         expect(top.inHeader, isFalse);
-        expect(top.market, isTrue);
-        expect(top.label, l10n.barShareWithFriends);
+        // The primary button, as every pinned action: one line, the
+        // header pill's words, the same words if it were ever off.
+        expect(top.isPrimary, isTrue);
+        expect(top.actionable, isTrue);
+        expect(top.primaryLabel, l10n.shareHeaderLabel);
+        expect(top.disabledLabel, l10n.shareHeaderLabel);
+        expect(top.sublabel, isNull);
         final slide = find.byKey(const ValueKey('kute-shell-bar-slide'));
         expect(tester.widget<AnimatedSlide>(slide).offset, Offset.zero);
-        final barWords = find.descendant(
-            of: find.byType(KuteShellBar),
-            matching: find.text(l10n.barShareWithFriends));
-        expect(barWords, findsWidgets);
+        // Dark: the app's primary fill with white words, not the white
+        // two-line Sal pill.
+        final button = find.byKey(const ValueKey('kute-bar-primary-button'));
+        expect(button, findsOneWidget);
+        expect(find.byKey(const ValueKey('kute-bar-pill')), findsNothing);
+        final fill = tester.widget<AnimatedContainer>(button).decoration!
+            as BoxDecoration;
+        expect(fill.color, AppColorsExtension.light().textPrimary);
+        final words = find.descendant(
+            of: button, matching: find.text(l10n.shareHeaderLabel));
+        expect(words, findsOneWidget);
+        expect(tester.widget<Text>(words).style?.color, Colors.white);
+        expect(find.text(l10n.barShareMarketSub), findsNothing);
         await _shoot(tester,
             'game_header_bar_${width.toInt()}_${game.$2.split(' ').first}');
         // Scrolled to the very end, Rules sits above the floating bar.
@@ -268,8 +285,15 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
         }
         final rules = find.byType(PolyRulesRow);
-        final barTop = tester.getRect(find.byType(KuteShellBar)).top;
+        final barTop = tester.getRect(button).top;
         expect(tester.getRect(rules).bottom, lessThan(barTop));
+        // A tap opens the Sal sheet with the market's send cards, as the
+        // header pill does.
+        await tester.tap(button);
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(find.text(l10n.shareTheMarket), findsWidgets);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       }, () => MockClient((_) async => http.Response('{}', 404)));
