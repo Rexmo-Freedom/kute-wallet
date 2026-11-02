@@ -26,6 +26,7 @@ import 'package:kute/providers/advisor_provider.dart' show aiEnabledProvider;
 import 'package:kute/providers/crypto_live_odds_provider.dart';
 import 'package:kute/providers/hyperliquid_account_provider.dart'
     show hyperliquidAddressProvider;
+import 'package:kute/providers/hyperliquid_live_prices_provider.dart';
 import 'package:kute/providers/hyperliquid_markets_provider.dart';
 import 'package:kute/providers/hyperliquid_watchlist_provider.dart';
 import 'package:kute/providers/one_balance_provider.dart';
@@ -37,6 +38,8 @@ import 'package:kute/providers/refresh_everything_provider.dart';
 import 'package:kute/providers/settings_provider.dart';
 import 'package:kute/providers/usd_account_provider.dart';
 import 'package:kute/providers/usd_rewards_provider.dart';
+import 'package:kute/screens/hyperliquid/components/hl_market_card.dart';
+import 'package:kute/screens/hyperliquid/components/hl_moving_now_strip.dart';
 import 'package:kute/screens/polymarket/components/market_card.dart';
 import 'package:kute/screens/usd/usd_account_screen.dart';
 import 'package:kute/services/polymarket/crypto_live_odds.dart';
@@ -45,6 +48,7 @@ import 'package:kute/services/runtime_capabilities_service.dart';
 import 'package:kute/theme/app_theme.dart';
 
 import '../../helpers/portfolio_overrides.dart';
+import '../hyperliquid/hl_trending_strip_fixture.dart';
 import 'investments_harness.dart'
     show
         InvestmentsTestPolicy,
@@ -152,17 +156,66 @@ PolymarketEvent _market(int i, {double yes = 0.6}) => PolymarketEvent(
       ],
     );
 
-/// Fourteen plain markets: the strip takes the top ones, the rest list.
+/// An event with five outcomes: its card lists the three most likely,
+/// re-ranked by the live chances.
+final _election = PolymarketEvent(
+  id: 'e1',
+  slug: 'who-wins',
+  title: 'Who wins the election?',
+  volume: 3e6,
+  liquidity: 1e5,
+  category: 'politics',
+  conditionId: 'e1',
+  endDate: DateTime(2026, 12, 31),
+  outcomes: [
+    for (var k = 0; k < 5; k++)
+      PolymarketOutcome(
+          name: 'Candidate $k',
+          price: 0.4 - k * 0.08,
+          tokenId: 'c$k',
+          noTokenId: 'cn$k',
+          conditionId: 'cc$k'),
+  ],
+);
+
+/// Fourteen plain markets (the strip takes the top ones, the rest list)
+/// and the five-outcome event among them.
 class _Feed extends PolyFeedNotifier {
   @override
-  PolyFeedState build(PolyFeedQuery arg) => PolyFeedState(
-      done: true, events: [for (var i = 0; i < 14; i++) _market(i)]);
+  PolyFeedState build(PolyFeedQuery arg) => PolyFeedState(done: true, events: [
+        for (var i = 0; i < 14; i++) ...[
+          _market(i),
+          if (i == 7) _election,
+        ],
+      ]);
 }
+
+/// Hyperliquid's mids socket, driven by the test.
+class _HlPrices extends HlLivePricesNotifier {
+  @override
+  HlLivePriceState build() => const HlLivePriceState();
+  void put(Map<String, double> mids) => state = HlLivePriceState(mids: mids);
+  @override
+  void watchCoins(List<String> coins, {Map<String, String>? wire}) {}
+  @override
+  void focus(String coin, {String? wire}) {}
+  @override
+  void unfocus(String coin) {}
+  @override
+  void acquire() {}
+  @override
+  void release() {}
+}
+
+/// The Investing universe, re-read every 30 s in the app; the test swaps
+/// it for one with the day's numbers moved.
+final _universe = StateProvider<List<HlMarket>>((_) => hlTrendingFixture);
 
 /// The policy service as the app wires it: the provider notifies its
 /// dependents whenever the service does (the once-a-minute refresh).
 class _LivePolicy extends InvestmentsTestPolicy {
-  _LivePolicy() : super(kEarnOff, browsePredictions: true);
+  _LivePolicy()
+      : super(kEarnOff, browsePredictions: true, browseInvesting: true);
   final _listeners = <VoidCallback>[];
   @override
   void addListener(VoidCallback listener) => _listeners.add(listener);
@@ -177,7 +230,8 @@ class _LivePolicy extends InvestmentsTestPolicy {
 
 late _LivePolicy _policy;
 
-Future<ProviderContainer> _pump(WidgetTester tester) async {
+Future<ProviderContainer> _pump(WidgetTester tester,
+    {InvestmentsTab tab = InvestmentsTab.predictions}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -225,7 +279,11 @@ Future<ProviderContainer> _pump(WidgetTester tester) async {
       cryptoLiveOddsProvider.overrideWith(_Odds.new),
       livePriceProvider.overrideWith(_Prices.new),
       refreshEverythingProvider.overrideWith(RecordingRefresh.new),
-      investmentsTabProvider.overrideWith((_) => InvestmentsTab.predictions),
+      investmentsTabProvider.overrideWith((_) => tab),
+      hyperliquidBrowseUniverseProvider
+          .overrideWith((ref) => AsyncValue.data(ref.watch(_universe))),
+      hyperliquidBuilderMarketsMissingProvider.overrideWithValue(false),
+      hyperliquidLivePricesProvider.overrideWith(_HlPrices.new),
     ],
     child: ScreenUtilInit(
       designSize: const Size(430, 932),
@@ -258,6 +316,25 @@ Map<String, double> _layout(WidgetTester tester) {
   if (_card.evaluate().isNotEmpty) {
     out['5m card top'] = tester.getTopLeft(_card).dy;
     out['5m card height'] = tester.getSize(_card).height;
+  }
+  final strip = find.byType(HlMovingNowStrip);
+  if (strip.evaluate().isNotEmpty) {
+    out['squares top'] = tester.getTopLeft(strip).dy;
+    out['squares height'] = tester.getSize(strip).height;
+  }
+  // Investing's rows by slot, not by market: the 30 s re-read may
+  // re-rank them (the list is by volume), which swaps what a slot shows
+  // but must never move the slots.
+  final hl = [
+    for (final e in find.byType(HlMarketCard).evaluate())
+      if ((e.renderObject! as RenderBox).hasSize) e.renderObject! as RenderBox,
+  ]..sort((a, b) => a
+      .localToGlobal(Offset.zero)
+      .dy
+      .compareTo(b.localToGlobal(Offset.zero).dy));
+  for (final (i, box) in hl.indexed) {
+    out['hl slot $i'] = box.localToGlobal(Offset.zero).dy;
+    out['hl slot $i height'] = box.size.height;
   }
   for (final e in find.byType(MarketCard).evaluate()) {
     final w = e.widget as MarketCard;
@@ -391,7 +468,10 @@ void main() {
                   for (var i = 0; i < 14; i++) ...{
                     'y$i': yes,
                     'n$i': 1 - yes,
-                  }
+                  },
+                  // The election's leaders trade places.
+                  for (var k = 0; k < 5; k++)
+                    'c$k': ((k * 7 + (yes * 100).round()) % 5) * 0.2 + 0.001,
                 }),
             frames: 12);
       }
@@ -421,6 +501,66 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
         }
       }, frames: 30);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 31));
+    });
+  }
+
+  for (final scrolled in [false, true]) {
+    testWidgets(
+        'Investing, ${scrolled ? 'scrolled into the list' : 'at the top'}: '
+        'live mids, the 30 s re-read and the policy refresh move nothing',
+        (tester) async {
+      final container = await _pump(tester, tab: InvestmentsTab.investing);
+      if (scrolled) {
+        await tester.drag(
+            find.byType(NestedScrollView), const Offset(0, -420));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+      expect(find.byType(HlMarketCard), findsWidgets);
+      final mids = container.read(hyperliquidLivePricesProvider.notifier)
+          as _HlPrices;
+      final coins = [for (final m in hlTrendingFixture) m.coin];
+
+      // Mids from the socket, every width a price can take.
+      for (final px in [100.0, 0.000123, 123456.78, 99.99, 1.0, 100000.0]) {
+        await _still(tester, 'mids $px',
+            () => mids.put({for (final c in coins) c: px}),
+            frames: 12);
+      }
+      // The 30 s re-read: volumes, previous-day prices and liquidity
+      // moved (a thin market thickens, a busy one thins).
+      for (final k in [1, 2, 3]) {
+        await _still(
+            tester,
+            're-read $k',
+            () => container.read(_universe.notifier).state = [
+                  for (final (i, m) in hlTrendingFixture.indexed)
+                    HlMarket(
+                      coin: m.coin,
+                      wireCoin: m.wireCoin,
+                      assetId: m.assetId,
+                      kind: m.kind,
+                      szDecimals: m.szDecimals,
+                      maxLeverage: m.maxLeverage,
+                      onlyIsolated: m.onlyIsolated,
+                      markPx: m.markPx * (1 + k / 100),
+                      midPx: m.midPx * (1 + k / 100),
+                      prevDayPx: (i + k).isEven ? m.prevDayPx : 0,
+                      dayNtlVlm: (i + k) % 3 == 0 ? 10 : m.dayNtlVlm,
+                      category: m.category,
+                      dex: m.dex,
+                      isHip3: m.isHip3,
+                      annotatedName: m.annotatedName,
+                      unitAssetName: m.unitAssetName,
+                    ),
+                ],
+            frames: 12);
+      }
+      await _still(tester, 'policy refresh', _policy.notify, frames: 12);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 31));
