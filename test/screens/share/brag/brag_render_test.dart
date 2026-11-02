@@ -1,7 +1,8 @@
 // The brag cards as images, for a look by eye: a big win (with its
 // all-time line, and without it: the top positions' rows), a small win, a
 // loss, flat, and the positions (a winning prediction, a losing Investing
-// position), at 1080 × 1350 with Sal's real stills.
+// position), the P&L card (pnl_share_card.dart, up and down), German and
+// Japanese, at 1080 × 1350 with Sal's real stills.
 // Every frame lays out without an overflow; the PNGs are written only
 // when asked:
 //
@@ -22,14 +23,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kute/l10n/l10n.dart';
 import 'package:kute/screens/share/brag/brag_card.dart';
+import 'package:kute/models/balance_history.dart' show BalanceRange;
 import 'package:kute/screens/share/brag/brag_data.dart';
+import 'package:kute/screens/share/brag/pnl_share_card.dart';
 import 'package:kute/screens/share/cards/share_card_frame.dart'
     show ShareCardSal;
 import 'package:kute/theme/app_theme.dart';
 
 import 'brag_fixtures.dart';
-import '../cards/share_card_test_fonts.dart' show loadShareCardSal;
-import 'brag_test_fonts.dart';
+import '../cards/share_card_test_fonts.dart'
+    show loadShareCardFonts, loadShareCardSal;
 import '../share_artwork.dart';
 
 /// A live Polymarket event's picture for [tag] (its first team's crest
@@ -65,7 +68,8 @@ void main() {
   final online = dir != null && Platform.environment['BRAG_OFFLINE'] == null;
 
   testWidgets('brag cards render to PNG', (tester) async {
-    await tester.runAsync(loadBragFonts);
+    // The share cards' fonts: Inter and the Japanese fallback.
+    await tester.runAsync(loadShareCardFonts);
     ShareCardSal.debugReset();
     addTearDown(ShareCardSal.debugReset);
     await tester.runAsync(loadShareCardSal);
@@ -83,22 +87,42 @@ void main() {
       geng = await tester.runAsync<String?>(() => _livePicture('esports'));
       fed = await tester.runAsync<String?>(() => _livePicture('economy'));
     }
-    final frames = <String, BragData>{
-      'portfolio_series': fakeBragPortfolio(series: kFakeBragPortfolioSeries),
-      'big_win': fakeBragPortfolio(gengImage: geng, fedImage: fed),
-      'small_win': fakeBragSmallWinPortfolio(),
-      'loss': fakeBragLosingPortfolio(),
-      'flat': fakeBragFlatPortfolio(),
-      'position_win': fakeBragPosition(),
-      'position_loss': fakeBragLosingPosition(),
-      'position_win_short': fakeBragWinningShort(),
+    // The P&L card (pnl_share_card.dart): the frame's pieces too.
+    BragPnl pnl({double usd = 128.4, String text = r'+$128.40'}) => BragPnl(
+          title: 'My P&L',
+          link: 'https://backend.kutewallet.com/m/investing',
+          referralCode: kBragTestCode,
+          range: BalanceRange.month,
+          allTime: BragResult(usd: usd, text: text),
+          series: kFakeBragPortfolioSeries,
+        );
+    const en = Locale('en');
+    final frames = <String, (BragData, Locale)>{
+      'portfolio_series':
+          (fakeBragPortfolio(series: kFakeBragPortfolioSeries), en),
+      'big_win': (fakeBragPortfolio(gengImage: geng, fedImage: fed), en),
+      'small_win': (fakeBragSmallWinPortfolio(), en),
+      'loss': (fakeBragLosingPortfolio(), en),
+      'flat': (fakeBragFlatPortfolio(), en),
+      'position_win': (fakeBragPosition(), en),
+      'position_loss': (fakeBragLosingPosition(), en),
+      'position_win_short': (fakeBragWinningShort(), en),
+      'pnl_win': (pnl(), en),
+      'pnl_loss': (pnl(usd: -42.1, text: '−\$42.10'), en),
+      'de_position_win_short': (fakeBragWinningShort(), const Locale('de')),
+      'de_pnl_win': (pnl(), const Locale('de')),
+      'ja_big_win': (
+        fakeBragPortfolio(gengImage: geng, fedImage: fed),
+        const Locale('ja')
+      ),
     };
-    for (final MapEntry(key: name, value: data) in frames.entries) {
+    for (final MapEntry(key: name, value: (data, locale)) in frames.entries) {
       final key = GlobalKey();
       final app = ScreenUtilInit(
           designSize: const Size(430, 932),
           builder: (_, __) => MaterialApp(
                 debugShowCheckedModeBanner: false,
+                locale: locale,
                 theme: ThemeData(
                     fontFamily: 'Inter',
                     extensions: [AppColorsExtension.light()]),
@@ -108,7 +132,9 @@ void main() {
                   alignment: Alignment.topLeft,
                   child: RepaintBoundary(
                     key: key,
-                    child: BragCard(data: data, mark: ShareCardSal.peek()),
+                    child: data is BragPnl
+                        ? PnlShareCard(data: data, mark: ShareCardSal.peek())
+                        : BragCard(data: data, mark: ShareCardSal.peek()),
                   ),
                 ),
               ));
