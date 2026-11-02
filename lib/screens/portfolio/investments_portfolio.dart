@@ -92,7 +92,7 @@ import 'package:kute/screens/shared/kute_bar_context.dart'
     show kuteBarScrollClearance;
 import 'package:kute/theme/app_theme.dart';
 import 'package:kute/screens/shared/kute_pill_tabs.dart'
-    show KutePill, KutePillSize;
+    show KutePillItem, KutePillTabs, kutePillSwitchSize;
 
 /// The Portfolio pill's sections, in pill order. [key] is the analytics
 /// value (`sub` on `analytics_tab_selected`) and the link vocabulary,
@@ -262,7 +262,7 @@ class _PortfolioPageState extends ConsumerState<_PortfolioPage> {
     final strip = _StripHeader(
       pills: widget.pills,
       background: context.colors.background,
-      extent: (_kStripTop + _kStripBottom).h + KutePillSize.regular.height.h,
+      extent: (_kStripTop + _kStripBottom).h + kutePillSwitchSize.height.h,
     );
     return LayoutBuilder(builder: (context, box) {
       // A short section still fills the viewport under the pinned strip.
@@ -430,10 +430,10 @@ class _ChartsBox extends ConsumerWidget {
   }
 }
 
-/// Portfolio | P&L Charts: the home strip (KutePillTabs' tab
-/// row, the same chrome drawn here so each pill keeps its key): three
-/// pills in equal halves across the width, the picked one the white pill
-/// with the hairline border and the shadow, the others transparent.
+/// Portfolio | P&L Charts: the app's switch row (KutePillTabs at
+/// [kutePillSwitchSize], the Dollars halves' size): equal halves across
+/// the width, the one white pill sliding to the picked one. Each pill
+/// keeps its key.
 class _SectionPills extends StatelessWidget {
   const _SectionPills({required this.selected, required this.onPick});
 
@@ -444,27 +444,20 @@ class _SectionPills extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sections = PortfolioSection.values;
-    return SizedBox(
-      height: KutePillSize.regular.height.h,
-      child: Row(
-        children: [
-          for (var i = 0; i < sections.length; i++) ...[
-            if (i > 0) SizedBox(width: 6.w),
-            Expanded(
-              child: KutePill(
-                key: ValueKey('portfolio-section-pill-${sections[i].key}'),
-                label: switch (sections[i]) {
-                  PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
-                  PortfolioSection.balances => l10n.portfolioSectionBalances,
-                },
-                selected: sections[i] == selected,
-                fillWidth: true,
-                onTap: () => onPick(sections[i]),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return KutePillTabs(
+      horizontalPadding: 0,
+      items: [
+        for (final s in sections)
+          KutePillItem(
+            key: ValueKey('portfolio-section-pill-${s.key}'),
+            label: switch (s) {
+              PortfolioSection.charts => l10n.portfolioSectionPnlCharts,
+              PortfolioSection.balances => l10n.portfolioSectionBalances,
+            },
+          ),
+      ],
+      selectedIndex: sections.indexOf(selected),
+      onTap: (i) => onPick(sections[i]),
     );
   }
 }

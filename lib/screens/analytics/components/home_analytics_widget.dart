@@ -366,7 +366,10 @@ class _HomeAnalyticsWidgetState extends ConsumerState<HomeAnalyticsWidget> {
   /// decision). Two tabs (Home: Activity/Balance) share the
   /// width; hardware wallets add Coins and the strip side-scrolls.
   Widget _buildTypeSelector(List<AnalyticsTab> tabs) {
+    // The app's switch size (kutePillSwitchSize, the Dollars halves'),
+    // on the same 16 gutters as the Dollars strip.
     return KutePillTabs(
+      horizontalPadding: 0,
       items: [for (final t in tabs) _pillItem(t)],
       selectedIndex: tabs.indexOf(_selectedTab),
       onTap: (i) {
