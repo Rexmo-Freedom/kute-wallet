@@ -16,8 +16,8 @@ import 'package:kute/providers/ledger/ledger_identity_provider.dart';
 // The open-position screen of an Investing position, in plain words. It
 // reads like the market sheet of the same market: its header row (logo,
 // ticker), the live price as the big figure (founder, 1 November 2026:
-// "Brag about it" beside it in profit, position_share_card.dart; "Send to
-// a friend" is the dark bar at the foot, founder, 2 November 2026), its change today under it ("Low
+// no Share pill beside it on a position; the share is a card under the
+// tiles, position_share_card.dart), its change today under it ("Low
 // liquidity" on a thin market) and the sheet's chart, clean, with its
 // pressure bar. Under the price, what is the user's: the side and the
 // leverage ("Long · 5x") and the profit or loss with the return on what
@@ -54,7 +54,7 @@ import 'package:kute/screens/shared/portfolio_position_card.dart'
     show portfolioCardCaptionStyle;
 import 'package:kute/screens/shared/position_rows_card.dart';
 import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show KuteFigureShareRow, kuteSendToFriendBar;
+    show KuteFigureShareRow;
 import 'package:kute/screens/hyperliquid/market_detail_sheet.dart'
     show HlCandleChart, HlChartEditBody;
 import 'package:kute/screens/shared/app_bottom_sheet.dart';
@@ -232,12 +232,10 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
         ledgerId == null && current != null && hlCanAdjustMargin(pos, m);
     final editing = _advancedChart && m != null;
 
-    // The page's market context for the Sal sheet. The bar is the dark
-    // "Send to a friend" button at the foot, above the Close row
-    // (kuteSendToFriendBar; founder, 2 November 2026: "always make it on
-    // the bottom"); in chart-edit mode, with the header away, the bar is
-    // hidden. An open position in profit keeps its "Brag about it" pill
-    // beside the price (PositionSharePill).
+    // The page's Sal context, placed in its header (no bottom bar; its
+    // control is the share pill beside the price, PositionSharePill): the
+    // scope is around the whole page, so in chart-edit mode, with the
+    // header away, the bar stays away too.
     final bar = marketBarContext(
       context,
       // As the header names it, the logo drawn as the header draws it.
@@ -273,11 +271,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
               category: m?.category,
               decimalCap: m?.pxDecimalCap),
     );
-    final brag = current != null && pnl >= 0.005;
     return KuteBarContextScope(
-      barContext: editing
-          ? const KuteBarContext.hidden()
-          : kuteSendToFriendBar(context, bar),
+      barContext: bar,
       child: Scaffold(
       backgroundColor: context.isDark ? c.gradientBottom : c.background,
       resizeToAvoidBottomInset: false,
@@ -297,7 +292,8 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                       const KuteCloseButton(),
                       SizedBox(width: 8.w),
                       // The market sheet's header row: logo and ticker; the
-                      // price is the big figure under it.
+                      // price is the big figure under it, with the Share
+                      // pill beside it.
                       HlCoinIcon(
                           coin: m?.coin ?? pos.coin,
                           wireCoin: m?.wireCoin ?? pos.coin,
@@ -344,13 +340,13 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                             // plain words: its side and leverage, and the
                             // profit or loss with the return on what was
                             // put in.
-                            // "Brag about it" at the row's end in profit,
-                            // the market pages' old header pill
-                            // (position_share_card.dart); "Send to a
-                            // friend" is the bar at the foot, so out of
-                            // profit the price has the whole row.
+                            // Sal's share pill at the row's end, the
+                            // market pages' header button (founder, 1
+                            // November 2026): "Brag about it" in profit,
+                            // else "Send to a friend"
+                            // (position_share_card.dart).
                             KuteFigureShareRow(
-                              gap: brag ? 8.w : 0,
+                              gap: 8.w,
                               figure: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
@@ -371,9 +367,9 @@ class _HlPositionDetailSheetState extends ConsumerState<HlPositionDetailSheet> {
                                   ),
                                 ),
                               ),
-                              share: brag
-                                  ? PositionSharePill(bar: bar, brag: true)
-                                  : const SizedBox.shrink(),
+                              share: PositionSharePill(
+                                  bar: bar,
+                                  brag: current != null && pnl >= 0.005),
                             ),
                             SizedBox(height: 4.h),
                             Wrap(

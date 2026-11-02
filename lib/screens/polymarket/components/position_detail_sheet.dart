@@ -5,8 +5,6 @@ import 'package:kute/screens/shared/kute_page_route.dart';
 import 'package:kute/screens/shared/kute_share_actions.dart';
 import 'package:kute/screens/share/brag/brag_data.dart' show bragPolyPosition;
 import 'package:kute/screens/share/brag/position_share_card.dart';
-import 'package:kute/screens/home/components/kute_shell_bar.dart'
-    show kuteSendToFriendBar;
 import 'package:kute/screens/shared/kute_bar_context.dart';
 import 'package:kute/screens/shared/fitted_title.dart';
 import 'package:kute/screens/shared/kute_blur.dart';
@@ -93,8 +91,7 @@ const Color _kPolyRed = AppColors.marketDown;
 // while the needle is dragged, what it would be worth then beside what it
 // is worth now. Under the tiles the share card (founder, 1 November 2026:
 // in place of the small "Your avg" chart; "Brag about it" on an open
-// position in profit, position_share_card.dart; "Send to a friend" is the
-// bar at the foot, founder, 2 November 2026);
+// position in profit, else "Send to a friend": position_share_card.dart);
 // the end as a pill; and plain
 // rows: "Protect
 // it" while open, "Details" (outcome / shares / price paid / invested, on
@@ -442,12 +439,9 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
         PolymarketEvent.logoForText(headerTeams, pos.marketQuestion) ??
         pos.marketImage;
 
-    // The page's market context for the Sal sheet. The bar is the dark
-    // "Send to a friend" button at the foot, above the Sell row
-    // (kuteSendToFriendBar; founder, 2 November 2026: "always make it on
-    // the bottom"), held by the scope around the close button; an open
-    // position in profit keeps its "Brag about it" card under the tiles
-    // (PositionShareCard).
+    // The page's Sal context, placed in its header (no bottom bar), held
+    // by the scope around the close button; its control is the share card
+    // under the tiles (PositionShareCard), no header pill on a position.
     final bar = marketBarContext(
       context,
       title: widget.position.marketQuestion,
@@ -490,7 +484,7 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                 child: Row(
                   children: [
                     KuteBarContextScope(
-                      barContext: kuteSendToFriendBar(context, bar),
+                      barContext: bar,
                       child: const KuteCloseButton(),
                     ),
                     SizedBox(width: 8.w),
@@ -832,27 +826,26 @@ class _PositionDetailSheetState extends ConsumerState<PositionDetailSheet>
                         },
                       ),
 
-                      // The brag, where the small "Your avg" chart was
+                      // The share, where the small "Your avg" chart was
                       // (founder, 1 November 2026: the chart is gone, and
                       // the header pill crowded "You hold No"): one card
                       // in the tiles' style, "Brag about it" on an open
-                      // position in profit (its brag preview). "Send to a
-                      // friend" is the bar at the foot (founder, 2
-                      // November 2026), so there is no card otherwise.
-                      // The journey since the buy stays read for the brag
-                      // card's line.
-                      if (!pos.isResolved && pnl >= 0.005) ...[
-                        SizedBox(height: 12.h),
-                        Consumer(builder: (context, journeyRef, _) {
-                          if (showGauge) {
-                            journeyRef.watch(polyPositionJourneyProvider((
-                              tokenId: pos.tokenId!,
-                              fallbackSince: pos.createdAt,
-                            )));
-                          }
-                          return PositionShareCard(bar: bar, brag: true);
-                        }),
-                      ],
+                      // position in profit (its brag preview), else "Send
+                      // to a friend" (the page's Sal sheet). The journey
+                      // since the buy stays read for the brag card's line.
+                      SizedBox(height: 12.h),
+                      Consumer(builder: (context, journeyRef, _) {
+                        if (showGauge) {
+                          journeyRef.watch(polyPositionJourneyProvider((
+                            tokenId: pos.tokenId!,
+                            fallbackSince: pos.createdAt,
+                          )));
+                        }
+                        return PositionShareCard(
+                          bar: bar,
+                          brag: !pos.isResolved && pnl >= 0.005,
+                        );
+                      }),
 
                       if (pos.isResolved ||
                           pos.endDateStr?.isNotEmpty == true) ...[

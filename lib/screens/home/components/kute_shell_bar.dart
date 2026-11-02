@@ -44,12 +44,6 @@
 // the same Sal sheet (the context variant). It travels to the composer
 // the way the pill does.
 //
-// AT THE FOOT SINCE 2 NOVEMBER 2026 (founder: "share with a friend, always
-// make it on the bottom"): those pages no longer draw the pill; their bar
-// is the dark primary "Send to a friend" button ([kuteSendToFriendBar]),
-// lifted above their pinned row. [KuteSalHeaderButton] stays as the look
-// the position pages' "Brag about it" pill shares.
-//
 // THE PILL BECOMES THE COMPOSER (founder, 31 October 2026;
 // search_morph.dart): a tap hands [showKuteSearch] the pill's rect
 // ([KuteSearchMorphSource]) and the pill travels to the sheet's composer
@@ -328,17 +322,13 @@ class _KuteShellBarState extends ConsumerState<KuteShellBar>
                     ? KuteMotion.sheetInDuration
                     : KuteMotion.sheetOutDuration),
             curve: show ? KuteMotion.sheetIn : KuteMotion.sheetOut,
-            // Above the page's action row, on the sheet spring. A bottom
-            // padding, not a translate: the lifted bar stays inside its
-            // box, so it takes taps there (a translate drew it above the
-            // box, where the hit test never reached it), while the band
-            // under it lets taps through to the page's own row.
+            // Above the page's action row, on the sheet spring.
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(end: _lift),
               duration: reduce ? Duration.zero : KuteMotion.sheetInDuration,
               curve: KuteMotion.sheetIn,
-              builder: (context, lift, child) => Padding(
-                padding: EdgeInsets.only(bottom: math.max(0.0, lift)),
+              builder: (context, lift, child) => Transform.translate(
+                offset: Offset(0, -lift),
                 child: child,
               ),
               child: SlideTransition(
@@ -434,32 +424,6 @@ Future<void> openKuteBarSheet(
   } finally {
     if (morph != null) travelling?.call(false);
   }
-}
-
-/// "SEND TO A FRIEND" IS ALWAYS THE BAR AT THE FOOT (founder, 2 November
-/// 2026: "share with a friend, always make it on the bottom like we did
-/// for predictions, on Hyperliquid and Polymarket"). Every Hyperliquid
-/// and Polymarket market, event, game and position page declares this as
-/// its bar: the dark primary button every pinned action is, "Send to a
-/// friend" on one line, and a tap opens the same Sal sheet the header
-/// pill opened, with the page's [market] context (Send the market / Send
-/// this prediction, and Show off this position on an open one), through
-/// [openKuteBarSheet], so `search_opened` fires with the market's source
-/// as before. It rides above the page's pinned row ([market]'s
-/// [KuteBarContext.actionRowHeight]: Yes / No, Invest, Close). It never
-/// waits on input, so off it says the same words.
-KuteBarContext kuteSendToFriendBar(
-    BuildContext context, KuteBarContext market) {
-  final label = context.l10n.shareHeaderLabel;
-  return KuteBarContext.primary(
-    label: label,
-    disabledLabel: label,
-    onPrimary: () => unawaited(openKuteBarSheet(market)),
-    category: market.category,
-    searchHint: market.searchHint,
-    source: market.source,
-    actionRowHeight: market.actionRowHeight,
-  );
 }
 
 /// THE FIGURE AND ITS SHARE BUTTON ON ONE ROW: [figure] in the width the
@@ -746,8 +710,9 @@ class _KuteSalHeaderButtonState extends State<KuteSalHeaderButton>
           ),
           const SizedBox(width: 8),
           // Loose in a min-size Row: the pill is its natural width wherever
-          // the page gives it room, and where a page bounds it the words
-          // shorten with an ellipsis instead of the row overflowing.
+          // the page gives it room, and where a page bounds it (a game
+          // sheet's title row) the words shorten with an ellipsis instead
+          // of the row overflowing.
           Flexible(
             child: Text(
               words,

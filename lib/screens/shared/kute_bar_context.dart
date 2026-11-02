@@ -191,11 +191,6 @@ class KuteBarContext {
   /// never the greyed action. EVERY call site sets it (an architecture
   /// test holds them to it); null only where the button is never disabled
   /// for want of input (it is then [label]).
-  ///
-  /// [actionRowHeight]: a page whose primary sits over its own pinned row
-  /// (a market's "Send to a friend" over its Yes / No or Invest row,
-  /// [kuteSendToFriendBar] in kute_shell_bar.dart) lifts it above that row,
-  /// as the pill is lifted.
   const KuteBarContext.primary({
     required this.label,
     required this.onPrimary,
@@ -210,7 +205,6 @@ class KuteBarContext {
     this.searchHint,
     this.source = 'bar',
     this.route,
-    this.actionRowHeight = 0,
   })  : question = null,
         advisorContext = null,
         kind = KuteBarKind.primaryAction,
@@ -218,6 +212,7 @@ class KuteBarContext {
         actions = const [],
         prompts = const [],
         hidden = false,
+        actionRowHeight = 0,
         placement = KuteBarPlacement.bottom,
         sheetHome = null;
 
@@ -345,7 +340,6 @@ class KuteBarContext {
           searchHint: searchHint,
           source: source,
           route: route,
-          actionRowHeight: actionRowHeight,
         )
       : KuteBarContext(
           label: label,
