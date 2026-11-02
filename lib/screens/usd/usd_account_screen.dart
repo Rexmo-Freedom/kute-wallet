@@ -394,8 +394,30 @@ class _InvestmentsBodyState extends ConsumerState<InvestmentsBody> {
 
   /// The expanded header's layout reported its height (post-frame, see
   /// [_MeasureHeight]): a different one resizes the sliver.
+  ///
+  /// COLLAPSED, IT STAYS COLLAPSED (founder, 2 November 2026: the
+  /// Predictions list "jitters sometimes when the balance changes"). The
+  /// hero grows a line per money movement on its way (an order being
+  /// placed, a deposit arriving) and loses it when the money lands, so its
+  /// height changes with the balance. With the page scrolled, the outer
+  /// scroll rested at the old collapse range while the range moved with
+  /// the hero: the header re-expanded by the new lines' height (the
+  /// compact bar half faded, a slice of the hero showed) and the list
+  /// under it slid down, then back up as the lines left. The outer scroll
+  /// now moves with the range in the same frame as the resize, so a
+  /// collapsed header keeps its compact bar and the list does not move.
   void _onExpandedHeight(double height) {
     if (!mounted || (height - _expandedExtent).abs() < 0.5) return;
+    final oldRange = _collapseRange;
+    final compact = kInvestmentsCompactBarHeight.h;
+    final newRange = math.max(height, compact) - compact;
+    if (_outer.hasClients && oldRange > 0) {
+      final position = _outer.position;
+      if (position.hasPixels && position.pixels >= oldRange - 0.5) {
+        position.correctPixels(
+            math.max(0.0, position.pixels + newRange - oldRange));
+      }
+    }
     setState(() => _expandedExtent = height);
   }
 
