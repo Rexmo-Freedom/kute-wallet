@@ -10472,6 +10472,15 @@ class AppLocalizationsFi extends AppLocalizations {
   String get bragBarLabel => 'Jaa ja leveile';
 
   @override
+  String get bragPortfolioBarLabel => 'Jaa salkku';
+
+  @override
+  String get bragPnlBarLabel => 'Jaa P&L';
+
+  @override
+  String get bragMyPnl => 'Oma P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title Kutessa $link';
   }

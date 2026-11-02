@@ -17903,6 +17903,24 @@ abstract class AppLocalizations {
   /// **'Share and brag'**
   String get bragBarLabel;
 
+  /// Portfolio screen, Portfolio section: the floating bar as its primary button, opening the portfolio share card preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Share portfolio'**
+  String get bragPortfolioBarLabel;
+
+  /// Portfolio screen, P&L Charts section: the floating bar as its primary button, and the title of the sheet it opens: the P&L share card for the range picked on the chart. P&L is profit and loss.
+  ///
+  /// In en, this message translates to:
+  /// **'Share P&L'**
+  String get bragPnlBarLabel;
+
+  /// P&L share card: its small caps title (drawn uppercase, then the range, e.g. 'MY P&L · 1M'), and the title in the share text. P&L is profit and loss.
+  ///
+  /// In en, this message translates to:
+  /// **'My P&L'**
+  String get bragMyPnl;
+
   /// The text shared with the brag card image. {title} is the market or 'My portfolio', {link} the link with the referral code.
   ///
   /// In en, this message translates to:

@@ -10450,6 +10450,15 @@ class AppLocalizationsEt extends AppLocalizations {
   String get bragBarLabel => 'Jaga ja uhkelda';
 
   @override
+  String get bragPortfolioBarLabel => 'Jaga portfelli';
+
+  @override
+  String get bragPnlBarLabel => 'Jaga P&L-i';
+
+  @override
+  String get bragMyPnl => 'Minu P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title Kute\'is $link';
   }

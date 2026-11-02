@@ -10535,6 +10535,15 @@ class AppLocalizationsEl extends AppLocalizations {
   String get bragBarLabel => 'Κοινοποίησε και καμάρωσε';
 
   @override
+  String get bragPortfolioBarLabel => 'Κοινοποίησε το χαρτοφυλάκιο';
+
+  @override
+  String get bragPnlBarLabel => 'Κοινοποίησε το P&L';
+
+  @override
+  String get bragMyPnl => 'Το P&L μου';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title στο Kute $link';
   }

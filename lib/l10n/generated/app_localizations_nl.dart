@@ -10499,6 +10499,15 @@ class AppLocalizationsNl extends AppLocalizations {
   String get bragBarLabel => 'Delen en opscheppen';
 
   @override
+  String get bragPortfolioBarLabel => 'Portfolio delen';
+
+  @override
+  String get bragPnlBarLabel => 'W&V delen';
+
+  @override
+  String get bragMyPnl => 'Mijn W&V';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title op Kute $link';
   }

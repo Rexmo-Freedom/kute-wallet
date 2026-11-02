@@ -10516,6 +10516,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get bragBarLabel => 'Comparte y presume';
 
   @override
+  String get bragPortfolioBarLabel => 'Comparte tu cartera';
+
+  @override
+  String get bragPnlBarLabel => 'Comparte tu P&L';
+
+  @override
+  String get bragMyPnl => 'Mi P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title en Kute $link';
   }

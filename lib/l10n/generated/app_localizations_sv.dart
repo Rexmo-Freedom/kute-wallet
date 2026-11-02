@@ -10457,6 +10457,15 @@ class AppLocalizationsSv extends AppLocalizations {
   String get bragBarLabel => 'Dela och skryt';
 
   @override
+  String get bragPortfolioBarLabel => 'Dela portföljen';
+
+  @override
+  String get bragPnlBarLabel => 'Dela P&L';
+
+  @override
+  String get bragMyPnl => 'Mitt P&L';
+
+  @override
   String bragShareText(String title, String link) {
     return '$title i Kute $link';
   }
